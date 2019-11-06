@@ -1,0 +1,30 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioCluster
+metadata:
+  name: humiocluster-sample
+spec:
+  image: humio/humio-core
+  version: "1.6.5"
+  singleUserPassword: "develop3r"
+  targetReplicationFactor: 2
+  nodePools:
+    - name: all
+      firstNodeID: 1
+      types: ["ingest","digest","storage"]
+      nodeCount: 1
+      nodeDiskSizeGB: 10
+    - name: ingest
+      firstNodeID: 101
+      types: ["ingest"]
+      nodeCount: 1
+      nodeDiskSizeGB: 10
+    - name: digest
+      firstNodeID: 201
+      types: ["digest"]
+      nodeCount: 1
+      nodeDiskSizeGB: 10
+    - name: storage
+      firstNodeID: 301
+      types: ["storage"]
+      nodeCount: 1
+      nodeDiskSizeGB: 10

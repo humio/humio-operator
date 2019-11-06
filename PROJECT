@@ -1,0 +1,7 @@
+version: "2"
+domain: humio.com
+repo: github.com/humio/humio-operator
+resources:
+- group: core
+  version: v1alpha1
+  kind: HumioCluster
