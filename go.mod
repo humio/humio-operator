@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-logr/logr v0.1.0
-	github.com/humio/cli v0.23.1-0.20191104141832-29ce3f399518
+	github.com/humio/cli v0.23.1-0.20191107092311-06c8a816c799
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
 	github.com/prometheus/client_golang v1.2.1

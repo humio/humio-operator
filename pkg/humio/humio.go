@@ -490,7 +490,7 @@ func ClusterUnregisterNode(hc humiov1alpha1.HumioCluster, pID int) error {
 	if err != nil {
 		return fmt.Errorf("could not create humio client: %v", err)
 	}
-	err = humioAPI.Nodes().Unregister(int64(pID), false)
+	err = humioAPI.ClusterNodes().Unregister(int64(pID), false)
 	if err != nil {
 		return fmt.Errorf("could not unregister node: %v", err)
 	}
