@@ -111,7 +111,9 @@ func GetJWTForSingleUser(hc humiov1alpha1.HumioCluster) (string, error) {
 	}
 
 	var result map[string]string
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("unable to decode response body: %v", err)
+	}
 
 	return result["token"], nil
 }
