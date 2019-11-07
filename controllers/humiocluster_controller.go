@@ -135,6 +135,9 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 
 		// Update status indicator for whether we have missing data or not
 		noDataMissing, err := humio.NoDataMissing(r.Client, humioCluster)
+		if err != nil {
+			log.Info(fmt.Sprintf("could not determine if all data is available: %v", err))
+		}
 		humioCluster.Status.AllDataAvailable = fmt.Sprintf("%v", noDataMissing)
 
 		// TODO(mike): Add more safeguards, we cant just assume that results are recent.
@@ -572,6 +575,9 @@ func (r *HumioClusterReconciler) cleanupPod(humioCluster humiov1alpha1.HumioClus
 		return
 	}
 	nodeRegistered, err := humio.IsNodeRegistered(humioCluster, pID)
+	if err != nil {
+		log.Info(fmt.Sprintf("could not determine if node is registered: %v", err))
+	}
 	if nodeRegistered {
 		if err := humio.MoveStorageRouteAwayFromNode(humioCluster, pID); err != nil {
 			log.Info(fmt.Sprintf("could not move storage route away from node %d: %v", pID, err))
