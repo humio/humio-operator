@@ -3,5 +3,6 @@ kind: HumioCluster
 metadata:
   name: example-humiocluster
 spec:
-  # Add fields here
-  size: 3
+  image: humio/humio-core
+  version: "1.9.0"
+  targetReplicationFactor: 2
