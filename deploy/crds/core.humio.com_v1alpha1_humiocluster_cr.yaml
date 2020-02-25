@@ -1,0 +1,7 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioCluster
+metadata:
+  name: example-humiocluster
+spec:
+  # Add fields here
+  size: 3
