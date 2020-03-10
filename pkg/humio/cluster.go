@@ -1,5 +1,10 @@
 package humio
 
+import (
+	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	"github.com/prometheus/common/log"
+)
+
 // ClusterController holds our client
 type ClusterController struct {
 	client Client
@@ -26,112 +31,111 @@ func (c *ClusterController) AreAllRegisteredNodesAvailable() (bool, error) {
 }
 
 // NoDataMissing only returns true if all data are available
-// func (c *ClusterController) NoDataMissing() (bool, error) {
-// 	cluster, err := c.client.GetClusters()
-// 	if err != nil {
-// 		return false, err
-// 	}
-// 	if cluster.MissingSegmentSize == 0 {
-// 		return true, nil
-// 	}
-// 	return false, nil
-// }
+func (c *ClusterController) NoDataMissing() (bool, error) {
+	cluster, err := c.client.GetClusters()
+	if err != nil {
+		return false, err
+	}
+	if cluster.MissingSegmentSize == 0 {
+		return true, nil
+	}
+	return false, nil
+}
 
 // // IsNodeRegistered returns whether the Humio cluster has a node with the given node id
-// func (c *ClusterController) IsNodeRegistered(nodeID int) (bool, error) {
-// 	cluster, err := c.client.GetClusters()
-// 	if err != nil {
-// 		return false, err
-// 	}
+func (c *ClusterController) IsNodeRegistered(nodeID int) (bool, error) {
+	cluster, err := c.client.GetClusters()
+	if err != nil {
+		return false, err
+	}
 
-// 	for _, node := range cluster.Nodes {
-// 		if int(node.Id) == nodeID {
-// 			return true, nil
-// 		}
-// 	}
-// 	return false, nil
-// }
+	for _, node := range cluster.Nodes {
+		if int(node.Id) == nodeID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
 
 // // CountNodesRegistered returns how many registered nodes there are in the cluster
-// func (c *ClusterController) CountNodesRegistered() (int, error) {
-// 	cluster, err := c.client.GetClusters()
-// 	if err != nil {
-// 		return -1, err
-// 	}
-// 	return len(cluster.Nodes), nil
-// }
+func (c *ClusterController) CountNodesRegistered() (int, error) {
+	cluster, err := c.client.GetClusters()
+	if err != nil {
+		return -1, err
+	}
+	return len(cluster.Nodes), nil
+}
 
 // // CanBeSafelyUnregistered returns true if the Humio API indicates that the node can be safely unregistered. This should ensure that the node does not hold any data.
-// func (c *ClusterController) CanBeSafelyUnregistered(podID int) (bool, error) {
-// 	cluster, err := c.client.GetClusters()()
-// 	if err != nil {
-// 		return false, err
-// 	}
+func (c *ClusterController) CanBeSafelyUnregistered(podID int) (bool, error) {
+	cluster, err := c.client.GetClusters()
+	if err != nil {
+		return false, err
+	}
 
-// 	for _, node := range cluster.Nodes {
-// 		if int(node.Id) == podID && node.CanBeSafelyUnregistered {
-// 			return true, nil
-// 		}
-// 	}
-// 	return false, nil
-// }
+	for _, node := range cluster.Nodes {
+		if int(node.Id) == podID && node.CanBeSafelyUnregistered {
+			return true, nil
+		}
+	}
+	return false, nil
+}
 
-// // IsStoragePartitionsBalanced ensures four things. First, if all storage partitions are consumed by the expected (target replication factor) number of storage nodes. Second, all storage nodes must have storage partitions assigned. Third, all nodes that are not storage nodes does not have any storage partitions assigned. Forth, the difference in number of partitiones assigned per storage node must be at most 1.
-// func (c *ClusterController) IsStoragePartitionsBalanced(hc *clusterv1alpha1.HumioCluster) (bool, error) {
-// 	cluster, err := c.client.GetClusters()
-// 	if err != nil {
-// 		return false, err
-// 	}
+// AreStoragePartitionsBalanced ensures four things.
+// First, if all storage partitions are consumed by the expected (target replication factor) number of storage nodes.
+// Second, all storage nodes must have storage partitions assigned.
+// Third, all nodes that are not storage nodes does not have any storage partitions assigned.
+// Fourth, the difference in number of partitiones assigned per storage node must be at most 1.
+func (c *ClusterController) AreStoragePartitionsBalanced(hc *corev1alpha1.HumioCluster) (bool, error) {
+	cluster, err := c.client.GetClusters()
+	if err != nil {
+		return false, err
+	}
 
-// 	nodeToPartitionCount := make(map[int]int)
-// 	for _, nodeID := range cluster.Nodes {
-// 		nodeToPartitionCount[nodeID.Id] = 0
-// 	}
+	nodeToPartitionCount := make(map[int]int)
+	for _, nodeID := range cluster.Nodes {
+		nodeToPartitionCount[nodeID.Id] = 0
+	}
 
-// 	for _, partition := range cluster.StoragePartitions {
-// 		if len(partition.NodeIds) != hc.Spec.TargetReplicationFactor {
-// 			return false, nil
-// 		}
-// 		for _, node := range partition.NodeIds {
-// 			nodeToPartitionCount[node]++
-// 		}
-// 	}
+	for _, partition := range cluster.StoragePartitions {
+		if len(partition.NodeIds) != hc.Spec.TargetReplicationFactor {
+			log.Info("the number of nodes in a partition does not match the replication factor")
+			return false, nil
+		}
+		for _, node := range partition.NodeIds {
+			nodeToPartitionCount[node]++
+		}
+	}
 
-// 	var min, max int
-// 	for _, hnp := range hc.Spec.NodePools {
-// 		poolShouldStore := IsStorageNode(hnp)
-// 		for i := 0; i < hnp.NodeCount; i++ {
-// 			if !poolShouldStore && nodeToPartitionCount[hnp.FirstNodeID+i] != 0 {
-// 				// node should not be digesting, but has ingest partitions assigned
-// 				return false, nil
-// 			}
-// 			if poolShouldStore {
-// 				if nodeToPartitionCount[hnp.FirstNodeID+i] == 0 {
-// 					// a node has no partitions
-// 					return false, nil
-// 				}
-// 				if min == 0 {
-// 					min = nodeToPartitionCount[hnp.FirstNodeID+i]
-// 				}
-// 				if max == 0 {
-// 					max = nodeToPartitionCount[hnp.FirstNodeID+i]
-// 				}
-// 				if nodeToPartitionCount[hnp.FirstNodeID+i] > max {
-// 					max = nodeToPartitionCount[hnp.FirstNodeID+i]
-// 				}
-// 				if nodeToPartitionCount[hnp.FirstNodeID+i] < min {
-// 					min = nodeToPartitionCount[hnp.FirstNodeID+i]
-// 				}
-// 			}
-// 		}
-// 	}
+	var min, max int
+	for i := 0; i < len(cluster.Nodes); i++ {
+		if nodeToPartitionCount[i] == 0 {
+			log.Infof("node id %d does not contain any partitions", i)
+			return false, nil
+		}
+		if min == 0 {
+			min = nodeToPartitionCount[i]
+		}
+		if max == 0 {
+			max = nodeToPartitionCount[i]
+		}
+		if nodeToPartitionCount[i] > max {
+			max = nodeToPartitionCount[i]
+		}
+		if nodeToPartitionCount[i] < min {
+			min = nodeToPartitionCount[i]
+		}
+	}
 
-// 	if max-min <= 1 {
-// 		return true, nil
-// 	}
+	if max-min > 1 {
+		log.Infof("the difference in number of partitions assigned per storage node is greater than 1, min=%d, max=%d", min, max)
+		return false, nil
+	}
 
-// 	return false, nil
-// }
+	log.Infof("storage partitions are balanced min=%d, max=%d", min, max)
+	return true, nil
+
+}
 
 // // RebalanceStoragePartitions will assign storage partitions evenly across registered storage nodes. If replication is not set, we set it to 1.
 // func (c *ClusterController) RebalanceStoragePartitions(hc *clusterv1alpha1.HumioCluster) error {
