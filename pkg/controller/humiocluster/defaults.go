@@ -10,6 +10,7 @@ const (
 	image                   = "humio/humio-core"
 	version                 = "1.9.0"
 	targetReplicationFactor = 3
+	storagePartitionsCount  = 24
 )
 
 func setDefaults(humioCluster *humioClusterv1alpha1.HumioCluster) {
@@ -24,5 +25,8 @@ func setDefaults(humioCluster *humioClusterv1alpha1.HumioCluster) {
 	}
 	if humioCluster.Spec.TargetReplicationFactor == 0 {
 		humioCluster.Spec.TargetReplicationFactor = targetReplicationFactor
+	}
+	if humioCluster.Spec.StoragePartitionsCount == 0 {
+		humioCluster.Spec.StoragePartitionsCount = storagePartitionsCount
 	}
 }

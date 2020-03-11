@@ -57,3 +57,13 @@ func GetHumioBaseURL(c client.Client, hc *clusterv1alpha1.HumioCluster) (string,
 	}
 	return "", fmt.Errorf("did not find a valid base URL")
 }
+
+// ContainsNodePoolName returns true if any of the current node pools has the given name
+func ContainsNodePoolName(poolName string, hc *clusterv1alpha1.HumioCluster) bool {
+	for _, pool := range hc.Spec.NodePools {
+		if pool.Name == poolName {
+			return true
+		}
+	}
+	return false
+}

@@ -34,6 +34,9 @@ spec:
             image:
               description: Desired container image
               type: string
+            storagePartitionsCount:
+              description: Desired number of storage partitions
+              type: integer
             targetReplicationFactor:
               description: Desired number of replicas of both storage and ingest partitions
               type: integer

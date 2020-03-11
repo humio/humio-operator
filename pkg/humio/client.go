@@ -12,6 +12,8 @@ type Client interface {
 	GetClusters() (humioapi.Cluster, error)
 	UpdateStoragePartitionScheme([]humioapi.StoragePartitionInput) error
 	UpdateIngestPartitionScheme([]humioapi.IngestPartitionInput) error
+	GetStoragePartitions() (*[]humioapi.StoragePartition, error)
+	GetIngestPartitions() (*[]humioapi.IngestPartition, error)
 }
 
 // ClientConfig stores our Humio api client
@@ -54,4 +56,12 @@ func (h *ClientConfig) UpdateIngestPartitionScheme(ipi []humioapi.IngestPartitio
 		log.Error(fmt.Sprintf("could not update ingest partition scheme cluster information: %v", err))
 	}
 	return err
+}
+
+func (h *ClientConfig) GetStoragePartitions() (*[]humioapi.StoragePartition, error) {
+	return &[]humioapi.StoragePartition{}, fmt.Errorf("not implemented")
+}
+
+func (h *ClientConfig) GetIngestPartitions() (*[]humioapi.IngestPartition, error) {
+	return &[]humioapi.IngestPartition{}, fmt.Errorf("not implemented")
 }
