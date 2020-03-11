@@ -543,7 +543,283 @@ func TestClusterController_RebalanceStoragePartitions(t *testing.T) {
 				t.Errorf("ClusterController.RebalanceStoragePartitions() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if sps, _ := c.client.GetStoragePartitions(); !reflect.DeepEqual(*sps, *tt.fields.expectedPartitions) {
-				t.Errorf("ClusterController.RebalanceStoragePartitions() expected = %v, want %v", *tt.fields.expectedPartitions, *sps)
+				t.Errorf("ClusterController.GetStoragePartitions() expected = %v, want %v", *tt.fields.expectedPartitions, *sps)
+			}
+		})
+	}
+}
+
+func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
+	type fields struct {
+		client Client
+	}
+	type args struct {
+		hc *corev1alpha1.HumioCluster
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    bool
+		wantErr bool
+	}{
+		{
+			"test ingest partitions are balanced",
+			fields{NewMocklient(
+				humioapi.Cluster{
+					IngestPartitions: []humioapi.IngestPartition{
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{0},
+						},
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{1},
+						},
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{2},
+						},
+					},
+					Nodes: []humioapi.ClusterNode{
+						humioapi.ClusterNode{
+							Id: 0,
+						},
+						humioapi.ClusterNode{
+							Id: 1,
+						},
+						humioapi.ClusterNode{
+							Id: 2,
+						},
+					}}, nil, nil, nil),
+			},
+			args{
+				&corev1alpha1.HumioCluster{
+					Spec: corev1alpha1.HumioClusterSpec{
+						TargetReplicationFactor: 1,
+					},
+				},
+			},
+			true,
+			false,
+		},
+		{
+			"test ingest partitions do no equal the target replication factor",
+			fields{NewMocklient(
+				humioapi.Cluster{
+					IngestPartitions: []humioapi.IngestPartition{
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{0, 1},
+						},
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{1, 2},
+						},
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{2, 0},
+						},
+					},
+					Nodes: []humioapi.ClusterNode{
+						humioapi.ClusterNode{
+							Id: 0,
+						},
+						humioapi.ClusterNode{
+							Id: 1,
+						},
+						humioapi.ClusterNode{
+							Id: 2,
+						},
+					}}, nil, nil, nil),
+			},
+			args{
+				&corev1alpha1.HumioCluster{
+					Spec: corev1alpha1.HumioClusterSpec{
+						TargetReplicationFactor: 1,
+					},
+				},
+			},
+			false,
+			false,
+		},
+		{
+			"test ingest partitions are unbalanced by more than a factor of 1",
+			fields{NewMocklient(
+				humioapi.Cluster{
+					IngestPartitions: []humioapi.IngestPartition{
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{0, 0, 0},
+						},
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{1, 1, 1},
+						},
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{2, 1, 1},
+						},
+					},
+					Nodes: []humioapi.ClusterNode{
+						humioapi.ClusterNode{
+							Id: 0,
+						},
+						humioapi.ClusterNode{
+							Id: 1,
+						},
+						humioapi.ClusterNode{
+							Id: 2,
+						},
+					}}, nil, nil, nil),
+			},
+			args{
+				&corev1alpha1.HumioCluster{
+					Spec: corev1alpha1.HumioClusterSpec{
+						TargetReplicationFactor: 3,
+					},
+				},
+			},
+			false,
+			false,
+		},
+		{
+			"test ingest partitions are not balanced",
+			fields{NewMocklient(
+				humioapi.Cluster{
+					IngestPartitions: []humioapi.IngestPartition{
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{0, 1},
+						},
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{1, 0},
+						},
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{0, 1},
+						},
+					},
+					Nodes: []humioapi.ClusterNode{
+						humioapi.ClusterNode{
+							Id: 0,
+						},
+						humioapi.ClusterNode{
+							Id: 1,
+						},
+						humioapi.ClusterNode{
+							Id: 2,
+						},
+					}}, nil, nil, nil),
+			},
+			args{
+				&corev1alpha1.HumioCluster{
+					Spec: corev1alpha1.HumioClusterSpec{
+						TargetReplicationFactor: 1,
+					},
+				},
+			},
+			false,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &ClusterController{
+				client: tt.fields.client,
+			}
+			got, err := c.AreIngestPartitionsBalanced(tt.args.hc)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ClusterController.AreIngestPartitionsBalanced() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ClusterController.AreIngestPartitionsBalanced() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestClusterController_RebalanceIngestPartitions(t *testing.T) {
+	type fields struct {
+		client             Client
+		expectedPartitions *[]humioapi.IngestPartition
+	}
+	type args struct {
+		hc *corev1alpha1.HumioCluster
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			"test rebalancing ingest partitions",
+			fields{NewMocklient(
+				humioapi.Cluster{
+					IngestPartitions: []humioapi.IngestPartition{
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{0},
+						},
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{0},
+						},
+						humioapi.IngestPartition{
+							Id:      1,
+							NodeIds: []int{0},
+						},
+					},
+					Nodes: []humioapi.ClusterNode{
+						humioapi.ClusterNode{
+							Id: 0,
+						},
+						humioapi.ClusterNode{
+							Id: 1,
+						},
+						humioapi.ClusterNode{
+							Id: 2,
+						},
+					}}, nil, nil, nil),
+				&[]humioapi.IngestPartition{
+					humioapi.IngestPartition{
+						Id:      0,
+						NodeIds: []int{0, 1},
+					},
+					humioapi.IngestPartition{
+						Id:      1,
+						NodeIds: []int{1, 2},
+					},
+					humioapi.IngestPartition{
+						Id:      2,
+						NodeIds: []int{2, 0},
+					},
+				},
+			},
+			args{
+				&corev1alpha1.HumioCluster{
+					Spec: corev1alpha1.HumioClusterSpec{
+						TargetReplicationFactor: 2,
+						DigestPartitionsCount:   3,
+					},
+				},
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &ClusterController{
+				client: tt.fields.client,
+			}
+			if err := c.RebalanceIngestPartitions(tt.args.hc); (err != nil) != tt.wantErr {
+				t.Errorf("ClusterController.RebalanceIngestPartitions() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if sps, _ := c.client.GetIngestPartitions(); !reflect.DeepEqual(*sps, *tt.fields.expectedPartitions) {
+				t.Errorf("ClusterController.GetIngestPartitions() expected = %v, want %v", *tt.fields.expectedPartitions, *sps)
 			}
 		})
 	}

@@ -11,6 +11,7 @@ const (
 	version                 = "1.9.0"
 	targetReplicationFactor = 3
 	storagePartitionsCount  = 24
+	digestPartitionsCount   = 24
 )
 
 func setDefaults(humioCluster *humioClusterv1alpha1.HumioCluster) {
@@ -28,5 +29,8 @@ func setDefaults(humioCluster *humioClusterv1alpha1.HumioCluster) {
 	}
 	if humioCluster.Spec.StoragePartitionsCount == 0 {
 		humioCluster.Spec.StoragePartitionsCount = storagePartitionsCount
+	}
+	if humioCluster.Spec.DigestPartitionsCount == 0 {
+		humioCluster.Spec.DigestPartitionsCount = digestPartitionsCount
 	}
 }

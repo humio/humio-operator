@@ -14,6 +14,8 @@ type HumioClusterSpec struct {
 	TargetReplicationFactor int `json:"targetReplicationFactor,omitempty"`
 	// Desired number of storage partitions
 	StoragePartitionsCount int `json:"storagePartitionsCount,omitempty"`
+	// Desired number of digest partitions
+	DigestPartitionsCount int `json:"digestPartitionsCount,omitempty"`
 }
 
 // HumioClusterStatus defines the observed state of HumioCluster
