@@ -1,6 +1,7 @@
 package humio
 
 import (
+	"reflect"
 	"testing"
 
 	humioapi "github.com/humio/cli/api"
@@ -459,6 +460,90 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("ClusterController.AreStoragePartitionsBalanced() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestClusterController_RebalanceStoragePartitions(t *testing.T) {
+	type fields struct {
+		client             Client
+		expectedPartitions *[]humioapi.StoragePartition
+	}
+	type args struct {
+		hc *corev1alpha1.HumioCluster
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			"test rebalancing storage partitions",
+			fields{NewMocklient(
+				humioapi.Cluster{
+					StoragePartitions: []humioapi.StoragePartition{
+						humioapi.StoragePartition{
+							Id:      1,
+							NodeIds: []int{0},
+						},
+						humioapi.StoragePartition{
+							Id:      1,
+							NodeIds: []int{0},
+						},
+						humioapi.StoragePartition{
+							Id:      1,
+							NodeIds: []int{0},
+						},
+					},
+					Nodes: []humioapi.ClusterNode{
+						humioapi.ClusterNode{
+							Id: 0,
+						},
+						humioapi.ClusterNode{
+							Id: 1,
+						},
+						humioapi.ClusterNode{
+							Id: 2,
+						},
+					}}, nil, nil, nil),
+				&[]humioapi.StoragePartition{
+					humioapi.StoragePartition{
+						Id:      0,
+						NodeIds: []int{0, 1},
+					},
+					humioapi.StoragePartition{
+						Id:      1,
+						NodeIds: []int{1, 2},
+					},
+					humioapi.StoragePartition{
+						Id:      2,
+						NodeIds: []int{2, 0},
+					},
+				},
+			},
+			args{
+				&corev1alpha1.HumioCluster{
+					Spec: corev1alpha1.HumioClusterSpec{
+						TargetReplicationFactor: 2,
+						StoragePartitionsCount:  3,
+					},
+				},
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &ClusterController{
+				client: tt.fields.client,
+			}
+			if err := c.RebalanceStoragePartitions(tt.args.hc); (err != nil) != tt.wantErr {
+				t.Errorf("ClusterController.RebalanceStoragePartitions() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if sps, _ := c.client.GetStoragePartitions(); !reflect.DeepEqual(*sps, *tt.fields.expectedPartitions) {
+				t.Errorf("ClusterController.RebalanceStoragePartitions() expected = %v, want %v", *tt.fields.expectedPartitions, *sps)
 			}
 		})
 	}

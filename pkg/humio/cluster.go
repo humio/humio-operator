@@ -1,8 +1,12 @@
 package humio
 
 import (
+	"fmt"
+
+	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/prometheus/common/log"
+	"github.com/shurcooL/graphql"
 )
 
 // ClusterController holds our client
@@ -138,34 +142,35 @@ func (c *ClusterController) AreStoragePartitionsBalanced(hc *corev1alpha1.HumioC
 }
 
 // // RebalanceStoragePartitions will assign storage partitions evenly across registered storage nodes. If replication is not set, we set it to 1.
-// func (c *ClusterController) RebalanceStoragePartitions(hc *clusterv1alpha1.HumioCluster) error {
-// 	log.Info("rebalancing storage partitions")
+func (c *ClusterController) RebalanceStoragePartitions(hc *corev1alpha1.HumioCluster) error {
+	log.Info("rebalancing storage partitions")
 
-// 	replication := hc.Spec.TargetReplicationFactor
-// 	if hc.Spec.TargetReplicationFactor == 0 {
-// 		replication = 1
-// 	}
+	cluster, err := c.client.GetClusters()
+	if err != nil {
+		return err
+	}
 
-// 	var storageNodeIDs []int
-// 	for _, hnp := range hc.Spec.NodePools {
-// 		for _, t := range hnp.Types {
-// 			if clusterv1alpha1.HumioNodeType(t) == clusterv1alpha1.Storage {
-// 				for i := 0; i < hnp.NodeCount; i++ {
-// 					storageNodeIDs = append(storageNodeIDs, hnp.FirstNodeID+i)
-// 				}
-// 			}
-// 		}
-// 	}
-// 	partitionAssignment, err := generateStoragePartitionSchemeCandidate(hc, storageNodeIDs, 24, replication)
-// 	if err != nil {
-// 		return fmt.Errorf("could not generate storage partition scheme candidate: %v", err)
-// 	}
+	replication := hc.Spec.TargetReplicationFactor
+	if hc.Spec.TargetReplicationFactor == 0 {
+		replication = 1
+	}
 
-// 	if err := c.client.UpdateStoragePartitionScheme(partitionAssignment); err != nil {
-// 		return fmt.Errorf("could not update storage partition scheme: %v", err)
-// 	}
-// 	return nil
-// }
+	var storageNodeIDs []int
+
+	for _, node := range cluster.Nodes {
+		storageNodeIDs = append(storageNodeIDs, node.Id)
+	}
+
+	partitionAssignment, err := generateStoragePartitionSchemeCandidate(storageNodeIDs, hc.Spec.StoragePartitionsCount, replication)
+	if err != nil {
+		return fmt.Errorf("could not generate storage partition scheme candidate: %v", err)
+	}
+
+	if err := c.client.UpdateStoragePartitionScheme(partitionAssignment); err != nil {
+		return fmt.Errorf("could not update storage partition scheme: %v", err)
+	}
+	return nil
+}
 
 // // IsIngestPartitionsBalanced ensures four things. First, if all ingest partitions are consumed by the expected (target replication factor) number of digest nodes. Second, all digest nodes must have ingest partitions assigned. Third, all nodes that are not digest nodes does not have any ingest partitions assigned. Forth, the difference in number of partitiones assigned per digest node must be at most 1.
 // func (c *ClusterController) IsIngestPartitionsBalanced(hc *clusterv1alpha1.HumioCluster) (bool, error) {
@@ -345,28 +350,28 @@ func (c *ClusterController) AreStoragePartitionsBalanced(hc *corev1alpha1.HumioC
 // 	return nil
 // }
 
-// func generateStoragePartitionSchemeCandidate(hc *clusterv1alpha1.HumioCluster, storageNodeIDs []int, partitionCount, targetReplication int) ([]humioapi.StoragePartitionInput, error) {
-// 	replicas := targetReplication
-// 	if targetReplication > len(storageNodeIDs) {
-// 		replicas = len(storageNodeIDs)
-// 	}
-// 	if replicas == 0 {
-// 		return nil, fmt.Errorf("not possible to use replication factor 0")
-// 	}
+func generateStoragePartitionSchemeCandidate(storageNodeIDs []int, partitionCount, targetReplication int) ([]humioapi.StoragePartitionInput, error) {
+	replicas := targetReplication
+	if targetReplication > len(storageNodeIDs) {
+		replicas = len(storageNodeIDs)
+	}
+	if replicas == 0 {
+		return nil, fmt.Errorf("not possible to use replication factor 0")
+	}
 
-// 	var ps []humioapi.StoragePartitionInput
+	var ps []humioapi.StoragePartitionInput
 
-// 	for p := 0; p < partitionCount; p++ {
-// 		var nodeIds []graphql.Int
-// 		for r := 0; r < replicas; r++ {
-// 			idx := (p + r) % len(storageNodeIDs)
-// 			nodeIds = append(nodeIds, graphql.Int(storageNodeIDs[idx]))
-// 		}
-// 		ps = append(ps, humioapi.StoragePartitionInput{ID: graphql.Int(p), NodeIDs: nodeIds})
-// 	}
+	for p := 0; p < partitionCount; p++ {
+		var nodeIds []graphql.Int
+		for r := 0; r < replicas; r++ {
+			idx := (p + r) % len(storageNodeIDs)
+			nodeIds = append(nodeIds, graphql.Int(storageNodeIDs[idx]))
+		}
+		ps = append(ps, humioapi.StoragePartitionInput{ID: graphql.Int(p), NodeIDs: nodeIds})
+	}
 
-// 	return ps, nil
-// }
+	return ps, nil
+}
 
 // func generateIngestPartitionSchemeCandidate(hc *clusterv1alpha1.HumioCluster, ingestNodeIDs []int, partitionCount, targetReplication int) ([]humioapi.IngestPartitionInput, error) {
 // 	replicas := targetReplication
