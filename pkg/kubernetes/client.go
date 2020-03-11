@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"net/http"
 
+	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/prometheus/common/log"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ListPods grabs the list of all pods associated to a an instance of HumioCluster
-func ListPods(c client.Client, hc *clusterv1alpha1.HumioCluster) ([]corev1.Pod, error) {
+func ListPods(c client.Client, hc *corev1alpha1.HumioCluster) ([]corev1.Pod, error) {
 	var foundPodList corev1.PodList
 	matchingLabels := client.MatchingLabels{
 		"humio_cr": hc.Name,
@@ -26,7 +28,7 @@ func ListPods(c client.Client, hc *clusterv1alpha1.HumioCluster) ([]corev1.Pod, 
 }
 
 // GetHumioBaseURL the first base URL for the first Humio node it can reach
-func GetHumioBaseURL(c client.Client, hc *clusterv1alpha1.HumioCluster) (string, error) {
+func GetHumioBaseURL(c client.Client, hc *corev1alpha1.HumioCluster) (string, error) {
 	allPodsForCluster, err := ListPods(c, hc)
 	if err != nil {
 		return "", fmt.Errorf("could not list pods for cluster: %v", err)
@@ -56,14 +58,4 @@ func GetHumioBaseURL(c client.Client, hc *clusterv1alpha1.HumioCluster) (string,
 		}
 	}
 	return "", fmt.Errorf("did not find a valid base URL")
-}
-
-// ContainsNodePoolName returns true if any of the current node pools has the given name
-func ContainsNodePoolName(poolName string, hc *clusterv1alpha1.HumioCluster) bool {
-	for _, pool := range hc.Spec.NodePools {
-		if pool.Name == poolName {
-			return true
-		}
-	}
-	return false
 }
