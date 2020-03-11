@@ -10,6 +10,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.4 // indirect
 	github.com/operator-framework/operator-sdk v0.15.1
 	github.com/pelletier/go-toml v1.6.0 // indirect
+	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/common v0.7.0
 	github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
