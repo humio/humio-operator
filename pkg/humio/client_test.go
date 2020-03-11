@@ -76,6 +76,22 @@ func (h *MockClientConfig) UpdateIngestPartitionScheme(ips []humioapi.IngestPart
 	return nil
 }
 
+func (h *MockClientConfig) ClusterMoveStorageRouteAwayFromNode(int) error {
+	return nil
+}
+
+func (h *MockClientConfig) ClusterMoveIngestRoutesAwayFromNode(int) error {
+	return nil
+}
+
+func (h *MockClientConfig) Unregister(int) error {
+	return nil
+}
+
+func (h *MockClientConfig) StartDataRedistribution() error {
+	return nil
+}
+
 func (h *MockClientConfig) GetStoragePartitions() (*[]humioapi.StoragePartition, error) {
 	return h.apiClient.StoragePartitions, nil
 }

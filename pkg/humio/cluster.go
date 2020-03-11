@@ -61,7 +61,7 @@ func (c *ClusterController) IsNodeRegistered(nodeID int) (bool, error) {
 	return false, nil
 }
 
-// // CountNodesRegistered returns how many registered nodes there are in the cluster
+// CountNodesRegistered returns how many registered nodes there are in the cluster
 func (c *ClusterController) CountNodesRegistered() (int, error) {
 	cluster, err := c.client.GetClusters()
 	if err != nil {
@@ -70,7 +70,7 @@ func (c *ClusterController) CountNodesRegistered() (int, error) {
 	return len(cluster.Nodes), nil
 }
 
-// // CanBeSafelyUnregistered returns true if the Humio API indicates that the node can be safely unregistered. This should ensure that the node does not hold any data.
+// CanBeSafelyUnregistered returns true if the Humio API indicates that the node can be safely unregistered. This should ensure that the node does not hold any data.
 func (c *ClusterController) CanBeSafelyUnregistered(podID int) (bool, error) {
 	cluster, err := c.client.GetClusters()
 	if err != nil {
@@ -85,11 +85,10 @@ func (c *ClusterController) CanBeSafelyUnregistered(podID int) (bool, error) {
 	return false, nil
 }
 
-// AreStoragePartitionsBalanced ensures four things.
+// AreStoragePartitionsBalanced ensures three things.
 // First, if all storage partitions are consumed by the expected (target replication factor) number of storage nodes.
 // Second, all storage nodes must have storage partitions assigned.
-// Third, all nodes that are not storage nodes does not have any storage partitions assigned.
-// Fourth, the difference in number of partitiones assigned per storage node must be at most 1.
+// Third, the difference in number of partitiones assigned per storage node must be at most 1.
 func (c *ClusterController) AreStoragePartitionsBalanced(hc *corev1alpha1.HumioCluster) (bool, error) {
 	cluster, err := c.client.GetClusters()
 	if err != nil {
@@ -141,7 +140,7 @@ func (c *ClusterController) AreStoragePartitionsBalanced(hc *corev1alpha1.HumioC
 
 }
 
-// // RebalanceStoragePartitions will assign storage partitions evenly across registered storage nodes. If replication is not set, we set it to 1.
+// RebalanceStoragePartitions will assign storage partitions evenly across registered storage nodes. If replication is not set, we set it to 1.
 func (c *ClusterController) RebalanceStoragePartitions(hc *corev1alpha1.HumioCluster) error {
 	log.Info("rebalancing storage partitions")
 
@@ -172,10 +171,10 @@ func (c *ClusterController) RebalanceStoragePartitions(hc *corev1alpha1.HumioClu
 	return nil
 }
 
-// IsIngestPartitionsBalanced ensures four things.
+// AreIngestPartitionsBalanced ensures three things.
 // First, if all ingest partitions are consumed by the expected (target replication factor) number of digest nodes.
-// Second, all digest nodes must have ingest partitions assigned. Third, all nodes that are not digest nodes does not have any ingest partitions assigned.
-// Forth, the difference in number of partitiones assigned per digest node must be at most 1.
+// Second, all digest nodes must have ingest partitions assigned.
+// Third, the difference in number of partitiones assigned per digest node must be at most 1.
 func (c *ClusterController) AreIngestPartitionsBalanced(hc *corev1alpha1.HumioCluster) (bool, error) {
 	cluster, err := c.client.GetClusters()
 	if err != nil {
@@ -258,93 +257,46 @@ func (c *ClusterController) RebalanceIngestPartitions(hc *corev1alpha1.HumioClus
 	return nil
 }
 
-// IsStorageNode returns true if node pool lists storage as its type
-// func IsStorageNode(hnp clusterv1alpha1.HumioNodePool) bool {
-// 	for _, t := range hnp.Types {
-// 		if clusterv1alpha1.HumioNodeType(t) == clusterv1alpha1.Storage {
-// 			return true
-// 		}
-// 	}
-// 	return false
-//}
+// StartDataRedistribution notifies the Humio cluster that it should start redistributing data to match current assignments
+func (c *ClusterController) StartDataRedistribution(hc *corev1alpha1.HumioCluster) error {
+	log.Info("starting data redistribution")
 
-// // IsDigestNode returns true if node pool lists digest as its type
-// func IsDigestNode(hnp clusterv1alpha1.HumioNodePool) bool {
-// 	for _, t := range hnp.Types {
-// 		if clusterv1alpha1.HumioNodeType(t) == clusterv1alpha1.Digest {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
+	if err := c.client.StartDataRedistribution(); err != nil {
+		return fmt.Errorf("could not start data redistribution: %v", err)
+	}
+	return nil
+}
 
-// // IsIngestNode returns true if node pool lists ingest as its type
-// func IsIngestNode(hnp clusterv1alpha1.HumioNodePool) bool {
-// 	for _, t := range hnp.Types {
-// 		if clusterv1alpha1.HumioNodeType(t) == clusterv1alpha1.Ingest {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
+// MoveStorageRouteAwayFromNode notifies the Humio cluster that a node ID should be removed from handling any storage partitions
+func (c *ClusterController) MoveStorageRouteAwayFromNode(hc *corev1alpha1.HumioCluster, pID int) error {
+	log.Info(fmt.Sprintf("moving storage route away from node %d", pID))
 
-// // StartDataRedistribution notifies the Humio cluster that it should start redistributing data to match current assignments
-// func StartDataRedistribution(hc *clusterv1alpha1.HumioCluster) error {
-// 	log.Info("starting data redistribution")
+	if err := c.client.ClusterMoveStorageRouteAwayFromNode(pID); err != nil {
+		return fmt.Errorf("could not move storage route away from node: %v", err)
+	}
+	return nil
+}
 
-// 	humioAPI, err := humioapi.NewClient(humioapi.Config{Address: hc.Status.BaseURL, Token: hc.Status.JWTToken})
-// 	if err != nil {
-// 		log.Info(fmt.Sprintf("could not create humio client: %v", err))
-// 	}
+// MoveIngestRoutesAwayFromNode notifies the Humio cluster that a node ID should be removed from handling any ingest partitions
+func (c *ClusterController) MoveIngestRoutesAwayFromNode(hc *corev1alpha1.HumioCluster, pID int) error {
+	log.Info(fmt.Sprintf("moving ingest routes away from node %d", pID))
 
-// 	if err := humioAPI.Clusters().StartDataRedistribution(); err != nil {
-// 		return fmt.Errorf("could not start data redistribution: %v", err)
-// 	}
-// 	return nil
-// }
+	if err := c.client.ClusterMoveIngestRoutesAwayFromNode(pID); err != nil {
+		return fmt.Errorf("could not move ingest routes away from node: %v", err)
+	}
+	return nil
+}
 
-// // MoveStorageRouteAwayFromNode notifies the Humio cluster that a node ID should be removed from handling any storage partitions
-// func MoveStorageRouteAwayFromNode(hc *clusterv1alpha1.HumioCluster, pID int) error {
-// 	log.Info(fmt.Sprintf("moving storage route away from node %d", pID))
+// ClusterUnregisterNode tells the Humio cluster that we want to unregister a node
+func (c *ClusterController) ClusterUnregisterNode(hc *corev1alpha1.HumioCluster, pID int) error {
+	log.Info(fmt.Sprintf("unregistering node with id %d", pID))
 
-// 	humioAPI, err := humioapi.NewClient(humioapi.Config{Address: hc.Status.BaseURL, Token: hc.Status.JWTToken})
-// 	if err != nil {
-// 		log.Info(fmt.Sprintf("could not create humio client: %v", err))
-// 	}
-
-// 	if err := humioAPI.Clusters().ClusterMoveStorageRouteAwayFromNode(pID); err != nil {
-// 		return fmt.Errorf("could not move storage route away from node: %v", err)
-// 	}
-// 	return nil
-// }
-
-// // MoveIngestRoutesAwayFromNode notifies the Humio cluster that a node ID should be removed from handling any ingest partitions
-// func MoveIngestRoutesAwayFromNode(hc *clusterv1alpha1.HumioCluster, pID int) error {
-// 	log.Info(fmt.Sprintf("moving ingest routes away from node %d", pID))
-
-// 	humioAPI, err := humioapi.NewClient(humioapi.Config{Address: hc.Status.BaseURL, Token: hc.Status.JWTToken})
-// 	if err != nil {
-// 		log.Info(fmt.Sprintf("could not create humio client: %v", err))
-// 	}
-
-// 	if err := humioAPI.Clusters().ClusterMoveIngestRoutesAwayFromNode(pID); err != nil {
-// 		return fmt.Errorf("could not move ingest routes away from node: %v", err)
-// 	}
-// 	return nil
-// }
-
-// // ClusterUnregisterNode tells the Humio cluster that we want to unregister a node
-// func ClusterUnregisterNode(hc *clusterv1alpha1.HumioCluster, pID int) error {
-// 	humioAPI, err := humioapi.NewClient(humioapi.Config{Address: hc.Status.BaseURL, Token: hc.Status.JWTToken})
-// 	if err != nil {
-// 		return fmt.Errorf("could not create humio client: %v", err)
-// 	}
-// 	err = humioAPI.ClusterNodes().Unregister(int64(pID), false)
-// 	if err != nil {
-// 		return fmt.Errorf("could not unregister node: %v", err)
-// 	}
-// 	return nil
-// }
+	err := c.client.Unregister(pID)
+	if err != nil {
+		return fmt.Errorf("could not unregister node: %v", err)
+	}
+	return nil
+}
 
 func generateStoragePartitionSchemeCandidate(storageNodeIDs []int, partitionCount, targetReplication int) ([]humioapi.StoragePartitionInput, error) {
 	replicas := targetReplication
