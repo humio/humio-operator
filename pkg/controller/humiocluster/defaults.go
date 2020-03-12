@@ -9,7 +9,7 @@ const (
 	namespace               = "logging"
 	image                   = "humio/humio-core"
 	version                 = "1.9.0"
-	targetReplicationFactor = 3
+	targetReplicationFactor = 2
 	storagePartitionsCount  = 24
 	digestPartitionsCount   = 24
 	nodeCount               = 3
