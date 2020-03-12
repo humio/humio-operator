@@ -10,4 +10,4 @@ cover: test
 	go tool cover -func=cover.out
 
 test: fmt vet
-	go test -v ./... -coverprofile cover.out
+	go test -v ./... -covermode=count -coverprofile cover.out
