@@ -1,5 +1,7 @@
 # Humio-Operator
 
+[![Build Status](https://github.com/humio/humio-operator/workflows/CI/badge.svg)](https://github.com/humio/humio-operator/actions?query=workflow%3ACI)
+
 **WARNING: The CRD/API has yet to be defined. Everything as of this moment is considered experimental.**
 
 The Humio operator is a Kubernetes operator to automate provisioning, management, ~~autoscaling~~ and operations of [Humio](https://humio.com) clusters deployed to Kubernetes.
