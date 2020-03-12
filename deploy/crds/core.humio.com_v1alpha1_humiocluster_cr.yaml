@@ -6,3 +6,4 @@ spec:
   image: humio/humio-core
   version: "1.9.0"
   targetReplicationFactor: 2
+  storagePartitionsCount: 24
