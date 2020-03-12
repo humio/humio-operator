@@ -12,6 +12,12 @@ type HumioClusterSpec struct {
 	Version string `json:"version,omitempty"`
 	// Desired number of replicas of both storage and ingest partitions
 	TargetReplicationFactor int `json:"targetReplicationFactor,omitempty"`
+	// Desired number of storage partitions
+	StoragePartitionsCount int `json:"storagePartitionsCount,omitempty"`
+	// Desired number of digest partitions
+	DigestPartitionsCount int `json:"digestPartitionsCount,omitempty"`
+	// Desired number of nodes
+	NodeCount int `json:"nodeCount,omitempty"`
 }
 
 // HumioClusterStatus defines the observed state of HumioCluster

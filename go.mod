@@ -3,10 +3,27 @@ module github.com/humio/humio-operator
 go 1.13
 
 require (
-	github.com/humio/cli v0.24.2 // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/golang/protobuf v1.3.4 // indirect
+	github.com/humio/cli v0.23.1-0.20191107092311-06c8a816c799
+	github.com/mattn/go-runewidth v0.0.8 // indirect
+	github.com/olekukonko/tablewriter v0.0.4 // indirect
 	github.com/operator-framework/operator-sdk v0.15.1
-	github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f // indirect
+	github.com/pelletier/go-toml v1.6.0 // indirect
+	github.com/prometheus/client_golang v1.2.1
+	github.com/prometheus/common v0.7.0
+	github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f
+	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
+	github.com/spf13/cast v1.3.1 // indirect
+	github.com/spf13/cobra v0.0.6 // indirect
 	github.com/spf13/pflag v1.0.5
+	github.com/spf13/viper v1.6.2 // indirect
+	golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073 // indirect
+	golang.org/x/net v0.0.0-20200301022130-244492dfa37a // indirect
+	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+	golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527 // indirect
+	gopkg.in/ini.v1 v1.52.0 // indirect
+	gopkg.in/yaml.v2 v2.2.8 // indirect
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v12.0.0+incompatible

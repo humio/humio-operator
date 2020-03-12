@@ -31,9 +31,15 @@ spec:
         spec:
           description: HumioClusterSpec defines the desired state of HumioCluster
           properties:
+            digestPartitionsCount:
+              description: Desired number of digest partitions
+              type: integer
             image:
               description: Desired container image
               type: string
+            storagePartitionsCount:
+              description: Desired number of storage partitions
+              type: integer
             targetReplicationFactor:
               description: Desired number of replicas of both storage and ingest partitions
               type: integer
