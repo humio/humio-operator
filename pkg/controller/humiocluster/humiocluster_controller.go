@@ -132,7 +132,6 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) error {
 	// Ensure we have pods for the defined NodeCount.
 	// If scaling down, we will handle the extra/obsolete pods later.
-	//var podList []corev1.Pod
 	for nodeID := 0; nodeID < humioCluster.Spec.NodeCount; nodeID++ {
 		var existingPod corev1.Pod
 		pod := constructPod(humioCluster, nodeID)
@@ -153,11 +152,8 @@ func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioC
 					return fmt.Errorf("unable to create Pod for HumioCluster: %v", err)
 				}
 				log.Info(fmt.Sprintf("successfully created pod %s for HumioCluster %s with node id: %d", pod.Name, humioCluster.Name, nodeID))
-				//podList = append(podList, *pod)
 				metricPodsCreated.Inc()
 			}
-		} else {
-			//podList = append(podList, existingPod)
 		}
 	}
 	return nil
