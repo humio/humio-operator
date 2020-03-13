@@ -26,14 +26,19 @@ import (
 )
 
 var (
-	log               = logf.Log.WithName("controller_humiocluster")
-	metricPodsCreated = prometheus.NewCounter(prometheus.CounterOpts{
+	log                      = logf.Log.WithName("controller_humiocluster")
+	serviceAccountSecretName = "developer"
+	metricPodsCreated        = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "humio_controller_pods_created_total",
 		Help: "Total number of pod objects created by controller",
 	})
 	metricPodsDeleted = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "humio_controller_pods_deleted_total",
 		Help: "Total number of pod objects deleted by controller",
+	})
+	metricSecretsCreated = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "humio_controller_secrets_created_total",
+		Help: "Total number of secret objects created by controller",
 	})
 )
 
@@ -125,6 +130,11 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	err = r.ensureDeveloperUserPasswordExists(context.TODO(), humioCluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// All done, don't requeue
 	return reconcile.Result{}, nil
 }
@@ -154,6 +164,34 @@ func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioC
 				log.Info(fmt.Sprintf("successfully created pod %s for HumioCluster %s with node id: %d", pod.Name, humioCluster.Name, nodeID))
 				metricPodsCreated.Inc()
 			}
+		}
+	}
+	return nil
+}
+
+// TODO: extend this (or create separate method) to take this password and perform a login, get the jwt token and then call the api to get the persistent api token and also store that as a secret
+// this functionality should perhaps go into humio.cluster_auth.go
+func (r *ReconcileHumioCluster) ensureDeveloperUserPasswordExists(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) error {
+	var existingSecret corev1.Secret
+	secret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceAccountSecretName,
+			Namespace: humioCluster.Namespace,
+		},
+	}
+	if err := r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: humioCluster.Namespace,
+		Name:      serviceAccountSecretName,
+	}, &existingSecret); err != nil {
+		if k8serrors.IsNotFound(err) {
+
+			err := r.client.Create(context.TODO(), &secret)
+			if err != nil {
+				log.Info(fmt.Sprintf("unable to create secret: %v", err))
+				return fmt.Errorf("unable to create service account secret for HumioCluster: %v", err)
+			}
+			log.Info(fmt.Sprintf("successfully service account secret %s for HumioCluster %s", secret.Namespace, humioCluster.Name))
+			metricSecretsCreated.Inc()
 		}
 	}
 	return nil
