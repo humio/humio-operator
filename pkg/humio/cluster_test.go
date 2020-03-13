@@ -819,7 +819,7 @@ func TestClusterController_RebalanceIngestPartitions(t *testing.T) {
 				t.Errorf("ClusterController.RebalanceIngestPartitions() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if sps, _ := c.client.GetIngestPartitions(); !reflect.DeepEqual(*sps, *tt.fields.expectedPartitions) {
-				t.Errorf("ClusterController.GetIngestPartitions() expected = %v, want %v", *tt.fields.expectedPartitions, *sps)
+				t.Errorf("ClusterController.GetIngestPartitions() expected = %v, got %v", *tt.fields.expectedPartitions, *sps)
 			}
 		})
 	}
