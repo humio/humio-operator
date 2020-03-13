@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -18,6 +19,8 @@ type HumioClusterSpec struct {
 	DigestPartitionsCount int `json:"digestPartitionsCount,omitempty"`
 	// Desired number of nodes
 	NodeCount int `json:"nodeCount,omitempty"`
+	// Extra environment variables
+	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
 }
 
 // HumioClusterStatus defines the observed state of HumioCluster

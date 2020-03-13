@@ -193,7 +193,7 @@ func constructPod(hc *corev1alpha1.HumioCluster, nodeID int) *corev1.Pod {
 							Protocol:      "TCP",
 						},
 					},
-					Env:             *constructEnvVarList(nodeID),
+					Env:             envVarList(hc),
 					ImagePullPolicy: "IfNotPresent",
 					VolumeMounts: []corev1.VolumeMount{
 						{
@@ -243,53 +243,9 @@ func constructPod(hc *corev1alpha1.HumioCluster, nodeID int) *corev1.Pod {
 	}
 }
 
-func constructEnvVarList(nodeID int) *[]corev1.EnvVar {
-	return &[]corev1.EnvVar{
-		{
-			Name: "THIS_POD_IP",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "status.podIP",
-				},
-			},
-		},
-		{
-			Name: "POD_NAME",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.name",
-				},
-			},
-		},
-		{
-			Name: "POD_NAMESPACE",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.namespace",
-				},
-			},
-		},
-		{Name: "BOOTSTRAP_HOST_ID", Value: strconv.Itoa(nodeID)},
-		{Name: "HUMIO_JVM_ARGS", Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelOldGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC"},
-		{Name: "HUMIO_PORT", Value: "8080"},
-		{Name: "ELASTIC_PORT", Value: "9200"},
-		{Name: "KAFKA_MANAGED_BY_HUMIO", Value: "true"},
-		{Name: "AUTHENTICATION_METHOD", Value: "single-user"},
-		{Name: "SINGLE_USER_PASSWORD", Value: "temp"},
-		{Name: "KAFKA_SERVERS", Value: "humio-cp-kafka-0.humio-cp-kafka-headless:9092"},
-		{Name: "ZOOKEEPER_URL", Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless:2181"},
-		{
-			Name:  "EXTERNAL_URL", // URL used by other Humio hosts.
-			Value: fmt.Sprintf("http://$(POD_NAME).core.$(POD_NAMESPACE).svc.cluster.local:$(HUMIO_PORT)"),
-			//Value: "http://$(POD_NAME).humio-humio-core-headless.$(POD_NAMESPACE).svc.cluster.local:8080",
-			//Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)",
-		},
-		{
-			Name: "PUBLIC_URL", // URL used by users/browsers.
-			//Value: "http://$(POD_NAME).humio-humio-core-headless.$(POD_NAMESPACE).svc.cluster.local:8080",
-			Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)",
-		},
-	}
+func envVarList(humioCluster *corev1alpha1.HumioCluster) []corev1.EnvVar {
+	setEnvironmentVariableDefaults(humioCluster)
+	return humioCluster.Spec.EnvironmentVariables
 }
 
 func labelsForHumio(clusterName string, nodeID int) map[string]string {
