@@ -1,0 +1,11 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioRepository
+metadata:
+  name: example-humiorepository
+spec:
+  name: 
+  description: # optional
+  retention:
+    ingest_size_in_gb: 10
+    storage_size_in_gb: 5
+    time_in_days: 30

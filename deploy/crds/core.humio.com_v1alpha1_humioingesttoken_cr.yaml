@@ -1,0 +1,7 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioIngestToken
+metadata:
+  name: example-humioingesttoken
+spec:
+  # Add fields here
+  size: 3

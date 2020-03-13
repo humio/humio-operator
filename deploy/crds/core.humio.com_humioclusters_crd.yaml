@@ -154,9 +154,6 @@ spec:
             allDataAvailable:
               description: Current state set by operator.
               type: string
-            baseURL:
-              description: BaseURL pointing to an endpoint for the cluster
-              type: string
             stateLastUpdated:
               format: int64
               type: integer

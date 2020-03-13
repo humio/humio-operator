@@ -1,0 +1,12 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioParser
+metadata:
+  name: example-humioparser
+spec:
+  name: # fallback to metadata name
+  parser_script: 
+  respository: 
+  tag_fields:
+  - "@somefield"
+  test_data:
+  - "@rawstring data"
