@@ -30,6 +30,13 @@ spec:
           type: object
         spec:
           description: HumioIngestTokenSpec defines the desired state of HumioIngestToken
+          properties:
+            name:
+              type: string
+            parser:
+              type: string
+            repository:
+              type: string
           type: object
         status:
           description: HumioIngestTokenStatus defines the observed state of HumioIngestToken

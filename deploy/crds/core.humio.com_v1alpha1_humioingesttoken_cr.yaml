@@ -3,5 +3,6 @@ kind: HumioIngestToken
 metadata:
   name: example-humioingesttoken
 spec:
-  # Add fields here
-  size: 3
+  name: # TODO: default to 
+  parser: # TODO: default to empty string
+  respository:
