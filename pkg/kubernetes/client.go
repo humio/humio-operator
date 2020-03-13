@@ -59,3 +59,20 @@ func GetHumioBaseURL(c client.Client, hc *corev1alpha1.HumioCluster) (string, er
 	}
 	return "", fmt.Errorf("did not find a valid base URL")
 }
+
+// TODO: Not sure if we want to create the developer user token here or in the controller
+// func GetSecret(c client.Client, secretName string, hc *corev1alpha1.HumioCluster) (corev1.Secret, error) {
+// 	var foundSecret corev1.Secret
+
+// 	err := c.Get(context.TODO(), client.ObjectKey{
+// 		Name:      secretName,
+// 		Namespace: hc.Namespace,
+// 	}, &foundSecret)
+
+// 	return foundSecret, err
+// }
+
+// func CreateSecret(c client.Client, secretName string, hc *corev1alpha1.HumioCluster) error {
+// 	// TODO: create the secret
+// 	return nil
+// }

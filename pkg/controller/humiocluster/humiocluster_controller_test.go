@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	clienttype "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -76,6 +77,15 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				if err != nil {
 					t.Errorf("get pod: (%v). %+v", err, pod)
 				}
+			}
+
+			secret := &corev1.Secret{}
+			err = cl.Get(context.TODO(), clienttype.ObjectKey{
+				Name:      serviceAccountSecretName,
+				Namespace: tt.humioCluster.ObjectMeta.Namespace,
+			}, secret)
+			if err != nil {
+				t.Errorf("get secret: (%v). %+v", err, secret)
 			}
 
 			// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
