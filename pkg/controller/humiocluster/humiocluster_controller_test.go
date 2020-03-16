@@ -3,6 +3,8 @@ package humiocluster
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	humioapi "github.com/humio/cli/api"
@@ -65,8 +67,14 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 						IsAvailable: true,
 					}}}, nil, nil, nil)
 
+			// Start up http server that can send the mock jwt token
+			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				rw.Write([]byte(`{"token": "sometempjwttoken"}`))
+			}))
+			defer server.Close()
+
 			// Create a ReconcileHumioCluster object with the scheme and fake client.
-			r := &ReconcileHumioCluster{client: cl, humioClient: humioClient, scheme: s}
+			r := &ReconcileHumioCluster{client: cl, humioClient: humioClient, scheme: s, url: server.URL}
 
 			// Mock request to simulate Reconcile() being called on an event for a
 			// watched resource .
@@ -81,6 +89,19 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("reconcile: (%v)", err)
 			}
 
+			// Check that the developer password exists as a k8s secret
+			secret := &corev1.Secret{}
+			err = cl.Get(context.TODO(), clienttype.ObjectKey{
+				Name:      serviceAccountSecretName,
+				Namespace: tt.humioCluster.ObjectMeta.Namespace,
+			}, secret)
+			if err != nil {
+				t.Errorf("get secret: (%v). %+v", err, secret)
+			}
+			if string(secret.Data["password"]) == "" {
+				t.Errorf("secret %s expected content to not be empty, but it was", serviceAccountSecretName)
+			}
+
 			for nodeID := 0; nodeID < tt.humioCluster.Spec.NodeCount; nodeID++ {
 				pod := &corev1.Pod{}
 				err = cl.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-core-%d", tt.humioCluster.ObjectMeta.Name, nodeID), Namespace: tt.humioCluster.ObjectMeta.Namespace}, pod)
@@ -89,6 +110,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				}
 			}
 
+			// Check that the service exists
 			service := &corev1.Service{}
 			err = cl.Get(context.TODO(), clienttype.ObjectKey{
 				Name:      tt.humioCluster.Name,
@@ -98,13 +120,17 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("get service: (%v). %+v", err, service)
 			}
 
-			secret := &corev1.Secret{}
+			// Check that the persistent token exists as a k8s secret
+			token := &corev1.Secret{}
 			err = cl.Get(context.TODO(), clienttype.ObjectKey{
-				Name:      serviceAccountSecretName,
+				Name:      serviceTokenSecretName,
 				Namespace: tt.humioCluster.ObjectMeta.Namespace,
-			}, secret)
+			}, token)
 			if err != nil {
-				t.Errorf("get secret: (%v). %+v", err, secret)
+				t.Errorf("get secret: (%v). %+v", err, token)
+			}
+			if string(token.Data["token"]) != "mocktoken" {
+				t.Errorf("secret %s expected content \"%+v\", but got \"%+v\"", serviceTokenSecretName, "mocktoken", string(token.Data["token"]))
 			}
 
 			// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.

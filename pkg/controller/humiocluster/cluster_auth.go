@@ -25,7 +25,11 @@ func GetPersistentToken(hc *corev1alpha1.HumioCluster, url string, humioClient h
 		return "", err
 	}
 
-	return "", nil
+	persistentToken, err := humioClient.ApiToken()
+	if err != nil {
+		return "", err
+	}
+	return persistentToken, nil
 }
 
 // getJWTForSingleUser performs a login to humio with the given credentials and returns a valid JWT token
