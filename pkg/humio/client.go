@@ -18,6 +18,8 @@ type Client interface {
 	Unregister(int) error
 	GetStoragePartitions() (*[]humioapi.StoragePartition, error)
 	GetIngestPartitions() (*[]humioapi.IngestPartition, error)
+	ApiToken() (string, error)
+	Authenticate(*humioapi.Config) error
 }
 
 // ClientConfig stores our Humio api client
@@ -33,6 +35,23 @@ func NewClient(config *humioapi.Config) (ClientConfig, error) {
 		log.Info(fmt.Sprintf("could not create humio client: %v", err))
 	}
 	return ClientConfig{apiClient: client}, err
+}
+
+func (h *ClientConfig) Authenticate(config *humioapi.Config) error {
+	if config.Token == "" {
+		config.Token = h.apiClient.Token()
+	}
+	if config.Address == "" {
+		config.Address = h.apiClient.Address()
+	}
+
+	newClient, err := humioapi.NewClient(*config)
+	if err != nil {
+		return fmt.Errorf("could not create new humio client: %v", err)
+	}
+
+	h.apiClient = newClient
+	return nil
 }
 
 // GetClusters returns a humio cluster and can be mocked via the Client interface
@@ -90,4 +109,9 @@ func (h *ClientConfig) GetStoragePartitions() (*[]humioapi.StoragePartition, err
 // GetIngestPartitions is not immplemented
 func (h *ClientConfig) GetIngestPartitions() (*[]humioapi.IngestPartition, error) {
 	return &[]humioapi.IngestPartition{}, fmt.Errorf("not implemented")
+}
+
+// ApiToken returns the api token for the current logged in user
+func (h *ClientConfig) ApiToken() (string, error) {
+	return h.apiClient.Viewer().ApiToken()
 }

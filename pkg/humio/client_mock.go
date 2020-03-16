@@ -33,6 +33,10 @@ func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePar
 	}
 }
 
+func (h *MockClientConfig) Authenticate(config *humioapi.Config) error {
+	return nil
+}
+
 func (h *MockClientConfig) GetClusters() (humioapi.Cluster, error) {
 	if h.apiClient.ClusterError != nil {
 		return humioapi.Cluster{}, h.apiClient.ClusterError
@@ -98,4 +102,8 @@ func (h *MockClientConfig) GetStoragePartitions() (*[]humioapi.StoragePartition,
 
 func (h *MockClientConfig) GetIngestPartitions() (*[]humioapi.IngestPartition, error) {
 	return h.apiClient.IngestPartitions, nil
+}
+
+func (h *MockClientConfig) ApiToken() (string, error) {
+	return "mocktoken", nil
 }

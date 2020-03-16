@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"testing"
 
+	humioapi "github.com/humio/cli/api"
 	humioClusterv1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	"github.com/humio/humio-operator/pkg/humio"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,8 +57,16 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 
 			// Create a fake client to mock API calls.
 			cl := fake.NewFakeClient(objs...)
+
+			// TODO: create this above when we add more test cases
+			humioClient := humio.NewMocklient(
+				humioapi.Cluster{
+					Nodes: []humioapi.ClusterNode{humioapi.ClusterNode{
+						IsAvailable: true,
+					}}}, nil, nil, nil)
+
 			// Create a ReconcileHumioCluster object with the scheme and fake client.
-			r := &ReconcileHumioCluster{client: cl, scheme: s}
+			r := &ReconcileHumioCluster{client: cl, humioClient: humioClient, scheme: s}
 
 			// Mock request to simulate Reconcile() being called on an event for a
 			// watched resource .
@@ -77,6 +87,15 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				if err != nil {
 					t.Errorf("get pod: (%v). %+v", err, pod)
 				}
+			}
+
+			service := &corev1.Service{}
+			err = cl.Get(context.TODO(), clienttype.ObjectKey{
+				Name:      tt.humioCluster.Name,
+				Namespace: tt.humioCluster.ObjectMeta.Namespace,
+			}, service)
+			if err != nil {
+				t.Errorf("get service: (%v). %+v", err, service)
 			}
 
 			secret := &corev1.Secret{}

@@ -1,4 +1,4 @@
-package humio
+package humiocluster
 
 // placeholder
 // manage developer user password, get developer user token, store as a secret.
@@ -9,11 +9,28 @@ import (
 	"fmt"
 	"net/http"
 
+	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	"github.com/humio/humio-operator/pkg/humio"
 )
 
-// GetJWTForSingleUser performs a login to humio with the given credentials and returns a valid JWT token
-func GetJWTForSingleUser(hc corev1alpha1.HumioCluster) (string, error) {
+// GetPersistentToken asdf
+func GetPersistentToken(hc *corev1alpha1.HumioCluster, url string, humioClient humio.Client) (string, error) {
+	jwtToken, err := getJWTForSingleUser(hc, url)
+	if err != nil {
+		return "", err
+	}
+	err = humioClient.Authenticate(&humioapi.Config{Token: jwtToken})
+	if err != nil {
+		return "", err
+	}
+
+	return "", nil
+}
+
+// getJWTForSingleUser performs a login to humio with the given credentials and returns a valid JWT token
+// url should be fmt.Sprintf("http://%s.%s:8080/api/v1/login", hc.Name, hc.Namespace)
+func getJWTForSingleUser(hc *corev1alpha1.HumioCluster, url string) (string, error) {
 	password, err := getDeveloperUserPassword(hc)
 	if err != nil {
 		return "", err
@@ -27,9 +44,8 @@ func GetJWTForSingleUser(hc corev1alpha1.HumioCluster) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// TODO: where to get BaseURL?
-	// resp, err := http.Post(hc.Status.BaseURL+"api/v1/login", "application/json", bytes.NewBuffer(bytesRepresentation))
-	resp, err := http.Post("baseurl/api/v1/login", "application/json", bytes.NewBuffer(bytesRepresentation))
+	// TODO: get baseurl from humio service name
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(bytesRepresentation))
 
 	if err != nil {
 		return "", fmt.Errorf("could not perform login to obtain jwt token: %v", err)
@@ -48,7 +64,7 @@ func GetJWTForSingleUser(hc corev1alpha1.HumioCluster) (string, error) {
 	return result["token"], nil
 }
 
-func getDeveloperUserPassword(hc corev1alpha1.HumioCluster) (string, error) {
+func getDeveloperUserPassword(hc *corev1alpha1.HumioCluster) (string, error) {
 	// TODO: all this stuff
 	// kubernetes.GetSecret(kubernetes.ServiceAccountSecretName, hc)
 	// extract secret data

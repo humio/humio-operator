@@ -27,6 +27,11 @@ func ListPods(c client.Client, hc *corev1alpha1.HumioCluster) ([]corev1.Pod, err
 	return foundPodList.Items, nil
 }
 
+// GetHumioServiceLoginURL returns the full uri the login url
+func GetHumioServiceLoginURL(c client.Client, hc *corev1alpha1.HumioCluster) string {
+	return fmt.Sprintf("http://%s.%s:8080/api/v1/login", hc.Name, hc.Namespace)
+}
+
 // GetHumioBaseURL the first base URL for the first Humio node it can reach
 func GetHumioBaseURL(c client.Client, hc *corev1alpha1.HumioCluster) (string, error) {
 	allPodsForCluster, err := ListPods(c, hc)

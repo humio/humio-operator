@@ -84,6 +84,17 @@ func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioClus
 			Name:  "PUBLIC_URL", // URL used by users/browsers.
 			Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)",
 		},
+		{
+			Name: "DEVELOPER_USER_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					Key: "password",
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: serviceAccountSecretName,
+					},
+				},
+			},
+		},
 	}
 
 	for _, defaultEnvVar := range envDefaults {
