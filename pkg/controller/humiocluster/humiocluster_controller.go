@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	clienttype "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -61,7 +62,11 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileHumioCluster{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileHumioCluster{
+		client:      mgr.GetClient(),
+		scheme:      mgr.GetScheme(),
+		humioClient: humio.NewClient(&humioapi.Config{}),
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -101,7 +106,6 @@ type ReconcileHumioCluster struct {
 	client      client.Client
 	humioClient humio.Client
 	scheme      *runtime.Scheme
-	url         string // hack TODO: move this somewhere else (do we need a humio cluster interface?)
 }
 
 // Reconcile reads that state of the cluster for a HumioCluster object and makes changes based on the state read
@@ -148,18 +152,20 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	// Ensure persistent token is a k8s secret, authenticate the humio client with the persistent token
-	err = r.ensurePersistentTokenExists(context.TODO(), humioCluster, r.url)
+	err = r.ensurePersistentTokenExists(context.TODO(), humioCluster, r.humioClient.GetBaseURL(humioCluster))
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
+	cluster, err := r.humioClient.GetClusters()
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info(fmt.Sprintf("all cluster info: %v", cluster))
+
 	// All done, don't requeue
 	return reconcile.Result{}, nil
-}
-
-// TODO: not sure if this fits here, but don't have a better place for it at the moment
-func getHumioServiceLoginURL(humioCluster *corev1alpha1.HumioCluster) string {
-	return fmt.Sprintf("http://%s.%s:8080/api/v1/login", humioCluster.Name, humioCluster.Namespace)
 }
 
 func (r *ReconcileHumioCluster) ensureServiceExists(context context.Context, hc *corev1alpha1.HumioCluster) error {
@@ -286,10 +292,11 @@ func (r *ReconcileHumioCluster) ensurePersistentTokenExists(conetext context.Con
 		Name:      serviceTokenSecretName,
 	}, &existingSecret); err != nil {
 		if k8serrors.IsNotFound(err) {
-			if url == "" {
-				url = getHumioServiceLoginURL(humioCluster)
+			password, err := r.getDeveloperUserPassword(humioCluster)
+			if err != nil {
+				return fmt.Errorf("failed to get password: %v", err)
 			}
-			persistentToken, err := GetPersistentToken(humioCluster, url, r.humioClient)
+			persistentToken, err := GetPersistentToken(humioCluster, url, password, r.humioClient)
 			if err != nil {
 				return fmt.Errorf("failed to get persistent token: %s", err)
 			}
@@ -318,9 +325,11 @@ func (r *ReconcileHumioCluster) ensurePersistentTokenExists(conetext context.Con
 	// Either authenticate or re-authenticate with the persistent token
 	r.humioClient.Authenticate(
 		&humioapi.Config{
-			Token: string(existingSecret.Data[serviceTokenSecretName]),
+			Address: url,
+			Token:   string(existingSecret.Data["token"]),
 		},
 	)
+
 	return nil
 }
 
@@ -411,14 +420,32 @@ func constructPod(hc *corev1alpha1.HumioCluster, nodeID int) *corev1.Pod {
 				{
 					Name: "humio-data",
 					VolumeSource: corev1.VolumeSource{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: fmt.Sprintf("%s-core-%d", hc.Name, nodeID),
-						},
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+						/*
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: fmt.Sprintf("%s-core-%d", hc.Name, nodeID),
+							},
+						*/
 					},
 				},
 			},
 		},
 	}
+}
+
+func (r *ReconcileHumioCluster) getDeveloperUserPassword(hc *corev1alpha1.HumioCluster) (string, error) {
+	secret := &corev1.Secret{}
+	err := r.client.Get(context.TODO(), clienttype.ObjectKey{
+		Name:      serviceAccountSecretName,
+		Namespace: hc.ObjectMeta.Namespace,
+	}, secret)
+	if err != nil {
+		return "", fmt.Errorf("could not get secret with password: %v", err)
+	}
+	if string(secret.Data["password"]) == "" {
+		return "", fmt.Errorf("secret %s expected content to not be empty, but it was", serviceAccountSecretName)
+	}
+	return string(secret.Data["password"]), nil
 }
 
 func envVarList(humioCluster *corev1alpha1.HumioCluster) []corev1.EnvVar {
@@ -433,29 +460,6 @@ func labelsForHumio(clusterName string, nodeID int) map[string]string {
 		"humio_node_id": strconv.Itoa(nodeID),
 	}
 	return labels
-}
-
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *corev1alpha1.HumioCluster) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
-	}
 }
 
 func init() {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	humioapi "github.com/humio/cli/api"
+	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/prometheus/common/log"
 )
 
@@ -20,6 +21,7 @@ type Client interface {
 	GetIngestPartitions() (*[]humioapi.IngestPartition, error)
 	ApiToken() (string, error)
 	Authenticate(*humioapi.Config) error
+	GetBaseURL(*corev1alpha1.HumioCluster) string
 }
 
 // ClientConfig stores our Humio api client
@@ -28,13 +30,13 @@ type ClientConfig struct {
 }
 
 // NewClient returns a ClientConfig
-func NewClient(config *humioapi.Config) (ClientConfig, error) {
+func NewClient(config *humioapi.Config) *ClientConfig {
 	//humioapi.NewClient(humioapi.Config{Address: hc.Status.BaseURL, Token: hc.Status.JWTToken})
 	client, err := humioapi.NewClient(*config)
 	if err != nil {
 		log.Info(fmt.Sprintf("could not create humio client: %v", err))
 	}
-	return ClientConfig{apiClient: client}, err
+	return &ClientConfig{apiClient: client}
 }
 
 func (h *ClientConfig) Authenticate(config *humioapi.Config) error {
@@ -114,4 +116,9 @@ func (h *ClientConfig) GetIngestPartitions() (*[]humioapi.IngestPartition, error
 // ApiToken returns the api token for the current logged in user
 func (h *ClientConfig) ApiToken() (string, error) {
 	return h.apiClient.Viewer().ApiToken()
+}
+
+// ApiToken returns the api token for the current logged in user
+func (h *ClientConfig) GetBaseURL(hc *corev1alpha1.HumioCluster) string {
+	return fmt.Sprintf("http://%s.%s:%d/", hc.Name, hc.Namespace, 8080)
 }

@@ -1,6 +1,7 @@
 package humiocluster
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -48,7 +49,7 @@ func TestGetJWTForSingleUser(t *testing.T) {
 		defer server.Close()
 
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := getJWTForSingleUser(tt.args.hc, server.URL)
+			got, err := getJWTForSingleUser(tt.args.hc, fmt.Sprintf("%s/", server.URL), "password")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getJWTForSingleUser() error = %v, wantErr %v", err, tt.wantErr)
 				return
