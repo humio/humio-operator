@@ -15,11 +15,10 @@ spec:
       serviceAccountName: humio-operator
       containers:
         - name: humio-operator
-          # Replace this with the built image name
-          image: REPLACE_IMAGE
+          image: humio/humio-operator:dev
           command:
           - humio-operator
-          imagePullPolicy: Always
+          imagePullPolicy: Never # we pre-load this image with kind when running locally
           env:
             - name: WATCH_NAMESPACE
               valueFrom:

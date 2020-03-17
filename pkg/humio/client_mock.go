@@ -2,6 +2,7 @@ package humio
 
 import (
 	humioapi "github.com/humio/cli/api"
+	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 )
 
 type ClientMock struct {
@@ -15,9 +16,10 @@ type ClientMock struct {
 
 type MockClientConfig struct {
 	apiClient *ClientMock
+	url       string
 }
 
-func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePartitionSchemeError error, updateIngestPartitionSchemeError error) *MockClientConfig {
+func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePartitionSchemeError error, updateIngestPartitionSchemeError error, url string) *MockClientConfig {
 	storagePartition := humioapi.StoragePartition{}
 	ingestPartition := humioapi.IngestPartition{}
 
@@ -30,6 +32,7 @@ func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePar
 			UpdateStoragePartitionSchemeError: updateStoragePartitionSchemeError,
 			UpdateIngestPartitionSchemeError:  updateIngestPartitionSchemeError,
 		},
+		url: url,
 	}
 }
 
@@ -106,4 +109,8 @@ func (h *MockClientConfig) GetIngestPartitions() (*[]humioapi.IngestPartition, e
 
 func (h *MockClientConfig) ApiToken() (string, error) {
 	return "mocktoken", nil
+}
+
+func (h *MockClientConfig) GetBaseURL(hc *corev1alpha1.HumioCluster) string {
+	return h.url
 }

@@ -60,21 +60,25 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			// Create a fake client to mock API calls.
 			cl := fake.NewFakeClient(objs...)
 
-			// TODO: create this above when we add more test cases
-			humioClient := humio.NewMocklient(
-				humioapi.Cluster{
-					Nodes: []humioapi.ClusterNode{humioapi.ClusterNode{
-						IsAvailable: true,
-					}}}, nil, nil, nil)
-
 			// Start up http server that can send the mock jwt token
 			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 				rw.Write([]byte(`{"token": "sometempjwttoken"}`))
 			}))
 			defer server.Close()
 
+			// TODO: create this above when we add more test cases
+			humioClient := humio.NewMocklient(
+				humioapi.Cluster{
+					Nodes: []humioapi.ClusterNode{humioapi.ClusterNode{
+						IsAvailable: true,
+					}}}, nil, nil, nil, fmt.Sprintf("%s/", server.URL))
+
 			// Create a ReconcileHumioCluster object with the scheme and fake client.
-			r := &ReconcileHumioCluster{client: cl, humioClient: humioClient, scheme: s, url: server.URL}
+			r := &ReconcileHumioCluster{
+				client:      cl,
+				humioClient: humioClient,
+				scheme:      s,
+			}
 
 			// Mock request to simulate Reconcile() being called on an event for a
 			// watched resource .
@@ -96,10 +100,10 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				Namespace: tt.humioCluster.ObjectMeta.Namespace,
 			}, secret)
 			if err != nil {
-				t.Errorf("get secret: (%v). %+v", err, secret)
+				t.Errorf("get secret with password: (%v). %+v", err, secret)
 			}
 			if string(secret.Data["password"]) == "" {
-				t.Errorf("secret %s expected content to not be empty, but it was", serviceAccountSecretName)
+				t.Errorf("password secret %s expected content to not be empty, but it was", serviceAccountSecretName)
 			}
 
 			for nodeID := 0; nodeID < tt.humioCluster.Spec.NodeCount; nodeID++ {
@@ -127,10 +131,10 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				Namespace: tt.humioCluster.ObjectMeta.Namespace,
 			}, token)
 			if err != nil {
-				t.Errorf("get secret: (%v). %+v", err, token)
+				t.Errorf("get secret with api token: (%v). %+v", err, token)
 			}
 			if string(token.Data["token"]) != "mocktoken" {
-				t.Errorf("secret %s expected content \"%+v\", but got \"%+v\"", serviceTokenSecretName, "mocktoken", string(token.Data["token"]))
+				t.Errorf("api token secret %s expected content \"%+v\", but got \"%+v\"", serviceTokenSecretName, "mocktoken", string(token.Data["token"]))
 			}
 
 			// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
@@ -140,6 +144,12 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 			if res != (reconcile.Result{}) {
 				t.Error("reconcile did not return an empty Result")
+			}
+
+			// Check that the persistent token
+			tokenInUse, err := r.humioClient.ApiToken()
+			if tokenInUse != "mocktoken" {
+				t.Errorf("expected api token in use to be \"%+v\", but got \"%+v\"", "mocktoken", tokenInUse)
 			}
 
 			// Get the updated HumioCluster object.
