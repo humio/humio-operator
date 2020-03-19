@@ -321,6 +321,8 @@ func generateStoragePartitionSchemeCandidate(storageNodeIDs []int, partitionCoun
 	return ps, nil
 }
 
+// TODO: move this to the cli
+// TODO: perhaps we need to move the zones to groups. e.g. zone a becomes group 1, zone c becomes zone 2 if there is no zone b
 func generateIngestPartitionSchemeCandidate(hc *corev1alpha1.HumioCluster, ingestNodeIDs []int, partitionCount, targetReplication int) ([]humioapi.IngestPartitionInput, error) {
 	replicas := targetReplication
 	if targetReplication > len(ingestNodeIDs) {

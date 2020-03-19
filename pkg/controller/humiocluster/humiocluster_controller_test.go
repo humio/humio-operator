@@ -3,14 +3,19 @@ package humiocluster
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	humioapi "github.com/humio/cli/api"
 	humioClusterv1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	"github.com/humio/humio-operator/pkg/humio"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	clienttype "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -54,8 +59,26 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 
 			// Create a fake client to mock API calls.
 			cl := fake.NewFakeClient(objs...)
+
+			// Start up http server that can send the mock jwt token
+			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				rw.Write([]byte(`{"token": "sometempjwttoken"}`))
+			}))
+			defer server.Close()
+
+			// TODO: create this above when we add more test cases
+			humioClient := humio.NewMocklient(
+				humioapi.Cluster{
+					Nodes: []humioapi.ClusterNode{humioapi.ClusterNode{
+						IsAvailable: true,
+					}}}, nil, nil, nil, fmt.Sprintf("%s/", server.URL))
+
 			// Create a ReconcileHumioCluster object with the scheme and fake client.
-			r := &ReconcileHumioCluster{client: cl, scheme: s}
+			r := &ReconcileHumioCluster{
+				client:      cl,
+				humioClient: humioClient,
+				scheme:      s,
+			}
 
 			// Mock request to simulate Reconcile() being called on an event for a
 			// watched resource .
@@ -70,12 +93,48 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("reconcile: (%v)", err)
 			}
 
+			// Check that the developer password exists as a k8s secret
+			secret := &corev1.Secret{}
+			err = cl.Get(context.TODO(), clienttype.ObjectKey{
+				Name:      serviceAccountSecretName,
+				Namespace: tt.humioCluster.ObjectMeta.Namespace,
+			}, secret)
+			if err != nil {
+				t.Errorf("get secret with password: (%v). %+v", err, secret)
+			}
+			if string(secret.Data["password"]) == "" {
+				t.Errorf("password secret %s expected content to not be empty, but it was", serviceAccountSecretName)
+			}
+
 			for nodeID := 0; nodeID < tt.humioCluster.Spec.NodeCount; nodeID++ {
 				pod := &corev1.Pod{}
 				err = cl.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-core-%d", tt.humioCluster.ObjectMeta.Name, nodeID), Namespace: tt.humioCluster.ObjectMeta.Namespace}, pod)
 				if err != nil {
 					t.Errorf("get pod: (%v). %+v", err, pod)
 				}
+			}
+
+			// Check that the service exists
+			service := &corev1.Service{}
+			err = cl.Get(context.TODO(), clienttype.ObjectKey{
+				Name:      tt.humioCluster.Name,
+				Namespace: tt.humioCluster.ObjectMeta.Namespace,
+			}, service)
+			if err != nil {
+				t.Errorf("get service: (%v). %+v", err, service)
+			}
+
+			// Check that the persistent token exists as a k8s secret
+			token := &corev1.Secret{}
+			err = cl.Get(context.TODO(), clienttype.ObjectKey{
+				Name:      serviceTokenSecretName,
+				Namespace: tt.humioCluster.ObjectMeta.Namespace,
+			}, token)
+			if err != nil {
+				t.Errorf("get secret with api token: (%v). %+v", err, token)
+			}
+			if string(token.Data["token"]) != "mocktoken" {
+				t.Errorf("api token secret %s expected content \"%+v\", but got \"%+v\"", serviceTokenSecretName, "mocktoken", string(token.Data["token"]))
 			}
 
 			// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
@@ -85,6 +144,12 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 			if res != (reconcile.Result{}) {
 				t.Error("reconcile did not return an empty Result")
+			}
+
+			// Check that the persistent token
+			tokenInUse, err := r.humioClient.ApiToken()
+			if tokenInUse != "mocktoken" {
+				t.Errorf("expected api token in use to be \"%+v\", but got \"%+v\"", "mocktoken", tokenInUse)
 			}
 
 			// Get the updated HumioCluster object.
