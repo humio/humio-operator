@@ -1,0 +1,8 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioIngestToken
+metadata:
+  name: example-humioingesttoken
+spec:
+  name: # TODO: default to 
+  parser: # TODO: default to empty string
+  respository:

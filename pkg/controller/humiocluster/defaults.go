@@ -2,6 +2,7 @@ package humiocluster
 
 import (
 	"fmt"
+	"strconv"
 
 	humioClusterv1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -72,8 +73,8 @@ func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioClus
 		},
 
 		{Name: "HUMIO_JVM_ARGS", Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelOldGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC"},
-		{Name: "HUMIO_PORT", Value: fmt.Sprintf("\"%d\"", humioPort)},
-		{Name: "ELASTIC_PORT", Value: fmt.Sprintf("\"%d\"", elasticPort)},
+		{Name: "HUMIO_PORT", Value: strconv.Itoa(humioPort)},
+		{Name: "ELASTIC_PORT", Value: strconv.Itoa(elasticPort)},
 		{Name: "KAFKA_MANAGED_BY_HUMIO", Value: "true"},
 		{Name: "AUTHENTICATION_METHOD", Value: "single-user"},
 		{
@@ -83,6 +84,17 @@ func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioClus
 		{
 			Name:  "PUBLIC_URL", // URL used by users/browsers.
 			Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)",
+		},
+		{
+			Name: "SINGLE_USER_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					Key: "password",
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: serviceAccountSecretName,
+					},
+				},
+			},
 		},
 	}
 

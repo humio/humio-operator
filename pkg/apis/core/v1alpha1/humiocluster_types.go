@@ -28,8 +28,6 @@ type HumioClusterStatus struct {
 	StateLastUpdatedUnix int64 `json:"stateLastUpdated,omitempty"`
 	// Current state set by operator.
 	AllDataAvailable string `json:"allDataAvailable,omitempty"`
-	// BaseURL pointing to an endpoint for the cluster
-	BaseURL string `json:"baseURL,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
