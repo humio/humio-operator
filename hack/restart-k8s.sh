@@ -15,17 +15,17 @@ kind delete cluster --name kind
 sleep 5
 
 # Create new kind cluster, deploy Kafka and run operator
-kind create cluster --name kind --image kindest/node:v1.15.7
-# Right now we depend on apps/v1beta for creating e.g. StatefulSet's. This API is removed in k8s v1.16+
+#kind create cluster --name kind --image kindest/node:v1.15.7
+kind create cluster --name kind --image kindest/node:v1.17.2
 
 # Pre-load confluent images
-docker pull confluentinc/cp-enterprise-kafka:5.3.1
-docker pull confluentinc/cp-zookeeper:5.3.1
-docker pull docker.io/confluentinc/cp-enterprise-kafka:5.3.1
-docker pull docker.io/confluentinc/cp-zookeeper:5.3.1
+docker pull confluentinc/cp-enterprise-kafka:5.4.1
+docker pull confluentinc/cp-zookeeper:5.4.1
+docker pull docker.io/confluentinc/cp-enterprise-kafka:5.4.1
+docker pull docker.io/confluentinc/cp-zookeeper:5.4.1
 docker pull solsson/kafka-prometheus-jmx-exporter@sha256:6f82e2b0464f50da8104acd7363fb9b995001ddff77d248379f8788e78946143
-kind load docker-image --name kind confluentinc/cp-enterprise-kafka:5.3.1
-kind load docker-image --name kind docker.io/confluentinc/cp-zookeeper:5.3.1
+kind load docker-image --name kind confluentinc/cp-enterprise-kafka:5.4.1
+kind load docker-image --name kind docker.io/confluentinc/cp-zookeeper:5.4.1
 kind load docker-image --name kind solsson/kafka-prometheus-jmx-exporter@sha256:6f82e2b0464f50da8104acd7363fb9b995001ddff77d248379f8788e78946143
 
 # Pre-load humio images
