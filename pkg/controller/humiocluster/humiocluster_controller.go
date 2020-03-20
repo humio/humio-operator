@@ -8,11 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/humio/humio-operator/pkg/humio"
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -106,6 +108,7 @@ type ReconcileHumioCluster struct {
 	client      client.Client
 	humioClient humio.Client
 	scheme      *runtime.Scheme
+	logger      logr.Logger
 }
 
 // Reconcile reads that state of the cluster for a HumioCluster object and makes changes based on the state read
@@ -113,8 +116,8 @@ type ReconcileHumioCluster struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling HumioCluster")
+	r.logger = log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	r.logger.Info("Reconciling HumioCluster")
 
 	// Fetch the HumioCluster
 	humioCluster := &corev1alpha1.HumioCluster{}
@@ -132,6 +135,11 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 
 	// Set defaults
 	setDefaults(humioCluster)
+
+	// Set cluster status
+	if humioCluster.Status.ClusterState == "" {
+		humioCluster.Status.ClusterState = "Bootstrapping"
+	}
 
 	// Ensure developer password is a k8s secret
 	err = r.ensureDeveloperUserPasswordExists(context.TODO(), humioCluster)
@@ -162,10 +170,42 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	reqLogger.Info(fmt.Sprintf("all cluster info: %v", cluster))
+	r.logger.Info(fmt.Sprintf("all cluster info: %v", cluster))
+
+	clusterController := humio.NewClusterController(r.humioClient)
+	err = r.ensurePartitionsAreBalanced(*clusterController, humioCluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
 	// All done, don't requeue
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileHumioCluster) ensurePartitionsAreBalanced(humioClusterController humio.ClusterController, hc *corev1alpha1.HumioCluster) error {
+	partitionsBalanced, err := humioClusterController.AreStoragePartitionsBalanced(hc)
+	if err != nil {
+		return fmt.Errorf("unable to check if storage partitions are balanced:%s", err)
+	}
+	if !partitionsBalanced {
+		r.logger.Info("storage partitions are not balanced. Balancing now")
+		err = humioClusterController.RebalanceStoragePartitions(hc)
+		if err != nil {
+			return fmt.Errorf("failed to balance storage partitions :%s", err)
+		}
+	}
+	partitionsBalanced, err = humioClusterController.AreIngestPartitionsBalanced(hc)
+	if err != nil {
+		return fmt.Errorf("unable to check if ingest partitions are balanced:%s", err)
+	}
+	if !partitionsBalanced {
+		r.logger.Info("ingest partitions are not balanced. Balancing now")
+		err = humioClusterController.RebalanceIngestPartitions(hc)
+		if err != nil {
+			return fmt.Errorf("failed to balance ingest partitions :%s", err)
+		}
+	}
+	return nil
 }
 
 func (r *ReconcileHumioCluster) ensureServiceExists(context context.Context, hc *corev1alpha1.HumioCluster) error {
@@ -226,6 +266,7 @@ func constructService(hc *corev1alpha1.HumioCluster) *corev1.Service {
 func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) error {
 	// Ensure we have pods for the defined NodeCount.
 	// If scaling down, we will handle the extra/obsolete pods later.
+	// TODO: should this be a statefulset instead?
 	for nodeID := 0; nodeID < humioCluster.Spec.NodeCount; nodeID++ {
 		var existingPod corev1.Pod
 		pod := constructPod(humioCluster, nodeID)
@@ -239,7 +280,6 @@ func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioC
 			Name:      fmt.Sprintf("%s-core-%d", humioCluster.Name, nodeID),
 		}, &existingPod); err != nil {
 			if k8serrors.IsNotFound(err) {
-
 				err := r.client.Create(context.TODO(), pod)
 				if err != nil {
 					log.Info(fmt.Sprintf("unable to create pod: %v", err))
@@ -247,6 +287,42 @@ func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioC
 				}
 				log.Info(fmt.Sprintf("successfully created pod %s for HumioCluster %s with node id: %d", pod.Name, humioCluster.Name, nodeID))
 				metricPodsCreated.Inc()
+				// TODO: hack to prevent humio nodes from starting up at the same time which seems to cause issues
+				// TODO: this should not be required as humio should allow us to start up pods at the same time without issue
+				for i := 0; i < 300; i++ {
+					var createdPod v1.Pod
+					var podCondition v1.PodCondition
+					if err := r.client.Get(context.TODO(), types.NamespacedName{
+						Namespace: humioCluster.Namespace,
+						Name:      fmt.Sprintf("%s-core-%d", humioCluster.Name, nodeID),
+					}, &createdPod); err == nil {
+						for _, condition := range createdPod.Status.Conditions {
+							if condition.Type == "Ready" {
+								podCondition = condition
+								if condition.Status == "True" {
+									break
+								} else {
+									r.logger.Info(fmt.Sprintf("waiting for pod %s to be ready. current ready state: %s", createdPod.Name, condition.Status))
+								}
+							}
+						}
+						// TODO: hack to get tests to pass quickly
+						if len(createdPod.Status.Conditions) < 1 {
+							r.logger.Info(fmt.Sprintf("pod %s has no status condition", createdPod.Name))
+							break
+						}
+					} else {
+						if k8serrors.IsNotFound(err) {
+							r.logger.Info(fmt.Sprintf("failed to find pod %s-core-%d: %s. checking again", humioCluster.Name, nodeID, err))
+						}
+					}
+					// Pod was created
+					if podCondition.Status == "True" {
+						break
+					}
+					r.logger.Info(fmt.Sprintf("waiting 5 seconds before checking for pod %s", createdPod.Name))
+					time.Sleep(time.Second * 5)
+				}
 			}
 		}
 	}

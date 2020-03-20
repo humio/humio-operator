@@ -44,5 +44,5 @@ kubectl --context kind-kind apply -f deploy/crds/core.humio.com_humioparsers_crd
 kubectl --context kind-kind apply -f deploy/crds/core.humio.com_humiorepositories_crd.yaml
 
 # Create a CR instance of HumioCluster
-sleep 30
+sleep 10
 kubectl --context kind-kind apply -f deploy/crds/core.humio.com_v1alpha1_humiocluster_cr.yaml

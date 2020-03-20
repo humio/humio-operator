@@ -103,12 +103,12 @@ func (h *ClientConfig) Unregister(id int) error {
 	return h.apiClient.ClusterNodes().Unregister(int64(id), false)
 }
 
-// GetStoragePartitions is not implemented
+// GetStoragePartitions is not implemented. It is only used in the mock to validate partition layout
 func (h *ClientConfig) GetStoragePartitions() (*[]humioapi.StoragePartition, error) {
 	return &[]humioapi.StoragePartition{}, fmt.Errorf("not implemented")
 }
 
-// GetIngestPartitions is not immplemented
+// GetIngestPartitions is not implemented. It is only used in the mock to validate partition layout
 func (h *ClientConfig) GetIngestPartitions() (*[]humioapi.IngestPartition, error) {
 	return &[]humioapi.IngestPartition{}, fmt.Errorf("not implemented")
 }
