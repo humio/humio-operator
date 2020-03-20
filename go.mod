@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/go-logr/logr v0.1.0
 	github.com/golang/protobuf v1.3.5 // indirect
 	github.com/humio/cli v0.23.1-0.20200316153830-b79ffe7f790a
 	github.com/mattn/go-runewidth v0.0.8 // indirect

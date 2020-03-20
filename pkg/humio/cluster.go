@@ -110,28 +110,29 @@ func (c *ClusterController) AreStoragePartitionsBalanced(hc *corev1alpha1.HumioC
 		}
 	}
 
+	// TODO: this should be moved to the humio/cli package
 	var min, max int
-	for i := 0; i < len(cluster.Nodes); i++ {
-		if nodeToPartitionCount[i] == 0 {
-			log.Infof("node id %d does not contain any partitions", i)
+	for i, partitionCount := range nodeToPartitionCount {
+		if partitionCount == 0 {
+			log.Infof("node id %d does not contain any storage partitions", i)
 			return false, nil
 		}
 		if min == 0 {
-			min = nodeToPartitionCount[i]
+			min = partitionCount
 		}
 		if max == 0 {
-			max = nodeToPartitionCount[i]
+			max = partitionCount
 		}
-		if nodeToPartitionCount[i] > max {
-			max = nodeToPartitionCount[i]
+		if partitionCount > max {
+			max = partitionCount
 		}
-		if nodeToPartitionCount[i] < min {
-			min = nodeToPartitionCount[i]
+		if partitionCount < min {
+			min = partitionCount
 		}
 	}
 
 	if max-min > 1 {
-		log.Infof("the difference in number of partitions assigned per storage node is greater than 1, min=%d, max=%d", min, max)
+		log.Infof("the difference in number of storage partitions assigned per storage node is greater than 1, min=%d, max=%d", min, max)
 		return false, nil
 	}
 
@@ -168,6 +169,9 @@ func (c *ClusterController) RebalanceStoragePartitions(hc *corev1alpha1.HumioClu
 	if err := c.client.UpdateStoragePartitionScheme(partitionAssignment); err != nil {
 		return fmt.Errorf("could not update storage partition scheme: %v", err)
 	}
+
+	partitions, _ := c.client.GetStoragePartitions()
+	log.Infof("balanced storage partitions: %v, assignment: %v", partitions, partitionAssignment)
 	return nil
 }
 
@@ -189,7 +193,7 @@ func (c *ClusterController) AreIngestPartitionsBalanced(hc *corev1alpha1.HumioCl
 
 	for _, partition := range cluster.IngestPartitions {
 		if len(partition.NodeIds) != hc.Spec.TargetReplicationFactor {
-			// our target replication factor is not met
+			log.Info("the number of nodes in a partition does not match the replication factor")
 			return false, nil
 		}
 		for _, node := range partition.NodeIds {
@@ -197,32 +201,33 @@ func (c *ClusterController) AreIngestPartitionsBalanced(hc *corev1alpha1.HumioCl
 		}
 	}
 
+	// TODO: this should be moved to the humio/cli package
 	var min, max int
-	for i := 0; i < len(cluster.Nodes); i++ {
-		if nodeToPartitionCount[i] == 0 {
-			log.Infof("node id %d does not contain any partitions", i)
+	for i, partitionCount := range nodeToPartitionCount {
+		if partitionCount == 0 {
+			log.Infof("node id %d does not contain any ingest partitions", i)
 			return false, nil
 		}
 		if min == 0 {
-			min = nodeToPartitionCount[i]
+			min = partitionCount
 		}
 		if max == 0 {
-			max = nodeToPartitionCount[i]
+			max = partitionCount
 		}
-		if nodeToPartitionCount[i] > max {
-			max = nodeToPartitionCount[i]
+		if partitionCount > max {
+			max = partitionCount
 		}
-		if nodeToPartitionCount[i] < min {
-			min = nodeToPartitionCount[i]
+		if partitionCount < min {
+			min = partitionCount
 		}
 	}
 
 	if max-min > 1 {
-		log.Infof("the difference in number of partitions assigned per storage node is greater than 1, min=%d, max=%d", min, max)
+		log.Infof("the difference in number of ingest partitions assigned per storage node is greater than 1, min=%d, max=%d", min, max)
 		return false, nil
 	}
 
-	log.Infof("storage partitions are balanced min=%d, max=%d", min, max)
+	log.Infof("ingest partitions are balanced min=%d, max=%d", min, max)
 	return true, nil
 }
 
@@ -258,6 +263,8 @@ func (c *ClusterController) RebalanceIngestPartitions(hc *corev1alpha1.HumioClus
 }
 
 // StartDataRedistribution notifies the Humio cluster that it should start redistributing data to match current assignments
+// TODO: how often, or when do we run this? Is it necessary for storage and digest? Is it necessary for MoveStorageRouteAwayFromNode
+// and MoveIngestRoutesAwayFromNode?
 func (c *ClusterController) StartDataRedistribution(hc *corev1alpha1.HumioCluster) error {
 	log.Info("starting data redistribution")
 
