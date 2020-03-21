@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"strconv"
 	"strings"
 	"time"
 
@@ -427,7 +426,7 @@ func constructPod(hc *corev1alpha1.HumioCluster, nodeID int) *corev1.Pod {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-core-%d", hc.Name, nodeID),
 			Namespace: hc.Namespace,
-			Labels:    labelsForHumio(hc.Name, nodeID),
+			Labels:    labelsForHumio(hc.Name),
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: hc.APIVersion,
@@ -529,11 +528,10 @@ func envVarList(humioCluster *corev1alpha1.HumioCluster) []corev1.EnvVar {
 	return humioCluster.Spec.EnvironmentVariables
 }
 
-func labelsForHumio(clusterName string, nodeID int) map[string]string {
+func labelsForHumio(clusterName string) map[string]string {
 	labels := map[string]string{
-		"app":           "humio",
-		"humio_cr":      clusterName,
-		"humio_node_id": strconv.Itoa(nodeID),
+		"app":      "humio",
+		"humio_cr": clusterName,
 	}
 	return labels
 }

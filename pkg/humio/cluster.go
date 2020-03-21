@@ -169,9 +169,6 @@ func (c *ClusterController) RebalanceStoragePartitions(hc *corev1alpha1.HumioClu
 	if err := c.client.UpdateStoragePartitionScheme(partitionAssignment); err != nil {
 		return fmt.Errorf("could not update storage partition scheme: %v", err)
 	}
-
-	partitions, _ := c.client.GetStoragePartitions()
-	log.Infof("balanced storage partitions: %v, assignment: %v", partitions, partitionAssignment)
 	return nil
 }
 
