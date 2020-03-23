@@ -154,18 +154,38 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("password secret %s expected content to not be empty, but it was", serviceAccountSecretName)
 			}
 
-			for nodeID := 0; nodeID < tt.humioCluster.Spec.NodeCount; nodeID++ {
-				pod := &corev1.Pod{}
-				err = cl.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-core-%d", tt.humioCluster.ObjectMeta.Name, nodeID), Namespace: tt.humioCluster.ObjectMeta.Namespace}, pod)
-				if err != nil {
-					t.Errorf("get pod: (%v). %+v", err, pod)
+			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
+				var foundPodList corev1.PodList
+				var matchingLabels client.MatchingLabels
+
+				matchingLabels = labelsForHumio(tt.humioCluster.Name)
+				cl.List(context.TODO(), &foundPodList, client.InNamespace(tt.humioCluster.Namespace), matchingLabels)
+
+				if len(foundPodList.Items) != nodeCount+1 {
+					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount+1, len(foundPodList.Items))
 				}
 
 				// We must update the IP address because when we attempt to add labels to the pod we validate that they have IP addresses first
-				pod.Status.PodIP = fmt.Sprintf("192.168.0.%d", nodeID)
-				err = cl.Status().Update(context.TODO(), pod)
+				// We also must update the ready condition as the reconciler will wait until all pods are ready before continuing
+				for nodeID, pod := range foundPodList.Items {
+					//pod.Name = fmt.Sprintf("%s-core-somesuffix%d", tt.humioCluster.Name, nodeID)
+					pod.Status.PodIP = fmt.Sprintf("192.168.0.%d", nodeID)
+					pod.Status.Conditions = []corev1.PodCondition{
+						corev1.PodCondition{
+							Type:   corev1.PodConditionType("Ready"),
+							Status: corev1.ConditionTrue,
+						},
+					}
+					err := cl.Status().Update(context.TODO(), &pod)
+					if err != nil {
+						t.Errorf("failed to update pods to prepare for testing the labels: %s", err)
+					}
+				}
+
+				// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
+				res, err = r.Reconcile(req)
 				if err != nil {
-					t.Errorf("failed to update pods to prepare for testing the labels: %s", err)
+					t.Errorf("reconcile: (%v)", err)
 				}
 			}
 
@@ -225,16 +245,13 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 
 			var foundPodList corev1.PodList
 			cl.List(context.TODO(), &foundPodList, client.InNamespace(tt.humioCluster.Namespace), matchingLabelsForHumio(tt.humioCluster.Name))
-			//cl.List(context.TODO(), &foundPodList, client.InNamespace(tt.humioCluster.Namespace))
-			//t.Errorf("matchinglabelsforhumio: %v", matchingLabelsForHumio(tt.humioCluster.Name))
 
 			if len(foundPodList.Items) != tt.humioCluster.Spec.NodeCount {
-				t.Errorf("expected list pods to return equal to %d, got=%v", tt.humioCluster.Spec.NodeCount, foundPodList)
+				t.Errorf("expected list pods to return equal to %d, got %d", tt.humioCluster.Spec.NodeCount, len(foundPodList.Items))
 			}
 
+			// Ensure that we add node_id label to all pods
 			for _, pod := range foundPodList.Items {
-				// Skip pods that already have a label
-				//t.Errorf("expected pod %s to have labels %s", pod.Name, pod.GetLabels())
 				if !podHasLabel(pod.GetLabels(), "node_id") {
 					t.Errorf("expected pod %s to have label node_id", pod.Name)
 				}
