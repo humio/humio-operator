@@ -39,7 +39,9 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				Spec: humioClusterv1alpha1.HumioClusterSpec{
 					Image:                   "humio/humio-core",
 					Version:                 "1.9.0",
-					TargetReplicationFactor: 3,
+					TargetReplicationFactor: 2,
+					StoragePartitionsCount:  3,
+					DigestPartitionsCount:   3,
 					NodeCount:               3,
 				},
 			},
@@ -67,11 +69,53 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			defer server.Close()
 
 			// TODO: create this above when we add more test cases
+			storagePartitions := []humioapi.StoragePartition{
+				humioapi.StoragePartition{
+					Id:      1,
+					NodeIds: []int{0},
+				},
+				humioapi.StoragePartition{
+					Id:      2,
+					NodeIds: []int{0},
+				},
+				humioapi.StoragePartition{
+					Id:      3,
+					NodeIds: []int{0},
+				},
+			}
+			ingestPartitions := []humioapi.IngestPartition{
+				humioapi.IngestPartition{
+					Id:      1,
+					NodeIds: []int{0},
+				},
+				humioapi.IngestPartition{
+					Id:      2,
+					NodeIds: []int{0},
+				},
+				humioapi.IngestPartition{
+					Id:      3,
+					NodeIds: []int{0},
+				},
+			}
 			humioClient := humio.NewMocklient(
 				humioapi.Cluster{
-					Nodes: []humioapi.ClusterNode{humioapi.ClusterNode{
-						IsAvailable: true,
-					}}}, nil, nil, nil, fmt.Sprintf("%s/", server.URL))
+					Nodes: []humioapi.ClusterNode{
+						humioapi.ClusterNode{
+							Id:          0,
+							IsAvailable: true,
+						},
+						humioapi.ClusterNode{
+							Id:          1,
+							IsAvailable: true,
+						},
+						humioapi.ClusterNode{
+							Id:          2,
+							IsAvailable: true,
+						},
+					},
+					StoragePartitions: storagePartitions,
+					IngestPartitions:  ingestPartitions,
+				}, nil, nil, nil, fmt.Sprintf("%s/", server.URL))
 
 			// Create a ReconcileHumioCluster object with the scheme and fake client.
 			r := &ReconcileHumioCluster{
@@ -157,6 +201,16 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			err = r.client.Get(context.TODO(), req.NamespacedName, humioCluster)
 			if err != nil {
 				t.Errorf("get HumioCluster: (%v)", err)
+			}
+
+			// Check that the partitions are balanced
+			// TODO: fix this test
+			clusterController := humio.NewClusterController(humioClient)
+			if b, err := clusterController.AreStoragePartitionsBalanced(humioCluster); !b || err != nil {
+				t.Errorf("expected storage partitions to be balanced. got %v, err %s", b, err)
+			}
+			if b, err := clusterController.AreIngestPartitionsBalanced(humioCluster); !b || err != nil {
+				t.Errorf("expected ingest partitions to be balanced. got %v, err %s", b, err)
 			}
 		})
 	}

@@ -8,8 +8,6 @@ import (
 type ClientMock struct {
 	Cluster                           humioapi.Cluster
 	ClusterError                      error
-	StoragePartitions                 *[]humioapi.StoragePartition
-	IngestPartitions                  *[]humioapi.IngestPartition
 	UpdateStoragePartitionSchemeError error
 	UpdateIngestPartitionSchemeError  error
 }
@@ -23,17 +21,20 @@ func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePar
 	storagePartition := humioapi.StoragePartition{}
 	ingestPartition := humioapi.IngestPartition{}
 
-	return &MockClientConfig{
+	mockClientConfig := &MockClientConfig{
 		apiClient: &ClientMock{
 			Cluster:                           cluster,
 			ClusterError:                      clusterError,
-			StoragePartitions:                 &[]humioapi.StoragePartition{storagePartition},
-			IngestPartitions:                  &[]humioapi.IngestPartition{ingestPartition},
 			UpdateStoragePartitionSchemeError: updateStoragePartitionSchemeError,
 			UpdateIngestPartitionSchemeError:  updateIngestPartitionSchemeError,
 		},
 		url: url,
 	}
+
+	cluster.StoragePartitions = []humioapi.StoragePartition{storagePartition}
+	cluster.IngestPartitions = []humioapi.IngestPartition{ingestPartition}
+
+	return mockClientConfig
 }
 
 func (h *MockClientConfig) Authenticate(config *humioapi.Config) error {
@@ -60,7 +61,7 @@ func (h *MockClientConfig) UpdateStoragePartitionScheme(sps []humioapi.StoragePa
 		}
 		storagePartitions = append(storagePartitions, humioapi.StoragePartition{Id: int(storagePartitionInput.ID), NodeIds: nodeIdsList})
 	}
-	h.apiClient.StoragePartitions = &storagePartitions
+	h.apiClient.Cluster.StoragePartitions = storagePartitions
 
 	return nil
 }
@@ -78,7 +79,7 @@ func (h *MockClientConfig) UpdateIngestPartitionScheme(ips []humioapi.IngestPart
 		}
 		ingestPartitions = append(ingestPartitions, humioapi.IngestPartition{Id: int(ingestPartitionInput.ID), NodeIds: nodeIdsList})
 	}
-	h.apiClient.IngestPartitions = &ingestPartitions
+	h.apiClient.Cluster.IngestPartitions = ingestPartitions
 
 	return nil
 }
@@ -100,11 +101,11 @@ func (h *MockClientConfig) StartDataRedistribution() error {
 }
 
 func (h *MockClientConfig) GetStoragePartitions() (*[]humioapi.StoragePartition, error) {
-	return h.apiClient.StoragePartitions, nil
+	return &h.apiClient.Cluster.StoragePartitions, nil
 }
 
 func (h *MockClientConfig) GetIngestPartitions() (*[]humioapi.IngestPartition, error) {
-	return h.apiClient.IngestPartitions, nil
+	return &h.apiClient.Cluster.IngestPartitions, nil
 }
 
 func (h *MockClientConfig) ApiToken() (string, error) {
