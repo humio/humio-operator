@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -164,12 +165,10 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	cluster, err := r.humioClient.GetClusters()
+	err = r.ensurePodLabels(context.TODO(), humioCluster)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
-	r.logger.Info(fmt.Sprintf("all cluster info: %v", cluster))
 
 	clusterController := humio.NewClusterController(r.humioClient)
 	err = r.ensurePartitionsAreBalanced(*clusterController, humioCluster)
@@ -179,6 +178,51 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 
 	// All done, don't requeue
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileHumioCluster) ensurePodLabels(context context.Context, hc *corev1alpha1.HumioCluster) error {
+	r.logger.Info("ensuring pod labels")
+	cluster, err := r.humioClient.GetClusters()
+	if err != nil {
+		return fmt.Errorf("failed to get clusters: %s", err)
+	}
+
+	var foundPodList corev1.PodList
+	err = r.client.List(context, &foundPodList, client.InNamespace(hc.Namespace), matchingLabelsForHumio(hc.Name))
+
+	for _, pod := range foundPodList.Items {
+		// Skip pods that already have a label
+		if podHasLabel(pod.GetLabels(), "node_id") {
+			continue
+		}
+		// If pod does not have an IP yet it is probably pending
+		if pod.Status.PodIP == "" {
+			r.logger.Info(fmt.Sprintf("not setting labels for pod %s because it is in state %s", pod.Name, pod.Status.Phase))
+			continue
+		}
+		r.logger.Info(fmt.Sprintf("setting labels for nodes: %v", cluster.Nodes))
+		for _, node := range cluster.Nodes {
+			if node.Uri == fmt.Sprintf("http://%s:%d", pod.Status.PodIP, humioPort) {
+				labels := labelsForPod(hc.Name, node.Id)
+				r.logger.Info(fmt.Sprintf("setting labels for pod %s, labels=%v", pod.Name, labels))
+				pod.SetLabels(labels)
+				if err := r.client.Update(context, &pod); err != nil {
+					return fmt.Errorf("failed to update labels on pod %s: %s", pod.Name, err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func podHasLabel(labels map[string]string, label string) bool {
+	for labelName := range labels {
+		if labelName == label {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *ReconcileHumioCluster) ensurePartitionsAreBalanced(humioClusterController humio.ClusterController, hc *corev1alpha1.HumioCluster) error {
@@ -265,7 +309,6 @@ func constructService(hc *corev1alpha1.HumioCluster) *corev1.Service {
 func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) error {
 	// Ensure we have pods for the defined NodeCount.
 	// If scaling down, we will handle the extra/obsolete pods later.
-	// TODO: should this be a statefulset instead?
 	for nodeID := 0; nodeID < humioCluster.Spec.NodeCount; nodeID++ {
 		var existingPod corev1.Pod
 		pod := constructPod(humioCluster, nodeID)
@@ -533,6 +576,18 @@ func labelsForHumio(clusterName string) map[string]string {
 		"app":      "humio",
 		"humio_cr": clusterName,
 	}
+	return labels
+}
+
+func matchingLabelsForHumio(clusterName string) client.MatchingLabels {
+	var matchingLabels client.MatchingLabels
+	matchingLabels = labelsForHumio(clusterName)
+	return matchingLabels
+}
+
+func labelsForPod(clusterName string, nodeID int) map[string]string {
+	labels := labelsForHumio(clusterName)
+	labels["node_id"] = strconv.Itoa(nodeID)
 	return labels
 }
 
