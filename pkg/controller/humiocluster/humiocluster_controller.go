@@ -14,7 +14,6 @@ import (
 	"github.com/humio/humio-operator/pkg/humio"
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -147,10 +146,11 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	// Ensure pods exist
-	err = r.ensurePodsExist(context.TODO(), humioCluster)
-	if err != nil {
-		return reconcile.Result{}, err
+	// Ensure pods exist. Will requeue if not all pods are created and ready
+	emptyResult := reconcile.Result{}
+	result, err := r.ensurePodsExist(context.TODO(), humioCluster)
+	if result != emptyResult || err != nil {
+		return result, err
 	}
 
 	// Ensure service exists
@@ -306,69 +306,62 @@ func constructService(hc *corev1alpha1.HumioCluster) *corev1.Service {
 	}
 }
 
-func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) error {
+// TODO: change to create 1 pod at a time, return Requeue=true and RequeueAfter.
+// check that other pods, if they exist, are in a ready state
+func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) (reconcile.Result, error) {
 	// Ensure we have pods for the defined NodeCount.
 	// If scaling down, we will handle the extra/obsolete pods later.
-	for nodeID := 0; nodeID < humioCluster.Spec.NodeCount; nodeID++ {
-		var existingPod corev1.Pod
-		pod := constructPod(humioCluster, nodeID)
+	var foundPodList corev1.PodList
+	var matchingLabels client.MatchingLabels
 
-		if err := controllerutil.SetControllerReference(humioCluster, pod, r.scheme); err != nil {
-			return err
-		}
+	matchingLabels = labelsForHumio(humioCluster.Name)
+	err := r.client.List(context.TODO(), &foundPodList, client.InNamespace(humioCluster.Namespace), matchingLabels)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to list pods: %s", err)
+	}
 
-		if err := r.client.Get(context.TODO(), types.NamespacedName{
-			Namespace: humioCluster.Namespace,
-			Name:      fmt.Sprintf("%s-core-%d", humioCluster.Name, nodeID),
-		}, &existingPod); err != nil {
-			if k8serrors.IsNotFound(err) {
-				err := r.client.Create(context.TODO(), pod)
-				if err != nil {
-					log.Info(fmt.Sprintf("unable to create pod: %v", err))
-					return fmt.Errorf("unable to create Pod for HumioCluster: %v", err)
-				}
-				log.Info(fmt.Sprintf("successfully created pod %s for HumioCluster %s with node id: %d", pod.Name, humioCluster.Name, nodeID))
-				metricPodsCreated.Inc()
-				// TODO: hack to prevent humio nodes from starting up at the same time which seems to cause issues
-				// TODO: this should not be required as humio should allow us to start up pods at the same time without issue
-				for i := 0; i < 300; i++ {
-					var createdPod v1.Pod
-					var podCondition v1.PodCondition
-					if err := r.client.Get(context.TODO(), types.NamespacedName{
-						Namespace: humioCluster.Namespace,
-						Name:      fmt.Sprintf("%s-core-%d", humioCluster.Name, nodeID),
-					}, &createdPod); err == nil {
-						for _, condition := range createdPod.Status.Conditions {
-							if condition.Type == "Ready" {
-								podCondition = condition
-								if condition.Status == "True" {
-									break
-								} else {
-									r.logger.Info(fmt.Sprintf("waiting for pod %s to be ready. current ready state: %s", createdPod.Name, condition.Status))
-								}
-							}
-						}
-						// TODO: hack to get tests to pass quickly
-						if len(createdPod.Status.Conditions) < 1 {
-							r.logger.Info(fmt.Sprintf("pod %s has no status condition", createdPod.Name))
-							break
-						}
-					} else {
-						if k8serrors.IsNotFound(err) {
-							r.logger.Info(fmt.Sprintf("failed to find pod %s-core-%d: %s. checking again", humioCluster.Name, nodeID, err))
-						}
-					}
-					// Pod was created
-					if podCondition.Status == "True" {
-						break
-					}
-					r.logger.Info(fmt.Sprintf("waiting 5 seconds before checking for pod %s", createdPod.Name))
-					time.Sleep(time.Second * 5)
+	var podsReadyCount int
+	var podsNotReadyCount int
+	for _, pod := range foundPodList.Items {
+		podsNotReadyCount++
+		for _, condition := range pod.Status.Conditions {
+			if condition.Type == "Ready" {
+				if condition.Status == "True" {
+					podsReadyCount++
+					podsNotReadyCount--
 				}
 			}
 		}
 	}
-	return nil
+	if podsReadyCount == humioCluster.Spec.NodeCount {
+		r.logger.Info("all humio pods are reporting ready")
+		return reconcile.Result{}, nil
+	}
+
+	if podsNotReadyCount > 0 {
+		r.logger.Info(fmt.Sprintf("there are %d humio pods that are not ready. all humio pods must report ready before reconciliation can continue", podsNotReadyCount))
+		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
+	}
+
+	if podsReadyCount < humioCluster.Spec.NodeCount {
+		pod := constructPod(humioCluster)
+		if err := controllerutil.SetControllerReference(humioCluster, pod, r.scheme); err != nil {
+			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+		}
+
+		err := r.client.Create(context.TODO(), pod)
+		if err != nil {
+			log.Info(fmt.Sprintf("unable to create pod: %v", err))
+			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, fmt.Errorf("unable to create Pod for HumioCluster: %v", err)
+		}
+		log.Info(fmt.Sprintf("successfully created pod with prefix %s for HumioCluster %s", pod.GenerateName, humioCluster.Name))
+		metricPodsCreated.Inc()
+		// We have created a pod. Requeue immediately even if the pod is not ready. We will check the readiness status on the next reconciliation.
+		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 0}, nil
+	}
+
+	// TODO: what should happen if we have more pods than are expected?
+	return reconcile.Result{}, nil
 }
 
 // TODO: extend this (or create separate method) to take this password and perform a login, get the jwt token and then call the api to get the persistent api token and also store that as a secret
@@ -464,10 +457,25 @@ func generatePassword() string {
 	return b.String()
 }
 
-func constructPod(hc *corev1alpha1.HumioCluster, nodeID int) *corev1.Pod {
+func generatePodSuffix() string {
+	rand.Seed(time.Now().UnixNano())
+	chars := []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+		"abcdefghijklmnopqrstuvwxyz" +
+		"0123456789")
+	length := 6
+	var b strings.Builder
+	for i := 0; i < length; i++ {
+		b.WriteRune(chars[rand.Intn(len(chars))])
+	}
+	return b.String()
+}
+
+func constructPod(hc *corev1alpha1.HumioCluster) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-core-%d", hc.Name, nodeID),
+			// TODO: Not sure how to use GenerateName with unit tests as this requires that the Name attribute is set by the server
+			//GenerateName: fmt.Sprintf("%s-core-", hc.Name),
+			Name:      fmt.Sprintf("%s-core-", generatePodSuffix()),
 			Namespace: hc.Namespace,
 			Labels:    labelsForHumio(hc.Name),
 			OwnerReferences: []metav1.OwnerReference{
@@ -480,7 +488,6 @@ func constructPod(hc *corev1alpha1.HumioCluster, nodeID int) *corev1.Pod {
 			},
 		},
 		Spec: corev1.PodSpec{
-			Hostname:  fmt.Sprintf("%s-core-%d", hc.Name, nodeID),
 			Subdomain: hc.Name,
 			Containers: []corev1.Container{
 				{
