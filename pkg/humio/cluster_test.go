@@ -456,7 +456,6 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 			got, err := c.AreStoragePartitionsBalanced(tt.args.hc)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ClusterController.AreStoragePartitionsBalanced() error = %v, wantErr %v", err, tt.wantErr)
-				return
 			}
 			if got != tt.want {
 				t.Errorf("ClusterController.AreStoragePartitionsBalanced() = %v, want %v", got, tt.want)
@@ -477,6 +476,7 @@ func TestClusterController_RebalanceStoragePartitions(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
+		want    bool
 		wantErr bool
 	}{
 		{
@@ -531,6 +531,7 @@ func TestClusterController_RebalanceStoragePartitions(t *testing.T) {
 					},
 				},
 			},
+			true,
 			false,
 		},
 	}
@@ -544,6 +545,13 @@ func TestClusterController_RebalanceStoragePartitions(t *testing.T) {
 			}
 			if sps, _ := c.client.GetStoragePartitions(); !reflect.DeepEqual(*sps, *tt.fields.expectedPartitions) {
 				t.Errorf("ClusterController.GetStoragePartitions() expected = %v, want %v", *tt.fields.expectedPartitions, *sps)
+			}
+			got, err := c.AreStoragePartitionsBalanced(tt.args.hc)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ClusterController.AreStoragePartitionsBalanced() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("ClusterController.AreStoragePartitionsBalanced() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -753,6 +761,7 @@ func TestClusterController_RebalanceIngestPartitions(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
+		want    bool
 		wantErr bool
 	}{
 		{
@@ -807,6 +816,7 @@ func TestClusterController_RebalanceIngestPartitions(t *testing.T) {
 					},
 				},
 			},
+			true,
 			false,
 		},
 	}
@@ -820,6 +830,13 @@ func TestClusterController_RebalanceIngestPartitions(t *testing.T) {
 			}
 			if sps, _ := c.client.GetIngestPartitions(); !reflect.DeepEqual(*sps, *tt.fields.expectedPartitions) {
 				t.Errorf("ClusterController.GetIngestPartitions() expected = %v, got %v", *tt.fields.expectedPartitions, *sps)
+			}
+			got, err := c.AreIngestPartitionsBalanced(tt.args.hc)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ClusterController.AreIngestPartitionsBalanced() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("ClusterController.AreIngestPartitionsBalanced() = %v, want %v", got, tt.want)
 			}
 		})
 	}

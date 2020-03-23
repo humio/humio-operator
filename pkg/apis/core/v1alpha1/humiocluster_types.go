@@ -28,6 +28,9 @@ type HumioClusterStatus struct {
 	StateLastUpdatedUnix int64 `json:"stateLastUpdated,omitempty"`
 	// Current state set by operator.
 	AllDataAvailable string `json:"allDataAvailable,omitempty"`
+	// ClusterState will be empty before the cluster is bootstrapped. From there it can be "Bootstrapping" or "Operational"
+	// TODO: other states?
+	ClusterState string `json:"clusterState,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -13,6 +13,7 @@ operator-sdk build humio/humio-operator:dev
 
 # Run operator locally
 kind load docker-image --name kind humio/humio-operator:dev
+docker rmi humio/humio-operator:dev
 export WATCH_NAMESPACE=default
 kubectl --context kind-kind apply -f deploy/role.yaml
 kubectl --context kind-kind apply -f deploy/service_account.yaml
