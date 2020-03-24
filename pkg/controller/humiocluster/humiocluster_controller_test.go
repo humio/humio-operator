@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	humioapi "github.com/humio/cli/api"
 	humioClusterv1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
@@ -217,8 +218,8 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
 			}
-			if res != (reconcile.Result{}) {
-				t.Error("reconcile did not return an empty Result")
+			if res != (reconcile.Result{Requeue: true, RequeueAfter: time.Second * 30}) {
+				t.Error("reconcile finished, requeueing the resource after 30 seconds")
 			}
 
 			// Check that the persistent token
@@ -243,15 +244,17 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("expected ingest partitions to be balanced. got %v, err %s", b, err)
 			}
 
-			var foundPodList corev1.PodList
-			cl.List(context.TODO(), &foundPodList, client.InNamespace(tt.humioCluster.Namespace), matchingLabelsForHumio(tt.humioCluster.Name))
+			foundPodList, err := ListPods(cl, tt.humioCluster)
+			if err != nil {
+				t.Errorf("could not list pods to validate their content: %v", err)
+			}
 
-			if len(foundPodList.Items) != tt.humioCluster.Spec.NodeCount {
-				t.Errorf("expected list pods to return equal to %d, got %d", tt.humioCluster.Spec.NodeCount, len(foundPodList.Items))
+			if len(foundPodList) != tt.humioCluster.Spec.NodeCount {
+				t.Errorf("expected list pods to return equal to %d, got %d", tt.humioCluster.Spec.NodeCount, len(foundPodList))
 			}
 
 			// Ensure that we add node_id label to all pods
-			for _, pod := range foundPodList.Items {
+			for _, pod := range foundPodList {
 				if !podHasLabel(pod.GetLabels(), "node_id") {
 					t.Errorf("expected pod %s to have label node_id", pod.Name)
 				}
