@@ -50,11 +50,6 @@ var (
 	})
 )
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
-
 // Add creates a new HumioCluster Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -84,14 +79,20 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner HumioCluster
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &corev1alpha1.HumioCluster{},
-	})
-	if err != nil {
-		return err
+	var watchTypes []runtime.Object
+	watchTypes = append(watchTypes, &corev1.Pod{})
+	watchTypes = append(watchTypes, &corev1.Secret{})
+	watchTypes = append(watchTypes, &corev1.Service{})
+
+	for _, watchType := range watchTypes {
+		err = c.Watch(&source.Kind{Type: watchType}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &corev1alpha1.HumioCluster{},
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
