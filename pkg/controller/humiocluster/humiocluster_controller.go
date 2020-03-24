@@ -191,7 +191,7 @@ func (r *ReconcileHumioCluster) ensurePodLabels(context context.Context, hc *cor
 
 	for _, pod := range foundPodList {
 		// Skip pods that already have a label
-		if podHasLabel(pod.GetLabels(), "node_id") {
+		if labelListContainsLabel(pod.GetLabels(), "node_id") {
 			continue
 		}
 		// If pod does not have an IP yet it is probably pending
@@ -213,15 +213,6 @@ func (r *ReconcileHumioCluster) ensurePodLabels(context context.Context, hc *cor
 	}
 
 	return nil
-}
-
-func podHasLabel(labels map[string]string, label string) bool {
-	for labelName := range labels {
-		if labelName == label {
-			return true
-		}
-	}
-	return false
 }
 
 func (r *ReconcileHumioCluster) ensurePartitionsAreBalanced(humioClusterController humio.ClusterController, hc *corev1alpha1.HumioCluster) error {

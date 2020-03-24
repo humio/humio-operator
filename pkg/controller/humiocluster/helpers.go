@@ -17,3 +17,12 @@ func matchingLabelsForHumio(clusterName string) client.MatchingLabels {
 	matchingLabels = labelsForHumio(clusterName)
 	return matchingLabels
 }
+
+func labelListContainsLabel(labelList map[string]string, label string) bool {
+	for labelName := range labelList {
+		if labelName == label {
+			return true
+		}
+	}
+	return false
+}
