@@ -12,6 +12,7 @@ import (
 func ListPods(c client.Client, hc *corev1alpha1.HumioCluster) ([]corev1.Pod, error) {
 	var foundPodList corev1.PodList
 	matchingLabels := client.MatchingLabels{
+		"app":      "humio",
 		"humio_cr": hc.Name,
 	}
 	// client.MatchingField also exists?
