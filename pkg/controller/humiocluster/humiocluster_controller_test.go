@@ -254,7 +254,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 
 			// Ensure that we add node_id label to all pods
 			for _, pod := range foundPodList {
-				if !podHasLabel(pod.GetLabels(), "node_id") {
+				if !labelListContainsLabel(pod.GetLabels(), "node_id") {
 					t.Errorf("expected pod %s to have label node_id", pod.Name)
 				}
 			}
