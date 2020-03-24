@@ -39,8 +39,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 					Namespace: "logging",
 				},
 				Spec: humioClusterv1alpha1.HumioClusterSpec{
-					Image:                   "humio/humio-core",
-					Version:                 "1.9.0",
+					Image:                   "humio/humio-core:1.9.1",
 					TargetReplicationFactor: 2,
 					StoragePartitionsCount:  3,
 					DigestPartitionsCount:   3,

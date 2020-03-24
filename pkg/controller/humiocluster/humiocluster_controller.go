@@ -139,9 +139,16 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	// Ensure pods exist. Will requeue if not all pods are created and ready
 	emptyResult := reconcile.Result{}
-	result, err := r.ensurePodsExist(context.TODO(), humioCluster)
+
+	// Ensure pods that does not run the desired version are deleted.
+	result, err := r.ensureMismatchedPodVersionsAreDeleted(context.TODO(), humioCluster)
+	if result != emptyResult || err != nil {
+		return result, err
+	}
+
+	// Ensure pods exist. Will requeue if not all pods are created and ready
+	result, err = r.ensurePodsExist(context.TODO(), humioCluster)
 	if result != emptyResult || err != nil {
 		return result, err
 	}
@@ -256,6 +263,52 @@ func (r *ReconcileHumioCluster) ensureServiceExists(context context.Context, hc 
 		}
 	}
 	return nil
+}
+
+// ensureMismatchedPodVersionsAreDeleted is used to delete pods which container image does not match the desired image from the HumioCluster.
+// If a pod is deleted, this will requeue immediately and rely on the next reconciliation to delete the next pod.
+// The method only returns an empty result and no error if all pods are running the desired version,
+// and no pod is currently being deleted.
+func (r *ReconcileHumioCluster) ensureMismatchedPodVersionsAreDeleted(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) (reconcile.Result, error) {
+	foundPodList, err := ListPods(r.client, humioCluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// if we do not have any pods running we have nothing to clean up, or wait until they have been deleted
+	if len(foundPodList) == 0 {
+		return reconcile.Result{}, nil
+	}
+
+	podBeingDeleted := false
+	for _, pod := range foundPodList {
+		// TODO: can we assume we always only have one pod?
+		// Probably not if running in a service mesh with sidecars injected.
+		// Should have a container name variable and match this here.
+
+		// only consider pods not already being deleted
+		if pod.DeletionTimestamp == nil {
+
+			// if container image versions of a pod differs, we want to delete it
+			if pod.Spec.Containers[0].Image != humioCluster.Spec.Image {
+				// TODO: figure out if we should only allow upgrades and not downgrades
+				err = DeletePod(r.client, pod)
+				if err != nil {
+					return reconcile.Result{}, fmt.Errorf("could not delete pod %s, got err: %v", pod.Name, err)
+				}
+				return reconcile.Result{Requeue: true}, nil
+			}
+		} else {
+			podBeingDeleted = true
+		}
+
+	}
+	// if we have pods being deleted, requeue after a short delay
+	if podBeingDeleted {
+		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
+	}
+	// return empty result and no error indicating that everything was in the state we wanted it to be
+	return reconcile.Result{}, nil
 }
 
 // TODO: change to create 1 pod at a time, return Requeue=true and RequeueAfter.

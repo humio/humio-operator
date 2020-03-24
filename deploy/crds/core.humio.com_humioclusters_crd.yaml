@@ -133,7 +133,7 @@ spec:
                 type: object
               type: array
             image:
-              description: Desired container image
+              description: Desired container image including the image tag
               type: string
             nodeCount:
               description: Desired number of nodes
@@ -144,15 +144,17 @@ spec:
             targetReplicationFactor:
               description: Desired number of replicas of both storage and ingest partitions
               type: integer
-            version:
-              description: Desired version of Humio nodes
-              type: string
           type: object
         status:
           description: HumioClusterStatus defines the observed state of HumioCluster
           properties:
             allDataAvailable:
               description: Current state set by operator.
+              type: string
+            clusterState:
+              description: 'ClusterState will be empty before the cluster is bootstrapped.
+                From there it can be "Bootstrapping" or "Operational" TODO: other
+                states?'
               type: string
             stateLastUpdated:
               format: int64
