@@ -1,7 +1,6 @@
 package humiocluster
 
 import (
-	"fmt"
 	"strconv"
 
 	humioClusterv1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
@@ -79,7 +78,7 @@ func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioClus
 		{Name: "AUTHENTICATION_METHOD", Value: "single-user"},
 		{
 			Name:  "EXTERNAL_URL", // URL used by other Humio hosts.
-			Value: fmt.Sprintf("http://$(POD_NAME).core.$(POD_NAMESPACE).svc.cluster.local:$(HUMIO_PORT)"),
+			Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)",
 		},
 		{
 			Name:  "PUBLIC_URL", // URL used by users/browsers.

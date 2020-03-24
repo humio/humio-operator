@@ -49,7 +49,6 @@ func TestClusterController_AreAllRegisteredNodesAvailable(t *testing.T) {
 			got, err := c.AreAllRegisteredNodesAvailable()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ClusterController.AreAllRegisteredNodesAvailable() error = %v, wantErr %v", err, tt.wantErr)
-				return
 			}
 			if got != tt.want {
 				t.Errorf("ClusterController.AreAllRegisteredNodesAvailable() = %v, want %v", got, tt.want)
@@ -97,7 +96,6 @@ func TestClusterController_NoDataMissing(t *testing.T) {
 			got, err := c.NoDataMissing()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ClusterController.NoDataMissing() error = %v, wantErr %v", err, tt.wantErr)
-				return
 			}
 			if got != tt.want {
 				t.Errorf("ClusterController.NoDataMissing() = %v, want %v", got, tt.want)
@@ -157,7 +155,6 @@ func TestClusterController_IsNodeRegistered(t *testing.T) {
 			got, err := c.IsNodeRegistered(tt.args.nodeID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ClusterController.IsNodeRegistered() error = %v, wantErr %v", err, tt.wantErr)
-				return
 			}
 			if got != tt.want {
 				t.Errorf("ClusterController.IsNodeRegistered() = %v, want %v", got, tt.want)
@@ -202,7 +199,6 @@ func TestClusterController_CountNodesRegistered(t *testing.T) {
 			got, err := c.CountNodesRegistered()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ClusterController.CountNodesRegistered() error = %v, wantErr %v", err, tt.wantErr)
-				return
 			}
 			if got != tt.want {
 				t.Errorf("ClusterController.CountNodesRegistered() = %v, want %v", got, tt.want)
@@ -264,7 +260,6 @@ func TestClusterController_CanBeSafelyUnregistered(t *testing.T) {
 			got, err := c.CanBeSafelyUnregistered(tt.args.podID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ClusterController.CanBeSafelyUnregistered() error = %v, wantErr %v", err, tt.wantErr)
-				return
 			}
 			if got != tt.want {
 				t.Errorf("ClusterController.CanBeSafelyUnregistered() = %v, want %v", got, tt.want)
@@ -740,7 +735,6 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 			got, err := c.AreIngestPartitionsBalanced(tt.args.hc)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ClusterController.AreIngestPartitionsBalanced() error = %v, wantErr %v", err, tt.wantErr)
-				return
 			}
 			if got != tt.want {
 				t.Errorf("ClusterController.AreIngestPartitionsBalanced() = %v, want %v", got, tt.want)
