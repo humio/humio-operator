@@ -7,10 +7,8 @@ import (
 
 // HumioClusterSpec defines the desired state of HumioCluster
 type HumioClusterSpec struct {
-	// Desired container image
+	// Desired container image including the image tag
 	Image string `json:"image,omitempty"`
-	// Desired version of Humio nodes
-	Version string `json:"version,omitempty"`
 	// Desired number of replicas of both storage and ingest partitions
 	TargetReplicationFactor int `json:"targetReplicationFactor,omitempty"`
 	// Desired number of storage partitions
