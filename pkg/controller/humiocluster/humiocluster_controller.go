@@ -3,9 +3,6 @@ package humiocluster
 import (
 	"context"
 	"fmt"
-	"math/rand"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -16,14 +13,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	clienttype "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -177,8 +169,8 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	// All done, don't requeue
-	return reconcile.Result{}, nil
+	// All done, requeue every 30 seconds even if no changes were made
+	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 30}, nil
 }
 
 func (r *ReconcileHumioCluster) ensurePodLabels(context context.Context, hc *corev1alpha1.HumioCluster) error {
@@ -188,10 +180,9 @@ func (r *ReconcileHumioCluster) ensurePodLabels(context context.Context, hc *cor
 		return fmt.Errorf("failed to get clusters: %s", err)
 	}
 
-	var foundPodList corev1.PodList
-	err = r.client.List(context, &foundPodList, client.InNamespace(hc.Namespace), matchingLabelsForHumio(hc.Name))
+	foundPodList, err := ListPods(r.client, hc)
 
-	for _, pod := range foundPodList.Items {
+	for _, pod := range foundPodList {
 		// Skip pods that already have a label
 		if podHasLabel(pod.GetLabels(), "node_id") {
 			continue
@@ -253,58 +244,18 @@ func (r *ReconcileHumioCluster) ensurePartitionsAreBalanced(humioClusterControll
 }
 
 func (r *ReconcileHumioCluster) ensureServiceExists(context context.Context, hc *corev1alpha1.HumioCluster) error {
-	var existingService corev1.Service
-	if err := r.client.Get(context, types.NamespacedName{
-		Namespace: hc.Namespace,
-		Name:      hc.Name,
-	}, &existingService); err != nil {
-		if k8serrors.IsNotFound(err) {
-			service := constructService(hc)
-			err := r.client.Create(context, service)
-			if err != nil {
-				return fmt.Errorf("unable to create service for HumioCluster: %v", err)
-			}
+	_, err := r.GetService(context, hc)
+	if k8serrors.IsNotFound(err) {
+		service, err := r.constructService(hc)
+		if err != nil {
+			return fmt.Errorf("unable to construct service for HumioCluster: %v", err)
+		}
+		err = r.client.Create(context, service)
+		if err != nil {
+			return fmt.Errorf("unable to create service for HumioCluster: %v", err)
 		}
 	}
 	return nil
-}
-
-func constructService(hc *corev1alpha1.HumioCluster) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      hc.Name,
-			Namespace: hc.Namespace,
-			Labels: map[string]string{
-				"app":      "humio",
-				"humio_cr": hc.Name,
-			},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: hc.APIVersion,
-					Kind:       hc.Kind,
-					Name:       hc.Name,
-					UID:        hc.UID,
-				},
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
-			Selector: map[string]string{
-				"app":      "humio",
-				"humio_cr": hc.Name,
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Name: "http",
-					Port: 8080,
-				},
-				{
-					Name: "es",
-					Port: 9200,
-				},
-			},
-		},
-	}
 }
 
 // TODO: change to create 1 pod at a time, return Requeue=true and RequeueAfter.
@@ -312,18 +263,14 @@ func constructService(hc *corev1alpha1.HumioCluster) *corev1.Service {
 func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) (reconcile.Result, error) {
 	// Ensure we have pods for the defined NodeCount.
 	// If scaling down, we will handle the extra/obsolete pods later.
-	var foundPodList corev1.PodList
-	var matchingLabels client.MatchingLabels
-
-	matchingLabels = labelsForHumio(humioCluster.Name)
-	err := r.client.List(context.TODO(), &foundPodList, client.InNamespace(humioCluster.Namespace), matchingLabels)
+	foundPodList, err := ListPods(r.client, humioCluster)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to list pods: %s", err)
 	}
 
 	var podsReadyCount int
 	var podsNotReadyCount int
-	for _, pod := range foundPodList.Items {
+	for _, pod := range foundPodList {
 		podsNotReadyCount++
 		for _, condition := range pod.Status.Conditions {
 			if condition.Type == "Ready" {
@@ -345,20 +292,20 @@ func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioC
 	}
 
 	if podsReadyCount < humioCluster.Spec.NodeCount {
-		pod := constructPod(humioCluster)
-		if err := controllerutil.SetControllerReference(humioCluster, pod, r.scheme); err != nil {
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+		pod, err := r.constructPod(humioCluster)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("unable to construct pod for HumioCluster: %v", err)
 		}
 
-		err := r.client.Create(context.TODO(), pod)
+		err = r.client.Create(context.TODO(), pod)
 		if err != nil {
 			log.Info(fmt.Sprintf("unable to create pod: %v", err))
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, fmt.Errorf("unable to create Pod for HumioCluster: %v", err)
 		}
-		log.Info(fmt.Sprintf("successfully created pod with prefix %s for HumioCluster %s", pod.GenerateName, humioCluster.Name))
+		log.Info(fmt.Sprintf("successfully created pod %s for HumioCluster %s", pod.Name, humioCluster.Name))
 		metricPodsCreated.Inc()
 		// We have created a pod. Requeue immediately even if the pod is not ready. We will check the readiness status on the next reconciliation.
-		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 0}, nil
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// TODO: what should happen if we have more pods than are expected?
@@ -368,23 +315,15 @@ func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioC
 // TODO: extend this (or create separate method) to take this password and perform a login, get the jwt token and then call the api to get the persistent api token and also store that as a secret
 // this functionality should perhaps go into humio.cluster_auth.go
 func (r *ReconcileHumioCluster) ensureDeveloperUserPasswordExists(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) error {
-	var existingSecret corev1.Secret
-
 	secretData := map[string][]byte{"password": []byte(generatePassword())}
-	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceAccountSecretName,
-			Namespace: humioCluster.Namespace,
-		},
-		Data: secretData,
-	}
-	if err := r.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: humioCluster.Namespace,
-		Name:      serviceAccountSecretName,
-	}, &existingSecret); err != nil {
+	_, err := r.GetSecret(conetext, humioCluster, serviceAccountSecretName)
+	if err != nil {
 		if k8serrors.IsNotFound(err) {
-
-			err := r.client.Create(context.TODO(), &secret)
+			secret, err := r.constructSecret(humioCluster, serviceAccountSecretName, secretData)
+			if err != nil {
+				return fmt.Errorf("unable to construct service for HumioCluster: %v", err)
+			}
+			err = r.client.Create(context.TODO(), secret)
 			if err != nil {
 				log.Info(fmt.Sprintf("unable to create secret: %v", err))
 				return fmt.Errorf("unable to create service account secret for HumioCluster: %v", err)
@@ -397,12 +336,8 @@ func (r *ReconcileHumioCluster) ensureDeveloperUserPasswordExists(conetext conte
 }
 
 func (r *ReconcileHumioCluster) ensurePersistentTokenExists(conetext context.Context, humioCluster *corev1alpha1.HumioCluster, url string) error {
-	var existingSecret corev1.Secret
-
-	if err := r.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: humioCluster.Namespace,
-		Name:      serviceTokenSecretName,
-	}, &existingSecret); err != nil {
+	existingSecret, err := r.GetSecret(conetext, humioCluster, serviceTokenSecretName)
+	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			password, err := r.getDeveloperUserPassword(humioCluster)
 			if err != nil {
@@ -414,15 +349,12 @@ func (r *ReconcileHumioCluster) ensurePersistentTokenExists(conetext context.Con
 			}
 
 			secretData := map[string][]byte{"token": []byte(persistentToken)}
-			secret := corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      serviceTokenSecretName,
-					Namespace: humioCluster.Namespace,
-				},
-				Data: secretData,
+			secret, err := r.constructSecret(humioCluster, serviceTokenSecretName, secretData)
+			if err != nil {
+				return fmt.Errorf("unable to construct service for HumioCluster: %v", err)
 			}
 
-			err = r.client.Create(context.TODO(), &secret)
+			err = r.client.Create(context.TODO(), secret)
 			if err != nil {
 				log.Info(fmt.Sprintf("unable to create secret: %v", err))
 				return fmt.Errorf("unable to create persistent token secret for HumioCluster: %v", err)
@@ -445,126 +377,8 @@ func (r *ReconcileHumioCluster) ensurePersistentTokenExists(conetext context.Con
 	return nil
 }
 
-func generatePassword() string {
-	rand.Seed(time.Now().UnixNano())
-	chars := []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-		"abcdefghijklmnopqrstuvwxyz" +
-		"0123456789")
-	length := 32
-	var b strings.Builder
-	for i := 0; i < length; i++ {
-		b.WriteRune(chars[rand.Intn(len(chars))])
-	}
-	return b.String()
-}
-
-func generatePodSuffix() string {
-	rand.Seed(time.Now().UnixNano())
-	chars := []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-		"abcdefghijklmnopqrstuvwxyz" +
-		"0123456789")
-	length := 6
-	var b strings.Builder
-	for i := 0; i < length; i++ {
-		b.WriteRune(chars[rand.Intn(len(chars))])
-	}
-	return b.String()
-}
-
-func constructPod(hc *corev1alpha1.HumioCluster) *corev1.Pod {
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			// TODO: Not sure how to use GenerateName with unit tests as this requires that the Name attribute is set by the server
-			//GenerateName: fmt.Sprintf("%s-core-", hc.Name),
-			Name:      fmt.Sprintf("%s-core-", generatePodSuffix()),
-			Namespace: hc.Namespace,
-			Labels:    labelsForHumio(hc.Name),
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: hc.APIVersion,
-					Kind:       hc.Kind,
-					Name:       hc.Name,
-					UID:        hc.UID,
-				},
-			},
-		},
-		Spec: corev1.PodSpec{
-			Subdomain: hc.Name,
-			Containers: []corev1.Container{
-				{
-					Name:  "humio",
-					Image: fmt.Sprintf("%s:%s", hc.Spec.Image, hc.Spec.Version),
-					Ports: []corev1.ContainerPort{
-						{
-							Name:          "http",
-							ContainerPort: 8080,
-							Protocol:      "TCP",
-						},
-						{
-							Name:          "es",
-							ContainerPort: 9200,
-							Protocol:      "TCP",
-						},
-					},
-					Env:             envVarList(hc),
-					ImagePullPolicy: "IfNotPresent",
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "humio-data",
-							MountPath: "/data",
-						},
-					},
-					ReadinessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path: "/api/v1/status",
-								Port: intstr.IntOrString{IntVal: 8080},
-							},
-						},
-						InitialDelaySeconds: 90,
-						PeriodSeconds:       5,
-						TimeoutSeconds:      2,
-						SuccessThreshold:    1,
-						FailureThreshold:    12,
-					},
-					LivenessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path: "/api/v1/status",
-								Port: intstr.IntOrString{IntVal: 8080},
-							},
-						},
-						InitialDelaySeconds: 90,
-						PeriodSeconds:       5,
-						TimeoutSeconds:      2,
-						SuccessThreshold:    1,
-						FailureThreshold:    12,
-					},
-				},
-			},
-			Volumes: []corev1.Volume{
-				{
-					Name: "humio-data",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-						/*
-							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-								ClaimName: fmt.Sprintf("%s-core-%d", hc.Name, nodeID),
-							},
-						*/
-					},
-				},
-			},
-		},
-	}
-}
-
 func (r *ReconcileHumioCluster) getDeveloperUserPassword(hc *corev1alpha1.HumioCluster) (string, error) {
-	secret := &corev1.Secret{}
-	err := r.client.Get(context.TODO(), clienttype.ObjectKey{
-		Name:      serviceAccountSecretName,
-		Namespace: hc.ObjectMeta.Namespace,
-	}, secret)
+	secret, err := r.GetSecret(context.TODO(), hc, serviceAccountSecretName)
 	if err != nil {
 		return "", fmt.Errorf("could not get secret with password: %v", err)
 	}
@@ -577,26 +391,6 @@ func (r *ReconcileHumioCluster) getDeveloperUserPassword(hc *corev1alpha1.HumioC
 func envVarList(humioCluster *corev1alpha1.HumioCluster) []corev1.EnvVar {
 	setEnvironmentVariableDefaults(humioCluster)
 	return humioCluster.Spec.EnvironmentVariables
-}
-
-func labelsForHumio(clusterName string) map[string]string {
-	labels := map[string]string{
-		"app":      "humio",
-		"humio_cr": clusterName,
-	}
-	return labels
-}
-
-func matchingLabelsForHumio(clusterName string) client.MatchingLabels {
-	var matchingLabels client.MatchingLabels
-	matchingLabels = labelsForHumio(clusterName)
-	return matchingLabels
-}
-
-func labelsForPod(clusterName string, nodeID int) map[string]string {
-	labels := labelsForHumio(clusterName)
-	labels["node_id"] = strconv.Itoa(nodeID)
-	return labels
 }
 
 func init() {
