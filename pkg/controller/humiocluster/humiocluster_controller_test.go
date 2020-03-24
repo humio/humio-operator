@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	humioapi "github.com/humio/cli/api"
 	humioClusterv1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	clienttype "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -101,14 +103,17 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				humioapi.Cluster{
 					Nodes: []humioapi.ClusterNode{
 						humioapi.ClusterNode{
+							Uri:         fmt.Sprintf("http://192.168.0.%d:8080", 0),
 							Id:          0,
 							IsAvailable: true,
 						},
 						humioapi.ClusterNode{
+							Uri:         fmt.Sprintf("http://192.168.0.%d:8080", 1),
 							Id:          1,
 							IsAvailable: true,
 						},
 						humioapi.ClusterNode{
+							Uri:         fmt.Sprintf("http://192.168.0.%d:8080", 2),
 							Id:          2,
 							IsAvailable: true,
 						},
@@ -128,8 +133,8 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			// watched resource .
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
-					Name:      tt.humioCluster.ObjectMeta.Name,
-					Namespace: tt.humioCluster.ObjectMeta.Namespace,
+					Name:      tt.humioCluster.Name,
+					Namespace: tt.humioCluster.Namespace,
 				},
 			}
 			res, err := r.Reconcile(req)
@@ -141,7 +146,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			secret := &corev1.Secret{}
 			err = cl.Get(context.TODO(), clienttype.ObjectKey{
 				Name:      serviceAccountSecretName,
-				Namespace: tt.humioCluster.ObjectMeta.Namespace,
+				Namespace: tt.humioCluster.Namespace,
 			}, secret)
 			if err != nil {
 				t.Errorf("get secret with password: (%v). %+v", err, secret)
@@ -150,11 +155,38 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("password secret %s expected content to not be empty, but it was", serviceAccountSecretName)
 			}
 
-			for nodeID := 0; nodeID < tt.humioCluster.Spec.NodeCount; nodeID++ {
-				pod := &corev1.Pod{}
-				err = cl.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-core-%d", tt.humioCluster.ObjectMeta.Name, nodeID), Namespace: tt.humioCluster.ObjectMeta.Namespace}, pod)
+			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
+				var foundPodList corev1.PodList
+				var matchingLabels client.MatchingLabels
+
+				matchingLabels = labelsForHumio(tt.humioCluster.Name)
+				cl.List(context.TODO(), &foundPodList, client.InNamespace(tt.humioCluster.Namespace), matchingLabels)
+
+				if len(foundPodList.Items) != nodeCount+1 {
+					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount+1, len(foundPodList.Items))
+				}
+
+				// We must update the IP address because when we attempt to add labels to the pod we validate that they have IP addresses first
+				// We also must update the ready condition as the reconciler will wait until all pods are ready before continuing
+				for nodeID, pod := range foundPodList.Items {
+					//pod.Name = fmt.Sprintf("%s-core-somesuffix%d", tt.humioCluster.Name, nodeID)
+					pod.Status.PodIP = fmt.Sprintf("192.168.0.%d", nodeID)
+					pod.Status.Conditions = []corev1.PodCondition{
+						corev1.PodCondition{
+							Type:   corev1.PodConditionType("Ready"),
+							Status: corev1.ConditionTrue,
+						},
+					}
+					err := cl.Status().Update(context.TODO(), &pod)
+					if err != nil {
+						t.Errorf("failed to update pods to prepare for testing the labels: %s", err)
+					}
+				}
+
+				// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
+				res, err = r.Reconcile(req)
 				if err != nil {
-					t.Errorf("get pod: (%v). %+v", err, pod)
+					t.Errorf("reconcile: (%v)", err)
 				}
 			}
 
@@ -162,7 +194,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			service := &corev1.Service{}
 			err = cl.Get(context.TODO(), clienttype.ObjectKey{
 				Name:      tt.humioCluster.Name,
-				Namespace: tt.humioCluster.ObjectMeta.Namespace,
+				Namespace: tt.humioCluster.Namespace,
 			}, service)
 			if err != nil {
 				t.Errorf("get service: (%v). %+v", err, service)
@@ -172,7 +204,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			token := &corev1.Secret{}
 			err = cl.Get(context.TODO(), clienttype.ObjectKey{
 				Name:      serviceTokenSecretName,
-				Namespace: tt.humioCluster.ObjectMeta.Namespace,
+				Namespace: tt.humioCluster.Namespace,
 			}, token)
 			if err != nil {
 				t.Errorf("get secret with api token: (%v). %+v", err, token)
@@ -186,8 +218,8 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
 			}
-			if res != (reconcile.Result{}) {
-				t.Error("reconcile did not return an empty Result")
+			if res != (reconcile.Result{Requeue: true, RequeueAfter: time.Second * 30}) {
+				t.Error("reconcile finished, requeueing the resource after 30 seconds")
 			}
 
 			// Check that the persistent token
@@ -197,20 +229,35 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			// Get the updated HumioCluster object.
-			humioCluster := &humioClusterv1alpha1.HumioCluster{}
-			err = r.client.Get(context.TODO(), req.NamespacedName, humioCluster)
+			updatedHumioCluster := &humioClusterv1alpha1.HumioCluster{}
+			err = r.client.Get(context.TODO(), req.NamespacedName, updatedHumioCluster)
 			if err != nil {
 				t.Errorf("get HumioCluster: (%v)", err)
 			}
 
 			// Check that the partitions are balanced
-			// TODO: fix this test
 			clusterController := humio.NewClusterController(humioClient)
-			if b, err := clusterController.AreStoragePartitionsBalanced(humioCluster); !b || err != nil {
+			if b, err := clusterController.AreStoragePartitionsBalanced(updatedHumioCluster); !b || err != nil {
 				t.Errorf("expected storage partitions to be balanced. got %v, err %s", b, err)
 			}
-			if b, err := clusterController.AreIngestPartitionsBalanced(humioCluster); !b || err != nil {
+			if b, err := clusterController.AreIngestPartitionsBalanced(updatedHumioCluster); !b || err != nil {
 				t.Errorf("expected ingest partitions to be balanced. got %v, err %s", b, err)
+			}
+
+			foundPodList, err := ListPods(cl, tt.humioCluster)
+			if err != nil {
+				t.Errorf("could not list pods to validate their content: %v", err)
+			}
+
+			if len(foundPodList) != tt.humioCluster.Spec.NodeCount {
+				t.Errorf("expected list pods to return equal to %d, got %d", tt.humioCluster.Spec.NodeCount, len(foundPodList))
+			}
+
+			// Ensure that we add node_id label to all pods
+			for _, pod := range foundPodList {
+				if !podHasLabel(pod.GetLabels(), "node_id") {
+					t.Errorf("expected pod %s to have label node_id", pod.Name)
+				}
 			}
 		})
 	}

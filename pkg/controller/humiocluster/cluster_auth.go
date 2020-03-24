@@ -53,8 +53,7 @@ func getJWTForSingleUser(hc *corev1alpha1.HumioCluster, url, password string) (s
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		// remove password from log output
-		return "", fmt.Errorf("wrong status code when fetching token using password %s, expected 200, but got: %v", password, resp.Status)
+		return "", fmt.Errorf("wrong status code when fetching token for user %s, expected 200, but got: %v", "developer", resp.Status)
 	}
 
 	var result map[string]string
