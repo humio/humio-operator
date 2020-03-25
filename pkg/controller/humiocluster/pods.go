@@ -31,7 +31,7 @@ func (r *ReconcileHumioCluster) constructPod(hc *corev1alpha1.HumioCluster) (*co
 			Containers: []corev1.Container{
 				{
 					Name:  "humio",
-					Image: fmt.Sprintf("%s:%s", hc.Spec.Image, hc.Spec.Version),
+					Image: hc.Spec.Image,
 					Ports: []corev1.ContainerPort{
 						{
 							Name:          "http",
@@ -110,6 +110,16 @@ func ListPods(c client.Client, hc *corev1alpha1.HumioCluster) ([]corev1.Pod, err
 	}
 
 	return foundPodList.Items, nil
+}
+
+// DeletePod deletes a given pod
+func DeletePod(c client.Client, existingPod corev1.Pod) error {
+	err := c.Delete(context.TODO(), &existingPod)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func labelsForPod(clusterName string, nodeID int) map[string]string {

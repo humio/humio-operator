@@ -128,9 +128,10 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	// Set defaults
 	setDefaults(humioCluster)
 
-	// Set cluster status
+	// Assume we are bootstrapping if no cluster state is set.
+	// TODO: this is a workaround for the issue where humio pods cannot start up at the same time during the first boot
 	if humioCluster.Status.ClusterState == "" {
-		humioCluster.Status.ClusterState = "Bootstrapping"
+		r.setClusterStatus(context.TODO(), "Boostrapping", humioCluster)
 	}
 
 	// Ensure developer password is a k8s secret
@@ -139,12 +140,21 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	// Ensure pods exist. Will requeue if not all pods are created and ready
 	emptyResult := reconcile.Result{}
-	result, err := r.ensurePodsExist(context.TODO(), humioCluster)
+
+	// Ensure pods that does not run the desired version are deleted.
+	result, err := r.ensureMismatchedPodVersionsAreDeleted(context.TODO(), humioCluster)
 	if result != emptyResult || err != nil {
 		return result, err
 	}
+
+	// Ensure pods exist. Will requeue if not all pods are created and ready
+	result, err = r.ensurePodsExist(context.TODO(), humioCluster)
+	if result != emptyResult || err != nil {
+		return result, err
+	}
+
+	r.setClusterStatus(context.TODO(), "Running", humioCluster)
 
 	// Ensure service exists
 	err = r.ensureServiceExists(context.TODO(), humioCluster)
@@ -173,6 +183,13 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 30}, nil
 }
 
+// setClusterStatus is used to change the cluster status
+// TODO: we use this to determine if we should have a delay between startup of humio pods during bootstrap vs starting up pods during an image update
+func (r *ReconcileHumioCluster) setClusterStatus(context context.Context, clusterState string, humioCluster *corev1alpha1.HumioCluster) error {
+	humioCluster.Status.ClusterState = clusterState
+	return r.client.Update(context, humioCluster)
+}
+
 func (r *ReconcileHumioCluster) ensurePodLabels(context context.Context, hc *corev1alpha1.HumioCluster) error {
 	r.logger.Info("ensuring pod labels")
 	cluster, err := r.humioClient.GetClusters()
@@ -184,7 +201,7 @@ func (r *ReconcileHumioCluster) ensurePodLabels(context context.Context, hc *cor
 
 	for _, pod := range foundPodList {
 		// Skip pods that already have a label
-		if podHasLabel(pod.GetLabels(), "node_id") {
+		if labelListContainsLabel(pod.GetLabels(), "node_id") {
 			continue
 		}
 		// If pod does not have an IP yet it is probably pending
@@ -206,15 +223,6 @@ func (r *ReconcileHumioCluster) ensurePodLabels(context context.Context, hc *cor
 	}
 
 	return nil
-}
-
-func podHasLabel(labels map[string]string, label string) bool {
-	for labelName := range labels {
-		if labelName == label {
-			return true
-		}
-	}
-	return false
 }
 
 func (r *ReconcileHumioCluster) ensurePartitionsAreBalanced(humioClusterController humio.ClusterController, hc *corev1alpha1.HumioCluster) error {
@@ -258,6 +266,53 @@ func (r *ReconcileHumioCluster) ensureServiceExists(context context.Context, hc 
 	return nil
 }
 
+// ensureMismatchedPodVersionsAreDeleted is used to delete pods which container image does not match the desired image from the HumioCluster.
+// If a pod is deleted, this will requeue immediately and rely on the next reconciliation to delete the next pod.
+// The method only returns an empty result and no error if all pods are running the desired version,
+// and no pod is currently being deleted.
+func (r *ReconcileHumioCluster) ensureMismatchedPodVersionsAreDeleted(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) (reconcile.Result, error) {
+	foundPodList, err := ListPods(r.client, humioCluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// if we do not have any pods running we have nothing to clean up, or wait until they have been deleted
+	if len(foundPodList) == 0 {
+		return reconcile.Result{}, nil
+	}
+
+	podBeingDeleted := false
+	for _, pod := range foundPodList {
+		// TODO: can we assume we always only have one pod?
+		// Probably not if running in a service mesh with sidecars injected.
+		// Should have a container name variable and match this here.
+
+		// only consider pods not already being deleted
+		if pod.DeletionTimestamp == nil {
+
+			// if container image versions of a pod differs, we want to delete it
+			if pod.Spec.Containers[0].Image != humioCluster.Spec.Image {
+				// TODO: figure out if we should only allow upgrades and not downgrades
+				r.logger.Info(fmt.Sprintf("deleting pod %s", pod.Name))
+				err = DeletePod(r.client, pod)
+				if err != nil {
+					return reconcile.Result{}, fmt.Errorf("could not delete pod %s, got err: %v", pod.Name, err)
+				}
+				return reconcile.Result{Requeue: true}, nil
+			}
+		} else {
+			podBeingDeleted = true
+		}
+
+	}
+	// if we have pods being deleted, requeue after a short delay
+	if podBeingDeleted {
+		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
+	}
+	// return empty result and no error indicating that everything was in the state we wanted it to be
+	return reconcile.Result{}, nil
+}
+
 // TODO: change to create 1 pod at a time, return Requeue=true and RequeueAfter.
 // check that other pods, if they exist, are in a ready state
 func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) (reconcile.Result, error) {
@@ -286,7 +341,7 @@ func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioC
 		return reconcile.Result{}, nil
 	}
 
-	if podsNotReadyCount > 0 {
+	if podsNotReadyCount > 0 && humioCluster.Status.ClusterState == "Bootstrapping" {
 		r.logger.Info(fmt.Sprintf("there are %d humio pods that are not ready. all humio pods must report ready before reconciliation can continue", podsNotReadyCount))
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
