@@ -10,8 +10,7 @@ import (
 const (
 	name                    = "humiocluster"
 	namespace               = "logging"
-	image                   = "humio/humio-core"
-	version                 = "1.9.0"
+	image                   = "humio/humio-core:1.9.1"
 	targetReplicationFactor = 2
 	storagePartitionsCount  = 24
 	digestPartitionsCount   = 24

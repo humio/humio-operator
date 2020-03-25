@@ -30,8 +30,7 @@ func TestGetJWTForSingleUser(t *testing.T) {
 						Namespace: "logging",
 					},
 					Spec: corev1alpha1.HumioClusterSpec{
-						Image:                   "humio/humio-core",
-						Version:                 "1.9.0",
+						Image:                   "humio/humio-core:1.9.1",
 						TargetReplicationFactor: 3,
 						NodeCount:               3,
 					},
