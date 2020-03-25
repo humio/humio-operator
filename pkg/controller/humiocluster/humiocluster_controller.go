@@ -128,9 +128,10 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	// Set defaults
 	setDefaults(humioCluster)
 
-	// Set cluster status
+	// Assume we are bootstrapping if no cluster state is set.
+	// TODO: this is a workaround for the issue where humio pods cannot start up at the same time during the first boot
 	if humioCluster.Status.ClusterState == "" {
-		humioCluster.Status.ClusterState = "Bootstrapping"
+		r.setClusterStatus(context.TODO(), "Boostrapping", humioCluster)
 	}
 
 	// Ensure developer password is a k8s secret
@@ -152,6 +153,8 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	if result != emptyResult || err != nil {
 		return result, err
 	}
+
+	r.setClusterStatus(context.TODO(), "Running", humioCluster)
 
 	// Ensure service exists
 	err = r.ensureServiceExists(context.TODO(), humioCluster)
@@ -178,6 +181,13 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 
 	// All done, requeue every 30 seconds even if no changes were made
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 30}, nil
+}
+
+// setClusterStatus is used to change the cluster status
+// TODO: we use this to determine if we should have a delay between startup of humio pods during bootstrap vs starting up pods during an image update
+func (r *ReconcileHumioCluster) setClusterStatus(context context.Context, clusterState string, humioCluster *corev1alpha1.HumioCluster) error {
+	humioCluster.Status.ClusterState = clusterState
+	return r.client.Update(context, humioCluster)
 }
 
 func (r *ReconcileHumioCluster) ensurePodLabels(context context.Context, hc *corev1alpha1.HumioCluster) error {
@@ -283,6 +293,7 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodVersionsAreDeleted(conetext c
 			// if container image versions of a pod differs, we want to delete it
 			if pod.Spec.Containers[0].Image != humioCluster.Spec.Image {
 				// TODO: figure out if we should only allow upgrades and not downgrades
+				r.logger.Info(fmt.Sprintf("deleting pod %s", pod.Name))
 				err = DeletePod(r.client, pod)
 				if err != nil {
 					return reconcile.Result{}, fmt.Errorf("could not delete pod %s, got err: %v", pod.Name, err)
@@ -330,7 +341,7 @@ func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioC
 		return reconcile.Result{}, nil
 	}
 
-	if podsNotReadyCount > 0 {
+	if podsNotReadyCount > 0 && humioCluster.Status.ClusterState == "Bootstrapping" {
 		r.logger.Info(fmt.Sprintf("there are %d humio pods that are not ready. all humio pods must report ready before reconciliation can continue", podsNotReadyCount))
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
