@@ -14,7 +14,7 @@ type ClientMock struct {
 
 type MockClientConfig struct {
 	apiClient *ClientMock
-	url       string
+	Url       string
 }
 
 func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePartitionSchemeError error, updateIngestPartitionSchemeError error, url string) *MockClientConfig {
@@ -28,7 +28,7 @@ func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePar
 			UpdateStoragePartitionSchemeError: updateStoragePartitionSchemeError,
 			UpdateIngestPartitionSchemeError:  updateIngestPartitionSchemeError,
 		},
-		url: url,
+		Url: url,
 	}
 
 	cluster.StoragePartitions = []humioapi.StoragePartition{storagePartition}
@@ -113,5 +113,5 @@ func (h *MockClientConfig) ApiToken() (string, error) {
 }
 
 func (h *MockClientConfig) GetBaseURL(hc *corev1alpha1.HumioCluster) string {
-	return h.url
+	return h.Url
 }

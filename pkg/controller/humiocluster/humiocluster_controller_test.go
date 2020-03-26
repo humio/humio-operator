@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	clienttype "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -30,6 +29,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 	tests := []struct {
 		name         string
 		humioCluster *humioClusterv1alpha1.HumioCluster
+		humioClient  *humio.MockClientConfig
 	}{
 		{
 			"test simple cluster reconciliation",
@@ -46,6 +46,34 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 					NodeCount:               3,
 				},
 			},
+			humio.NewMocklient(
+				humioapi.Cluster{
+					Nodes:             buildClusterNodesList(3),
+					StoragePartitions: buildStoragePartitionsList(3, 1),
+					IngestPartitions:  buildIngestPartitionsList(3, 1),
+				}, nil, nil, nil, ""),
+		},
+		{
+			"test large cluster reconciliation",
+			&humioClusterv1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: humioClusterv1alpha1.HumioClusterSpec{
+					Image:                   "humio/humio-core:1.9.1",
+					TargetReplicationFactor: 3,
+					StoragePartitionsCount:  72,
+					DigestPartitionsCount:   72,
+					NodeCount:               18,
+				},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{
+					Nodes:             buildClusterNodesList(18),
+					StoragePartitions: buildStoragePartitionsList(72, 2),
+					IngestPartitions:  buildIngestPartitionsList(72, 2),
+				}, nil, nil, nil, ""),
 		},
 	}
 	for _, tt := range tests {
@@ -69,62 +97,13 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}))
 			defer server.Close()
 
-			// TODO: create this above when we add more test cases
-			storagePartitions := []humioapi.StoragePartition{
-				humioapi.StoragePartition{
-					Id:      1,
-					NodeIds: []int{0},
-				},
-				humioapi.StoragePartition{
-					Id:      2,
-					NodeIds: []int{0},
-				},
-				humioapi.StoragePartition{
-					Id:      3,
-					NodeIds: []int{0},
-				},
-			}
-			ingestPartitions := []humioapi.IngestPartition{
-				humioapi.IngestPartition{
-					Id:      1,
-					NodeIds: []int{0},
-				},
-				humioapi.IngestPartition{
-					Id:      2,
-					NodeIds: []int{0},
-				},
-				humioapi.IngestPartition{
-					Id:      3,
-					NodeIds: []int{0},
-				},
-			}
-			humioClient := humio.NewMocklient(
-				humioapi.Cluster{
-					Nodes: []humioapi.ClusterNode{
-						humioapi.ClusterNode{
-							Uri:         fmt.Sprintf("http://192.168.0.%d:8080", 0),
-							Id:          0,
-							IsAvailable: true,
-						},
-						humioapi.ClusterNode{
-							Uri:         fmt.Sprintf("http://192.168.0.%d:8080", 1),
-							Id:          1,
-							IsAvailable: true,
-						},
-						humioapi.ClusterNode{
-							Uri:         fmt.Sprintf("http://192.168.0.%d:8080", 2),
-							Id:          2,
-							IsAvailable: true,
-						},
-					},
-					StoragePartitions: storagePartitions,
-					IngestPartitions:  ingestPartitions,
-				}, nil, nil, nil, fmt.Sprintf("%s/", server.URL))
+			// Point the mock client to the fake server
+			tt.humioClient.Url = fmt.Sprintf("%s/", server.URL)
 
 			// Create a ReconcileHumioCluster object with the scheme and fake client.
 			r := &ReconcileHumioCluster{
 				client:      cl,
-				humioClient: humioClient,
+				humioClient: tt.humioClient,
 				scheme:      s,
 			}
 
@@ -142,11 +121,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			// Check that the developer password exists as a k8s secret
-			secret := &corev1.Secret{}
-			err = cl.Get(context.TODO(), clienttype.ObjectKey{
-				Name:      serviceAccountSecretName,
-				Namespace: tt.humioCluster.Namespace,
-			}, secret)
+			secret, err := r.GetSecret(context.TODO(), tt.humioCluster, serviceAccountSecretName)
 			if err != nil {
 				t.Errorf("get secret with password: (%v). %+v", err, secret)
 			}
@@ -155,29 +130,16 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
-				var foundPodList corev1.PodList
-
-				cl.List(context.TODO(), &foundPodList, client.InNamespace(tt.humioCluster.Namespace), matchingLabelsForHumio(tt.humioCluster.Name))
-
-				if len(foundPodList.Items) != nodeCount+1 {
-					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount+1, len(foundPodList.Items))
+				foundPodList, err := ListPods(cl, tt.humioCluster)
+				if len(foundPodList) != nodeCount+1 {
+					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount+1, len(foundPodList))
 				}
 
 				// We must update the IP address because when we attempt to add labels to the pod we validate that they have IP addresses first
 				// We also must update the ready condition as the reconciler will wait until all pods are ready before continuing
-				for nodeID, pod := range foundPodList.Items {
-					//pod.Name = fmt.Sprintf("%s-core-somesuffix%d", tt.humioCluster.Name, nodeID)
-					pod.Status.PodIP = fmt.Sprintf("192.168.0.%d", nodeID)
-					pod.Status.Conditions = []corev1.PodCondition{
-						corev1.PodCondition{
-							Type:   corev1.PodConditionType("Ready"),
-							Status: corev1.ConditionTrue,
-						},
-					}
-					err := cl.Status().Update(context.TODO(), &pod)
-					if err != nil {
-						t.Errorf("failed to update pods to prepare for testing the labels: %s", err)
-					}
+				err = markPodsAsRunning(cl, foundPodList)
+				if err != nil {
+					t.Errorf("failed to update pods to prepare for testing the labels: %s", err)
 				}
 
 				// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
@@ -189,21 +151,14 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			// Check that the service exists
-			service := &corev1.Service{}
-			err = cl.Get(context.TODO(), clienttype.ObjectKey{
-				Name:      tt.humioCluster.Name,
-				Namespace: tt.humioCluster.Namespace,
-			}, service)
+			service, err := r.GetService(context.TODO(), tt.humioCluster)
 			if err != nil {
 				t.Errorf("get service: (%v). %+v", err, service)
 			}
 
 			// Check that the persistent token exists as a k8s secret
-			token := &corev1.Secret{}
-			err = cl.Get(context.TODO(), clienttype.ObjectKey{
-				Name:      serviceTokenSecretName,
-				Namespace: tt.humioCluster.Namespace,
-			}, token)
+
+			token, err := r.GetSecret(context.TODO(), tt.humioCluster, serviceTokenSecretName)
 			if err != nil {
 				t.Errorf("get secret with api token: (%v). %+v", err, token)
 			}
@@ -234,7 +189,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			// Check that the partitions are balanced
-			clusterController := humio.NewClusterController(humioClient)
+			clusterController := humio.NewClusterController(tt.humioClient)
 			if b, err := clusterController.AreStoragePartitionsBalanced(updatedHumioCluster); !b || err != nil {
 				t.Errorf("expected storage partitions to be balanced. got %v, err %s", b, err)
 			}
@@ -268,6 +223,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 	tests := []struct {
 		name          string
 		humioCluster  *humioClusterv1alpha1.HumioCluster
+		humioClient   *humio.MockClientConfig
 		imageToUpdate string
 	}{
 		{
@@ -285,6 +241,12 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 					NodeCount:               3,
 				},
 			},
+			humio.NewMocklient(
+				humioapi.Cluster{
+					Nodes:             buildClusterNodesList(3),
+					StoragePartitions: buildStoragePartitionsList(3, 1),
+					IngestPartitions:  buildIngestPartitionsList(3, 1),
+				}, nil, nil, nil, ""),
 			"humio/humio-core:1.9.2",
 		},
 	}
@@ -309,62 +271,13 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 			}))
 			defer server.Close()
 
-			// TODO: create this above when we add more test cases
-			storagePartitions := []humioapi.StoragePartition{
-				humioapi.StoragePartition{
-					Id:      1,
-					NodeIds: []int{0},
-				},
-				humioapi.StoragePartition{
-					Id:      2,
-					NodeIds: []int{0},
-				},
-				humioapi.StoragePartition{
-					Id:      3,
-					NodeIds: []int{0},
-				},
-			}
-			ingestPartitions := []humioapi.IngestPartition{
-				humioapi.IngestPartition{
-					Id:      1,
-					NodeIds: []int{0},
-				},
-				humioapi.IngestPartition{
-					Id:      2,
-					NodeIds: []int{0},
-				},
-				humioapi.IngestPartition{
-					Id:      3,
-					NodeIds: []int{0},
-				},
-			}
-			humioClient := humio.NewMocklient(
-				humioapi.Cluster{
-					Nodes: []humioapi.ClusterNode{
-						humioapi.ClusterNode{
-							Uri:         fmt.Sprintf("http://192.168.0.%d:8080", 0),
-							Id:          0,
-							IsAvailable: true,
-						},
-						humioapi.ClusterNode{
-							Uri:         fmt.Sprintf("http://192.168.0.%d:8080", 1),
-							Id:          1,
-							IsAvailable: true,
-						},
-						humioapi.ClusterNode{
-							Uri:         fmt.Sprintf("http://192.168.0.%d:8080", 2),
-							Id:          2,
-							IsAvailable: true,
-						},
-					},
-					StoragePartitions: storagePartitions,
-					IngestPartitions:  ingestPartitions,
-				}, nil, nil, nil, fmt.Sprintf("%s/", server.URL))
+			// Point the mock client to the fake server
+			tt.humioClient.Url = fmt.Sprintf("%s/", server.URL)
 
 			// Create a ReconcileHumioCluster object with the scheme and fake client.
 			r := &ReconcileHumioCluster{
 				client:      cl,
-				humioClient: humioClient,
+				humioClient: tt.humioClient,
 				scheme:      s,
 			}
 
@@ -382,31 +295,16 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 			}
 
 			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
-				var foundPodList corev1.PodList
-				var matchingLabels client.MatchingLabels
-
-				matchingLabels = labelsForHumio(tt.humioCluster.Name)
-				cl.List(context.TODO(), &foundPodList, client.InNamespace(tt.humioCluster.Namespace), matchingLabels)
-
-				if len(foundPodList.Items) != nodeCount+1 {
-					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount+1, len(foundPodList.Items))
+				foundPodList, err := ListPods(cl, tt.humioCluster)
+				if len(foundPodList) != nodeCount+1 {
+					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount+1, len(foundPodList))
 				}
 
 				// We must update the IP address because when we attempt to add labels to the pod we validate that they have IP addresses first
 				// We also must update the ready condition as the reconciler will wait until all pods are ready before continuing
-				for nodeID, pod := range foundPodList.Items {
-					//pod.Name = fmt.Sprintf("%s-core-somesuffix%d", tt.humioCluster.Name, nodeID)
-					pod.Status.PodIP = fmt.Sprintf("192.168.0.%d", nodeID)
-					pod.Status.Conditions = []corev1.PodCondition{
-						corev1.PodCondition{
-							Type:   corev1.PodConditionType("Ready"),
-							Status: corev1.ConditionTrue,
-						},
-					}
-					err := cl.Status().Update(context.TODO(), &pod)
-					if err != nil {
-						t.Errorf("failed to update pods to prepare for testing the labels: %s", err)
-					}
+				err = markPodsAsRunning(cl, foundPodList)
+				if err != nil {
+					t.Errorf("failed to update pods to prepare for testing the labels: %s", err)
 				}
 
 				// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
@@ -430,14 +328,16 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 				}
 			}
 
-			var foundPodList corev1.PodList
-
-			cl.List(context.TODO(), &foundPodList, client.InNamespace(tt.humioCluster.Namespace), matchingLabelsForHumio(tt.humioCluster.Name))
-
-			if len(foundPodList.Items) != 0 {
-				t.Errorf("expected list pods to return equal to %d, got %d", 0, len(foundPodList.Items))
+			// Ensure all the pods are shut down to prep for the image update
+			foundPodList, err := ListPods(cl, tt.humioCluster)
+			if err != nil {
+				t.Errorf("failed to list pods: %s", err)
+			}
+			if len(foundPodList) != 0 {
+				t.Errorf("expected list pods to return equal to %d, got %d", 0, len(foundPodList))
 			}
 
+			// Simulate the reconcile being run again for each node so they all are started
 			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
 				res, err := r.Reconcile(req)
 				if err != nil {
@@ -448,11 +348,71 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 				}
 			}
 
-			cl.List(context.TODO(), &foundPodList, client.InNamespace(tt.humioCluster.Namespace), matchingLabelsForHumio(tt.humioCluster.Name))
-
-			if len(foundPodList.Items) != tt.humioCluster.Spec.NodeCount {
-				t.Errorf("expected list pods to return equal to %d, got %d", tt.humioCluster.Spec.NodeCount, len(foundPodList.Items))
+			foundPodList, err = ListPods(cl, tt.humioCluster)
+			if err != nil {
+				t.Errorf("failed to list pods: %s", err)
+			}
+			if len(foundPodList) != tt.humioCluster.Spec.NodeCount {
+				t.Errorf("expected list pods to return equal to %d, got %d", tt.humioCluster.Spec.NodeCount, len(foundPodList))
 			}
 		})
 	}
+}
+
+func markPodsAsRunning(client client.Client, pods []corev1.Pod) error {
+	for nodeID, pod := range pods {
+		pod.Status.PodIP = fmt.Sprintf("192.168.0.%d", nodeID)
+		pod.Status.Conditions = []corev1.PodCondition{
+			corev1.PodCondition{
+				Type:   corev1.PodConditionType("Ready"),
+				Status: corev1.ConditionTrue,
+			},
+		}
+		err := client.Status().Update(context.TODO(), &pod)
+		if err != nil {
+			return fmt.Errorf("failed to update pods to prepare for testing the labels: %s", err)
+		}
+	}
+	return nil
+}
+
+func buildStoragePartitionsList(numberOfPartitions int, nodesPerPartition int) []humioapi.StoragePartition {
+	var storagePartitions []humioapi.StoragePartition
+
+	for p := 1; p <= numberOfPartitions; p++ {
+		var nodeIds []int
+		for n := 0; n < nodesPerPartition; n++ {
+			nodeIds = append(nodeIds, n)
+		}
+		storagePartition := humioapi.StoragePartition{Id: p, NodeIds: nodeIds}
+		storagePartitions = append(storagePartitions, storagePartition)
+	}
+	return storagePartitions
+}
+
+func buildIngestPartitionsList(numberOfPartitions int, nodesPerPartition int) []humioapi.IngestPartition {
+	var ingestPartitions []humioapi.IngestPartition
+
+	for p := 1; p <= numberOfPartitions; p++ {
+		var nodeIds []int
+		for n := 0; n < nodesPerPartition; n++ {
+			nodeIds = append(nodeIds, n)
+		}
+		ingestPartition := humioapi.IngestPartition{Id: p, NodeIds: nodeIds}
+		ingestPartitions = append(ingestPartitions, ingestPartition)
+	}
+	return ingestPartitions
+}
+
+func buildClusterNodesList(numberOfNodes int) []humioapi.ClusterNode {
+	clusterNodes := []humioapi.ClusterNode{}
+	for n := 0; n < numberOfNodes; n++ {
+		clusterNode := humioapi.ClusterNode{
+			Uri:         fmt.Sprintf("http://192.168.0.%d:8080", n),
+			Id:          n,
+			IsAvailable: true,
+		}
+		clusterNodes = append(clusterNodes, clusterNode)
+	}
+	return clusterNodes
 }
