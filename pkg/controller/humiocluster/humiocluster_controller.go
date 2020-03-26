@@ -131,7 +131,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	// Assume we are bootstrapping if no cluster state is set.
 	// TODO: this is a workaround for the issue where humio pods cannot start up at the same time during the first boot
 	if humioCluster.Status.ClusterState == "" {
-		r.setClusterStatus(context.TODO(), "Bootstrapping", humioCluster)
+		r.setClusterStatus(context.TODO(), corev1alpha1.HumioClusterStateBoostrapping, humioCluster)
 	}
 
 	// Ensure developer password is a k8s secret
@@ -149,14 +149,14 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	// Ensure pods exist. Will requeue if not all pods are created and ready
-	if humioCluster.Status.ClusterState == "Bootstrapping" {
+	if humioCluster.Status.ClusterState == corev1alpha1.HumioClusterStateBoostrapping {
 		result, err = r.ensurePodsBootstrapped(context.TODO(), humioCluster)
 		if result != emptyResult || err != nil {
 			return result, err
 		}
 	}
 
-	r.setClusterStatus(context.TODO(), "Running", humioCluster)
+	r.setClusterStatus(context.TODO(), corev1alpha1.HumioClusterStateRunning, humioCluster)
 
 	result, err = r.ensurePodsExist(context.TODO(), humioCluster)
 	if result != emptyResult || err != nil {
