@@ -120,8 +120,17 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("reconcile: (%v)", err)
 			}
 
+			updatedHumioCluster := &humioClusterv1alpha1.HumioCluster{}
+			err = r.client.Get(context.TODO(), req.NamespacedName, updatedHumioCluster)
+			if err != nil {
+				t.Errorf("get HumioCluster: (%v)", err)
+			}
+			if updatedHumioCluster.Status.ClusterState != "Bootstrapping" {
+				t.Errorf("expected cluster state to be %s but got %s", "Bootstrapping", updatedHumioCluster.Status.ClusterState)
+			}
+
 			// Check that the developer password exists as a k8s secret
-			secret, err := r.GetSecret(context.TODO(), tt.humioCluster, serviceAccountSecretName)
+			secret, err := r.GetSecret(context.TODO(), updatedHumioCluster, serviceAccountSecretName)
 			if err != nil {
 				t.Errorf("get secret with password: (%v). %+v", err, secret)
 			}
@@ -129,10 +138,10 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("password secret %s expected content to not be empty, but it was", serviceAccountSecretName)
 			}
 
-			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
-				foundPodList, err := ListPods(cl, tt.humioCluster)
-				if len(foundPodList) != nodeCount+1 {
-					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount+1, len(foundPodList))
+			for nodeCount := 1; nodeCount <= tt.humioCluster.Spec.NodeCount; nodeCount++ {
+				foundPodList, err := ListPods(cl, updatedHumioCluster)
+				if len(foundPodList) != nodeCount {
+					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount, len(foundPodList))
 				}
 
 				// We must update the IP address because when we attempt to add labels to the pod we validate that they have IP addresses first
@@ -147,18 +156,36 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				if err != nil {
 					t.Errorf("reconcile: (%v)", err)
 				}
+			}
 
+			// Check that we do not create more than expected number of humio pods
+			res, err = r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+			foundPodList, err := ListPods(cl, updatedHumioCluster)
+			if len(foundPodList) != tt.humioCluster.Spec.NodeCount {
+				t.Errorf("expected list pods to return equal to %d, got %d", tt.humioCluster.Spec.NodeCount, len(foundPodList))
+			}
+
+			updatedHumioCluster = &humioClusterv1alpha1.HumioCluster{}
+			err = r.client.Get(context.TODO(), req.NamespacedName, updatedHumioCluster)
+			if err != nil {
+				t.Errorf("get HumioCluster: (%v)", err)
+			}
+			if updatedHumioCluster.Status.ClusterState != "Running" {
+				t.Errorf("expected cluster state to be %s but got %s", "Running", updatedHumioCluster.Status.ClusterState)
 			}
 
 			// Check that the service exists
-			service, err := r.GetService(context.TODO(), tt.humioCluster)
+			service, err := r.GetService(context.TODO(), updatedHumioCluster)
 			if err != nil {
 				t.Errorf("get service: (%v). %+v", err, service)
 			}
 
 			// Check that the persistent token exists as a k8s secret
 
-			token, err := r.GetSecret(context.TODO(), tt.humioCluster, serviceTokenSecretName)
+			token, err := r.GetSecret(context.TODO(), updatedHumioCluster, serviceTokenSecretName)
 			if err != nil {
 				t.Errorf("get secret with api token: (%v). %+v", err, token)
 			}
@@ -181,8 +208,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("expected api token in use to be \"%+v\", but got \"%+v\"", "mocktoken", tokenInUse)
 			}
 
-			// Get the updated HumioCluster object.
-			updatedHumioCluster := &humioClusterv1alpha1.HumioCluster{}
+			// Get the updated HumioCluster to update it with the partitions
 			err = r.client.Get(context.TODO(), req.NamespacedName, updatedHumioCluster)
 			if err != nil {
 				t.Errorf("get HumioCluster: (%v)", err)
@@ -197,7 +223,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("expected ingest partitions to be balanced. got %v, err %s", b, err)
 			}
 
-			foundPodList, err := ListPods(cl, tt.humioCluster)
+			foundPodList, err = ListPods(cl, updatedHumioCluster)
 			if err != nil {
 				t.Errorf("could not list pods to validate their content: %v", err)
 			}
@@ -294,6 +320,16 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 				t.Errorf("reconcile: (%v)", err)
 			}
 
+			updatedHumioCluster := &humioClusterv1alpha1.HumioCluster{}
+			err = r.client.Get(context.TODO(), req.NamespacedName, updatedHumioCluster)
+			if err != nil {
+				t.Errorf("get HumioCluster: (%v)", err)
+			}
+			if updatedHumioCluster.Status.ClusterState != "Bootstrapping" {
+				t.Errorf("expected cluster state to be %s but got %s", "Bootstrapping", updatedHumioCluster.Status.ClusterState)
+			}
+			tt.humioCluster = updatedHumioCluster
+
 			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
 				foundPodList, err := ListPods(cl, tt.humioCluster)
 				if len(foundPodList) != nodeCount+1 {
@@ -314,9 +350,19 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 				}
 			}
 
+			// Test that we're in a Running state
+			updatedHumioCluster = &humioClusterv1alpha1.HumioCluster{}
+			err = r.client.Get(context.TODO(), req.NamespacedName, updatedHumioCluster)
+			if err != nil {
+				t.Errorf("get HumioCluster: (%v)", err)
+			}
+			if updatedHumioCluster.Status.ClusterState != "Running" {
+				t.Errorf("expected cluster state to be %s but got %s", "Running", updatedHumioCluster.Status.ClusterState)
+			}
+
 			// Update humio image
-			tt.humioCluster.Spec.Image = tt.imageToUpdate
-			cl.Update(context.TODO(), tt.humioCluster)
+			updatedHumioCluster.Spec.Image = tt.imageToUpdate
+			cl.Update(context.TODO(), updatedHumioCluster)
 
 			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
 				res, err := r.Reconcile(req)
@@ -348,7 +394,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 				}
 			}
 
-			foundPodList, err = ListPods(cl, tt.humioCluster)
+			foundPodList, err = ListPods(cl, updatedHumioCluster)
 			if err != nil {
 				t.Errorf("failed to list pods: %s", err)
 			}
