@@ -43,6 +43,7 @@ type HumioClusterStatus struct {
 // HumioCluster is the Schema for the humioclusters API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humioclusters,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.clusterState",description="The state of the cluster"
 type HumioCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
