@@ -8,6 +8,14 @@ spec:
     description: The state of the cluster
     name: State
     type: string
+  - JSONPath: .status.clusterNodeCount
+    description: The number of nodes in the cluster
+    name: Nodes
+    type: string
+  - JSONPath: .status.clusterVersion
+    description: The version of humior
+    name: Version
+    type: string
   group: core.humio.com
   names:
     kind: HumioCluster
@@ -156,10 +164,15 @@ spec:
             allDataAvailable:
               description: Current state set by operator.
               type: string
+            clusterNodeCount:
+              description: ClusterNodeCount is the number of nodes of humio running
+              type: integer
             clusterState:
               description: 'ClusterState will be empty before the cluster is bootstrapped.
-                From there it can be "Bootstrapping" or "Operational" TODO: other
-                states?'
+                From there it can be "Bootstrapping" or "Running" TODO: other states?'
+              type: string
+            clusterVersion:
+              description: ClusterVersion is the version of humio running
               type: string
             stateLastUpdated:
               format: int64
