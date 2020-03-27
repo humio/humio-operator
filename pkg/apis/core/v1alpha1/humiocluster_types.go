@@ -33,9 +33,13 @@ type HumioClusterStatus struct {
 	StateLastUpdatedUnix int64 `json:"stateLastUpdated,omitempty"`
 	// Current state set by operator.
 	AllDataAvailable string `json:"allDataAvailable,omitempty"`
-	// ClusterState will be empty before the cluster is bootstrapped. From there it can be "Bootstrapping" or "Operational"
+	// ClusterState will be empty before the cluster is bootstrapped. From there it can be "Bootstrapping" or "Running"
 	// TODO: other states?
 	ClusterState string `json:"clusterState,omitempty"`
+	// ClusterVersion is the version of humio running
+	ClusterVersion string `json:"clusterVersion,omitempty"`
+	// ClusterNodeCount is the number of nodes of humio running
+	ClusterNodeCount int `json:"clusterNodeCount,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -44,6 +48,8 @@ type HumioClusterStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humioclusters,scope=Namespaced
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.clusterState",description="The state of the cluster"
+// +kubebuilder:printcolumn:name="Nodes",type="string",JSONPath=".status.clusterNodeCount",description="The number of nodes in the cluster"
+// +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.clusterVersion",description="The version of humior"
 type HumioCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
