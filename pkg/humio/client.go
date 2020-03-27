@@ -22,6 +22,7 @@ type Client interface {
 	ApiToken() (string, error)
 	Authenticate(*humioapi.Config) error
 	GetBaseURL(*corev1alpha1.HumioCluster) string
+	Status() (humioapi.StatusResponse, error)
 }
 
 // ClientConfig stores our Humio api client
@@ -54,6 +55,15 @@ func (h *ClientConfig) Authenticate(config *humioapi.Config) error {
 
 	h.apiClient = newClient
 	return nil
+}
+
+// Status returns the status of the humio cluster
+func (h *ClientConfig) Status() (humioapi.StatusResponse, error) {
+	status, err := h.apiClient.Status()
+	if err != nil {
+		log.Error(fmt.Sprintf("could not get status: %v", err))
+	}
+	return *status, err
 }
 
 // GetClusters returns a humio cluster and can be mocked via the Client interface
