@@ -131,7 +131,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	// Assume we are bootstrapping if no cluster state is set.
 	// TODO: this is a workaround for the issue where humio pods cannot start up at the same time during the first boot
 	if humioCluster.Status.ClusterState == "" {
-		r.setClusterStatus(context.TODO(), "Boostrapping", humioCluster)
+		r.setClusterStatus(context.TODO(), corev1alpha1.HumioClusterStateBoostrapping, humioCluster)
 	}
 
 	// Ensure developer password is a k8s secret
@@ -149,12 +149,19 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	// Ensure pods exist. Will requeue if not all pods are created and ready
+	if humioCluster.Status.ClusterState == corev1alpha1.HumioClusterStateBoostrapping {
+		result, err = r.ensurePodsBootstrapped(context.TODO(), humioCluster)
+		if result != emptyResult || err != nil {
+			return result, err
+		}
+	}
+
+	r.setClusterStatus(context.TODO(), corev1alpha1.HumioClusterStateRunning, humioCluster)
+
 	result, err = r.ensurePodsExist(context.TODO(), humioCluster)
 	if result != emptyResult || err != nil {
 		return result, err
 	}
-
-	r.setClusterStatus(context.TODO(), "Running", humioCluster)
 
 	// Ensure service exists
 	err = r.ensureServiceExists(context.TODO(), humioCluster)
@@ -173,6 +180,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	// TODO: wait until all pods are ready before continuing
 	clusterController := humio.NewClusterController(r.humioClient)
 	err = r.ensurePartitionsAreBalanced(*clusterController, humioCluster)
 	if err != nil {
@@ -187,7 +195,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 // TODO: we use this to determine if we should have a delay between startup of humio pods during bootstrap vs starting up pods during an image update
 func (r *ReconcileHumioCluster) setClusterStatus(context context.Context, clusterState string, humioCluster *corev1alpha1.HumioCluster) error {
 	humioCluster.Status.ClusterState = clusterState
-	return r.client.Update(context, humioCluster)
+	return r.client.Status().Update(context, humioCluster)
 }
 
 func (r *ReconcileHumioCluster) ensurePodLabels(context context.Context, hc *corev1alpha1.HumioCluster) error {
@@ -315,7 +323,7 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodVersionsAreDeleted(conetext c
 
 // TODO: change to create 1 pod at a time, return Requeue=true and RequeueAfter.
 // check that other pods, if they exist, are in a ready state
-func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) (reconcile.Result, error) {
+func (r *ReconcileHumioCluster) ensurePodsBootstrapped(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) (reconcile.Result, error) {
 	// Ensure we have pods for the defined NodeCount.
 	// If scaling down, we will handle the extra/obsolete pods later.
 	foundPodList, err := ListPods(r.client, humioCluster)
@@ -341,12 +349,41 @@ func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioC
 		return reconcile.Result{}, nil
 	}
 
-	if podsNotReadyCount > 0 && humioCluster.Status.ClusterState == "Bootstrapping" {
+	if podsNotReadyCount > 0 {
 		r.logger.Info(fmt.Sprintf("there are %d humio pods that are not ready. all humio pods must report ready before reconciliation can continue", podsNotReadyCount))
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 
 	if podsReadyCount < humioCluster.Spec.NodeCount {
+		pod, err := r.constructPod(humioCluster)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("unable to construct pod for HumioCluster: %v", err)
+		}
+
+		err = r.client.Create(context.TODO(), pod)
+		if err != nil {
+			log.Info(fmt.Sprintf("unable to create pod: %v", err))
+			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, fmt.Errorf("unable to create Pod for HumioCluster: %v", err)
+		}
+		log.Info(fmt.Sprintf("successfully created pod %s for HumioCluster %s", pod.Name, humioCluster.Name))
+		metricPodsCreated.Inc()
+		// We have created a pod. Requeue immediately even if the pod is not ready. We will check the readiness status on the next reconciliation.
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// TODO: what should happen if we have more pods than are expected?
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) (reconcile.Result, error) {
+	// Ensure we have pods for the defined NodeCount.
+	// If scaling down, we will handle the extra/obsolete pods later.
+	foundPodList, err := ListPods(r.client, humioCluster)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to list pods: %s", err)
+	}
+
+	if len(foundPodList) < humioCluster.Spec.NodeCount {
 		pod, err := r.constructPod(humioCluster)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to construct pod for HumioCluster: %v", err)
