@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -31,6 +30,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 		name         string
 		humioCluster *corev1alpha1.HumioCluster
 		humioClient  *humio.MockClientConfig
+		version      string
 	}{
 		{
 			"test simple cluster reconciliation",
@@ -52,7 +52,8 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 					Nodes:             buildClusterNodesList(3),
 					StoragePartitions: buildStoragePartitionsList(3, 1),
 					IngestPartitions:  buildIngestPartitionsList(3, 1),
-				}, nil, nil, nil, ""),
+				}, nil, nil, nil, "", "1.9.2--build-12365--sha-bf4188482a"),
+			"1.9.2--build-12365--sha-bf4188482a",
 		},
 		{
 			"test large cluster reconciliation",
@@ -74,7 +75,8 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 					Nodes:             buildClusterNodesList(18),
 					StoragePartitions: buildStoragePartitionsList(72, 2),
 					IngestPartitions:  buildIngestPartitionsList(72, 2),
-				}, nil, nil, nil, ""),
+				}, nil, nil, nil, "", "1.9.2--build-12365--sha-bf4188482a"),
+			"1.9.2--build-12365--sha-bf4188482a",
 		},
 	}
 	for _, tt := range tests {
@@ -178,8 +180,8 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			if updatedHumioCluster.Status.ClusterState != corev1alpha1.HumioClusterStateRunning {
 				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateRunning, updatedHumioCluster.Status.ClusterState)
 			}
-			if updatedHumioCluster.Status.ClusterVersion != strings.Split(tt.humioCluster.Spec.Image, ":")[1] {
-				t.Errorf("expected cluster version to be %s but got %s", strings.Split(tt.humioCluster.Spec.Image, ":")[1], updatedHumioCluster.Status.ClusterVersion)
+			if updatedHumioCluster.Status.ClusterVersion != tt.version {
+				t.Errorf("expected cluster version to be %s but got %s", tt.version, updatedHumioCluster.Status.ClusterVersion)
 			}
 			if updatedHumioCluster.Status.ClusterNodeCount != tt.humioCluster.Spec.NodeCount {
 				t.Errorf("expected node count to be %d but got %d", tt.humioCluster.Spec.NodeCount, updatedHumioCluster.Status.ClusterNodeCount)
@@ -259,6 +261,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 		humioCluster  *corev1alpha1.HumioCluster
 		humioClient   *humio.MockClientConfig
 		imageToUpdate string
+		version       string
 	}{
 		{
 			"test simple cluster humio image update",
@@ -280,8 +283,9 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 					Nodes:             buildClusterNodesList(3),
 					StoragePartitions: buildStoragePartitionsList(3, 1),
 					IngestPartitions:  buildIngestPartitionsList(3, 1),
-				}, nil, nil, nil, ""),
+				}, nil, nil, nil, "", "1.9.2--build-12365--sha-bf4188482a"),
 			"humio/humio-core:1.9.2",
+			"1.9.2--build-12365--sha-bf4188482a",
 		},
 	}
 	for _, tt := range tests {
@@ -367,8 +371,8 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 			if updatedHumioCluster.Status.ClusterState != corev1alpha1.HumioClusterStateRunning {
 				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateRunning, updatedHumioCluster.Status.ClusterState)
 			}
-			if updatedHumioCluster.Status.ClusterVersion != strings.Split(tt.humioCluster.Spec.Image, ":")[1] {
-				t.Errorf("expected cluster version to be %s but got %s", strings.Split(tt.humioCluster.Spec.Image, ":")[1], updatedHumioCluster.Status.ClusterVersion)
+			if updatedHumioCluster.Status.ClusterVersion != tt.version {
+				t.Errorf("expected cluster version to be %s but got %s", tt.version, updatedHumioCluster.Status.ClusterVersion)
 			}
 			if updatedHumioCluster.Status.ClusterNodeCount != tt.humioCluster.Spec.NodeCount {
 				t.Errorf("expected node count to be %d but got %d", tt.humioCluster.Spec.NodeCount, updatedHumioCluster.Status.ClusterNodeCount)
@@ -425,8 +429,8 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 			if updatedHumioCluster.Status.ClusterState != corev1alpha1.HumioClusterStateRunning {
 				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateRunning, updatedHumioCluster.Status.ClusterState)
 			}
-			if updatedHumioCluster.Status.ClusterVersion != strings.Split(tt.imageToUpdate, ":")[1] {
-				t.Errorf("expected cluster version to be %s but got %s", strings.Split(tt.imageToUpdate, ":")[1], updatedHumioCluster.Status.ClusterVersion)
+			if updatedHumioCluster.Status.ClusterVersion != tt.version {
+				t.Errorf("expected cluster version to be %s but got %s", tt.version, updatedHumioCluster.Status.ClusterVersion)
 			}
 			if updatedHumioCluster.Status.ClusterNodeCount != tt.humioCluster.Spec.NodeCount {
 				t.Errorf("expected node count to be %d but got %d", tt.humioCluster.Spec.NodeCount, updatedHumioCluster.Status.ClusterNodeCount)

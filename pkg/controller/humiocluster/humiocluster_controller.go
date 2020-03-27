@@ -3,7 +3,6 @@ package humiocluster
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -166,8 +165,11 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 
 	// TODO: get cluster version from humio api
 	defer func(context context.Context, humioClient humio.Client, humioCluster *corev1alpha1.HumioCluster) {
-		version := strings.Split(humioCluster.Spec.Image, ":")[1]
-		r.setClusterVersion(context, version, humioCluster)
+		status, err := humioClient.Status()
+		if err != nil {
+			r.logger.Info("unable to get status: %s", err)
+		}
+		r.setClusterVersion(context, status.Version, humioCluster)
 	}(context.TODO(), r.humioClient, humioCluster)
 
 	result, err = r.ensurePodsExist(context.TODO(), humioCluster)
