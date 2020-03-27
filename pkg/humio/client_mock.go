@@ -15,9 +15,10 @@ type ClientMock struct {
 type MockClientConfig struct {
 	apiClient *ClientMock
 	Url       string
+	Version   string
 }
 
-func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePartitionSchemeError error, updateIngestPartitionSchemeError error, url string) *MockClientConfig {
+func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePartitionSchemeError error, updateIngestPartitionSchemeError error, url string, version string) *MockClientConfig {
 	storagePartition := humioapi.StoragePartition{}
 	ingestPartition := humioapi.IngestPartition{}
 
@@ -28,7 +29,8 @@ func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePar
 			UpdateStoragePartitionSchemeError: updateStoragePartitionSchemeError,
 			UpdateIngestPartitionSchemeError:  updateIngestPartitionSchemeError,
 		},
-		Url: url,
+		Url:     url,
+		Version: version,
 	}
 
 	cluster.StoragePartitions = []humioapi.StoragePartition{storagePartition}
@@ -39,6 +41,13 @@ func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePar
 
 func (h *MockClientConfig) Authenticate(config *humioapi.Config) error {
 	return nil
+}
+
+func (h *MockClientConfig) Status() (humioapi.StatusResponse, error) {
+	return humioapi.StatusResponse{
+		Status:  "OK",
+		Version: h.Version,
+	}, nil
 }
 
 func (h *MockClientConfig) GetClusters() (humioapi.Cluster, error) {

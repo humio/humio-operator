@@ -131,7 +131,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	// Assume we are bootstrapping if no cluster state is set.
 	// TODO: this is a workaround for the issue where humio pods cannot start up at the same time during the first boot
 	if humioCluster.Status.ClusterState == "" {
-		r.setClusterStatus(context.TODO(), corev1alpha1.HumioClusterStateBoostrapping, humioCluster)
+		r.setClusterState(context.TODO(), corev1alpha1.HumioClusterStateBoostrapping, humioCluster)
 	}
 
 	// Ensure developer password is a k8s secret
@@ -156,7 +156,21 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		}
 	}
 
-	r.setClusterStatus(context.TODO(), corev1alpha1.HumioClusterStateRunning, humioCluster)
+	r.setClusterState(context.TODO(), corev1alpha1.HumioClusterStateRunning, humioCluster)
+
+	defer func(context context.Context, humioCluster *corev1alpha1.HumioCluster) {
+		pods, _ := ListPods(r.client, humioCluster)
+		r.setClusterNodeCount(context, len(pods), humioCluster)
+	}(context.TODO(), humioCluster)
+
+	// TODO: get cluster version from humio api
+	defer func(context context.Context, humioClient humio.Client, humioCluster *corev1alpha1.HumioCluster) {
+		status, err := humioClient.Status()
+		if err != nil {
+			r.logger.Info("unable to get status: %s", err)
+		}
+		r.setClusterVersion(context, status.Version, humioCluster)
+	}(context.TODO(), r.humioClient, humioCluster)
 
 	result, err = r.ensurePodsExist(context.TODO(), humioCluster)
 	if result != emptyResult || err != nil {
@@ -191,10 +205,20 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 30}, nil
 }
 
-// setClusterStatus is used to change the cluster status
+// setClusterState is used to change the cluster state
 // TODO: we use this to determine if we should have a delay between startup of humio pods during bootstrap vs starting up pods during an image update
-func (r *ReconcileHumioCluster) setClusterStatus(context context.Context, clusterState string, humioCluster *corev1alpha1.HumioCluster) error {
+func (r *ReconcileHumioCluster) setClusterState(context context.Context, clusterState string, humioCluster *corev1alpha1.HumioCluster) error {
 	humioCluster.Status.ClusterState = clusterState
+	return r.client.Status().Update(context, humioCluster)
+}
+
+func (r *ReconcileHumioCluster) setClusterVersion(context context.Context, clusterVersion string, humioCluster *corev1alpha1.HumioCluster) error {
+	humioCluster.Status.ClusterVersion = clusterVersion
+	return r.client.Status().Update(context, humioCluster)
+}
+
+func (r *ReconcileHumioCluster) setClusterNodeCount(context context.Context, clusterNodeCount int, humioCluster *corev1alpha1.HumioCluster) error {
+	humioCluster.Status.ClusterNodeCount = clusterNodeCount
 	return r.client.Status().Update(context, humioCluster)
 }
 
