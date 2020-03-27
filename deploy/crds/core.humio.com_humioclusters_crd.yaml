@@ -3,6 +3,11 @@ kind: CustomResourceDefinition
 metadata:
   name: humioclusters.core.humio.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.clusterState
+    description: The state of the cluster
+    name: State
+    type: string
   group: core.humio.com
   names:
     kind: HumioCluster

@@ -5,6 +5,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// HumioClusterStateBoostrapping is the Bootstrapping state of the cluster
+	HumioClusterStateBoostrapping = "Bootstrapping"
+	// HumioClusterStateRunning is the Running state of the cluster
+	HumioClusterStateRunning = "Running"
+)
+
 // HumioClusterSpec defines the desired state of HumioCluster
 type HumioClusterSpec struct {
 	// Desired container image including the image tag
@@ -36,6 +43,7 @@ type HumioClusterStatus struct {
 // HumioCluster is the Schema for the humioclusters API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humioclusters,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.clusterState",description="The state of the cluster"
 type HumioCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
