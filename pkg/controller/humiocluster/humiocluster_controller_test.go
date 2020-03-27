@@ -331,7 +331,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 			tt.humioCluster = updatedHumioCluster
 
 			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
-				foundPodList, err := ListPods(cl, tt.humioCluster)
+				foundPodList, err := ListPods(cl, updatedHumioCluster)
 				if len(foundPodList) != nodeCount+1 {
 					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount+1, len(foundPodList))
 				}
@@ -375,7 +375,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 			}
 
 			// Ensure all the pods are shut down to prep for the image update
-			foundPodList, err := ListPods(cl, tt.humioCluster)
+			foundPodList, err := ListPods(cl, updatedHumioCluster)
 			if err != nil {
 				t.Errorf("failed to list pods: %s", err)
 			}
