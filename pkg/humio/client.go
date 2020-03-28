@@ -65,6 +65,7 @@ func (h *ClientConfig) Status() (humioapi.StatusResponse, error) {
 	status, err := h.apiClient.Status()
 	if err != nil {
 		h.logger.Errorf("could not get status: %s", err)
+		return humioapi.StatusResponse{}, err
 	}
 	return *status, err
 }
