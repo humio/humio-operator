@@ -35,14 +35,13 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
@@ -53,19 +52,18 @@ var (
 	metricsPort         int32 = 8383
 	operatorMetricsPort int32 = 8686
 )
-var log = logf.Log.WithName("cmd")
 
-func printVersion() {
-	log.Info(fmt.Sprintf("Operator Version: %s", version.Version))
-	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
-	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
+func printVersion(logger *zap.SugaredLogger) {
+	logger.Infof("Operator Version: %s", version.Version)
+	logger.Infof("Go Version: %s", runtime.Version())
+	logger.Infof("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
+	logger.Infof("Version of operator-sdk: %v", sdkVersion.Version)
 }
 
 func main() {
-	// Add the zap logger flag set to the CLI. The flag set must
-	// be added before calling pflag.Parse().
-	pflag.CommandLine.AddFlagSet(zap.FlagSet())
+	zapProd, _ := zap.NewProduction()
+	defer zapProd.Sync()
+	logger := zapProd.Sugar()
 
 	// Add flags registered by imported packages (e.g. glog and
 	// controller-runtime)
@@ -73,28 +71,18 @@ func main() {
 
 	pflag.Parse()
 
-	// Use a zap logr.Logger implementation. If none of the zap
-	// flags are configured (or if the zap flag set is not being
-	// used), this defaults to a production zap logger.
-	//
-	// The logger instantiated here can be changed to any logger
-	// implementing the logr.Logger interface. This logger will
-	// be propagated through the whole operator, generating
-	// uniform and structured logs.
-	logf.SetLogger(zap.Logger())
-
-	printVersion()
+	printVersion(logger)
 
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
+		logger.Error(err, "Failed to get watch namespace")
 		os.Exit(1)
 	}
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Error(err, "")
+		logger.Error(err, "")
 		os.Exit(1)
 	}
 
@@ -102,7 +90,7 @@ func main() {
 	// Become the leader before proceeding
 	err = leader.Become(ctx, "humio-operator-lock")
 	if err != nil {
-		log.Error(err, "")
+		logger.Error(err, "")
 		os.Exit(1)
 	}
 
@@ -112,45 +100,45 @@ func main() {
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 	})
 	if err != nil {
-		log.Error(err, "")
+		logger.Error(err, "")
 		os.Exit(1)
 	}
 
-	log.Info("Registering Components.")
+	logger.Info("Registering Components.")
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
+		logger.Error(err, "")
 		os.Exit(1)
 	}
 
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
-		log.Error(err, "")
+		logger.Error(err, "")
 		os.Exit(1)
 	}
 
 	// Add the Metrics Service
-	addMetrics(ctx, cfg, namespace)
+	addMetrics(ctx, cfg, namespace, logger)
 
-	log.Info("Starting the Cmd.")
+	logger.Info("Starting the Cmd.")
 
 	// Start the Cmd
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
-		log.Error(err, "Manager exited non-zero")
+		logger.Error(err, "Manager exited non-zero")
 		os.Exit(1)
 	}
 }
 
 // addMetrics will create the Services and Service Monitors to allow the operator export the metrics by using
 // the Prometheus operator
-func addMetrics(ctx context.Context, cfg *rest.Config, namespace string) {
+func addMetrics(ctx context.Context, cfg *rest.Config, namespace string, logger *zap.SugaredLogger) {
 	if err := serveCRMetrics(cfg); err != nil {
 		if errors.Is(err, k8sutil.ErrRunLocal) {
-			log.Info("Skipping CR metrics server creation; not running in a cluster.")
+			logger.Info("Skipping CR metrics server creation; not running in a cluster.")
 			return
 		}
-		log.Info("Could not generate and serve custom resource metrics", "error", err.Error())
+		logger.Info("Could not generate and serve custom resource metrics", "error", err.Error())
 	}
 
 	// Add to the below struct any other metrics ports you want to expose.
@@ -162,7 +150,7 @@ func addMetrics(ctx context.Context, cfg *rest.Config, namespace string) {
 	// Create Service object to expose the metrics port(s).
 	service, err := metrics.CreateMetricsService(ctx, cfg, servicePorts)
 	if err != nil {
-		log.Info("Could not create metrics Service", "error", err.Error())
+		logger.Infof("could not create metrics Service: %s", err)
 	}
 
 	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
@@ -170,11 +158,11 @@ func addMetrics(ctx context.Context, cfg *rest.Config, namespace string) {
 	services := []*v1.Service{service}
 	_, err = metrics.CreateServiceMonitors(cfg, namespace, services)
 	if err != nil {
-		log.Info("Could not create ServiceMonitor object", "error", err.Error())
+		logger.Infof("could not create ServiceMonitor object: %s", err)
 		// If this operator is deployed to a cluster without the prometheus-operator running, it will return
 		// ErrServiceMonitorNotPresent, which can be used to safely skip ServiceMonitor creation.
 		if err == metrics.ErrServiceMonitorNotPresent {
-			log.Info("Install prometheus-operator in your cluster to create ServiceMonitor objects", "error", err.Error())
+			logger.Infof("Install prometheus-operator in your cluster to create ServiceMonitor objects: %v", err)
 		}
 	}
 }

@@ -35,7 +35,7 @@ func (r *ReconcileHumioCluster) constructService(hc *corev1alpha1.HumioCluster) 
 		},
 	}
 	if err := controllerutil.SetControllerReference(hc, &service, r.scheme); err != nil {
-		return &corev1.Service{}, fmt.Errorf("could not set controller reference: %v", err)
+		return &corev1.Service{}, fmt.Errorf("could not set controller reference: %s", err)
 	}
 	return &service, nil
 }

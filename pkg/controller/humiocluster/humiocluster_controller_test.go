@@ -11,6 +11,7 @@ import (
 	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/humio/humio-operator/pkg/humio"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -81,6 +82,9 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			logger, _ := zap.NewProduction()
+			defer logger.Sync() // flushes buffer, if any
+			sugar := logger.Sugar().With("Request.Namespace", tt.humioCluster.Namespace, "Request.Name", tt.humioCluster.Name)
 
 			// Objects to track in the fake client.
 			objs := []runtime.Object{
@@ -108,6 +112,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				client:      cl,
 				humioClient: tt.humioClient,
 				scheme:      s,
+				logger:      sugar,
 			}
 
 			// Mock request to simulate Reconcile() being called on an event for a
@@ -225,7 +230,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			// Check that the partitions are balanced
-			clusterController := humio.NewClusterController(tt.humioClient)
+			clusterController := humio.NewClusterController(r.logger, r.humioClient)
 			if b, err := clusterController.AreStoragePartitionsBalanced(updatedHumioCluster); !b || err != nil {
 				t.Errorf("expected storage partitions to be balanced. got %v, err %s", b, err)
 			}
@@ -235,7 +240,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 
 			foundPodList, err = ListPods(cl, updatedHumioCluster)
 			if err != nil {
-				t.Errorf("could not list pods to validate their content: %v", err)
+				t.Errorf("could not list pods to validate their content: %s", err)
 			}
 
 			if len(foundPodList) != tt.humioCluster.Spec.NodeCount {
@@ -290,6 +295,9 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			logger, _ := zap.NewProduction()
+			defer logger.Sync() // flushes buffer, if any
+			sugar := logger.Sugar().With("Request.Namespace", tt.humioCluster.Namespace, "Request.Name", tt.humioCluster.Name)
 
 			// Objects to track in the fake client.
 			objs := []runtime.Object{
@@ -317,6 +325,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 				client:      cl,
 				humioClient: tt.humioClient,
 				scheme:      s,
+				logger:      sugar,
 			}
 
 			// Mock request to simulate Reconcile() being called on an event for a

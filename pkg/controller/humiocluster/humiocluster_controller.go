@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/humio/humio-operator/pkg/humio"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -25,7 +24,6 @@ import (
 )
 
 var (
-	log                      = logf.Log.WithName("controller_humiocluster")
 	serviceAccountSecretName = "developer"
 	serviceTokenSecretName   = "developer-token"
 	metricPodsCreated        = prometheus.NewCounter(prometheus.CounterOpts{
@@ -50,10 +48,14 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+
 	return &ReconcileHumioCluster{
 		client:      mgr.GetClient(),
 		scheme:      mgr.GetScheme(),
-		humioClient: humio.NewClient(&humioapi.Config{}),
+		humioClient: humio.NewClient(logger.Sugar(), &humioapi.Config{}),
+		logger:      logger.Sugar(),
 	}
 }
 
@@ -100,7 +102,7 @@ type ReconcileHumioCluster struct {
 	client      client.Client
 	humioClient humio.Client
 	scheme      *runtime.Scheme
-	logger      logr.Logger
+	logger      *zap.SugaredLogger
 }
 
 // Reconcile reads that state of the cluster for a HumioCluster object and makes changes based on the state read
@@ -108,7 +110,9 @@ type ReconcileHumioCluster struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	r.logger = log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+	r.logger = logger.Sugar().With("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	r.logger.Info("Reconciling HumioCluster")
 
 	// Fetch the HumioCluster
@@ -195,7 +199,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	// TODO: wait until all pods are ready before continuing
-	clusterController := humio.NewClusterController(r.humioClient)
+	clusterController := humio.NewClusterController(r.logger, r.humioClient)
 	err = r.ensurePartitionsAreBalanced(*clusterController, humioCluster)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -238,14 +242,14 @@ func (r *ReconcileHumioCluster) ensurePodLabels(context context.Context, hc *cor
 		}
 		// If pod does not have an IP yet it is probably pending
 		if pod.Status.PodIP == "" {
-			r.logger.Info(fmt.Sprintf("not setting labels for pod %s because it is in state %s", pod.Name, pod.Status.Phase))
+			r.logger.Infof("not setting labels for pod %s because it is in state %s", pod.Name, pod.Status.Phase)
 			continue
 		}
-		r.logger.Info(fmt.Sprintf("setting labels for nodes: %v", cluster.Nodes))
+		r.logger.Infof("setting labels for nodes: %v", cluster.Nodes)
 		for _, node := range cluster.Nodes {
 			if node.Uri == fmt.Sprintf("http://%s:%d", pod.Status.PodIP, humioPort) {
 				labels := labelsForPod(hc.Name, node.Id)
-				r.logger.Info(fmt.Sprintf("setting labels for pod %s, labels=%v", pod.Name, labels))
+				r.logger.Infof("setting labels for pod %s, labels=%v", pod.Name, labels)
 				pod.SetLabels(labels)
 				if err := r.client.Update(context, &pod); err != nil {
 					return fmt.Errorf("failed to update labels on pod %s: %s", pod.Name, err)
@@ -288,11 +292,11 @@ func (r *ReconcileHumioCluster) ensureServiceExists(context context.Context, hc 
 	if k8serrors.IsNotFound(err) {
 		service, err := r.constructService(hc)
 		if err != nil {
-			return fmt.Errorf("unable to construct service for HumioCluster: %v", err)
+			return fmt.Errorf("unable to construct service for HumioCluster: %s", err)
 		}
 		err = r.client.Create(context, service)
 		if err != nil {
-			return fmt.Errorf("unable to create service for HumioCluster: %v", err)
+			return fmt.Errorf("unable to create service for HumioCluster: %s", err)
 		}
 	}
 	return nil
@@ -325,10 +329,10 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodVersionsAreDeleted(conetext c
 			// if container image versions of a pod differs, we want to delete it
 			if pod.Spec.Containers[0].Image != humioCluster.Spec.Image {
 				// TODO: figure out if we should only allow upgrades and not downgrades
-				r.logger.Info(fmt.Sprintf("deleting pod %s", pod.Name))
+				r.logger.Infof("deleting pod %s", pod.Name)
 				err = DeletePod(r.client, pod)
 				if err != nil {
-					return reconcile.Result{}, fmt.Errorf("could not delete pod %s, got err: %v", pod.Name, err)
+					return reconcile.Result{}, fmt.Errorf("could not delete pod %s, got err: %s", pod.Name, err)
 				}
 				return reconcile.Result{Requeue: true}, nil
 			}
@@ -374,22 +378,22 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(conetext context.Context,
 	}
 
 	if podsNotReadyCount > 0 {
-		r.logger.Info(fmt.Sprintf("there are %d humio pods that are not ready. all humio pods must report ready before reconciliation can continue", podsNotReadyCount))
+		r.logger.Infof("there are %d humio pods that are not ready. all humio pods must report ready before reconciliation can continue", podsNotReadyCount)
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 
 	if podsReadyCount < humioCluster.Spec.NodeCount {
 		pod, err := r.constructPod(humioCluster)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("unable to construct pod for HumioCluster: %v", err)
+			return reconcile.Result{}, fmt.Errorf("unable to construct pod for HumioCluster: %s", err)
 		}
 
 		err = r.client.Create(context.TODO(), pod)
 		if err != nil {
-			log.Info(fmt.Sprintf("unable to create pod: %v", err))
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, fmt.Errorf("unable to create Pod for HumioCluster: %v", err)
+			r.logger.Infof("unable to create pod: %s", err)
+			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, fmt.Errorf("unable to create Pod for HumioCluster: %s", err)
 		}
-		log.Info(fmt.Sprintf("successfully created pod %s for HumioCluster %s", pod.Name, humioCluster.Name))
+		r.logger.Infof("successfully created pod %s for HumioCluster %s", pod.Name, humioCluster.Name)
 		metricPodsCreated.Inc()
 		// We have created a pod. Requeue immediately even if the pod is not ready. We will check the readiness status on the next reconciliation.
 		return reconcile.Result{Requeue: true}, nil
@@ -410,15 +414,15 @@ func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioC
 	if len(foundPodList) < humioCluster.Spec.NodeCount {
 		pod, err := r.constructPod(humioCluster)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("unable to construct pod for HumioCluster: %v", err)
+			return reconcile.Result{}, fmt.Errorf("unable to construct pod for HumioCluster: %s", err)
 		}
 
 		err = r.client.Create(context.TODO(), pod)
 		if err != nil {
-			log.Info(fmt.Sprintf("unable to create pod: %v", err))
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, fmt.Errorf("unable to create Pod for HumioCluster: %v", err)
+			r.logger.Infof("unable to create pod: %s", err)
+			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, fmt.Errorf("unable to create Pod for HumioCluster: %s", err)
 		}
-		log.Info(fmt.Sprintf("successfully created pod %s for HumioCluster %s", pod.Name, humioCluster.Name))
+		r.logger.Infof("successfully created pod %s for HumioCluster %s", pod.Name, humioCluster.Name)
 		metricPodsCreated.Inc()
 		// We have created a pod. Requeue immediately even if the pod is not ready. We will check the readiness status on the next reconciliation.
 		return reconcile.Result{Requeue: true}, nil
@@ -437,14 +441,14 @@ func (r *ReconcileHumioCluster) ensureDeveloperUserPasswordExists(conetext conte
 		if k8serrors.IsNotFound(err) {
 			secret, err := r.constructSecret(humioCluster, serviceAccountSecretName, secretData)
 			if err != nil {
-				return fmt.Errorf("unable to construct service for HumioCluster: %v", err)
+				return fmt.Errorf("unable to construct service for HumioCluster: %s", err)
 			}
 			err = r.client.Create(context.TODO(), secret)
 			if err != nil {
-				log.Info(fmt.Sprintf("unable to create secret: %v", err))
-				return fmt.Errorf("unable to create service account secret for HumioCluster: %v", err)
+				r.logger.Infof("unable to create secret: %s", err)
+				return fmt.Errorf("unable to create service account secret for HumioCluster: %s", err)
 			}
-			log.Info(fmt.Sprintf("successfully created service account secret %s for HumioCluster %s", serviceAccountSecretName, humioCluster.Name))
+			r.logger.Infof("successfully created service account secret %s for HumioCluster %s", serviceAccountSecretName, humioCluster.Name)
 			metricSecretsCreated.Inc()
 		}
 	}
@@ -457,7 +461,7 @@ func (r *ReconcileHumioCluster) ensurePersistentTokenExists(conetext context.Con
 		if k8serrors.IsNotFound(err) {
 			password, err := r.getDeveloperUserPassword(humioCluster)
 			if err != nil {
-				return fmt.Errorf("failed to get password: %v", err)
+				return fmt.Errorf("failed to get password: %s", err)
 			}
 			persistentToken, err := GetPersistentToken(humioCluster, url, password, r.humioClient)
 			if err != nil {
@@ -467,19 +471,19 @@ func (r *ReconcileHumioCluster) ensurePersistentTokenExists(conetext context.Con
 			secretData := map[string][]byte{"token": []byte(persistentToken)}
 			secret, err := r.constructSecret(humioCluster, serviceTokenSecretName, secretData)
 			if err != nil {
-				return fmt.Errorf("unable to construct service for HumioCluster: %v", err)
+				return fmt.Errorf("unable to construct service for HumioCluster: %s", err)
 			}
 
 			err = r.client.Create(context.TODO(), secret)
 			if err != nil {
-				log.Info(fmt.Sprintf("unable to create secret: %v", err))
-				return fmt.Errorf("unable to create persistent token secret for HumioCluster: %v", err)
+				r.logger.Infof("unable to create secret: %s", err)
+				return fmt.Errorf("unable to create persistent token secret for HumioCluster: %s", err)
 			}
-			log.Info(fmt.Sprintf("successfully created persistent token secret %s for HumioCluster %s", serviceTokenSecretName, humioCluster.Name))
+			r.logger.Infof("successfully created persistent token secret %s for HumioCluster %s", serviceTokenSecretName, humioCluster.Name)
 			metricSecretsCreated.Inc()
 		}
 	} else {
-		log.Info(fmt.Sprintf("persistent token secret %s already exists for HumioCluster %s", serviceTokenSecretName, humioCluster.Name))
+		r.logger.Infof("persistent token secret %s already exists for HumioCluster %s", serviceTokenSecretName, humioCluster.Name)
 	}
 
 	// Either authenticate or re-authenticate with the persistent token
@@ -496,7 +500,7 @@ func (r *ReconcileHumioCluster) ensurePersistentTokenExists(conetext context.Con
 func (r *ReconcileHumioCluster) getDeveloperUserPassword(hc *corev1alpha1.HumioCluster) (string, error) {
 	secret, err := r.GetSecret(context.TODO(), hc, serviceAccountSecretName)
 	if err != nil {
-		return "", fmt.Errorf("could not get secret with password: %v", err)
+		return "", fmt.Errorf("could not get secret with password: %s", err)
 	}
 	if string(secret.Data["password"]) == "" {
 		return "", fmt.Errorf("secret %s expected content to not be empty, but it was", serviceAccountSecretName)
