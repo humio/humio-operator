@@ -96,7 +96,7 @@ func (r *ReconcileHumioCluster) constructPod(hc *corev1alpha1.HumioCluster) (*co
 		},
 	}
 	if err := controllerutil.SetControllerReference(hc, &pod, r.scheme); err != nil {
-		return &corev1.Pod{}, fmt.Errorf("could not set controller reference: %v", err)
+		return &corev1.Pod{}, fmt.Errorf("could not set controller reference: %s", err)
 	}
 	return &pod, nil
 }

@@ -25,7 +25,7 @@ func (r *ReconcileHumioCluster) constructSecret(hc *corev1alpha1.HumioCluster, s
 		Data: data,
 	}
 	if err := controllerutil.SetControllerReference(hc, &secret, r.scheme); err != nil {
-		return &corev1.Secret{}, fmt.Errorf("could not set controller reference: %v", err)
+		return &corev1.Secret{}, fmt.Errorf("could not set controller reference: %s", err)
 	}
 	return &secret, nil
 }

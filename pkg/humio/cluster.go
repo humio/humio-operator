@@ -5,18 +5,22 @@ import (
 
 	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
-	"github.com/prometheus/common/log"
 	"github.com/shurcooL/graphql"
+	"go.uber.org/zap"
 )
 
 // ClusterController holds our client
 type ClusterController struct {
 	client Client
+	logger *zap.SugaredLogger
 }
 
 // NewClusterController returns a ClusterController
-func NewClusterController(client Client) *ClusterController {
-	return &ClusterController{client: client}
+func NewClusterController(logger *zap.SugaredLogger, client Client) *ClusterController {
+	return &ClusterController{
+		client: client,
+		logger: logger,
+	}
 }
 
 // AreAllRegisteredNodesAvailable only returns true if all nodes registered with humio are available
@@ -46,7 +50,7 @@ func (c *ClusterController) NoDataMissing() (bool, error) {
 	return false, nil
 }
 
-// // IsNodeRegistered returns whether the Humio cluster has a node with the given node id
+// IsNodeRegistered returns whether the Humio cluster has a node with the given node id
 func (c *ClusterController) IsNodeRegistered(nodeID int) (bool, error) {
 	cluster, err := c.client.GetClusters()
 	if err != nil {
@@ -102,7 +106,7 @@ func (c *ClusterController) AreStoragePartitionsBalanced(hc *corev1alpha1.HumioC
 
 	for _, partition := range cluster.StoragePartitions {
 		if len(partition.NodeIds) != hc.Spec.TargetReplicationFactor {
-			log.Info("the number of nodes in a partition does not match the replication factor")
+			c.logger.Info("the number of nodes in a partition does not match the replication factor")
 			return false, nil
 		}
 		for _, node := range partition.NodeIds {
@@ -114,7 +118,7 @@ func (c *ClusterController) AreStoragePartitionsBalanced(hc *corev1alpha1.HumioC
 	var min, max int
 	for i, partitionCount := range nodeToPartitionCount {
 		if partitionCount == 0 {
-			log.Infof("node id %d does not contain any storage partitions", i)
+			c.logger.Infof("node id %d does not contain any storage partitions", i)
 			return false, nil
 		}
 		if min == 0 {
@@ -132,18 +136,17 @@ func (c *ClusterController) AreStoragePartitionsBalanced(hc *corev1alpha1.HumioC
 	}
 
 	if max-min > 1 {
-		log.Infof("the difference in number of storage partitions assigned per storage node is greater than 1, min=%d, max=%d", min, max)
+		c.logger.Infof("the difference in number of storage partitions assigned per storage node is greater than 1, min=%d, max=%d", min, max)
 		return false, nil
 	}
 
-	log.Infof("storage partitions are balanced min=%d, max=%d", min, max)
+	c.logger.Infof("storage partitions are balanced min=%d, max=%d", min, max)
 	return true, nil
-
 }
 
 // RebalanceStoragePartitions will assign storage partitions evenly across registered storage nodes. If replication is not set, we set it to 1.
 func (c *ClusterController) RebalanceStoragePartitions(hc *corev1alpha1.HumioCluster) error {
-	log.Info("rebalancing storage partitions")
+	c.logger.Info("rebalancing storage partitions")
 
 	cluster, err := c.client.GetClusters()
 	if err != nil {
@@ -163,11 +166,11 @@ func (c *ClusterController) RebalanceStoragePartitions(hc *corev1alpha1.HumioClu
 
 	partitionAssignment, err := generateStoragePartitionSchemeCandidate(storageNodeIDs, hc.Spec.StoragePartitionsCount, replication)
 	if err != nil {
-		return fmt.Errorf("could not generate storage partition scheme candidate: %v", err)
+		return fmt.Errorf("could not generate storage partition scheme candidate: %s", err)
 	}
 
 	if err := c.client.UpdateStoragePartitionScheme(partitionAssignment); err != nil {
-		return fmt.Errorf("could not update storage partition scheme: %v", err)
+		return fmt.Errorf("could not update storage partition scheme: %s", err)
 	}
 	return nil
 }
@@ -190,7 +193,7 @@ func (c *ClusterController) AreIngestPartitionsBalanced(hc *corev1alpha1.HumioCl
 
 	for _, partition := range cluster.IngestPartitions {
 		if len(partition.NodeIds) != hc.Spec.TargetReplicationFactor {
-			log.Info("the number of nodes in a partition does not match the replication factor")
+			c.logger.Info("the number of nodes in a partition does not match the replication factor")
 			return false, nil
 		}
 		for _, node := range partition.NodeIds {
@@ -202,7 +205,7 @@ func (c *ClusterController) AreIngestPartitionsBalanced(hc *corev1alpha1.HumioCl
 	var min, max int
 	for i, partitionCount := range nodeToPartitionCount {
 		if partitionCount == 0 {
-			log.Infof("node id %d does not contain any ingest partitions", i)
+			c.logger.Infof("node id %d does not contain any ingest partitions", i)
 			return false, nil
 		}
 		if min == 0 {
@@ -220,17 +223,17 @@ func (c *ClusterController) AreIngestPartitionsBalanced(hc *corev1alpha1.HumioCl
 	}
 
 	if max-min > 1 {
-		log.Infof("the difference in number of ingest partitions assigned per storage node is greater than 1, min=%d, max=%d", min, max)
+		c.logger.Infof("the difference in number of ingest partitions assigned per storage node is greater than 1, min=%d, max=%d", min, max)
 		return false, nil
 	}
 
-	log.Infof("ingest partitions are balanced min=%d, max=%d", min, max)
+	c.logger.Infof("ingest partitions are balanced min=%d, max=%d", min, max)
 	return true, nil
 }
 
 // RebalanceIngestPartitions will assign ingest partitions evenly across registered digest nodes. If replication is not set, we set it to 1.
 func (c *ClusterController) RebalanceIngestPartitions(hc *corev1alpha1.HumioCluster) error {
-	log.Info("rebalancing ingest partitions")
+	c.logger.Info("rebalancing ingest partitions")
 
 	cluster, err := c.client.GetClusters()
 	if err != nil {
@@ -250,11 +253,11 @@ func (c *ClusterController) RebalanceIngestPartitions(hc *corev1alpha1.HumioClus
 
 	partitionAssignment, err := generateIngestPartitionSchemeCandidate(hc, digestNodeIDs, hc.Spec.DigestPartitionsCount, replication)
 	if err != nil {
-		return fmt.Errorf("could not generate ingest partition scheme candidate: %v", err)
+		return fmt.Errorf("could not generate ingest partition scheme candidate: %s", err)
 	}
 
 	if err := c.client.UpdateIngestPartitionScheme(partitionAssignment); err != nil {
-		return fmt.Errorf("could not update ingest partition scheme: %v", err)
+		return fmt.Errorf("could not update ingest partition scheme: %s", err)
 	}
 	return nil
 }
@@ -263,41 +266,41 @@ func (c *ClusterController) RebalanceIngestPartitions(hc *corev1alpha1.HumioClus
 // TODO: how often, or when do we run this? Is it necessary for storage and digest? Is it necessary for MoveStorageRouteAwayFromNode
 // and MoveIngestRoutesAwayFromNode?
 func (c *ClusterController) StartDataRedistribution(hc *corev1alpha1.HumioCluster) error {
-	log.Info("starting data redistribution")
+	c.logger.Info("starting data redistribution")
 
 	if err := c.client.StartDataRedistribution(); err != nil {
-		return fmt.Errorf("could not start data redistribution: %v", err)
+		return fmt.Errorf("could not start data redistribution: %s", err)
 	}
 	return nil
 }
 
 // MoveStorageRouteAwayFromNode notifies the Humio cluster that a node ID should be removed from handling any storage partitions
-func (c *ClusterController) MoveStorageRouteAwayFromNode(hc *corev1alpha1.HumioCluster, pID int) error {
-	log.Info(fmt.Sprintf("moving storage route away from node %d", pID))
+func (c *ClusterController) MoveStorageRouteAwayFromNode(hc *corev1alpha1.HumioCluster, nodeID int) error {
+	c.logger.Infof("moving storage route away from node %d", nodeID)
 
-	if err := c.client.ClusterMoveStorageRouteAwayFromNode(pID); err != nil {
-		return fmt.Errorf("could not move storage route away from node: %v", err)
+	if err := c.client.ClusterMoveStorageRouteAwayFromNode(nodeID); err != nil {
+		return fmt.Errorf("could not move storage route away from node: %s", err)
 	}
 	return nil
 }
 
 // MoveIngestRoutesAwayFromNode notifies the Humio cluster that a node ID should be removed from handling any ingest partitions
-func (c *ClusterController) MoveIngestRoutesAwayFromNode(hc *corev1alpha1.HumioCluster, pID int) error {
-	log.Info(fmt.Sprintf("moving ingest routes away from node %d", pID))
+func (c *ClusterController) MoveIngestRoutesAwayFromNode(hc *corev1alpha1.HumioCluster, nodeID int) error {
+	c.logger.Infof("moving ingest routes away from node %d", nodeID)
 
-	if err := c.client.ClusterMoveIngestRoutesAwayFromNode(pID); err != nil {
-		return fmt.Errorf("could not move ingest routes away from node: %v", err)
+	if err := c.client.ClusterMoveIngestRoutesAwayFromNode(nodeID); err != nil {
+		return fmt.Errorf("could not move ingest routes away from node: %s", err)
 	}
 	return nil
 }
 
 // ClusterUnregisterNode tells the Humio cluster that we want to unregister a node
-func (c *ClusterController) ClusterUnregisterNode(hc *corev1alpha1.HumioCluster, pID int) error {
-	log.Info(fmt.Sprintf("unregistering node with id %d", pID))
+func (c *ClusterController) ClusterUnregisterNode(hc *corev1alpha1.HumioCluster, nodeID int) error {
+	c.logger.Infof("unregistering node with id %d", nodeID)
 
-	err := c.client.Unregister(pID)
+	err := c.client.Unregister(nodeID)
 	if err != nil {
-		return fmt.Errorf("could not unregister node: %v", err)
+		return fmt.Errorf("could not unregister node: %s", err)
 	}
 	return nil
 }

@@ -5,7 +5,7 @@ import (
 
 	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
-	"github.com/prometheus/common/log"
+	"go.uber.org/zap"
 )
 
 // Client is the interface that can be mocked
@@ -28,16 +28,19 @@ type Client interface {
 // ClientConfig stores our Humio api client
 type ClientConfig struct {
 	apiClient *humioapi.Client
+	logger    *zap.SugaredLogger
 }
 
 // NewClient returns a ClientConfig
-func NewClient(config *humioapi.Config) *ClientConfig {
-	//humioapi.NewClient(humioapi.Config{Address: hc.Status.BaseURL, Token: hc.Status.JWTToken})
+func NewClient(logger *zap.SugaredLogger, config *humioapi.Config) *ClientConfig {
 	client, err := humioapi.NewClient(*config)
 	if err != nil {
-		log.Info(fmt.Sprintf("could not create humio client: %v", err))
+		logger.Infof("could not create humio client: %s", err)
 	}
-	return &ClientConfig{apiClient: client}
+	return &ClientConfig{
+		apiClient: client,
+		logger:    logger,
+	}
 }
 
 func (h *ClientConfig) Authenticate(config *humioapi.Config) error {
@@ -50,7 +53,7 @@ func (h *ClientConfig) Authenticate(config *humioapi.Config) error {
 
 	newClient, err := humioapi.NewClient(*config)
 	if err != nil {
-		return fmt.Errorf("could not create new humio client: %v", err)
+		return fmt.Errorf("could not create new humio client: %s", err)
 	}
 
 	h.apiClient = newClient
@@ -61,7 +64,7 @@ func (h *ClientConfig) Authenticate(config *humioapi.Config) error {
 func (h *ClientConfig) Status() (humioapi.StatusResponse, error) {
 	status, err := h.apiClient.Status()
 	if err != nil {
-		log.Error(fmt.Sprintf("could not get status: %v", err))
+		h.logger.Errorf("could not get status: %s", err)
 	}
 	return *status, err
 }
@@ -70,7 +73,7 @@ func (h *ClientConfig) Status() (humioapi.StatusResponse, error) {
 func (h *ClientConfig) GetClusters() (humioapi.Cluster, error) {
 	clusters, err := h.apiClient.Clusters().Get()
 	if err != nil {
-		log.Error(fmt.Sprintf("could not get cluster information: %v", err))
+		h.logger.Errorf("could not get cluster information: %s", err)
 	}
 	return clusters, err
 }
@@ -79,7 +82,7 @@ func (h *ClientConfig) GetClusters() (humioapi.Cluster, error) {
 func (h *ClientConfig) UpdateStoragePartitionScheme(spi []humioapi.StoragePartitionInput) error {
 	err := h.apiClient.Clusters().UpdateStoragePartitionScheme(spi)
 	if err != nil {
-		log.Error(fmt.Sprintf("could not update storage partition scheme cluster information: %v", err))
+		h.logger.Errorf("could not update storage partition scheme cluster information: %s", err)
 	}
 	return err
 }
@@ -88,7 +91,7 @@ func (h *ClientConfig) UpdateStoragePartitionScheme(spi []humioapi.StoragePartit
 func (h *ClientConfig) UpdateIngestPartitionScheme(ipi []humioapi.IngestPartitionInput) error {
 	err := h.apiClient.Clusters().UpdateIngestPartitionScheme(ipi)
 	if err != nil {
-		log.Error(fmt.Sprintf("could not update ingest partition scheme cluster information: %v", err))
+		h.logger.Errorf("could not update ingest partition scheme cluster information: %s", err)
 	}
 	return err
 }
