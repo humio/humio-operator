@@ -18,6 +18,7 @@ import (
 
 func (r *ReconcileHumioCluster) constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
 	var pod corev1.Pod
+	mode := int32(420)
 	pod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-core-%s", hc.Name, generatePodSuffix()),
@@ -25,8 +26,9 @@ func (r *ReconcileHumioCluster) constructPod(hc *corev1alpha1.HumioCluster) (*co
 			Labels:    labelsForHumio(hc.Name),
 		},
 		Spec: corev1.PodSpec{
-			ImagePullSecrets: imagePullSecretsOrDefault(hc),
-			Subdomain:        hc.Name,
+			ServiceAccountName: serviceAccountNameOrDefault(hc),
+			ImagePullSecrets:   imagePullSecretsOrDefault(hc),
+			Subdomain:          hc.Name,
 			InitContainers: []corev1.Container{
 				{
 					Name:    "zookeeper-prefix",
@@ -37,7 +39,7 @@ func (r *ReconcileHumioCluster) constructPod(hc *corev1alpha1.HumioCluster) (*co
 							Name: "NODE_NAME",
 							ValueFrom: &corev1.EnvVarSource{
 								FieldRef: &corev1.ObjectFieldSelector{
-									FieldPath: "spec.NodeName",
+									FieldPath: "spec.nodeName",
 								},
 							},
 						},
@@ -46,6 +48,11 @@ func (r *ReconcileHumioCluster) constructPod(hc *corev1alpha1.HumioCluster) (*co
 						corev1.VolumeMount{
 							Name:      "shared",
 							MountPath: "/shared",
+						},
+						corev1.VolumeMount{
+							Name:      "init-service-account-secret",
+							MountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
+							ReadOnly:  true,
 						},
 					},
 				},
@@ -117,6 +124,15 @@ func (r *ReconcileHumioCluster) constructPod(hc *corev1alpha1.HumioCluster) (*co
 				{
 					Name:         "shared",
 					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+				},
+				{
+					Name: "init-service-account-secret",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  initServiceAccountSecretName,
+							DefaultMode: &mode,
+						},
+					},
 				},
 			},
 			Affinity: affinityOrDefault(hc),

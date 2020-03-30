@@ -25,9 +25,7 @@ import (
 )
 
 var (
-	serviceAccountSecretName = "developer"
-	serviceTokenSecretName   = "developer-token"
-	metricPodsCreated        = prometheus.NewCounter(prometheus.CounterOpts{
+	metricPodsCreated = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "humio_controller_pods_created_total",
 		Help: "Total number of pod objects created by controller",
 	})
@@ -139,6 +137,11 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		r.setClusterState(context.TODO(), corev1alpha1.HumioClusterStateBoostrapping, humioCluster)
 	}
 
+	err = r.ensureInitContainerPermissions(context.TODO(), humioCluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Ensure developer password is a k8s secret
 	err = r.ensureDeveloperUserPasswordExists(context.TODO(), humioCluster)
 	if err != nil {
@@ -225,6 +228,123 @@ func (r *ReconcileHumioCluster) setClusterVersion(context context.Context, clust
 func (r *ReconcileHumioCluster) setClusterNodeCount(context context.Context, clusterNodeCount int, humioCluster *corev1alpha1.HumioCluster) error {
 	humioCluster.Status.ClusterNodeCount = clusterNodeCount
 	return r.client.Status().Update(context, humioCluster)
+}
+
+func (r *ReconcileHumioCluster) ensureInitContainerPermissions(context context.Context, humioCluster *corev1alpha1.HumioCluster) error {
+	// We do not want to attach the init service account to the humio pod. Instead, only the init container should use this
+	// service account. To do this, we can attach the service account directly to the init container as per
+	// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
+	err := r.ensureInitServiceAccountSecretExists(context, humioCluster)
+	if err != nil {
+		return err
+	}
+
+	// Do not manage these resources if the InitServiceAccountName is supplied. This implies the service account, cluster role and cluster
+	// role binding are managed outside of the operator
+	if humioCluster.Spec.InitServiceAccountName != "" {
+		return nil
+	}
+
+	// The service account is used by the init container attached to the humio pods to get the availability zone
+	// from the node on which the pod is scheduled. We cannot pre determine the zone from the controller because we cannot
+	// assume that the nodes are running. Additionally, if we pre allocate the zones to the humio pods, we would be required
+	// to have an autoscaling group per zone.
+	err = r.ensureInitServiceAccountExists(context, humioCluster)
+	if err != nil {
+		return err
+	}
+
+	// This should be namespaced by the name, e.g. clustername-namespace-name
+	// Required until https://github.com/kubernetes/kubernetes/issues/40610 is fixed
+	err = r.ensureInitClusterRole(context, humioCluster)
+	if err != nil {
+		return err
+	}
+
+	// This should be namespaced by the name, e.g. clustername-namespace-name
+	// Required until https://github.com/kubernetes/kubernetes/issues/40610 is fixed
+	err = r.ensureInitClusterRoleBinding(context, humioCluster)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *ReconcileHumioCluster) ensureInitClusterRole(context context.Context, hc *corev1alpha1.HumioCluster) error {
+	clusterRoleName := initClusterRoleName(hc)
+	_, err := r.GetClusterRole(context, clusterRoleName, hc)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			clusterRole := r.constructInitClusterRole(clusterRoleName, hc)
+			err = r.client.Create(context, clusterRole)
+			if err != nil {
+				r.logger.Infof("unable to create init cluster role: %s", err)
+				return fmt.Errorf("unable to create init cluster role for HumioCluster: %s", err)
+			}
+			r.logger.Infof("successfully created init cluster role %s for HumioCluster %s", clusterRoleName, hc.Name)
+			metricSecretsCreated.Inc()
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileHumioCluster) ensureInitClusterRoleBinding(context context.Context, hc *corev1alpha1.HumioCluster) error {
+	clusterRoleBindingName := initClusterRoleBindingName(hc)
+	_, err := r.GetClusterRoleBinding(context, clusterRoleBindingName, hc)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			clusterRole := r.constructInitClusterRoleBinding(clusterRoleBindingName, initClusterRoleName(hc), hc)
+			err = r.client.Create(context, clusterRole)
+			if err != nil {
+				r.logger.Infof("unable to create init cluster role binding: %s", err)
+				return fmt.Errorf("unable to create init cluster role binding for HumioCluster: %s", err)
+			}
+			r.logger.Infof("successfully created init cluster role binding %s for HumioCluster %s", clusterRoleBindingName, hc.Name)
+			metricSecretsCreated.Inc()
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileHumioCluster) ensureInitServiceAccountExists(context context.Context, hc *corev1alpha1.HumioCluster) error {
+	serviceAccountName := initServiceAccountNameOrDefault(hc)
+	_, err := r.GetServiceAccount(context, serviceAccountName, hc)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			serviceAccount, err := r.constructInitServiceAccount(serviceAccountName, hc)
+			if err != nil {
+				return fmt.Errorf("unable to construct init service account for HumioCluster: %s", err)
+			}
+			err = r.client.Create(context, serviceAccount)
+			if err != nil {
+				r.logger.Infof("unable to create init service account: %s", err)
+				return fmt.Errorf("unable to create init service account for HumioCluster: %s", err)
+			}
+			r.logger.Infof("successfully created init service account %s for HumioCluster %s", serviceAccountName, hc.Name)
+			metricSecretsCreated.Inc()
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileHumioCluster) ensureInitServiceAccountSecretExists(context context.Context, hc *corev1alpha1.HumioCluster) error {
+	_, err := r.GetSecret(context, hc, initServiceAccountSecretName)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			secret, err := r.constructServiceAccountSecret(hc, initServiceAccountSecretName, initServiceAccountName)
+			if err != nil {
+				return fmt.Errorf("unable to construct init service account secret for HumioCluster: %s", err)
+			}
+			err = r.client.Create(context, secret)
+			if err != nil {
+				r.logger.Infof("unable to create init service account secret: %s", err)
+				return fmt.Errorf("unable to create init service account secret for HumioCluster: %s", err)
+			}
+			r.logger.Infof("successfully created init service account secret %s for HumioCluster %s", initServiceAccountSecretName, hc.Name)
+			metricSecretsCreated.Inc()
+		}
+	}
+	return nil
 }
 
 func (r *ReconcileHumioCluster) ensurePodLabels(context context.Context, hc *corev1alpha1.HumioCluster) error {
@@ -332,7 +452,8 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(conetext context.
 			if err != nil {
 				return reconcile.Result{}, fmt.Errorf("could not construct pod: %s", err)
 			}
-			if !reflect.DeepEqual(pod.Spec, desiredPod.Spec) {
+
+			if !r.podsMatch(pod, *desiredPod) {
 				// TODO: figure out if we should only allow upgrades and not downgrades
 				r.logger.Infof("deleting pod %s", pod.Name)
 				err = DeletePod(r.client, pod)
@@ -352,6 +473,42 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(conetext context.
 	}
 	// return empty result and no error indicating that everything was in the state we wanted it to be
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileHumioCluster) podsMatch(pod corev1.Pod, desiredPod corev1.Pod) bool {
+	if pod.Spec.Containers[0].Image != desiredPod.Spec.Containers[0].Image {
+		r.logger.Infof("pod image does not match: got %s, wanted %s", pod.Spec.Containers[0].Image, desiredPod.Spec.Containers[0].Image)
+		return false
+	}
+	if !reflect.DeepEqual(pod.Spec.Containers[0].Env, desiredPod.Spec.Containers[0].Env) {
+		r.logger.Infof("pod env vars do not match: got %+v, wanted %+v", pod.Spec.Containers[0].Env, desiredPod.Spec.Containers[0].Env)
+		return false
+	}
+	if !reflect.DeepEqual(pod.Spec.Affinity, desiredPod.Spec.Affinity) {
+		r.logger.Infof("pod affinity do not match: got %+v, wanted %+v", pod.Spec.Affinity, desiredPod.Spec.Affinity)
+		return false
+	}
+	if !reflect.DeepEqual(pod.Spec.ImagePullSecrets, desiredPod.Spec.ImagePullSecrets) {
+		r.logger.Infof("pod image pull secrets do not match: got %+v, wanted %+v", pod.Spec.ImagePullSecrets, desiredPod.Spec.ImagePullSecrets)
+		return false
+	}
+	if pod.Spec.ServiceAccountName != desiredPod.Spec.ServiceAccountName {
+		r.logger.Infof("pod service account name does not match: got %s, wanted %s", pod.Spec.ServiceAccountName, desiredPod.Spec.ServiceAccountName)
+		return false
+	}
+	var knownVolumes []corev1.Volume
+	for _, volume := range pod.Spec.Volumes {
+		for _, knownVolume := range desiredPod.Spec.Volumes {
+			if volume.Name == knownVolume.Name {
+				knownVolumes = append(knownVolumes, volume)
+			}
+		}
+	}
+	if !reflect.DeepEqual(knownVolumes, desiredPod.Spec.Volumes) {
+		r.logger.Infof("pod volumes do not match: got %+v, wanted %+v", pod.Spec.Volumes, desiredPod.Spec.Volumes)
+		return false
+	}
+	return true
 }
 
 // TODO: change to create 1 pod at a time, return Requeue=true and RequeueAfter.
