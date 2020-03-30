@@ -26,6 +26,26 @@ type HumioClusterSpec struct {
 	NodeCount int `json:"nodeCount,omitempty"`
 	// Extra environment variables
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
+	// DataVolume is the volume that is mounted on the humio pods
+	DataVolume corev1.VolumeSource `json:"dataVolume,omitempty"`
+	// ImagePullSecrets defines the imagepullsecrets for the humio pods. These secrets are not created by the operator
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	// Affinity defines the affinity policies that will be attached to the humio pods
+	Affinity corev1.Affinity `json:"affinity,omitempty"`
+	// IdpCertificateSecretName is the name of the secret that contains the IDP Certificate when using SAML authentication
+	IdpCertificateSecretName string `json:"idpCertificateName,omitempty"`
+	// ServiceAccountName is the name of the Kubernetes Service Account that will be attached to the Humio pods
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// TODO functionality to support:
+	// imagepullsecrets
+	// pod affinity policies
+	// node anti-affinity policies
+	// node affinity policies
+	// node selector - we dont need this since it can be handled by node affinity requiredDuringSchedulingIgnoredDuringExecution
+	// service account name
+	// setting appropriate ZOOKEEPER_PREFIX_FOR_NODE_UUID env var
+	// saml volume for mounting idp cert
+	// mount for EXTRA_KAFKA_CONFIGS_FILE as well as creating configmap for kafka properties
 }
 
 // HumioClusterStatus defines the observed state of HumioCluster
