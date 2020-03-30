@@ -1,6 +1,7 @@
 package humiocluster
 
 import (
+	"reflect"
 	"strconv"
 
 	humioClusterv1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
@@ -41,6 +42,32 @@ func setDefaults(humioCluster *humioClusterv1alpha1.HumioCluster) {
 	if humioCluster.Spec.NodeCount == 0 {
 		humioCluster.Spec.NodeCount = nodeCount
 	}
+}
+
+func imagePullSecretsOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) []corev1.LocalObjectReference {
+	emptyImagePullSecrets := []corev1.LocalObjectReference{}
+	if reflect.DeepEqual(humioCluster.Spec.ImagePullSecrets, emptyImagePullSecrets) {
+		return emptyImagePullSecrets
+	}
+	return humioCluster.Spec.ImagePullSecrets
+}
+
+func dataVolumeOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) corev1.VolumeSource {
+	emptyDataVolume := corev1.VolumeSource{}
+	if reflect.DeepEqual(humioCluster.Spec.DataVolume, emptyDataVolume) {
+		return corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		}
+	}
+	return humioCluster.Spec.DataVolume
+}
+
+func affinityOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) *corev1.Affinity {
+	emptyAffinity := corev1.Affinity{}
+	if reflect.DeepEqual(humioCluster.Spec.Affinity, emptyAffinity) {
+		return &emptyAffinity
+	}
+	return &humioCluster.Spec.Affinity
 }
 
 func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioCluster) {
