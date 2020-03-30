@@ -14,20 +14,21 @@ import (
 	"github.com/humio/humio-operator/pkg/humio"
 )
 
-// GetPersistentToken asdf
+// GetPersistentToken performs a login using the single-user credentials to obtain a JWT token,
+// then uses the JWT token to extract the persistent API token for the same user
 func GetPersistentToken(hc *corev1alpha1.HumioCluster, url, password string, humioClient humio.Client) (string, error) {
 	jwtToken, err := getJWTForSingleUser(hc, url, password)
 	if err != nil {
-		return "", fmt.Errorf("jwt: url=%v err=%v", url, err)
+		return "", err
 	}
 	err = humioClient.Authenticate(&humioapi.Config{Token: jwtToken, Address: url})
 	if err != nil {
-		return "", fmt.Errorf("auth: url=%v err=%v", url, err)
+		return "", err
 	}
 
 	persistentToken, err := humioClient.ApiToken()
 	if err != nil {
-		return "", fmt.Errorf("apitoken: url=%v err=%v", url, err)
+		return "", err
 	}
 	return persistentToken, nil
 }
@@ -48,7 +49,7 @@ func getJWTForSingleUser(hc *corev1alpha1.HumioCluster, url, password string) (s
 	resp, err := http.Post(fmt.Sprintf("%sapi/v1/login", url), "application/json", bytes.NewBuffer(bytesRepresentation))
 
 	if err != nil {
-		return "", fmt.Errorf("could not perform login to obtain jwt token: %v", err)
+		return "", fmt.Errorf("could not perform login to obtain jwt token: %s", err)
 	}
 	defer resp.Body.Close()
 
@@ -58,7 +59,7 @@ func getJWTForSingleUser(hc *corev1alpha1.HumioCluster, url, password string) (s
 
 	var result map[string]string
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("unable to decode response body: %v", err)
+		return "", fmt.Errorf("unable to decode response body: %s", err)
 	}
 
 	return result["token"], nil
