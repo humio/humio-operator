@@ -20,27 +20,51 @@ func (r *ReconcileHumioCluster) constructPod(hc *corev1alpha1.HumioCluster) (*co
 	var pod corev1.Pod
 	pod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			// TODO: Not sure how to use GenerateName with unit tests as this requires that the Name attribute is set by the server
-			//GenerateName: fmt.Sprintf("%s-core-", hc.Name),
 			Name:      fmt.Sprintf("%s-core-%s", hc.Name, generatePodSuffix()),
 			Namespace: hc.Namespace,
 			Labels:    labelsForHumio(hc.Name),
 		},
 		Spec: corev1.PodSpec{
-			Subdomain: hc.Name,
+			ImagePullSecrets: imagePullSecretsOrDefault(hc),
+			Subdomain:        hc.Name,
+			InitContainers: []corev1.Container{
+				{
+					Name:    "zookeeper-prefix",
+					Image:   "humio/strix", // TODO: perhaps use an official kubectl image or build our own and don't use latest
+					Command: []string{"sh", "-c", "kubectl get node ${NODE_NAME} -o jsonpath={.metadata.labels.\"failure-domain.beta.kubernetes.io/zone\"} > /shared/zookeeper-prefix"},
+					Env: []corev1.EnvVar{
+						corev1.EnvVar{
+							Name: "NODE_NAME",
+							ValueFrom: &corev1.EnvVarSource{
+								FieldRef: &corev1.ObjectFieldSelector{
+									FieldPath: "spec.NodeName",
+								},
+							},
+						},
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						corev1.VolumeMount{
+							Name:      "shared",
+							MountPath: "/shared",
+						},
+					},
+				},
+			},
 			Containers: []corev1.Container{
 				{
-					Name:  "humio",
-					Image: hc.Spec.Image,
+					Name:    "humio",
+					Image:   hc.Spec.Image,
+					Command: []string{"/bin/sh"},
+					Args:    []string{"-c", "export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat /shared/zookeeper-prefix)_ && exec bash /app/humio/run.sh"},
 					Ports: []corev1.ContainerPort{
 						{
 							Name:          "http",
-							ContainerPort: 8080,
+							ContainerPort: humioPort,
 							Protocol:      "TCP",
 						},
 						{
 							Name:          "es",
-							ContainerPort: 9200,
+							ContainerPort: elasticPort,
 							Protocol:      "TCP",
 						},
 					},
@@ -50,6 +74,11 @@ func (r *ReconcileHumioCluster) constructPod(hc *corev1alpha1.HumioCluster) (*co
 						{
 							Name:      "humio-data",
 							MountPath: "/data",
+						},
+						corev1.VolumeMount{
+							Name:      "shared",
+							MountPath: "/shared",
+							ReadOnly:  true,
 						},
 					},
 					ReadinessProbe: &corev1.Probe{
@@ -82,19 +111,28 @@ func (r *ReconcileHumioCluster) constructPod(hc *corev1alpha1.HumioCluster) (*co
 			},
 			Volumes: []corev1.Volume{
 				{
-					Name: "humio-data",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-						/*
-							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-								ClaimName: fmt.Sprintf("%s-core-%d", hc.Name, nodeID),
-							},
-						*/
-					},
+					Name:         "humio-data",
+					VolumeSource: dataVolumeOrDefault(hc),
+				},
+				{
+					Name:         "shared",
+					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 				},
 			},
+			Affinity: affinityOrDefault(hc),
 		},
 	}
+
+	if hc.Spec.IdpCertificateSecretName != "" {
+		pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{Name: "SAML_IDP_CERTIFICATE", Value: "/var/lib/humio/idp-certificate"})
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{Name: "idp-cert-volume", ReadOnly: true, MountPath: "/var/lib/humio/idp-certificate", SubPath: "idp-certificate"})
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{Name: "idp-cert-volume", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: hc.Spec.IdpCertificateSecretName}}})
+	}
+
+	if hc.Spec.ServiceAccountName != "" {
+		pod.Spec.ServiceAccountName = hc.Spec.ServiceAccountName
+	}
+
 	if err := controllerutil.SetControllerReference(hc, &pod, r.scheme); err != nil {
 		return &corev1.Pod{}, fmt.Errorf("could not set controller reference: %v", err)
 	}

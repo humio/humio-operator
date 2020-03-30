@@ -3,6 +3,7 @@ package humiocluster
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -143,7 +144,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	emptyResult := reconcile.Result{}
 
 	// Ensure pods that does not run the desired version are deleted.
-	result, err := r.ensureMismatchedPodVersionsAreDeleted(context.TODO(), humioCluster)
+	result, err := r.ensureMismatchedPodsAreDeleted(context.TODO(), humioCluster)
 	if result != emptyResult || err != nil {
 		return result, err
 	}
@@ -260,24 +261,24 @@ func (r *ReconcileHumioCluster) ensurePodLabels(context context.Context, hc *cor
 func (r *ReconcileHumioCluster) ensurePartitionsAreBalanced(humioClusterController humio.ClusterController, hc *corev1alpha1.HumioCluster) error {
 	partitionsBalanced, err := humioClusterController.AreStoragePartitionsBalanced(hc)
 	if err != nil {
-		return fmt.Errorf("unable to check if storage partitions are balanced:%s", err)
+		return fmt.Errorf("unable to check if storage partitions are balanced: %s", err)
 	}
 	if !partitionsBalanced {
 		r.logger.Info("storage partitions are not balanced. Balancing now")
 		err = humioClusterController.RebalanceStoragePartitions(hc)
 		if err != nil {
-			return fmt.Errorf("failed to balance storage partitions :%s", err)
+			return fmt.Errorf("failed to balance storage partitions: %s", err)
 		}
 	}
 	partitionsBalanced, err = humioClusterController.AreIngestPartitionsBalanced(hc)
 	if err != nil {
-		return fmt.Errorf("unable to check if ingest partitions are balanced:%s", err)
+		return fmt.Errorf("unable to check if ingest partitions are balanced: %s", err)
 	}
 	if !partitionsBalanced {
 		r.logger.Info("ingest partitions are not balanced. Balancing now")
 		err = humioClusterController.RebalanceIngestPartitions(hc)
 		if err != nil {
-			return fmt.Errorf("failed to balance ingest partitions :%s", err)
+			return fmt.Errorf("failed to balance ingest partitions: %s", err)
 		}
 	}
 	return nil
@@ -288,21 +289,21 @@ func (r *ReconcileHumioCluster) ensureServiceExists(context context.Context, hc 
 	if k8serrors.IsNotFound(err) {
 		service, err := r.constructService(hc)
 		if err != nil {
-			return fmt.Errorf("unable to construct service for HumioCluster: %v", err)
+			return fmt.Errorf("unable to construct service for HumioCluster: %s", err)
 		}
 		err = r.client.Create(context, service)
 		if err != nil {
-			return fmt.Errorf("unable to create service for HumioCluster: %v", err)
+			return fmt.Errorf("unable to create service for HumioCluster: %s", err)
 		}
 	}
 	return nil
 }
 
-// ensureMismatchedPodVersionsAreDeleted is used to delete pods which container image does not match the desired image from the HumioCluster.
+// ensureMismatchedPodsAreDeleted is used to delete pods which container spec does not match that which is desired.
 // If a pod is deleted, this will requeue immediately and rely on the next reconciliation to delete the next pod.
 // The method only returns an empty result and no error if all pods are running the desired version,
 // and no pod is currently being deleted.
-func (r *ReconcileHumioCluster) ensureMismatchedPodVersionsAreDeleted(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) (reconcile.Result, error) {
+func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(conetext context.Context, humioCluster *corev1alpha1.HumioCluster) (reconcile.Result, error) {
 	foundPodList, err := ListPods(r.client, humioCluster)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -322,13 +323,17 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodVersionsAreDeleted(conetext c
 		// only consider pods not already being deleted
 		if pod.DeletionTimestamp == nil {
 
-			// if container image versions of a pod differs, we want to delete it
-			if pod.Spec.Containers[0].Image != humioCluster.Spec.Image {
+			// if pod spec differs, we want to delete it
+			desiredPod, err := r.constructPod(humioCluster)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("could not construct pod: %s", err)
+			}
+			if !reflect.DeepEqual(pod.Spec, desiredPod.Spec) {
 				// TODO: figure out if we should only allow upgrades and not downgrades
 				r.logger.Info(fmt.Sprintf("deleting pod %s", pod.Name))
 				err = DeletePod(r.client, pod)
 				if err != nil {
-					return reconcile.Result{}, fmt.Errorf("could not delete pod %s, got err: %v", pod.Name, err)
+					return reconcile.Result{}, fmt.Errorf("could not delete pod %s, got err: %s", pod.Name, err)
 				}
 				return reconcile.Result{Requeue: true}, nil
 			}
@@ -381,7 +386,7 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(conetext context.Context,
 	if podsReadyCount < humioCluster.Spec.NodeCount {
 		pod, err := r.constructPod(humioCluster)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("unable to construct pod for HumioCluster: %v", err)
+			return reconcile.Result{}, fmt.Errorf("unable to construct pod for HumioCluster: %s", err)
 		}
 
 		err = r.client.Create(context.TODO(), pod)
@@ -410,12 +415,12 @@ func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioC
 	if len(foundPodList) < humioCluster.Spec.NodeCount {
 		pod, err := r.constructPod(humioCluster)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("unable to construct pod for HumioCluster: %v", err)
+			return reconcile.Result{}, fmt.Errorf("unable to construct pod for HumioCluster: %s", err)
 		}
 
 		err = r.client.Create(context.TODO(), pod)
 		if err != nil {
-			log.Info(fmt.Sprintf("unable to create pod: %v", err))
+			log.Info(fmt.Sprintf("unable to create pod: %s", err))
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, fmt.Errorf("unable to create Pod for HumioCluster: %v", err)
 		}
 		log.Info(fmt.Sprintf("successfully created pod %s for HumioCluster %s", pod.Name, humioCluster.Name))
@@ -504,6 +509,8 @@ func (r *ReconcileHumioCluster) getDeveloperUserPassword(hc *corev1alpha1.HumioC
 	return string(secret.Data["password"]), nil
 }
 
+// TODO: there is no need for this. We should instead change this to a get method where we return the list of env vars
+// including the defaults
 func envVarList(humioCluster *corev1alpha1.HumioCluster) []corev1.EnvVar {
 	setEnvironmentVariableDefaults(humioCluster)
 	return humioCluster.Spec.EnvironmentVariables
