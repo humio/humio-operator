@@ -80,13 +80,14 @@ func (in *HumioClusterSpec) DeepCopyInto(out *HumioClusterSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	in.DataVolume.DeepCopyInto(&out.DataVolume)
+	in.DataVolumeSource.DeepCopyInto(&out.DataVolumeSource)
 	if in.ImagePullSecrets != nil {
 		in, out := &in.ImagePullSecrets, &out.ImagePullSecrets
 		*out = make([]v1.LocalObjectReference, len(*in))
 		copy(*out, *in)
 	}
 	in.Affinity.DeepCopyInto(&out.Affinity)
+	in.Resources.DeepCopyInto(&out.Resources)
 	return
 }
 

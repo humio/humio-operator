@@ -617,8 +617,9 @@ spec:
                       type: array
                   type: object
               type: object
-            dataVolume:
-              description: DataVolume is the volume that is mounted on the humio pods
+            dataVolumeSource:
+              description: DataVolumeSource is the volume that is mounted on the humio
+                pods
               properties:
                 awsElasticBlockStore:
                   description: 'AWSElasticBlockStore represents an AWS Disk resource
@@ -1878,8 +1879,9 @@ spec:
               description: Desired container image including the image tag
               type: string
             imagePullSecrets:
-              description: ImagePullSecrets defines the imagepullsecrets for the humio
-                pods. These secrets are not created by the operator
+              description: 'TODO: Add PersistentVolumeClaimTemplateSpec support PersistentVolumeClaimTemplateSpec
+                corev1.PersistentVolumeClaimSpec ImagePullSecrets defines the imagepullsecrets
+                for the humio pods. These secrets are not created by the operator'
               items:
                 description: LocalObjectReference contains enough information to let
                   you locate the referenced object inside the same namespace.
@@ -1890,9 +1892,32 @@ spec:
                     type: string
                 type: object
               type: array
+            initServiceAccountName:
+              description: InitServiceAccountName is the name of the Kubernetes Service
+                Account that will be attached to the init container in the humio pod
+              type: string
             nodeCount:
               description: Desired number of nodes
               type: integer
+            resources:
+              description: Resources is the kubernetes resource limits for the humio
+                pod
+              properties:
+                limits:
+                  additionalProperties:
+                    type: string
+                  description: 'Limits describes the maximum amount of compute resources
+                    allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  type: object
+                requests:
+                  additionalProperties:
+                    type: string
+                  description: 'Requests describes the minimum amount of compute resources
+                    required. If Requests is omitted for a container, it defaults
+                    to Limits if that is explicitly specified, otherwise to an implementation-defined
+                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  type: object
+              type: object
             serviceAccountName:
               description: ServiceAccountName is the name of the Kubernetes Service
                 Account that will be attached to the Humio pods
