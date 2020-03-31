@@ -39,6 +39,7 @@ func (r *ReconcileHumioCluster) constructServiceAccountSecret(hc *corev1alpha1.H
 			Labels:      labelsForHumio(hc.Name),
 			Annotations: map[string]string{"kubernetes.io/service-account.name": serviceAccountName},
 		},
+		Type: "kubernetes.io/service-account-token",
 	}
 	if err := controllerutil.SetControllerReference(hc, &secret, r.scheme); err != nil {
 		return &corev1.Secret{}, fmt.Errorf("could not set controller reference: %s", err)

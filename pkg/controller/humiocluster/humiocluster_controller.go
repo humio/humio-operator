@@ -37,6 +37,22 @@ var (
 		Name: "humio_controller_secrets_created_total",
 		Help: "Total number of secret objects created by controller",
 	})
+	metricClusterRolesCreated = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "humio_controller_cluster_roles_created_total",
+		Help: "Total number of cluster roles objects created by controller",
+	})
+	metricClusterRoleBindingsCreated = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "humio_controller_cluster_role_bindings_created_total",
+		Help: "Total number of cluster role bindings objects created by controller",
+	})
+	metricServiceAccountsCreated = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "humio_controller_service_accounts_created_total",
+		Help: "Total number of service accounts objects created by controller",
+	})
+	metricServiceAccountSecretsCreated = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "humio_controller_service_account_secrets_created_total",
+		Help: "Total number of service account secrets objects created by controller",
+	})
 )
 
 // Add creates a new HumioCluster Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -282,7 +298,7 @@ func (r *ReconcileHumioCluster) ensureInitClusterRole(context context.Context, h
 				return fmt.Errorf("unable to create init cluster role for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created init cluster role %s for HumioCluster %s", clusterRoleName, hc.Name)
-			metricSecretsCreated.Inc()
+			metricClusterRolesCreated.Inc()
 		}
 	}
 	return nil
@@ -300,7 +316,7 @@ func (r *ReconcileHumioCluster) ensureInitClusterRoleBinding(context context.Con
 				return fmt.Errorf("unable to create init cluster role binding for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created init cluster role binding %s for HumioCluster %s", clusterRoleBindingName, hc.Name)
-			metricSecretsCreated.Inc()
+			metricClusterRoleBindingsCreated.Inc()
 		}
 	}
 	return nil
@@ -321,7 +337,7 @@ func (r *ReconcileHumioCluster) ensureInitServiceAccountExists(context context.C
 				return fmt.Errorf("unable to create init service account for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created init service account %s for HumioCluster %s", serviceAccountName, hc.Name)
-			metricSecretsCreated.Inc()
+			metricServiceAccountsCreated.Inc()
 		}
 	}
 	return nil
@@ -341,7 +357,7 @@ func (r *ReconcileHumioCluster) ensureInitServiceAccountSecretExists(context con
 				return fmt.Errorf("unable to create init service account secret for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created init service account secret %s for HumioCluster %s", initServiceAccountSecretName, hc.Name)
-			metricSecretsCreated.Inc()
+			metricServiceAccountSecretsCreated.Inc()
 		}
 	}
 	return nil
