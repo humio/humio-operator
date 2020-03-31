@@ -617,7 +617,7 @@ spec:
                       type: array
                   type: object
               type: object
-            dataVolume:
+            dataVolumeSource:
               description: DataVolumeSource is the volume that is mounted on the humio
                 pods
               properties:
@@ -1899,6 +1899,25 @@ spec:
             nodeCount:
               description: Desired number of nodes
               type: integer
+            resources:
+              description: Resources is the kubernetes resource limits for the humio
+                pod
+              properties:
+                limits:
+                  additionalProperties:
+                    type: string
+                  description: 'Limits describes the maximum amount of compute resources
+                    allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  type: object
+                requests:
+                  additionalProperties:
+                    type: string
+                  description: 'Requests describes the minimum amount of compute resources
+                    required. If Requests is omitted for a container, it defaults
+                    to Limits if that is explicitly specified, otherwise to an implementation-defined
+                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  type: object
+              type: object
             serviceAccountName:
               description: ServiceAccountName is the name of the Kubernetes Service
                 Account that will be attached to the Humio pods
