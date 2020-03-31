@@ -30,6 +30,23 @@ func (r *ReconcileHumioCluster) constructSecret(hc *corev1alpha1.HumioCluster, s
 	return &secret, nil
 }
 
+func (r *ReconcileHumioCluster) constructServiceAccountSecret(hc *corev1alpha1.HumioCluster, secretName string, serviceAccountName string) (*corev1.Secret, error) {
+	var secret corev1.Secret
+	secret = corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        secretName,
+			Namespace:   hc.Namespace,
+			Labels:      labelsForHumio(hc.Name),
+			Annotations: map[string]string{"kubernetes.io/service-account.name": serviceAccountName},
+		},
+		Type: "kubernetes.io/service-account-token",
+	}
+	if err := controllerutil.SetControllerReference(hc, &secret, r.scheme); err != nil {
+		return &corev1.Secret{}, fmt.Errorf("could not set controller reference: %s", err)
+	}
+	return &secret, nil
+}
+
 func (r *ReconcileHumioCluster) GetSecret(context context.Context, hc *corev1alpha1.HumioCluster, secretName string) (*corev1.Secret, error) {
 	var existingSecret corev1.Secret
 	err := r.client.Get(context, types.NamespacedName{

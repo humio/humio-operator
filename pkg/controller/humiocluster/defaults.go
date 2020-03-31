@@ -1,6 +1,7 @@
 package humiocluster
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
 
@@ -9,15 +10,21 @@ import (
 )
 
 const (
-	name                    = "humiocluster"
-	namespace               = "logging"
-	image                   = "humio/humio-core:1.9.1"
-	targetReplicationFactor = 2
-	storagePartitionsCount  = 24
-	digestPartitionsCount   = 24
-	nodeCount               = 3
-	humioPort               = 8080
-	elasticPort             = 9200
+	name                         = "humiocluster"
+	namespace                    = "logging"
+	image                        = "humio/humio-core:1.9.1"
+	targetReplicationFactor      = 2
+	storagePartitionsCount       = 24
+	digestPartitionsCount        = 24
+	nodeCount                    = 3
+	humioPort                    = 8080
+	elasticPort                  = 9200
+	serviceAccountSecretName     = "developer"
+	serviceTokenSecretName       = "developer-token"
+	initServiceAccountName       = "init-service-account"
+	initServiceAccountSecretName = "init-service-account"
+	initClusterRolePrefix        = "init-cluster-role"
+	initClusterRoleBindingPrefix = "init-cluster-role-binding"
 )
 
 func setDefaults(humioCluster *humioClusterv1alpha1.HumioCluster) {
@@ -70,13 +77,36 @@ func affinityOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) *corev1.
 	return &humioCluster.Spec.Affinity
 }
 
+func serviceAccountNameOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) string {
+	if humioCluster.Spec.ServiceAccountName != "" {
+		return humioCluster.Spec.ServiceAccountName
+	}
+	return "default"
+}
+
+func initServiceAccountNameOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) string {
+	if humioCluster.Spec.InitServiceAccountName != "" {
+		return humioCluster.Spec.InitServiceAccountName
+	}
+	return initServiceAccountName
+}
+
+func initClusterRoleName(humioCluster *humioClusterv1alpha1.HumioCluster) string {
+	return fmt.Sprintf("%s-%s-%s", initClusterRolePrefix, humioCluster.Namespace, humioCluster.Name)
+}
+
+func initClusterRoleBindingName(humioCluster *humioClusterv1alpha1.HumioCluster) string {
+	return fmt.Sprintf("%s-%s-%s", initClusterRoleBindingPrefix, humioCluster.Namespace, humioCluster.Name)
+}
+
 func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioCluster) {
 	envDefaults := []corev1.EnvVar{
 		{
 			Name: "THIS_POD_IP",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "status.podIP",
+					APIVersion: "v1",
+					FieldPath:  "status.podIP",
 				},
 			},
 		},
@@ -84,7 +114,8 @@ func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioClus
 			Name: "POD_NAME",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.name",
+					APIVersion: "v1",
+					FieldPath:  "metadata.name",
 				},
 			},
 		},
@@ -92,7 +123,8 @@ func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioClus
 			Name: "POD_NAMESPACE",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.namespace",
+					APIVersion: "v1",
+					FieldPath:  "metadata.namespace",
 				},
 			},
 		},
@@ -120,6 +152,10 @@ func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioClus
 					},
 				},
 			},
+		},
+		{
+			Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
+			Value: "$(ZOOKEEPER_URL)",
 		},
 	}
 

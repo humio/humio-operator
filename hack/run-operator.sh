@@ -13,11 +13,14 @@ operator-sdk build humio/humio-operator:dev
 
 # Run operator locally
 kind load docker-image --name kind humio/humio-operator:dev
+kind load docker-image --name kind humio/strix:latest
 docker rmi humio/humio-operator:dev
 export WATCH_NAMESPACE=default
 kubectl --context kind-kind apply -f deploy/role.yaml
 kubectl --context kind-kind apply -f deploy/service_account.yaml
 kubectl --context kind-kind apply -f deploy/role_binding.yaml
 kubectl --context kind-kind apply -f deploy/operator.yaml
+kubectl --context kind-kind apply -f deploy/cluster_role.yaml
+kubectl --context kind-kind apply -f deploy/cluster_role_binding.yaml
 sleep 5
 kubectl --context kind-kind logs -f -n default deploy/humio-operator
