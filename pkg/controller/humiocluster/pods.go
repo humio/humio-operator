@@ -114,12 +114,13 @@ func (r *ReconcileHumioCluster) constructPod(hc *corev1alpha1.HumioCluster) (*co
 						SuccessThreshold:    1,
 						FailureThreshold:    12,
 					},
+					Resources: podResourcesOrDefault(hc),
 				},
 			},
 			Volumes: []corev1.Volume{
 				{
 					Name:         "humio-data",
-					VolumeSource: dataVolumeOrDefault(hc),
+					VolumeSource: dataVolumeSourceOrDefault(hc),
 				},
 				{
 					Name:         "shared",
