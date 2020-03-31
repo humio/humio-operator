@@ -22,13 +22,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 func TestReconcileHumioCluster_Reconcile(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	logf.SetLogger(logf.ZapLogger(true))
-
 	tests := []struct {
 		name         string
 		humioCluster *corev1alpha1.HumioCluster
@@ -278,9 +274,6 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 }
 
 func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	logf.SetLogger(logf.ZapLogger(true))
-
 	tests := []struct {
 		name          string
 		humioCluster  *corev1alpha1.HumioCluster
@@ -469,9 +462,6 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 }
 
 func TestReconcileHumioCluster_Reconcile_init_service_account(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	logf.SetLogger(logf.ZapLogger(true))
-
 	tests := []struct {
 		name                       string
 		humioCluster               *corev1alpha1.HumioCluster

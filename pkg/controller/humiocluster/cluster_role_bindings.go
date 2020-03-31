@@ -24,7 +24,7 @@ func (r *ReconcileHumioCluster) constructInitClusterRoleBinding(clusterRoleBindi
 		Subjects: []rbacv1.Subject{
 			rbacv1.Subject{
 				Kind:      "ServiceAccount",
-				Name:      clusterRoleBindingName,
+				Name:      initServiceAccountNameOrDefault(hc),
 				Namespace: hc.Namespace,
 			},
 		},
