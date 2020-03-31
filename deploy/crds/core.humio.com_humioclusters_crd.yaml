@@ -618,7 +618,8 @@ spec:
                   type: object
               type: object
             dataVolume:
-              description: DataVolume is the volume that is mounted on the humio pods
+              description: DataVolumeSource is the volume that is mounted on the humio
+                pods
               properties:
                 awsElasticBlockStore:
                   description: 'AWSElasticBlockStore represents an AWS Disk resource
@@ -1878,8 +1879,9 @@ spec:
               description: Desired container image including the image tag
               type: string
             imagePullSecrets:
-              description: ImagePullSecrets defines the imagepullsecrets for the humio
-                pods. These secrets are not created by the operator
+              description: 'TODO: Add PersistentVolumeClaimTemplateSpec support PersistentVolumeClaimTemplateSpec
+                corev1.PersistentVolumeClaimSpec ImagePullSecrets defines the imagepullsecrets
+                for the humio pods. These secrets are not created by the operator'
               items:
                 description: LocalObjectReference contains enough information to let
                   you locate the referenced object inside the same namespace.
@@ -1890,6 +1892,10 @@ spec:
                     type: string
                 type: object
               type: array
+            initServiceAccountName:
+              description: InitServiceAccountName is the name of the Kubernetes Service
+                Account that will be attached to the init container in the humio pod
+              type: string
             nodeCount:
               description: Desired number of nodes
               type: integer
