@@ -15,21 +15,7 @@ rules:
   - events
   - configmaps
   - secrets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - daemonsets
-  - replicasets
-  - statefulsets
+  - serviceaccounts
   verbs:
   - create
   - delete

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/humio/humio-operator/pkg/humio"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -20,13 +22,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 func TestReconcileHumioCluster_Reconcile(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	logf.SetLogger(logf.ZapLogger(true))
-
 	tests := []struct {
 		name         string
 		humioCluster *corev1alpha1.HumioCluster
@@ -137,8 +135,26 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateBoostrapping, updatedHumioCluster.Status.ClusterState)
 			}
 
+			// Check that the init service account, secret, cluster role and cluster role binding are created
+			secret, err := r.GetSecret(context.TODO(), updatedHumioCluster, initServiceAccountSecretName)
+			if err != nil {
+				t.Errorf("get init service account secret: (%v). %+v", err, secret)
+			}
+			_, err = r.GetServiceAccount(context.TODO(), initServiceAccountNameOrDefault(updatedHumioCluster), updatedHumioCluster)
+			if err != nil {
+				t.Errorf("failed to get init service account: %s", err)
+			}
+			_, err = r.GetClusterRole(context.TODO(), initClusterRoleName(updatedHumioCluster), updatedHumioCluster)
+			if err != nil {
+				t.Errorf("failed to get init cluster role: %s", err)
+			}
+			_, err = r.GetClusterRoleBinding(context.TODO(), initClusterRoleBindingName(updatedHumioCluster), updatedHumioCluster)
+			if err != nil {
+				t.Errorf("failed to get init cluster role binding: %s", err)
+			}
+
 			// Check that the developer password exists as a k8s secret
-			secret, err := r.GetSecret(context.TODO(), updatedHumioCluster, serviceAccountSecretName)
+			secret, err = r.GetSecret(context.TODO(), updatedHumioCluster, serviceAccountSecretName)
 			if err != nil {
 				t.Errorf("get secret with password: (%v). %+v", err, secret)
 			}
@@ -258,9 +274,6 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 }
 
 func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	logf.SetLogger(logf.ZapLogger(true))
-
 	tests := []struct {
 		name          string
 		humioCluster  *corev1alpha1.HumioCluster
@@ -443,6 +456,125 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 			}
 			if updatedHumioCluster.Status.ClusterNodeCount != tt.humioCluster.Spec.NodeCount {
 				t.Errorf("expected node count to be %d but got %d", tt.humioCluster.Spec.NodeCount, updatedHumioCluster.Status.ClusterNodeCount)
+			}
+		})
+	}
+}
+
+func TestReconcileHumioCluster_Reconcile_init_service_account(t *testing.T) {
+	tests := []struct {
+		name                       string
+		humioCluster               *corev1alpha1.HumioCluster
+		humioClient                *humio.MockClientConfig
+		version                    string
+		wantInitServiceAccount     bool
+		wantInitClusterRole        bool
+		wantInitClusterRoleBinding bool
+	}{
+		{
+			"test cluster reconciliation with no init service account specified creates the service account, cluster role and cluster role binding",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{}, nil, nil, nil, "", ""), "",
+			true,
+			true,
+			true,
+		},
+		{
+			"test cluster reconciliation with an init service account specified does not create the service account, cluster role and cluster role binding",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					InitServiceAccountName: "some-custom-service-account",
+				},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{}, nil, nil, nil, "", ""), "",
+			false,
+			false,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger, _ := zap.NewProduction()
+			defer logger.Sync() // flushes buffer, if any
+			sugar := logger.Sugar().With("Request.Namespace", tt.humioCluster.Namespace, "Request.Name", tt.humioCluster.Name)
+
+			// Objects to track in the fake client.
+			objs := []runtime.Object{
+				tt.humioCluster,
+			}
+
+			// Register operator types with the runtime scheme.
+			s := scheme.Scheme
+			s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, tt.humioCluster)
+
+			// Create a fake client to mock API calls.
+			cl := fake.NewFakeClient(objs...)
+
+			// Start up http server that can send the mock jwt token
+			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				rw.Write([]byte(`{"token": "sometempjwttoken"}`))
+			}))
+			defer server.Close()
+
+			// Point the mock client to the fake server
+			tt.humioClient.Url = fmt.Sprintf("%s/", server.URL)
+
+			// Create a ReconcileHumioCluster object with the scheme and fake client.
+			r := &ReconcileHumioCluster{
+				client:      cl,
+				humioClient: tt.humioClient,
+				scheme:      s,
+				logger:      sugar,
+			}
+
+			// Mock request to simulate Reconcile() being called on an event for a
+			// watched resource .
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      tt.humioCluster.Name,
+					Namespace: tt.humioCluster.Namespace,
+				},
+			}
+			_, err := r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+
+			// Check that the init service account, cluster role and cluster role binding are created only if they should be
+			serviceAccount, err := r.GetServiceAccount(context.TODO(), initServiceAccountNameOrDefault(tt.humioCluster), tt.humioCluster)
+			if (err != nil) == tt.wantInitServiceAccount {
+				t.Errorf("failed to check init service account: %s", err)
+			}
+			if reflect.DeepEqual(serviceAccount, &corev1.ServiceAccount{}) == tt.wantInitServiceAccount {
+				t.Errorf("failed to compare init service account: %s, wantInitServiceAccount: %v", serviceAccount, tt.wantInitServiceAccount)
+			}
+
+			clusterRole, err := r.GetClusterRole(context.TODO(), initClusterRoleName(tt.humioCluster), tt.humioCluster)
+			if (err != nil) == tt.wantInitClusterRole {
+				t.Errorf("failed to get init cluster role: %s", err)
+			}
+			if reflect.DeepEqual(clusterRole, &rbacv1.ClusterRole{}) == tt.wantInitClusterRole {
+				t.Errorf("failed to compare init cluster role: %s, wantInitClusterRole %v", clusterRole, tt.wantInitClusterRole)
+			}
+
+			clusterRoleBinding, err := r.GetClusterRoleBinding(context.TODO(), initClusterRoleBindingName(tt.humioCluster), tt.humioCluster)
+			if (err != nil) == tt.wantInitClusterRoleBinding {
+				t.Errorf("failed to get init cluster role binding: %s", err)
+			}
+			if reflect.DeepEqual(clusterRoleBinding, &rbacv1.ClusterRoleBinding{}) == tt.wantInitClusterRoleBinding {
+				t.Errorf("failed to compare init cluster role binding: %s, wantInitClusterRoleBinding: %v", clusterRoleBinding, tt.wantInitClusterRoleBinding)
 			}
 		})
 	}

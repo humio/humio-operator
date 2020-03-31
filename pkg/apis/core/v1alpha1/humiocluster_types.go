@@ -36,7 +36,10 @@ type HumioClusterSpec struct {
 	IdpCertificateSecretName string `json:"idpCertificateName,omitempty"`
 	// ServiceAccountName is the name of the Kubernetes Service Account that will be attached to the Humio pods
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// InitServiceAccountName is the name of the Kubernetes Service Account that will be attached to the init container in the humio pod
+	InitServiceAccountName string `json:"initServiceAccountName,omitempty"`
 	// TODO functionality to support:
+	// pod resources
 	// imagepullsecrets
 	// pod affinity policies
 	// node anti-affinity policies
