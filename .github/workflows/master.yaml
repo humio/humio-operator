@@ -1,0 +1,24 @@
+on: 
+  push:
+    branches: 
+    - master
+name: Publish Master
+jobs:
+  build-and-publish:
+    name: Build and Publish
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: operator-sdk
+      env:
+        GO111MODULE: "on"
+      uses: ./.github/action/operator-sdk
+      with:
+        args: build humio/humio-operator:master
+    - name: docker login
+      run:  docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+    - name: docker push
+      run: docker push humio/humio-operator:master
