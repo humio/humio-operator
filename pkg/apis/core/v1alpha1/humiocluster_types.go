@@ -26,8 +26,10 @@ type HumioClusterSpec struct {
 	NodeCount int `json:"nodeCount,omitempty"`
 	// Extra environment variables
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
-	// DataVolume is the volume that is mounted on the humio pods
-	DataVolume corev1.VolumeSource `json:"dataVolume,omitempty"`
+	// DataVolumeSource is the volume that is mounted on the humio pods
+	DataVolumeSource corev1.VolumeSource `json:"dataVolume,omitempty"`
+	// TODO: Add PersistentVolumeClaimTemplateSpec support
+	// PersistentVolumeClaimTemplateSpec corev1.PersistentVolumeClaimSpec
 	// ImagePullSecrets defines the imagepullsecrets for the humio pods. These secrets are not created by the operator
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// Affinity defines the affinity policies that will be attached to the humio pods

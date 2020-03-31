@@ -61,12 +61,12 @@ func imagePullSecretsOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) 
 
 func dataVolumeOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) corev1.VolumeSource {
 	emptyDataVolume := corev1.VolumeSource{}
-	if reflect.DeepEqual(humioCluster.Spec.DataVolume, emptyDataVolume) {
+	if reflect.DeepEqual(humioCluster.Spec.DataVolumeSource, emptyDataVolume) {
 		return corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		}
 	}
-	return humioCluster.Spec.DataVolume
+	return humioCluster.Spec.DataVolumeSource
 }
 
 func affinityOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) *corev1.Affinity {

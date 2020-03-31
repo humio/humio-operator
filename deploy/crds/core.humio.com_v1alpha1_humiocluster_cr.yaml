@@ -6,6 +6,10 @@ spec:
   image: "humio/humio-core:1.9.1"
   targetReplicationFactor: 2
   storagePartitionsCount: 24
+  dataVolumeSource:
+    hostPath:
+      path: "/mnt/disks/vol1"
+      type: "Directory"
   environmentVariables:
     - name: "ZOOKEEPER_URL"
       value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless:2181"
