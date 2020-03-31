@@ -87,6 +87,7 @@ func (in *HumioClusterSpec) DeepCopyInto(out *HumioClusterSpec) {
 		copy(*out, *in)
 	}
 	in.Affinity.DeepCopyInto(&out.Affinity)
+	in.Resources.DeepCopyInto(&out.Resources)
 	return
 }
 

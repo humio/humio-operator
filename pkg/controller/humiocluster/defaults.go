@@ -59,7 +59,7 @@ func imagePullSecretsOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) 
 	return humioCluster.Spec.ImagePullSecrets
 }
 
-func dataVolumeOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) corev1.VolumeSource {
+func dataVolumeSourceOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) corev1.VolumeSource {
 	emptyDataVolume := corev1.VolumeSource{}
 	if reflect.DeepEqual(humioCluster.Spec.DataVolumeSource, emptyDataVolume) {
 		return corev1.VolumeSource{
@@ -97,6 +97,14 @@ func initClusterRoleName(humioCluster *humioClusterv1alpha1.HumioCluster) string
 
 func initClusterRoleBindingName(humioCluster *humioClusterv1alpha1.HumioCluster) string {
 	return fmt.Sprintf("%s-%s-%s", initClusterRoleBindingPrefix, humioCluster.Namespace, humioCluster.Name)
+}
+
+func podResourcesOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) corev1.ResourceRequirements {
+	emptyResources := corev1.ResourceRequirements{}
+	if reflect.DeepEqual(humioCluster.Spec.Resources, emptyResources) {
+		return emptyResources
+	}
+	return humioCluster.Spec.Resources
 }
 
 func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioCluster) {

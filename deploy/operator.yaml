@@ -18,7 +18,6 @@ spec:
           image: humio/humio-operator:dev
           command:
           - humio-operator
-          imagePullPolicy: Never # we pre-load this image with kind when running locally
           env:
             - name: WATCH_NAMESPACE
               valueFrom:
