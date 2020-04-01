@@ -165,6 +165,10 @@ func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioClus
 			Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
 			Value: "$(ZOOKEEPER_URL)",
 		},
+		{
+			Name:  "LOG4J_CONFIGURATION",
+			Value: "log4j2-stdout-json.xml",
+		},
 	}
 
 	for _, defaultEnvVar := range envDefaults {
