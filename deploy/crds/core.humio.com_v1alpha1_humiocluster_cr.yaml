@@ -43,8 +43,6 @@ spec:
       value: "us-west-2"
     - name: S3_STORAGE_ENCRYPTION_KEY
       value: "my-encryption-key"
-    - name: LOG4J_CONFIGURATION
-      value: "log4j2-stdout-json.xml"
     - name: USING_EPHEMERAL_DISKS
       value: "true"
     - name: S3_STORAGE_PREFERRED_COPY_SOURCE
