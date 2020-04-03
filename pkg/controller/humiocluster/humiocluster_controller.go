@@ -164,6 +164,12 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	// Ensure extra kafka configs configmap if specified
+	err = r.ensureKafkaConfigConfigmap(context.TODO(), humioCluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	emptyResult := reconcile.Result{}
 
 	// Ensure pods that does not run the desired version are deleted.
@@ -246,6 +252,26 @@ func (r *ReconcileHumioCluster) setClusterNodeCount(context context.Context, clu
 	return r.client.Status().Update(context, humioCluster)
 }
 
+func (r *ReconcileHumioCluster) ensureKafkaConfigConfigmap(context context.Context, humioCluster *corev1alpha1.HumioCluster) error {
+	extraKafkaConfigsConfigmapData := extraKafkaConfigsOrDefault(humioCluster)
+	if extraKafkaConfigsConfigmapData == "" {
+		return nil
+	}
+	_, err := r.GetConfigmap(context, humioCluster, extraKafkaConfigsConfigmapName)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			configmap := r.constructExtraKafkaConfigsConfigmap(extraKafkaConfigsConfigmapName, extraKafkaConfigsConfigmapData, humioCluster)
+			err = r.client.Create(context, configmap)
+			if err != nil {
+				return fmt.Errorf("unable to create extra kafka configs configmap for HumioCluster: %s", err)
+			}
+			r.logger.Infof("successfully created extra kafka configs configmap %s for HumioCluster %s", configmap, humioCluster.Name)
+			metricClusterRolesCreated.Inc()
+		}
+	}
+	return nil
+}
+
 func (r *ReconcileHumioCluster) ensureInitContainerPermissions(context context.Context, humioCluster *corev1alpha1.HumioCluster) error {
 	// We do not want to attach the init service account to the humio pod. Instead, only the init container should use this
 	// service account. To do this, we can attach the service account directly to the init container as per
@@ -294,7 +320,6 @@ func (r *ReconcileHumioCluster) ensureInitClusterRole(context context.Context, h
 			clusterRole := r.constructInitClusterRole(clusterRoleName, hc)
 			err = r.client.Create(context, clusterRole)
 			if err != nil {
-				r.logger.Infof("unable to create init cluster role: %s", err)
 				return fmt.Errorf("unable to create init cluster role for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created init cluster role %s for HumioCluster %s", clusterRoleName, hc.Name)
@@ -312,7 +337,6 @@ func (r *ReconcileHumioCluster) ensureInitClusterRoleBinding(context context.Con
 			clusterRole := r.constructInitClusterRoleBinding(clusterRoleBindingName, initClusterRoleName(hc), hc)
 			err = r.client.Create(context, clusterRole)
 			if err != nil {
-				r.logger.Infof("unable to create init cluster role binding: %s", err)
 				return fmt.Errorf("unable to create init cluster role binding for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created init cluster role binding %s for HumioCluster %s", clusterRoleBindingName, hc.Name)
@@ -333,7 +357,6 @@ func (r *ReconcileHumioCluster) ensureInitServiceAccountExists(context context.C
 			}
 			err = r.client.Create(context, serviceAccount)
 			if err != nil {
-				r.logger.Infof("unable to create init service account: %s", err)
 				return fmt.Errorf("unable to create init service account for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created init service account %s for HumioCluster %s", serviceAccountName, hc.Name)
@@ -353,7 +376,6 @@ func (r *ReconcileHumioCluster) ensureInitServiceAccountSecretExists(context con
 			}
 			err = r.client.Create(context, secret)
 			if err != nil {
-				r.logger.Infof("unable to create init service account secret: %s", err)
 				return fmt.Errorf("unable to create init service account secret for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created init service account secret %s for HumioCluster %s", initServiceAccountSecretName, hc.Name)
@@ -568,7 +590,6 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(conetext context.Context,
 
 		err = r.client.Create(context.TODO(), pod)
 		if err != nil {
-			r.logger.Infof("unable to create pod: %s", err)
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, fmt.Errorf("unable to create Pod for HumioCluster: %s", err)
 		}
 		r.logger.Infof("successfully created pod %s for HumioCluster %s", pod.Name, humioCluster.Name)
@@ -597,7 +618,6 @@ func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioC
 
 		err = r.client.Create(context.TODO(), pod)
 		if err != nil {
-			r.logger.Infof("unable to create pod: %s", err)
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, fmt.Errorf("unable to create Pod for HumioCluster: %s", err)
 		}
 		r.logger.Infof("successfully created pod %s for HumioCluster %s", pod.Name, humioCluster.Name)
@@ -623,7 +643,6 @@ func (r *ReconcileHumioCluster) ensureDeveloperUserPasswordExists(conetext conte
 			}
 			err = r.client.Create(context.TODO(), secret)
 			if err != nil {
-				r.logger.Infof("unable to create secret: %s", err)
 				return fmt.Errorf("unable to create service account secret for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created service account secret %s for HumioCluster %s", serviceAccountSecretName, humioCluster.Name)
@@ -654,7 +673,6 @@ func (r *ReconcileHumioCluster) ensurePersistentTokenExists(conetext context.Con
 
 			err = r.client.Create(context.TODO(), secret)
 			if err != nil {
-				r.logger.Infof("unable to create secret: %s", err)
 				return fmt.Errorf("unable to create persistent token secret for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created persistent token secret %s for HumioCluster %s", serviceTokenSecretName, humioCluster.Name)

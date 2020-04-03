@@ -580,6 +580,119 @@ func TestReconcileHumioCluster_Reconcile_init_service_account(t *testing.T) {
 	}
 }
 
+func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testing.T) {
+	tests := []struct {
+		name                           string
+		humioCluster                   *corev1alpha1.HumioCluster
+		humioClient                    *humio.MockClientConfig
+		version                        string
+		wantExtraKafkaConfigsConfigmap bool
+	}{
+		{
+			"test cluster reconciliation with no extra kafka configs",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{}, nil, nil, nil, "", ""), "",
+			false,
+		},
+		{
+			"test cluster reconciliation with extra kafka configs",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					ExtraKafkaConfigs: "security.protocol=SSL",
+				},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{}, nil, nil, nil, "", ""), "",
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger, _ := zap.NewProduction()
+			defer logger.Sync() // flushes buffer, if any
+			sugar := logger.Sugar().With("Request.Namespace", tt.humioCluster.Namespace, "Request.Name", tt.humioCluster.Name)
+
+			// Objects to track in the fake client.
+			objs := []runtime.Object{
+				tt.humioCluster,
+			}
+
+			// Register operator types with the runtime scheme.
+			s := scheme.Scheme
+			s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, tt.humioCluster)
+
+			// Create a fake client to mock API calls.
+			cl := fake.NewFakeClient(objs...)
+
+			// Start up http server that can send the mock jwt token
+			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				rw.Write([]byte(`{"token": "sometempjwttoken"}`))
+			}))
+			defer server.Close()
+
+			// Point the mock client to the fake server
+			tt.humioClient.Url = fmt.Sprintf("%s/", server.URL)
+
+			// Create a ReconcileHumioCluster object with the scheme and fake client.
+			r := &ReconcileHumioCluster{
+				client:      cl,
+				humioClient: tt.humioClient,
+				scheme:      s,
+				logger:      sugar,
+			}
+
+			// Mock request to simulate Reconcile() being called on an event for a
+			// watched resource .
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      tt.humioCluster.Name,
+					Namespace: tt.humioCluster.Namespace,
+				},
+			}
+			_, err := r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+
+			configmap, err := r.GetConfigmap(context.TODO(), tt.humioCluster, extraKafkaConfigsConfigmapName)
+			if (err != nil) == tt.wantExtraKafkaConfigsConfigmap {
+				t.Errorf("failed to check extra kafka configs configmap: %s", err)
+			}
+			if reflect.DeepEqual(configmap, &corev1.ConfigMap{}) == tt.wantExtraKafkaConfigsConfigmap {
+				t.Errorf("failed to compare extra kafka configs configmap: %s, wantExtraKafkaConfigsConfigmap: %v", configmap, tt.wantExtraKafkaConfigsConfigmap)
+			}
+			foundEnvVar := false
+			if tt.wantExtraKafkaConfigsConfigmap {
+				foundPodList, err := ListPods(cl, tt.humioCluster)
+				if err != nil {
+					t.Errorf("failed to list pods %s", err)
+				}
+				if len(foundPodList) > 0 {
+					for _, env := range foundPodList[0].Spec.Containers[0].Env {
+						if env.Name == "EXTRA_KAFKA_CONFIGS_FILE" {
+							foundEnvVar = true
+						}
+					}
+				}
+			}
+			if tt.wantExtraKafkaConfigsConfigmap && !foundEnvVar {
+				t.Errorf("failed to validate extra kafka configs env var, want: %v, got %v", tt.wantExtraKafkaConfigsConfigmap, foundEnvVar)
+			}
+		})
+	}
+}
+
 func markPodsAsRunning(client client.Client, pods []corev1.Pod) error {
 	for nodeID, pod := range pods {
 		pod.Status.PodIP = fmt.Sprintf("192.168.0.%d", nodeID)

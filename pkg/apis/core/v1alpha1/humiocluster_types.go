@@ -42,6 +42,8 @@ type HumioClusterSpec struct {
 	InitServiceAccountName string `json:"initServiceAccountName,omitempty"`
 	// Resources is the kubernetes resource limits for the humio pod
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	// ExtraKafkaConfigs is a multi-line string containing kafka properties
+	ExtraKafkaConfigs string `json:"extraKafkaConfigs,omitempty"`
 	// TODO functionality to support:
 	// pod resources
 	// imagepullsecrets
