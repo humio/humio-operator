@@ -1,20 +1,21 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: humioingesttokens.core.humio.com
+  name: humioexternalclusters.core.humio.com
 spec:
   group: core.humio.com
   names:
-    kind: HumioIngestToken
-    listKind: HumioIngestTokenList
-    plural: humioingesttokens
-    singular: humioingesttoken
+    kind: HumioExternalCluster
+    listKind: HumioExternalClusterList
+    plural: humioexternalclusters
+    singular: humioexternalcluster
   scope: Namespaced
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: HumioIngestToken is the Schema for the humioingesttokens API
+      description: HumioExternalCluster is the Schema for the humioexternalclusters
+        API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -29,29 +30,16 @@ spec:
         metadata:
           type: object
         spec:
-          description: HumioIngestTokenSpec defines the desired state of HumioIngestToken
+          description: HumioExternalClusterSpec defines the desired state of HumioExternalCluster
           properties:
-            externalClusterName:
-              type: string
-            managedClusterName:
-              description: Which cluster
-              type: string
-            name:
-              description: Input
-              type: string
-            parserName:
-              type: string
-            repositoryName:
-              type: string
-            tokenSecretName:
-              description: Output
+            url:
               type: string
           type: object
         status:
-          description: HumioIngestTokenStatus defines the observed state of HumioIngestToken
+          description: HumioExternalClusterStatus defines the observed state of HumioExternalCluster
           properties:
-            created:
-              type: boolean
+            version:
+              type: string
           type: object
       type: object
   version: v1alpha1

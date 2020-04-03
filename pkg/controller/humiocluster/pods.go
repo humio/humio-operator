@@ -1,29 +1,26 @@
 package humiocluster
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
-	"strconv"
 	"strings"
 	"time"
 
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *ReconcileHumioCluster) constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
+func constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
 	var pod corev1.Pod
 	mode := int32(420)
 	pod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-core-%s", hc.Name, generatePodSuffix()),
 			Namespace: hc.Namespace,
-			Labels:    labelsForHumio(hc.Name),
+			Labels:    kubernetes.LabelsForHumio(hc.Name),
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: serviceAccountNameOrDefault(hc),
@@ -188,38 +185,7 @@ func (r *ReconcileHumioCluster) constructPod(hc *corev1alpha1.HumioCluster) (*co
 			},
 		})
 	}
-
-	if err := controllerutil.SetControllerReference(hc, &pod, r.scheme); err != nil {
-		return &corev1.Pod{}, fmt.Errorf("could not set controller reference: %s", err)
-	}
 	return &pod, nil
-}
-
-// ListPods grabs the list of all pods associated to a an instance of HumioCluster
-func ListPods(c client.Client, hc *corev1alpha1.HumioCluster) ([]corev1.Pod, error) {
-	var foundPodList corev1.PodList
-	err := c.List(context.TODO(), &foundPodList, client.InNamespace(hc.Namespace), matchingLabelsForHumio(hc.Name))
-	if err != nil {
-		return nil, err
-	}
-
-	return foundPodList.Items, nil
-}
-
-// DeletePod deletes a given pod
-func DeletePod(c client.Client, existingPod corev1.Pod) error {
-	err := c.Delete(context.TODO(), &existingPod)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func labelsForPod(clusterName string, nodeID int) map[string]string {
-	labels := labelsForHumio(clusterName)
-	labels["node_id"] = strconv.Itoa(nodeID)
-	return labels
 }
 
 func generatePodSuffix() string {

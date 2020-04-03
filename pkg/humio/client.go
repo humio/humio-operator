@@ -10,6 +10,11 @@ import (
 
 // Client is the interface that can be mocked
 type Client interface {
+	ClusterClient
+	IngestTokensClient
+}
+
+type ClusterClient interface {
 	GetClusters() (humioapi.Cluster, error)
 	UpdateStoragePartitionScheme([]humioapi.StoragePartitionInput) error
 	UpdateIngestPartitionScheme([]humioapi.IngestPartitionInput) error
@@ -23,6 +28,13 @@ type Client interface {
 	Authenticate(*humioapi.Config) error
 	GetBaseURL(*corev1alpha1.HumioCluster) string
 	Status() (humioapi.StatusResponse, error)
+}
+
+type IngestTokensClient interface {
+	AddIngestToken(*corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error)
+	GetIngestToken(*corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error)
+	UpdateIngestToken(*corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error)
+	DeleteIngestToken(*corev1alpha1.HumioIngestToken) error
 }
 
 // ClientConfig stores our Humio api client
@@ -135,4 +147,29 @@ func (h *ClientConfig) ApiToken() (string, error) {
 // ApiToken returns the api token for the current logged in user
 func (h *ClientConfig) GetBaseURL(hc *corev1alpha1.HumioCluster) string {
 	return fmt.Sprintf("http://%s.%s:%d/", hc.Name, hc.Namespace, 8080)
+}
+
+func (h *ClientConfig) AddIngestToken(hit *corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
+	return h.apiClient.IngestTokens().Add(hit.Spec.RepositoryName, hit.Spec.Name, hit.Spec.ParserName)
+}
+
+func (h *ClientConfig) GetIngestToken(hit *corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
+	tokens, err := h.apiClient.IngestTokens().List(hit.Spec.RepositoryName)
+	if err != nil {
+		return &humioapi.IngestToken{}, err
+	}
+	for _, token := range tokens {
+		if token.Name == hit.Spec.Name {
+			return &token, nil
+		}
+	}
+	return &humioapi.IngestToken{}, nil
+}
+
+func (h *ClientConfig) UpdateIngestToken(hit *corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
+	return h.apiClient.IngestTokens().Update(hit.Spec.RepositoryName, hit.Spec.Name, hit.Spec.ParserName)
+}
+
+func (h *ClientConfig) DeleteIngestToken(hit *corev1alpha1.HumioIngestToken) error {
+	return h.apiClient.IngestTokens().Remove(hit.Spec.RepositoryName, hit.Spec.Name)
 }
