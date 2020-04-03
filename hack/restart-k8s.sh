@@ -38,6 +38,7 @@ git clone https://github.com/humio/cp-helm-charts.git ~/git/humio-cp-helm-charts
 helm template humio ~/git/humio-cp-helm-charts --namespace=default --set cp-zookeeper.servers=1 --set cp-kafka.brokers=1 --set cp-schema-registry.enabled=false --set cp-kafka-rest.enabled=false --set cp-kafka-connect.enabled=false --set cp-ksql-server.enabled=false --set cp-control-center.enabled=false | kubectl --context kind-kind apply -f -
 
 # Install CRD
+kubectl --context kind-kind apply -f deploy/crds/core.humio.com_humioexternalclusters_crd.yaml
 kubectl --context kind-kind apply -f deploy/crds/core.humio.com_humioclusters_crd.yaml
 kubectl --context kind-kind apply -f deploy/crds/core.humio.com_humioingesttokens_crd.yaml
 kubectl --context kind-kind apply -f deploy/crds/core.humio.com_humioparsers_crd.yaml
@@ -45,4 +46,6 @@ kubectl --context kind-kind apply -f deploy/crds/core.humio.com_humiorepositorie
 
 # Create a CR instance of HumioCluster
 sleep 10
+kubectl --context kind-kind apply -f deploy/crds/core.humio.com_v1alpha1_humioexternalcluster_cr.yaml
 kubectl --context kind-kind apply -f deploy/crds/core.humio.com_v1alpha1_humiocluster_cr.yaml
+kubectl --context kind-kind apply -f deploy/crds/core.humio.com_v1alpha1_humioingesttoken_cr.yaml

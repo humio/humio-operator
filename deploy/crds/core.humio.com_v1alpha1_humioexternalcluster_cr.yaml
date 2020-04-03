@@ -1,0 +1,6 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioExternalCluster
+metadata:
+  name: example-humioexternalcluster
+spec:
+  url: "http://example-humiocluster.default:8080/"

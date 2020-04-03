@@ -12,6 +12,7 @@ import (
 	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/humio/humio-operator/pkg/humio"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -136,34 +137,34 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			// Check that the init service account, secret, cluster role and cluster role binding are created
-			secret, err := r.GetSecret(context.TODO(), updatedHumioCluster, initServiceAccountSecretName)
+			secret, err := kubernetes.GetSecret(r.client, context.TODO(), initServiceAccountSecretName, updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("get init service account secret: (%v). %+v", err, secret)
 			}
-			_, err = r.GetServiceAccount(context.TODO(), initServiceAccountNameOrDefault(updatedHumioCluster), updatedHumioCluster)
+			_, err = kubernetes.GetServiceAccount(r.client, context.TODO(), initServiceAccountNameOrDefault(updatedHumioCluster), updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("failed to get init service account: %s", err)
 			}
-			_, err = r.GetClusterRole(context.TODO(), initClusterRoleName(updatedHumioCluster), updatedHumioCluster)
+			_, err = kubernetes.GetClusterRole(r.client, context.TODO(), initClusterRoleName(updatedHumioCluster))
 			if err != nil {
 				t.Errorf("failed to get init cluster role: %s", err)
 			}
-			_, err = r.GetClusterRoleBinding(context.TODO(), initClusterRoleBindingName(updatedHumioCluster), updatedHumioCluster)
+			_, err = kubernetes.GetClusterRoleBinding(r.client, context.TODO(), initClusterRoleBindingName(updatedHumioCluster))
 			if err != nil {
 				t.Errorf("failed to get init cluster role binding: %s", err)
 			}
 
 			// Check that the developer password exists as a k8s secret
-			secret, err = r.GetSecret(context.TODO(), updatedHumioCluster, serviceAccountSecretName)
+			secret, err = kubernetes.GetSecret(r.client, context.TODO(), kubernetes.ServiceAccountSecretName, updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("get secret with password: (%v). %+v", err, secret)
 			}
 			if string(secret.Data["password"]) == "" {
-				t.Errorf("password secret %s expected content to not be empty, but it was", serviceAccountSecretName)
+				t.Errorf("password secret %s expected content to not be empty, but it was", kubernetes.ServiceAccountSecretName)
 			}
 
 			for nodeCount := 1; nodeCount <= tt.humioCluster.Spec.NodeCount; nodeCount++ {
-				foundPodList, err := ListPods(cl, updatedHumioCluster)
+				foundPodList, err := kubernetes.ListPods(r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
 				if len(foundPodList) != nodeCount {
 					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount, len(foundPodList))
 				}
@@ -187,7 +188,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
 			}
-			foundPodList, err := ListPods(cl, updatedHumioCluster)
+			foundPodList, err := kubernetes.ListPods(cl, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
 			if len(foundPodList) != tt.humioCluster.Spec.NodeCount {
 				t.Errorf("expected list pods to return equal to %d, got %d", tt.humioCluster.Spec.NodeCount, len(foundPodList))
 			}
@@ -209,19 +210,19 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			// Check that the service exists
-			service, err := r.GetService(context.TODO(), updatedHumioCluster)
+			service, err := kubernetes.GetService(r.client, context.TODO(), updatedHumioCluster.Name, updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("get service: (%v). %+v", err, service)
 			}
 
 			// Check that the persistent token exists as a k8s secret
 
-			token, err := r.GetSecret(context.TODO(), updatedHumioCluster, serviceTokenSecretName)
+			token, err := kubernetes.GetSecret(r.client, context.TODO(), kubernetes.ServiceTokenSecretName, updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("get secret with api token: (%v). %+v", err, token)
 			}
 			if string(token.Data["token"]) != "mocktoken" {
-				t.Errorf("api token secret %s expected content \"%+v\", but got \"%+v\"", serviceTokenSecretName, "mocktoken", string(token.Data["token"]))
+				t.Errorf("api token secret %s expected content \"%+v\", but got \"%+v\"", kubernetes.ServiceTokenSecretName, "mocktoken", string(token.Data["token"]))
 			}
 
 			// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
@@ -254,7 +255,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("expected ingest partitions to be balanced. got %v, err %s", b, err)
 			}
 
-			foundPodList, err = ListPods(cl, updatedHumioCluster)
+			foundPodList, err = kubernetes.ListPods(cl, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
 			if err != nil {
 				t.Errorf("could not list pods to validate their content: %s", err)
 			}
@@ -265,7 +266,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 
 			// Ensure that we add node_id label to all pods
 			for _, pod := range foundPodList {
-				if !labelListContainsLabel(pod.GetLabels(), "node_id") {
+				if !kubernetes.LabelListContainsLabel(pod.GetLabels(), "node_id") {
 					t.Errorf("expected pod %s to have label node_id", pod.Name)
 				}
 			}
@@ -365,7 +366,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 			tt.humioCluster = updatedHumioCluster
 
 			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
-				foundPodList, err := ListPods(cl, updatedHumioCluster)
+				foundPodList, err := kubernetes.ListPods(r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
 				if len(foundPodList) != nodeCount+1 {
 					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount+1, len(foundPodList))
 				}
@@ -415,7 +416,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 			}
 
 			// Ensure all the pods are shut down to prep for the image update
-			foundPodList, err := ListPods(cl, updatedHumioCluster)
+			foundPodList, err := kubernetes.ListPods(r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
 			if err != nil {
 				t.Errorf("failed to list pods: %s", err)
 			}
@@ -434,7 +435,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 				}
 			}
 
-			foundPodList, err = ListPods(cl, updatedHumioCluster)
+			foundPodList, err = kubernetes.ListPods(r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
 			if err != nil {
 				t.Errorf("failed to list pods: %s", err)
 			}
@@ -553,7 +554,7 @@ func TestReconcileHumioCluster_Reconcile_init_service_account(t *testing.T) {
 			}
 
 			// Check that the init service account, cluster role and cluster role binding are created only if they should be
-			serviceAccount, err := r.GetServiceAccount(context.TODO(), initServiceAccountNameOrDefault(tt.humioCluster), tt.humioCluster)
+			serviceAccount, err := kubernetes.GetServiceAccount(r.client, context.TODO(), initServiceAccountNameOrDefault(tt.humioCluster), tt.humioCluster.Namespace)
 			if (err != nil) == tt.wantInitServiceAccount {
 				t.Errorf("failed to check init service account: %s", err)
 			}
@@ -561,7 +562,7 @@ func TestReconcileHumioCluster_Reconcile_init_service_account(t *testing.T) {
 				t.Errorf("failed to compare init service account: %s, wantInitServiceAccount: %v", serviceAccount, tt.wantInitServiceAccount)
 			}
 
-			clusterRole, err := r.GetClusterRole(context.TODO(), initClusterRoleName(tt.humioCluster), tt.humioCluster)
+			clusterRole, err := kubernetes.GetClusterRole(r.client, context.TODO(), initClusterRoleName(tt.humioCluster))
 			if (err != nil) == tt.wantInitClusterRole {
 				t.Errorf("failed to get init cluster role: %s", err)
 			}
@@ -569,7 +570,7 @@ func TestReconcileHumioCluster_Reconcile_init_service_account(t *testing.T) {
 				t.Errorf("failed to compare init cluster role: %s, wantInitClusterRole %v", clusterRole, tt.wantInitClusterRole)
 			}
 
-			clusterRoleBinding, err := r.GetClusterRoleBinding(context.TODO(), initClusterRoleBindingName(tt.humioCluster), tt.humioCluster)
+			clusterRoleBinding, err := kubernetes.GetClusterRoleBinding(r.client, context.TODO(), initClusterRoleBindingName(tt.humioCluster))
 			if (err != nil) == tt.wantInitClusterRoleBinding {
 				t.Errorf("failed to get init cluster role binding: %s", err)
 			}
@@ -635,15 +636,6 @@ func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testin
 			// Create a fake client to mock API calls.
 			cl := fake.NewFakeClient(objs...)
 
-			// Start up http server that can send the mock jwt token
-			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-				rw.Write([]byte(`{"token": "sometempjwttoken"}`))
-			}))
-			defer server.Close()
-
-			// Point the mock client to the fake server
-			tt.humioClient.Url = fmt.Sprintf("%s/", server.URL)
-
 			// Create a ReconcileHumioCluster object with the scheme and fake client.
 			r := &ReconcileHumioCluster{
 				client:      cl,
@@ -665,7 +657,7 @@ func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testin
 				t.Errorf("reconcile: (%v)", err)
 			}
 
-			configmap, err := r.GetConfigmap(context.TODO(), tt.humioCluster, extraKafkaConfigsConfigmapName)
+			configmap, err := kubernetes.GetConfigmap(r.client, context.TODO(), extraKafkaConfigsConfigmapName, tt.humioCluster.Namespace)
 			if (err != nil) == tt.wantExtraKafkaConfigsConfigmap {
 				t.Errorf("failed to check extra kafka configs configmap: %s", err)
 			}
@@ -674,7 +666,7 @@ func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testin
 			}
 			foundEnvVar := false
 			if tt.wantExtraKafkaConfigsConfigmap {
-				foundPodList, err := ListPods(cl, tt.humioCluster)
+				foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
 				if err != nil {
 					t.Errorf("failed to list pods %s", err)
 				}
