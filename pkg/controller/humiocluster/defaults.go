@@ -10,21 +10,25 @@ import (
 )
 
 const (
-	name                         = "humiocluster"
-	namespace                    = "logging"
-	image                        = "humio/humio-core:1.9.1"
-	targetReplicationFactor      = 2
-	storagePartitionsCount       = 24
-	digestPartitionsCount        = 24
-	nodeCount                    = 3
-	humioPort                    = 8080
-	elasticPort                  = 9200
-	serviceAccountSecretName     = "developer"
-	serviceTokenSecretName       = "developer-token"
-	initServiceAccountName       = "init-service-account"
-	initServiceAccountSecretName = "init-service-account"
-	initClusterRolePrefix        = "init-cluster-role"
-	initClusterRoleBindingPrefix = "init-cluster-role-binding"
+	name                           = "humiocluster"
+	namespace                      = "logging"
+	image                          = "humio/humio-core:1.9.1"
+	targetReplicationFactor        = 2
+	storagePartitionsCount         = 24
+	digestPartitionsCount          = 24
+	nodeCount                      = 3
+	humioPort                      = 8080
+	elasticPort                    = 9200
+	serviceAccountSecretName       = "developer"
+	serviceTokenSecretName         = "developer-token"
+	initServiceAccountName         = "init-service-account"
+	initServiceAccountSecretName   = "init-service-account"
+	initClusterRolePrefix          = "init-cluster-role"
+	initClusterRoleBindingPrefix   = "init-cluster-role-binding"
+	extraKafkaConfigsConfigmapName = "extra-kafka-configs-configmap"
+	idpCertificateSecretName       = "idp-certificate-secret"
+	idpCertificateFilename         = "idp-certificate.pem"
+	extraKafkaPropertiesFilename   = "extra-kafka-properties.properties"
 )
 
 func setDefaults(humioCluster *humioClusterv1alpha1.HumioCluster) {
@@ -89,6 +93,17 @@ func initServiceAccountNameOrDefault(humioCluster *humioClusterv1alpha1.HumioClu
 		return humioCluster.Spec.InitServiceAccountName
 	}
 	return initServiceAccountName
+}
+
+func extraKafkaConfigsOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) string {
+	return humioCluster.Spec.ExtraKafkaConfigs
+}
+
+func idpCertificateSecretNameOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) string {
+	if humioCluster.Spec.IdpCertificateSecretName != "" {
+		return humioCluster.Spec.IdpCertificateSecretName
+	}
+	return idpCertificateSecretName
 }
 
 func initClusterRoleName(humioCluster *humioClusterv1alpha1.HumioCluster) string {

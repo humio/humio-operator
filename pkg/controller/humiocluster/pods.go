@@ -141,13 +141,52 @@ func (r *ReconcileHumioCluster) constructPod(hc *corev1alpha1.HumioCluster) (*co
 	}
 
 	if hc.Spec.IdpCertificateSecretName != "" {
-		pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{Name: "SAML_IDP_CERTIFICATE", Value: "/var/lib/humio/idp-certificate"})
-		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{Name: "idp-cert-volume", ReadOnly: true, MountPath: "/var/lib/humio/idp-certificate", SubPath: "idp-certificate"})
-		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{Name: "idp-cert-volume", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: hc.Spec.IdpCertificateSecretName}}})
+		pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{
+			Name:  "SAML_IDP_CERTIFICATE",
+			Value: fmt.Sprintf("/var/lib/humio/idp-certificate-secret/%s", idpCertificateFilename),
+		})
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      "idp-cert-volume",
+			ReadOnly:  true,
+			MountPath: "/var/lib/humio/idp-certificate-secret",
+		})
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: "idp-cert-volume",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: idpCertificateSecretNameOrDefault(hc),
+				},
+			},
+		})
 	}
 
 	if hc.Spec.ServiceAccountName != "" {
 		pod.Spec.ServiceAccountName = hc.Spec.ServiceAccountName
+	}
+
+	if extraKafkaConfigsOrDefault(hc) != "" {
+		pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{
+			Name:  "EXTRA_KAFKA_CONFIGS_FILE",
+			Value: fmt.Sprintf("/var/lib/humio/extra-kafka-configs-configmap/%s", extraKafkaPropertiesFilename),
+		})
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      "extra-kafka-configs",
+			ReadOnly:  true,
+			MountPath: "/var/lib/humio/extra-kafka-configs-configmap",
+		})
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: "extra-kafka-configs",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					Items: []corev1.KeyToPath{
+						corev1.KeyToPath{
+							Key:  "extra-kafka-configs",
+							Path: extraKafkaConfigsConfigmapName,
+						},
+					},
+				},
+			},
+		})
 	}
 
 	if err := controllerutil.SetControllerReference(hc, &pod, r.scheme); err != nil {
