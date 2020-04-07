@@ -4,52 +4,8 @@ metadata:
   name: example-humiocluster
 spec:
   image: "humio/humio-core:1.9.1"
-  targetReplicationFactor: 2
-  storagePartitionsCount: 24
-  digestPartitionsCount: 24
-  resources:
-    limits:
-      cpu: "8"
-      memory: 56Gi
-    requests:
-      cpu: "6"
-      memory: 52Gi
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-        - matchExpressions:
-          - key: humio_node_type
-            operator: In
-            values:
-            - core
-    podAntiAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-          - key: app
-            operator: In
-            values:
-            - humio-core
-        topologyKey: kubernetes.io/hostname
-  dataVolumeSource:
-    hostPath:
-      path: "/mnt/disks/vol1"
-      type: "Directory"
   environmentVariables:
-    - name: S3_STORAGE_BUCKET
-      value: "my-cluster-storage"
-    - name: S3_STORAGE_REGION
-      value: "us-west-2"
-    - name: S3_STORAGE_ENCRYPTION_KEY
-      value: "my-encryption-key"
-    - name: USING_EPHEMERAL_DISKS
-      value: "true"
-    - name: S3_STORAGE_PREFERRED_COPY_SOURCE
-      value: "true"
-    - name: HUMIO_JVM_ARGS
-      value: -Xss2m -Xms2g -Xmx26g -server -XX:MaxDirectMemorySize=26g -XX:+UseParallelOldGC -XX:+UnlockDiagnosticVMOptions -XX:CompileCommand=dontinline,com/humio/util/HotspotUtilsJ.dontInline -Xlog:gc+jni=debug:stdout -Dakka.log-config-on-start=on -Xlog:gc*:stdout:time,tags
     - name: "ZOOKEEPER_URL"
-      value: "z-2-my-zookeeper.c4.kafka.us-west-2.amazonaws.com:2181,z-3-my-zookeeper.c4.kafka.us-west-2.amazonaws.com:2181,z-1-my-zookeeper.c4.kafka.us-west-2.amazonaws.com:2181"
+      value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless:2181"
     - name: "KAFKA_SERVERS"
-      value: "b-2-my-zookeeper.c4.kafka.us-west-2.amazonaws.com:9092,b-1-my-zookeeper.c4.kafka.us-west-2.amazonaws.com:9092,b-3-my-zookeeper.c4.kafka.us-west-2.amazonaws.com:9092"
+      value: "humio-cp-kafka-0.humio-cp-kafka-headless:9092"

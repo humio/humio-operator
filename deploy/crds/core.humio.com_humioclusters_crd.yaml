@@ -1871,6 +1871,10 @@ spec:
                 - name
                 type: object
               type: array
+            extraKafkaConfigs:
+              description: ExtraKafkaConfigs is a multi-line string containing kafka
+                properties
+              type: string
             idpCertificateName:
               description: IdpCertificateSecretName is the name of the secret that
                 contains the IDP Certificate when using SAML authentication

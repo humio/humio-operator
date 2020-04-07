@@ -59,6 +59,19 @@ rules:
   - humioparsers
   - humioingesttokens
   - humiorepositories
+  - humioexternalclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - humio.com
+  resources:
+  - '*'
   verbs:
   - create
   - delete

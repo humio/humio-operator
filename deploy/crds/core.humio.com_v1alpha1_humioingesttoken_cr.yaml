@@ -1,8 +1,17 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioIngestToken
 metadata:
-  name: example-humioingesttoken
+  name: example-humioingesttoken-managed
 spec:
-  name: # TODO: default to 
-  parser: # TODO: default to empty string
-  respository:
+  managedClusterName: example-humiocluster
+  name: example-token
+  repositoryName: humio
+---
+apiVersion: core.humio.com/v1alpha1
+kind: HumioIngestToken
+metadata:
+  name: example-humioingesttoken-external
+spec:
+  externalClusterName: example-humioexternalcluster
+  name: example-token-external
+  repositoryName: humio

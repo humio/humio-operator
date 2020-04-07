@@ -1,10 +1,10 @@
-package humiocluster
+package kubernetes
 
 import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func labelsForHumio(clusterName string) map[string]string {
+func LabelsForHumio(clusterName string) map[string]string {
 	labels := map[string]string{
 		"app":      "humio",
 		"humio_cr": clusterName,
@@ -12,13 +12,13 @@ func labelsForHumio(clusterName string) map[string]string {
 	return labels
 }
 
-func matchingLabelsForHumio(clusterName string) client.MatchingLabels {
+func MatchingLabelsForHumio(clusterName string) client.MatchingLabels {
 	var matchingLabels client.MatchingLabels
-	matchingLabels = labelsForHumio(clusterName)
+	matchingLabels = LabelsForHumio(clusterName)
 	return matchingLabels
 }
 
-func labelListContainsLabel(labelList map[string]string, label string) bool {
+func LabelListContainsLabel(labelList map[string]string, label string) bool {
 	for labelName := range labelList {
 		if labelName == label {
 			return true

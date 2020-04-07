@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	humioClusterv1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -19,8 +20,6 @@ const (
 	nodeCount                      = 3
 	humioPort                      = 8080
 	elasticPort                    = 9200
-	serviceAccountSecretName       = "developer"
-	serviceTokenSecretName         = "developer-token"
 	initServiceAccountName         = "init-service-account"
 	initServiceAccountSecretName   = "init-service-account"
 	initClusterRolePrefix          = "init-cluster-role"
@@ -171,7 +170,7 @@ func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioClus
 				SecretKeyRef: &corev1.SecretKeySelector{
 					Key: "password",
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: serviceAccountSecretName,
+						Name: kubernetes.ServiceAccountSecretName,
 					},
 				},
 			},

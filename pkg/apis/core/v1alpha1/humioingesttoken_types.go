@@ -6,14 +6,22 @@ import (
 
 // HumioIngestTokenSpec defines the desired state of HumioIngestToken
 type HumioIngestTokenSpec struct {
-	Name       string `json:"name,omitempty"`
-	Parser     string `json:"parser,omitempty"`
-	Repository string `json:"repository,omitempty"`
+	// Which cluster
+	ManagedClusterName  string `json:"managedClusterName,omitempty"`
+	ExternalClusterName string `json:"externalClusterName,omitempty"`
+
+	// Input
+	Name           string `json:"name,omitempty"`
+	ParserName     string `json:"parserName,omitempty"`
+	RepositoryName string `json:"repositoryName,omitempty"`
+
+	// Output
+	TokenSecretName string `json:"tokenSecretName,omitempty"`
 }
 
 // HumioIngestTokenStatus defines the observed state of HumioIngestToken
 type HumioIngestTokenStatus struct {
-	// TODO?
+	Created bool `json:"created,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
