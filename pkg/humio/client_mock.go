@@ -10,6 +10,7 @@ type ClientMock struct {
 	ClusterError                      error
 	UpdateStoragePartitionSchemeError error
 	UpdateIngestPartitionSchemeError  error
+	IngestToken                       humioapi.IngestToken
 }
 
 type MockClientConfig struct {
@@ -28,6 +29,7 @@ func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePar
 			ClusterError:                      clusterError,
 			UpdateStoragePartitionSchemeError: updateStoragePartitionSchemeError,
 			UpdateIngestPartitionSchemeError:  updateIngestPartitionSchemeError,
+			IngestToken:                       humioapi.IngestToken{},
 		},
 		Url:     url,
 		Version: version,
@@ -123,4 +125,28 @@ func (h *MockClientConfig) ApiToken() (string, error) {
 
 func (h *MockClientConfig) GetBaseURL(hc *corev1alpha1.HumioCluster) string {
 	return h.Url
+}
+
+func (h *MockClientConfig) AddIngestToken(hit *corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
+	updatedApiClient := h.apiClient
+	updatedApiClient.IngestToken = humioapi.IngestToken{
+		Name:           hit.Spec.Name,
+		AssignedParser: hit.Spec.ParserName,
+		Token:          "mocktoken",
+	}
+	return &h.apiClient.IngestToken, nil
+}
+
+func (h *MockClientConfig) GetIngestToken(hit *corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
+	return &h.apiClient.IngestToken, nil
+}
+
+func (h *MockClientConfig) UpdateIngestToken(hit *corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
+	return h.AddIngestToken(hit)
+}
+
+func (h *MockClientConfig) DeleteIngestToken(hit *corev1alpha1.HumioIngestToken) error {
+	updatedApiClient := h.apiClient
+	updatedApiClient.IngestToken = humioapi.IngestToken{}
+	return nil
 }

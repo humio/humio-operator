@@ -1,20 +1,20 @@
-package humiocluster
+package kubernetes
 
 import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/types"
 
-	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (r *ReconcileHumioCluster) constructInitClusterRoleBinding(clusterRoleBindingName string, clusterRoleName string, hc *corev1alpha1.HumioCluster) *rbacv1.ClusterRoleBinding {
+func ConstructInitClusterRoleBinding(clusterRoleBindingName, clusterRoleName, humioClusterName, humioClusterNamespace, initServiceAccountName string) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   clusterRoleBindingName,
-			Labels: labelsForHumio(hc.Name),
+			Labels: LabelsForHumio(humioClusterName),
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
@@ -24,17 +24,17 @@ func (r *ReconcileHumioCluster) constructInitClusterRoleBinding(clusterRoleBindi
 		Subjects: []rbacv1.Subject{
 			rbacv1.Subject{
 				Kind:      "ServiceAccount",
-				Name:      initServiceAccountNameOrDefault(hc),
-				Namespace: hc.Namespace,
+				Name:      initServiceAccountName,
+				Namespace: humioClusterNamespace,
 			},
 		},
 	}
 }
 
 // GetClusterRoleBinding returns the given cluster role binding if it exists
-func (r *ReconcileHumioCluster) GetClusterRoleBinding(context context.Context, clusterRoleBindingName string, hc *corev1alpha1.HumioCluster) (*rbacv1.ClusterRoleBinding, error) {
+func GetClusterRoleBinding(c client.Client, context context.Context, clusterRoleBindingName string) (*rbacv1.ClusterRoleBinding, error) {
 	var existingClusterRoleBinding rbacv1.ClusterRoleBinding
-	err := r.client.Get(context, types.NamespacedName{
+	err := c.Get(context, types.NamespacedName{
 		Name: clusterRoleBindingName,
 	}, &existingClusterRoleBinding)
 	return &existingClusterRoleBinding, err
