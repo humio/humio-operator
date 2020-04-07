@@ -11,7 +11,6 @@ import (
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 	"github.com/humio/humio-operator/pkg/kubernetes"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -22,42 +21,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-)
-
-var (
-	prometheusMetrics = map[string]prometheus.Counter{
-		"podsCreated": prometheus.NewCounter(prometheus.CounterOpts{
-			Name: "humiocluster_controller_pods_created_total",
-			Help: "Total number of pod objects created by controller",
-		}),
-		"podsDeleted": prometheus.NewCounter(prometheus.CounterOpts{
-			Name: "humiocluster_controller_pods_deleted_total",
-			Help: "Total number of pod objects deleted by controller",
-		}),
-		"secretsCreated": prometheus.NewCounter(prometheus.CounterOpts{
-			Name: "humiocluster_controller_secrets_created_total",
-			Help: "Total number of secret objects created by controller",
-		}),
-		"clusterRolesCreated": prometheus.NewCounter(prometheus.CounterOpts{
-			Name: "humiocluster_controller_cluster_roles_created_total",
-			Help: "Total number of cluster roles objects created by controller",
-		}),
-		"clusterRoleBindingsCreated": prometheus.NewCounter(prometheus.CounterOpts{
-			Name: "humiocluster_controller_cluster_role_bindings_created_total",
-			Help: "Total number of cluster role bindings objects created by controller",
-		}),
-		"serviceAccountsCreated": prometheus.NewCounter(prometheus.CounterOpts{
-			Name: "humiocluster_controller_service_accounts_created_total",
-			Help: "Total number of service accounts objects created by controller",
-		}),
-		"serviceAccountSecretsCreated": prometheus.NewCounter(prometheus.CounterOpts{
-			Name: "humiocluster_controller_service_account_secrets_created_total",
-			Help: "Total number of service account secrets objects created by controller",
-		}),
-	}
 )
 
 // Add creates a new HumioCluster Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -281,7 +246,7 @@ func (r *ReconcileHumioCluster) ensureKafkaConfigConfigmap(context context.Conte
 				return fmt.Errorf("unable to create extra kafka configs configmap for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created extra kafka configs configmap %s for HumioCluster %s", configmap, humioCluster.Name)
-			prometheusMetrics["clusterRolesCreated"].Inc()
+			prometheusMetrics.Counters.ClusterRolesCreated.Inc()
 		}
 	}
 	return nil
@@ -340,7 +305,7 @@ func (r *ReconcileHumioCluster) ensureInitClusterRole(context context.Context, h
 				return fmt.Errorf("unable to create init cluster role for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created init cluster role %s for HumioCluster %s", clusterRoleName, hc.Name)
-			prometheusMetrics["clusterRolesCreated"].Inc()
+			prometheusMetrics.Counters.ClusterRolesCreated.Inc()
 		}
 	}
 	return nil
@@ -365,7 +330,7 @@ func (r *ReconcileHumioCluster) ensureInitClusterRoleBinding(context context.Con
 				return fmt.Errorf("unable to create init cluster role binding for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created init cluster role binding %s for HumioCluster %s", clusterRoleBindingName, hc.Name)
-			prometheusMetrics["clusterRoleBindingsCreated"].Inc()
+			prometheusMetrics.Counters.ClusterRoleBindingsCreated.Inc()
 		}
 	}
 	return nil
@@ -385,7 +350,7 @@ func (r *ReconcileHumioCluster) ensureInitServiceAccountExists(context context.C
 				return fmt.Errorf("unable to create init service account for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created init service account %s for HumioCluster %s", serviceAccountName, hc.Name)
-			prometheusMetrics["serviceAccountsCreated"].Inc()
+			prometheusMetrics.Counters.ServiceAccountsCreated.Inc()
 		}
 	}
 	return nil
@@ -404,7 +369,7 @@ func (r *ReconcileHumioCluster) ensureInitServiceAccountSecretExists(context con
 				return fmt.Errorf("unable to create init service account secret for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created init service account secret %s for HumioCluster %s", initServiceAccountSecretName, hc.Name)
-			prometheusMetrics["serviceAccountSecretsCreated"].Inc()
+			prometheusMetrics.Counters.ServiceAccountSecretsCreated.Inc()
 		}
 	}
 	return nil
@@ -620,7 +585,7 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(conetext context.Context,
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, fmt.Errorf("unable to create Pod for HumioCluster: %s", err)
 		}
 		r.logger.Infof("successfully created pod %s for HumioCluster %s", pod.Name, humioCluster.Name)
-		prometheusMetrics["podsCreated"].Inc()
+		prometheusMetrics.Counters.PodsCreated.Inc()
 		// We have created a pod. Requeue immediately even if the pod is not ready. We will check the readiness status on the next reconciliation.
 		return reconcile.Result{Requeue: true}, nil
 	}
@@ -650,7 +615,7 @@ func (r *ReconcileHumioCluster) ensurePodsExist(conetext context.Context, humioC
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, fmt.Errorf("unable to create Pod for HumioCluster: %s", err)
 		}
 		r.logger.Infof("successfully created pod %s for HumioCluster %s", pod.Name, humioCluster.Name)
-		prometheusMetrics["podsCreated"].Inc()
+		prometheusMetrics.Counters.PodsCreated.Inc()
 		// We have created a pod. Requeue immediately even if the pod is not ready. We will check the readiness status on the next reconciliation.
 		return reconcile.Result{Requeue: true}, nil
 	}
@@ -675,7 +640,7 @@ func (r *ReconcileHumioCluster) ensureDeveloperUserPasswordExists(conetext conte
 				return fmt.Errorf("unable to create service account secret for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created service account secret %s for HumioCluster %s", kubernetes.ServiceAccountSecretName, humioCluster.Name)
-			prometheusMetrics["secretsCreated"].Inc()
+			prometheusMetrics.Counters.SecretsCreated.Inc()
 		}
 	}
 	return nil
@@ -704,7 +669,7 @@ func (r *ReconcileHumioCluster) ensurePersistentTokenExists(conetext context.Con
 				return fmt.Errorf("unable to create persistent token secret for HumioCluster: %s", err)
 			}
 			r.logger.Infof("successfully created persistent token secret %s for HumioCluster %s", kubernetes.ServiceTokenSecretName, humioCluster.Name)
-			prometheusMetrics["secretsCreated"].Inc()
+			prometheusMetrics.Counters.SecretsCreated.Inc()
 		}
 	} else {
 		r.logger.Infof("persistent token secret %s already exists for HumioCluster %s", kubernetes.ServiceTokenSecretName, humioCluster.Name)
@@ -735,11 +700,4 @@ func (r *ReconcileHumioCluster) getDeveloperUserPassword(hc *corev1alpha1.HumioC
 func envVarList(humioCluster *corev1alpha1.HumioCluster) []corev1.EnvVar {
 	setEnvironmentVariableDefaults(humioCluster)
 	return humioCluster.Spec.EnvironmentVariables
-}
-
-func init() {
-	for _, m := range prometheusMetrics {
-		metrics.Registry.MustRegister(m)
-
-	}
 }
