@@ -10,7 +10,6 @@ import (
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 	"github.com/humio/humio-operator/pkg/kubernetes"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -23,21 +22,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const humioFinalizer = "finalizer.humio.com"
-
-var (
-	prometheusMetrics = map[string]prometheus.Counter{
-		"secretsCreated": prometheus.NewCounter(prometheus.CounterOpts{
-			Name: "humioingesttoken_controller_secrets_created_total",
-			Help: "Total number of secret objects created by controller",
-		}),
-	}
-)
 
 // Add creates a new HumioIngestToken Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -276,7 +265,7 @@ func (r *ReconcileHumioIngestToken) ensureTokenSecretExists(conetext context.Con
 				return fmt.Errorf("unable to create ingest token secret for HumioIngestToken: %s", err)
 			}
 			r.logger.Infof("successfully created ingest token secret %s for HumioIngestToken %s", humioIngestToken.Spec.TokenSecretName, humioIngestToken.Name)
-			prometheusMetrics["secretsCreated"].Inc()
+			prometheusMetrics.Counters.ServiceAccountSecretsCreated.Inc()
 		}
 	} else {
 		// kubernetes secret exists, check if we need to update it
@@ -341,10 +330,4 @@ func remove(list []string, s string) []string {
 		}
 	}
 	return list
-}
-
-func init() {
-	for _, m := range prometheusMetrics {
-		metrics.Registry.MustRegister(m)
-	}
 }
