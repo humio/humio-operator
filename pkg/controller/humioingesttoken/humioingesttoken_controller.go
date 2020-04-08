@@ -61,14 +61,19 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner HumioIngestToken
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &corev1alpha1.HumioIngestToken{},
-	})
-	if err != nil {
-		return err
+	var watchTypes []runtime.Object
+	watchTypes = append(watchTypes, &corev1.Pod{})
+	watchTypes = append(watchTypes, &corev1.Secret{})
+
+	for _, watchType := range watchTypes {
+		err = c.Watch(&source.Kind{Type: watchType}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &corev1alpha1.HumioCluster{},
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
