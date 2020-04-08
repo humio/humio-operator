@@ -44,6 +44,10 @@ type HumioClusterSpec struct {
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	// ExtraKafkaConfigs is a multi-line string containing kafka properties
 	ExtraKafkaConfigs string `json:"extraKafkaConfigs,omitempty"`
+	// ContainerSecurityContext is the security context applied to the Humio container
+	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
+	// PodSecurityContext is the security context applied to the Humio pod
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 	// TODO functionality to support:
 	// pod resources
 	// imagepullsecrets
