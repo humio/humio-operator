@@ -88,6 +88,16 @@ func (in *HumioClusterSpec) DeepCopyInto(out *HumioClusterSpec) {
 	}
 	in.Affinity.DeepCopyInto(&out.Affinity)
 	in.Resources.DeepCopyInto(&out.Resources)
+	if in.ContainerSecurityContext != nil {
+		in, out := &in.ContainerSecurityContext, &out.ContainerSecurityContext
+		*out = new(v1.SecurityContext)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.PodSecurityContext != nil {
+		in, out := &in.PodSecurityContext, &out.PodSecurityContext
+		*out = new(v1.PodSecurityContext)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

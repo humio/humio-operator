@@ -685,6 +685,220 @@ func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testin
 	}
 }
 
+func TestReconcileHumioCluster_Reconcile_container_security_context(t *testing.T) {
+	tests := []struct {
+		name                       string
+		humioCluster               *corev1alpha1.HumioCluster
+		wantDefaultSecurityContext bool
+	}{
+		{
+			"test cluster reconciliation with no container security context",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{},
+			},
+			true,
+		},
+		{
+			"test cluster reconciliation with empty container security context",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					ContainerSecurityContext: &corev1.SecurityContext{},
+				},
+			},
+			false,
+		},
+		{
+			"test cluster reconciliation with non-empty container security context",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					ContainerSecurityContext: &corev1.SecurityContext{
+						Capabilities: &corev1.Capabilities{
+							Add: []corev1.Capability{
+								"NET_ADMIN",
+							},
+						},
+					},
+				},
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger, _ := zap.NewProduction()
+			defer logger.Sync() // flushes buffer, if any
+			sugar := logger.Sugar().With("Request.Namespace", tt.humioCluster.Namespace, "Request.Name", tt.humioCluster.Name)
+
+			// Objects to track in the fake client.
+			objs := []runtime.Object{
+				tt.humioCluster,
+			}
+
+			// Register operator types with the runtime scheme.
+			s := scheme.Scheme
+			s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, tt.humioCluster)
+
+			// Create a fake client to mock API calls.
+			cl := fake.NewFakeClient(objs...)
+
+			// Create a ReconcileHumioCluster object with the scheme and fake client.
+			r := &ReconcileHumioCluster{
+				client: cl,
+				scheme: s,
+				logger: sugar,
+			}
+
+			// Mock request to simulate Reconcile() being called on an event for a
+			// watched resource .
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      tt.humioCluster.Name,
+					Namespace: tt.humioCluster.Namespace,
+				},
+			}
+			_, err := r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+			foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+			if err != nil {
+				t.Errorf("failed to list pods %s", err)
+			}
+			foundExpectedSecurityContext := false
+			if tt.wantDefaultSecurityContext {
+				if reflect.DeepEqual(*foundPodList[0].Spec.Containers[0].SecurityContext, *containerSecurityContextOrDefault(tt.humioCluster)) {
+					foundExpectedSecurityContext = true
+				}
+			} else {
+				if reflect.DeepEqual(*foundPodList[0].Spec.Containers[0].SecurityContext, *tt.humioCluster.Spec.ContainerSecurityContext) {
+					foundExpectedSecurityContext = true
+				}
+			}
+
+			if !foundExpectedSecurityContext {
+				t.Errorf("failed to validate container security context, expected: %v, got %v", *tt.humioCluster.Spec.ContainerSecurityContext, *foundPodList[0].Spec.Containers[0].SecurityContext)
+			}
+		})
+	}
+}
+
+func TestReconcileHumioCluster_Reconcile_pod_security_context(t *testing.T) {
+	tests := []struct {
+		name                       string
+		humioCluster               *corev1alpha1.HumioCluster
+		wantDefaultSecurityContext bool
+	}{
+		{
+			"test cluster reconciliation with no pod security context",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{},
+			},
+			true,
+		},
+		{
+			"test cluster reconciliation with empty pod security context",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					PodSecurityContext: &corev1.PodSecurityContext{},
+				},
+			},
+			false,
+		},
+		{
+			"test cluster reconciliation with non-empty pod security context",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					PodSecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: boolptr(true),
+					},
+				},
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger, _ := zap.NewProduction()
+			defer logger.Sync() // flushes buffer, if any
+			sugar := logger.Sugar().With("Request.Namespace", tt.humioCluster.Namespace, "Request.Name", tt.humioCluster.Name)
+
+			// Objects to track in the fake client.
+			objs := []runtime.Object{
+				tt.humioCluster,
+			}
+
+			// Register operator types with the runtime scheme.
+			s := scheme.Scheme
+			s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, tt.humioCluster)
+
+			// Create a fake client to mock API calls.
+			cl := fake.NewFakeClient(objs...)
+
+			// Create a ReconcileHumioCluster object with the scheme and fake client.
+			r := &ReconcileHumioCluster{
+				client: cl,
+				scheme: s,
+				logger: sugar,
+			}
+
+			// Mock request to simulate Reconcile() being called on an event for a
+			// watched resource .
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      tt.humioCluster.Name,
+					Namespace: tt.humioCluster.Namespace,
+				},
+			}
+			_, err := r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+			foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+			if err != nil {
+				t.Errorf("failed to list pods %s", err)
+			}
+			foundExpectedSecurityContext := false
+			if tt.wantDefaultSecurityContext {
+				if reflect.DeepEqual(*foundPodList[0].Spec.SecurityContext, *podSecurityContextOrDefault(tt.humioCluster)) {
+					foundExpectedSecurityContext = true
+				}
+			} else {
+				if reflect.DeepEqual(*foundPodList[0].Spec.SecurityContext, *tt.humioCluster.Spec.PodSecurityContext) {
+					foundExpectedSecurityContext = true
+				}
+			}
+
+			if !foundExpectedSecurityContext {
+				t.Errorf("failed to validate pod security context, expected: %v, got %v", *tt.humioCluster.Spec.PodSecurityContext, *foundPodList[0].Spec.SecurityContext)
+			}
+		})
+	}
+}
+
 func markPodsAsRunning(client client.Client, pods []corev1.Pod) error {
 	for nodeID, pod := range pods {
 		pod.Status.PodIP = fmt.Sprintf("192.168.0.%d", nodeID)
@@ -741,4 +955,8 @@ func buildClusterNodesList(numberOfNodes int) []humioapi.ClusterNode {
 		clusterNodes = append(clusterNodes, clusterNode)
 	}
 	return clusterNodes
+}
+
+func boolptr(val bool) *bool {
+	return &val
 }
