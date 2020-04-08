@@ -224,9 +224,9 @@ func (r *ReconcileHumioIngestToken) Reconcile(request reconcile.Request) (reconc
 	// TODO: handle updates to repositoryName. Right now we probably just create the new ingest token,
 	// and "leak/leave behind" the old token.
 	// A workaround for now could be to do "replace" instead of updating CR in-place.
-	r.logger.Info("reconciling done")
 
-	return reconcile.Result{}, nil
+	// All done, requeue every 30 seconds even if no changes were made
+	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 30}, nil
 }
 
 func (r *ReconcileHumioIngestToken) finalize(hit *corev1alpha1.HumioIngestToken) error {
