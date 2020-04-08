@@ -111,7 +111,8 @@ func constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
 						SuccessThreshold:    1,
 						FailureThreshold:    12,
 					},
-					Resources: podResourcesOrDefault(hc),
+					Resources:       podResourcesOrDefault(hc),
+					SecurityContext: containerSecurityContextOrDefault(hc),
 				},
 			},
 			Volumes: []corev1.Volume{
@@ -133,7 +134,8 @@ func constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
 					},
 				},
 			},
-			Affinity: affinityOrDefault(hc),
+			Affinity:        affinityOrDefault(hc),
+			SecurityContext: podSecurityContextOrDefault(hc),
 		},
 	}
 

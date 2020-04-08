@@ -121,6 +121,26 @@ func podResourcesOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) core
 	return humioCluster.Spec.Resources
 }
 
+func containerSecurityContextOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) *corev1.SecurityContext {
+	if humioCluster.Spec.ContainerSecurityContext == nil {
+		return &corev1.SecurityContext{
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{
+					"SYS_NICE",
+				},
+			},
+		}
+	}
+	return humioCluster.Spec.ContainerSecurityContext
+}
+
+func podSecurityContextOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) *corev1.PodSecurityContext {
+	if humioCluster.Spec.PodSecurityContext == nil {
+		return &corev1.PodSecurityContext{}
+	}
+	return humioCluster.Spec.PodSecurityContext
+}
+
 func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioCluster) {
 	envDefaults := []corev1.EnvVar{
 		{
