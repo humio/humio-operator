@@ -45,29 +45,8 @@ func TestReconcileHumioIngestToken_Reconcile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewProduction()
-			defer logger.Sync() // flushes buffer, if any
-			sugar := logger.Sugar().With("Request.Namespace", tt.humioIngestToken.Namespace, "Request.Name", tt.humioIngestToken.Name)
-
-			// Objects to track in the fake client.
-			objs := []runtime.Object{
-				tt.humioIngestToken,
-			}
-
-			// Register operator types with the runtime scheme.
-			s := scheme.Scheme
-			s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, tt.humioIngestToken)
-
-			// Create a fake client to mock API calls.
-			cl := fake.NewFakeClient(objs...)
-
-			// Create a ReconcilehumioIngestToken object with the scheme and fake client.
-			r := &ReconcileHumioIngestToken{
-				client:      cl,
-				humioClient: tt.humioClient,
-				scheme:      s,
-				logger:      sugar,
-			}
+			r, req := reconcileInitWithHumioClient(tt.humioIngestToken, tt.humioClient)
+			defer r.logger.Sync()
 
 			// Create developer-token secret
 			secretData := map[string][]byte{"token": []byte("persistentToken")}
@@ -77,14 +56,6 @@ func TestReconcileHumioIngestToken_Reconcile(t *testing.T) {
 				t.Errorf("unable to create persistent token secret: %s", err)
 			}
 
-			// Mock request to simulate Reconcile() being called on an event for a
-			// watched resource .
-			req := reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      tt.humioIngestToken.Name,
-					Namespace: tt.humioIngestToken.Namespace,
-				},
-			}
 			_, err = r.Reconcile(req)
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
@@ -153,29 +124,8 @@ func TestReconcileHumioIngestToken_Reconcile_ingest_token_secret(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewProduction()
-			defer logger.Sync() // flushes buffer, if any
-			sugar := logger.Sugar().With("Request.Namespace", tt.humioIngestToken.Namespace, "Request.Name", tt.humioIngestToken.Name)
-
-			// Objects to track in the fake client.
-			objs := []runtime.Object{
-				tt.humioIngestToken,
-			}
-
-			// Register operator types with the runtime scheme.
-			s := scheme.Scheme
-			s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, tt.humioIngestToken)
-
-			// Create a fake client to mock API calls.
-			cl := fake.NewFakeClient(objs...)
-
-			// Create a ReconcilehumioIngestToken object with the scheme and fake client.
-			r := &ReconcileHumioIngestToken{
-				client:      cl,
-				humioClient: tt.humioClient,
-				scheme:      s,
-				logger:      sugar,
-			}
+			r, req := reconcileInitWithHumioClient(tt.humioIngestToken, tt.humioClient)
+			defer r.logger.Sync()
 
 			// Create developer-token secret
 			secretData := map[string][]byte{"token": []byte("persistentToken")}
@@ -185,22 +135,13 @@ func TestReconcileHumioIngestToken_Reconcile_ingest_token_secret(t *testing.T) {
 				t.Errorf("unable to create persistent token secret: %s", err)
 			}
 
-			// Mock request to simulate Reconcile() being called on an event for a
-			// watched resource .
-			req := reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      tt.humioIngestToken.Name,
-					Namespace: tt.humioIngestToken.Namespace,
-				},
+			for i := 0; i < 2; i++ {
+				_, err = r.Reconcile(req)
+				if err != nil {
+					t.Errorf("reconcile: (%v)", err)
+				}
 			}
-			_, err = r.Reconcile(req)
-			if err != nil {
-				t.Errorf("reconcile: (%v)", err)
-			}
-			_, err = r.Reconcile(req)
-			if err != nil {
-				t.Errorf("reconcile: (%v)", err)
-			}
+
 			foundSecret := false
 			if tt.wantTokenSecret {
 				secret, err := kubernetes.GetSecret(r.client, context.TODO(), tt.humioIngestToken.Spec.TokenSecretName, tt.humioIngestToken.Namespace)
@@ -216,4 +157,44 @@ func TestReconcileHumioIngestToken_Reconcile_ingest_token_secret(t *testing.T) {
 			}
 		})
 	}
+}
+
+func reconcileInitWithHumioClient(humioIngestToken *corev1alpha1.HumioIngestToken, humioClient *humio.MockClientConfig) (*ReconcileHumioIngestToken, reconcile.Request) {
+	r, req := reconcileInit(humioIngestToken)
+	r.humioClient = humioClient
+	return r, req
+}
+
+func reconcileInit(humioIngestToken *corev1alpha1.HumioIngestToken) (*ReconcileHumioIngestToken, reconcile.Request) {
+	logger, _ := zap.NewProduction()
+	sugar := logger.Sugar().With("Request.Namespace", humioIngestToken.Namespace, "Request.Name", humioIngestToken.Name)
+
+	// Objects to track in the fake client.
+	objs := []runtime.Object{
+		humioIngestToken,
+	}
+
+	// Register operator types with the runtime scheme.
+	s := scheme.Scheme
+	s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, humioIngestToken)
+
+	// Create a fake client to mock API calls.
+	cl := fake.NewFakeClient(objs...)
+
+	// Create a ReconcilehumioIngestToken object with the scheme and fake client.
+	r := &ReconcileHumioIngestToken{
+		client: cl,
+		scheme: s,
+		logger: sugar,
+	}
+
+	// Mock request to simulate Reconcile() being called on an event for a
+	// watched resource .
+	req := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      humioIngestToken.Name,
+			Namespace: humioIngestToken.Namespace,
+		},
+	}
+	return r, req
 }
