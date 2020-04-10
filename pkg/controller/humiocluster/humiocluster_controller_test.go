@@ -81,47 +81,12 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewProduction()
-			defer logger.Sync() // flushes buffer, if any
-			sugar := logger.Sugar().With("Request.Namespace", tt.humioCluster.Namespace, "Request.Name", tt.humioCluster.Name)
-
-			// Objects to track in the fake client.
-			objs := []runtime.Object{
-				tt.humioCluster,
-			}
-
-			// Register operator types with the runtime scheme.
-			s := scheme.Scheme
-			s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, tt.humioCluster)
-
-			// Create a fake client to mock API calls.
-			cl := fake.NewFakeClient(objs...)
-
-			// Start up http server that can send the mock jwt token
-			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-				rw.Write([]byte(`{"token": "sometempjwttoken"}`))
-			}))
+			server := runJwtTokenMockEndpoint()
 			defer server.Close()
 
-			// Point the mock client to the fake server
-			tt.humioClient.Url = fmt.Sprintf("%s/", server.URL)
+			r, req := reconcileInitWithHumioClient(tt.humioCluster, tt.humioClient, server)
+			defer r.logger.Sync()
 
-			// Create a ReconcileHumioCluster object with the scheme and fake client.
-			r := &ReconcileHumioCluster{
-				client:      cl,
-				humioClient: tt.humioClient,
-				scheme:      s,
-				logger:      sugar,
-			}
-
-			// Mock request to simulate Reconcile() being called on an event for a
-			// watched resource .
-			req := reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      tt.humioCluster.Name,
-					Namespace: tt.humioCluster.Namespace,
-				},
-			}
 			res, err := r.Reconcile(req)
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
@@ -171,7 +136,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 
 				// We must update the IP address because when we attempt to add labels to the pod we validate that they have IP addresses first
 				// We also must update the ready condition as the reconciler will wait until all pods are ready before continuing
-				err = markPodsAsRunning(cl, foundPodList)
+				err = markPodsAsRunning(r.client, foundPodList)
 				if err != nil {
 					t.Errorf("failed to update pods to prepare for testing the labels: %s", err)
 				}
@@ -188,7 +153,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
 			}
-			foundPodList, err := kubernetes.ListPods(cl, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
+			foundPodList, err := kubernetes.ListPods(r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
 			if len(foundPodList) != tt.humioCluster.Spec.NodeCount {
 				t.Errorf("expected list pods to return equal to %d, got %d", tt.humioCluster.Spec.NodeCount, len(foundPodList))
 			}
@@ -255,7 +220,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("expected ingest partitions to be balanced. got %v, err %s", b, err)
 			}
 
-			foundPodList, err = kubernetes.ListPods(cl, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
+			foundPodList, err = kubernetes.ListPods(r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
 			if err != nil {
 				t.Errorf("could not list pods to validate their content: %s", err)
 			}
@@ -309,47 +274,12 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewProduction()
-			defer logger.Sync() // flushes buffer, if any
-			sugar := logger.Sugar().With("Request.Namespace", tt.humioCluster.Namespace, "Request.Name", tt.humioCluster.Name)
-
-			// Objects to track in the fake client.
-			objs := []runtime.Object{
-				tt.humioCluster,
-			}
-
-			// Register operator types with the runtime scheme.
-			s := scheme.Scheme
-			s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, tt.humioCluster)
-
-			// Create a fake client to mock API calls.
-			cl := fake.NewFakeClient(objs...)
-
-			// Start up http server that can send the mock jwt token
-			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-				rw.Write([]byte(`{"token": "sometempjwttoken"}`))
-			}))
+			server := runJwtTokenMockEndpoint()
 			defer server.Close()
 
-			// Point the mock client to the fake server
-			tt.humioClient.Url = fmt.Sprintf("%s/", server.URL)
+			r, req := reconcileInitWithHumioClient(tt.humioCluster, tt.humioClient, server)
+			defer r.logger.Sync()
 
-			// Create a ReconcileHumioCluster object with the scheme and fake client.
-			r := &ReconcileHumioCluster{
-				client:      cl,
-				humioClient: tt.humioClient,
-				scheme:      s,
-				logger:      sugar,
-			}
-
-			// Mock request to simulate Reconcile() being called on an event for a
-			// watched resource .
-			req := reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      tt.humioCluster.Name,
-					Namespace: tt.humioCluster.Namespace,
-				},
-			}
 			_, err := r.Reconcile(req)
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
@@ -373,7 +303,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 
 				// We must update the IP address because when we attempt to add labels to the pod we validate that they have IP addresses first
 				// We also must update the ready condition as the reconciler will wait until all pods are ready before continuing
-				err = markPodsAsRunning(cl, foundPodList)
+				err = markPodsAsRunning(r.client, foundPodList)
 				if err != nil {
 					t.Errorf("failed to update pods to prepare for testing the labels: %s", err)
 				}
@@ -403,7 +333,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 
 			// Update humio image
 			updatedHumioCluster.Spec.Image = tt.imageToUpdate
-			cl.Update(context.TODO(), updatedHumioCluster)
+			r.client.Update(context.TODO(), updatedHumioCluster)
 
 			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
 				res, err := r.Reconcile(req)
@@ -507,47 +437,12 @@ func TestReconcileHumioCluster_Reconcile_init_service_account(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewProduction()
-			defer logger.Sync() // flushes buffer, if any
-			sugar := logger.Sugar().With("Request.Namespace", tt.humioCluster.Namespace, "Request.Name", tt.humioCluster.Name)
-
-			// Objects to track in the fake client.
-			objs := []runtime.Object{
-				tt.humioCluster,
-			}
-
-			// Register operator types with the runtime scheme.
-			s := scheme.Scheme
-			s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, tt.humioCluster)
-
-			// Create a fake client to mock API calls.
-			cl := fake.NewFakeClient(objs...)
-
-			// Start up http server that can send the mock jwt token
-			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-				rw.Write([]byte(`{"token": "sometempjwttoken"}`))
-			}))
+			server := runJwtTokenMockEndpoint()
 			defer server.Close()
 
-			// Point the mock client to the fake server
-			tt.humioClient.Url = fmt.Sprintf("%s/", server.URL)
+			r, req := reconcileInitWithHumioClient(tt.humioCluster, tt.humioClient, server)
+			defer r.logger.Sync()
 
-			// Create a ReconcileHumioCluster object with the scheme and fake client.
-			r := &ReconcileHumioCluster{
-				client:      cl,
-				humioClient: tt.humioClient,
-				scheme:      s,
-				logger:      sugar,
-			}
-
-			// Mock request to simulate Reconcile() being called on an event for a
-			// watched resource .
-			req := reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      tt.humioCluster.Name,
-					Namespace: tt.humioCluster.Namespace,
-				},
-			}
 			_, err := r.Reconcile(req)
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
@@ -620,38 +515,12 @@ func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testin
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewProduction()
-			defer logger.Sync() // flushes buffer, if any
-			sugar := logger.Sugar().With("Request.Namespace", tt.humioCluster.Namespace, "Request.Name", tt.humioCluster.Name)
+			server := runJwtTokenMockEndpoint()
+			defer server.Close()
 
-			// Objects to track in the fake client.
-			objs := []runtime.Object{
-				tt.humioCluster,
-			}
+			r, req := reconcileInitWithHumioClient(tt.humioCluster, tt.humioClient, server)
+			defer r.logger.Sync()
 
-			// Register operator types with the runtime scheme.
-			s := scheme.Scheme
-			s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, tt.humioCluster)
-
-			// Create a fake client to mock API calls.
-			cl := fake.NewFakeClient(objs...)
-
-			// Create a ReconcileHumioCluster object with the scheme and fake client.
-			r := &ReconcileHumioCluster{
-				client:      cl,
-				humioClient: tt.humioClient,
-				scheme:      s,
-				logger:      sugar,
-			}
-
-			// Mock request to simulate Reconcile() being called on an event for a
-			// watched resource .
-			req := reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      tt.humioCluster.Name,
-					Namespace: tt.humioCluster.Namespace,
-				},
-			}
 			_, err := r.Reconcile(req)
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
@@ -737,45 +606,22 @@ func TestReconcileHumioCluster_Reconcile_container_security_context(t *testing.T
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewProduction()
-			defer logger.Sync() // flushes buffer, if any
-			sugar := logger.Sugar().With("Request.Namespace", tt.humioCluster.Namespace, "Request.Name", tt.humioCluster.Name)
+			server := runJwtTokenMockEndpoint()
+			defer server.Close()
 
-			// Objects to track in the fake client.
-			objs := []runtime.Object{
-				tt.humioCluster,
-			}
+			r, req := reconcileInit(tt.humioCluster)
+			defer r.logger.Sync()
 
-			// Register operator types with the runtime scheme.
-			s := scheme.Scheme
-			s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, tt.humioCluster)
-
-			// Create a fake client to mock API calls.
-			cl := fake.NewFakeClient(objs...)
-
-			// Create a ReconcileHumioCluster object with the scheme and fake client.
-			r := &ReconcileHumioCluster{
-				client: cl,
-				scheme: s,
-				logger: sugar,
-			}
-
-			// Mock request to simulate Reconcile() being called on an event for a
-			// watched resource .
-			req := reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      tt.humioCluster.Name,
-					Namespace: tt.humioCluster.Namespace,
-				},
-			}
 			_, err := r.Reconcile(req)
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
 			}
+
 			foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
 			if err != nil {
 				t.Errorf("failed to list pods %s", err)
 			}
+
 			foundExpectedSecurityContext := false
 			if tt.wantDefaultSecurityContext {
 				if reflect.DeepEqual(*foundPodList[0].Spec.Containers[0].SecurityContext, *containerSecurityContextOrDefault(tt.humioCluster)) {
@@ -842,45 +688,23 @@ func TestReconcileHumioCluster_Reconcile_pod_security_context(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewProduction()
-			defer logger.Sync() // flushes buffer, if any
-			sugar := logger.Sugar().With("Request.Namespace", tt.humioCluster.Namespace, "Request.Name", tt.humioCluster.Name)
+			server := runJwtTokenMockEndpoint()
+			defer server.Close()
 
-			// Objects to track in the fake client.
-			objs := []runtime.Object{
-				tt.humioCluster,
-			}
+			r, req := reconcileInit(tt.humioCluster)
+			defer r.logger.Sync()
 
-			// Register operator types with the runtime scheme.
-			s := scheme.Scheme
-			s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, tt.humioCluster)
-
-			// Create a fake client to mock API calls.
-			cl := fake.NewFakeClient(objs...)
-
-			// Create a ReconcileHumioCluster object with the scheme and fake client.
-			r := &ReconcileHumioCluster{
-				client: cl,
-				scheme: s,
-				logger: sugar,
-			}
-
-			// Mock request to simulate Reconcile() being called on an event for a
-			// watched resource .
-			req := reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      tt.humioCluster.Name,
-					Namespace: tt.humioCluster.Namespace,
-				},
-			}
 			_, err := r.Reconcile(req)
+
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
 			}
+
 			foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
 			if err != nil {
 				t.Errorf("failed to list pods %s", err)
 			}
+
 			foundExpectedSecurityContext := false
 			if tt.wantDefaultSecurityContext {
 				if reflect.DeepEqual(*foundPodList[0].Spec.SecurityContext, *podSecurityContextOrDefault(tt.humioCluster)) {
@@ -897,6 +721,57 @@ func TestReconcileHumioCluster_Reconcile_pod_security_context(t *testing.T) {
 			}
 		})
 	}
+}
+
+func runJwtTokenMockEndpoint() *httptest.Server {
+	// Start up http server that can send the mock jwt token
+	return httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.Write([]byte(`{"token": "sometempjwttoken"}`))
+	}))
+}
+
+func reconcileInitWithHumioClient(humioCluster *corev1alpha1.HumioCluster, humioClient *humio.MockClientConfig, server *httptest.Server) (*ReconcileHumioCluster, reconcile.Request) {
+	r, req := reconcileInit(humioCluster)
+
+	// Point the mock client to the fake server
+	humioClient.Url = fmt.Sprintf("%s/", server.URL)
+	r.humioClient = humioClient
+
+	return r, req
+}
+
+func reconcileInit(humioCluster *corev1alpha1.HumioCluster) (*ReconcileHumioCluster, reconcile.Request) {
+	logger, _ := zap.NewProduction()
+	sugar := logger.Sugar().With("Request.Namespace", humioCluster.Namespace, "Request.Name", humioCluster.Name)
+
+	// Objects to track in the fake client.
+	objs := []runtime.Object{
+		humioCluster,
+	}
+
+	// Register operator types with the runtime scheme.
+	s := scheme.Scheme
+	s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, humioCluster)
+
+	// Create a fake client to mock API calls.
+	cl := fake.NewFakeClient(objs...)
+
+	// Create a ReconcileHumioCluster object with the scheme and fake client.
+	r := &ReconcileHumioCluster{
+		client: cl,
+		scheme: s,
+		logger: sugar,
+	}
+
+	// Mock request to simulate Reconcile() being called on an event for a
+	// watched resource .
+	req := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      humioCluster.Name,
+			Namespace: humioCluster.Namespace,
+		},
+	}
+	return r, req
 }
 
 func markPodsAsRunning(client client.Client, pods []corev1.Pod) error {
