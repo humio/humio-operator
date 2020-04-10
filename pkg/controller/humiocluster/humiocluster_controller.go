@@ -135,6 +135,14 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	// Ensure persistent token is a k8s secret, authenticate the humio client with the persistent token
+	if humioCluster.Status.ClusterState != corev1alpha1.HumioClusterStateBoostrapping {
+		err = r.ensurePersistentTokenExists(context.TODO(), humioCluster, r.humioClient.GetBaseURL(humioCluster))
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	// Ensure extra kafka configs configmap if specified
 	err = r.ensureKafkaConfigConfigmap(context.TODO(), humioCluster)
 	if err != nil {
@@ -144,20 +152,21 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	emptyResult := reconcile.Result{}
 
 	// Ensure pods that does not run the desired version are deleted.
-	result, err := r.ensureMismatchedPodsAreDeleted(context.TODO(), humioCluster)
-	if result != emptyResult || err != nil {
-		return result, err
-	}
-
-	// Ensure pods exist. Will requeue if not all pods are created and ready
-	if humioCluster.Status.ClusterState == corev1alpha1.HumioClusterStateBoostrapping {
-		result, err = r.ensurePodsBootstrapped(context.TODO(), humioCluster)
+	if humioCluster.Status.ClusterState != corev1alpha1.HumioClusterStateBoostrapping {
+		result, err := r.ensureMismatchedPodsAreDeleted(context.TODO(), humioCluster)
 		if result != emptyResult || err != nil {
 			return result, err
 		}
 	}
 
-	r.setClusterState(context.TODO(), corev1alpha1.HumioClusterStateRunning, humioCluster)
+	// Ensure pods exist. Will always requeue so long as we are bootstrapping. State will switch to running only when all pods
+	// have started
+	if humioCluster.Status.ClusterState == corev1alpha1.HumioClusterStateBoostrapping {
+		result, err := r.ensurePodsBootstrapped(context.TODO(), humioCluster)
+		if result != emptyResult || err != nil {
+			return result, err
+		}
+	}
 
 	defer func(context context.Context, humioCluster *corev1alpha1.HumioCluster) {
 		pods, _ := kubernetes.ListPods(r.client, humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(humioCluster.Name))
@@ -173,19 +182,13 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		r.setClusterVersion(context, status.Version, humioCluster)
 	}(context.TODO(), r.humioClient, humioCluster)
 
-	result, err = r.ensurePodsExist(context.TODO(), humioCluster)
+	result, err := r.ensurePodsExist(context.TODO(), humioCluster)
 	if result != emptyResult || err != nil {
 		return result, err
 	}
 
 	// Ensure service exists
 	err = r.ensureServiceExists(context.TODO(), humioCluster)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Ensure persistent token is a k8s secret, authenticate the humio client with the persistent token
-	err = r.ensurePersistentTokenExists(context.TODO(), humioCluster, r.humioClient.GetBaseURL(humioCluster))
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -564,7 +567,8 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(conetext context.Context,
 	}
 	if podsReadyCount == humioCluster.Spec.NodeCount {
 		r.logger.Info("all humio pods are reporting ready")
-		return reconcile.Result{}, nil
+		r.setClusterState(context.TODO(), corev1alpha1.HumioClusterStateRunning, humioCluster)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	if podsNotReadyCount > 0 {
@@ -573,7 +577,7 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(conetext context.Context,
 	}
 
 	if podsReadyCount < humioCluster.Spec.NodeCount {
-		pod, err := constructPod(humioCluster)
+		pod, err := constructPodBootstrapping(humioCluster)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to construct pod for HumioCluster: %s", err)
 		}
@@ -584,7 +588,7 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(conetext context.Context,
 		if err != nil {
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, fmt.Errorf("unable to create Pod for HumioCluster: %s", err)
 		}
-		r.logger.Infof("successfully created pod %s for HumioCluster %s", pod.Name, humioCluster.Name)
+		r.logger.Infof("successfully created bootstrapped pod %s for HumioCluster %s", pod.Name, humioCluster.Name)
 		prometheusMetrics.Counters.PodsCreated.Inc()
 		// We have created a pod. Requeue immediately even if the pod is not ready. We will check the readiness status on the next reconciliation.
 		return reconcile.Result{Requeue: true}, nil

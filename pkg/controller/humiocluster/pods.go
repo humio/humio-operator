@@ -190,6 +190,21 @@ func constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
 	return &pod, nil
 }
 
+func constructPodBootstrapping(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
+	pod, err := constructPod(hc)
+	var newEnvVars []corev1.EnvVar
+
+	for _, envVar := range pod.Spec.Containers[0].Env {
+		if envVar.Name == "AUTHENTICATION_METHOD" {
+			envVar.Value = "single-user"
+		}
+		newEnvVars = append(newEnvVars, envVar)
+	}
+
+	pod.Spec.Containers[0].Env = newEnvVars
+	return pod, err
+}
+
 func generatePodSuffix() string {
 	rand.Seed(time.Now().UnixNano())
 	chars := []rune("abcdefghijklmnopqrstuvwxyz")
@@ -199,4 +214,13 @@ func generatePodSuffix() string {
 		b.WriteRune(chars[rand.Intn(len(chars))])
 	}
 	return b.String()
+}
+
+func containerEnvVar(name string, envVars []corev1.EnvVar) *corev1.EnvVar {
+	for _, envVar := range envVars {
+		if envVar.Name == name {
+			return &envVar
+		}
+	}
+	return nil
 }

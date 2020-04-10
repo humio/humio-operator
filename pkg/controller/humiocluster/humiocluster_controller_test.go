@@ -315,6 +315,12 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 				}
 			}
 
+			// Simulate requeue after bootstrapping
+			_, err = r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+
 			// Test that we have the proper status
 			updatedHumioCluster = &corev1alpha1.HumioCluster{}
 			err = r.client.Get(context.TODO(), req.NamespacedName, updatedHumioCluster)
@@ -635,6 +641,158 @@ func TestReconcileHumioCluster_Reconcile_container_security_context(t *testing.T
 
 			if !foundExpectedSecurityContext {
 				t.Errorf("failed to validate container security context, expected: %v, got %v", *tt.humioCluster.Spec.ContainerSecurityContext, *foundPodList[0].Spec.Containers[0].SecurityContext)
+			}
+		})
+	}
+}
+
+func TestReconcileHumioCluster_Reconcile_bootstrap_with_non_single_user_auth(t *testing.T) {
+	tests := []struct {
+		name                           string
+		humioCluster                   *corev1alpha1.HumioCluster
+		humioClient                    *humio.MockClientConfig
+		version                        string
+		wantExtraKafkaConfigsConfigmap bool
+	}{
+		{
+			"test cluster reconciliation bootstrap with non-single-user authentication",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					NodeCount: 3,
+					EnvironmentVariables: []corev1.EnvVar{
+						corev1.EnvVar{
+							Name:  "AUTHENTICATION_METHOD",
+							Value: "saml",
+						},
+					},
+				},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{}, nil, nil, nil, "", ""), "",
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := runJwtTokenMockEndpoint()
+			defer server.Close()
+
+			r, req := reconcileInitWithHumioClient(tt.humioCluster, tt.humioClient, server)
+			defer r.logger.Sync()
+
+			_, err := r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+
+			for nodeCount := 1; nodeCount <= tt.humioCluster.Spec.NodeCount; nodeCount++ {
+				foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+				if len(foundPodList) != nodeCount {
+					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount, len(foundPodList))
+				}
+
+				// We must update the IP address because when we attempt to add labels to the pod we validate that they have IP addresses first
+				// We also must update the ready condition as the reconciler will wait until all pods are ready before continuing
+				err = markPodsAsRunning(r.client, foundPodList)
+				if err != nil {
+					t.Errorf("failed to update pods to prepare for testing the labels: %s", err)
+				}
+
+				// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
+				_, err = r.Reconcile(req)
+				if err != nil {
+					t.Errorf("reconcile: (%v)", err)
+				}
+			}
+
+			// Simulate requeue after bootstrapping
+			_, err = r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+
+			// Ensure the cluster state is now running
+			updatedHumioCluster := &corev1alpha1.HumioCluster{}
+			err = r.client.Get(context.TODO(), req.NamespacedName, updatedHumioCluster)
+			if err != nil {
+				t.Errorf("get HumioCluster: (%v)", err)
+			}
+			if updatedHumioCluster.Status.ClusterState != corev1alpha1.HumioClusterStateRunning {
+				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateRunning, updatedHumioCluster.Status.ClusterState)
+			}
+
+			// Ensure all pods are bootstrapped in single-user mode
+			foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+			if err != nil {
+				t.Errorf("failed to list pods: %s", err)
+			}
+			for _, pod := range foundPodList {
+				foundAuthEnvVar := false
+				if e := containerEnvVar("AUTHENTICATION_METHOD", pod.Spec.Containers[0].Env); e != nil {
+					foundAuthEnvVar = true
+					if e.Value != "single-user" {
+						t.Errorf("env var does not match expected, got %s, want %s", e.Value, "single-user")
+					}
+				}
+				if !foundAuthEnvVar {
+					t.Error("pod authentication env var is missing")
+				}
+			}
+
+			// Run the reconcile again to simulate pods being deleted
+			for nodeCount := 1; nodeCount <= tt.humioCluster.Spec.NodeCount; nodeCount++ {
+				_, err = r.Reconcile(req)
+				if err != nil {
+					t.Errorf("reconcile: (%v)", err)
+				}
+			}
+
+			// Simulate reconcile being run to create the pods again
+			for nodeCount := 1; nodeCount <= tt.humioCluster.Spec.NodeCount; nodeCount++ {
+				foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+				if len(foundPodList) != nodeCount {
+					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount, len(foundPodList))
+				}
+
+				// We must update the IP address because when we attempt to add labels to the pod we validate that they have IP addresses first
+				// We also must update the ready condition as the reconciler will wait until all pods are ready before continuing
+				err = markPodsAsRunning(r.client, foundPodList)
+				if err != nil {
+					t.Errorf("failed to update pods to prepare for testing the labels: %s", err)
+				}
+
+				// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
+				_, err = r.Reconcile(req)
+				if err != nil {
+					t.Errorf("reconcile: (%v)", err)
+				}
+			}
+
+			foundPodList, err = kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+			for _, pod := range foundPodList {
+				foundAuthEnvVar := false
+				if e := containerEnvVar("AUTHENTICATION_METHOD", pod.Spec.Containers[0].Env); e != nil {
+					foundAuthEnvVar = true
+					if e.Value != tt.humioCluster.Spec.EnvironmentVariables[0].Value {
+						t.Errorf("env var does not match expected, got %s, want %s", e.Value, tt.humioCluster.Spec.EnvironmentVariables[0].Value)
+					}
+				}
+				if !foundAuthEnvVar {
+					t.Error("pod authentication env var is missing")
+				}
+			}
+
+			// Check that the developer password exists as a k8s secret
+			secret, err := kubernetes.GetSecret(r.client, context.TODO(), kubernetes.ServiceAccountSecretName, updatedHumioCluster.Namespace)
+			if err != nil {
+				t.Errorf("get secret with password: (%v). %+v", err, secret)
+			}
+			if string(secret.Data["password"]) == "" {
+				t.Errorf("password secret %s expected content to not be empty, but it was", kubernetes.ServiceAccountSecretName)
 			}
 		})
 	}
