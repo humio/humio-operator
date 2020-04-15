@@ -24,7 +24,6 @@ type ClusterClient interface {
 	Unregister(int) error
 	GetStoragePartitions() (*[]humioapi.StoragePartition, error)
 	GetIngestPartitions() (*[]humioapi.IngestPartition, error)
-	ApiToken() (string, error)
 	Authenticate(*humioapi.Config) error
 	GetBaseURL(*corev1alpha1.HumioCluster) string
 	Status() (humioapi.StatusResponse, error)
@@ -139,12 +138,7 @@ func (h *ClientConfig) GetIngestPartitions() (*[]humioapi.IngestPartition, error
 	return &[]humioapi.IngestPartition{}, fmt.Errorf("not implemented")
 }
 
-// ApiToken returns the api token for the current logged in user
-func (h *ClientConfig) ApiToken() (string, error) {
-	return h.apiClient.Viewer().ApiToken()
-}
-
-// ApiToken returns the api token for the current logged in user
+// GetBaseURL returns the api token for the current logged in user
 func (h *ClientConfig) GetBaseURL(hc *corev1alpha1.HumioCluster) string {
 	return fmt.Sprintf("http://%s.%s:%d/", hc.Name, hc.Namespace, 8080)
 }
