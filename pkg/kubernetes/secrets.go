@@ -10,8 +10,7 @@ import (
 )
 
 const (
-	ServiceAccountSecretName = "developer"
-	ServiceTokenSecretName   = "developer-token"
+	ServiceTokenSecretName = "admin-token"
 )
 
 func ConstructSecret(humioClusterName, humioClusterNamespace, secretName string, data map[string][]byte) *corev1.Secret {

@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ConstructInitClusterRoleBinding(clusterRoleBindingName, clusterRoleName, humioClusterName, humioClusterNamespace, initServiceAccountName string) *rbacv1.ClusterRoleBinding {
+func ConstructClusterRoleBinding(clusterRoleBindingName, clusterRoleName, humioClusterName, humioClusterNamespace, serviceAccountName string) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   clusterRoleBindingName,
@@ -24,7 +24,7 @@ func ConstructInitClusterRoleBinding(clusterRoleBindingName, clusterRoleName, hu
 		Subjects: []rbacv1.Subject{
 			rbacv1.Subject{
 				Kind:      "ServiceAccount",
-				Name:      initServiceAccountName,
+				Name:      serviceAccountName,
 				Namespace: humioClusterNamespace,
 			},
 		},

@@ -17,6 +17,9 @@ type HumioRepositorySpec struct {
 	Name        string         `json:"name,omitempty"`
 	Description string         `json:"description,omitempty"`
 	Retention   HumioRetention `json:"retention,omitempty"`
+	// TODO: add cluster
+	// ClusterName         string
+	// ExternalClusterName string
 }
 
 // HumioRepositoryStatus defines the observed state of HumioRepository

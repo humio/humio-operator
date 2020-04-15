@@ -40,7 +40,7 @@ func TestReconcileHumioIngestToken_Reconcile(t *testing.T) {
 					RepositoryName:     "test-repository",
 				},
 			},
-			humio.NewMocklient(humioapi.Cluster{}, nil, nil, nil, "", ""),
+			humio.NewMocklient(humioapi.Cluster{}, nil, nil, nil, ""),
 		},
 	}
 	for _, tt := range tests {
@@ -100,7 +100,7 @@ func TestReconcileHumioIngestToken_Reconcile_ingest_token_secret(t *testing.T) {
 					RepositoryName:     "test-repository",
 				},
 			},
-			humio.NewMocklient(humioapi.Cluster{}, nil, nil, nil, "", ""),
+			humio.NewMocklient(humioapi.Cluster{}, nil, nil, nil, ""),
 			false,
 		},
 		{
@@ -118,7 +118,7 @@ func TestReconcileHumioIngestToken_Reconcile_ingest_token_secret(t *testing.T) {
 					TokenSecretName:    "ingest-token-secret",
 				},
 			},
-			humio.NewMocklient(humioapi.Cluster{}, nil, nil, nil, "", ""),
+			humio.NewMocklient(humioapi.Cluster{}, nil, nil, nil, ""),
 			true,
 		},
 	}

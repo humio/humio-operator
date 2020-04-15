@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	humioClusterv1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -24,6 +23,10 @@ const (
 	initServiceAccountSecretName   = "init-service-account"
 	initClusterRolePrefix          = "init-cluster-role"
 	initClusterRoleBindingPrefix   = "init-cluster-role-binding"
+	authServiceAccountName         = "auth-service-account"
+	authServiceAccountSecretName   = "auth-service-account"
+	authRolePrefix                 = "auth-role"
+	authRoleBindingPrefix          = "auth-role-binding"
 	extraKafkaConfigsConfigmapName = "extra-kafka-configs-configmap"
 	idpCertificateSecretName       = "idp-certificate-secret"
 	idpCertificateFilename         = "idp-certificate.pem"
@@ -94,6 +97,13 @@ func initServiceAccountNameOrDefault(humioCluster *humioClusterv1alpha1.HumioClu
 	return initServiceAccountName
 }
 
+func authServiceAccountNameOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) string {
+	if humioCluster.Spec.AuthServiceAccountName != "" {
+		return humioCluster.Spec.AuthServiceAccountName
+	}
+	return authServiceAccountName
+}
+
 func extraKafkaConfigsOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) string {
 	return humioCluster.Spec.ExtraKafkaConfigs
 }
@@ -111,6 +121,14 @@ func initClusterRoleName(humioCluster *humioClusterv1alpha1.HumioCluster) string
 
 func initClusterRoleBindingName(humioCluster *humioClusterv1alpha1.HumioCluster) string {
 	return fmt.Sprintf("%s-%s-%s", initClusterRoleBindingPrefix, humioCluster.Namespace, humioCluster.Name)
+}
+
+func authRoleName(humioCluster *humioClusterv1alpha1.HumioCluster) string {
+	return fmt.Sprintf("%s-%s-%s", authRolePrefix, humioCluster.Namespace, humioCluster.Name)
+}
+
+func authRoleBindingName(humioCluster *humioClusterv1alpha1.HumioCluster) string {
+	return fmt.Sprintf("%s-%s-%s", authRoleBindingPrefix, humioCluster.Namespace, humioCluster.Name)
 }
 
 func podResourcesOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) corev1.ResourceRequirements {
@@ -183,17 +201,6 @@ func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioClus
 		{
 			Name:  "PUBLIC_URL", // URL used by users/browsers.
 			Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)",
-		},
-		{
-			Name: "SINGLE_USER_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					Key: "password",
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: kubernetes.ServiceAccountSecretName,
-					},
-				},
-			},
 		},
 		{
 			Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",

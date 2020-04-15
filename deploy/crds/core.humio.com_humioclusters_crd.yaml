@@ -617,6 +617,10 @@ spec:
                       type: array
                   type: object
               type: object
+            authServiceAccountName:
+              description: AuthServiceAccountName is the name of the Kubernetes Service
+                Account that will be attached to the auth container in the humio pod
+              type: string
             containerSecurityContext:
               description: ContainerSecurityContext is the security context applied
                 to the Humio container
@@ -2176,9 +2180,6 @@ spec:
         status:
           description: HumioClusterStatus defines the observed state of HumioCluster
           properties:
-            allDataAvailable:
-              description: Current state set by operator.
-              type: string
             clusterNodeCount:
               description: ClusterNodeCount is the number of nodes of humio running
               type: integer
@@ -2189,9 +2190,6 @@ spec:
             clusterVersion:
               description: ClusterVersion is the version of humio running
               type: string
-            stateLastUpdated:
-              format: int64
-              type: integer
           type: object
       type: object
   version: v1alpha1
