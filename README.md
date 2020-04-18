@@ -43,7 +43,7 @@ For a full list of examples, see the [examples directory](https://github.com/hum
 
 We use [kind](https://kind.sigs.k8s.io/) for local testing.
 
-Note that for running zookeeper and kafka locally, we currently rely on the [cp-helm-charts](https://github.com/humio/cp-helm-charts) and that that repository is cloned into a directory `~/git/humio-cp-helm-charts`.
+Note that for running zookeeper and kafka locally, we currently rely on the [cp-helm-charts](https://github.com/humio/cp-helm-charts) and that repository is cloned into a directory `~/git/humio-cp-helm-charts`.
 
 To run a local cluster using kind, execute:
 
