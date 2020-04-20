@@ -40,6 +40,8 @@ type HumioClusterSpec struct {
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 	// InitServiceAccountName is the name of the Kubernetes Service Account that will be attached to the init container in the humio pod
 	InitServiceAccountName string `json:"initServiceAccountName,omitempty"`
+	// AuthServiceAccountName is the name of the Kubernetes Service Account that will be attached to the auth container in the humio pod
+	AuthServiceAccountName string `json:"authServiceAccountName,omitempty"`
 	// Resources is the kubernetes resource limits for the humio pod
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	// ExtraKafkaConfigs is a multi-line string containing kafka properties
@@ -48,24 +50,11 @@ type HumioClusterSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 	// PodSecurityContext is the security context applied to the Humio pod
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
-	// TODO functionality to support:
-	// pod resources
-	// imagepullsecrets
-	// pod affinity policies
-	// node anti-affinity policies
-	// node affinity policies
-	// node selector - we dont need this since it can be handled by node affinity requiredDuringSchedulingIgnoredDuringExecution
-	// service account name
-	// setting appropriate ZOOKEEPER_PREFIX_FOR_NODE_UUID env var
-	// saml volume for mounting idp cert
-	// mount for EXTRA_KAFKA_CONFIGS_FILE as well as creating configmap for kafka properties
+	// TODO add ingress
 }
 
 // HumioClusterStatus defines the observed state of HumioCluster
 type HumioClusterStatus struct {
-	StateLastUpdatedUnix int64 `json:"stateLastUpdated,omitempty"`
-	// Current state set by operator.
-	AllDataAvailable string `json:"allDataAvailable,omitempty"`
 	// ClusterState will be empty before the cluster is bootstrapped. From there it can be "Bootstrapping" or "Running"
 	// TODO: other states?
 	ClusterState string `json:"clusterState,omitempty"`

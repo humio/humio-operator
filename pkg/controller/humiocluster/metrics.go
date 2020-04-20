@@ -21,6 +21,8 @@ type prometheusCountersCollection struct {
 	SecretsCreated               prometheus.Counter
 	ClusterRolesCreated          prometheus.Counter
 	ClusterRoleBindingsCreated   prometheus.Counter
+	RolesCreated                 prometheus.Counter
+	RoleBindingsCreated          prometheus.Counter
 	ServiceAccountsCreated       prometheus.Counter
 	ServiceAccountSecretsCreated prometheus.Counter
 }
@@ -47,6 +49,14 @@ func newPrometheusCollection() prometheusCollection {
 			ClusterRoleBindingsCreated: prometheus.NewCounter(prometheus.CounterOpts{
 				Name: "humiocluster_controller_cluster_role_bindings_created_total",
 				Help: "Total number of cluster role bindings objects created by controller",
+			}),
+			RolesCreated: prometheus.NewCounter(prometheus.CounterOpts{
+				Name: "humiocluster_controller_roles_created_total",
+				Help: "Total number of role objects created by controller",
+			}),
+			RoleBindingsCreated: prometheus.NewCounter(prometheus.CounterOpts{
+				Name: "humiocluster_controller_role_bindings_created_total",
+				Help: "Total number of role bindings objects created by controller",
 			}),
 			ServiceAccountsCreated: prometheus.NewCounter(prometheus.CounterOpts{
 				Name: "humiocluster_controller_service_accounts_created_total",

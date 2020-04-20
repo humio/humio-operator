@@ -3,8 +3,6 @@ package humiocluster
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"reflect"
 	"testing"
 	"time"
@@ -52,7 +50,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 					Nodes:             buildClusterNodesList(3),
 					StoragePartitions: buildStoragePartitionsList(3, 1),
 					IngestPartitions:  buildIngestPartitionsList(3, 1),
-				}, nil, nil, nil, "", "1.9.2--build-12365--sha-bf4188482a"),
+				}, nil, nil, nil, "1.9.2--build-12365--sha-bf4188482a"),
 			"1.9.2--build-12365--sha-bf4188482a",
 		},
 		{
@@ -75,16 +73,13 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 					Nodes:             buildClusterNodesList(18),
 					StoragePartitions: buildStoragePartitionsList(72, 2),
 					IngestPartitions:  buildIngestPartitionsList(72, 2),
-				}, nil, nil, nil, "", "1.9.2--build-12365--sha-bf4188482a"),
+				}, nil, nil, nil, "1.9.2--build-12365--sha-bf4188482a"),
 			"1.9.2--build-12365--sha-bf4188482a",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := runJwtTokenMockEndpoint()
-			defer server.Close()
-
-			r, req := reconcileInitWithHumioClient(tt.humioCluster, tt.humioClient, server)
+			r, req := reconcileWithHumioClient(tt.humioCluster, tt.humioClient)
 			defer r.logger.Sync()
 
 			res, err := r.Reconcile(req)
@@ -119,13 +114,22 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("failed to get init cluster role binding: %s", err)
 			}
 
-			// Check that the developer password exists as a k8s secret
-			secret, err = kubernetes.GetSecret(r.client, context.TODO(), kubernetes.ServiceAccountSecretName, updatedHumioCluster.Namespace)
+			// Check that the auth service account, secret, role and role binding are created
+			secret, err = kubernetes.GetSecret(r.client, context.TODO(), authServiceAccountSecretName, updatedHumioCluster.Namespace)
 			if err != nil {
-				t.Errorf("get secret with password: (%v). %+v", err, secret)
+				t.Errorf("get auth service account secret: (%v). %+v", err, secret)
 			}
-			if string(secret.Data["password"]) == "" {
-				t.Errorf("password secret %s expected content to not be empty, but it was", kubernetes.ServiceAccountSecretName)
+			_, err = kubernetes.GetServiceAccount(r.client, context.TODO(), authServiceAccountNameOrDefault(updatedHumioCluster), updatedHumioCluster.Namespace)
+			if err != nil {
+				t.Errorf("failed to get auth service account: %s", err)
+			}
+			_, err = kubernetes.GetRole(r.client, context.TODO(), authRoleName(updatedHumioCluster), updatedHumioCluster.Namespace)
+			if err != nil {
+				t.Errorf("failed to get auth cluster role: %s", err)
+			}
+			_, err = kubernetes.GetRoleBinding(r.client, context.TODO(), authRoleBindingName(updatedHumioCluster), updatedHumioCluster.Namespace)
+			if err != nil {
+				t.Errorf("failed to get auth cluster role binding: %s", err)
 			}
 
 			for nodeCount := 1; nodeCount <= tt.humioCluster.Spec.NodeCount; nodeCount++ {
@@ -146,6 +150,18 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				if err != nil {
 					t.Errorf("reconcile: (%v)", err)
 				}
+			}
+
+			// Simulate sidecar creating the secret which contains the admin token use to authenticate with humio
+			secretData := map[string][]byte{"token": []byte("")}
+			desiredSecret := kubernetes.ConstructSecret(updatedHumioCluster.Name, updatedHumioCluster.Namespace, kubernetes.ServiceTokenSecretName, secretData)
+			err = r.client.Create(context.TODO(), desiredSecret)
+			if err != nil {
+				t.Errorf("unable to create service token secret: %s", err)
+			}
+			res, err = r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
 			}
 
 			// Check that we do not create more than expected number of humio pods
@@ -180,16 +196,6 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("get service: (%v). %+v", err, service)
 			}
 
-			// Check that the persistent token exists as a k8s secret
-
-			token, err := kubernetes.GetSecret(r.client, context.TODO(), kubernetes.ServiceTokenSecretName, updatedHumioCluster.Namespace)
-			if err != nil {
-				t.Errorf("get secret with api token: (%v). %+v", err, token)
-			}
-			if string(token.Data["token"]) != "mocktoken" {
-				t.Errorf("api token secret %s expected content \"%+v\", but got \"%+v\"", kubernetes.ServiceTokenSecretName, "mocktoken", string(token.Data["token"]))
-			}
-
 			// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
 			res, err = r.Reconcile(req)
 			if err != nil {
@@ -197,12 +203,6 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 			if res != (reconcile.Result{Requeue: true, RequeueAfter: time.Second * 30}) {
 				t.Error("reconcile finished, requeueing the resource after 30 seconds")
-			}
-
-			// Check that the persistent token
-			tokenInUse, err := r.humioClient.ApiToken()
-			if tokenInUse != "mocktoken" {
-				t.Errorf("expected api token in use to be \"%+v\", but got \"%+v\"", "mocktoken", tokenInUse)
 			}
 
 			// Get the updated HumioCluster to update it with the partitions
@@ -267,17 +267,14 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 					Nodes:             buildClusterNodesList(3),
 					StoragePartitions: buildStoragePartitionsList(3, 1),
 					IngestPartitions:  buildIngestPartitionsList(3, 1),
-				}, nil, nil, nil, "", "1.9.2--build-12365--sha-bf4188482a"),
+				}, nil, nil, nil, "1.9.2--build-12365--sha-bf4188482a"),
 			"humio/humio-core:1.9.2",
 			"1.9.2--build-12365--sha-bf4188482a",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := runJwtTokenMockEndpoint()
-			defer server.Close()
-
-			r, req := reconcileInitWithHumioClient(tt.humioCluster, tt.humioClient, server)
+			r, req := reconcileWithHumioClient(tt.humioCluster, tt.humioClient)
 			defer r.logger.Sync()
 
 			_, err := r.Reconcile(req)
@@ -313,6 +310,18 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 				if err != nil {
 					t.Errorf("reconcile: (%v)", err)
 				}
+			}
+
+			// Simulate sidecar creating the secret which contains the admin token use to authenticate with humio
+			secretData := map[string][]byte{"token": []byte("")}
+			desiredSecret := kubernetes.ConstructSecret(updatedHumioCluster.Name, updatedHumioCluster.Namespace, kubernetes.ServiceTokenSecretName, secretData)
+			err = r.client.Create(context.TODO(), desiredSecret)
+			if err != nil {
+				t.Errorf("unable to create service token secret: %s", err)
+			}
+			_, err = r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
 			}
 
 			// Test that we have the proper status
@@ -412,7 +421,7 @@ func TestReconcileHumioCluster_Reconcile_init_service_account(t *testing.T) {
 				Spec: corev1alpha1.HumioClusterSpec{},
 			},
 			humio.NewMocklient(
-				humioapi.Cluster{}, nil, nil, nil, "", ""), "",
+				humioapi.Cluster{}, nil, nil, nil, ""), "",
 			true,
 			true,
 			true,
@@ -429,7 +438,7 @@ func TestReconcileHumioCluster_Reconcile_init_service_account(t *testing.T) {
 				},
 			},
 			humio.NewMocklient(
-				humioapi.Cluster{}, nil, nil, nil, "", ""), "",
+				humioapi.Cluster{}, nil, nil, nil, ""), "",
 			false,
 			false,
 			false,
@@ -437,10 +446,7 @@ func TestReconcileHumioCluster_Reconcile_init_service_account(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := runJwtTokenMockEndpoint()
-			defer server.Close()
-
-			r, req := reconcileInitWithHumioClient(tt.humioCluster, tt.humioClient, server)
+			r, req := reconcileWithHumioClient(tt.humioCluster, tt.humioClient)
 			defer r.logger.Sync()
 
 			_, err := r.Reconcile(req)
@@ -494,7 +500,7 @@ func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testin
 				Spec: corev1alpha1.HumioClusterSpec{},
 			},
 			humio.NewMocklient(
-				humioapi.Cluster{}, nil, nil, nil, "", ""), "",
+				humioapi.Cluster{}, nil, nil, nil, ""), "",
 			false,
 		},
 		{
@@ -509,16 +515,13 @@ func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testin
 				},
 			},
 			humio.NewMocklient(
-				humioapi.Cluster{}, nil, nil, nil, "", ""), "",
+				humioapi.Cluster{}, nil, nil, nil, ""), "",
 			true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := runJwtTokenMockEndpoint()
-			defer server.Close()
-
-			r, req := reconcileInitWithHumioClient(tt.humioCluster, tt.humioClient, server)
+			r, req := reconcileWithHumioClient(tt.humioCluster, tt.humioClient)
 			defer r.logger.Sync()
 
 			_, err := r.Reconcile(req)
@@ -606,9 +609,6 @@ func TestReconcileHumioCluster_Reconcile_container_security_context(t *testing.T
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := runJwtTokenMockEndpoint()
-			defer server.Close()
-
 			r, req := reconcileInit(tt.humioCluster)
 			defer r.logger.Sync()
 
@@ -688,9 +688,6 @@ func TestReconcileHumioCluster_Reconcile_pod_security_context(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := runJwtTokenMockEndpoint()
-			defer server.Close()
-
 			r, req := reconcileInit(tt.humioCluster)
 			defer r.logger.Sync()
 
@@ -723,20 +720,9 @@ func TestReconcileHumioCluster_Reconcile_pod_security_context(t *testing.T) {
 	}
 }
 
-func runJwtTokenMockEndpoint() *httptest.Server {
-	// Start up http server that can send the mock jwt token
-	return httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		rw.Write([]byte(`{"token": "sometempjwttoken"}`))
-	}))
-}
-
-func reconcileInitWithHumioClient(humioCluster *corev1alpha1.HumioCluster, humioClient *humio.MockClientConfig, server *httptest.Server) (*ReconcileHumioCluster, reconcile.Request) {
+func reconcileWithHumioClient(humioCluster *corev1alpha1.HumioCluster, humioClient *humio.MockClientConfig) (*ReconcileHumioCluster, reconcile.Request) {
 	r, req := reconcileInit(humioCluster)
-
-	// Point the mock client to the fake server
-	humioClient.Url = fmt.Sprintf("%s/", server.URL)
 	r.humioClient = humioClient
-
 	return r, req
 }
 
