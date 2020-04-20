@@ -25,7 +25,7 @@ func TestClusterController_AreAllRegisteredNodesAvailable(t *testing.T) {
 				humioapi.Cluster{
 					Nodes: []humioapi.ClusterNode{humioapi.ClusterNode{
 						IsAvailable: true,
-					}}}, nil, nil, nil, "", ""),
+					}}}, nil, nil, nil, ""),
 			},
 			true,
 			false,
@@ -36,7 +36,7 @@ func TestClusterController_AreAllRegisteredNodesAvailable(t *testing.T) {
 				humioapi.Cluster{
 					Nodes: []humioapi.ClusterNode{humioapi.ClusterNode{
 						IsAvailable: false,
-					}}}, nil, nil, nil, "", ""),
+					}}}, nil, nil, nil, ""),
 			},
 			false,
 			false,
@@ -73,7 +73,7 @@ func TestClusterController_NoDataMissing(t *testing.T) {
 			fields{NewMocklient(
 				humioapi.Cluster{
 					MissingSegmentSize: 0,
-				}, nil, nil, nil, "", ""),
+				}, nil, nil, nil, ""),
 			},
 			true,
 			false,
@@ -83,7 +83,7 @@ func TestClusterController_NoDataMissing(t *testing.T) {
 			fields{NewMocklient(
 				humioapi.Cluster{
 					MissingSegmentSize: 1,
-				}, nil, nil, nil, "", ""),
+				}, nil, nil, nil, ""),
 			},
 			false,
 			false,
@@ -125,7 +125,7 @@ func TestClusterController_IsNodeRegistered(t *testing.T) {
 				humioapi.Cluster{
 					Nodes: []humioapi.ClusterNode{humioapi.ClusterNode{
 						Id: 1,
-					}}}, nil, nil, nil, "", ""),
+					}}}, nil, nil, nil, ""),
 			},
 			args{
 				nodeID: 1,
@@ -139,7 +139,7 @@ func TestClusterController_IsNodeRegistered(t *testing.T) {
 				humioapi.Cluster{
 					Nodes: []humioapi.ClusterNode{humioapi.ClusterNode{
 						Id: 2,
-					}}}, nil, nil, nil, "", ""),
+					}}}, nil, nil, nil, ""),
 			},
 			args{
 				nodeID: 1,
@@ -178,7 +178,7 @@ func TestClusterController_CountNodesRegistered(t *testing.T) {
 			"test count registered nodes",
 			fields{NewMocklient(
 				humioapi.Cluster{
-					Nodes: []humioapi.ClusterNode{humioapi.ClusterNode{}}}, nil, nil, nil, "", ""),
+					Nodes: []humioapi.ClusterNode{humioapi.ClusterNode{}}}, nil, nil, nil, ""),
 			},
 			1,
 			false,
@@ -186,7 +186,7 @@ func TestClusterController_CountNodesRegistered(t *testing.T) {
 		{
 			"test count no registered nodes",
 			fields{NewMocklient(
-				humioapi.Cluster{}, nil, nil, nil, "", ""),
+				humioapi.Cluster{}, nil, nil, nil, ""),
 			},
 			0,
 			false,
@@ -229,7 +229,7 @@ func TestClusterController_CanBeSafelyUnregistered(t *testing.T) {
 					Nodes: []humioapi.ClusterNode{humioapi.ClusterNode{
 						Id:                      1,
 						CanBeSafelyUnregistered: true,
-					}}}, nil, nil, nil, "", ""),
+					}}}, nil, nil, nil, ""),
 			},
 			args{
 				podID: 1,
@@ -244,7 +244,7 @@ func TestClusterController_CanBeSafelyUnregistered(t *testing.T) {
 					Nodes: []humioapi.ClusterNode{humioapi.ClusterNode{
 						Id:                      1,
 						CanBeSafelyUnregistered: false,
-					}}}, nil, nil, nil, "", ""),
+					}}}, nil, nil, nil, ""),
 			},
 			args{
 				podID: 1,
@@ -311,7 +311,7 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 						humioapi.ClusterNode{
 							Id: 2,
 						},
-					}}, nil, nil, nil, "", ""),
+					}}, nil, nil, nil, ""),
 			},
 			args{
 				&corev1alpha1.HumioCluster{
@@ -351,7 +351,7 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 						humioapi.ClusterNode{
 							Id: 2,
 						},
-					}}, nil, nil, nil, "", ""),
+					}}, nil, nil, nil, ""),
 			},
 			args{
 				&corev1alpha1.HumioCluster{
@@ -391,7 +391,7 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 						humioapi.ClusterNode{
 							Id: 2,
 						},
-					}}, nil, nil, nil, "", ""),
+					}}, nil, nil, nil, ""),
 			},
 			args{
 				&corev1alpha1.HumioCluster{
@@ -431,7 +431,7 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 						humioapi.ClusterNode{
 							Id: 2,
 						},
-					}}, nil, nil, nil, "", ""),
+					}}, nil, nil, nil, ""),
 			},
 			args{
 				&corev1alpha1.HumioCluster{
@@ -507,7 +507,7 @@ func TestClusterController_RebalanceStoragePartitions(t *testing.T) {
 						humioapi.ClusterNode{
 							Id: 2,
 						},
-					}}, nil, nil, nil, "", ""),
+					}}, nil, nil, nil, ""),
 				&[]humioapi.StoragePartition{
 					humioapi.StoragePartition{
 						Id:      0,
@@ -603,7 +603,7 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 						humioapi.ClusterNode{
 							Id: 2,
 						},
-					}}, nil, nil, nil, "", ""),
+					}}, nil, nil, nil, ""),
 			},
 			args{
 				&corev1alpha1.HumioCluster{
@@ -643,7 +643,7 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 						humioapi.ClusterNode{
 							Id: 2,
 						},
-					}}, nil, nil, nil, "", ""),
+					}}, nil, nil, nil, ""),
 			},
 			args{
 				&corev1alpha1.HumioCluster{
@@ -683,7 +683,7 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 						humioapi.ClusterNode{
 							Id: 2,
 						},
-					}}, nil, nil, nil, "", ""),
+					}}, nil, nil, nil, ""),
 			},
 			args{
 				&corev1alpha1.HumioCluster{
@@ -723,7 +723,7 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 						humioapi.ClusterNode{
 							Id: 2,
 						},
-					}}, nil, nil, nil, "", ""),
+					}}, nil, nil, nil, ""),
 			},
 			args{
 				&corev1alpha1.HumioCluster{
@@ -799,7 +799,7 @@ func TestClusterController_RebalanceIngestPartitions(t *testing.T) {
 						humioapi.ClusterNode{
 							Id: 2,
 						},
-					}}, nil, nil, nil, "", ""),
+					}}, nil, nil, nil, ""),
 				&[]humioapi.IngestPartition{
 					humioapi.IngestPartition{
 						Id:      0,

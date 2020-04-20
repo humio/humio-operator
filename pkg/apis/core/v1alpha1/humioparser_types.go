@@ -11,6 +11,9 @@ type HumioParserSpec struct {
 	Repository   string   `json:"repository,omitempty"`
 	TagFields    []string `json:"tag_fields,omitempty"`
 	TestData     []string `json:"test_data,omitempty"`
+	// TODO: add cluster
+	// ClusterName         string
+	// ExternalClusterName string
 }
 
 // HumioParserStatus defines the observed state of HumioParser
