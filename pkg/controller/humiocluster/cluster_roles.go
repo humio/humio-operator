@@ -18,7 +18,7 @@ func (r *ReconcileHumioCluster) constructInitClusterRole(clusterRoleName string,
 			Labels: kubernetes.LabelsForHumio(hc.Name),
 		},
 		Rules: []rbacv1.PolicyRule{
-			rbacv1.PolicyRule{
+			{
 				APIGroups: []string{""},
 				Resources: []string{"nodes"},
 				Verbs:     []string{"get", "list", "watch"},

@@ -23,7 +23,7 @@ func ConstructRoleBinding(roleBindingName, roleName, humioClusterName, humioClus
 			Name:     roleName,
 		},
 		Subjects: []rbacv1.Subject{
-			rbacv1.Subject{
+			{
 				Kind:      "ServiceAccount",
 				Name:      serviceAccountName,
 				Namespace: humioClusterNamespace,
