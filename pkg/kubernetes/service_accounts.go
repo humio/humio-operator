@@ -20,9 +20,9 @@ func ConstructServiceAccount(serviceAccountName, humioClusterName, humioClusterN
 }
 
 // GetServiceAccount returns the service account
-func GetServiceAccount(c client.Client, context context.Context, serviceAccountName, humioClusterNamespace string) (*corev1.ServiceAccount, error) {
+func GetServiceAccount(ctx context.Context, c client.Client, serviceAccountName, humioClusterNamespace string) (*corev1.ServiceAccount, error) {
 	var existingServiceAccount corev1.ServiceAccount
-	err := c.Get(context, types.NamespacedName{
+	err := c.Get(ctx, types.NamespacedName{
 		Namespace: humioClusterNamespace,
 		Name:      serviceAccountName,
 	}, &existingServiceAccount)

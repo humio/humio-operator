@@ -10,9 +10,9 @@ import (
 )
 
 // GetIngress returns the ingress for the given ingress name if it exists
-func GetIngress(c client.Client, context context.Context, ingressName, humioClusterNamespace string) (*v1beta1.Ingress, error) {
+func GetIngress(ctx context.Context, c client.Client, ingressName, humioClusterNamespace string) (*v1beta1.Ingress, error) {
 	var existingIngress v1beta1.Ingress
-	err := c.Get(context, types.NamespacedName{
+	err := c.Get(ctx, types.NamespacedName{
 		Namespace: humioClusterNamespace,
 		Name:      ingressName,
 	}, &existingIngress)

@@ -33,9 +33,9 @@ func ConstructRoleBinding(roleBindingName, roleName, humioClusterName, humioClus
 }
 
 // GetRoleBinding returns the given role if it exists
-func GetRoleBinding(c client.Client, context context.Context, roleBindingName, roleBindingNamespace string) (*rbacv1.RoleBinding, error) {
+func GetRoleBinding(ctx context.Context, c client.Client, roleBindingName, roleBindingNamespace string) (*rbacv1.RoleBinding, error) {
 	var existingRoleBinding rbacv1.RoleBinding
-	err := c.Get(context, types.NamespacedName{
+	err := c.Get(ctx, types.NamespacedName{
 		Name:      roleBindingName,
 		Namespace: roleBindingNamespace,
 	}, &existingRoleBinding)

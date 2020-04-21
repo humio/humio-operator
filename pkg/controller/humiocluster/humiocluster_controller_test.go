@@ -98,37 +98,37 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			// Check that the init service account, secret, cluster role and cluster role binding are created
-			secret, err := kubernetes.GetSecret(r.client, context.TODO(), initServiceAccountSecretName, updatedHumioCluster.Namespace)
+			secret, err := kubernetes.GetSecret(context.TODO(), r.client, initServiceAccountSecretName, updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("get init service account secret: (%v). %+v", err, secret)
 			}
-			_, err = kubernetes.GetServiceAccount(r.client, context.TODO(), initServiceAccountNameOrDefault(updatedHumioCluster), updatedHumioCluster.Namespace)
+			_, err = kubernetes.GetServiceAccount(context.TODO(), r.client, initServiceAccountNameOrDefault(updatedHumioCluster), updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("failed to get init service account: %s", err)
 			}
-			_, err = kubernetes.GetClusterRole(r.client, context.TODO(), initClusterRoleName(updatedHumioCluster))
+			_, err = kubernetes.GetClusterRole(context.TODO(), r.client, initClusterRoleName(updatedHumioCluster))
 			if err != nil {
 				t.Errorf("failed to get init cluster role: %s", err)
 			}
-			_, err = kubernetes.GetClusterRoleBinding(r.client, context.TODO(), initClusterRoleBindingName(updatedHumioCluster))
+			_, err = kubernetes.GetClusterRoleBinding(context.TODO(), r.client, initClusterRoleBindingName(updatedHumioCluster))
 			if err != nil {
 				t.Errorf("failed to get init cluster role binding: %s", err)
 			}
 
 			// Check that the auth service account, secret, role and role binding are created
-			secret, err = kubernetes.GetSecret(r.client, context.TODO(), authServiceAccountSecretName, updatedHumioCluster.Namespace)
+			secret, err = kubernetes.GetSecret(context.TODO(), r.client, authServiceAccountSecretName, updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("get auth service account secret: (%v). %+v", err, secret)
 			}
-			_, err = kubernetes.GetServiceAccount(r.client, context.TODO(), authServiceAccountNameOrDefault(updatedHumioCluster), updatedHumioCluster.Namespace)
+			_, err = kubernetes.GetServiceAccount(context.TODO(), r.client, authServiceAccountNameOrDefault(updatedHumioCluster), updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("failed to get auth service account: %s", err)
 			}
-			_, err = kubernetes.GetRole(r.client, context.TODO(), authRoleName(updatedHumioCluster), updatedHumioCluster.Namespace)
+			_, err = kubernetes.GetRole(context.TODO(), r.client, authRoleName(updatedHumioCluster), updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("failed to get auth cluster role: %s", err)
 			}
-			_, err = kubernetes.GetRoleBinding(r.client, context.TODO(), authRoleBindingName(updatedHumioCluster), updatedHumioCluster.Namespace)
+			_, err = kubernetes.GetRoleBinding(context.TODO(), r.client, authRoleBindingName(updatedHumioCluster), updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("failed to get auth cluster role binding: %s", err)
 			}
@@ -192,7 +192,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			// Check that the service exists
-			service, err := kubernetes.GetService(r.client, context.TODO(), updatedHumioCluster.Name, updatedHumioCluster.Namespace)
+			service, err := kubernetes.GetService(context.TODO(), r.client, updatedHumioCluster.Name, updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("get service: (%v). %+v", err, service)
 			}
@@ -456,7 +456,7 @@ func TestReconcileHumioCluster_Reconcile_init_service_account(t *testing.T) {
 			}
 
 			// Check that the init service account, cluster role and cluster role binding are created only if they should be
-			serviceAccount, err := kubernetes.GetServiceAccount(r.client, context.TODO(), initServiceAccountNameOrDefault(tt.humioCluster), tt.humioCluster.Namespace)
+			serviceAccount, err := kubernetes.GetServiceAccount(context.TODO(), r.client, initServiceAccountNameOrDefault(tt.humioCluster), tt.humioCluster.Namespace)
 			if (err != nil) == tt.wantInitServiceAccount {
 				t.Errorf("failed to check init service account: %s", err)
 			}
@@ -464,7 +464,7 @@ func TestReconcileHumioCluster_Reconcile_init_service_account(t *testing.T) {
 				t.Errorf("failed to compare init service account: %s, wantInitServiceAccount: %v", serviceAccount, tt.wantInitServiceAccount)
 			}
 
-			clusterRole, err := kubernetes.GetClusterRole(r.client, context.TODO(), initClusterRoleName(tt.humioCluster))
+			clusterRole, err := kubernetes.GetClusterRole(context.TODO(), r.client, initClusterRoleName(tt.humioCluster))
 			if (err != nil) == tt.wantInitClusterRole {
 				t.Errorf("failed to get init cluster role: %s", err)
 			}
@@ -472,7 +472,7 @@ func TestReconcileHumioCluster_Reconcile_init_service_account(t *testing.T) {
 				t.Errorf("failed to compare init cluster role: %s, wantInitClusterRole %v", clusterRole, tt.wantInitClusterRole)
 			}
 
-			clusterRoleBinding, err := kubernetes.GetClusterRoleBinding(r.client, context.TODO(), initClusterRoleBindingName(tt.humioCluster))
+			clusterRoleBinding, err := kubernetes.GetClusterRoleBinding(context.TODO(), r.client, initClusterRoleBindingName(tt.humioCluster))
 			if (err != nil) == tt.wantInitClusterRoleBinding {
 				t.Errorf("failed to get init cluster role binding: %s", err)
 			}
@@ -530,7 +530,7 @@ func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testin
 				t.Errorf("reconcile: (%v)", err)
 			}
 
-			configmap, err := kubernetes.GetConfigmap(r.client, context.TODO(), extraKafkaConfigsConfigmapName, tt.humioCluster.Namespace)
+			configmap, err := kubernetes.GetConfigmap(context.TODO(), r.client, extraKafkaConfigsConfigmapName, tt.humioCluster.Namespace)
 			if (err != nil) == tt.wantExtraKafkaConfigsConfigmap {
 				t.Errorf("failed to check extra kafka configs configmap: %s", err)
 			}

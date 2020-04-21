@@ -126,7 +126,7 @@ func (r *ReconcileHumioIngestToken) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, nil
 	}
 
-	secret, err := kubernetes.GetSecret(r.client, context.TODO(), kubernetes.ServiceTokenSecretName, humioIngestToken.Namespace)
+	secret, err := kubernetes.GetSecret(context.TODO(), r.client, kubernetes.ServiceTokenSecretName, humioIngestToken.Namespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			r.logger.Infof("api token secret does not exist for cluster: %s", getClusterName(humioIngestToken))
@@ -262,7 +262,7 @@ func (r *ReconcileHumioIngestToken) ensureTokenSecretExists(ctx context.Context,
 		return fmt.Errorf("could not set controller reference: %s", err)
 	}
 
-	existingSecret, err := kubernetes.GetSecret(r.client, ctx, humioIngestToken.Spec.TokenSecretName, humioIngestToken.Namespace)
+	existingSecret, err := kubernetes.GetSecret(ctx, r.client, humioIngestToken.Spec.TokenSecretName, humioIngestToken.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			err = r.client.Create(ctx, desiredSecret)
