@@ -17,7 +17,7 @@ func ConstructInitClusterRole(clusterRoleName, humioClusterName string) *rbacv1.
 			Labels: LabelsForHumio(humioClusterName),
 		},
 		Rules: []rbacv1.PolicyRule{
-			rbacv1.PolicyRule{
+			{
 				APIGroups: []string{""},
 				Resources: []string{"nodes"},
 				Verbs:     []string{"get", "list", "watch"},

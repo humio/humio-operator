@@ -1115,7 +1115,7 @@ func markPodsAsRunning(client client.Client, pods []corev1.Pod) error {
 	for nodeID, pod := range pods {
 		pod.Status.PodIP = fmt.Sprintf("192.168.0.%d", nodeID)
 		pod.Status.Conditions = []corev1.PodCondition{
-			corev1.PodCondition{
+			{
 				Type:   corev1.PodConditionType("Ready"),
 				Status: corev1.ConditionTrue,
 			},

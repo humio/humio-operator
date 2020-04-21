@@ -189,7 +189,7 @@ func constructIngress(hc *corev1alpha1.HumioCluster, name string, hostname strin
 		},
 		Spec: v1beta1.IngressSpec{
 			Rules: []v1beta1.IngressRule{
-				v1beta1.IngressRule{
+				{
 					Host: hostname,
 					IngressRuleValue: v1beta1.IngressRuleValue{
 						HTTP: &v1beta1.HTTPIngressRuleValue{
@@ -199,7 +199,7 @@ func constructIngress(hc *corev1alpha1.HumioCluster, name string, hostname strin
 				},
 			},
 			TLS: []v1beta1.IngressTLS{
-				v1beta1.IngressTLS{
+				{
 					Hosts:      []string{hostname},
 					SecretName: secretName,
 				},

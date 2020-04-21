@@ -65,7 +65,7 @@ done`
 					Image:   "humio/strix", // TODO: perhaps use an official kubectl image or build our own and don't use latest
 					Command: []string{"sh", "-c", "kubectl get node ${NODE_NAME} -o jsonpath={.metadata.labels.\"failure-domain.beta.kubernetes.io/zone\"} > /shared/zookeeper-prefix"},
 					Env: []corev1.EnvVar{
-						corev1.EnvVar{
+						{
 							Name: "NODE_NAME",
 							ValueFrom: &corev1.EnvVarSource{
 								FieldRef: &corev1.ObjectFieldSelector{
@@ -75,11 +75,11 @@ done`
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{
-						corev1.VolumeMount{
+						{
 							Name:      "shared",
 							MountPath: "/shared",
 						},
-						corev1.VolumeMount{
+						{
 							Name:      "init-service-account-secret",
 							MountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
 							ReadOnly:  true,
@@ -112,7 +112,7 @@ done`
 							Name:      "humio-data",
 							MountPath: "/data",
 						},
-						corev1.VolumeMount{
+						{
 							Name:      "shared",
 							MountPath: "/shared",
 							ReadOnly:  true,
@@ -153,7 +153,7 @@ done`
 					Command: []string{"/bin/sh", "-c"},
 					Args:    []string{authCommand},
 					Env: []corev1.EnvVar{
-						corev1.EnvVar{
+						{
 							Name: "NAMESPACE",
 							ValueFrom: &corev1.EnvVarSource{
 								FieldRef: &corev1.ObjectFieldSelector{
@@ -161,7 +161,7 @@ done`
 								},
 							},
 						},
-						corev1.EnvVar{
+						{
 							Name:  "ADMIN_SECRET_NAME",
 							Value: "admin-token", // TODO: get this from code
 						},
@@ -173,7 +173,7 @@ done`
 							MountPath: "/data",
 							ReadOnly:  true,
 						},
-						corev1.VolumeMount{
+						{
 							Name:      "auth-service-account-secret",
 							MountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
 							ReadOnly:  true,
@@ -254,7 +254,7 @@ done`
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					Items: []corev1.KeyToPath{
-						corev1.KeyToPath{
+						{
 							Key:  "extra-kafka-configs",
 							Path: extraKafkaConfigsConfigmapName,
 						},

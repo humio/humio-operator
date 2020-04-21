@@ -1,6 +1,8 @@
 # Humio-Operator
 
 [![Build Status](https://github.com/humio/humio-operator/workflows/CI/badge.svg)](https://github.com/humio/humio-operator/actions?query=workflow%3ACI)
+[![Go Report Card](https://goreportcard.com/badge/github.com/humio/humio-operator)](https://goreportcard.com/report/github.com/humio/humio-operator)
+
 
 **WARNING: The CRD/API has yet to be defined. Everything as of this moment is considered experimental.**
 

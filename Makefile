@@ -1,7 +1,7 @@
 all: cover
 
 fmt:
-	go fmt ./...
+	gofmt -l -w -s .
 
 vet:
 	go vet ./...
