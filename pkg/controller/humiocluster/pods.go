@@ -16,6 +16,7 @@ import (
 func constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
 	var pod corev1.Pod
 	mode := int32(420)
+	// TODO: Figure out if we can set controller reference when creating the secret
 	authCommand := `
 while true; do
 	ADMIN_TOKEN_FILE=/data/humio-data/local-admin-token.txt
@@ -27,7 +28,7 @@ while true; do
 	fi
 	USER_ID=$(curl -s http://localhost:8080/graphql -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $(cat $ADMIN_TOKEN_FILE)" -d '{ "query": "{ users { username id } }"}' | jq -r '.data.users[] | select (.username=="admin") | .id')
 	if [ "${USER_ID}" == "" ]; then 
-		USER_ID=$(curl -s http://localhost:8080/graphql -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $(cat $ADMIN_TOKEN_FILE)" -d '{ "query": "mutation { addUser(input: { username: \"admin\" }) { user { id } } }" }' | jq -r '.data.addUser.user.id')
+		USER_ID=$(curl -s http://localhost:8080/graphql -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $(cat $ADMIN_TOKEN_FILE)" -d '{ "query": "mutation { addUser(input: { username: \"admin\", isRoot: true }) { user { id } } }" }' | jq -r '.data.addUser.user.id')
 	fi
 	if [ "${USER_ID}" == "" ] || [ "${USER_ID}" == "null" ]; then
 		echo "waiting on humio, got user id $USER_ID"

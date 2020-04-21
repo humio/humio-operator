@@ -10,8 +10,6 @@ import (
 )
 
 const (
-	name                           = "humiocluster"
-	namespace                      = "logging"
 	image                          = "humio/humio-core:1.9.1"
 	targetReplicationFactor        = 2
 	storagePartitionsCount         = 24
@@ -33,114 +31,108 @@ const (
 	extraKafkaPropertiesFilename   = "extra-kafka-properties.properties"
 )
 
-func setDefaults(humioCluster *humioClusterv1alpha1.HumioCluster) {
-	if humioCluster.ObjectMeta.Name == "" {
-		humioCluster.ObjectMeta.Name = name
+func setDefaults(hc *humioClusterv1alpha1.HumioCluster) {
+	if hc.Spec.Image == "" {
+		hc.Spec.Image = image
 	}
-	if humioCluster.ObjectMeta.Namespace == "" {
-		humioCluster.ObjectMeta.Namespace = namespace
+	if hc.Spec.TargetReplicationFactor == 0 {
+		hc.Spec.TargetReplicationFactor = targetReplicationFactor
 	}
-	if humioCluster.Spec.Image == "" {
-		humioCluster.Spec.Image = image
+	if hc.Spec.StoragePartitionsCount == 0 {
+		hc.Spec.StoragePartitionsCount = storagePartitionsCount
 	}
-	if humioCluster.Spec.TargetReplicationFactor == 0 {
-		humioCluster.Spec.TargetReplicationFactor = targetReplicationFactor
+	if hc.Spec.DigestPartitionsCount == 0 {
+		hc.Spec.DigestPartitionsCount = digestPartitionsCount
 	}
-	if humioCluster.Spec.StoragePartitionsCount == 0 {
-		humioCluster.Spec.StoragePartitionsCount = storagePartitionsCount
-	}
-	if humioCluster.Spec.DigestPartitionsCount == 0 {
-		humioCluster.Spec.DigestPartitionsCount = digestPartitionsCount
-	}
-	if humioCluster.Spec.NodeCount == 0 {
-		humioCluster.Spec.NodeCount = nodeCount
+	if hc.Spec.NodeCount == 0 {
+		hc.Spec.NodeCount = nodeCount
 	}
 }
 
-func imagePullSecretsOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) []corev1.LocalObjectReference {
+func imagePullSecretsOrDefault(hc *humioClusterv1alpha1.HumioCluster) []corev1.LocalObjectReference {
 	emptyImagePullSecrets := []corev1.LocalObjectReference{}
-	if reflect.DeepEqual(humioCluster.Spec.ImagePullSecrets, emptyImagePullSecrets) {
+	if reflect.DeepEqual(hc.Spec.ImagePullSecrets, emptyImagePullSecrets) {
 		return emptyImagePullSecrets
 	}
-	return humioCluster.Spec.ImagePullSecrets
+	return hc.Spec.ImagePullSecrets
 }
 
-func dataVolumeSourceOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) corev1.VolumeSource {
+func dataVolumeSourceOrDefault(hc *humioClusterv1alpha1.HumioCluster) corev1.VolumeSource {
 	emptyDataVolume := corev1.VolumeSource{}
-	if reflect.DeepEqual(humioCluster.Spec.DataVolumeSource, emptyDataVolume) {
+	if reflect.DeepEqual(hc.Spec.DataVolumeSource, emptyDataVolume) {
 		return corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		}
 	}
-	return humioCluster.Spec.DataVolumeSource
+	return hc.Spec.DataVolumeSource
 }
 
-func affinityOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) *corev1.Affinity {
+func affinityOrDefault(hc *humioClusterv1alpha1.HumioCluster) *corev1.Affinity {
 	emptyAffinity := corev1.Affinity{}
-	if reflect.DeepEqual(humioCluster.Spec.Affinity, emptyAffinity) {
+	if reflect.DeepEqual(hc.Spec.Affinity, emptyAffinity) {
 		return &emptyAffinity
 	}
-	return &humioCluster.Spec.Affinity
+	return &hc.Spec.Affinity
 }
 
-func serviceAccountNameOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) string {
-	if humioCluster.Spec.ServiceAccountName != "" {
-		return humioCluster.Spec.ServiceAccountName
+func serviceAccountNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
+	if hc.Spec.ServiceAccountName != "" {
+		return hc.Spec.ServiceAccountName
 	}
 	return "default"
 }
 
-func initServiceAccountNameOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) string {
-	if humioCluster.Spec.InitServiceAccountName != "" {
-		return humioCluster.Spec.InitServiceAccountName
+func initServiceAccountNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
+	if hc.Spec.InitServiceAccountName != "" {
+		return hc.Spec.InitServiceAccountName
 	}
 	return initServiceAccountName
 }
 
-func authServiceAccountNameOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) string {
-	if humioCluster.Spec.AuthServiceAccountName != "" {
-		return humioCluster.Spec.AuthServiceAccountName
+func authServiceAccountNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
+	if hc.Spec.AuthServiceAccountName != "" {
+		return hc.Spec.AuthServiceAccountName
 	}
 	return authServiceAccountName
 }
 
-func extraKafkaConfigsOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) string {
-	return humioCluster.Spec.ExtraKafkaConfigs
+func extraKafkaConfigsOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
+	return hc.Spec.ExtraKafkaConfigs
 }
 
-func idpCertificateSecretNameOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) string {
-	if humioCluster.Spec.IdpCertificateSecretName != "" {
-		return humioCluster.Spec.IdpCertificateSecretName
+func idpCertificateSecretNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
+	if hc.Spec.IdpCertificateSecretName != "" {
+		return hc.Spec.IdpCertificateSecretName
 	}
 	return idpCertificateSecretName
 }
 
-func initClusterRoleName(humioCluster *humioClusterv1alpha1.HumioCluster) string {
-	return fmt.Sprintf("%s-%s-%s", initClusterRolePrefix, humioCluster.Namespace, humioCluster.Name)
+func initClusterRoleName(hc *humioClusterv1alpha1.HumioCluster) string {
+	return fmt.Sprintf("%s-%s-%s", initClusterRolePrefix, hc.Namespace, hc.Name)
 }
 
-func initClusterRoleBindingName(humioCluster *humioClusterv1alpha1.HumioCluster) string {
-	return fmt.Sprintf("%s-%s-%s", initClusterRoleBindingPrefix, humioCluster.Namespace, humioCluster.Name)
+func initClusterRoleBindingName(hc *humioClusterv1alpha1.HumioCluster) string {
+	return fmt.Sprintf("%s-%s-%s", initClusterRoleBindingPrefix, hc.Namespace, hc.Name)
 }
 
-func authRoleName(humioCluster *humioClusterv1alpha1.HumioCluster) string {
-	return fmt.Sprintf("%s-%s-%s", authRolePrefix, humioCluster.Namespace, humioCluster.Name)
+func authRoleName(hc *humioClusterv1alpha1.HumioCluster) string {
+	return fmt.Sprintf("%s-%s-%s", authRolePrefix, hc.Namespace, hc.Name)
 }
 
-func authRoleBindingName(humioCluster *humioClusterv1alpha1.HumioCluster) string {
-	return fmt.Sprintf("%s-%s-%s", authRoleBindingPrefix, humioCluster.Namespace, humioCluster.Name)
+func authRoleBindingName(hc *humioClusterv1alpha1.HumioCluster) string {
+	return fmt.Sprintf("%s-%s-%s", authRoleBindingPrefix, hc.Namespace, hc.Name)
 }
 
-func podResourcesOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) corev1.ResourceRequirements {
+func podResourcesOrDefault(hc *humioClusterv1alpha1.HumioCluster) corev1.ResourceRequirements {
 	emptyResources := corev1.ResourceRequirements{}
-	if reflect.DeepEqual(humioCluster.Spec.Resources, emptyResources) {
+	if reflect.DeepEqual(hc.Spec.Resources, emptyResources) {
 		return emptyResources
 	}
-	return humioCluster.Spec.Resources
+	return hc.Spec.Resources
 }
 
-func containerSecurityContextOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) *corev1.SecurityContext {
-	if humioCluster.Spec.ContainerSecurityContext == nil {
+func containerSecurityContextOrDefault(hc *humioClusterv1alpha1.HumioCluster) *corev1.SecurityContext {
+	if hc.Spec.ContainerSecurityContext == nil {
 		return &corev1.SecurityContext{
 			Capabilities: &corev1.Capabilities{
 				Add: []corev1.Capability{
@@ -149,17 +141,17 @@ func containerSecurityContextOrDefault(humioCluster *humioClusterv1alpha1.HumioC
 			},
 		}
 	}
-	return humioCluster.Spec.ContainerSecurityContext
+	return hc.Spec.ContainerSecurityContext
 }
 
-func podSecurityContextOrDefault(humioCluster *humioClusterv1alpha1.HumioCluster) *corev1.PodSecurityContext {
-	if humioCluster.Spec.PodSecurityContext == nil {
+func podSecurityContextOrDefault(hc *humioClusterv1alpha1.HumioCluster) *corev1.PodSecurityContext {
+	if hc.Spec.PodSecurityContext == nil {
 		return &corev1.PodSecurityContext{}
 	}
-	return humioCluster.Spec.PodSecurityContext
+	return hc.Spec.PodSecurityContext
 }
 
-func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioCluster) {
+func setEnvironmentVariableDefaults(hc *humioClusterv1alpha1.HumioCluster) {
 	envDefaults := []corev1.EnvVar{
 		{
 			Name: "THIS_POD_IP",
@@ -213,15 +205,36 @@ func setEnvironmentVariableDefaults(humioCluster *humioClusterv1alpha1.HumioClus
 	}
 
 	for _, defaultEnvVar := range envDefaults {
-		setEnvironmentVariableDefault(humioCluster, defaultEnvVar)
+		setEnvironmentVariableDefault(hc, defaultEnvVar)
+	}
+
+	if hc.Spec.Ingress.Enabled {
+		setEnvironmentVariableDefault(hc, corev1.EnvVar{
+			Name:  "PUBLIC_URL", // URL used by users/browsers.
+			Value: fmt.Sprintf("https://%s", hc.Spec.Hostname),
+		})
 	}
 }
 
-func setEnvironmentVariableDefault(humioCluster *humioClusterv1alpha1.HumioCluster, defaultEnvVar corev1.EnvVar) {
-	for _, envVar := range humioCluster.Spec.EnvironmentVariables {
+func setEnvironmentVariableDefault(hc *humioClusterv1alpha1.HumioCluster, defaultEnvVar corev1.EnvVar) {
+	for _, envVar := range hc.Spec.EnvironmentVariables {
 		if envVar.Name == defaultEnvVar.Name {
 			return
 		}
 	}
-	humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, defaultEnvVar)
+	hc.Spec.EnvironmentVariables = append(hc.Spec.EnvironmentVariables, defaultEnvVar)
+}
+
+func certificateSecretNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
+	if hc.Spec.Ingress.SecretName != "" {
+		return hc.Spec.Ingress.SecretName
+	}
+	return fmt.Sprintf("%s-certificate", hc.Name)
+}
+
+func esCertificateSecretNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
+	if hc.Spec.Ingress.ESSecretName != "" {
+		return hc.Spec.Ingress.ESSecretName
+	}
+	return fmt.Sprintf("%s-es-certificate", hc.Name)
 }

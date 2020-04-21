@@ -50,7 +50,26 @@ type HumioClusterSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 	// PodSecurityContext is the security context applied to the Humio pod
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
-	// TODO add ingress
+	// Hostname is the public hostname used by clients to access Humio
+	Hostname string `json:"hostname,omitempty"`
+	// ESHostname is the public hostname used by log shippers with support for ES bulk API to access Humio
+	ESHostname string `json:"esHostname,omitempty"`
+	// Ingress is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster
+	Ingress HumioClusterIngressSpec `json:"ingress,omitempty"`
+}
+
+// HumioClusterIngressSpec is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster
+type HumioClusterIngressSpec struct {
+	// Enabled enables the logic for the Humio operator to create ingress-related objects
+	Enabled bool `json:"enabled,omitempty"`
+	// Controller is used to specify the controller used for ingress in the Kubernetes cluster. For now, only nginx is supported.
+	Controller string `json:"controller,omitempty"`
+	// SecretName is used to specify the Kubernetes secret that contains the TLS certificate that should be used
+	SecretName string `json:"secretName,omitempty"`
+	// ESSecretName is used to specify the Kubernetes secret that contains the TLS certificate that should be used, specifically for the ESHostname
+	ESSecretName string `json:"esSecretName,omitempty"`
+	// Annotations can be used to specify annotations appended to the annotations set by the operator when creating ingress-related objects
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // HumioClusterStatus defines the observed state of HumioCluster

@@ -13,6 +13,7 @@ import (
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/api/networking/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -715,6 +716,356 @@ func TestReconcileHumioCluster_Reconcile_pod_security_context(t *testing.T) {
 
 			if !foundExpectedSecurityContext {
 				t.Errorf("failed to validate pod security context, expected: %v, got %v", *tt.humioCluster.Spec.PodSecurityContext, *foundPodList[0].Spec.SecurityContext)
+			}
+		})
+	}
+}
+
+func TestReconcileHumioCluster_ensureIngress_create_ingress(t *testing.T) {
+	tests := []struct {
+		name                  string
+		humioCluster          *corev1alpha1.HumioCluster
+		wantNumIngressObjects int
+		wantError             bool
+	}{
+		{
+			"test nginx controller",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					Hostname:   "humio.example.com",
+					ESHostname: "humio-es.example.com",
+					Ingress: corev1alpha1.HumioClusterIngressSpec{
+						Enabled:    true,
+						Controller: "nginx",
+						Annotations: map[string]string{
+							"certmanager.k8s.io/acme-challenge-type": "http01",
+							"certmanager.k8s.io/cluster-issuer":      "letsencrypt-prod",
+							"kubernetes.io/ingress.class":            "nginx",
+							"kubernetes.io/tls-acme":                 "true",
+						},
+					},
+				},
+			},
+			4,
+			false,
+		},
+		{
+			"test invalid controller",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					Hostname:   "humio.example.com",
+					ESHostname: "humio-es.example.com",
+					Ingress: corev1alpha1.HumioClusterIngressSpec{
+						Enabled:    true,
+						Controller: "invalid",
+					},
+				},
+			},
+			0,
+			true,
+		},
+		{
+			"test without specifying controller",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					Hostname:   "humio.example.com",
+					ESHostname: "humio-es.example.com",
+					Ingress: corev1alpha1.HumioClusterIngressSpec{
+						Enabled: true,
+					},
+				},
+			},
+			0,
+			true,
+		},
+		{
+			"test without ingress enabled",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{},
+			},
+			0,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, _ := reconcileInit(tt.humioCluster)
+			defer r.logger.Sync()
+
+			err := r.ensureIngress(context.TODO(), tt.humioCluster)
+
+			foundIngressList, listErr := kubernetes.ListIngresses(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+			if listErr != nil {
+				t.Errorf("failed to list pods %s", listErr)
+			}
+
+			foundExpectedIngressObjects := 0
+			expectedAnnotationsFound := 0
+			if tt.wantNumIngressObjects > 0 {
+				if tt.humioCluster.Spec.Ingress.Enabled && tt.humioCluster.Spec.Ingress.Controller == "nginx" {
+					foundExpectedIngressObjects = len(foundIngressList)
+					for expectedAnnotationKey, expectedAnnotationValue := range tt.humioCluster.Spec.Ingress.Annotations {
+						for _, foundIngress := range foundIngressList {
+							for foundAnnotationKey, foundAnnotationValue := range foundIngress.Annotations {
+								if expectedAnnotationKey == foundAnnotationKey && expectedAnnotationValue == foundAnnotationValue {
+									expectedAnnotationsFound++
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if tt.wantError && err == nil {
+				t.Errorf("did not receive error when ensuring ingress, expected: %v, got %v", tt.wantError, err)
+			}
+
+			if tt.wantNumIngressObjects > 0 && !(tt.wantNumIngressObjects == foundExpectedIngressObjects) {
+				t.Errorf("failed to validate ingress, expected: %v objects, got %v", tt.wantNumIngressObjects, foundExpectedIngressObjects)
+			}
+
+			if tt.wantNumIngressObjects > 0 && !(expectedAnnotationsFound == (len(tt.humioCluster.Spec.Ingress.Annotations) * tt.wantNumIngressObjects)) {
+				t.Errorf("failed to validate ingress annotations, expected to find: %v annotations, got %v", len(tt.humioCluster.Spec.Ingress.Annotations)*tt.wantNumIngressObjects, expectedAnnotationsFound)
+			}
+		})
+	}
+}
+
+func TestReconcileHumioCluster_ensureIngress_update_ingress(t *testing.T) {
+	tests := []struct {
+		name           string
+		humioCluster   *corev1alpha1.HumioCluster
+		newAnnotations map[string]string
+		newHostname    string
+		newESHostname  string
+	}{
+		{
+			"add annotation",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					Hostname:   "humio.example.com",
+					ESHostname: "humio-es.example.com",
+					Ingress: corev1alpha1.HumioClusterIngressSpec{
+						Enabled:    true,
+						Controller: "nginx",
+						Annotations: map[string]string{
+							"certmanager.k8s.io/acme-challenge-type": "http01",
+							"certmanager.k8s.io/cluster-issuer":      "letsencrypt-prod",
+							"kubernetes.io/ingress.class":            "nginx",
+							"kubernetes.io/tls-acme":                 "true",
+						},
+					},
+				},
+			},
+			map[string]string{
+				"certmanager.k8s.io/acme-challenge-type": "http01",
+				"certmanager.k8s.io/cluster-issuer":      "letsencrypt-prod",
+				"kubernetes.io/ingress.class":            "nginx",
+				"kubernetes.io/tls-acme":                 "true",
+				"humio.com/new-important-annotation":     "true",
+			},
+			"humio.example.com",
+			"humio-es.example.com",
+		},
+		{
+			"delete annotation",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					Hostname:   "humio.example.com",
+					ESHostname: "humio-es.example.com",
+					Ingress: corev1alpha1.HumioClusterIngressSpec{
+						Enabled:    true,
+						Controller: "nginx",
+						Annotations: map[string]string{
+							"certmanager.k8s.io/acme-challenge-type": "http01",
+							"certmanager.k8s.io/cluster-issuer":      "letsencrypt-prod",
+							"kubernetes.io/ingress.class":            "nginx",
+							"kubernetes.io/tls-acme":                 "true",
+						},
+					},
+				},
+			},
+			map[string]string{
+				"kubernetes.io/ingress.class": "nginx",
+			},
+			"humio.example.com",
+			"humio-es.example.com",
+		},
+		{
+			"update hostname",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					Hostname:   "humio.example.com",
+					ESHostname: "humio-es.example.com",
+					Ingress: corev1alpha1.HumioClusterIngressSpec{
+						Enabled:    true,
+						Controller: "nginx",
+					},
+				},
+			},
+			map[string]string{},
+			"humio2.example.com",
+			"humio2-es.example.com",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, _ := reconcileInit(tt.humioCluster)
+			defer r.logger.Sync()
+
+			r.ensureIngress(context.TODO(), tt.humioCluster)
+
+			foundIngressList, listErr := kubernetes.ListIngresses(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+			if listErr != nil {
+				t.Errorf("failed to list pods %s", listErr)
+			}
+
+			// check if we have initial hostname here in ingress objects
+			if foundIngressList[0].Spec.Rules[0].Host != tt.humioCluster.Spec.Hostname {
+				t.Errorf("did not validate initial hostname, expected: %v, got: %v", tt.humioCluster.Spec.Hostname, foundIngressList[0].Spec.Rules[0].Host)
+			}
+			// construct desired ingress objects and compare
+			desiredIngresses := []*v1beta1.Ingress{
+				constructGeneralIngress(tt.humioCluster),
+				constructStreamingQueryIngress(tt.humioCluster),
+				constructIngestIngress(tt.humioCluster),
+				constructESIngestIngress(tt.humioCluster),
+			}
+			foundIngressCount := 0
+			for _, desiredIngress := range desiredIngresses {
+				for _, foundIngress := range foundIngressList {
+					if desiredIngress.Name == foundIngress.Name {
+						foundIngressCount++
+						if !reflect.DeepEqual(desiredIngress.Annotations, foundIngress.Annotations) {
+							t.Errorf("did not validate annotations, expected: %v, got: %v", desiredIngress.Annotations, foundIngress.Annotations)
+						}
+					}
+				}
+			}
+			if foundIngressCount != len(desiredIngresses) {
+				t.Errorf("did not find all expected ingress objects, expected: %v, got: %v", len(desiredIngresses), foundIngressCount)
+			}
+
+			tt.humioCluster.Spec.Hostname = tt.newHostname
+			tt.humioCluster.Spec.Ingress.Annotations = tt.newAnnotations
+			r.ensureIngress(context.TODO(), tt.humioCluster)
+
+			foundIngressList, listErr = kubernetes.ListIngresses(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+			if listErr != nil {
+				t.Errorf("failed to list pods %s", listErr)
+			}
+
+			// check if we have updated hostname here in ingress objects
+			if foundIngressList[0].Spec.Rules[0].Host != tt.newHostname {
+				t.Errorf("did not validate updated hostname, expected: %v, got: %v", tt.humioCluster.Spec.Hostname, foundIngressList[0].Spec.Rules[0].Host)
+			}
+			// construct desired ingress objects and compare
+			desiredIngresses = []*v1beta1.Ingress{
+				constructGeneralIngress(tt.humioCluster),
+				constructStreamingQueryIngress(tt.humioCluster),
+				constructIngestIngress(tt.humioCluster),
+				constructESIngestIngress(tt.humioCluster),
+			}
+			foundIngressCount = 0
+			for _, desiredIngress := range desiredIngresses {
+				for _, foundIngress := range foundIngressList {
+					if desiredIngress.Name == foundIngress.Name {
+						foundIngressCount++
+						if !reflect.DeepEqual(desiredIngress.Annotations, foundIngress.Annotations) {
+							t.Errorf("did not validate annotations, expected: %v, got: %v", desiredIngress.Annotations, foundIngress.Annotations)
+						}
+					}
+				}
+			}
+			if foundIngressCount != len(desiredIngresses) {
+				t.Errorf("did not find all expected ingress objects, expected: %v, got: %v", len(desiredIngresses), foundIngressCount)
+			}
+		})
+	}
+}
+
+func TestReconcileHumioCluster_ensureIngress_disable_ingress(t *testing.T) {
+	tests := []struct {
+		name                     string
+		humioCluster             *corev1alpha1.HumioCluster
+		initialNumIngressObjects int
+		newIngressEnabled        bool
+	}{
+		{
+			"validate ingress is cleaned up if changed from enabled to disabled",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					Hostname:   "humio.example.com",
+					ESHostname: "humio-es.example.com",
+					Ingress: corev1alpha1.HumioClusterIngressSpec{
+						Enabled:     true,
+						Controller:  "nginx",
+						Annotations: map[string]string{},
+					},
+				},
+			},
+			4,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, _ := reconcileInit(tt.humioCluster)
+			defer r.logger.Sync()
+
+			r.ensureIngress(context.TODO(), tt.humioCluster)
+
+			foundIngressList, listErr := kubernetes.ListIngresses(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+			if listErr != nil {
+				t.Errorf("failed to list pods %s", listErr)
+			}
+
+			if len(foundIngressList) != tt.initialNumIngressObjects {
+				t.Errorf("did find expected number of ingress objects, expected: %v, got: %v", tt.initialNumIngressObjects, len(foundIngressList))
+			}
+
+			tt.humioCluster.Spec.Ingress.Enabled = tt.newIngressEnabled
+			r.ensureNoIngressesIfIngressNotEnabled(context.TODO(), tt.humioCluster)
+
+			foundIngressList, listErr = kubernetes.ListIngresses(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+			if listErr != nil {
+				t.Errorf("failed to list pods %s", listErr)
+			}
+
+			if len(foundIngressList) != 0 {
+				t.Errorf("did find expected number of ingress objects, expected: %v, got: %v", 0, len(foundIngressList))
 			}
 		})
 	}

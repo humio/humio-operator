@@ -7,7 +7,10 @@ vet:
 	go vet ./...
 
 cover: test
-	go tool cover -func=cover.out
+	go tool cover -func=coverage.out
+
+cover-html: test
+	go tool cover -html=coverage.out
 
 test: fmt vet
-	go test -v ./... -covermode=count -coverprofile cover.out
+	go test -v ./... -covermode=count -coverprofile coverage.out
