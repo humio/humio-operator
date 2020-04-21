@@ -1997,9 +1997,17 @@ spec:
                 - name
                 type: object
               type: array
+            esHostname:
+              description: ESHostname is the public hostname used by log shippers
+                with support for ES bulk API to access Humio
+              type: string
             extraKafkaConfigs:
               description: ExtraKafkaConfigs is a multi-line string containing kafka
                 properties
+              type: string
+            hostname:
+              description: Hostname is the public hostname used by clients to access
+                Humio
               type: string
             idpCertificateName:
               description: IdpCertificateSecretName is the name of the secret that
@@ -2022,6 +2030,35 @@ spec:
                     type: string
                 type: object
               type: array
+            ingress:
+              description: Ingress is used to set up ingress-related objects in order
+                to reach Humio externally from the kubernetes cluster
+              properties:
+                annotations:
+                  additionalProperties:
+                    type: string
+                  description: Annotations can be used to specify annotations appended
+                    to the annotations set by the operator when creating ingress-related
+                    objects
+                  type: object
+                controller:
+                  description: Controller is used to specify the controller used for
+                    ingress in the Kubernetes cluster. For now, only nginx is supported.
+                  type: string
+                enabled:
+                  description: Enabled enables the logic for the Humio operator to
+                    create ingress-related objects
+                  type: boolean
+                esSecretName:
+                  description: ESSecretName is used to specify the Kubernetes secret
+                    that contains the TLS certificate that should be used, specifically
+                    for the ESHostname
+                  type: string
+                secretName:
+                  description: SecretName is used to specify the Kubernetes secret
+                    that contains the TLS certificate that should be used
+                  type: string
+              type: object
             initServiceAccountName:
               description: InitServiceAccountName is the name of the Kubernetes Service
                 Account that will be attached to the init container in the humio pod

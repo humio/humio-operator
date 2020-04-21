@@ -20,16 +20,6 @@ func ListPods(c client.Client, humioClusterNamespace string, matchingLabels clie
 	return foundPodList.Items, nil
 }
 
-// DeletePod deletes a given pod
-func DeletePod(c client.Client, existingPod corev1.Pod) error {
-	err := c.Delete(context.TODO(), &existingPod)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func LabelsForPod(clusterName string, nodeID int) map[string]string {
 	labels := LabelsForHumio(clusterName)
 	labels["node_id"] = strconv.Itoa(nodeID)
