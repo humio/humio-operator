@@ -22,7 +22,7 @@ func Test_setEnvironmentVariableDefaults(t *testing.T) {
 				&humioClusterv1alpha1.HumioCluster{},
 			},
 			[]corev1.EnvVar{
-				corev1.EnvVar{
+				{
 					Name:  "PUBLIC_URL",
 					Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)",
 				},
@@ -69,7 +69,7 @@ func Test_setEnvironmentVariableDefault(t *testing.T) {
 				},
 			},
 			[]corev1.EnvVar{
-				corev1.EnvVar{
+				{
 					Name:  "test",
 					Value: "test",
 				},
@@ -85,7 +85,7 @@ func Test_setEnvironmentVariableDefault(t *testing.T) {
 				},
 			},
 			[]corev1.EnvVar{
-				corev1.EnvVar{
+				{
 					Name:  "PUBLIC_URL",
 					Value: "test",
 				},

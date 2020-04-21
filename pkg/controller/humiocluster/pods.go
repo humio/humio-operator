@@ -16,6 +16,7 @@ import (
 func constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
 	var pod corev1.Pod
 	mode := int32(420)
+	// TODO: Figure out if we can set controller reference when creating the secret
 	authCommand := `
 while true; do
 	ADMIN_TOKEN_FILE=/data/humio-data/local-admin-token.txt
@@ -27,7 +28,7 @@ while true; do
 	fi
 	USER_ID=$(curl -s http://localhost:8080/graphql -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $(cat $ADMIN_TOKEN_FILE)" -d '{ "query": "{ users { username id } }"}' | jq -r '.data.users[] | select (.username=="admin") | .id')
 	if [ "${USER_ID}" == "" ]; then 
-		USER_ID=$(curl -s http://localhost:8080/graphql -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $(cat $ADMIN_TOKEN_FILE)" -d '{ "query": "mutation { addUser(input: { username: \"admin\" }) { user { id } } }" }' | jq -r '.data.addUser.user.id')
+		USER_ID=$(curl -s http://localhost:8080/graphql -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $(cat $ADMIN_TOKEN_FILE)" -d '{ "query": "mutation { addUser(input: { username: \"admin\", isRoot: true }) { user { id } } }" }' | jq -r '.data.addUser.user.id')
 	fi
 	if [ "${USER_ID}" == "" ] || [ "${USER_ID}" == "null" ]; then
 		echo "waiting on humio, got user id $USER_ID"
@@ -64,7 +65,7 @@ done`
 					Image:   "humio/strix", // TODO: perhaps use an official kubectl image or build our own and don't use latest
 					Command: []string{"sh", "-c", "kubectl get node ${NODE_NAME} -o jsonpath={.metadata.labels.\"failure-domain.beta.kubernetes.io/zone\"} > /shared/zookeeper-prefix"},
 					Env: []corev1.EnvVar{
-						corev1.EnvVar{
+						{
 							Name: "NODE_NAME",
 							ValueFrom: &corev1.EnvVarSource{
 								FieldRef: &corev1.ObjectFieldSelector{
@@ -74,11 +75,11 @@ done`
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{
-						corev1.VolumeMount{
+						{
 							Name:      "shared",
 							MountPath: "/shared",
 						},
-						corev1.VolumeMount{
+						{
 							Name:      "init-service-account-secret",
 							MountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
 							ReadOnly:  true,
@@ -111,7 +112,7 @@ done`
 							Name:      "humio-data",
 							MountPath: "/data",
 						},
-						corev1.VolumeMount{
+						{
 							Name:      "shared",
 							MountPath: "/shared",
 							ReadOnly:  true,
@@ -152,7 +153,7 @@ done`
 					Command: []string{"/bin/sh", "-c"},
 					Args:    []string{authCommand},
 					Env: []corev1.EnvVar{
-						corev1.EnvVar{
+						{
 							Name: "NAMESPACE",
 							ValueFrom: &corev1.EnvVarSource{
 								FieldRef: &corev1.ObjectFieldSelector{
@@ -160,7 +161,7 @@ done`
 								},
 							},
 						},
-						corev1.EnvVar{
+						{
 							Name:  "ADMIN_SECRET_NAME",
 							Value: "admin-token", // TODO: get this from code
 						},
@@ -172,7 +173,7 @@ done`
 							MountPath: "/data",
 							ReadOnly:  true,
 						},
-						corev1.VolumeMount{
+						{
 							Name:      "auth-service-account-secret",
 							MountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
 							ReadOnly:  true,
@@ -253,7 +254,7 @@ done`
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					Items: []corev1.KeyToPath{
-						corev1.KeyToPath{
+						{
 							Key:  "extra-kafka-configs",
 							Path: extraKafkaConfigsConfigmapName,
 						},

@@ -17,7 +17,7 @@ func ConstructAuthRole(roleName, humioClusterName, humioClusterNamespace string)
 			Labels:    LabelsForHumio(humioClusterName),
 		},
 		Rules: []rbacv1.PolicyRule{
-			rbacv1.PolicyRule{
+			{
 				APIGroups: []string{""},
 				Resources: []string{"secrets"},
 				Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
@@ -27,9 +27,9 @@ func ConstructAuthRole(roleName, humioClusterName, humioClusterNamespace string)
 }
 
 // GetRole returns the given role if it exists
-func GetRole(c client.Client, context context.Context, roleName, roleNamespace string) (*rbacv1.Role, error) {
+func GetRole(ctx context.Context, c client.Client, roleName, roleNamespace string) (*rbacv1.Role, error) {
 	var existingRole rbacv1.Role
-	err := c.Get(context, types.NamespacedName{
+	err := c.Get(ctx, types.NamespacedName{
 		Name:      roleName,
 		Namespace: roleNamespace,
 	}, &existingRole)

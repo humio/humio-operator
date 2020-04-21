@@ -33,9 +33,9 @@ func ConstructService(humioClusterName, humioClusterNamespace string) *corev1.Se
 	}
 }
 
-func GetService(c client.Client, context context.Context, humioClusterName, humioClusterNamespace string) (*corev1.Service, error) {
+func GetService(ctx context.Context, c client.Client, humioClusterName, humioClusterNamespace string) (*corev1.Service, error) {
 	var existingService corev1.Service
-	err := c.Get(context, types.NamespacedName{
+	err := c.Get(ctx, types.NamespacedName{
 		Namespace: humioClusterNamespace,
 		Name:      humioClusterName,
 	}, &existingService)

@@ -18,7 +18,7 @@ func (r *ReconcileHumioCluster) constructInitClusterRole(clusterRoleName string,
 			Labels: kubernetes.LabelsForHumio(hc.Name),
 		},
 		Rules: []rbacv1.PolicyRule{
-			rbacv1.PolicyRule{
+			{
 				APIGroups: []string{""},
 				Resources: []string{"nodes"},
 				Verbs:     []string{"get", "list", "watch"},
@@ -28,9 +28,9 @@ func (r *ReconcileHumioCluster) constructInitClusterRole(clusterRoleName string,
 }
 
 // GetClusterRole returns the given cluster role if it exists
-func (r *ReconcileHumioCluster) GetClusterRole(context context.Context, clusterRoleName string, hc *corev1alpha1.HumioCluster) (*rbacv1.ClusterRole, error) {
+func (r *ReconcileHumioCluster) GetClusterRole(ctx context.Context, clusterRoleName string, hc *corev1alpha1.HumioCluster) (*rbacv1.ClusterRole, error) {
 	var existingClusterRole rbacv1.ClusterRole
-	err := r.client.Get(context, types.NamespacedName{
+	err := r.client.Get(ctx, types.NamespacedName{
 		Name: clusterRoleName,
 	}, &existingClusterRole)
 	return &existingClusterRole, err

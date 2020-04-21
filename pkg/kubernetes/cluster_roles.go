@@ -17,7 +17,7 @@ func ConstructInitClusterRole(clusterRoleName, humioClusterName string) *rbacv1.
 			Labels: LabelsForHumio(humioClusterName),
 		},
 		Rules: []rbacv1.PolicyRule{
-			rbacv1.PolicyRule{
+			{
 				APIGroups: []string{""},
 				Resources: []string{"nodes"},
 				Verbs:     []string{"get", "list", "watch"},
@@ -27,9 +27,9 @@ func ConstructInitClusterRole(clusterRoleName, humioClusterName string) *rbacv1.
 }
 
 // GetClusterRole returns the given cluster role if it exists
-func GetClusterRole(c client.Client, context context.Context, clusterRoleName string) (*rbacv1.ClusterRole, error) {
+func GetClusterRole(ctx context.Context, c client.Client, clusterRoleName string) (*rbacv1.ClusterRole, error) {
 	var existingClusterRole rbacv1.ClusterRole
-	err := c.Get(context, types.NamespacedName{
+	err := c.Get(ctx, types.NamespacedName{
 		Name: clusterRoleName,
 	}, &existingClusterRole)
 	return &existingClusterRole, err
