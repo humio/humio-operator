@@ -32,9 +32,9 @@ func ConstructClusterRoleBinding(clusterRoleBindingName, clusterRoleName, humioC
 }
 
 // GetClusterRoleBinding returns the given cluster role binding if it exists
-func GetClusterRoleBinding(c client.Client, context context.Context, clusterRoleBindingName string) (*rbacv1.ClusterRoleBinding, error) {
+func GetClusterRoleBinding(ctx context.Context, c client.Client, clusterRoleBindingName string) (*rbacv1.ClusterRoleBinding, error) {
 	var existingClusterRoleBinding rbacv1.ClusterRoleBinding
-	err := c.Get(context, types.NamespacedName{
+	err := c.Get(ctx, types.NamespacedName{
 		Name: clusterRoleBindingName,
 	}, &existingClusterRoleBinding)
 	return &existingClusterRoleBinding, err

@@ -244,7 +244,7 @@ func (r *ReconcileHumioCluster) ensureKafkaConfigConfigmap(ctx context.Context, 
 	if extraKafkaConfigsConfigmapData == "" {
 		return nil
 	}
-	_, err := kubernetes.GetConfigmap(r.client, ctx, extraKafkaConfigsConfigmapName, hc.Namespace)
+	_, err := kubernetes.GetConfigmap(ctx, r.client, extraKafkaConfigsConfigmapName, hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			configmap := kubernetes.ConstructExtraKafkaConfigsConfigmap(
@@ -331,7 +331,7 @@ func (r *ReconcileHumioCluster) ensureNginxIngress(ctx context.Context, hc *core
 		constructESIngestIngress(hc),
 	}
 	for _, ingress := range ingresses {
-		existingIngress, err := kubernetes.GetIngress(r.client, ctx, ingress.Name, hc.Namespace)
+		existingIngress, err := kubernetes.GetIngress(ctx, r.client, ingress.Name, hc.Namespace)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				if err := controllerutil.SetControllerReference(hc, ingress, r.scheme); err != nil {
@@ -443,7 +443,7 @@ func (r *ReconcileHumioCluster) ensureAuthContainerPermissions(ctx context.Conte
 
 func (r *ReconcileHumioCluster) ensureInitClusterRole(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
 	clusterRoleName := initClusterRoleName(hc)
-	_, err := kubernetes.GetClusterRole(r.client, ctx, clusterRoleName)
+	_, err := kubernetes.GetClusterRole(ctx, r.client, clusterRoleName)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			clusterRole := kubernetes.ConstructInitClusterRole(clusterRoleName, hc.Name)
@@ -463,7 +463,7 @@ func (r *ReconcileHumioCluster) ensureInitClusterRole(ctx context.Context, hc *c
 
 func (r *ReconcileHumioCluster) ensureAuthRole(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
 	roleName := authRoleName(hc)
-	_, err := kubernetes.GetRole(r.client, ctx, roleName, hc.Namespace)
+	_, err := kubernetes.GetRole(ctx, r.client, roleName, hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			role := kubernetes.ConstructAuthRole(roleName, hc.Name, hc.Namespace)
@@ -481,7 +481,7 @@ func (r *ReconcileHumioCluster) ensureAuthRole(ctx context.Context, hc *corev1al
 
 func (r *ReconcileHumioCluster) ensureInitClusterRoleBinding(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
 	clusterRoleBindingName := initClusterRoleBindingName(hc)
-	_, err := kubernetes.GetClusterRoleBinding(r.client, ctx, clusterRoleBindingName)
+	_, err := kubernetes.GetClusterRoleBinding(ctx, r.client, clusterRoleBindingName)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			clusterRole := kubernetes.ConstructClusterRoleBinding(
@@ -507,7 +507,7 @@ func (r *ReconcileHumioCluster) ensureInitClusterRoleBinding(ctx context.Context
 
 func (r *ReconcileHumioCluster) ensureAuthRoleBinding(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
 	roleBindingName := authRoleBindingName(hc)
-	_, err := kubernetes.GetRoleBinding(r.client, ctx, roleBindingName, hc.Namespace)
+	_, err := kubernetes.GetRoleBinding(ctx, r.client, roleBindingName, hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			role := kubernetes.ConstructRoleBinding(
@@ -530,7 +530,7 @@ func (r *ReconcileHumioCluster) ensureAuthRoleBinding(ctx context.Context, hc *c
 }
 
 func (r *ReconcileHumioCluster) ensureServiceAccountExists(ctx context.Context, hc *corev1alpha1.HumioCluster, serviceAccountName string) error {
-	_, err := kubernetes.GetServiceAccount(r.client, ctx, serviceAccountName, hc.Namespace)
+	_, err := kubernetes.GetServiceAccount(ctx, r.client, serviceAccountName, hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			serviceAccount := kubernetes.ConstructServiceAccount(serviceAccountName, hc.Name, hc.Namespace)
@@ -551,7 +551,7 @@ func (r *ReconcileHumioCluster) ensureServiceAccountExists(ctx context.Context, 
 }
 
 func (r *ReconcileHumioCluster) ensureServiceAccountSecretExists(ctx context.Context, hc *corev1alpha1.HumioCluster, serviceAccountSecretName string, serviceAccountName string) error {
-	_, err := kubernetes.GetSecret(r.client, ctx, serviceAccountSecretName, hc.Namespace)
+	_, err := kubernetes.GetSecret(ctx, r.client, serviceAccountSecretName, hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			secret := kubernetes.ConstructServiceAccountSecret(hc.Name, hc.Namespace, serviceAccountSecretName, serviceAccountName)
@@ -639,7 +639,7 @@ func (r *ReconcileHumioCluster) ensurePartitionsAreBalanced(humioClusterControll
 }
 
 func (r *ReconcileHumioCluster) ensureServiceExists(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
-	_, err := kubernetes.GetService(r.client, ctx, hc.Name, hc.Namespace)
+	_, err := kubernetes.GetService(ctx, r.client, hc.Name, hc.Namespace)
 	if k8serrors.IsNotFound(err) {
 		service := kubernetes.ConstructService(hc.Name, hc.Namespace)
 		if err := controllerutil.SetControllerReference(hc, service, r.scheme); err != nil {
@@ -853,7 +853,7 @@ func (r *ReconcileHumioCluster) ensurePodsExist(ctx context.Context, hc *corev1a
 }
 
 func (r *ReconcileHumioCluster) authWithSidecarToken(ctx context.Context, hc *corev1alpha1.HumioCluster, url string) (reconcile.Result, error) {
-	existingSecret, err := kubernetes.GetSecret(r.client, ctx, kubernetes.ServiceTokenSecretName, hc.Namespace)
+	existingSecret, err := kubernetes.GetSecret(ctx, r.client, kubernetes.ServiceTokenSecretName, hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			r.logger.Infof("waiting for sidecar to populate secret %s for HumioCluster %s", kubernetes.ServiceTokenSecretName, hc.Name)

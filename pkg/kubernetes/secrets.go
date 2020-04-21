@@ -36,9 +36,9 @@ func ConstructServiceAccountSecret(humioClusterName, humioClusterNamespace, secr
 	}
 }
 
-func GetSecret(c client.Client, context context.Context, secretName, humioClusterNamespace string) (*corev1.Secret, error) {
+func GetSecret(ctx context.Context, c client.Client, secretName, humioClusterNamespace string) (*corev1.Secret, error) {
 	var existingSecret corev1.Secret
-	err := c.Get(context, types.NamespacedName{
+	err := c.Get(ctx, types.NamespacedName{
 		Namespace: humioClusterNamespace,
 		Name:      secretName,
 	}, &existingSecret)
