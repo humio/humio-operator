@@ -22,9 +22,9 @@ func ConstructExtraKafkaConfigsConfigmap(extraKafkaConfigsConfigmapName, extraKa
 }
 
 // GetConfigmap returns the configmap for the given configmap name if it exists
-func GetConfigmap(c client.Client, context context.Context, configmapName, humioClusterNamespace string) (*corev1.ConfigMap, error) {
+func GetConfigmap(ctx context.Context, c client.Client, configmapName, humioClusterNamespace string) (*corev1.ConfigMap, error) {
 	var existingConfigmap corev1.ConfigMap
-	err := c.Get(context, types.NamespacedName{
+	err := c.Get(ctx, types.NamespacedName{
 		Namespace: humioClusterNamespace,
 		Name:      configmapName,
 	}, &existingConfigmap)

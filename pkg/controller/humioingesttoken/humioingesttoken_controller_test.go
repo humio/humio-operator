@@ -144,7 +144,7 @@ func TestReconcileHumioIngestToken_Reconcile_ingest_token_secret(t *testing.T) {
 
 			foundSecret := false
 			if tt.wantTokenSecret {
-				secret, err := kubernetes.GetSecret(r.client, context.TODO(), tt.humioIngestToken.Spec.TokenSecretName, tt.humioIngestToken.Namespace)
+				secret, err := kubernetes.GetSecret(context.TODO(), r.client, tt.humioIngestToken.Spec.TokenSecretName, tt.humioIngestToken.Namespace)
 				if err != nil {
 					t.Errorf("unable to get ingest token secret: %s", err)
 				}

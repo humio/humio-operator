@@ -126,7 +126,7 @@ func (r *ReconcileHumioIngestToken) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, nil
 	}
 
-	secret, err := kubernetes.GetSecret(r.client, context.TODO(), kubernetes.ServiceTokenSecretName, humioIngestToken.Namespace)
+	secret, err := kubernetes.GetSecret(context.TODO(), r.client, kubernetes.ServiceTokenSecretName, humioIngestToken.Namespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			r.logger.Infof("api token secret does not exist for cluster: %s", getClusterName(humioIngestToken))
@@ -246,7 +246,7 @@ func (r *ReconcileHumioIngestToken) addFinalizer(hit *corev1alpha1.HumioIngestTo
 	return nil
 }
 
-func (r *ReconcileHumioIngestToken) ensureTokenSecretExists(conetext context.Context, humioIngestToken *corev1alpha1.HumioIngestToken) error {
+func (r *ReconcileHumioIngestToken) ensureTokenSecretExists(ctx context.Context, humioIngestToken *corev1alpha1.HumioIngestToken) error {
 	if humioIngestToken.Spec.TokenSecretName == "" {
 		return nil
 	}
@@ -262,10 +262,10 @@ func (r *ReconcileHumioIngestToken) ensureTokenSecretExists(conetext context.Con
 		return fmt.Errorf("could not set controller reference: %s", err)
 	}
 
-	existingSecret, err := kubernetes.GetSecret(r.client, conetext, humioIngestToken.Spec.TokenSecretName, humioIngestToken.Namespace)
+	existingSecret, err := kubernetes.GetSecret(ctx, r.client, humioIngestToken.Spec.TokenSecretName, humioIngestToken.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			err = r.client.Create(context.TODO(), desiredSecret)
+			err = r.client.Create(ctx, desiredSecret)
 			if err != nil {
 				return fmt.Errorf("unable to create ingest token secret for HumioIngestToken: %s", err)
 			}
@@ -277,7 +277,7 @@ func (r *ReconcileHumioIngestToken) ensureTokenSecretExists(conetext context.Con
 		r.logger.Infof("ingest token secret %s already exists for HumioIngestToken %s", humioIngestToken.Spec.TokenSecretName, humioIngestToken.Name)
 		if string(existingSecret.Data["token"]) != string(desiredSecret.Data["token"]) {
 			r.logger.Infof("ingest token %s stored in secret %s does not match the token in Humio. Updating token for %s.", humioIngestToken.Name, humioIngestToken.Spec.TokenSecretName)
-			r.client.Update(conetext, desiredSecret)
+			r.client.Update(ctx, desiredSecret)
 		}
 	}
 	return nil
