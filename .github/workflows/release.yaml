@@ -26,7 +26,7 @@ jobs:
     - name: operator-sdk lint
       env:
         GO111MODULE: "on"
-      uses: ./.github/action/operator-sdk
+      uses: ./humio-operator/.github/action/operator-sdk
       with:
         args: operator-courier verify --ui_validate_io humio-operator/
     - name: Get release version
@@ -41,7 +41,7 @@ jobs:
     - name: operator-sdk build
       env:
         GO111MODULE: "on"
-      uses: ./.github/action/operator-sdk
+      uses: ./humio-operator/.github/action/operator-sdk
       with:
         args: operator-sdk build -f humio-operator/Dockerfile quay.io/humio/humio-operator:${{ env.RELEASE_VERRSION }}
     - name: docker push
@@ -49,7 +49,7 @@ jobs:
     - name: operator-courier push
       env:
         GO111MODULE: "on"
-      uses: ./.github/action/operator-sdk
+      uses: ./humio-operator/.github/action/operator-sdk
       with:
         args: operator-courier push humio-operator ${{ env.QUAY_NAMESPACE }} humio-operator ${{ env.RELEASE_VERRSION }} ${{ env.QUAY_ACCESS_TOKEN }}
   release:

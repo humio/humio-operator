@@ -29,13 +29,13 @@ jobs:
     - name: operator-sdk lint
       env:
         GO111MODULE: "on"
-      uses: ./.github/action/operator-sdk
+      uses: ./humio-operator/.github/action/operator-sdk
       with:
         args: operator-courier verify --ui_validate_io humio-operator/
     - name: operator-sdk build
       env:
         GO111MODULE: "on"
-      uses: ./.github/action/operator-sdk
+      uses: ./humio-operator/.github/action/operator-sdk
       with:
         args: operator-sdk build -f humio-operator/Dockerfile quay.io/humio/humio-operator:master
     - name: docker login
