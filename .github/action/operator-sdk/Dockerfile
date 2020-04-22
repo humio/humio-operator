@@ -7,7 +7,10 @@ LABEL "com.github.actions.color"="red"
 
 RUN apk update \
     && apk upgrade \
-    && apk add --no-cache bash curl git openssh make mercurial openrc docker
+    && apk add --no-cache bash curl git openssh make mercurial openrc docker python3 \
+    && pip3 install --upgrade pip setuptools
+
+RUN pip3 install operator-courier
 
 ARG RELEASE_VERSION=v0.16.0
 
