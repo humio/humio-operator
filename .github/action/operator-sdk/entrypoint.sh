@@ -9,4 +9,4 @@ mkdir -p "${repo_root}"
 ln -s "$GITHUB_WORKSPACE" "${project_root}"
 cd "${project_root}"
 
-operator-sdk "$@"
+"$@"

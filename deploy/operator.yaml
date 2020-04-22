@@ -15,7 +15,7 @@ spec:
       serviceAccountName: humio-operator
       containers:
         - name: humio-operator
-          image: humio/humio-operator:dev
+          image: quay.io/humio/humio-operator:dev
           command:
           - humio-operator
           env:
