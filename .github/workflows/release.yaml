@@ -23,12 +23,6 @@ jobs:
       with:
         repository: operator-framework/operator-lifecycle-manager
         path: operator-lifecycle-manager
-    - name: operator-sdk lint
-      env:
-        GO111MODULE: "on"
-      uses: ./humio-operator/.github/action/operator-sdk
-      with:
-        args: operator-courier verify --ui_validate_io humio-operator/
     - name: Get release version
       id: get_version
       run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:10})

@@ -7,6 +7,31 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: cedrickring/golang-action@1.5.1
+  olm-checks:
+    name: Run OLM Checks
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        path: humio-operator
+    - uses: actions/checkout@v2
+      with:
+        repository: operator-framework/operator-marketplace
+        path: operator-marketplace
+    - uses: actions/checkout@v2
+      with:
+        repository: operator-framework/operator-courier
+        path: operator-courier
+    - uses: actions/checkout@v2
+      with:
+        repository: operator-framework/operator-lifecycle-manager
+        path: operator-lifecycle-manager
+    - name: operator-sdk lint
+      env:
+        GO111MODULE: "on"
+      uses: ./humio-operator/.github/action/operator-sdk
+      with:
+        args: operator-courier --verbose verify --ui_validate_io humio-operator/deploy/olm-catalog/humio-operator
   build:
     needs: checks
     name: Run Build
