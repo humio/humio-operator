@@ -1,0 +1,276 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "core.humio.com/v1alpha1",
+          "kind": "HumioCluster",
+          "metadata": {
+            "name": "example-humiocluster"
+          },
+          "spec": {
+            "environmentVariables": [
+              {
+                "name": "ZOOKEEPER_URL",
+                "value": "humio-cp-zookeeper-0.humio-cp-zookeeper-headless:2181"
+              },
+              {
+                "name": "KAFKA_SERVERS",
+                "value": "humio-cp-kafka-0.humio-cp-kafka-headless:9092"
+              }
+            ],
+            "image": "humio/humio-core:1.9.1"
+          }
+        },
+        {
+          "apiVersion": "core.humio.com/v1alpha1",
+          "kind": "HumioExternalCluster",
+          "metadata": {
+            "name": "example-humioexternalcluster"
+          },
+          "spec": {
+            "url": "http://example-humiocluster.default:8080/"
+          }
+        },
+        {
+          "apiVersion": "core.humio.com/v1alpha1",
+          "kind": "HumioIngestToken",
+          "metadata": {
+            "name": "example-humioingesttoken-external"
+          },
+          "spec": {
+            "externalClusterName": "example-humioexternalcluster",
+            "name": "example-token-external",
+            "repositoryName": "humio"
+          }
+        },
+        {
+          "apiVersion": "core.humio.com/v1alpha1",
+          "kind": "HumioIngestToken",
+          "metadata": {
+            "name": "example-humioingesttoken-managed"
+          },
+          "spec": {
+            "managedClusterName": "example-humiocluster",
+            "name": "example-token",
+            "repositoryName": "humio"
+          }
+        },
+        {
+          "apiVersion": "core.humio.com/v1alpha1",
+          "kind": "HumioParser",
+          "metadata": {
+            "name": "example-humioparser"
+          },
+          "spec": {
+            "name": null,
+            "parser_script": null,
+            "respository": null,
+            "tag_fields": [
+              "@somefield"
+            ],
+            "test_data": [
+              "@rawstring data"
+            ]
+          }
+        },
+        {
+          "apiVersion": "core.humio.com/v1alpha1",
+          "kind": "HumioRepository",
+          "metadata": {
+            "name": "example-humiorepository"
+          },
+          "spec": {
+            "description": null,
+            "name": null,
+            "retention": {
+              "ingest_size_in_gb": 10,
+              "storage_size_in_gb": 5,
+              "time_in_days": 30
+            }
+          }
+        }
+      ]
+    capabilities: Basic Install
+  name: humio-operator.v0.0.1
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: HumioCluster is the Schema for the humioclusters API
+      kind: HumioCluster
+      name: humioclusters.core.humio.com
+      version: v1alpha1
+    - description: HumioExternalCluster is the Schema for the humioexternalclusters
+        API
+      kind: HumioExternalCluster
+      name: humioexternalclusters.core.humio.com
+      version: v1alpha1
+    - description: HumioIngestToken is the Schema for the humioingesttokens API
+      kind: HumioIngestToken
+      name: humioingesttokens.core.humio.com
+      version: v1alpha1
+    - description: HumioParser is the Schema for the humioparsers API
+      kind: HumioParser
+      name: humioparsers.core.humio.com
+      version: v1alpha1
+    - description: HumioRepository is the Schema for the humiorepositories API
+      kind: HumioRepository
+      name: humiorepositories.core.humio.com
+      version: v1alpha1
+  description: Placeholder description
+  displayName: Humio Operator
+  install:
+    spec:
+      deployments:
+      - name: humio-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: humio-operator
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                name: humio-operator
+            spec:
+              containers:
+              - command:
+                - humio-operator
+                env:
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: OPERATOR_NAME
+                  value: humio-operator
+                image: quay.io/humio/humio-operator:dev
+                name: humio-operator
+                resources: {}
+              serviceAccountName: humio-operator
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - services
+          - services/finalizers
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          - configmaps
+          - secrets
+          - serviceaccounts
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - get
+          - create
+        - apiGroups:
+          - apps
+          resourceNames:
+          - humio-operator
+          resources:
+          - deployments/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - get
+        - apiGroups:
+          - apps
+          resources:
+          - replicasets
+          - deployments
+          verbs:
+          - get
+        - apiGroups:
+          - core.humio.com
+          resources:
+          - '*'
+          - humioparsers
+          - humioingesttokens
+          - humiorepositories
+          - humioexternalclusters
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - humio.com
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - roles
+          - rolebindings
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - networking.k8s.io
+          resources:
+          - ingresses
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        serviceAccountName: humio-operator
+    strategy: deployment
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  maturity: alpha
+  provider: {}
+  replaces: humio-operator.v0.0.0
+  version: 0.0.1
