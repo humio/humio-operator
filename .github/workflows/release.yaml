@@ -22,7 +22,7 @@ jobs:
         GO111MODULE: "on"
       uses: ./.github/action/operator-sdk
       with:
-        args: operator-sdk build quay.io/humio/humio-operator:${{ env.RELEASE_VERRSION }}
+        args: operator-sdk build quay.io/humio/humio-operator:${{ env.RELEASE_VERSION }}
     - name: docker push
       run:  docker push quay.io/humio/humio-operator:${{ env.RELEASE_VERSION }}
     - name: operator-courier push
@@ -32,7 +32,7 @@ jobs:
         QUAY_NAMESPACE: ${{ secrets.QUAY_NAMESPACE }}
       uses: ./.github/action/operator-sdk
       with:
-        args: operator-courier push deploy/olm-catalog/humio-operator ${{ env.QUAY_NAMESPACE }} humio-operator ${{ env.RELEASE_VERRSION }} "$QUAY_ACCESS_TOKEN"
+        args: operator-courier push deploy/olm-catalog/humio-operator ${{ env.QUAY_NAMESPACE }} humio-operator ${{ env.RELEASE_VERSION }} "$QUAY_ACCESS_TOKEN"
   release:
     name: Create Release
     runs-on: ubuntu-latest
