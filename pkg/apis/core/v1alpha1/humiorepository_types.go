@@ -32,6 +32,7 @@ type HumioRepositoryStatus struct {
 // HumioRepository is the Schema for the humiorepositories API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humiorepositories,scope=Namespaced
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Repository"
 type HumioRepository struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

@@ -91,6 +91,7 @@ type HumioClusterStatus struct {
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.clusterState",description="The state of the cluster"
 // +kubebuilder:printcolumn:name="Nodes",type="string",JSONPath=".status.clusterNodeCount",description="The number of nodes in the cluster"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.clusterVersion",description="The version of humior"
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Cluster"
 type HumioCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

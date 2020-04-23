@@ -29,6 +29,7 @@ type HumioIngestTokenStatus struct {
 // HumioIngestToken is the Schema for the humioingesttokens API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humioingesttokens,scope=Namespaced
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Ingest Token"
 type HumioIngestToken struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
