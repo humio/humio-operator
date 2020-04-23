@@ -12,19 +12,19 @@ jobs:
     - name: Get release version
       id: get_version
       run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:10})
-    - name: quay.io login
+    - name: docker login
       env:
-        QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
-        QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
-      run:  echo $QUAY_PASSWORD | docker login -u $QUAY_USERNAME --password-stdin quay.io
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      run:  echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
     - name: operator-sdk build
       env:
         GO111MODULE: "on"
       uses: ./.github/action/operator-sdk
       with:
-        args: operator-sdk build quay.io/humio/humio-operator:${{ env.RELEASE_VERSION }}
+        args: operator-sdk build humio/humio-operator:${{ env.RELEASE_VERSION }}
     - name: docker push
-      run:  docker push quay.io/humio/humio-operator:${{ env.RELEASE_VERSION }}
+      run:  docker push humio/humio-operator:${{ env.RELEASE_VERSION }}
     - name: operator-courier push
       env:
         GO111MODULE: "on"

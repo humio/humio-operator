@@ -9,7 +9,7 @@ metadata:
     createdAt: "2020-04-23 08:00:00"
     support: Humio, Inc.
     repository: github.com/humio/humio-operator
-    containerImage: quay.io/humio/humio-operator:v0.0.1
+    containerImage: humio/humio-operator:v0.0.1
     alm-examples: |-
       [
         {
@@ -176,7 +176,7 @@ spec:
                       fieldPath: metadata.name
                 - name: OPERATOR_NAME
                   value: humio-operator
-                image: quay.io/humio/humio-operator:dev
+                image: humio/humio-operator:dev
                 name: humio-operator
                 resources: {}
               serviceAccountName: humio-operator
