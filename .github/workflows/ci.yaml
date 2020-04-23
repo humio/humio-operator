@@ -12,26 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-      with:
-        path: humio-operator
-    - uses: actions/checkout@v2
-      with:
-        repository: operator-framework/operator-marketplace
-        path: operator-marketplace
-    - uses: actions/checkout@v2
-      with:
-        repository: operator-framework/operator-courier
-        path: operator-courier
-    - uses: actions/checkout@v2
-      with:
-        repository: operator-framework/operator-lifecycle-manager
-        path: operator-lifecycle-manager
     - name: operator-sdk lint
       env:
         GO111MODULE: "on"
-      uses: ./humio-operator/.github/action/operator-sdk
+      uses: ./.github/action/operator-sdk
       with:
-        args: operator-courier --verbose verify --ui_validate_io humio-operator/deploy/olm-catalog/humio-operator
+        args: operator-courier --verbose verify --ui_validate_io deploy/olm-catalog/humio-operator
   build:
     needs: checks
     name: Run Build
