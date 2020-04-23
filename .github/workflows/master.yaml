@@ -9,36 +9,22 @@ jobs:
     runs-on: ubuntu-latest
     env:
       QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
-      QUAY_ACCESS_TOKEN: ${{ secrets.QUAY_ACCESS_TOKEN }}
+      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
     steps:
     - uses: actions/checkout@v2
-      with:
-        path: humio-operator
-    - uses: actions/checkout@v2
-      with:
-        repository: operator-framework/operator-marketplace
-        path: operator-marketplace
-    - uses: actions/checkout@v2
-      with:
-        repository: operator-framework/operator-courier
-        path: operator-courier
-    - uses: actions/checkout@v2
-      with:
-        repository: operator-framework/operator-lifecycle-manager
-        path: operator-lifecycle-manager
     - name: operator-sdk lint
       env:
         GO111MODULE: "on"
-      uses: ./humio-operator/.github/action/operator-sdk
+      uses: ./.github/action/operator-sdk
       with:
-        args: operator-courier --verbose verify --ui_validate_io humio-operator/deploy/olm-catalog/humio-operator
+        args: operator-courier --verbose verify --ui_validate_io deploy/olm-catalog/humio-operator
     - name: operator-sdk build
       env:
         GO111MODULE: "on"
-      uses: ./humio-operator/.github/action/operator-sdk
+      uses: ./.github/action/operator-sdk
       with:
-        args: operator-sdk build -f humio-operator/Dockerfile quay.io/humio/humio-operator:master
+        args: operator-sdk build quay.io/humio/humio-operator:master
     - name: docker login
-      run:  docker login -u $QUAY_USERNAME -p $QUAY_ACCESS_TOKEN
+      run:  docker login -u $QUAY_USERNAME -p $QUAY_PASSWORD
     - name: docker push
       run: docker push quay.io/humio/humio-operator:master
