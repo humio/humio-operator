@@ -19,6 +19,7 @@ type HumioExternalClusterStatus struct {
 // HumioExternalCluster is the Schema for the humioexternalclusters API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humioexternalclusters,scope=Namespaced
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio External Cluster"
 type HumioExternalCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

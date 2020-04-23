@@ -26,6 +26,7 @@ type HumioParserStatus struct {
 // HumioParser is the Schema for the humioparsers API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humioparsers,scope=Namespaced
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Parser"
 type HumioParser struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
