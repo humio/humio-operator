@@ -7,9 +7,6 @@ jobs:
   build-and-publish:
     name: Build and Publish
     runs-on: ubuntu-latest
-    env:
-      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
-      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
     steps:
     - uses: actions/checkout@v2
     - name: operator-sdk lint
@@ -23,8 +20,11 @@ jobs:
         GO111MODULE: "on"
       uses: ./.github/action/operator-sdk
       with:
-        args: operator-sdk build quay.io/humio/humio-operator:master
+        args: operator-sdk build humio/humio-operator:master
     - name: docker login
-      run:  echo $QUAY_PASSWORD | docker login -u $QUAY_USERNAME --password-stdin quay.io
+      env:
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      run:  echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
     - name: docker push
-      run: docker push quay.io/humio/humio-operator:master
+      run: docker push humio/humio-operator:master
