@@ -9,43 +9,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-      with:
-        path: humio-operator
-    - uses: actions/checkout@v2
-      with:
-        repository: operator-framework/operator-marketplace
-        path: operator-marketplace
-    - uses: actions/checkout@v2
-      with:
-        repository: operator-framework/operator-courier
-        path: operator-courier
-    - uses: actions/checkout@v2
-      with:
-        repository: operator-framework/operator-lifecycle-manager
-        path: operator-lifecycle-manager
     - name: Get release version
       id: get_version
       run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:10})
     - name: quay.io login
       env:
         QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
-        QUAY_ACCESS_TOKEN: ${{ secrets.QUAY_ACCESS_TOKEN }}
-        QUAY_NAMESPACE: ${{ secrets.QUAY_NAMESPACE }}
-      run:  docker login -u $QUAY_USERNAME -p $QUAY_ACCESS_TOKEN
+        QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+      run:  docker login -u $QUAY_USERNAME -p $QUAY_PASSWORD
     - name: operator-sdk build
       env:
         GO111MODULE: "on"
-      uses: ./humio-operator/.github/action/operator-sdk
+      uses: ./.github/action/operator-sdk
       with:
-        args: operator-sdk build -f humio-operator/Dockerfile quay.io/humio/humio-operator:${{ env.RELEASE_VERRSION }}
+        args: operator-sdk build quay.io/humio/humio-operator:${{ env.RELEASE_VERRSION }}
     - name: docker push
       run:  docker push quay.io/humio/humio-operator:${{ env.RELEASE_VERSION }}
     - name: operator-courier push
       env:
         GO111MODULE: "on"
-      uses: ./humio-operator/.github/action/operator-sdk
+        QUAY_ACCESS_TOKEN: ${{ secrets.QUAY_ACCESS_TOKEN }}
+        QUAY_NAMESPACE: ${{ secrets.QUAY_NAMESPACE }}
+      uses: ./.github/action/operator-sdk
       with:
-        args: operator-courier push humio-operator/deploy/olm-catalog/humio-operator ${{ env.QUAY_NAMESPACE }} humio-operator ${{ env.RELEASE_VERRSION }} $QUAY_ACCESS_TOKEN
+        args: operator-courier push deploy/olm-catalog/humio-operator ${{ env.QUAY_NAMESPACE }} humio-operator ${{ env.RELEASE_VERRSION }} "$QUAY_ACCESS_TOKEN"
   release:
     name: Create Release
     runs-on: ubuntu-latest
