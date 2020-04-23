@@ -34,7 +34,7 @@ jobs:
         QUAY_NAMESPACE: ${{ secrets.QUAY_NAMESPACE }}
       uses: ./.github/action/operator-sdk
       with:
-        args: operator-courier push deploy/olm-catalog/humio-operator ${{ env.QUAY_NAMESPACE }} humio-operator ${{ env.QUAY_RELEASE_VERSION }} "basic $QUAY_ACCESS_TOKEN"
+        args: operator-courier push deploy/olm-catalog/humio-operator ${{ env.QUAY_NAMESPACE }} humio-operator ${{ env.QUAY_RELEASE_VERSION }} "basic ${{ env.QUAY_ACCESS_TOKEN }}"
   release:
     name: Create Release
     runs-on: ubuntu-latest
