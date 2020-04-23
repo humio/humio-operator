@@ -45,7 +45,7 @@ jobs:
         GO111MODULE: "on"
       uses: ./humio-operator/.github/action/operator-sdk
       with:
-        args: operator-courier push humio-operator ${{ env.QUAY_NAMESPACE }} humio-operator ${{ env.RELEASE_VERRSION }} ${{ env.QUAY_ACCESS_TOKEN }}
+        args: operator-courier push humio-operator/deploy/olm-catalog/humio-operator ${{ env.QUAY_NAMESPACE }} humio-operator ${{ env.RELEASE_VERRSION }} $QUAY_ACCESS_TOKEN
   release:
     name: Create Release
     runs-on: ubuntu-latest
