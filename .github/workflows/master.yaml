@@ -31,7 +31,7 @@ jobs:
         GO111MODULE: "on"
       uses: ./humio-operator/.github/action/operator-sdk
       with:
-        args: operator-courier verify --ui_validate_io humio-operator/
+        args: operator-courier --verbose verify --ui_validate_io humio-operator/deploy/olm-catalog/humio-operator
     - name: operator-sdk build
       env:
         GO111MODULE: "on"
