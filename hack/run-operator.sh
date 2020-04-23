@@ -9,12 +9,12 @@ cd ~/go/src/github.com/humio/humio-operator
 kubectl --context kind-kind delete deploy humio-operator
 
 # Build the operator
-operator-sdk build quay.io/humio/humio-operator:dev
+operator-sdk build humio/humio-operator:dev
 
 # Run operator locally
-kind load docker-image --name kind quay.io/humio/humio-operator:dev
+kind load docker-image --name kind humio/humio-operator:dev
 kind load docker-image --name kind humio/strix:latest
-docker rmi quay.io/humio/humio-operator:dev
+docker rmi humio/humio-operator:dev
 export WATCH_NAMESPACE=default
 kubectl --context kind-kind apply -f deploy/role.yaml
 kubectl --context kind-kind apply -f deploy/service_account.yaml
