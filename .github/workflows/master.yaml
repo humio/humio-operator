@@ -25,6 +25,6 @@ jobs:
       with:
         args: operator-sdk build quay.io/humio/humio-operator:master
     - name: docker login
-      run:  docker login -u $QUAY_USERNAME -p $QUAY_PASSWORD
+      run:  echo $QUAY_PASSWORD | docker login -u $QUAY_USERNAME --password-stdin quay.io
     - name: docker push
       run: docker push quay.io/humio/humio-operator:master
