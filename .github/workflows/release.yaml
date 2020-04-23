@@ -12,6 +12,8 @@ jobs:
     - name: Get release version
       id: get_version
       run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:10})
+    - name: Get quay release version
+      run: echo ::set-env name=QUAY_RELEASE_VERSION::$(echo ${GITHUB_REF:10} | sed 's/v//g')
     - name: docker login
       env:
         DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
@@ -32,7 +34,7 @@ jobs:
         QUAY_NAMESPACE: ${{ secrets.QUAY_NAMESPACE }}
       uses: ./.github/action/operator-sdk
       with:
-        args: operator-courier push deploy/olm-catalog/humio-operator ${{ env.QUAY_NAMESPACE }} humio-operator ${{ env.RELEASE_VERSION }} "$QUAY_ACCESS_TOKEN"
+        args: operator-courier push deploy/olm-catalog/humio-operator ${{ env.QUAY_NAMESPACE }} humio-operator ${{ env.QUAY_RELEASE_VERSION }} "$QUAY_ACCESS_TOKEN"
   release:
     name: Create Release
     runs-on: ubuntu-latest
