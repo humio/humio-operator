@@ -94,7 +94,7 @@ func Test_setEnvironmentVariableDefault(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			setEnvironmentVariableDefault(tt.args.humioCluster, tt.args.defaultEnvVar)
+			appendEnvironmentVariableDefault(tt.args.humioCluster, tt.args.defaultEnvVar)
 			found := false
 			for _, envVar := range tt.args.humioCluster.Spec.EnvironmentVariables {
 				if tt.expected[0].Name == envVar.Name && tt.expected[0].Value == envVar.Value {

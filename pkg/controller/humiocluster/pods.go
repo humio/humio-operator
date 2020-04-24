@@ -213,7 +213,11 @@ done`
 		},
 	}
 
-	if hc.Spec.IdpCertificateSecretName != "" {
+	idx, err := kubernetes.GetContainerIndexByName(pod, "humio")
+	if err != nil {
+		return &corev1.Pod{}, err
+	}
+	if envVarHasValue(pod.Spec.Containers[idx].Env, "AUTHENTICATION_METHOD", "saml") {
 		idx, err := kubernetes.GetContainerIndexByName(pod, "humio")
 		if err != nil {
 			return &corev1.Pod{}, err
@@ -231,7 +235,8 @@ done`
 			Name: "idp-cert-volume",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: idpCertificateSecretNameOrDefault(hc),
+					SecretName:  idpCertificateSecretNameOrDefault(hc),
+					DefaultMode: &mode,
 				},
 			},
 		})
@@ -262,6 +267,7 @@ done`
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: extraKafkaConfigsConfigmapName,
 					},
+					DefaultMode: &mode,
 				},
 			},
 		})
@@ -288,4 +294,13 @@ func generatePodSuffix() string {
 		b.WriteRune(chars[rand.Intn(len(chars))])
 	}
 	return b.String()
+}
+
+func envVarHasValue(envVars []corev1.EnvVar, key string, value string) bool {
+	for _, envVar := range envVars {
+		if envVar.Name == key && envVar.Value == value {
+			return true
+		}
+	}
+	return false
 }
