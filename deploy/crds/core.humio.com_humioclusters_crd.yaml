@@ -2016,6 +2016,10 @@ spec:
             image:
               description: Desired container image including the image tag
               type: string
+            imagePullPolicy:
+              description: ImagePullPolicy sets the imagePullPolicy for all the containers
+                in the humio pod
+              type: string
             imagePullSecrets:
               description: 'TODO: Add PersistentVolumeClaimTemplateSpec support PersistentVolumeClaimTemplateSpec
                 corev1.PersistentVolumeClaimSpec ImagePullSecrets defines the imagepullsecrets
