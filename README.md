@@ -19,9 +19,39 @@ The Humio operator is a Kubernetes operator to automate provisioning, management
 
 The Humio Operator expects a running Zookeeper and Kafka. There are many ways to run Zookeeper and Kafka but generally a good choice is the [Banzai Cloud Kafka Operator](https://operatorhub.io/operator/banzaicloud-kafka-operator). They also recommend using [Pravega's Zookeeper Operator](https://github.com/pravega/zookeeper-operator). If you are running in AWS, we generally recommend the MSK service.
 
-## Example usage
+## Installation
 
-This shows how we can currently leverage the Humio operator to provision a Humio cluster.
+Add the required roles and bindings to run the operator:
+
+```bash
+kubectl apply -f deploy/role.yaml
+kubectl apply -f deploy/service_account.yaml
+kubectl apply -f deploy/role_binding.yaml
+kubectl apply -f deploy/cluster_role.yaml
+kubectl apply -f deploy/cluster_role_binding.yaml
+```
+
+Add the CRDs:
+
+```bash
+kubectl apply -f deploy/crds/core.humio.com_humioexternalclusters_crd.yaml
+kubectl apply -f deploy/crds/core.humio.com_humioclusters_crd.yaml
+kubectl apply -f deploy/crds/core.humio.com_humioingesttokens_crd.yaml
+kubectl apply -f deploy/crds/core.humio.com_humioparsers_crd.yaml
+kubectl apply -f deploy/crds/core.humio.com_humiorepositories_crd.yaml
+```
+
+Run the operator:
+
+```bash
+kubectl apply -f deploy/operator.yaml
+```
+
+## Running a Humio Cluster
+
+Once the operator is running, we can leverage it to provision a Humio cluster.
+
+Create a humiocluster_cr.yaml with content according to how you would like to run the Humio cluster. For example:
 
 ```yaml
 apiVersion: core.humio.com/v1alpha1
@@ -29,12 +59,18 @@ kind: HumioCluster
 metadata:
   name: humiocluster-sample
 spec:
-  image: "humio/humio-core:1.9.2"
+  image: "humio/humio-core:1.9.3"
   environmentVariables:
     - name: "ZOOKEEPER_URL"
       value: "<zookeeper url>"
     - name: "KAFKA_SERVERS"
       value: "<kafka url>"
+```
+
+And then apply the resource:
+
+```bash
+kubectl apply -f humiocluster_cr.yaml
 ```
 
 For a full list of examples, see the [examples directory](https://github.com/humio/humio-operator/tree/master/examples).
