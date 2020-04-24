@@ -157,10 +157,7 @@ more_set_headers "X-XSS-Protection: 1; mode=block";`
 		fmt.Sprintf("%s-es-ingest", hc.Name),
 		hc.Spec.ESHostname,
 		[]string{
-			"/api/v./(dataspaces|repositories)/[^/]+/(ingest|logplex)",
-			"/api/v1/ingest",
-			"/services/collector",
-			"/_bulk",
+			"/",
 		},
 		elasticPort,
 		esCertificateSecretNameOrDefault(hc),
