@@ -107,7 +107,6 @@ done`
 							Value: "admin-token", // TODO: get this from code
 						},
 					},
-					ImagePullPolicy: "IfNotPresent",
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "humio-data",
@@ -139,8 +138,7 @@ done`
 							Protocol:      "TCP",
 						},
 					},
-					Env:             envVarList(hc),
-					ImagePullPolicy: "IfNotPresent",
+					Env: envVarList(hc),
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "humio-data",
@@ -261,15 +259,21 @@ done`
 			Name: "extra-kafka-configs",
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
-					Items: []corev1.KeyToPath{
-						{
-							Key:  "extra-kafka-configs",
-							Path: extraKafkaConfigsConfigmapName,
-						},
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: extraKafkaConfigsConfigmapName,
 					},
 				},
 			},
 		})
+	}
+
+	if hc.Spec.ImagePullPolicy != "" {
+		for idx := range pod.Spec.InitContainers {
+			pod.Spec.InitContainers[idx].ImagePullPolicy = hc.Spec.ImagePullPolicy
+		}
+		for idx := range pod.Spec.Containers {
+			pod.Spec.Containers[idx].ImagePullPolicy = hc.Spec.ImagePullPolicy
+		}
 	}
 
 	return &pod, nil
