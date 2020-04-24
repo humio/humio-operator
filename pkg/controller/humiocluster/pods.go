@@ -89,6 +89,40 @@ done`
 			},
 			Containers: []corev1.Container{
 				{
+					Name:    "auth",
+					Image:   "humio/strix", // TODO: build our own and don't use latest
+					Command: []string{"/bin/sh", "-c"},
+					Args:    []string{authCommand},
+					Env: []corev1.EnvVar{
+						{
+							Name: "NAMESPACE",
+							ValueFrom: &corev1.EnvVarSource{
+								FieldRef: &corev1.ObjectFieldSelector{
+									FieldPath: "metadata.namespace",
+								},
+							},
+						},
+						{
+							Name:  "ADMIN_SECRET_NAME",
+							Value: "admin-token", // TODO: get this from code
+						},
+					},
+					ImagePullPolicy: "IfNotPresent",
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "humio-data",
+							MountPath: "/data",
+							ReadOnly:  true,
+						},
+						{
+							Name:      "auth-service-account-secret",
+							MountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
+							ReadOnly:  true,
+						},
+					},
+					SecurityContext: containerSecurityContextOrDefault(hc),
+				},
+				{
 					Name:    "humio",
 					Image:   hc.Spec.Image,
 					Command: []string{"/bin/sh"},
@@ -147,40 +181,6 @@ done`
 					Resources:       podResourcesOrDefault(hc),
 					SecurityContext: containerSecurityContextOrDefault(hc),
 				},
-				{
-					Name:    "auth",
-					Image:   "humio/strix", // TODO: build our own and don't use latest
-					Command: []string{"/bin/sh", "-c"},
-					Args:    []string{authCommand},
-					Env: []corev1.EnvVar{
-						{
-							Name: "NAMESPACE",
-							ValueFrom: &corev1.EnvVarSource{
-								FieldRef: &corev1.ObjectFieldSelector{
-									FieldPath: "metadata.namespace",
-								},
-							},
-						},
-						{
-							Name:  "ADMIN_SECRET_NAME",
-							Value: "admin-token", // TODO: get this from code
-						},
-					},
-					ImagePullPolicy: "IfNotPresent",
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "humio-data",
-							MountPath: "/data",
-							ReadOnly:  true,
-						},
-						{
-							Name:      "auth-service-account-secret",
-							MountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
-							ReadOnly:  true,
-						},
-					},
-					SecurityContext: containerSecurityContextOrDefault(hc),
-				},
 			},
 			Volumes: []corev1.Volume{
 				{
@@ -216,11 +216,15 @@ done`
 	}
 
 	if hc.Spec.IdpCertificateSecretName != "" {
-		pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{
+		idx, err := kubernetes.GetContainerIndexByName(pod, "humio")
+		if err != nil {
+			return &corev1.Pod{}, err
+		}
+		pod.Spec.Containers[idx].Env = append(pod.Spec.Containers[idx].Env, corev1.EnvVar{
 			Name:  "SAML_IDP_CERTIFICATE",
 			Value: fmt.Sprintf("/var/lib/humio/idp-certificate-secret/%s", idpCertificateFilename),
 		})
-		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+		pod.Spec.Containers[idx].VolumeMounts = append(pod.Spec.Containers[idx].VolumeMounts, corev1.VolumeMount{
 			Name:      "idp-cert-volume",
 			ReadOnly:  true,
 			MountPath: "/var/lib/humio/idp-certificate-secret",
@@ -240,11 +244,15 @@ done`
 	}
 
 	if extraKafkaConfigsOrDefault(hc) != "" {
-		pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{
+		idx, err := kubernetes.GetContainerIndexByName(pod, "humio")
+		if err != nil {
+			return &corev1.Pod{}, err
+		}
+		pod.Spec.Containers[idx].Env = append(pod.Spec.Containers[idx].Env, corev1.EnvVar{
 			Name:  "EXTRA_KAFKA_CONFIGS_FILE",
 			Value: fmt.Sprintf("/var/lib/humio/extra-kafka-configs-configmap/%s", extraKafkaPropertiesFilename),
 		})
-		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+		pod.Spec.Containers[idx].VolumeMounts = append(pod.Spec.Containers[idx].VolumeMounts, corev1.VolumeMount{
 			Name:      "extra-kafka-configs",
 			ReadOnly:  true,
 			MountPath: "/var/lib/humio/extra-kafka-configs-configmap",
@@ -263,6 +271,7 @@ done`
 			},
 		})
 	}
+
 	return &pod, nil
 }
 

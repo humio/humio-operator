@@ -538,21 +538,36 @@ func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testin
 				t.Errorf("failed to compare extra kafka configs configmap: %s, wantExtraKafkaConfigsConfigmap: %v", configmap, tt.wantExtraKafkaConfigsConfigmap)
 			}
 			foundEnvVar := false
+			foundVolumeMount := false
 			if tt.wantExtraKafkaConfigsConfigmap {
 				foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
 				if err != nil {
 					t.Errorf("failed to list pods %s", err)
 				}
 				if len(foundPodList) > 0 {
-					for _, env := range foundPodList[0].Spec.Containers[0].Env {
-						if env.Name == "EXTRA_KAFKA_CONFIGS_FILE" {
-							foundEnvVar = true
+					for _, container := range foundPodList[0].Spec.Containers {
+						if container.Name != "humio" {
+							continue
+						}
+						for _, env := range container.Env {
+							if env.Name == "EXTRA_KAFKA_CONFIGS_FILE" {
+								foundEnvVar = true
+							}
+						}
+						for _, volumeMount := range container.VolumeMounts {
+							if volumeMount.Name == "extra-kafka-configs" {
+								foundVolumeMount = true
+							}
 						}
 					}
+
 				}
 			}
 			if tt.wantExtraKafkaConfigsConfigmap && !foundEnvVar {
 				t.Errorf("failed to validate extra kafka configs env var, want: %v, got %v", tt.wantExtraKafkaConfigsConfigmap, foundEnvVar)
+			}
+			if tt.wantExtraKafkaConfigsConfigmap && !foundVolumeMount {
+				t.Errorf("failed to validate extra kafka configs volume mount, want: %v, got %v", tt.wantExtraKafkaConfigsConfigmap, foundVolumeMount)
 			}
 		})
 	}
