@@ -686,7 +686,11 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(ctx context.Conte
 				return reconcile.Result{}, err
 			}
 
-			if !r.podsMatch(pod, *desiredPod) {
+			podsMatchTest, err := r.podsMatch(pod, *desiredPod)
+			if err != nil {
+				r.logger.Errorf("failed to check if pods match %s", err)
+			}
+			if !podsMatchTest {
 				// TODO: figure out if we should only allow upgrades and not downgrades
 				r.logger.Infof("deleting pod %s", pod.Name)
 				err = r.client.Delete(ctx, &pod)
@@ -709,26 +713,34 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(ctx context.Conte
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileHumioCluster) podsMatch(pod corev1.Pod, desiredPod corev1.Pod) bool {
-	if pod.Spec.Containers[0].Image != desiredPod.Spec.Containers[0].Image {
-		r.logger.Infof("pod image does not match: got %s, wanted %s", pod.Spec.Containers[0].Image, desiredPod.Spec.Containers[0].Image)
-		return false
+func (r *ReconcileHumioCluster) podsMatch(pod corev1.Pod, desiredPod corev1.Pod) (bool, error) {
+	idx, err := kubernetes.GetContainerIndexByName(pod, "humio")
+	if err != nil {
+		return false, err
 	}
-	if !reflect.DeepEqual(pod.Spec.Containers[0].Env, desiredPod.Spec.Containers[0].Env) {
-		r.logger.Infof("pod env vars do not match: got %+v, wanted %+v", pod.Spec.Containers[0].Env, desiredPod.Spec.Containers[0].Env)
-		return false
+	desiredIdx, err := kubernetes.GetContainerIndexByName(desiredPod, "humio")
+	if err != nil {
+		return false, err
+	}
+	if pod.Spec.Containers[idx].Image != desiredPod.Spec.Containers[desiredIdx].Image {
+		r.logger.Infof("pod image does not match: got %s, wanted %s", pod.Spec.Containers[idx].Image, desiredPod.Spec.Containers[desiredIdx].Image)
+		return false, nil
+	}
+	if !reflect.DeepEqual(pod.Spec.Containers[idx].Env, desiredPod.Spec.Containers[desiredIdx].Env) {
+		r.logger.Infof("pod env vars do not match: got %+v, wanted %+v", pod.Spec.Containers[idx].Env, desiredPod.Spec.Containers[desiredIdx].Env)
+		return false, nil
 	}
 	if !reflect.DeepEqual(pod.Spec.Affinity, desiredPod.Spec.Affinity) {
 		r.logger.Infof("pod affinity do not match: got %+v, wanted %+v", pod.Spec.Affinity, desiredPod.Spec.Affinity)
-		return false
+		return false, nil
 	}
 	if !reflect.DeepEqual(pod.Spec.ImagePullSecrets, desiredPod.Spec.ImagePullSecrets) {
 		r.logger.Infof("pod image pull secrets do not match: got %+v, wanted %+v", pod.Spec.ImagePullSecrets, desiredPod.Spec.ImagePullSecrets)
-		return false
+		return false, nil
 	}
 	if pod.Spec.ServiceAccountName != desiredPod.Spec.ServiceAccountName {
 		r.logger.Infof("pod service account name does not match: got %s, wanted %s", pod.Spec.ServiceAccountName, desiredPod.Spec.ServiceAccountName)
-		return false
+		return false, nil
 	}
 	var knownVolumes []corev1.Volume
 	for _, volume := range pod.Spec.Volumes {
@@ -740,9 +752,9 @@ func (r *ReconcileHumioCluster) podsMatch(pod corev1.Pod, desiredPod corev1.Pod)
 	}
 	if !reflect.DeepEqual(knownVolumes, desiredPod.Spec.Volumes) {
 		r.logger.Infof("pod volumes do not match: got %+v, wanted %+v", pod.Spec.Volumes, desiredPod.Spec.Volumes)
-		return false
+		return false, nil
 	}
-	return true
+	return true, nil
 }
 
 func (r *ReconcileHumioCluster) ingressesMatch(ingress *v1beta1.Ingress, desiredIngress *v1beta1.Ingress) bool {

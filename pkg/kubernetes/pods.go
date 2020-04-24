@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
@@ -24,4 +25,13 @@ func LabelsForPod(clusterName string, nodeID int) map[string]string {
 	labels := LabelsForHumio(clusterName)
 	labels["node_id"] = strconv.Itoa(nodeID)
 	return labels
+}
+
+func GetContainerIndexByName(pod corev1.Pod, name string) (int, error) {
+	for idx, container := range pod.Spec.Containers {
+		if container.Name == name {
+			return idx, nil
+		}
+	}
+	return 0, fmt.Errorf("container with name %s not found", name)
 }
