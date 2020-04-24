@@ -191,10 +191,6 @@ func setEnvironmentVariableDefaults(hc *humioClusterv1alpha1.HumioCluster) {
 			Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)",
 		},
 		{
-			Name:  "PUBLIC_URL", // URL used by users/browsers.
-			Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)",
-		},
-		{
 			Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
 			Value: "$(ZOOKEEPER_URL)",
 		},
@@ -205,18 +201,23 @@ func setEnvironmentVariableDefaults(hc *humioClusterv1alpha1.HumioCluster) {
 	}
 
 	for _, defaultEnvVar := range envDefaults {
-		setEnvironmentVariableDefault(hc, defaultEnvVar)
+		appendEnvironmentVariableDefault(hc, defaultEnvVar)
 	}
 
 	if hc.Spec.Ingress.Enabled {
-		setEnvironmentVariableDefault(hc, corev1.EnvVar{
+		appendEnvironmentVariableDefault(hc, corev1.EnvVar{
 			Name:  "PUBLIC_URL", // URL used by users/browsers.
 			Value: fmt.Sprintf("https://%s", hc.Spec.Hostname),
+		})
+	} else {
+		appendEnvironmentVariableDefault(hc, corev1.EnvVar{
+			Name:  "PUBLIC_URL", // URL used by users/browsers.
+			Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)",
 		})
 	}
 }
 
-func setEnvironmentVariableDefault(hc *humioClusterv1alpha1.HumioCluster, defaultEnvVar corev1.EnvVar) {
+func appendEnvironmentVariableDefault(hc *humioClusterv1alpha1.HumioCluster, defaultEnvVar corev1.EnvVar) {
 	for _, envVar := range hc.Spec.EnvironmentVariables {
 		if envVar.Name == defaultEnvVar.Name {
 			return
