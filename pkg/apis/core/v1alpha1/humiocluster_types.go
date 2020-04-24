@@ -56,6 +56,8 @@ type HumioClusterSpec struct {
 	ESHostname string `json:"esHostname,omitempty"`
 	// Ingress is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster
 	Ingress HumioClusterIngressSpec `json:"ingress,omitempty"`
+	// ImagePullPolicy sets the imagePullPolicy for all the containers in the humio pod
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // HumioClusterIngressSpec is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster
