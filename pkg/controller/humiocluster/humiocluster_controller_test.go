@@ -83,7 +83,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			r, req := reconcileWithHumioClient(tt.humioCluster, tt.humioClient)
 			defer r.logger.Sync()
 
-			res, err := r.Reconcile(req)
+			_, err := r.Reconcile(req)
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
 			}
@@ -135,6 +135,9 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 
 			for nodeCount := 1; nodeCount <= tt.humioCluster.Spec.NodeCount; nodeCount++ {
 				foundPodList, err := kubernetes.ListPods(r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
+				if err != nil {
+					t.Errorf("failed to list pods: %s", err)
+				}
 				if len(foundPodList) != nodeCount {
 					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount, len(foundPodList))
 				}
@@ -147,7 +150,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				}
 
 				// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
-				res, err = r.Reconcile(req)
+				_, err = r.Reconcile(req)
 				if err != nil {
 					t.Errorf("reconcile: (%v)", err)
 				}
@@ -160,17 +163,20 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			if err != nil {
 				t.Errorf("unable to create service token secret: %s", err)
 			}
-			res, err = r.Reconcile(req)
+			_, err = r.Reconcile(req)
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
 			}
 
 			// Check that we do not create more than expected number of humio pods
-			res, err = r.Reconcile(req)
+			_, err = r.Reconcile(req)
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
 			}
 			foundPodList, err := kubernetes.ListPods(r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
+			if err != nil {
+				t.Errorf("failed to list pods: %s", err)
+			}
 			if len(foundPodList) != tt.humioCluster.Spec.NodeCount {
 				t.Errorf("expected list pods to return equal to %d, got %d", tt.humioCluster.Spec.NodeCount, len(foundPodList))
 			}
@@ -198,7 +204,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
-			res, err = r.Reconcile(req)
+			res, err := r.Reconcile(req)
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
 			}
@@ -295,6 +301,9 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 
 			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
 				foundPodList, err := kubernetes.ListPods(r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
+				if err != nil {
+					t.Errorf("failed to list pods: %s", err)
+				}
 				if len(foundPodList) != nodeCount+1 {
 					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount+1, len(foundPodList))
 				}
