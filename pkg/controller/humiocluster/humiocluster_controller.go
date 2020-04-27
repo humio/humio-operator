@@ -580,6 +580,10 @@ func (r *ReconcileHumioCluster) ensurePodLabels(ctx context.Context, hc *corev1a
 	}
 
 	foundPodList, err := kubernetes.ListPods(r.client, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+	if err != nil {
+		r.logger.Errorf("failed to list pods: %s", err)
+		return err
+	}
 
 	for _, pod := range foundPodList {
 		// Skip pods that already have a label
