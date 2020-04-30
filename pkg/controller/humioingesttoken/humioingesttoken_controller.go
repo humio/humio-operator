@@ -140,6 +140,20 @@ func (r *ReconcileHumioIngestToken) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 	}
 
+	defer func(ctx context.Context, humioClient humio.Client, hit *corev1alpha1.HumioIngestToken) {
+		curToken, err := humioClient.GetIngestToken(hit)
+		if err != nil {
+			r.setState(ctx, corev1alpha1.HumioIngestTokenStateUnknown, hit)
+			return
+		}
+		emptyToken := humioapi.IngestToken{}
+		if emptyToken != *curToken {
+			r.setState(ctx, corev1alpha1.HumioIngestTokenStateExists, hit)
+			return
+		}
+		r.setState(ctx, corev1alpha1.HumioIngestTokenStateNotFound, hit)
+	}(context.TODO(), r.humioClient, hit)
+
 	r.logger.Info("Checking if ingest token is marked to be deleted")
 	// Check if the HumioIngestToken instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
@@ -274,4 +288,9 @@ func (r *ReconcileHumioIngestToken) ensureTokenSecretExists(ctx context.Context,
 		}
 	}
 	return nil
+}
+
+func (r *ReconcileHumioIngestToken) setState(ctx context.Context, state string, hit *corev1alpha1.HumioIngestToken) error {
+	hit.Status.State = state
+	return r.client.Status().Update(ctx, hit)
 }

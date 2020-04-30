@@ -4,6 +4,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// HumioParserStateUnknown is the Unknown state of the parser
+	HumioParserStateUnknown = "Unknown"
+	// HumioParserStateExists is the Exists state of the parser
+	HumioParserStateExists = "Exists"
+	// HumioParserStateNotFound is the NotFound state of the parser
+	HumioParserStateNotFound = "NotFound"
+)
+
 // HumioParserSpec defines the desired state of HumioParser
 type HumioParserSpec struct {
 	// Which cluster
@@ -20,7 +29,7 @@ type HumioParserSpec struct {
 
 // HumioParserStatus defines the observed state of HumioParser
 type HumioParserStatus struct {
-	Created bool `json:"created,omitempty"`
+	State string `json:"state,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

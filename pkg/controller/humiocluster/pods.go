@@ -41,7 +41,7 @@ while true; do
 		sleep 5
 		continue
 	fi
-	CURRENT_TOKEN=$(kubectl get secret $ADMIN_SECRET_NAME -n default -o json | jq -r '.data.token' | base64 -d)
+	CURRENT_TOKEN=$(kubectl get secret $ADMIN_SECRET_NAME -n $NAMESPACE -o json | jq -r '.data.token' | base64 -d)
 	if [ "${CURRENT_TOKEN}" != "${TOKEN}" ]; then
 		kubectl delete secret $ADMIN_SECRET_NAME --namespace $NAMESPACE || true
 		kubectl create secret generic $ADMIN_SECRET_NAME --namespace $NAMESPACE --from-literal=token=$TOKEN

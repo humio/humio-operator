@@ -2025,7 +2025,7 @@ spec:
               description: Hostname is the public hostname used by clients to access
                 Humio
               type: string
-            idpCertificateName:
+            idpCertificateSecretName:
               description: IdpCertificateSecretName is the name of the secret that
                 contains the IDP Certificate when using SAML authentication
               type: string
@@ -2245,15 +2245,15 @@ spec:
         status:
           description: HumioClusterStatus defines the observed state of HumioCluster
           properties:
-            clusterNodeCount:
-              description: ClusterNodeCount is the number of nodes of humio running
+            nodeCount:
+              description: NodeCount is the number of nodes of humio running
               type: integer
-            clusterState:
-              description: 'ClusterState will be empty before the cluster is bootstrapped.
+            state:
+              description: 'State will be empty before the cluster is bootstrapped.
                 From there it can be "Bootstrapping" or "Running" TODO: other states?'
               type: string
-            clusterVersion:
-              description: ClusterVersion is the version of humio running
+            version:
+              description: Version is the version of humio running
               type: string
           type: object
       type: object
