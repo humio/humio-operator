@@ -124,6 +124,20 @@ func (r *ReconcileHumioParser) Reconcile(request reconcile.Request) (reconcile.R
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 	}
 
+	defer func(ctx context.Context, humioClient humio.Client, hp *corev1alpha1.HumioParser) {
+		curParser, err := humioClient.GetParser(hp)
+		if err != nil {
+			r.setState(ctx, corev1alpha1.HumioParserStateUnknown, hp)
+			return
+		}
+		emptyParser := humioapi.Parser{}
+		if reflect.DeepEqual(emptyParser, *curParser) {
+			r.setState(ctx, corev1alpha1.HumioParserStateNotFound, hp)
+			return
+		}
+		r.setState(ctx, corev1alpha1.HumioParserStateExists, hp)
+	}(context.TODO(), r.humioClient, hp)
+
 	r.logger.Info("Checking if parser is marked to be deleted")
 	// Check if the HumioParser instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
@@ -214,4 +228,9 @@ func (r *ReconcileHumioParser) addFinalizer(hp *corev1alpha1.HumioParser) error 
 		return err
 	}
 	return nil
+}
+
+func (r *ReconcileHumioParser) setState(ctx context.Context, state string, hp *corev1alpha1.HumioParser) error {
+	hp.Status.State = state
+	return r.client.Status().Update(ctx, hp)
 }
