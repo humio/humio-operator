@@ -3,10 +3,12 @@
 The below outlines the explicit steps to run the humio-operator on any Kubernetes cluster, this particular example uses AWS EKS. These steps will install Humio and Kafka in the *default* namespace. This cluster delployment uses Kubernetes hostpath and is *ephemeral*. 
 
 ## Begin by making a directory to work from
-mkdir ~/humio-operator-test
+```mkdir ~/humio-operator-test
 cd ~/humio-operator-test
+```
 
 ## Clone the cp-helm-charts to install Kafka and Zookeeper
+
 ```
 git clone https://github.com/humio/cp-helm-charts.git humio-cp-helm-charts
 helm template humio humio-cp-helm-charts --namespace=default --set cp-zookeeper.servers=1 --set cp-kafka.brokers=1 --set cp-schema-registry.enabled=false --set cp-kafka-rest.enabled=false --set cp-kafka-connect.enabled=false --set cp-ksql-server.enabled=false --set cp-control-center.enabled=false > cp-kafka-setup.yml```
