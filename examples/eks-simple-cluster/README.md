@@ -83,7 +83,8 @@ customresourcedefinition.apiextensions.k8s.io/humioexternalclusters.core.humio.c
 ## Install the Humio Operator
 ```
 kubectl apply -f humio-operator/examples/eks-simple-cluster/humio-operator.yml
-deployment.apps/humio-operator created```
+deployment.apps/humio-operator created
+```
 
 Check that the humio-operator pod started:
 ```
