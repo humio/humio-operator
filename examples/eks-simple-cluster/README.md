@@ -54,7 +54,8 @@ clusterrolebinding.rbac.authorization.k8s.io/humio-operator created
 kubectl apply -f humio-operator/deploy/crds/core.humio.com_humioclusters_crd.yaml
 kubectl apply -f humio-operator/deploy/crds/core.humio.com_humioingesttokens_crd.yaml
 kubectl apply -f humio-operator/deploy/crds/core.humio.com_humioparsers_crd.yaml
-kubectl apply -f humio-operator/deploy/crds/core.humio.com_humiorepositories_crd.yaml```
+kubectl apply -f humio-operator/deploy/crds/core.humio.com_humiorepositories_crd.yaml
+```
 
 Example output:
 ```kubectl apply -f humio-operator/deploy/crds/core.humio.com_humioclusters_crd.yaml
@@ -67,14 +68,14 @@ kubectl apply -f humio-operator/deploy/crds/core.humio.com_humiorepositories_crd
 customresourcedefinition.apiextensions.k8s.io/humiorepositories.core.humio.com created
 kubectl apply -f humio-operator/deploy/crds/core.humio.com_humioexternalclusters_crd.yaml
 customresourcedefinition.apiextensions.k8s.io/humioexternalclusters.core.humio.com created
+```
 
 ## Install the Humio Operator
 ```kubectl apply -f humio-operator/examples/eks-simple-cluster/humio-operator.yml
 deployment.apps/humio-operator created```
 
 Check that the humio-operator pod started:
-```
-kubectl get pods 
+```kubectl get pods 
 NAME                             READY   STATUS    RESTARTS   AGE
 humio-canary                     0/1     Error     0          14m
 humio-cp-kafka-0                 2/2     Running   1          14m
@@ -97,7 +98,8 @@ After a few minutes the Humio pods should be started:
 ```kubectl get pods 
 humio-test-cluster-core-cvpkfx   2/2     Running   0          3m
 humio-test-cluster-core-hffyvo   2/2     Running   0          5m
-humio-test-cluster-core-rxnhju   2/2     Running   0          7m```
+humio-test-cluster-core-rxnhju   2/2     Running   0          7m
+```
 
 
 ## Add a load balancer to access the cluster
@@ -108,7 +110,8 @@ service/humio-lb created
 
 Get the URL for the load balancer:
 ```kubectl get services | grep humio-lb
-humio-lb                      LoadBalancer   172.20.78.219   a93d8a942e6f740f18029fa580b4f478-346070595.us-west-2.elb.amazonaws.com   8080:32166/TCP      31m```
+humio-lb                      LoadBalancer   172.20.78.219   a93d8a942e6f740f18029fa580b4f478-346070595.us-west-2.elb.amazonaws.com   8080:32166/TCP      31m
+```
 
 ## Logging in to the cluster
 The cluster should now be available at the load balancer hostname on port 8080, IE http://a93d8a942e6f740f18029fa580b4f478-346070595.us-west-2.elb.amazonaws.com:8080, using the username "developer" and the password "MyVeryS3cretPassword"
