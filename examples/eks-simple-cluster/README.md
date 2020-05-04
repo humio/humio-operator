@@ -3,7 +3,8 @@
 The below outlines the explicit steps to run the humio-operator on any Kubernetes cluster, this particular example uses AWS EKS. These steps will install Humio and Kafka in the *default* namespace. This cluster delployment uses Kubernetes hostpath and is *ephemeral*. 
 
 ## Begin by making a directory to work from
-```mkdir ~/humio-operator-test
+```
+mkdir ~/humio-operator-test
 cd ~/humio-operator-test
 ```
 
