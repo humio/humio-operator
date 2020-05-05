@@ -31,23 +31,32 @@ spec:
         spec:
           description: HumioParserSpec defines the desired state of HumioParser
           properties:
+            externalClusterName:
+              type: string
+            managedClusterName:
+              description: Which cluster
+              type: string
             name:
+              description: Input
               type: string
-            parser_script:
+            parserScript:
               type: string
-            repository:
+            repositoryName:
               type: string
-            tag_fields:
+            tagFields:
               items:
                 type: string
               type: array
-            test_data:
+            testData:
               items:
                 type: string
               type: array
           type: object
         status:
           description: HumioParserStatus defines the observed state of HumioParser
+          properties:
+            created:
+              type: boolean
           type: object
       type: object
   version: v1alpha1
