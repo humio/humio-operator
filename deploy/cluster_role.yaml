@@ -3,6 +3,7 @@ kind: ClusterRole
 metadata:
   creationTimestamp: null
   name: humio-operator
+  namespace: default
 rules:
 - apiGroups:
   - rbac.authorization.k8s.io

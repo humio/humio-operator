@@ -2,6 +2,12 @@
 
 The below outlines the explicit steps to run the humio-operator on any Kubernetes cluster, this particular example uses AWS EKS. These steps will install Humio and Kafka in the *default* namespace. This cluster delployment uses Kubernetes hostpath and is *ephemeral*. 
 
+## Changing the default namespace
+To install the operator and other components not in the default name space do the following to change the context for kubectl:
+```
+kubectl create namespace humio-test
+```
+
 ## Begin by making a directory to work from
 ```
 mkdir ~/humio-operator-test
@@ -34,6 +40,10 @@ Note: The humio-canary pod my show a failed state in some cases, this isn't an i
 ## Clone the Humio operator and install prerequisite resources
 ```
 git clone https://github.com/humio/humio-operator.git humio-operator
+
+#if you would like to to change the namespace run the following to change it to humio-test:
+egrep -lRZ 'namespace: default' . | xargs -0 -l sed -i -e 's/namespace\: default/namespace\: humio-test/g'
+```
 
 # setup service account and cluster roles/bindings
 kubectl apply -f humio-operator/deploy/role.yaml
