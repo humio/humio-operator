@@ -15,7 +15,7 @@ spec:
       serviceAccountName: humio-operator
       containers:
         - name: humio-operator
-          image: humio/humio-operator:master
+          image: humio/humio-operator:v0.0.2
           command:
           - humio-operator
           env:
