@@ -7,6 +7,7 @@ import (
 
 	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	"go.uber.org/zap"
@@ -48,9 +49,10 @@ func TestReconcileHumioIngestToken_Reconcile(t *testing.T) {
 			r, req := reconcileInitWithHumioClient(tt.humioIngestToken, tt.humioClient)
 			defer r.logger.Sync()
 
+			cluster, _ := helpers.NewCluster(tt.humioIngestToken.Spec.ManagedClusterName, tt.humioIngestToken.Spec.ExternalClusterName, tt.humioIngestToken.Namespace)
 			// Create developer-token secret
 			secretData := map[string][]byte{"token": []byte("persistentToken")}
-			secret := kubernetes.ConstructSecret(getClusterName(tt.humioIngestToken), tt.humioIngestToken.Namespace, kubernetes.ServiceTokenSecretName, secretData)
+			secret := kubernetes.ConstructSecret(cluster.Name(), tt.humioIngestToken.Namespace, kubernetes.ServiceTokenSecretName, secretData)
 			err := r.client.Create(context.TODO(), secret)
 			if err != nil {
 				t.Errorf("unable to create persistent token secret: %s", err)
@@ -73,7 +75,7 @@ func TestReconcileHumioIngestToken_Reconcile(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(*updatedIngestToken, expectedToken) {
-				t.Errorf("token %+v, does not match expected %+v", updatedIngestToken, expectedToken)
+				t.Errorf("token %+v, does not match expected %+v", *updatedIngestToken, expectedToken)
 			}
 		})
 	}
@@ -127,9 +129,10 @@ func TestReconcileHumioIngestToken_Reconcile_ingest_token_secret(t *testing.T) {
 			r, req := reconcileInitWithHumioClient(tt.humioIngestToken, tt.humioClient)
 			defer r.logger.Sync()
 
+			cluster, _ := helpers.NewCluster(tt.humioIngestToken.Spec.ManagedClusterName, tt.humioIngestToken.Spec.ExternalClusterName, tt.humioIngestToken.Namespace)
 			// Create developer-token secret
 			secretData := map[string][]byte{"token": []byte("persistentToken")}
-			secret := kubernetes.ConstructSecret(getClusterName(tt.humioIngestToken), tt.humioIngestToken.Namespace, kubernetes.ServiceTokenSecretName, secretData)
+			secret := kubernetes.ConstructSecret(cluster.Name(), tt.humioIngestToken.Namespace, kubernetes.ServiceTokenSecretName, secretData)
 			err := r.client.Create(context.TODO(), secret)
 			if err != nil {
 				t.Errorf("unable to create persistent token secret: %s", err)

@@ -6,19 +6,21 @@ import (
 
 // HumioParserSpec defines the desired state of HumioParser
 type HumioParserSpec struct {
-	Name         string   `json:"name,omitempty"`
-	ParserScript string   `json:"parser_script,omitempty"`
-	Repository   string   `json:"repository,omitempty"`
-	TagFields    []string `json:"tag_fields,omitempty"`
-	TestData     []string `json:"test_data,omitempty"`
-	// TODO: add cluster
-	// ClusterName         string
-	// ExternalClusterName string
+	// Which cluster
+	ManagedClusterName  string `json:"managedClusterName,omitempty"`
+	ExternalClusterName string `json:"externalClusterName,omitempty"`
+
+	// Input
+	Name           string   `json:"name,omitempty"`
+	ParserScript   string   `json:"parserScript,omitempty"`
+	RepositoryName string   `json:"repositoryName,omitempty"`
+	TagFields      []string `json:"tagFields,omitempty"`
+	TestData       []string `json:"testData,omitempty"`
 }
 
 // HumioParserStatus defines the observed state of HumioParser
 type HumioParserStatus struct {
-	// TODO?
+	Created bool `json:"created,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
