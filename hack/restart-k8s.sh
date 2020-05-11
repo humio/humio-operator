@@ -29,8 +29,8 @@ kind load docker-image --name kind docker.io/confluentinc/cp-zookeeper:5.4.1
 kind load docker-image --name kind solsson/kafka-prometheus-jmx-exporter@sha256:6f82e2b0464f50da8104acd7363fb9b995001ddff77d248379f8788e78946143
 
 # Pre-load humio images
-docker pull humio/humio-core:1.9.1
-kind load docker-image --name kind humio/humio-core:1.9.1
+docker pull humio/humio-core:1.10.1
+kind load docker-image --name kind humio/humio-core:1.10.1
 
 # Use helm 3 to start up Kafka and Zookeeper
 mkdir ~/git
@@ -49,3 +49,4 @@ sleep 10
 kubectl --context kind-kind apply -f deploy/crds/core.humio.com_v1alpha1_humioexternalcluster_cr.yaml
 kubectl --context kind-kind apply -f deploy/crds/core.humio.com_v1alpha1_humiocluster_cr.yaml
 kubectl --context kind-kind apply -f deploy/crds/core.humio.com_v1alpha1_humioingesttoken_cr.yaml
+kubectl --context kind-kind apply -f deploy/crds/core.humio.com_v1alpha1_humioparser_cr.yaml

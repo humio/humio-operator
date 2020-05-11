@@ -5,6 +5,7 @@ import (
 
 	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
 )
 
 type ClientMock struct {
@@ -13,6 +14,7 @@ type ClientMock struct {
 	UpdateStoragePartitionSchemeError error
 	UpdateIngestPartitionSchemeError  error
 	IngestToken                       humioapi.IngestToken
+	Parser                            humioapi.Parser
 }
 
 type MockClientConfig struct {
@@ -32,6 +34,7 @@ func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePar
 			UpdateStoragePartitionSchemeError: updateStoragePartitionSchemeError,
 			UpdateIngestPartitionSchemeError:  updateIngestPartitionSchemeError,
 			IngestToken:                       humioapi.IngestToken{},
+			Parser:                            humioapi.Parser{Tests: []humioapi.ParserTestCase{}},
 		},
 		Version: version,
 	}
@@ -145,5 +148,30 @@ func (h *MockClientConfig) UpdateIngestToken(hit *corev1alpha1.HumioIngestToken)
 func (h *MockClientConfig) DeleteIngestToken(hit *corev1alpha1.HumioIngestToken) error {
 	updatedApiClient := h.apiClient
 	updatedApiClient.IngestToken = humioapi.IngestToken{}
+	return nil
+}
+
+func (h *MockClientConfig) AddParser(hp *corev1alpha1.HumioParser) (*humioapi.Parser, error) {
+	updatedApiClient := h.apiClient
+	updatedApiClient.Parser = humioapi.Parser{
+		Name:      hp.Spec.Name,
+		Script:    hp.Spec.ParserScript,
+		TagFields: hp.Spec.TagFields,
+		Tests:     helpers.MapTests(hp.Spec.TestData, helpers.ToTestCase),
+	}
+	return &h.apiClient.Parser, nil
+}
+
+func (h *MockClientConfig) GetParser(hp *corev1alpha1.HumioParser) (*humioapi.Parser, error) {
+	return &h.apiClient.Parser, nil
+}
+
+func (h *MockClientConfig) UpdateParser(hp *corev1alpha1.HumioParser) (*humioapi.Parser, error) {
+	return h.AddParser(hp)
+}
+
+func (h *MockClientConfig) DeleteParser(hp *corev1alpha1.HumioParser) error {
+	updatedApiClient := h.apiClient
+	updatedApiClient.Parser = humioapi.Parser{Tests: []humioapi.ParserTestCase{}}
 	return nil
 }

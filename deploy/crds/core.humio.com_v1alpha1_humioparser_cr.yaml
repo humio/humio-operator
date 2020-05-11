@@ -3,10 +3,11 @@ kind: HumioParser
 metadata:
   name: example-humioparser
 spec:
-  name: # fallback to metadata name
-  parser_script: 
-  respository: 
-  tag_fields:
+  managedClusterName: example-humiocluster
+  name: "example-humioparser"
+  parserScript: "kvParse()"
+  repositoryName: "humio"
+  tagFields:
   - "@somefield"
-  test_data:
+  testData:
   - "@rawstring data"

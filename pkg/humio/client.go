@@ -5,6 +5,7 @@ import (
 
 	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
 	"go.uber.org/zap"
 )
 
@@ -12,6 +13,7 @@ import (
 type Client interface {
 	ClusterClient
 	IngestTokensClient
+	ParsersClient
 }
 
 type ClusterClient interface {
@@ -34,6 +36,13 @@ type IngestTokensClient interface {
 	GetIngestToken(*corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error)
 	UpdateIngestToken(*corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error)
 	DeleteIngestToken(*corev1alpha1.HumioIngestToken) error
+}
+
+type ParsersClient interface {
+	AddParser(*corev1alpha1.HumioParser) (*humioapi.Parser, error)
+	GetParser(*corev1alpha1.HumioParser) (*humioapi.Parser, error)
+	UpdateParser(*corev1alpha1.HumioParser) (*humioapi.Parser, error)
+	DeleteParser(*corev1alpha1.HumioParser) error
 }
 
 // ClientConfig stores our Humio api client
@@ -166,4 +175,42 @@ func (h *ClientConfig) UpdateIngestToken(hit *corev1alpha1.HumioIngestToken) (*h
 
 func (h *ClientConfig) DeleteIngestToken(hit *corev1alpha1.HumioIngestToken) error {
 	return h.apiClient.IngestTokens().Remove(hit.Spec.RepositoryName, hit.Spec.Name)
+}
+
+func (h *ClientConfig) AddParser(hp *corev1alpha1.HumioParser) (*humioapi.Parser, error) {
+	parser := humioapi.Parser{
+		Name:      hp.Spec.Name,
+		Script:    hp.Spec.ParserScript,
+		TagFields: hp.Spec.TagFields,
+		Tests:     helpers.MapTests(hp.Spec.TestData, helpers.ToTestCase),
+	}
+	err := h.apiClient.Parsers().Add(
+		hp.Spec.RepositoryName,
+		&parser,
+		false,
+	)
+	return &parser, err
+}
+
+func (h *ClientConfig) GetParser(hp *corev1alpha1.HumioParser) (*humioapi.Parser, error) {
+	return h.apiClient.Parsers().Get(hp.Spec.RepositoryName, hp.Spec.Name)
+}
+
+func (h *ClientConfig) UpdateParser(hp *corev1alpha1.HumioParser) (*humioapi.Parser, error) {
+	parser := humioapi.Parser{
+		Name:      hp.Spec.Name,
+		Script:    hp.Spec.ParserScript,
+		TagFields: hp.Spec.TagFields,
+		Tests:     helpers.MapTests(hp.Spec.TestData, helpers.ToTestCase),
+	}
+	err := h.apiClient.Parsers().Add(
+		hp.Spec.RepositoryName,
+		&parser,
+		true,
+	)
+	return &parser, err
+}
+
+func (h *ClientConfig) DeleteParser(hp *corev1alpha1.HumioParser) error {
+	return h.apiClient.Parsers().Remove(hp.Spec.RepositoryName, hp.Spec.Name)
 }
