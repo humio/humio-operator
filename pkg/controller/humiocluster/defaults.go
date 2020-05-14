@@ -29,6 +29,7 @@ const (
 	idpCertificateSecretName       = "idp-certificate-secret"
 	idpCertificateFilename         = "idp-certificate.pem"
 	extraKafkaPropertiesFilename   = "extra-kafka-properties.properties"
+	podHashAnnotation              = "humio_pod_hash"
 )
 
 func setDefaults(hc *humioClusterv1alpha1.HumioCluster) {
