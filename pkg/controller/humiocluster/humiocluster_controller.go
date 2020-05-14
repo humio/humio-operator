@@ -2,6 +2,7 @@ package humiocluster
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"reflect"
 	"time"
@@ -718,47 +719,16 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(ctx context.Conte
 }
 
 func (r *ReconcileHumioCluster) podsMatch(pod corev1.Pod, desiredPod corev1.Pod) (bool, error) {
-	idx, err := kubernetes.GetContainerIndexByName(pod, "humio")
-	if err != nil {
-		return false, err
+	if _, ok := pod.Annotations[podHashAnnotation]; !ok {
+		r.logger.Errorf("did not find annotation with pod hash")
+		return false, fmt.Errorf("did not find annotation with pod hash")
 	}
-	desiredIdx, err := kubernetes.GetContainerIndexByName(desiredPod, "humio")
-	if err != nil {
-		return false, err
+	desiredPodHash := asSHA256(desiredPod.Spec)
+	if pod.Annotations[podHashAnnotation] == desiredPodHash {
+		return true, nil
 	}
-	if pod.Spec.Containers[idx].Image != desiredPod.Spec.Containers[desiredIdx].Image {
-		r.logger.Infof("pod image does not match: got %s, wanted %s", pod.Spec.Containers[idx].Image, desiredPod.Spec.Containers[desiredIdx].Image)
-		return false, nil
-	}
-	if !reflect.DeepEqual(pod.Spec.Containers[idx].Env, desiredPod.Spec.Containers[desiredIdx].Env) {
-		r.logger.Infof("pod env vars do not match: got %+v, wanted %+v", pod.Spec.Containers[idx].Env, desiredPod.Spec.Containers[desiredIdx].Env)
-		return false, nil
-	}
-	if !reflect.DeepEqual(pod.Spec.Affinity, desiredPod.Spec.Affinity) {
-		r.logger.Infof("pod affinity do not match: got %+v, wanted %+v", pod.Spec.Affinity, desiredPod.Spec.Affinity)
-		return false, nil
-	}
-	if !reflect.DeepEqual(pod.Spec.ImagePullSecrets, desiredPod.Spec.ImagePullSecrets) {
-		r.logger.Infof("pod image pull secrets do not match: got %+v, wanted %+v", pod.Spec.ImagePullSecrets, desiredPod.Spec.ImagePullSecrets)
-		return false, nil
-	}
-	if pod.Spec.ServiceAccountName != desiredPod.Spec.ServiceAccountName {
-		r.logger.Infof("pod service account name does not match: got %s, wanted %s", pod.Spec.ServiceAccountName, desiredPod.Spec.ServiceAccountName)
-		return false, nil
-	}
-	var knownVolumes []corev1.Volume
-	for _, volume := range pod.Spec.Volumes {
-		for _, knownVolume := range desiredPod.Spec.Volumes {
-			if volume.Name == knownVolume.Name {
-				knownVolumes = append(knownVolumes, volume)
-			}
-		}
-	}
-	if !reflect.DeepEqual(knownVolumes, desiredPod.Spec.Volumes) {
-		r.logger.Infof("pod volumes do not match: got %+v, wanted %+v", pod.Spec.Volumes, desiredPod.Spec.Volumes)
-		return false, nil
-	}
-	return true, nil
+	r.logger.Infof("pod hash annotation did does not match desired pod")
+	return false, nil
 }
 
 func (r *ReconcileHumioCluster) ingressesMatch(ingress *v1beta1.Ingress, desiredIngress *v1beta1.Ingress) bool {
@@ -814,6 +784,7 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *
 			r.logger.Errorf("unable to construct pod for HumioCluster: %s", err)
 			return reconcile.Result{}, err
 		}
+		pod.Annotations["humio_pod_hash"] = asSHA256(pod.Spec)
 		if err := controllerutil.SetControllerReference(hc, pod, r.scheme); err != nil {
 			r.logger.Errorf("could not set controller reference: %s", err)
 			return reconcile.Result{}, err
@@ -849,6 +820,7 @@ func (r *ReconcileHumioCluster) ensurePodsExist(ctx context.Context, hc *corev1a
 			r.logger.Errorf("unable to construct pod for HumioCluster: %s", err)
 			return reconcile.Result{}, err
 		}
+		pod.Annotations["humio_pod_hash"] = asSHA256(pod.Spec)
 		if err := controllerutil.SetControllerReference(hc, pod, r.scheme); err != nil {
 			r.logger.Errorf("could not set controller reference: %s", err)
 			return reconcile.Result{}, err
@@ -891,4 +863,11 @@ func (r *ReconcileHumioCluster) authWithSidecarToken(ctx context.Context, hc *co
 func envVarList(hc *corev1alpha1.HumioCluster) []corev1.EnvVar {
 	setEnvironmentVariableDefaults(hc)
 	return hc.Spec.EnvironmentVariables
+}
+
+// TODO: This is very generic, we may want to move this elsewhere in case we need to use it elsewhere.
+func asSHA256(o interface{}) string {
+	h := sha256.New()
+	h.Write([]byte(fmt.Sprintf("%v", o)))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }

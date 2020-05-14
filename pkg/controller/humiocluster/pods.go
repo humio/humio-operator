@@ -51,9 +51,10 @@ while true; do
 done`
 	pod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-core-%s", hc.Name, generatePodSuffix()),
-			Namespace: hc.Namespace,
-			Labels:    kubernetes.LabelsForHumio(hc.Name),
+			Name:        fmt.Sprintf("%s-core-%s", hc.Name, generatePodSuffix()),
+			Namespace:   hc.Namespace,
+			Labels:      kubernetes.LabelsForHumio(hc.Name),
+			Annotations: map[string]string{},
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: serviceAccountNameOrDefault(hc),
