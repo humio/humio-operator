@@ -4,18 +4,29 @@ go 1.14
 
 require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
-	github.com/golang/protobuf v1.3.5 // indirect
-	github.com/humio/cli v0.23.1-0.20200407103936-163921001c90
+	github.com/gofrs/uuid v3.3.0+incompatible // indirect
+	github.com/golang/protobuf v1.4.2 // indirect
+	github.com/humio/cli v0.25.1-0.20200519180520-db8b24bcb4d1
+	github.com/mattn/go-runewidth v0.0.9 // indirect
+	github.com/mitchellh/mapstructure v1.3.0 // indirect
+	github.com/olekukonko/tablewriter v0.0.4 // indirect
 	github.com/operator-framework/operator-sdk v0.17.0
+	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/prometheus/client_golang v1.5.1
 	github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f
-	github.com/spf13/cobra v0.0.7 // indirect
+	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
+	github.com/spf13/cast v1.3.1 // indirect
+	github.com/spf13/cobra v1.0.0 // indirect
+	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5
+	github.com/spf13/viper v1.7.0 // indirect
 	go.uber.org/zap v1.14.1
-	golang.org/x/crypto v0.0.0-20200406173513-056763e48d71 // indirect
-	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
+	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37 // indirect
+	golang.org/x/net v0.0.0-20200519113804-d87ec0cfa476 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
-	golang.org/x/sys v0.0.0-20200406155108-e3b113bbe6a4 // indirect
+	golang.org/x/sys v0.0.0-20200519105757-fe76b779f299 // indirect
+	google.golang.org/appengine v1.6.6 // indirect
+	gopkg.in/ini.v1 v1.56.0 // indirect
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v12.0.0+incompatible

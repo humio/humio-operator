@@ -14,6 +14,7 @@ type Client interface {
 	ClusterClient
 	IngestTokensClient
 	ParsersClient
+	RepositoriesClient
 }
 
 type ClusterClient interface {
@@ -43,6 +44,13 @@ type ParsersClient interface {
 	GetParser(*corev1alpha1.HumioParser) (*humioapi.Parser, error)
 	UpdateParser(*corev1alpha1.HumioParser) (*humioapi.Parser, error)
 	DeleteParser(*corev1alpha1.HumioParser) error
+}
+
+type RepositoriesClient interface {
+	AddRepository(*corev1alpha1.HumioRepository) (*humioapi.Repository, error)
+	GetRepository(*corev1alpha1.HumioRepository) (*humioapi.Repository, error)
+	UpdateRepository(*corev1alpha1.HumioRepository) (*humioapi.Repository, error)
+	DeleteRepository(*corev1alpha1.HumioRepository) error
 }
 
 // ClientConfig stores our Humio api client
@@ -213,4 +221,86 @@ func (h *ClientConfig) UpdateParser(hp *corev1alpha1.HumioParser) (*humioapi.Par
 
 func (h *ClientConfig) DeleteParser(hp *corev1alpha1.HumioParser) error {
 	return h.apiClient.Parsers().Remove(hp.Spec.RepositoryName, hp.Spec.Name)
+}
+
+func (h *ClientConfig) AddRepository(hr *corev1alpha1.HumioRepository) (*humioapi.Repository, error) {
+	repository := humioapi.Repository{Name: hr.Spec.Name}
+	err := h.apiClient.Repositories().Create(hr.Spec.Name)
+	return &repository, err
+}
+
+func (h *ClientConfig) GetRepository(hr *corev1alpha1.HumioRepository) (*humioapi.Repository, error) {
+	repoList, err := h.apiClient.Repositories().List()
+	if err != nil {
+		return &humioapi.Repository{}, fmt.Errorf("could not list repositories: %s", err)
+	}
+	for _, repo := range repoList {
+		if repo.Name == hr.Spec.Name {
+			// we now know the repository exists
+			repository, err := h.apiClient.Repositories().Get(hr.Spec.Name)
+			return &repository, err
+		}
+	}
+	return &humioapi.Repository{}, nil
+}
+
+func (h *ClientConfig) UpdateRepository(hr *corev1alpha1.HumioRepository) (*humioapi.Repository, error) {
+	curRepository, err := h.GetRepository(hr)
+	if err != nil {
+		return &humioapi.Repository{}, err
+	}
+
+	if curRepository.Description != hr.Spec.Description {
+		err = h.apiClient.Repositories().UpdateDescription(
+			hr.Spec.Name,
+			hr.Spec.Description,
+		)
+		if err != nil {
+			return &humioapi.Repository{}, err
+		}
+	}
+
+	if curRepository.RetentionDays != float64(hr.Spec.Retention.TimeInDays) {
+		err = h.apiClient.Repositories().UpdateTimeBasedRetention(
+			hr.Spec.Name,
+			float64(hr.Spec.Retention.TimeInDays),
+			hr.Spec.AllowDataDeletion,
+		)
+		if err != nil {
+			return &humioapi.Repository{}, err
+		}
+	}
+
+	if curRepository.StorageRetentionSizeGB != float64(hr.Spec.Retention.StorageSizeInGB) {
+		err = h.apiClient.Repositories().UpdateStorageBasedRetention(
+			hr.Spec.Name,
+			float64(hr.Spec.Retention.StorageSizeInGB),
+			hr.Spec.AllowDataDeletion,
+		)
+		if err != nil {
+			return &humioapi.Repository{}, err
+		}
+	}
+
+	if curRepository.IngestRetentionSizeGB != float64(hr.Spec.Retention.IngestSizeInGB) {
+		err = h.apiClient.Repositories().UpdateIngestBasedRetention(
+			hr.Spec.Name,
+			float64(hr.Spec.Retention.IngestSizeInGB),
+			hr.Spec.AllowDataDeletion,
+		)
+		if err != nil {
+			return &humioapi.Repository{}, err
+		}
+	}
+
+	return h.GetRepository(hr)
+}
+
+func (h *ClientConfig) DeleteRepository(hr *corev1alpha1.HumioRepository) error {
+	// perhaps we should allow calls to DeleteRepository() to include the reason instead of hardcoding it
+	return h.apiClient.Repositories().Delete(
+		hr.Spec.Name,
+		"deleted by humio-operator",
+		hr.Spec.AllowDataDeletion,
+	)
 }
