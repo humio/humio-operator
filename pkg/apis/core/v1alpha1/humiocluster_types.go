@@ -35,7 +35,7 @@ type HumioClusterSpec struct {
 	// Affinity defines the affinity policies that will be attached to the humio pods
 	Affinity corev1.Affinity `json:"affinity,omitempty"`
 	// IdpCertificateSecretName is the name of the secret that contains the IDP Certificate when using SAML authentication
-	IdpCertificateSecretName string `json:"idpCertificateName,omitempty"`
+	IdpCertificateSecretName string `json:"idpCertificateSecretName,omitempty"`
 	// ServiceAccountName is the name of the Kubernetes Service Account that will be attached to the Humio pods
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 	// InitServiceAccountName is the name of the Kubernetes Service Account that will be attached to the init container in the humio pod
@@ -76,13 +76,13 @@ type HumioClusterIngressSpec struct {
 
 // HumioClusterStatus defines the observed state of HumioCluster
 type HumioClusterStatus struct {
-	// ClusterState will be empty before the cluster is bootstrapped. From there it can be "Bootstrapping" or "Running"
+	// State will be empty before the cluster is bootstrapped. From there it can be "Bootstrapping" or "Running"
 	// TODO: other states?
-	ClusterState string `json:"clusterState,omitempty"`
-	// ClusterVersion is the version of humio running
-	ClusterVersion string `json:"clusterVersion,omitempty"`
-	// ClusterNodeCount is the number of nodes of humio running
-	ClusterNodeCount int `json:"clusterNodeCount,omitempty"`
+	State string `json:"state,omitempty"`
+	// Version is the version of humio running
+	Version string `json:"version,omitempty"`
+	// NodeCount is the number of nodes of humio running
+	NodeCount int `json:"nodeCount,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

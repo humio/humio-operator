@@ -4,6 +4,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// HumioIngestTokenStateUnknown is the Unknown state of the ingest token
+	HumioIngestTokenStateUnknown = "Unknown"
+	// HumioIngestTokenStateExists is the Exists state of the ingest token
+	HumioIngestTokenStateExists = "Exists"
+	// HumioIngestTokenStateNotFound is the NotFound state of the ingest token
+	HumioIngestTokenStateNotFound = "NotFound"
+)
+
 // HumioIngestTokenSpec defines the desired state of HumioIngestToken
 type HumioIngestTokenSpec struct {
 	// Which cluster
@@ -21,7 +30,7 @@ type HumioIngestTokenSpec struct {
 
 // HumioIngestTokenStatus defines the observed state of HumioIngestToken
 type HumioIngestTokenStatus struct {
-	Created bool `json:"created,omitempty"`
+	State string `json:"state,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
