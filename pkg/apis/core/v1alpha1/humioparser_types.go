@@ -37,6 +37,7 @@ type HumioParserStatus struct {
 // HumioParser is the Schema for the humioparsers API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humioparsers,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the parser"
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Parser"
 type HumioParser struct {
 	metav1.TypeMeta   `json:",inline"`

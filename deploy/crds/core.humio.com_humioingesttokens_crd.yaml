@@ -3,6 +3,11 @@ kind: CustomResourceDefinition
 metadata:
   name: humioingesttokens.core.humio.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.state
+    description: The state of the ingest token
+    name: State
+    type: string
   group: core.humio.com
   names:
     kind: HumioIngestToken

@@ -3,6 +3,11 @@ kind: CustomResourceDefinition
 metadata:
   name: humioparsers.core.humio.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.state
+    description: The state of the parser
+    name: State
+    type: string
   group: core.humio.com
   names:
     kind: HumioParser

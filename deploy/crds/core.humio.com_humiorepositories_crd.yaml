@@ -3,6 +3,11 @@ kind: CustomResourceDefinition
 metadata:
   name: humiorepositories.core.humio.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.state
+    description: The state of the parser
+    name: State
+    type: string
   group: core.humio.com
   names:
     kind: HumioRepository
@@ -31,27 +36,40 @@ spec:
         spec:
           description: HumioRepositorySpec defines the desired state of HumioRepository
           properties:
+            allowDataDeletion:
+              type: boolean
             description:
               type: string
+            externalClusterName:
+              type: string
+            managedClusterName:
+              description: Which cluster
+              type: string
             name:
+              description: Input
               type: string
             retention:
-              description: 'HumioRetention defines the retention for the repository
-                TODO: this is not implemented in the humio api yet'
+              description: HumioRetention defines the retention for the repository
               properties:
-                ingest_size_in_gb:
-                  format: int64
+                ingestSizeInGB:
+                  description: 'perhaps we should migrate to resource.Quantity? the
+                    Humio API needs float64, but that is not supported here, see more
+                    here: https://github.com/kubernetes-sigs/controller-tools/issues/245'
+                  format: int32
                   type: integer
-                storage_size_in_gb:
-                  format: int64
+                storageSizeInGB:
+                  format: int32
                   type: integer
-                time_in_days:
-                  format: int64
+                timeInDays:
+                  format: int32
                   type: integer
               type: object
           type: object
         status:
           description: HumioRepositoryStatus defines the observed state of HumioRepository
+          properties:
+            state:
+              type: string
           type: object
       type: object
   version: v1alpha1
