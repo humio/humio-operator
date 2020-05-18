@@ -93,8 +93,8 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			if err != nil {
 				t.Errorf("get HumioCluster: (%v)", err)
 			}
-			if updatedHumioCluster.Status.ClusterState != corev1alpha1.HumioClusterStateBoostrapping {
-				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateBoostrapping, updatedHumioCluster.Status.ClusterState)
+			if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateBoostrapping {
+				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateBoostrapping, updatedHumioCluster.Status.State)
 			}
 
 			// Check that the init service account, secret, cluster role and cluster role binding are created
@@ -187,14 +187,14 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			if err != nil {
 				t.Errorf("get HumioCluster: (%v)", err)
 			}
-			if updatedHumioCluster.Status.ClusterState != corev1alpha1.HumioClusterStateRunning {
-				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateRunning, updatedHumioCluster.Status.ClusterState)
+			if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateRunning {
+				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateRunning, updatedHumioCluster.Status.State)
 			}
-			if updatedHumioCluster.Status.ClusterVersion != tt.version {
-				t.Errorf("expected cluster version to be %s but got %s", tt.version, updatedHumioCluster.Status.ClusterVersion)
+			if updatedHumioCluster.Status.Version != tt.version {
+				t.Errorf("expected cluster version to be %s but got %s", tt.version, updatedHumioCluster.Status.Version)
 			}
-			if updatedHumioCluster.Status.ClusterNodeCount != tt.humioCluster.Spec.NodeCount {
-				t.Errorf("expected node count to be %d but got %d", tt.humioCluster.Spec.NodeCount, updatedHumioCluster.Status.ClusterNodeCount)
+			if updatedHumioCluster.Status.NodeCount != tt.humioCluster.Spec.NodeCount {
+				t.Errorf("expected node count to be %d but got %d", tt.humioCluster.Spec.NodeCount, updatedHumioCluster.Status.NodeCount)
 			}
 
 			// Check that the service exists
@@ -294,8 +294,8 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 			if err != nil {
 				t.Errorf("get HumioCluster: (%v)", err)
 			}
-			if updatedHumioCluster.Status.ClusterState != corev1alpha1.HumioClusterStateBoostrapping {
-				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateBoostrapping, updatedHumioCluster.Status.ClusterState)
+			if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateBoostrapping {
+				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateBoostrapping, updatedHumioCluster.Status.State)
 			}
 			tt.humioCluster = updatedHumioCluster
 
@@ -340,14 +340,14 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 			if err != nil {
 				t.Errorf("get HumioCluster: (%v)", err)
 			}
-			if updatedHumioCluster.Status.ClusterState != corev1alpha1.HumioClusterStateRunning {
-				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateRunning, updatedHumioCluster.Status.ClusterState)
+			if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateRunning {
+				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateRunning, updatedHumioCluster.Status.State)
 			}
-			if updatedHumioCluster.Status.ClusterVersion != tt.version {
-				t.Errorf("expected cluster version to be %s but got %s", tt.version, updatedHumioCluster.Status.ClusterVersion)
+			if updatedHumioCluster.Status.Version != tt.version {
+				t.Errorf("expected cluster version to be %s but got %s", tt.version, updatedHumioCluster.Status.Version)
 			}
-			if updatedHumioCluster.Status.ClusterNodeCount != tt.humioCluster.Spec.NodeCount {
-				t.Errorf("expected node count to be %d but got %d", tt.humioCluster.Spec.NodeCount, updatedHumioCluster.Status.ClusterNodeCount)
+			if updatedHumioCluster.Status.NodeCount != tt.humioCluster.Spec.NodeCount {
+				t.Errorf("expected node count to be %d but got %d", tt.humioCluster.Spec.NodeCount, updatedHumioCluster.Status.NodeCount)
 			}
 
 			// Update humio image
@@ -398,14 +398,14 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 			if err != nil {
 				t.Errorf("get HumioCluster: (%v)", err)
 			}
-			if updatedHumioCluster.Status.ClusterState != corev1alpha1.HumioClusterStateRunning {
-				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateRunning, updatedHumioCluster.Status.ClusterState)
+			if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateRunning {
+				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateRunning, updatedHumioCluster.Status.State)
 			}
-			if updatedHumioCluster.Status.ClusterVersion != tt.version {
-				t.Errorf("expected cluster version to be %s but got %s", tt.version, updatedHumioCluster.Status.ClusterVersion)
+			if updatedHumioCluster.Status.Version != tt.version {
+				t.Errorf("expected cluster version to be %s but got %s", tt.version, updatedHumioCluster.Status.Version)
 			}
-			if updatedHumioCluster.Status.ClusterNodeCount != tt.humioCluster.Spec.NodeCount {
-				t.Errorf("expected node count to be %d but got %d", tt.humioCluster.Spec.NodeCount, updatedHumioCluster.Status.ClusterNodeCount)
+			if updatedHumioCluster.Status.NodeCount != tt.humioCluster.Spec.NodeCount {
+				t.Errorf("expected node count to be %d but got %d", tt.humioCluster.Spec.NodeCount, updatedHumioCluster.Status.NodeCount)
 			}
 		})
 	}

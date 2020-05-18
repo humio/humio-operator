@@ -122,8 +122,8 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 
 	// Assume we are bootstrapping if no cluster state is set.
 	// TODO: this is a workaround for the issue where humio pods cannot start up at the same time during the first boot
-	if hc.Status.ClusterState == "" {
-		r.setClusterState(context.TODO(), corev1alpha1.HumioClusterStateBoostrapping, hc)
+	if hc.Status.State == "" {
+		r.setState(context.TODO(), corev1alpha1.HumioClusterStateBoostrapping, hc)
 	}
 
 	// Ensure service exists
@@ -157,7 +157,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	// Ensure pods exist. Will requeue if not all pods are created and ready
-	if hc.Status.ClusterState == corev1alpha1.HumioClusterStateBoostrapping {
+	if hc.Status.State == corev1alpha1.HumioClusterStateBoostrapping {
 		result, err = r.ensurePodsBootstrapped(context.TODO(), hc)
 		if result != emptyResult || err != nil {
 			return result, err
@@ -170,7 +170,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return result, err
 	}
 
-	err = r.setClusterState(context.TODO(), corev1alpha1.HumioClusterStateRunning, hc)
+	err = r.setState(context.TODO(), corev1alpha1.HumioClusterStateRunning, hc)
 	if err != nil {
 		r.logger.Infof("unable to set cluster state: %s", err)
 		return reconcile.Result{}, err
@@ -178,7 +178,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 
 	defer func(ctx context.Context, hc *corev1alpha1.HumioCluster) {
 		pods, _ := kubernetes.ListPods(r.client, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
-		r.setClusterNodeCount(ctx, len(pods), hc)
+		r.setNodeCount(ctx, len(pods), hc)
 	}(context.TODO(), hc)
 
 	defer func(ctx context.Context, humioClient humio.Client, hc *corev1alpha1.HumioCluster) {
@@ -186,7 +186,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		if err != nil {
 			r.logger.Infof("unable to get status: %s", err)
 		}
-		r.setClusterVersion(ctx, status.Version, hc)
+		r.setVersion(ctx, status.Version, hc)
 	}(context.TODO(), r.humioClient, hc)
 
 	result, err = r.ensurePodsExist(context.TODO(), hc)
@@ -221,20 +221,20 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 30}, nil
 }
 
-// setClusterState is used to change the cluster state
+// setState is used to change the cluster state
 // TODO: we use this to determine if we should have a delay between startup of humio pods during bootstrap vs starting up pods during an image update
-func (r *ReconcileHumioCluster) setClusterState(ctx context.Context, clusterState string, hc *corev1alpha1.HumioCluster) error {
-	hc.Status.ClusterState = clusterState
+func (r *ReconcileHumioCluster) setState(ctx context.Context, state string, hc *corev1alpha1.HumioCluster) error {
+	hc.Status.State = state
 	return r.client.Status().Update(ctx, hc)
 }
 
-func (r *ReconcileHumioCluster) setClusterVersion(ctx context.Context, clusterVersion string, hc *corev1alpha1.HumioCluster) error {
-	hc.Status.ClusterVersion = clusterVersion
+func (r *ReconcileHumioCluster) setVersion(ctx context.Context, version string, hc *corev1alpha1.HumioCluster) error {
+	hc.Status.Version = version
 	return r.client.Status().Update(ctx, hc)
 }
 
-func (r *ReconcileHumioCluster) setClusterNodeCount(ctx context.Context, clusterNodeCount int, hc *corev1alpha1.HumioCluster) error {
-	hc.Status.ClusterNodeCount = clusterNodeCount
+func (r *ReconcileHumioCluster) setNodeCount(ctx context.Context, nodeCount int, hc *corev1alpha1.HumioCluster) error {
+	hc.Status.NodeCount = nodeCount
 	return r.client.Status().Update(ctx, hc)
 }
 

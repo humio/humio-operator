@@ -1,34 +1,25 @@
 module github.com/humio/humio-operator
 
-go 1.13
+go 1.14
 
 require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/golang/protobuf v1.3.5 // indirect
-	github.com/google/martian v2.1.0+incompatible
 	github.com/humio/cli v0.23.1-0.20200407103936-163921001c90
-	github.com/mattn/go-runewidth v0.0.9 // indirect
-	github.com/mitchellh/mapstructure v1.2.2 // indirect
-	github.com/olekukonko/tablewriter v0.0.4 // indirect
-	github.com/operator-framework/operator-sdk v0.15.1
-	github.com/pelletier/go-toml v1.7.0 // indirect
-	github.com/prometheus/client_golang v1.2.1
+	github.com/operator-framework/operator-sdk v0.17.0
+	github.com/prometheus/client_golang v1.5.1
 	github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f
-	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
-	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v0.0.7 // indirect
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.6.2 // indirect
-	go.uber.org/zap v1.10.0
+	go.uber.org/zap v1.14.1
 	golang.org/x/crypto v0.0.0-20200406173513-056763e48d71 // indirect
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/sys v0.0.0-20200406155108-e3b113bbe6a4 // indirect
-	gopkg.in/ini.v1 v1.55.0 // indirect
-	k8s.io/api v0.0.0
-	k8s.io/apimachinery v0.0.0
+	k8s.io/api v0.17.4
+	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v12.0.0+incompatible
-	sigs.k8s.io/controller-runtime v0.4.0
+	sigs.k8s.io/controller-runtime v0.5.2
 )
 
 // Pinned to kubernetes-1.16.2
@@ -59,3 +50,7 @@ replace (
 replace github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309 // Required by Helm
 
 replace github.com/openshift/api => github.com/openshift/api v0.0.0-20190924102528-32369d4db2ad // Required until https://github.com/operator-framework/operator-lifecycle-manager/pull/1241 is resolved
+
+// Currently the v0.17.4 update breaks this project for an unknown reason
+// replace k8s.io/client-go => k8s.io/client-go v0.17.4 // Required by prometheus-operator
+replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
