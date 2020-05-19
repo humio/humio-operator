@@ -35,7 +35,7 @@ while true; do
 		sleep 5
 		continue
 	fi
-	TOKEN=$(jq -r ".users.${USER_ID}.entity.apiToken" $SNAPSHOT_FILE)
+	TOKEN=$(jq -r ".users.\"${USER_ID}\".entity.apiToken" $SNAPSHOT_FILE)
 	if [ "${TOKEN}" == "null" ]; then
 		echo "waiting on token"
 		sleep 5
