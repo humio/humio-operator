@@ -40,6 +40,11 @@ func TestHumioCluster(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
+	HumioRepositoryList := &corev1alpha1.HumioRepositoryList{}
+	err = framework.AddToFrameworkScheme(apis.AddToScheme, HumioRepositoryList)
+	if err != nil {
+		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
+	}
 	// run subtests
 	t.Run("humiocluster-group", func(t *testing.T) {
 		t.Run("cluster", HumioCluster)
@@ -75,6 +80,9 @@ func HumioCluster(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err = HumioParserTest(t, f, ctx, clusterName); err != nil {
+		t.Fatal(err)
+	}
+	if err = HumioRepositoryTest(t, f, ctx, clusterName); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -209,4 +217,46 @@ func HumioParserTest(t *testing.T, f *framework.Framework, ctx *framework.TestCt
 	}
 
 	return fmt.Errorf("timed out waiting for parser state to become: %s", corev1alpha1.HumioParserStateExists)
+}
+
+func HumioRepositoryTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx, clusterName string) error {
+	namespace, _ := ctx.GetWatchNamespace()
+
+	// create HumioParser custom resource
+	exampleHumioRepository := &corev1alpha1.HumioRepository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "example-repository",
+			Namespace: namespace,
+		},
+		Spec: corev1alpha1.HumioRepositorySpec{
+			ManagedClusterName: clusterName,
+			Name:               "example-repository",
+			Description:        "this is an important message",
+			Retention: corev1alpha1.HumioRetention{
+				IngestSizeInGB:  5,
+				StorageSizeInGB: 1,
+				TimeInDays:      7,
+			},
+		},
+	}
+	// use TestCtx's create helper to create the object and add a cleanup function for the new object
+	err := f.Client.Create(goctx.TODO(), exampleHumioRepository, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < 5; i++ {
+		err = f.Client.Get(goctx.TODO(), types.NamespacedName{Name: exampleHumioRepository.ObjectMeta.Name, Namespace: namespace}, exampleHumioRepository)
+		if err != nil {
+			fmt.Printf("could not get humio repository: %s", err)
+		}
+
+		if exampleHumioRepository.Status.State == corev1alpha1.HumioRepositoryStateExists {
+			return nil
+		}
+
+		time.Sleep(time.Second * 2)
+	}
+
+	return fmt.Errorf("timed out waiting for repository state to become: %s", corev1alpha1.HumioRepositoryStateExists)
 }

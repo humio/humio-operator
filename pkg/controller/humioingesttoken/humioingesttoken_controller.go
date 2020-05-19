@@ -92,6 +92,9 @@ type ReconcileHumioIngestToken struct {
 
 // Reconcile reads that state of the cluster for a HumioIngestToken object and makes changes based on the state read
 // and what is in the HumioIngestToken.Spec
+// Note:
+// The Controller will requeue the Request to be processed again if the returned error is non-nil or
+// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileHumioIngestToken) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
@@ -230,6 +233,7 @@ func (r *ReconcileHumioIngestToken) Reconcile(request reconcile.Request) (reconc
 
 	// TODO: handle updates to ingest token name and repositoryName. Right now we just create the new ingest token,
 	// and "leak/leave behind" the old token.
+	// A solution could be to add an annotation that includes the "old name" so we can see if it was changed.
 	// A workaround for now is to delete the ingest token CR and create it again.
 
 	// All done, requeue every 30 seconds even if no changes were made

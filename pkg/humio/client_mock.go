@@ -15,6 +15,7 @@ type ClientMock struct {
 	UpdateIngestPartitionSchemeError  error
 	IngestToken                       humioapi.IngestToken
 	Parser                            humioapi.Parser
+	Repository                        humioapi.Repository
 }
 
 type MockClientConfig struct {
@@ -35,6 +36,7 @@ func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePar
 			UpdateIngestPartitionSchemeError:  updateIngestPartitionSchemeError,
 			IngestToken:                       humioapi.IngestToken{},
 			Parser:                            humioapi.Parser{Tests: []humioapi.ParserTestCase{}},
+			Repository:                        humioapi.Repository{},
 		},
 		Version: version,
 	}
@@ -173,5 +175,31 @@ func (h *MockClientConfig) UpdateParser(hp *corev1alpha1.HumioParser) (*humioapi
 func (h *MockClientConfig) DeleteParser(hp *corev1alpha1.HumioParser) error {
 	updatedApiClient := h.apiClient
 	updatedApiClient.Parser = humioapi.Parser{Tests: []humioapi.ParserTestCase{}}
+	return nil
+}
+
+func (h *MockClientConfig) AddRepository(hr *corev1alpha1.HumioRepository) (*humioapi.Repository, error) {
+	updatedApiClient := h.apiClient
+	updatedApiClient.Repository = humioapi.Repository{
+		Name:                   hr.Spec.Name,
+		Description:            hr.Spec.Description,
+		RetentionDays:          float64(hr.Spec.Retention.TimeInDays),
+		IngestRetentionSizeGB:  float64(hr.Spec.Retention.IngestSizeInGB),
+		StorageRetentionSizeGB: float64(hr.Spec.Retention.StorageSizeInGB),
+	}
+	return &h.apiClient.Repository, nil
+}
+
+func (h *MockClientConfig) GetRepository(hr *corev1alpha1.HumioRepository) (*humioapi.Repository, error) {
+	return &h.apiClient.Repository, nil
+}
+
+func (h *MockClientConfig) UpdateRepository(hr *corev1alpha1.HumioRepository) (*humioapi.Repository, error) {
+	return h.AddRepository(hr)
+}
+
+func (h *MockClientConfig) DeleteRepository(hr *corev1alpha1.HumioRepository) error {
+	updatedApiClient := h.apiClient
+	updatedApiClient.Repository = humioapi.Repository{}
 	return nil
 }
