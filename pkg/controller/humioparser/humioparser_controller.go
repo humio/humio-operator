@@ -76,6 +76,9 @@ type ReconcileHumioParser struct {
 
 // Reconcile reads that state of the cluster for a HumioParser object and makes changes based on the state read
 // and what is in the HumioParser.Spec
+// Note:
+// The Controller will requeue the Request to be processed again if the returned error is non-nil or
+// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileHumioParser) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
@@ -207,6 +210,7 @@ func (r *ReconcileHumioParser) Reconcile(request reconcile.Request) (reconcile.R
 
 	// TODO: handle updates to parser name and repositoryName. Right now we just create the new parser,
 	// and "leak/leave behind" the old parser.
+	// A solution could be to add an annotation that includes the "old name" so we can see if it was changed.
 	// A workaround for now is to delete the parser CR and create it again.
 
 	// All done, requeue every 30 seconds even if no changes were made

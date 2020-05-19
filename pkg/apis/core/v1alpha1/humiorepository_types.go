@@ -4,27 +4,40 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// HumioRepositoryStateUnknown is the Unknown state of the repository
+	HumioRepositoryStateUnknown = "Unknown"
+	// HumioRepositoryStateExists is the Exists state of the repository
+	HumioRepositoryStateExists = "Exists"
+	// HumioRepositoryStateNotFound is the NotFound state of the repository
+	HumioRepositoryStateNotFound = "NotFound"
+)
+
 // HumioRetention defines the retention for the repository
-// TODO: this is not implemented in the humio api yet
 type HumioRetention struct {
-	IngestSizeInGB  int64 `json:"ingest_size_in_gb,omitempty"`
-	StorageSizeInGB int64 `json:"storage_size_in_gb,omitempty"`
-	TimeInDays      int64 `json:"time_in_days,omitempty"`
+	// perhaps we should migrate to resource.Quantity? the Humio API needs float64, but that is not supported here, see more here:
+	// https://github.com/kubernetes-sigs/controller-tools/issues/245
+	IngestSizeInGB  int32 `json:"ingestSizeInGB,omitempty"`
+	StorageSizeInGB int32 `json:"storageSizeInGB,omitempty"`
+	TimeInDays      int32 `json:"timeInDays,omitempty"`
 }
 
 // HumioRepositorySpec defines the desired state of HumioRepository
 type HumioRepositorySpec struct {
-	Name        string         `json:"name,omitempty"`
-	Description string         `json:"description,omitempty"`
-	Retention   HumioRetention `json:"retention,omitempty"`
-	// TODO: add cluster
-	// ClusterName         string
-	// ExternalClusterName string
+	// Which cluster
+	ManagedClusterName  string `json:"managedClusterName,omitempty"`
+	ExternalClusterName string `json:"externalClusterName,omitempty"`
+
+	// Input
+	Name              string         `json:"name,omitempty"`
+	Description       string         `json:"description,omitempty"`
+	Retention         HumioRetention `json:"retention,omitempty"`
+	AllowDataDeletion bool           `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioRepositoryStatus defines the observed state of HumioRepository
 type HumioRepositoryStatus struct {
-	// TODO?
+	State string `json:"state,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -32,6 +45,7 @@ type HumioRepositoryStatus struct {
 // HumioRepository is the Schema for the humiorepositories API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=humiorepositories,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the parser"
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Repository"
 type HumioRepository struct {
 	metav1.TypeMeta   `json:",inline"`

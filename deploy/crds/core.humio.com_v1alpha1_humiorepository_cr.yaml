@@ -3,9 +3,11 @@ kind: HumioRepository
 metadata:
   name: example-humiorepository
 spec:
-  name: 
-  description: # optional
+  managedClusterName: example-humiocluster
+  name: "example-repository"
+  description: "this is an important message"
+  allowDataDeletion: false
   retention:
-    ingest_size_in_gb: 10
-    storage_size_in_gb: 5
-    time_in_days: 30
+    ingestSizeInGB: 10
+    storageSizeInGB: 5
+    timeInDays: 30

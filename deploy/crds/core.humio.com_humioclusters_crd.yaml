@@ -4,15 +4,15 @@ metadata:
   name: humioclusters.core.humio.com
 spec:
   additionalPrinterColumns:
-  - JSONPath: .status.clusterState
+  - JSONPath: .status.state
     description: The state of the cluster
     name: State
     type: string
-  - JSONPath: .status.clusterNodeCount
+  - JSONPath: .status.nodeCount
     description: The number of nodes in the cluster
     name: Nodes
     type: string
-  - JSONPath: .status.clusterVersion
+  - JSONPath: .status.version
     description: The version of humior
     name: Version
     type: string
