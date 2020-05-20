@@ -36,8 +36,10 @@ type HumioClusterSpec struct {
 	Affinity corev1.Affinity `json:"affinity,omitempty"`
 	// IdpCertificateSecretName is the name of the secret that contains the IDP Certificate when using SAML authentication
 	IdpCertificateSecretName string `json:"idpCertificateSecretName,omitempty"`
-	// ServiceAccountName is the name of the Kubernetes Service Account that will be attached to the Humio pods
-	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// HumioServiceAccountAnnotations is the set of annotations added to the Kubernetes Service Account that will be attached to the Humio pods
+	HumioServiceAccountAnnotations map[string]string `json:"humioServiceAccountAnnotations,omitempty"`
+	// HumioServiceAccountName is the name of the Kubernetes Service Account that will be attached to the Humio pods
+	HumioServiceAccountName string `json:"humioServiceAccountName,omitempty"`
 	// InitServiceAccountName is the name of the Kubernetes Service Account that will be attached to the init container in the humio pod
 	InitServiceAccountName string `json:"initServiceAccountName,omitempty"`
 	// AuthServiceAccountName is the name of the Kubernetes Service Account that will be attached to the auth container in the humio pod

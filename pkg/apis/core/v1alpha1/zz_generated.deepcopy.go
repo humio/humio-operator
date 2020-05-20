@@ -110,6 +110,13 @@ func (in *HumioClusterSpec) DeepCopyInto(out *HumioClusterSpec) {
 		copy(*out, *in)
 	}
 	in.Affinity.DeepCopyInto(&out.Affinity)
+	if in.HumioServiceAccountAnnotations != nil {
+		in, out := &in.HumioServiceAccountAnnotations, &out.HumioServiceAccountAnnotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	in.Resources.DeepCopyInto(&out.Resources)
 	if in.ContainerSecurityContext != nil {
 		in, out := &in.ContainerSecurityContext, &out.ContainerSecurityContext

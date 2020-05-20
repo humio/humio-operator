@@ -9,12 +9,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ConstructServiceAccount(serviceAccountName, humioClusterName, humioClusterNamespace string) *corev1.ServiceAccount {
+func ConstructServiceAccount(serviceAccountName, humioClusterName, humioClusterNamespace string, serviceAccountAnnotations map[string]string) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceAccountName,
-			Namespace: humioClusterNamespace,
-			Labels:    LabelsForHumio(humioClusterName),
+			Name:        serviceAccountName,
+			Namespace:   humioClusterNamespace,
+			Labels:      LabelsForHumio(humioClusterName),
+			Annotations: serviceAccountAnnotations,
 		},
 	}
 }

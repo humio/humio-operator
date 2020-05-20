@@ -3,13 +3,14 @@ package e2e
 import (
 	goctx "context"
 	"fmt"
+	"time"
+
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"time"
 )
 
 type bootstrapTest struct {

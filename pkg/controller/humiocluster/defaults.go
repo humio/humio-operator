@@ -10,13 +10,14 @@ import (
 )
 
 const (
-	image                          = "humio/humio-core:1.10.1"
+	image                          = "humio/humio-core:1.10.2"
 	targetReplicationFactor        = 2
 	storagePartitionsCount         = 24
 	digestPartitionsCount          = 24
 	nodeCount                      = 3
 	humioPort                      = 8080
 	elasticPort                    = 9200
+	humioServiceAccountName        = "humio-service-account"
 	initServiceAccountName         = "init-service-account"
 	initServiceAccountSecretName   = "init-service-account"
 	initClusterRolePrefix          = "init-cluster-role"
@@ -76,11 +77,18 @@ func affinityOrDefault(hc *humioClusterv1alpha1.HumioCluster) *corev1.Affinity {
 	return &hc.Spec.Affinity
 }
 
-func serviceAccountNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
-	if hc.Spec.ServiceAccountName != "" {
-		return hc.Spec.ServiceAccountName
+func humioServiceAccountAnnotationsOrDefault(hc *humioClusterv1alpha1.HumioCluster) map[string]string {
+	if hc.Spec.HumioServiceAccountAnnotations != nil {
+		return hc.Spec.HumioServiceAccountAnnotations
 	}
-	return "default"
+	return map[string]string{}
+}
+
+func humioServiceAccountNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
+	if hc.Spec.HumioServiceAccountName != "" {
+		return hc.Spec.HumioServiceAccountName
+	}
+	return humioServiceAccountName
 }
 
 func initServiceAccountNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
