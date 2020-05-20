@@ -57,7 +57,7 @@ done`
 			Annotations: map[string]string{},
 		},
 		Spec: corev1.PodSpec{
-			ServiceAccountName: serviceAccountNameOrDefault(hc),
+			ServiceAccountName: humioServiceAccountNameOrDefault(hc),
 			ImagePullSecrets:   imagePullSecretsOrDefault(hc),
 			Subdomain:          hc.Name,
 			InitContainers: []corev1.Container{
@@ -243,8 +243,8 @@ done`
 		})
 	}
 
-	if hc.Spec.ServiceAccountName != "" {
-		pod.Spec.ServiceAccountName = hc.Spec.ServiceAccountName
+	if hc.Spec.HumioServiceAccountName != "" {
+		pod.Spec.ServiceAccountName = hc.Spec.HumioServiceAccountName
 	}
 
 	if extraKafkaConfigsOrDefault(hc) != "" {
