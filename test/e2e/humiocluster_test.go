@@ -1,15 +1,16 @@
 package e2e
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
+	"fmt"
+	"os/exec"
 	"testing"
 	"time"
-	"os/exec"
-	"fmt"
+
 	"github.com/humio/humio-operator/pkg/apis"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -97,7 +98,7 @@ func printKubectlcommands(t *testing.T, namespace string) {
 	}
 
 	ticker := time.NewTicker(time.Second * 5)
-	for _ = range ticker.C {
+	for range ticker.C {
 		for _, command := range commands {
 			cmd := exec.Command("bash", "-c", command)
 			stdoutStderr, err := cmd.CombinedOutput()

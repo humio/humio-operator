@@ -2025,6 +2025,17 @@ spec:
               description: Hostname is the public hostname used by clients to access
                 Humio
               type: string
+            humioServiceAccountAnnotations:
+              additionalProperties:
+                type: string
+              description: HumioServiceAccountAnnotations is the set of annotations
+                added to the Kubernetes Service Account that will be attached to the
+                Humio pods
+              type: object
+            humioServiceAccountName:
+              description: HumioServiceAccountName is the name of the Kubernetes Service
+                Account that will be attached to the Humio pods
+              type: string
             idpCertificateSecretName:
               description: IdpCertificateSecretName is the name of the secret that
                 contains the IDP Certificate when using SAML authentication
@@ -2231,10 +2242,6 @@ spec:
                     value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                   type: object
               type: object
-            serviceAccountName:
-              description: ServiceAccountName is the name of the Kubernetes Service
-                Account that will be attached to the Humio pods
-              type: string
             storagePartitionsCount:
               description: Desired number of storage partitions
               type: integer

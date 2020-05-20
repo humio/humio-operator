@@ -39,7 +39,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 					Namespace: "logging",
 				},
 				Spec: corev1alpha1.HumioClusterSpec{
-					Image:                   "humio/humio-core:1.10.1",
+					Image:                   "humio/humio-core:1.10.2",
 					TargetReplicationFactor: 2,
 					StoragePartitionsCount:  3,
 					DigestPartitionsCount:   3,
@@ -62,7 +62,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 					Namespace: "logging",
 				},
 				Spec: corev1alpha1.HumioClusterSpec{
-					Image:                   "humio/humio-core:1.10.1",
+					Image:                   "humio/humio-core:1.10.2",
 					TargetReplicationFactor: 3,
 					StoragePartitionsCount:  72,
 					DigestPartitionsCount:   72,
@@ -262,7 +262,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 					Namespace: "logging",
 				},
 				Spec: corev1alpha1.HumioClusterSpec{
-					Image:                   "humio/humio-core:1.10.1",
+					Image:                   "humio/humio-core:1.10.2",
 					TargetReplicationFactor: 2,
 					StoragePartitionsCount:  3,
 					DigestPartitionsCount:   3,
