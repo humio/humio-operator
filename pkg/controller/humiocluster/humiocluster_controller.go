@@ -132,6 +132,11 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	err = r.ensureHumioPodPermissions(context.TODO(), hc)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	err = r.ensureInitContainerPermissions(context.TODO(), hc)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -361,6 +366,22 @@ func (r *ReconcileHumioCluster) ensureNginxIngress(ctx context.Context, hc *core
 	return nil
 }
 
+func (r *ReconcileHumioCluster) ensureHumioPodPermissions(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
+	// Do not manage these resources if the HumioServiceAccountName is supplied. This implies the service account is managed
+	// outside of the operator
+	if hc.Spec.HumioServiceAccountName != "" {
+		return nil
+	}
+
+	err := r.ensureServiceAccountExists(ctx, hc, humioServiceAccountNameOrDefault(hc), humioServiceAccountAnnotationsOrDefault(hc))
+	if err != nil {
+		r.logger.Errorf("unable to ensure humio service account exists for HumioCluster: %s", err)
+		return err
+	}
+
+	return nil
+}
+
 func (r *ReconcileHumioCluster) ensureInitContainerPermissions(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
 	// We do not want to attach the init service account to the humio pod. Instead, only the init container should use this
 	// service account. To do this, we can attach the service account directly to the init container as per
@@ -381,7 +402,7 @@ func (r *ReconcileHumioCluster) ensureInitContainerPermissions(ctx context.Conte
 	// from the node on which the pod is scheduled. We cannot pre determine the zone from the controller because we cannot
 	// assume that the nodes are running. Additionally, if we pre allocate the zones to the humio pods, we would be required
 	// to have an autoscaling group per zone.
-	err = r.ensureServiceAccountExists(ctx, hc, initServiceAccountNameOrDefault(hc))
+	err = r.ensureServiceAccountExists(ctx, hc, initServiceAccountNameOrDefault(hc), map[string]string{})
 	if err != nil {
 		r.logger.Errorf("unable to ensure init service account exists for HumioCluster: %s", err)
 		return err
@@ -422,7 +443,7 @@ func (r *ReconcileHumioCluster) ensureAuthContainerPermissions(ctx context.Conte
 	}
 
 	// The service account is used by the auth container attached to the humio pods.
-	err = r.ensureServiceAccountExists(ctx, hc, authServiceAccountNameOrDefault(hc))
+	err = r.ensureServiceAccountExists(ctx, hc, authServiceAccountNameOrDefault(hc), map[string]string{})
 	if err != nil {
 		r.logger.Errorf("unable to ensure auth service account exists for HumioCluster: %s", err)
 		return err
@@ -530,11 +551,11 @@ func (r *ReconcileHumioCluster) ensureAuthRoleBinding(ctx context.Context, hc *c
 	return nil
 }
 
-func (r *ReconcileHumioCluster) ensureServiceAccountExists(ctx context.Context, hc *corev1alpha1.HumioCluster, serviceAccountName string) error {
+func (r *ReconcileHumioCluster) ensureServiceAccountExists(ctx context.Context, hc *corev1alpha1.HumioCluster, serviceAccountName string, serviceAccountAnnotations map[string]string) error {
 	_, err := kubernetes.GetServiceAccount(ctx, r.client, serviceAccountName, hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			serviceAccount := kubernetes.ConstructServiceAccount(serviceAccountName, hc.Name, hc.Namespace)
+			serviceAccount := kubernetes.ConstructServiceAccount(serviceAccountName, hc.Name, hc.Namespace, serviceAccountAnnotations)
 			if err := controllerutil.SetControllerReference(hc, serviceAccount, r.scheme); err != nil {
 				r.logger.Errorf("could not set controller reference: %s", err)
 				return err
