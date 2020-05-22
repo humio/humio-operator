@@ -86,6 +86,13 @@ done`
 							ReadOnly:  true,
 						},
 					},
+					SecurityContext: &corev1.SecurityContext{
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{
+								"ALL",
+							},
+						},
+					},
 				},
 			},
 			Containers: []corev1.Container{

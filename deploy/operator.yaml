@@ -43,3 +43,7 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "humio-operator"
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
