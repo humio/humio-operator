@@ -16,7 +16,11 @@ import (
 func constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
 	var pod corev1.Pod
 	mode := int32(420)
-	// TODO: Figure out if we can set controller reference when creating the secret
+	productVersion := "unknown"
+	imageSplit := strings.SplitN(hc.Spec.Image, ":", 2)
+	if len(imageSplit) == 2 {
+		productVersion = imageSplit[1]
+	}
 	authCommand := `
 while true; do
 	ADMIN_TOKEN_FILE=/data/humio-data/local-admin-token.txt
@@ -51,10 +55,14 @@ while true; do
 done`
 	pod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        fmt.Sprintf("%s-core-%s", hc.Name, generatePodSuffix()),
-			Namespace:   hc.Namespace,
-			Labels:      kubernetes.LabelsForHumio(hc.Name),
-			Annotations: map[string]string{},
+			Name:      fmt.Sprintf("%s-core-%s", hc.Name, generatePodSuffix()),
+			Namespace: hc.Namespace,
+			Labels:    kubernetes.LabelsForHumio(hc.Name),
+			Annotations: map[string]string{
+				"productID":      "none",
+				"productName":    "humio",
+				"productVersion": productVersion,
+			},
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: humioServiceAccountNameOrDefault(hc),
