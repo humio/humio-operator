@@ -6,8 +6,9 @@ import (
 
 func LabelsForHumio(clusterName string) map[string]string {
 	labels := map[string]string{
-		"app":      "humio",
-		"humio_cr": clusterName,
+		"app.kubernetes.io/instance":   clusterName,
+		"app.kubernetes.io/managed-by": "humio-operator",
+		"app.kubernetes.io/name":       "humio",
 	}
 	return labels
 }
