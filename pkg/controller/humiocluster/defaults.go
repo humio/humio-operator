@@ -170,7 +170,11 @@ func containerSecurityContextOrDefault(hc *humioClusterv1alpha1.HumioCluster) *c
 		return &corev1.SecurityContext{
 			Capabilities: &corev1.Capabilities{
 				Add: []corev1.Capability{
+					"NET_BIND_SERVICE",
 					"SYS_NICE",
+				},
+				Drop: []corev1.Capability{
+					"ALL",
 				},
 			},
 		}
