@@ -72,7 +72,32 @@ func dataVolumeSourceOrDefault(hc *humioClusterv1alpha1.HumioCluster) corev1.Vol
 func affinityOrDefault(hc *humioClusterv1alpha1.HumioCluster) *corev1.Affinity {
 	emptyAffinity := corev1.Affinity{}
 	if reflect.DeepEqual(hc.Spec.Affinity, emptyAffinity) {
-		return &emptyAffinity
+		return &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{
+						{
+							MatchExpressions: []corev1.NodeSelectorRequirement{
+								{
+									Key:      corev1.LabelArchStable,
+									Operator: corev1.NodeSelectorOpIn,
+									Values: []string{
+										"amd64",
+									},
+								},
+								{
+									Key:      corev1.LabelOSStable,
+									Operator: corev1.NodeSelectorOpIn,
+									Values: []string{
+										"linux",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
 	}
 	return &hc.Spec.Affinity
 }
