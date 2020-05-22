@@ -59,7 +59,7 @@ kind: HumioCluster
 metadata:
   name: humiocluster-sample
 spec:
-  image: "humio/humio-core:1.9.3"
+  image: "humio/humio-core:1.10.3"
   environmentVariables:
     - name: "ZOOKEEPER_URL"
       value: "<zookeeper url>"
@@ -86,10 +86,11 @@ Note that for running zookeeper and kafka locally, we currently rely on the [cp-
 To run a local cluster using kind, execute:
 
 ```bash
-./hack/restart-k8s.sh 
+./hack/restart-k8s.sh
 ```
 
 Once the cluster is up, run the operator by executing:
+
 ```bash
 ./hack/run-operator.sh
 ```

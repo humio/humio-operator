@@ -4,8 +4,8 @@ metadata:
   name: humio-lb
 spec:
   selector:
-    app: humio
-    humio_cr: humio-test-cluster
+    app.kubernetes.io/instance: humio-test-cluster
+    app.kubernetes.io/name: humio
   ports:
     - port: 8080
       targetPort: 8080
