@@ -44,6 +44,14 @@ spec:
             - name: OPERATOR_NAME
               value: "humio-operator"
           securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
             capabilities:
               drop:
                 - ALL
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001

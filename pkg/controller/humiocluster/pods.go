@@ -157,6 +157,11 @@ done`
 							MountPath: "/shared",
 							ReadOnly:  true,
 						},
+						{
+							Name:      "tmp",
+							MountPath: "/tmp",
+							ReadOnly:  false,
+						},
 					},
 					ReadinessProbe: &corev1.Probe{
 						Handler: corev1.Handler{
@@ -195,6 +200,10 @@ done`
 				},
 				{
 					Name:         "shared",
+					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+				},
+				{
+					Name:         "tmp",
 					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 				},
 				{
