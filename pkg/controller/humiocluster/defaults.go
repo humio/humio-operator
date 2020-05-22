@@ -166,8 +166,16 @@ func podResourcesOrDefault(hc *humioClusterv1alpha1.HumioCluster) corev1.Resourc
 }
 
 func containerSecurityContextOrDefault(hc *humioClusterv1alpha1.HumioCluster) *corev1.SecurityContext {
+	boolFalse := bool(false)
+	boolTrue := bool(true)
+	userID := int64(65534)
 	if hc.Spec.ContainerSecurityContext == nil {
 		return &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &boolFalse,
+			Privileged:               &boolFalse,
+			ReadOnlyRootFilesystem:   &boolTrue,
+			RunAsUser:                &userID,
+			RunAsNonRoot:             &boolTrue,
 			Capabilities: &corev1.Capabilities{
 				Add: []corev1.Capability{
 					"NET_BIND_SERVICE",
@@ -183,8 +191,13 @@ func containerSecurityContextOrDefault(hc *humioClusterv1alpha1.HumioCluster) *c
 }
 
 func podSecurityContextOrDefault(hc *humioClusterv1alpha1.HumioCluster) *corev1.PodSecurityContext {
+	boolTrue := bool(true)
+	userID := int64(65534)
 	if hc.Spec.PodSecurityContext == nil {
-		return &corev1.PodSecurityContext{}
+		return &corev1.PodSecurityContext{
+			RunAsUser:    &userID,
+			RunAsNonRoot: &boolTrue,
+		}
 	}
 	return hc.Spec.PodSecurityContext
 }
