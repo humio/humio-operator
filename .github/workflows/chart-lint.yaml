@@ -1,0 +1,12 @@
+name: Lint Charts
+
+on: pull_request
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: helm lint
+        run: docker run --rm --volume $GITHUB_WORKSPACE:/workspace --workdir /workspace alpine/helm:3.2.1 lint charts/humio-operator

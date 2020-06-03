@@ -79,7 +79,6 @@ type HumioClusterIngressSpec struct {
 // HumioClusterStatus defines the observed state of HumioCluster
 type HumioClusterStatus struct {
 	// State will be empty before the cluster is bootstrapped. From there it can be "Bootstrapping" or "Running"
-	// TODO: other states?
 	State string `json:"state,omitempty"`
 	// Version is the version of humio running
 	Version string `json:"version,omitempty"`

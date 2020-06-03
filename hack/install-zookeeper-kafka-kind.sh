@@ -3,8 +3,11 @@
 set -x
 
 declare -r bin_dir=${BIN_DIR:-/usr/local/bin}
+declare -r tmp_kubeconfig=/tmp/kubeconfig
 
 export PATH=$BIN_DIR:$PATH
+
+kind get kubeconfig > $tmp_kubeconfig
 
 helm repo add humio https://humio.github.io/cp-helm-charts
 helm install --kubeconfig=$tmp_kubeconfig humio humio/cp-helm-charts --namespace=default \
