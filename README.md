@@ -21,37 +21,13 @@ The Humio Operator expects a running Zookeeper and Kafka. There are many ways to
 
 ## Installation
 
-Add the required roles and bindings to run the operator:
-
-```bash
-kubectl apply -f deploy/role.yaml
-kubectl apply -f deploy/service_account.yaml
-kubectl apply -f deploy/role_binding.yaml
-kubectl apply -f deploy/cluster_role.yaml
-kubectl apply -f deploy/cluster_role_binding.yaml
-```
-
-Add the CRDs:
-
-```bash
-kubectl apply -f deploy/crds/core.humio.com_humioexternalclusters_crd.yaml
-kubectl apply -f deploy/crds/core.humio.com_humioclusters_crd.yaml
-kubectl apply -f deploy/crds/core.humio.com_humioingesttokens_crd.yaml
-kubectl apply -f deploy/crds/core.humio.com_humioparsers_crd.yaml
-kubectl apply -f deploy/crds/core.humio.com_humiorepositories_crd.yaml
-```
-
-Run the operator:
-
-```bash
-kubectl apply -f deploy/operator.yaml
-```
+See [charts/humio-operator/README.md](charts/humio-operator/README.md).
 
 ## Running a Humio Cluster
 
 Once the operator is running, we can leverage it to provision a Humio cluster.
 
-Create a humiocluster_cr.yaml with content according to how you would like to run the Humio cluster. For example:
+Create a `humiocluster_cr.yaml` with content according to how you would like to run the Humio cluster. For example:
 
 ```yaml
 apiVersion: core.humio.com/v1alpha1
@@ -59,7 +35,7 @@ kind: HumioCluster
 metadata:
   name: humiocluster-sample
 spec:
-  image: "humio/humio-core:1.10.3"
+  image: "humio/humio-core:1.12.0"
   environmentVariables:
     - name: "ZOOKEEPER_URL"
       value: "<zookeeper url>"

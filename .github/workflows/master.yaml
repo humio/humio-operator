@@ -28,3 +28,17 @@ jobs:
       run:  echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
     - name: docker push
       run: docker push humio/humio-operator:master
+  chart:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v2
+      - name: Setup
+        shell: bash
+        run: |
+          git config --global user.name "$GITHUB_ACTOR"
+          git config --global user.email "$GITHUB_ACTOR@users.noreply.github.com"
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.0.0-rc.2
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

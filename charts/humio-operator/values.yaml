@@ -1,0 +1,8 @@
+operator:
+  image:
+    repository: humio/humio-operator
+    tag: v0.0.2
+  rbac:
+    create: true
+installCRDs: false
+openshift: false

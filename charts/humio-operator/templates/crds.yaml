@@ -1,3 +1,135 @@
+{{- if .Values.installCRDs -}}
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: humiorepositories.core.humio.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.state
+    description: The state of the parser
+    name: State
+    type: string
+  group: core.humio.com
+  names:
+    kind: HumioRepository
+    listKind: HumioRepositoryList
+    plural: humiorepositories
+    singular: humiorepository
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: HumioRepository is the Schema for the humiorepositories API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: HumioRepositorySpec defines the desired state of HumioRepository
+          properties:
+            allowDataDeletion:
+              type: boolean
+            description:
+              type: string
+            externalClusterName:
+              type: string
+            managedClusterName:
+              description: Which cluster
+              type: string
+            name:
+              description: Input
+              type: string
+            retention:
+              description: HumioRetention defines the retention for the repository
+              properties:
+                ingestSizeInGB:
+                  description: 'perhaps we should migrate to resource.Quantity? the
+                    Humio API needs float64, but that is not supported here, see more
+                    here: https://github.com/kubernetes-sigs/controller-tools/issues/245'
+                  format: int32
+                  type: integer
+                storageSizeInGB:
+                  format: int32
+                  type: integer
+                timeInDays:
+                  format: int32
+                  type: integer
+              type: object
+          type: object
+        status:
+          description: HumioRepositoryStatus defines the observed state of HumioRepository
+          properties:
+            state:
+              type: string
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: humioexternalclusters.core.humio.com
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioExternalCluster
+    listKind: HumioExternalClusterList
+    plural: humioexternalclusters
+    singular: humioexternalcluster
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: HumioExternalCluster is the Schema for the humioexternalclusters
+        API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: HumioExternalClusterSpec defines the desired state of HumioExternalCluster
+          properties:
+            url:
+              type: string
+          type: object
+        status:
+          description: HumioExternalClusterStatus defines the observed state of HumioExternalCluster
+          properties:
+            version:
+              type: string
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -2269,3 +2401,143 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: humioparsers.core.humio.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.state
+    description: The state of the parser
+    name: State
+    type: string
+  group: core.humio.com
+  names:
+    kind: HumioParser
+    listKind: HumioParserList
+    plural: humioparsers
+    singular: humioparser
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: HumioParser is the Schema for the humioparsers API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: HumioParserSpec defines the desired state of HumioParser
+          properties:
+            externalClusterName:
+              type: string
+            managedClusterName:
+              description: Which cluster
+              type: string
+            name:
+              description: Input
+              type: string
+            parserScript:
+              type: string
+            repositoryName:
+              type: string
+            tagFields:
+              items:
+                type: string
+              type: array
+            testData:
+              items:
+                type: string
+              type: array
+          type: object
+        status:
+          description: HumioParserStatus defines the observed state of HumioParser
+          properties:
+            state:
+              type: string
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: humioingesttokens.core.humio.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.state
+    description: The state of the ingest token
+    name: State
+    type: string
+  group: core.humio.com
+  names:
+    kind: HumioIngestToken
+    listKind: HumioIngestTokenList
+    plural: humioingesttokens
+    singular: humioingesttoken
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: HumioIngestToken is the Schema for the humioingesttokens API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: HumioIngestTokenSpec defines the desired state of HumioIngestToken
+          properties:
+            externalClusterName:
+              type: string
+            managedClusterName:
+              description: Which cluster
+              type: string
+            name:
+              description: Input
+              type: string
+            parserName:
+              type: string
+            repositoryName:
+              type: string
+            tokenSecretName:
+              description: Output
+              type: string
+          type: object
+        status:
+          description: HumioIngestTokenStatus defines the observed state of HumioIngestToken
+          properties:
+            state:
+              type: string
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+{{- end }}
