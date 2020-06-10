@@ -3,6 +3,7 @@
 The below outlines the steps to run the humio-operator on any Kubernetes cluster. These steps will install Humio and Kafka in the *default* namespace. This cluster deployment uses Kubernetes hostpath and is *ephemeral*.
 
 > **Note**: These instructions assume use of `helm v3`.
+
 > **OpenShift Users**: Everywhere instructions mention `kubectl`, you can use swap that out with `oc`.
 
 ## (Optional) Prepare an installation of Kafka and Zookeeper
