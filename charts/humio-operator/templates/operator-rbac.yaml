@@ -1,0 +1,265 @@
+---
+{{- if .Values.operator.rbac.create -}}
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ default "default" .Release.Namespace }}
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
+    operator-sdk-test-scope: 'per-test'
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ default "default" .Release.Namespace }}
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
+    operator-sdk-test-scope: 'per-test'
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  - services/finalizers
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - configmaps
+  - secrets
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - replicasets
+  - deployments
+  verbs:
+  - get
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - apps
+  resourceNames:
+  - humio-operator
+  resources:
+  - deployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioclusters
+  - humioclusters/finalizers
+  - humioclusters/status
+  - humioparsers
+  - humioparsers/finalizers
+  - humioparsers/status
+  - humioingesttokens
+  - humioingesttokens/finalizers
+  - humioingesttokens/status
+  - humiorepositories
+  - humiorepositories/finalizers
+  - humiorepositories/status
+  - humioexternalclusters
+  - humioexternalclusters/finalizers
+  - humioexternalclusters/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ default "default" .Release.Namespace }}
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
+    operator-sdk-test-scope: 'per-test'
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}
+roleRef:
+  kind: Role
+  name: {{ .Release.Name }}
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ default "default" .Release.Namespace }}-{{ .Release.Name }}
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
+    operator-sdk-test-scope: 'per-operator'
+rules:
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  - clusterrolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+{{- if .Values.openshift }}
+- apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - {{ default "default" .Release.Namespace }}-{{ .Release.Name }}
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+{{- end }}
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ default "default" .Release.Namespace }}-{{ .Release.Name }}
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
+    operator-sdk-test-scope: 'per-operator'
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}
+  namespace: {{ default "default" .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ default "default" .Release.Namespace }}-{{ .Release.Name }}
+  apiGroup: rbac.authorization.k8s.io
+
+{{- if .Values.openshift }}
+---
+# TODO: Figure out what we want to do here as installing it with pre-populated `users` limits everything to HumioCluster instances in the same Namespace as the operator. We probably want to install the SCC when installing the Helm chart, but let the operator update the users property as needed.
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: {{ default "default" .Release.Namespace }}-{{ .Release.Name }}
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
+    operator-sdk-test-scope: 'per-operator'
+allowPrivilegedContainer: true
+allowHostNetwork: false
+allowHostDirVolumePlugin: false
+priority:
+allowedCapabilities:
+- NET_BIND_SERVICE
+- SYS_NICE
+allowHostPorts: false
+allowHostPID: false
+allowHostIPC: false
+readOnlyRootFilesystem: false
+requiredDropCapabilities:
+- KILL
+- MKNOD
+- SETUID
+- SETGID
+defaultAddCapabilities: []
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: MustRunAs
+fsGroup:
+  type: MustRunAs
+supplementalGroups:
+  type: RunAsAny
+volumes:
+- hostPath
+- secret
+- emptyDir
+users:
+- system:serviceaccount:{{ default "default" .Release.Namespace }}:init-service-account
+- system:serviceaccount:{{ default "default" .Release.Namespace }}:auth-service-account
+- system:serviceaccount:{{ default "default" .Release.Namespace }}:humio-service-account
+{{- end }}
+
+{{- end }}

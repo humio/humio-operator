@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	image                          = "humio/humio-core:1.10.3"
+	image                          = "humio/humio-core:1.12.0"
 	targetReplicationFactor        = 2
 	storagePartitionsCount         = 24
 	digestPartitionsCount          = 24
