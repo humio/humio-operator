@@ -53,28 +53,52 @@ For a full list of examples, see the [examples directory](https://github.com/hum
 
 ## Development
 
-### Local Cluster
-
-We use [kind](https://kind.sigs.k8s.io/) for local testing.
-
-Note that for running zookeeper and kafka locally, we currently rely on the [cp-helm-charts](https://github.com/humio/cp-helm-charts) and that that repository is cloned into a directory `~/git/humio-cp-helm-charts`.
-
-To run a local cluster using kind, execute:
-
-```bash
-./hack/restart-k8s.sh
-```
-
-Once the cluster is up, run the operator by executing:
-
-```bash
-./hack/run-operator.sh
-```
-
-### Testing
+### Unit Testing
 
 Tests can be run by executing:
 
 ```bash
 make test
+```
+
+### E2E Testing (Kubernetes)
+
+We use [kind](https://kind.sigs.k8s.io/) for local testing.
+
+Note that for running zookeeper and kafka locally, we currently rely on the [cp-helm-charts](https://github.com/humio/cp-helm-charts) and that that repository is cloned into a directory `~/git/humio-cp-helm-charts`.
+
+To run a e2e test locally using `kind`, execute:
+
+```bash
+make run-e2e-tests-local-kind
+```
+
+To stop the `kind` cluster again, execute:
+
+```bash
+hack/stop-kind.sh
+```
+
+### E2E Testing (OpenShift)
+
+We use [crc](https://developers.redhat.com/products/codeready-containers/overview) for local testing.
+
+Note that for running zookeeper and kafka locally, we currently rely on the [cp-helm-charts](https://github.com/humio/cp-helm-charts) and that that repository is cloned into a directory `~/git/humio-cp-helm-charts`.
+
+Prerequisites:
+
+- Download the `crc` binary, make it executable and ensure it is in `$PATH`.
+- Populate a file named `.crc-pull-secret.txt` in the root of the repository with your pull secret for `crc`.
+
+
+To run a e2e test locally using `crc`, execute:
+
+```bash
+make run-e2e-tests-local-crc
+```
+
+To stop the `crc` cluster again, execute:
+
+```bash
+hack/stop-crc.sh
 ```
