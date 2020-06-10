@@ -19,6 +19,16 @@ This chart bootstraps a humio-operator deployment on a [Kubernetes](http://kuber
 
 - Kubernetes 1.16+
 
+## Installing the CRD's
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/master/deploy/crds/core.humio.com_humioclusters_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/master/deploy/crds/core.humio.com_humioexternalclusters_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/master/deploy/crds/core.humio.com_humioingesttokens_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/master/deploy/crds/core.humio.com_humioparsers_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/master/deploy/crds/core.humio.com_humiorepositories_crd.yaml
+```
+
 ## Installing the Chart
 
 To install the chart with the release name `humio-operator`:
