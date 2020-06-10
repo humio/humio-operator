@@ -25,31 +25,7 @@ See [charts/humio-operator/README.md](charts/humio-operator/README.md).
 
 ## Running a Humio Cluster
 
-Once the operator is running, we can leverage it to provision a Humio cluster.
-
-Create a `humiocluster_cr.yaml` with content according to how you would like to run the Humio cluster. For example:
-
-```yaml
-apiVersion: core.humio.com/v1alpha1
-kind: HumioCluster
-metadata:
-  name: humiocluster-sample
-spec:
-  image: "humio/humio-core:1.12.0"
-  environmentVariables:
-    - name: "ZOOKEEPER_URL"
-      value: "<zookeeper url>"
-    - name: "KAFKA_SERVERS"
-      value: "<kafka url>"
-```
-
-And then apply the resource:
-
-```bash
-kubectl apply -f humiocluster_cr.yaml
-```
-
-For a full list of examples, see the [examples directory](https://github.com/humio/humio-operator/tree/master/examples).
+See instructions at [docs/README.md](docs/README.md) and examples of custom resources at [examples/](examples/).
 
 ## Development
 
