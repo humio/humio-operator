@@ -74,8 +74,6 @@ REVISION: 1
 TEST SUITE: None
 ```
 
-## TODO(mike): FIGURE OUT SCC PROBLEM. INSTALLING HELM CHART OUGHT TO BE ENOUGH ON OPENSHIFT
-
 ## Create Humio cluster
 
 At this point, we should have the humio-operator installed, so all we need to spin up the Humio cluster is to construct a YAML file containing the specifics around the desired configuration. We will be using the following YAML snippet:
