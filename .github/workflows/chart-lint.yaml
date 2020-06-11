@@ -1,7 +1,5 @@
-name: Lint Charts
-
 on: pull_request
-
+name: Lint Helm Charts
 jobs:
   lint:
     runs-on: ubuntu-latest
