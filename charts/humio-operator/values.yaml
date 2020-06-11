@@ -4,5 +4,6 @@ operator:
     tag: v0.0.3
   rbac:
     create: true
+  watchNamespaces: []
 installCRDs: false
 openshift: false
