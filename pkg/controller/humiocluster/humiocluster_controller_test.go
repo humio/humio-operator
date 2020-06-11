@@ -98,7 +98,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			// Check that the init service account, secret, cluster role and cluster role binding are created
-			secret, err := kubernetes.GetSecret(context.TODO(), r.client, initServiceAccountSecretName, updatedHumioCluster.Namespace)
+			secret, err := kubernetes.GetSecret(context.TODO(), r.client, initServiceAccountSecretName(updatedHumioCluster), updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("get init service account secret: (%v). %+v", err, secret)
 			}
@@ -116,7 +116,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			// Check that the auth service account, secret, role and role binding are created
-			secret, err = kubernetes.GetSecret(context.TODO(), r.client, authServiceAccountSecretName, updatedHumioCluster.Namespace)
+			secret, err = kubernetes.GetSecret(context.TODO(), r.client, authServiceAccountSecretName(updatedHumioCluster), updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("get auth service account secret: (%v). %+v", err, secret)
 			}
@@ -498,7 +498,7 @@ func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testin
 		humioCluster                   *corev1alpha1.HumioCluster
 		humioClient                    *humio.MockClientConfig
 		version                        string
-		wantExtraKafkaConfigsConfigmap bool
+		wantExtraKafkaConfigsConfigMap bool
 	}{
 		{
 			"test cluster reconciliation with no extra kafka configs",
@@ -538,17 +538,16 @@ func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testin
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
 			}
-
-			configmap, err := kubernetes.GetConfigmap(context.TODO(), r.client, extraKafkaConfigsConfigmapName, tt.humioCluster.Namespace)
-			if (err != nil) == tt.wantExtraKafkaConfigsConfigmap {
-				t.Errorf("failed to check extra kafka configs configmap: %s", err)
+			configMap, err := kubernetes.GetConfigMap(context.TODO(), r.client, extraKafkaConfigsConfigMapName(tt.humioCluster), tt.humioCluster.Namespace)
+			if (err != nil) == tt.wantExtraKafkaConfigsConfigMap {
+				t.Errorf("failed to check extra kafka configs configMap: %s", err)
 			}
-			if reflect.DeepEqual(configmap, &corev1.ConfigMap{}) == tt.wantExtraKafkaConfigsConfigmap {
-				t.Errorf("failed to compare extra kafka configs configmap: %s, wantExtraKafkaConfigsConfigmap: %v", configmap, tt.wantExtraKafkaConfigsConfigmap)
+			if reflect.DeepEqual(configMap, &corev1.ConfigMap{}) == tt.wantExtraKafkaConfigsConfigMap {
+				t.Errorf("failed to compare extra kafka configs configMap: %s, wantExtraKafkaConfigsConfigMap: %v", configMap, tt.wantExtraKafkaConfigsConfigMap)
 			}
 			foundEnvVar := false
 			foundVolumeMount := false
-			if tt.wantExtraKafkaConfigsConfigmap {
+			if tt.wantExtraKafkaConfigsConfigMap {
 				foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
 				if err != nil {
 					t.Errorf("failed to list pods %s", err)
@@ -572,11 +571,11 @@ func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testin
 
 				}
 			}
-			if tt.wantExtraKafkaConfigsConfigmap && !foundEnvVar {
-				t.Errorf("failed to validate extra kafka configs env var, want: %v, got %v", tt.wantExtraKafkaConfigsConfigmap, foundEnvVar)
+			if tt.wantExtraKafkaConfigsConfigMap && !foundEnvVar {
+				t.Errorf("failed to validate extra kafka configs env var, want: %v, got %v", tt.wantExtraKafkaConfigsConfigMap, foundEnvVar)
 			}
-			if tt.wantExtraKafkaConfigsConfigmap && !foundVolumeMount {
-				t.Errorf("failed to validate extra kafka configs volume mount, want: %v, got %v", tt.wantExtraKafkaConfigsConfigmap, foundVolumeMount)
+			if tt.wantExtraKafkaConfigsConfigMap && !foundVolumeMount {
+				t.Errorf("failed to validate extra kafka configs volume mount, want: %v, got %v", tt.wantExtraKafkaConfigsConfigMap, foundVolumeMount)
 			}
 		})
 	}
