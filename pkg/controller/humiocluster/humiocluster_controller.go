@@ -148,7 +148,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	// Ensure extra kafka configs configmap if specified
-	err = r.ensureKafkaConfigConfigmap(context.TODO(), hc)
+	err = r.ensureKafkaConfigConfigMap(context.TODO(), hc)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -243,33 +243,33 @@ func (r *ReconcileHumioCluster) setNodeCount(ctx context.Context, nodeCount int,
 	return r.client.Status().Update(ctx, hc)
 }
 
-// ensureKafkaConfigConfigmap creates a configmap containing configs specified in extraKafkaConfigs which will be mounted
+// ensureKafkaConfigConfigMap creates a configmap containing configs specified in extraKafkaConfigs which will be mounted
 // into the Humio container and pointed to by Humio's configuration option EXTRA_KAFKA_CONFIGS_FILE
-func (r *ReconcileHumioCluster) ensureKafkaConfigConfigmap(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
-	extraKafkaConfigsConfigmapData := extraKafkaConfigsOrDefault(hc)
-	if extraKafkaConfigsConfigmapData == "" {
+func (r *ReconcileHumioCluster) ensureKafkaConfigConfigMap(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
+	extraKafkaConfigsConfigMapData := extraKafkaConfigsOrDefault(hc)
+	if extraKafkaConfigsConfigMapData == "" {
 		return nil
 	}
-	_, err := kubernetes.GetConfigmap(ctx, r.client, extraKafkaConfigsConfigmapName, hc.Namespace)
+	_, err := kubernetes.GetConfigMap(ctx, r.client, extraKafkaConfigsConfigMapName(hc), hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			configmap := kubernetes.ConstructExtraKafkaConfigsConfigmap(
-				extraKafkaConfigsConfigmapName,
+			configMap := kubernetes.ConstructExtraKafkaConfigsConfigMap(
+				extraKafkaConfigsConfigMapName(hc),
 				extraKafkaPropertiesFilename,
-				extraKafkaConfigsConfigmapData,
+				extraKafkaConfigsConfigMapData,
 				hc.Name,
 				hc.Namespace,
 			)
-			if err := controllerutil.SetControllerReference(hc, configmap, r.scheme); err != nil {
+			if err := controllerutil.SetControllerReference(hc, configMap, r.scheme); err != nil {
 				r.logger.Errorf("could not set controller reference: %s", err)
 				return err
 			}
-			err = r.client.Create(ctx, configmap)
+			err = r.client.Create(ctx, configMap)
 			if err != nil {
 				r.logger.Errorf("unable to create extra kafka configs configmap for HumioCluster: %s", err)
 				return err
 			}
-			r.logger.Infof("successfully created extra kafka configs configmap %s for HumioCluster %s", configmap, hc.Name)
+			r.logger.Infof("successfully created extra kafka configs configmap %s for HumioCluster %s", configMap, hc.Name)
 			prometheusMetrics.Counters.ClusterRolesCreated.Inc()
 		}
 	}
@@ -386,7 +386,7 @@ func (r *ReconcileHumioCluster) ensureInitContainerPermissions(ctx context.Conte
 	// We do not want to attach the init service account to the humio pod. Instead, only the init container should use this
 	// service account. To do this, we can attach the service account directly to the init container as per
 	// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
-	err := r.ensureServiceAccountSecretExists(ctx, hc, initServiceAccountSecretName, initServiceAccountName)
+	err := r.ensureServiceAccountSecretExists(ctx, hc, initServiceAccountSecretName(hc), initServiceAccountNameOrDefault(hc))
 	if err != nil {
 		r.logger.Errorf("unable to ensure init service account secret exists for HumioCluster: %s", err)
 		return err
@@ -430,7 +430,7 @@ func (r *ReconcileHumioCluster) ensureAuthContainerPermissions(ctx context.Conte
 	// We do not want to attach the auth service account to the humio pod. Instead, only the auth container should use this
 	// service account. To do this, we can attach the service account directly to the auth container as per
 	// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
-	err := r.ensureServiceAccountSecretExists(ctx, hc, authServiceAccountSecretName, authServiceAccountName)
+	err := r.ensureServiceAccountSecretExists(ctx, hc, authServiceAccountSecretName(hc), authServiceAccountNameOrDefault(hc))
 	if err != nil {
 		r.logger.Errorf("unable to ensure auth service account secret exists for HumioCluster: %s", err)
 		return err
