@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"os"
 	"reflect"
 
 	humioapi "github.com/humio/cli/api"
@@ -47,4 +48,10 @@ func ToTestCase(line string) humioapi.ParserTestCase {
 		Input:  line,
 		Output: map[string]string{},
 	}
+}
+
+// IsOpenShift returns whether the operator is running in OpenShift-mode
+func IsOpenShift() bool {
+	sccName, found := os.LookupEnv("OPENSHIFT_SCC_NAME")
+	return found && sccName != ""
 }

@@ -284,6 +284,15 @@ rules:
   - securitycontextconstraints
   verbs:
   - use
+  - update
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - get
+  - list
+  - watch
 {{- end }}
 
 ---
@@ -310,11 +319,10 @@ roleRef:
 
 {{- if .Values.openshift }}
 ---
-# TODO: Figure out what we want to do here as installing it with pre-populated `users` limits everything to HumioCluster instances in the same Namespace as the operator. We probably want to install the SCC when installing the Helm chart, but let the operator update the users property as needed.
 apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
 metadata:
-  name: {{ default "default" .Release.Namespace }}-{{ .Release.Name }}
+  name: '{{ default "default" .Release.Namespace }}-{{ .Release.Name }}'
   labels:
     app: '{{ .Chart.Name }}'
     app.kubernetes.io/name: '{{ .Chart.Name }}'
@@ -351,10 +359,7 @@ volumes:
 - hostPath
 - secret
 - emptyDir
-users:
-- system:serviceaccount:{{ default "default" .Release.Namespace }}:init-service-account
-- system:serviceaccount:{{ default "default" .Release.Namespace }}:auth-service-account
-- system:serviceaccount:{{ default "default" .Release.Namespace }}:humio-service-account
+users: []
 {{- end }}
 
 {{- end }}

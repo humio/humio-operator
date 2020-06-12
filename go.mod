@@ -10,6 +10,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mitchellh/mapstructure v1.3.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.4 // indirect
+	github.com/openshift/api v0.0.0-20200205133042-34f0ec8dab87
 	github.com/operator-framework/operator-sdk v0.17.0
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/prometheus/client_golang v1.5.1

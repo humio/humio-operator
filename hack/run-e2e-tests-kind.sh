@@ -32,7 +32,7 @@ operator-sdk build $operator_image
 
 kind load docker-image --name kind $operator_image
 
-# Populate global.yaml with CRD's, ClusterRole, ClusterRoleBinding (and SecurityContextConstraints for OpenShift, though SecurityContextConstraint should be moved to code as they should be managed on a per-cluster basis)
+# Populate global.yaml with CRD's, ClusterRole, ClusterRoleBinding (and SecurityContextConstraints for OpenShift)
 >$global_manifest
 make crds
 grep -v "{{" ./charts/humio-operator/templates/crds.yaml >> $global_manifest
