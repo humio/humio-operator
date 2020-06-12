@@ -10,27 +10,31 @@ import (
 )
 
 const (
-	image                          = "humio/humio-core:1.12.0"
-	targetReplicationFactor        = 2
-	storagePartitionsCount         = 24
-	digestPartitionsCount          = 24
-	nodeCount                      = 3
-	humioPort                      = 8080
-	elasticPort                    = 9200
-	humioServiceAccountName        = "humio-service-account"
-	initServiceAccountName         = "init-service-account"
-	initServiceAccountSecretName   = "init-service-account"
-	initClusterRolePrefix          = "init-cluster-role"
-	initClusterRoleBindingPrefix   = "init-cluster-role-binding"
-	authServiceAccountName         = "auth-service-account"
-	authServiceAccountSecretName   = "auth-service-account"
-	authRolePrefix                 = "auth-role"
-	authRoleBindingPrefix          = "auth-role-binding"
-	extraKafkaConfigsConfigmapName = "extra-kafka-configs-configmap"
-	idpCertificateSecretName       = "idp-certificate-secret"
-	idpCertificateFilename         = "idp-certificate.pem"
-	extraKafkaPropertiesFilename   = "extra-kafka-properties.properties"
-	podHashAnnotation              = "humio_pod_hash"
+	image                        = "humio/humio-core:1.12.0"
+	targetReplicationFactor      = 2
+	storagePartitionsCount       = 24
+	digestPartitionsCount        = 24
+	nodeCount                    = 3
+	humioPort                    = 8080
+	elasticPort                  = 9200
+	idpCertificateFilename       = "idp-certificate.pem"
+	extraKafkaPropertiesFilename = "extra-kafka-properties.properties"
+	podHashAnnotation            = "humio_pod_hash"
+
+	// cluster-wide resources:
+	initClusterRoleSuffix        = "init"
+	initClusterRoleBindingSuffix = "init"
+
+	// namespaced resources:
+	humioServiceAccountNameSuffix        = "humio"
+	initServiceAccountNameSuffix         = "init"
+	initServiceAccountSecretNameSuffix   = "init"
+	authServiceAccountNameSuffix         = "auth"
+	authServiceAccountSecretNameSuffix   = "auth"
+	authRoleSuffix                       = "auth"
+	authRoleBindingSuffix                = "auth"
+	extraKafkaConfigsConfigMapNameSuffix = "extra-kafka-configs"
+	idpCertificateSecretNameSuffix       = "idp-certificate"
 )
 
 func setDefaults(hc *humioClusterv1alpha1.HumioCluster) {
@@ -113,48 +117,60 @@ func humioServiceAccountNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) str
 	if hc.Spec.HumioServiceAccountName != "" {
 		return hc.Spec.HumioServiceAccountName
 	}
-	return humioServiceAccountName
+	return fmt.Sprintf("%s-%s", hc.Name, humioServiceAccountNameSuffix)
 }
 
 func initServiceAccountNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
 	if hc.Spec.InitServiceAccountName != "" {
 		return hc.Spec.InitServiceAccountName
 	}
-	return initServiceAccountName
+	return fmt.Sprintf("%s-%s", hc.Name, initServiceAccountNameSuffix)
+}
+
+func initServiceAccountSecretName(hc *humioClusterv1alpha1.HumioCluster) string {
+	return fmt.Sprintf("%s-%s", hc.Name, initServiceAccountSecretNameSuffix)
 }
 
 func authServiceAccountNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
 	if hc.Spec.AuthServiceAccountName != "" {
 		return hc.Spec.AuthServiceAccountName
 	}
-	return authServiceAccountName
+	return fmt.Sprintf("%s-%s", hc.Name, authServiceAccountNameSuffix)
+}
+
+func authServiceAccountSecretName(hc *humioClusterv1alpha1.HumioCluster) string {
+	return fmt.Sprintf("%s-%s", hc.Name, authServiceAccountSecretNameSuffix)
 }
 
 func extraKafkaConfigsOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
 	return hc.Spec.ExtraKafkaConfigs
 }
 
+func extraKafkaConfigsConfigMapName(hc *humioClusterv1alpha1.HumioCluster) string {
+	return fmt.Sprintf("%s-%s", hc.Name, extraKafkaConfigsConfigMapNameSuffix)
+}
+
 func idpCertificateSecretNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
 	if hc.Spec.IdpCertificateSecretName != "" {
 		return hc.Spec.IdpCertificateSecretName
 	}
-	return idpCertificateSecretName
+	return fmt.Sprintf("%s-%s", hc.Name, idpCertificateSecretNameSuffix)
 }
 
 func initClusterRoleName(hc *humioClusterv1alpha1.HumioCluster) string {
-	return fmt.Sprintf("%s-%s-%s", initClusterRolePrefix, hc.Namespace, hc.Name)
+	return fmt.Sprintf("%s-%s-%s", hc.Namespace, hc.Name, initClusterRoleSuffix)
 }
 
 func initClusterRoleBindingName(hc *humioClusterv1alpha1.HumioCluster) string {
-	return fmt.Sprintf("%s-%s-%s", initClusterRoleBindingPrefix, hc.Namespace, hc.Name)
+	return fmt.Sprintf("%s-%s-%s", hc.Namespace, hc.Name, initClusterRoleBindingSuffix)
 }
 
 func authRoleName(hc *humioClusterv1alpha1.HumioCluster) string {
-	return fmt.Sprintf("%s-%s-%s", authRolePrefix, hc.Namespace, hc.Name)
+	return fmt.Sprintf("%s-%s", hc.Name, authRoleSuffix)
 }
 
 func authRoleBindingName(hc *humioClusterv1alpha1.HumioCluster) string {
-	return fmt.Sprintf("%s-%s-%s", authRoleBindingPrefix, hc.Namespace, hc.Name)
+	return fmt.Sprintf("%s-%s", hc.Name, authRoleBindingSuffix)
 }
 
 func podResourcesOrDefault(hc *humioClusterv1alpha1.HumioCluster) corev1.ResourceRequirements {

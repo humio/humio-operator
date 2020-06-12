@@ -218,7 +218,7 @@ done`
 					Name: "init-service-account-secret",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName:  initServiceAccountSecretName,
+							SecretName:  initServiceAccountSecretName(hc),
 							DefaultMode: &mode,
 						},
 					},
@@ -227,7 +227,7 @@ done`
 					Name: "auth-service-account-secret",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName:  authServiceAccountSecretName,
+							SecretName:  authServiceAccountSecretName(hc),
 							DefaultMode: &mode,
 						},
 					},
@@ -290,7 +290,7 @@ done`
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: extraKafkaConfigsConfigmapName,
+						Name: extraKafkaConfigsConfigMapName(hc),
 					},
 					DefaultMode: &mode,
 				},
