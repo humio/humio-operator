@@ -51,11 +51,8 @@ spec:
         command:
         - humio-operator
         env:
-        # TODO: Perhaps we just need to leave out this thing we the operator should watch any namespace? How about multiple explicitly listed namespaces?
         - name: WATCH_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
+          value: {{ .Values.operator.watchNamespaces | join "," | quote }}
         - name: POD_NAME
           valueFrom:
             fieldRef:

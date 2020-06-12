@@ -64,6 +64,7 @@ Parameter | Description | Default
 `operator.image.repository` | operator container image repository | `humio/humio-operator`
 `operator.image.tag` | operator container image tag | `v0.0.3`
 `operator.rbac.create` | automatically create operator RBAC resources | `true`
+`operator.watchNamespaces` | list of namespaces the operator will watch for resources (if empty, it watches all namespaces) | `[]`
 `installCRDs` | automatically install CRDs. NB: if this is set to true, custom resources will be removed if the Helm chart is uninstalled | `false`
 `openshift` | install additional RBAC resources specific to OpenShift | `false`
 
