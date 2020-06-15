@@ -71,7 +71,7 @@ operator-sdk build humio/humio-operator:local-$git_rev
 # TODO: Figure out how to use the image without pushing the image to Docker Hub
 docker push humio/humio-operator:local-$git_rev
 
-oc create namespace $operator_namespace
+$kubectl create namespace $operator_namespace
 
 helm upgrade --install humio-operator $helm_chart_dir \
   --namespace $operator_namespace \
