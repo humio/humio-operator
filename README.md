@@ -78,3 +78,8 @@ To stop the `crc` cluster again, execute:
 ```bash
 hack/stop-crc.sh
 ```
+
+## Publishing new releases
+
+- Container image: Bump the version defined in [version/version.go](version/version.go).
+- Helm chart: Bump the version defined in [charts/humio-operator/Chart.yaml](charts/humio-operator/Chart.yaml).
