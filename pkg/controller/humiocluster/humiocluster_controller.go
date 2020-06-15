@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	humioapi "github.com/humio/cli/api"
@@ -12,6 +13,7 @@ import (
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 	"github.com/humio/humio-operator/pkg/kubernetes"
+	"github.com/humio/humio-operator/pkg/openshift"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
@@ -65,6 +67,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	watchTypes = append(watchTypes, &corev1.Pod{})
 	watchTypes = append(watchTypes, &corev1.Secret{})
 	watchTypes = append(watchTypes, &corev1.Service{})
+	// TODO: figure out if we need to watch SecurityContextConstraints?
 
 	for _, watchType := range watchTypes {
 		err = c.Watch(&source.Kind{Type: watchType}, &handler.EnqueueRequestForOwner{
@@ -145,6 +148,19 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	err = r.ensureAuthContainerPermissions(context.TODO(), hc)
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	if helpers.IsOpenShift() {
+		// Ensure the users in the SCC are cleaned up.
+		// This cleanup is only called as part of reconciling HumioCluster objects,
+		// this means that you can end up with the SCC listing the service accounts
+		// used for the last cluster to be deleted, in the case that all HumioCluster's are removed.
+		// TODO: Determine if we should move this to a finalizer to fix the situation described above.
+		err = r.ensureCleanupUsersInSecurityContextConstraints(context.TODO(), hc)
+		if err != nil {
+			r.logger.Errorf("could not ensure we clean up users in SecurityContextConstraints: %s", err)
+			return reconcile.Result{}, err
+		}
 	}
 
 	// Ensure extra kafka configs configmap if specified
@@ -379,6 +395,15 @@ func (r *ReconcileHumioCluster) ensureHumioPodPermissions(ctx context.Context, h
 		return err
 	}
 
+	// In cases with OpenShift, we must ensure our ServiceAccount has access to the SecurityContextConstraint
+	if helpers.IsOpenShift() {
+		err = r.ensureSecurityContextConstraintsContainsServiceAccount(ctx, hc, humioServiceAccountNameOrDefault(hc))
+		if err != nil {
+			r.logger.Errorf("could not ensure SecurityContextConstraints contains ServiceAccount: %s", err)
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -423,6 +448,16 @@ func (r *ReconcileHumioCluster) ensureInitContainerPermissions(ctx context.Conte
 		r.logger.Errorf("unable to ensure init cluster role binding exists for HumioCluster: %s", err)
 		return err
 	}
+
+	// In cases with OpenShift, we must ensure our ServiceAccount has access to the SecurityContextConstraint
+	if helpers.IsOpenShift() {
+		err = r.ensureSecurityContextConstraintsContainsServiceAccount(ctx, hc, initServiceAccountNameOrDefault(hc))
+		if err != nil {
+			r.logger.Errorf("could not ensure SecurityContextConstraints contains ServiceAccount: %s", err)
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -460,6 +495,82 @@ func (r *ReconcileHumioCluster) ensureAuthContainerPermissions(ctx context.Conte
 		r.logger.Errorf("unable to ensure auth role binding exists for HumioCluster: %s", err)
 		return err
 	}
+
+	// In cases with OpenShift, we must ensure our ServiceAccount has access to the SecurityContextConstraint
+	if helpers.IsOpenShift() {
+		err = r.ensureSecurityContextConstraintsContainsServiceAccount(ctx, hc, authServiceAccountNameOrDefault(hc))
+		if err != nil {
+			r.logger.Errorf("could not ensure SecurityContextConstraints contains ServiceAccount: %s", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *ReconcileHumioCluster) ensureSecurityContextConstraintsContainsServiceAccount(ctx context.Context, hc *corev1alpha1.HumioCluster, serviceAccountName string) error {
+	// TODO: Write unit/e2e test for this
+
+	if !helpers.IsOpenShift() {
+		return fmt.Errorf("updating SecurityContextConstraints are only suppoted when running on OpenShift")
+	}
+
+	// Get current SCC
+	scc, err := openshift.GetSecurityContextConstraints(ctx, r.client)
+	if err != nil {
+		r.logger.Errorf("unable to get details about SecurityContextConstraints: %s", err)
+		return err
+	}
+
+	// Give ServiceAccount access to SecurityContextConstraints if not already present
+	usersEntry := fmt.Sprintf("system:serviceaccount:%s:%s", hc.Namespace, serviceAccountName)
+	if !helpers.ContainsElement(scc.Users, usersEntry) {
+		scc.Users = append(scc.Users, usersEntry)
+		err = r.client.Update(ctx, scc)
+		if err != nil {
+			r.logger.Errorf("could not update SecurityContextConstraints %s to add ServiceAccount %s: %s", scc.Name, serviceAccountName, err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *ReconcileHumioCluster) ensureCleanupUsersInSecurityContextConstraints(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
+	if !helpers.IsOpenShift() {
+		return nil
+	}
+
+	scc, err := openshift.GetSecurityContextConstraints(ctx, r.client)
+	if err != nil {
+		r.logger.Errorf("unable to get details about SecurityContextConstraints: %s", err)
+		return err
+	}
+
+	for _, userEntry := range scc.Users {
+		sccUserData := strings.Split(userEntry, ":")
+		sccUserNamespace := sccUserData[2]
+		sccUserName := sccUserData[3]
+
+		_, err := kubernetes.GetServiceAccount(ctx, r.client, sccUserName, sccUserNamespace)
+		if err == nil {
+			// We found an existing service account
+			continue
+		}
+		if k8serrors.IsNotFound(err) {
+			// If we have an error and it reflects that the service account does not exist, we remove the entry from the list.
+			scc.Users = helpers.RemoveElement(scc.Users, fmt.Sprintf("system:serviceaccount:%s:%s", sccUserNamespace, sccUserName))
+			err = r.client.Update(ctx, scc)
+			if err != nil {
+				r.logger.Errorf("unable to update SecurityContextConstraints: %s", err)
+				return err
+			}
+		} else {
+			r.logger.Errorf("unable to get existing service account: %s", err)
+			return err
+		}
+	}
+
 	return nil
 }
 

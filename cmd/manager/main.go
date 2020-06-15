@@ -31,6 +31,7 @@ import (
 
 	"github.com/humio/humio-operator/pkg/apis"
 	"github.com/humio/humio-operator/pkg/controller"
+	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/version"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
@@ -46,6 +47,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+
+	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -124,6 +127,10 @@ func main() {
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
 		logger.Error(err, "")
 		os.Exit(1)
+	}
+
+	if helpers.IsOpenShift() {
+		openshiftsecurityv1.AddToScheme(mgr.GetScheme())
 	}
 
 	// Setup all Controllers
