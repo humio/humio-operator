@@ -83,3 +83,7 @@ hack/stop-crc.sh
 
 - Container image: Bump the version defined in [version/version.go](version/version.go).
 - Helm chart: Bump the version defined in [charts/humio-operator/Chart.yaml](charts/humio-operator/Chart.yaml).
+
+## License
+
+[Apache License 2.0](https://github.com/humio/humio-operator/blob/master/LICENSE)
