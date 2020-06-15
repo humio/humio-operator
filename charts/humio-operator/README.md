@@ -13,8 +13,6 @@ helm install humio-operator humio-operator/humio-operator
 
 This chart bootstraps a humio-operator deployment on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
 
-> **Note**: The Helm chart installs the humio-operator such that it only manages the resources within the same namespace as where the humio-operator itself is running.
-
 ## Prerequisites
 
 - Kubernetes 1.16+
