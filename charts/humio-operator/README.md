@@ -62,7 +62,7 @@ The following table lists the configurable parameters of the ingress-nginx chart
 Parameter | Description | Default
 --- | --- | ---
 `operator.image.repository` | operator container image repository | `humio/humio-operator`
-`operator.image.tag` | operator container image tag | `v0.0.3`
+`operator.image.tag` | operator container image tag | `0.0.4`
 `operator.rbac.create` | automatically create operator RBAC resources | `true`
 `operator.watchNamespaces` | list of namespaces the operator will watch for resources (if empty, it watches all namespaces) | `[]`
 `installCRDs` | automatically install CRDs. NB: if this is set to true, custom resources will be removed if the Helm chart is uninstalled | `false`
@@ -73,11 +73,11 @@ These parameters can be passed via Helm's `--set` option
 ```bash
 # Helm v3+
 helm install humio-operator humio-operator/humio-operator \
-  --set operator.image.tag=v0.0.3
+  --set operator.image.tag=0.0.4
 
 # Helm v2
 helm install humio-operator --name humio-operator \
-  --set operator.image.tag=v0.0.3
+  --set operator.image.tag=0.0.4
 ```
 
 Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
