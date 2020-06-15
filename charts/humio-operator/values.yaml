@@ -1,7 +1,7 @@
 operator:
   image:
     repository: humio/humio-operator
-    tag: v0.0.3
+    tag: 0.0.4
   rbac:
     create: true
   watchNamespaces: []
