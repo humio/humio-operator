@@ -2,6 +2,7 @@ package humiocluster
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"math/rand"
 	"strings"
 	"time"
@@ -21,38 +22,6 @@ func constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
 	if len(imageSplit) == 2 {
 		productVersion = imageSplit[1]
 	}
-	authCommand := `
-while true; do
-	ADMIN_TOKEN_FILE=/data/humio-data/local-admin-token.txt
-	SNAPSHOT_FILE=/data/humio-data/global-data-snapshot.json
-	if [ ! -f $ADMIN_TOKEN_FILE ] || [ ! -f $SNAPSHOT_FILE ]; then
-		echo "waiting on files $ADMIN_TOKEN_FILE, $SNAPSHOT_FILE"
-		sleep 5
-		continue
-	fi
-	USER_ID=$(curl -s http://localhost:8080/graphql -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $(cat $ADMIN_TOKEN_FILE)" -d '{ "query": "{ users { username id } }"}' | jq -r '.data.users[] | select (.username=="admin") | .id')
-	if [ "${USER_ID}" == "" ]; then 
-		USER_ID=$(curl -s http://localhost:8080/graphql -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $(cat $ADMIN_TOKEN_FILE)" -d '{ "query": "mutation { addUser(input: { username: \"admin\", isRoot: true }) { user { id } } }" }' | jq -r '.data.addUser.user.id')
-	fi
-	if [ "${USER_ID}" == "" ] || [ "${USER_ID}" == "null" ]; then
-		echo "waiting on humio, got user id $USER_ID"
-		sleep 5
-		continue
-	fi
-	TOKEN=$(jq -r ".users.\"${USER_ID}\".entity.apiToken" $SNAPSHOT_FILE)
-	if [ "${TOKEN}" == "null" ]; then
-		echo "waiting on token"
-		sleep 5
-		continue
-	fi
-	CURRENT_TOKEN=$(kubectl get secret $ADMIN_SECRET_NAME -n $NAMESPACE -o json | jq -r '.data.token' | base64 -d)
-	if [ "${CURRENT_TOKEN}" != "${TOKEN}" ]; then
-		kubectl delete secret $ADMIN_SECRET_NAME --namespace $NAMESPACE || true
-		kubectl create secret generic $ADMIN_SECRET_NAME --namespace $NAMESPACE --from-literal=token=$TOKEN
-	fi
-	echo "validated token. waiting 30 seconds"
-	sleep 30
-done`
 	pod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-core-%s", hc.Name, generatePodSuffix()),
@@ -70,10 +39,17 @@ done`
 			Subdomain:          hc.Name,
 			InitContainers: []corev1.Container{
 				{
-					Name:    "zookeeper-prefix",
-					Image:   "humio/strix", // TODO: perhaps use an official kubectl image or build our own and don't use latest
-					Command: []string{"sh", "-c", "kubectl get node ${NODE_NAME} -o jsonpath={.metadata.labels.\"failure-domain.beta.kubernetes.io/zone\"} > /shared/zookeeper-prefix"},
+					Name:  "zookeeper-prefix",
+					Image: "humio/humio-operator-helper:0.0.1",
 					Env: []corev1.EnvVar{
+						{
+							Name:  "MODE",
+							Value: "init",
+						},
+						{
+							Name:  "TARGET_FILE",
+							Value: "/shared/zookeeper-prefix",
+						},
 						{
 							Name: "NODE_NAME",
 							ValueFrom: &corev1.EnvVarSource{
@@ -94,6 +70,16 @@ done`
 							ReadOnly:  true,
 						},
 					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
+							corev1.ResourceMemory: *resource.NewQuantity(50*1024*1024, resource.BinarySI),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
+							corev1.ResourceMemory: *resource.NewQuantity(50*1024*1024, resource.BinarySI),
+						},
+					},
 					SecurityContext: &corev1.SecurityContext{
 						Capabilities: &corev1.Capabilities{
 							Drop: []corev1.Capability{
@@ -105,10 +91,8 @@ done`
 			},
 			Containers: []corev1.Container{
 				{
-					Name:    "auth",
-					Image:   "humio/strix", // TODO: build our own and don't use latest
-					Command: []string{"/bin/sh", "-c"},
-					Args:    []string{authCommand},
+					Name:  "auth",
+					Image: "humio/humio-operator-helper:0.0.1",
 					Env: []corev1.EnvVar{
 						{
 							Name: "NAMESPACE",
@@ -117,6 +101,10 @@ done`
 									FieldPath: "metadata.namespace",
 								},
 							},
+						},
+						{
+							Name:  "MODE",
+							Value: "auth",
 						},
 						{
 							Name:  "ADMIN_SECRET_NAME",
@@ -133,6 +121,32 @@ done`
 							Name:      "auth-service-account-secret",
 							MountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
 							ReadOnly:  true,
+						},
+					},
+					ReadinessProbe: &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/",
+								Port: intstr.IntOrString{IntVal: 8180},
+							},
+						},
+					},
+					LivenessProbe: &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/",
+								Port: intstr.IntOrString{IntVal: 8180},
+							},
+						},
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
+							corev1.ResourceMemory: *resource.NewQuantity(50*1024*1024, resource.BinarySI),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
+							corev1.ResourceMemory: *resource.NewQuantity(50*1024*1024, resource.BinarySI),
 						},
 					},
 					SecurityContext: containerSecurityContextOrDefault(hc),

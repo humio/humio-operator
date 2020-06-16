@@ -4,8 +4,8 @@ on:
     - master
 name: Publish Master
 jobs:
-  build-and-publish:
-    name: Build and Publish
+  build-and-publish-operator:
+    name: Build and Publish Operator
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -28,3 +28,17 @@ jobs:
       run:  echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
     - name: docker push
       run: docker push humio/humio-operator:master
+  build-and-publish-helper:
+    name: Build and Publish Helperimage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: docker build
+        run: docker build -t humio/humio-operator-helper:master images/helper
+      - name: docker login
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run:  echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+      - name: docker push
+        run: docker push humio/humio-operator-helper:master

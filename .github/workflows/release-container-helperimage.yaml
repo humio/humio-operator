@@ -1,0 +1,25 @@
+on:
+  push:
+    branches:
+    - master
+    paths:
+    - images/helper/version.go
+name: Publish Container Helper Image Release
+jobs:
+  build-and-publish:
+    name: Build and Publish
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Get release version
+      id: get_version
+      run: echo ::set-env name=RELEASE_VERSION::$(grep "Version =" images/helper/version.go | awk -F'"' '{print $2}')
+    - name: docker login
+      env:
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      run:  echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+    - name: docker build
+      run: docker build -t humio/humio-operator-helper:${{ env.RELEASE_VERSION }} images/helper
+    - name: docker push
+      run: docker push humio/humio-operator-helper:${{ env.RELEASE_VERSION }}
