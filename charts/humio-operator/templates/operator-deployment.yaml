@@ -63,12 +63,29 @@ spec:
         - name: OPENSHIFT_SCC_NAME
           value: '{{ default "default" .Release.Namespace }}-{{ .Release.Name }}'
 {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 8383
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 8383
+        resources:
+          limits:
+            cpu: "100m"
+            memory: "100Mi"
+          requests:
+            cpu: "100m"
+            memory: "100Mi"
         securityContext:
           allowPrivilegeEscalation: false
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
           capabilities:
+            add:
+            - NET_BIND_SERVICE
             drop:
             - ALL
       securityContext:
