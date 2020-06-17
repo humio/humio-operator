@@ -35,11 +35,11 @@ humio-cp-zookeeper-0   2/2     Running   0          23s
 First we install the CRD's:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/operator-0.0.4/deploy/crds/core.humio.com_humioclusters_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/operator-0.0.4/deploy/crds/core.humio.com_humioexternalclusters_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/operator-0.0.4/deploy/crds/core.humio.com_humioingesttokens_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/operator-0.0.4/deploy/crds/core.humio.com_humioparsers_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/operator-0.0.4/deploy/crds/core.humio.com_humiorepositories_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.4/deploy/crds/core.humio.com_humioclusters_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.4/deploy/crds/core.humio.com_humioexternalclusters_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.4/deploy/crds/core.humio.com_humioingesttokens_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.4/deploy/crds/core.humio.com_humioparsers_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.4/deploy/crds/core.humio.com_humiorepositories_crd.yaml
 ```
 
 Installing the humio-operator on non-OpenShift installations:
