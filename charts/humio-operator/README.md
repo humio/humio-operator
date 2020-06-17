@@ -20,11 +20,11 @@ This chart bootstraps a humio-operator deployment on a [Kubernetes](http://kuber
 ## Installing the CRD's
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/master/deploy/crds/core.humio.com_humioclusters_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/master/deploy/crds/core.humio.com_humioexternalclusters_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/master/deploy/crds/core.humio.com_humioingesttokens_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/master/deploy/crds/core.humio.com_humioparsers_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/master/deploy/crds/core.humio.com_humiorepositories_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/operator-0.0.4/deploy/crds/core.humio.com_humioclusters_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/operator-0.0.4/deploy/crds/core.humio.com_humioexternalclusters_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/operator-0.0.4/deploy/crds/core.humio.com_humioingesttokens_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/operator-0.0.4/deploy/crds/core.humio.com_humioparsers_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/operator-0.0.4/deploy/crds/core.humio.com_humiorepositories_crd.yaml
 ```
 
 ## Installing the Chart
