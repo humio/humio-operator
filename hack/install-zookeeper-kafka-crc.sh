@@ -7,7 +7,7 @@ declare -r tmp_kubeconfig=$HOME/.crc/machines/crc/kubeconfig
 
 export PATH=$BIN_DIR:$PATH
 
-
+eval $(crc oc-env)
 
 helm repo add humio https://humio.github.io/cp-helm-charts
 helm install --kubeconfig=$tmp_kubeconfig humio humio/cp-helm-charts --namespace=default \
