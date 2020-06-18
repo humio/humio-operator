@@ -32,7 +32,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 		version      string
 	}{
 		{
-			"test simple cluster reconciliation",
+			"test simple cluster reconciliation without partition rebalancing",
 			&corev1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "humiocluster",
@@ -40,6 +40,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				},
 				Spec: corev1alpha1.HumioClusterSpec{
 					Image:                   image,
+					AutoRebalancePartitions: false,
 					TargetReplicationFactor: 2,
 					StoragePartitionsCount:  3,
 					DigestPartitionsCount:   3,
@@ -55,7 +56,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			"1.9.2--build-12365--sha-bf4188482a",
 		},
 		{
-			"test large cluster reconciliation",
+			"test simple cluster reconciliation with partition rebalancing",
 			&corev1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "humiocluster",
@@ -63,6 +64,55 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				},
 				Spec: corev1alpha1.HumioClusterSpec{
 					Image:                   image,
+					AutoRebalancePartitions: true,
+					TargetReplicationFactor: 2,
+					StoragePartitionsCount:  3,
+					DigestPartitionsCount:   3,
+					NodeCount:               3,
+				},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{
+					Nodes:             buildClusterNodesList(3),
+					StoragePartitions: buildStoragePartitionsList(3, 1),
+					IngestPartitions:  buildIngestPartitionsList(3, 1),
+				}, nil, nil, nil, "1.9.2--build-12365--sha-bf4188482a"),
+			"1.9.2--build-12365--sha-bf4188482a",
+		},
+		{
+			"test large cluster reconciliation without partition rebalancing",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					Image:                   image,
+					AutoRebalancePartitions: false,
+					TargetReplicationFactor: 3,
+					StoragePartitionsCount:  72,
+					DigestPartitionsCount:   72,
+					NodeCount:               18,
+				},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{
+					Nodes:             buildClusterNodesList(18),
+					StoragePartitions: buildStoragePartitionsList(72, 2),
+					IngestPartitions:  buildIngestPartitionsList(72, 2),
+				}, nil, nil, nil, "1.9.2--build-12365--sha-bf4188482a"),
+			"1.9.2--build-12365--sha-bf4188482a",
+		},
+		{
+			"test large cluster reconciliation with partition rebalancing",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					Image:                   image,
+					AutoRebalancePartitions: true,
 					TargetReplicationFactor: 3,
 					StoragePartitionsCount:  72,
 					DigestPartitionsCount:   72,
@@ -209,7 +259,7 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("reconcile: (%v)", err)
 			}
 			if res != (reconcile.Result{Requeue: true, RequeueAfter: time.Second * 30}) {
-				t.Error("reconcile finished, requeueing the resource after 30 seconds")
+				t.Error("reconcile finished, requeuing the resource after 30 seconds")
 			}
 
 			// Get the updated HumioCluster to update it with the partitions
@@ -218,12 +268,12 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("get HumioCluster: (%v)", err)
 			}
 
-			// Check that the partitions are balanced
+			// Check that the partitions are balanced if configured
 			clusterController := humio.NewClusterController(r.logger, r.humioClient)
-			if b, err := clusterController.AreStoragePartitionsBalanced(updatedHumioCluster); !b || err != nil {
+			if b, err := clusterController.AreStoragePartitionsBalanced(updatedHumioCluster); !(b == updatedHumioCluster.Spec.AutoRebalancePartitions) || err != nil {
 				t.Errorf("expected storage partitions to be balanced. got %v, err %s", b, err)
 			}
-			if b, err := clusterController.AreIngestPartitionsBalanced(updatedHumioCluster); !b || err != nil {
+			if b, err := clusterController.AreIngestPartitionsBalanced(updatedHumioCluster); !(b == updatedHumioCluster.Spec.AutoRebalancePartitions) || err != nil {
 				t.Errorf("expected ingest partitions to be balanced. got %v, err %s", b, err)
 			}
 
