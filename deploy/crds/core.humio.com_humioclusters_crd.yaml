@@ -621,6 +621,10 @@ spec:
               description: AuthServiceAccountName is the name of the Kubernetes Service
                 Account that will be attached to the auth container in the humio pod
               type: string
+            autoRebalancePartitions:
+              description: AutoRebalancePartitions will enable auto-rebalancing of
+                both digest and storage partitions assigned to humio cluster nodes
+              type: boolean
             containerSecurityContext:
               description: ContainerSecurityContext is the security context applied
                 to the Humio container
@@ -1909,10 +1913,11 @@ spec:
                   type: object
               type: object
             digestPartitionsCount:
-              description: Desired number of digest partitions
+              description: DigestPartitionsCount is the desired number of digest partitions
               type: integer
             environmentVariables:
-              description: Extra environment variables
+              description: EnvironmentVariables that will be merged with default environment
+                variables then set on the humio container
               items:
                 description: EnvVar represents an environment variable present in
                   a Container.
@@ -2041,16 +2046,16 @@ spec:
                 contains the IDP Certificate when using SAML authentication
               type: string
             image:
-              description: Desired container image including the image tag
+              description: Image is the desired humio container image, including the
+                image tag
               type: string
             imagePullPolicy:
               description: ImagePullPolicy sets the imagePullPolicy for all the containers
                 in the humio pod
               type: string
             imagePullSecrets:
-              description: 'TODO: Add PersistentVolumeClaimTemplateSpec support PersistentVolumeClaimTemplateSpec
-                corev1.PersistentVolumeClaimSpec ImagePullSecrets defines the imagepullsecrets
-                for the humio pods. These secrets are not created by the operator'
+              description: ImagePullSecrets defines the imagepullsecrets for the humio
+                pods. These secrets are not created by the operator
               items:
                 description: LocalObjectReference contains enough information to let
                   you locate the referenced object inside the same namespace.
@@ -2095,7 +2100,7 @@ spec:
                 Account that will be attached to the init container in the humio pod
               type: string
             nodeCount:
-              description: Desired number of nodes
+              description: NodeCount is the desired number of humio cluster nodes
               type: integer
             podSecurityContext:
               description: PodSecurityContext is the security context applied to the
@@ -2243,10 +2248,12 @@ spec:
                   type: object
               type: object
             storagePartitionsCount:
-              description: Desired number of storage partitions
+              description: StoragePartitionsCount is the desired number of storage
+                partitions
               type: integer
             targetReplicationFactor:
-              description: Desired number of replicas of both storage and ingest partitions
+              description: TargetReplicationFactor is the desired number of replicas
+                of both storage and ingest partitions
               type: integer
           type: object
         status:

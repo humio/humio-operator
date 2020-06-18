@@ -14,22 +14,22 @@ const (
 
 // HumioClusterSpec defines the desired state of HumioCluster
 type HumioClusterSpec struct {
-	// Desired container image including the image tag
+	// Image is the desired humio container image, including the image tag
 	Image string `json:"image,omitempty"`
-	// Desired number of replicas of both storage and ingest partitions
+	// AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes
+	AutoRebalancePartitions bool `json:"autoRebalancePartitions,omitempty"`
+	// TargetReplicationFactor is the desired number of replicas of both storage and ingest partitions
 	TargetReplicationFactor int `json:"targetReplicationFactor,omitempty"`
-	// Desired number of storage partitions
+	// StoragePartitionsCount is the desired number of storage partitions
 	StoragePartitionsCount int `json:"storagePartitionsCount,omitempty"`
-	// Desired number of digest partitions
+	// DigestPartitionsCount is the desired number of digest partitions
 	DigestPartitionsCount int `json:"digestPartitionsCount,omitempty"`
-	// Desired number of nodes
+	// NodeCount is the desired number of humio cluster nodes
 	NodeCount int `json:"nodeCount,omitempty"`
-	// Extra environment variables
+	// EnvironmentVariables that will be merged with default environment variables then set on the humio container
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
 	// DataVolumeSource is the volume that is mounted on the humio pods
 	DataVolumeSource corev1.VolumeSource `json:"dataVolumeSource,omitempty"`
-	// TODO: Add PersistentVolumeClaimTemplateSpec support
-	// PersistentVolumeClaimTemplateSpec corev1.PersistentVolumeClaimSpec
 	// ImagePullSecrets defines the imagepullsecrets for the humio pods. These secrets are not created by the operator
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// Affinity defines the affinity policies that will be attached to the humio pods
