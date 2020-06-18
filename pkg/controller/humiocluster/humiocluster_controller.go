@@ -746,6 +746,10 @@ func (r *ReconcileHumioCluster) ensurePodLabels(ctx context.Context, hc *corev1a
 }
 
 func (r *ReconcileHumioCluster) ensurePartitionsAreBalanced(humioClusterController humio.ClusterController, hc *corev1alpha1.HumioCluster) error {
+	if !hc.Spec.AutoRebalancePartitions {
+		r.logger.Info("partition auto-rebalancing not enabled, skipping")
+		return nil
+	}
 	partitionsBalanced, err := humioClusterController.AreStoragePartitionsBalanced(hc)
 	if err != nil {
 		r.logger.Errorf("unable to check if storage partitions are balanced: %s", err)
