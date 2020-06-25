@@ -333,7 +333,7 @@ metadata:
 allowPrivilegedContainer: true
 allowHostNetwork: false
 allowHostDirVolumePlugin: false
-priority:
+priority: 0
 allowedCapabilities:
 - NET_BIND_SERVICE
 - SYS_NICE
