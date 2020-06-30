@@ -1,6 +1,8 @@
 package helpers
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"os"
 	"reflect"
 
@@ -54,4 +56,11 @@ func ToTestCase(line string) humioapi.ParserTestCase {
 func IsOpenShift() bool {
 	sccName, found := os.LookupEnv("OPENSHIFT_SCC_NAME")
 	return found && sccName != ""
+}
+
+// AsSHA256 does a sha 256 hash on an object and returns the result
+func AsSHA256(o interface{}) string {
+	h := sha256.New()
+	h.Write([]byte(fmt.Sprintf("%v", o)))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }

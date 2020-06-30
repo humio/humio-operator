@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/humio/humio-operator/pkg/humio"
@@ -286,10 +288,10 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 				t.Errorf("expected list pods to return equal to %d, got %d", tt.humioCluster.Spec.NodeCount, len(foundPodList))
 			}
 
-			// Ensure that we add node_id label to all pods
+			// Ensure that we add kubernetes.NodeIdLabelName label to all pods
 			for _, pod := range foundPodList {
-				if !kubernetes.LabelListContainsLabel(pod.GetLabels(), "node_id") {
-					t.Errorf("expected pod %s to have label node_id", pod.Name)
+				if !kubernetes.LabelListContainsLabel(pod.GetLabels(), kubernetes.NodeIdLabelName) {
+					t.Errorf("expected pod %s to have label %s", pod.Name, kubernetes.NodeIdLabelName)
 				}
 			}
 		})
@@ -626,6 +628,100 @@ func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testin
 			}
 			if tt.wantExtraKafkaConfigsConfigMap && !foundVolumeMount {
 				t.Errorf("failed to validate extra kafka configs volume mount, want: %v, got %v", tt.wantExtraKafkaConfigsConfigMap, foundVolumeMount)
+			}
+		})
+	}
+}
+
+func TestReconcileHumioCluster_Reconcile_persistent_volumes(t *testing.T) {
+	tests := []struct {
+		name         string
+		humioCluster *corev1alpha1.HumioCluster
+		humioClient  *humio.MockClientConfig
+		version      string
+	}{
+		{
+			"test cluster reconciliation with persistent volumes",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					NodeCount: 3,
+					DataVolumePersistentVolumeClaimSpecTemplate: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse("10Gi"),
+							},
+						},
+					},
+				},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{}, nil, nil, nil, ""), "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, req := reconcileWithHumioClient(tt.humioCluster, tt.humioClient)
+			defer r.logger.Sync()
+
+			// Simulate creating pvcs
+			for nodeCount := 0; nodeCount <= tt.humioCluster.Spec.NodeCount; nodeCount++ {
+				_, err := r.Reconcile(req)
+				if err != nil {
+					t.Errorf("reconcile: (%v)", err)
+				}
+			}
+
+			pvcList, err := kubernetes.ListPersistentVolumeClaims(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+			if err != nil {
+				t.Errorf("failed to list pvcs %s", err)
+			}
+			if len(pvcList) != tt.humioCluster.Spec.NodeCount {
+				t.Errorf("failed to validate pvcs, want: %v, got %v", tt.humioCluster.Spec.NodeCount, len(pvcList))
+			}
+
+			// Simulate creating pods
+			for nodeCount := 1; nodeCount <= tt.humioCluster.Spec.NodeCount; nodeCount++ {
+				foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+				if err != nil {
+					t.Errorf("failed to list pods: %s", err)
+				}
+				if len(foundPodList) != nodeCount {
+					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount, len(foundPodList))
+				}
+
+				// We must update the IP address because when we attempt to add labels to the pod we validate that they have IP addresses first
+				// We also must update the ready condition as the reconciler will wait until all pods are ready before continuing
+				err = markPodsAsRunning(r.client, foundPodList)
+				if err != nil {
+					t.Errorf("failed to update pods to prepare for testing pvcs: %s", err)
+				}
+
+				// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
+				_, err = r.Reconcile(req)
+				if err != nil {
+					t.Errorf("reconcile: (%v)", err)
+				}
+			}
+
+			// Check that each pod is using a pvc that we created
+			foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+			if err != nil {
+				t.Errorf("failed to list pods: %s", err)
+			}
+			for _, pod := range foundPodList {
+				if _, err := findPvcForPod(pvcList, pod); err != nil {
+					t.Errorf("failed to get pvc for pod: expected pvc but got error %s", err)
+				}
+			}
+
+			// Check that we have used all the pvcs that we have available
+			if pvcName, err := findNextAvailablePvc(pvcList, foundPodList); err == nil {
+				t.Errorf("expected pvc %s to be used but it is available", pvcName)
 			}
 		})
 	}

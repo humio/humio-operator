@@ -2,10 +2,12 @@ package humiocluster
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"math/rand"
+	"reflect"
 	"strings"
-	"time"
+
+	"github.com/humio/humio-operator/pkg/helpers"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/humio/humio-operator/pkg/kubernetes"
@@ -14,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
+func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeSource) (*corev1.Pod, error) {
 	var pod corev1.Pod
 	mode := int32(420)
 	productVersion := "unknown"
@@ -22,9 +24,10 @@ func constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
 	if len(imageSplit) == 2 {
 		productVersion = imageSplit[1]
 	}
+
 	pod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-core-%s", hc.Name, generatePodSuffix()),
+			Name:      fmt.Sprintf("%s-core-%s", hc.Name, kubernetes.RandomString()),
 			Namespace: hc.Namespace,
 			Labels:    kubernetes.LabelsForHumio(hc.Name),
 			Annotations: map[string]string{
@@ -217,10 +220,6 @@ func constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
 			},
 			Volumes: []corev1.Volume{
 				{
-					Name:         "humio-data",
-					VolumeSource: dataVolumeSourceOrDefault(hc),
-				},
-				{
 					Name:         "shared",
 					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 				},
@@ -251,6 +250,11 @@ func constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
 			SecurityContext: podSecurityContextOrDefault(hc),
 		},
 	}
+
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+		Name:         "humio-data",
+		VolumeSource: dataVolumeSource,
+	})
 
 	idx, err := kubernetes.GetContainerIndexByName(pod, "humio")
 	if err != nil {
@@ -324,15 +328,20 @@ func constructPod(hc *corev1alpha1.HumioCluster) (*corev1.Pod, error) {
 	return &pod, nil
 }
 
-func generatePodSuffix() string {
-	rand.Seed(time.Now().UnixNano())
-	chars := []rune("abcdefghijklmnopqrstuvwxyz")
-	length := 6
-	var b strings.Builder
-	for i := 0; i < length; i++ {
-		b.WriteRune(chars[rand.Intn(len(chars))])
+func volumeSource(hc *corev1alpha1.HumioCluster, podList []corev1.Pod, pvcList []corev1.PersistentVolumeClaim) (corev1.VolumeSource, error) {
+	emptyDataVolume := corev1.VolumeSource{}
+
+	if pvcsEnabled(hc) && !reflect.DeepEqual(hc.Spec.DataVolumeSource, emptyDataVolume) {
+		return corev1.VolumeSource{}, fmt.Errorf("cannot have both dataVolumePersistentVolumeClaimSpecTemplate and dataVolumeSource defined")
 	}
-	return b.String()
+	if pvcsEnabled(hc) {
+		pvcName, err := findNextAvailablePvc(pvcList, podList)
+		if err != nil {
+			return corev1.VolumeSource{}, err
+		}
+		return dataVolumePersistentVolumeClaimSpecTemplateOrDefault(hc, pvcName), nil
+	}
+	return dataVolumeSourceOrDefault(hc), nil
 }
 
 func envVarHasValue(envVars []corev1.EnvVar, key string, value string) bool {
@@ -342,4 +351,23 @@ func envVarHasValue(envVars []corev1.EnvVar, key string, value string) bool {
 		}
 	}
 	return false
+}
+
+// podSpecAsSHA256 looks at the pod spec minus known nondeterministic fields and returns a sha256 hash of the spec
+func podSpecAsSHA256(hc *corev1alpha1.HumioCluster, pod corev1.Pod) string {
+	sanitizedVolumes := make([]corev1.Volume, len(pod.Spec.Volumes))
+	emptyPersistentVolumeClaim := corev1.PersistentVolumeClaimVolumeSource{}
+
+	for _, volume := range pod.Spec.Volumes {
+		if volume.Name == "humio-data" && !reflect.DeepEqual(volume.PersistentVolumeClaim, emptyPersistentVolumeClaim) {
+			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+				Name:         "humio-data",
+				VolumeSource: dataVolumeSourceOrDefault(hc),
+			})
+		} else {
+			sanitizedVolumes = append(sanitizedVolumes, volume)
+		}
+	}
+	pod.Spec.Volumes = sanitizedVolumes
+	return helpers.AsSHA256(pod.Spec)
 }

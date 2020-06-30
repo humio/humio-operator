@@ -30,6 +30,7 @@ require (
 	gopkg.in/ini.v1 v1.56.0 // indirect
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
+	k8s.io/apiserver v0.17.3
 	k8s.io/client-go v12.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.5.2
 )

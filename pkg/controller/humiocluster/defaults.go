@@ -63,6 +63,17 @@ func imagePullSecretsOrDefault(hc *humioClusterv1alpha1.HumioCluster) []corev1.L
 	return hc.Spec.ImagePullSecrets
 }
 
+func dataVolumePersistentVolumeClaimSpecTemplateOrDefault(hc *humioClusterv1alpha1.HumioCluster, pvcName string) corev1.VolumeSource {
+	if pvcsEnabled(hc) {
+		return corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: pvcName,
+			},
+		}
+	}
+	return corev1.VolumeSource{}
+}
+
 func dataVolumeSourceOrDefault(hc *humioClusterv1alpha1.HumioCluster) corev1.VolumeSource {
 	emptyDataVolume := corev1.VolumeSource{}
 	if reflect.DeepEqual(hc.Spec.DataVolumeSource, emptyDataVolume) {

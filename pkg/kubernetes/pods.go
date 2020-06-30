@@ -23,7 +23,7 @@ func ListPods(c client.Client, humioClusterNamespace string, matchingLabels clie
 
 func LabelsForPod(clusterName string, nodeID int) map[string]string {
 	labels := LabelsForHumio(clusterName)
-	labels["node_id"] = strconv.Itoa(nodeID)
+	labels[NodeIdLabelName] = strconv.Itoa(nodeID)
 	return labels
 }
 
