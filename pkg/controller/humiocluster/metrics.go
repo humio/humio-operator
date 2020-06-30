@@ -18,6 +18,8 @@ type prometheusCollection struct {
 type prometheusCountersCollection struct {
 	PodsCreated                  prometheus.Counter
 	PodsDeleted                  prometheus.Counter
+	PvcsCreated                  prometheus.Counter
+	PvcsDeleted                  prometheus.Counter
 	SecretsCreated               prometheus.Counter
 	ClusterRolesCreated          prometheus.Counter
 	ClusterRoleBindingsCreated   prometheus.Counter
@@ -38,6 +40,14 @@ func newPrometheusCollection() prometheusCollection {
 			PodsDeleted: prometheus.NewCounter(prometheus.CounterOpts{
 				Name: "humiocluster_controller_pods_deleted_total",
 				Help: "Total number of pod objects deleted by controller",
+			}),
+			PvcsCreated: prometheus.NewCounter(prometheus.CounterOpts{
+				Name: "humiocluster_controller_pvcs_created_total",
+				Help: "Total number of pvc objects created by controller",
+			}),
+			PvcsDeleted: prometheus.NewCounter(prometheus.CounterOpts{
+				Name: "humiocluster_controller_pvcs_deleted_total",
+				Help: "Total number of pvc objects deleted by controller",
 			}),
 			SecretsCreated: prometheus.NewCounter(prometheus.CounterOpts{
 				Name: "humiocluster_controller_secrets_created_total",
