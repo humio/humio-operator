@@ -151,7 +151,7 @@ func HumioClusterWithPVCs(t *testing.T) {
 	wg.Wait()
 }
 
-func printKubectlcommands(t *testing.T, namespace string, wg *sync.WaitGroup, done chan bool) {
+func printKubectlcommands(t *testing.T, namespace string, wg *sync.WaitGroup, done <-chan bool) {
 	defer wg.Done()
 
 	commands := []string{
