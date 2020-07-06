@@ -28,8 +28,10 @@ type HumioClusterSpec struct {
 	NodeCount int `json:"nodeCount,omitempty"`
 	// EnvironmentVariables that will be merged with default environment variables then set on the humio container
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
-	// DataVolumeSource is the volume that is mounted on the humio pods
+	// DataVolumeSource is the volume that is mounted on the humio pods. This conflicts with DataVolumePersistentVolumeClaimSpecTemplate.
 	DataVolumeSource corev1.VolumeSource `json:"dataVolumeSource,omitempty"`
+	// DataVolumePersistentVolumeClaimSpecTemplate is the PersistentVolumeClaimSpec that will be used with for the humio data volume. This conflicts with DataVolumeSource.
+	DataVolumePersistentVolumeClaimSpecTemplate corev1.PersistentVolumeClaimSpec `json:"dataVolumePersistentVolumeClaimSpecTemplate,omitempty"`
 	// ImagePullSecrets defines the imagepullsecrets for the humio pods. These secrets are not created by the operator
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// Affinity defines the affinity policies that will be attached to the humio pods
@@ -76,6 +78,13 @@ type HumioClusterIngressSpec struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
+// HumioPodStatus shows the status of individual humio pods
+type HumioPodStatus struct {
+	PodName string `json:"podName,omitempty"`
+	PvcName string `json:"pvcName,omitempty"`
+	NodeId  int    `json:"nodeId,omitempty"`
+}
+
 // HumioClusterStatus defines the observed state of HumioCluster
 type HumioClusterStatus struct {
 	// State will be empty before the cluster is bootstrapped. From there it can be "Bootstrapping" or "Running"
@@ -84,6 +93,8 @@ type HumioClusterStatus struct {
 	Version string `json:"version,omitempty"`
 	// NodeCount is the number of nodes of humio running
 	NodeCount int `json:"nodeCount,omitempty"`
+	// PodStatus shows the status of individual humio pods
+	PodStatus []HumioPodStatus `json:"podStatus,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

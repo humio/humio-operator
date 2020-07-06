@@ -2,9 +2,9 @@ package humiocluster
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -67,6 +67,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	watchTypes = append(watchTypes, &corev1.Pod{})
 	watchTypes = append(watchTypes, &corev1.Secret{})
 	watchTypes = append(watchTypes, &corev1.Service{})
+	watchTypes = append(watchTypes, &corev1.PersistentVolumeClaim{})
 	// TODO: figure out if we need to watch SecurityContextConstraints?
 
 	for _, watchType := range watchTypes {
@@ -126,7 +127,11 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	// Assume we are bootstrapping if no cluster state is set.
 	// TODO: this is a workaround for the issue where humio pods cannot start up at the same time during the first boot
 	if hc.Status.State == "" {
-		r.setState(context.TODO(), corev1alpha1.HumioClusterStateBoostrapping, hc)
+		err := r.setState(context.TODO(), corev1alpha1.HumioClusterStateBoostrapping, hc)
+		if err != nil {
+			r.logger.Infof("unable to set cluster state: %s", err)
+			return reconcile.Result{}, err
+		}
 	}
 
 	// Ensure service exists
@@ -177,6 +182,11 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return result, err
 	}
 
+	result, err = r.ensurePersistentVolumeClaimsExist(context.TODO(), hc)
+	if result != emptyResult || err != nil {
+		return result, err
+	}
+
 	// Ensure pods exist. Will requeue if not all pods are created and ready
 	if hc.Status.State == corev1alpha1.HumioClusterStateBoostrapping {
 		result, err = r.ensurePodsBootstrapped(context.TODO(), hc)
@@ -208,6 +218,8 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 			r.logger.Infof("unable to get status: %s", err)
 		}
 		r.setVersion(ctx, status.Version, hc)
+		r.setPod(ctx, hc)
+
 	}(context.TODO(), r.humioClient, hc)
 
 	result, err = r.ensurePodsExist(context.TODO(), hc)
@@ -215,7 +227,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return result, err
 	}
 
-	err = r.ensurePodLabels(context.TODO(), hc)
+	err = r.ensureLabels(context.TODO(), hc)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -240,23 +252,6 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	// All done, requeue every 30 seconds even if no changes were made
 	r.logger.Info("done reconciling, will requeue after 30 seconds")
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 30}, nil
-}
-
-// setState is used to change the cluster state
-// TODO: we use this to determine if we should have a delay between startup of humio pods during bootstrap vs starting up pods during an image update
-func (r *ReconcileHumioCluster) setState(ctx context.Context, state string, hc *corev1alpha1.HumioCluster) error {
-	hc.Status.State = state
-	return r.client.Status().Update(ctx, hc)
-}
-
-func (r *ReconcileHumioCluster) setVersion(ctx context.Context, version string, hc *corev1alpha1.HumioCluster) error {
-	hc.Status.Version = version
-	return r.client.Status().Update(ctx, hc)
-}
-
-func (r *ReconcileHumioCluster) setNodeCount(ctx context.Context, nodeCount int, hc *corev1alpha1.HumioCluster) error {
-	hc.Status.NodeCount = nodeCount
-	return r.client.Status().Update(ctx, hc)
 }
 
 // ensureKafkaConfigConfigMap creates a configmap containing configs specified in extraKafkaConfigs which will be mounted
@@ -704,8 +699,8 @@ func (r *ReconcileHumioCluster) ensureServiceAccountSecretExists(ctx context.Con
 	return nil
 }
 
-func (r *ReconcileHumioCluster) ensurePodLabels(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
-	r.logger.Info("ensuring pod labels")
+func (r *ReconcileHumioCluster) ensureLabels(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
+	r.logger.Info("ensuring labels")
 	cluster, err := r.humioClient.GetClusters()
 	if err != nil {
 		r.logger.Errorf("failed to get clusters: %s", err)
@@ -718,9 +713,22 @@ func (r *ReconcileHumioCluster) ensurePodLabels(ctx context.Context, hc *corev1a
 		return err
 	}
 
+	pvcList, err := r.pvcList(hc)
+	if err != nil {
+		r.logger.Errorf("failed to list pvcs to assign labels: %s", err)
+		return err
+	}
+
 	for _, pod := range foundPodList {
-		// Skip pods that already have a label
-		if kubernetes.LabelListContainsLabel(pod.GetLabels(), "node_id") {
+		// Skip pods that already have a label. Check that the pvc also has the label if applicable
+		if kubernetes.LabelListContainsLabel(pod.GetLabels(), kubernetes.NodeIdLabelName) {
+			if pvcsEnabled(hc) {
+				err := r.ensurePvcLabels(ctx, hc, pod, pvcList)
+				if err != nil {
+					r.logger.Error(err)
+					return err
+				}
+			}
 			continue
 		}
 		// If pod does not have an IP yet it is probably pending
@@ -738,10 +746,39 @@ func (r *ReconcileHumioCluster) ensurePodLabels(ctx context.Context, hc *corev1a
 					r.logger.Errorf("failed to update labels on pod %s: %s", pod.Name, err)
 					return err
 				}
+				if pvcsEnabled(hc) {
+					err = r.ensurePvcLabels(ctx, hc, pod, pvcList)
+					if err != nil {
+						r.logger.Error(err)
+						return err
+					}
+				}
 			}
 		}
 	}
+	return nil
+}
 
+func (r *ReconcileHumioCluster) ensurePvcLabels(ctx context.Context, hc *corev1alpha1.HumioCluster, pod corev1.Pod, pvcList []corev1.PersistentVolumeClaim) error {
+	pvc, err := findPvcForPod(pvcList, pod)
+	if err != nil {
+		r.logger.Errorf("failed to get pvc for pod to assign labels: %s", err)
+		return err
+	}
+	if kubernetes.LabelListContainsLabel(pvc.GetLabels(), kubernetes.NodeIdLabelName) {
+		return nil
+	}
+	nodeId, err := strconv.Atoi(pod.Labels[kubernetes.NodeIdLabelName])
+	if err != nil {
+		return fmt.Errorf("unable to set label on pvc, nodeid %v is invalid: %s", pod.Labels[kubernetes.NodeIdLabelName], err)
+	}
+	labels := kubernetes.LabelsForPersistentVolume(hc.Name, nodeId)
+	r.logger.Infof("setting labels for pvc %s, labels=%v", pvc.Name, labels)
+	pvc.SetLabels(labels)
+	if err := r.client.Update(ctx, &pvc); err != nil {
+		r.logger.Errorf("failed to update labels on pvc %s: %s", pod.Name, err)
+		return err
+	}
 	return nil
 }
 
@@ -819,15 +856,17 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(ctx context.Conte
 
 		// only consider pods not already being deleted
 		if pod.DeletionTimestamp == nil {
-
 			// if pod spec differs, we want to delete it
-			desiredPod, err := constructPod(hc)
+			// use dataVolumeSourceOrDefault() to get either the volume source or an empty volume source in the case
+			// we are using pvcs. this is to avoid doing the pvc lookup and we do not compare pvcs when doing a sha256
+			// hash of the pod spec
+			desiredPod, err := constructPod(hc, dataVolumeSourceOrDefault(hc))
 			if err != nil {
 				r.logger.Errorf("could not construct pod: %s", err)
 				return reconcile.Result{}, err
 			}
 
-			podsMatchTest, err := r.podsMatch(pod, *desiredPod)
+			podsMatchTest, err := r.podsMatch(hc, pod, *desiredPod)
 			if err != nil {
 				r.logger.Errorf("failed to check if pods match %s", err)
 			}
@@ -854,16 +893,16 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(ctx context.Conte
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileHumioCluster) podsMatch(pod corev1.Pod, desiredPod corev1.Pod) (bool, error) {
+func (r *ReconcileHumioCluster) podsMatch(hc *corev1alpha1.HumioCluster, pod corev1.Pod, desiredPod corev1.Pod) (bool, error) {
 	if _, ok := pod.Annotations[podHashAnnotation]; !ok {
 		r.logger.Errorf("did not find annotation with pod hash")
 		return false, fmt.Errorf("did not find annotation with pod hash")
 	}
-	desiredPodHash := asSHA256(desiredPod.Spec)
+	desiredPodHash := podSpecAsSHA256(hc, desiredPod)
 	if pod.Annotations[podHashAnnotation] == desiredPodHash {
 		return true, nil
 	}
-	r.logger.Infof("pod hash annotation did does not match desired pod")
+	r.logger.Infof("pod hash annotation did does not match desired pod: got %+v, expected %+v", pod, desiredPod)
 	return false, nil
 }
 
@@ -915,16 +954,28 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *
 	}
 
 	if podsReadyCount < hc.Spec.NodeCount {
-		pod, err := constructPod(hc)
+		pvcList, err := r.pvcList(hc)
+		if err != nil {
+			r.logger.Errorf("problem getting pvc list: %s", err)
+			return reconcile.Result{}, err
+		}
+		volumeSource, err := volumeSource(hc, foundPodList, pvcList)
+		if err != nil {
+			r.logger.Errorf("unable to construct data volume source for HumioCluster: %s", err)
+			return reconcile.Result{}, err
+
+		}
+		pod, err := constructPod(hc, volumeSource)
 		if err != nil {
 			r.logger.Errorf("unable to construct pod for HumioCluster: %s", err)
 			return reconcile.Result{}, err
 		}
-		pod.Annotations["humio_pod_hash"] = asSHA256(pod.Spec)
+		pod.Annotations["humio_pod_hash"] = podSpecAsSHA256(hc, *pod)
 		if err := controllerutil.SetControllerReference(hc, pod, r.scheme); err != nil {
 			r.logger.Errorf("could not set controller reference: %s", err)
 			return reconcile.Result{}, err
 		}
+
 		err = r.client.Create(ctx, pod)
 		if err != nil {
 			r.logger.Errorf("unable to create Pod for HumioCluster: %s", err)
@@ -951,12 +1002,22 @@ func (r *ReconcileHumioCluster) ensurePodsExist(ctx context.Context, hc *corev1a
 	}
 
 	if len(foundPodList) < hc.Spec.NodeCount {
-		pod, err := constructPod(hc)
+		pvcList, err := r.pvcList(hc)
+		if err != nil {
+			r.logger.Errorf("problem getting pvc list: %s", err)
+			return reconcile.Result{}, err
+		}
+		volumeSource, err := volumeSource(hc, foundPodList, pvcList)
+		if err != nil {
+			r.logger.Errorf("unable to construct data volume source for HumioCluster: %s", err)
+			return reconcile.Result{}, err
+		}
+		pod, err := constructPod(hc, volumeSource)
 		if err != nil {
 			r.logger.Errorf("unable to construct pod for HumioCluster: %s", err)
 			return reconcile.Result{}, err
 		}
-		pod.Annotations["humio_pod_hash"] = asSHA256(pod.Spec)
+		pod.Annotations["humio_pod_hash"] = podSpecAsSHA256(hc, *pod)
 		if err := controllerutil.SetControllerReference(hc, pod, r.scheme); err != nil {
 			r.logger.Errorf("could not set controller reference: %s", err)
 			return reconcile.Result{}, err
@@ -973,6 +1034,42 @@ func (r *ReconcileHumioCluster) ensurePodsExist(ctx context.Context, hc *corev1a
 	}
 
 	// TODO: what should happen if we have more pods than are expected?
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileHumioCluster) ensurePersistentVolumeClaimsExist(ctx context.Context, hc *corev1alpha1.HumioCluster) (reconcile.Result, error) {
+	if !pvcsEnabled(hc) {
+		r.logger.Info(fmt.Sprintf("skipping pvcs: %+v", hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate))
+		return reconcile.Result{}, nil
+	}
+
+	r.logger.Info("ensuring pvcs")
+	foundPersistentVolumeClaims, err := kubernetes.ListPersistentVolumeClaims(r.client, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+
+	if err != nil {
+		r.logger.Errorf("failed to list pvcs: %s", err)
+		return reconcile.Result{}, err
+	}
+
+	if len(foundPersistentVolumeClaims) < hc.Spec.NodeCount {
+		pvc := constructPersistentVolumeClaim(hc)
+		pvc.Annotations["humio_pvc_hash"] = helpers.AsSHA256(pvc.Spec)
+		if err := controllerutil.SetControllerReference(hc, pvc, r.scheme); err != nil {
+			r.logger.Errorf("could not set controller reference: %s", err)
+			return reconcile.Result{}, err
+		}
+		err = r.client.Create(ctx, pvc)
+		if err != nil {
+			r.logger.Errorf("unable to create pvc for HumioCluster: %s", err)
+			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+		}
+		r.logger.Infof("successfully created pvc %s for HumioCluster %s", pvc.Name, hc.Name)
+		prometheusMetrics.Counters.PvcsCreated.Inc()
+
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// TODO: what should happen if we have more pvcs than are expected?
 	return reconcile.Result{}, nil
 }
 
@@ -1001,9 +1098,9 @@ func envVarList(hc *corev1alpha1.HumioCluster) []corev1.EnvVar {
 	return hc.Spec.EnvironmentVariables
 }
 
-// TODO: This is very generic, we may want to move this elsewhere in case we need to use it elsewhere.
-func asSHA256(o interface{}) string {
-	h := sha256.New()
-	h.Write([]byte(fmt.Sprintf("%v", o)))
-	return fmt.Sprintf("%x", h.Sum(nil))
+func (r *ReconcileHumioCluster) pvcList(hc *corev1alpha1.HumioCluster) ([]corev1.PersistentVolumeClaim, error) {
+	if pvcsEnabled(hc) {
+		return kubernetes.ListPersistentVolumeClaims(r.client, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+	}
+	return []corev1.PersistentVolumeClaim{}, nil
 }
