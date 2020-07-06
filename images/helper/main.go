@@ -3,12 +3,13 @@ package main
 import (
 	"fmt"
 	humio "github.com/humio/cli/api"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 	"github.com/savaki/jq"
 	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	k8s "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"net/http"
 	"os"
@@ -54,7 +55,6 @@ func getApiTokenForUserID(snapShotFile, userID string) (string, error) {
 	data, _ := op.Apply([]byte(snapShotFileContent))
 	apiToken := strings.ReplaceAll(string(data), "\"", "")
 	if string(data) != "" {
-		// TODO: strip quotes in string
 		return apiToken, nil
 	}
 
@@ -123,7 +123,7 @@ func createAndGetAdminAccountUserID(client *humio.Client) (string, error) {
 }
 
 // ensureAdminSecretContent ensures the target Kubernetes secret contains the desired API token
-func ensureAdminSecretContent(clientset *kubernetes.Clientset, namespace, adminSecretName, desiredAPIToken string) error {
+func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, adminSecretName, desiredAPIToken string) error {
 	// Get existing Kubernetes secret
 	secret, err := clientset.CoreV1().Secrets(namespace).Get(adminSecretName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
@@ -132,6 +132,7 @@ func ensureAdminSecretContent(clientset *kubernetes.Clientset, namespace, adminS
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      adminSecretName,
 				Namespace: namespace,
+				Labels:    kubernetes.LabelsForHumio(clusterName),
 			},
 			StringData: map[string]string{
 				"token": desiredAPIToken,
@@ -166,13 +167,13 @@ func fileExists(path string) bool {
 	return !fileInfo.IsDir()
 }
 
-func newKubernetesClientset() *kubernetes.Clientset {
+func newKubernetesClientset() *k8s.Clientset {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		panic(err.Error())
 	}
 
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := k8s.NewForConfig(config)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -185,6 +186,11 @@ func authMode() {
 	adminSecretName, found := os.LookupEnv("ADMIN_SECRET_NAME")
 	if !found || adminSecretName == "" {
 		panic("environment variable ADMIN_SECRET_NAME not set or empty")
+	}
+
+	clusterName, found := os.LookupEnv("CLUSTER_NAME")
+	if !found || clusterName == "" {
+		panic("environment variable CLUSTER_NAME not set or empty")
 	}
 
 	namespace, found := os.LookupEnv("NAMESPACE")
@@ -245,7 +251,7 @@ func authMode() {
 		}
 
 		// Update Kubernetes secret if needed
-		err = ensureAdminSecretContent(clientset, namespace, adminSecretName, apiToken)
+		err = ensureAdminSecretContent(clientset, namespace, clusterName, adminSecretName, apiToken)
 		if err != nil {
 			fmt.Printf("got error ensuring k8s secret contains apiToken: %s\n", err)
 			time.Sleep(5 * time.Second)
