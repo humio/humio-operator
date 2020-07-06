@@ -3,6 +3,7 @@ package e2e
 import (
 	"fmt"
 	"os/exec"
+	"sync"
 	"testing"
 	"time"
 
@@ -77,7 +78,12 @@ func HumioCluster(t *testing.T) {
 		newRepositoryTest(clusterName, namespace),
 	}
 
-	go printKubectlcommands(t, namespace)
+	// print kubectl commands until the tests are complete. ensure we wait for the last kubectl command to complete
+	// before exiting to avoid trying to exec a kubectl command after the test has shut down
+	var wg sync.WaitGroup
+	wg.Add(1)
+	done := make(chan bool, 1)
+	go printKubectlcommands(t, namespace, &wg, done)
 
 	for _, test := range tests {
 		if err = test.Start(f, ctx); err != nil {
@@ -89,6 +95,9 @@ func HumioCluster(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+
+	done <- true
+	wg.Wait()
 }
 
 // TODO: Run this in the HumioCluster function once we support multiple namespaces
@@ -120,7 +129,12 @@ func HumioClusterWithPVCs(t *testing.T) {
 		newHumioClusterWithPVCsTest(clusterName, namespace),
 	}
 
-	go printKubectlcommands(t, namespace)
+	// print kubectl commands until the tests are complete. ensure we wait for the last kubectl command to complete
+	// before exiting to avoid trying to exec a kubectl command after the test has shut down
+	var wg sync.WaitGroup
+	wg.Add(1)
+	done := make(chan bool, 1)
+	go printKubectlcommands(t, namespace, &wg, done)
 
 	for _, test := range tests {
 		if err = test.Start(f, ctx); err != nil {
@@ -132,9 +146,14 @@ func HumioClusterWithPVCs(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+
+	done <- true
+	wg.Wait()
 }
 
-func printKubectlcommands(t *testing.T, namespace string) {
+func printKubectlcommands(t *testing.T, namespace string, wg *sync.WaitGroup, done chan bool) {
+	defer wg.Done()
+
 	commands := []string{
 		"kubectl get pods -A",
 		fmt.Sprintf("kubectl describe pods -n %s", namespace),
@@ -143,6 +162,12 @@ func printKubectlcommands(t *testing.T, namespace string) {
 
 	ticker := time.NewTicker(time.Second * 5)
 	for range ticker.C {
+		select {
+		case <-done:
+			return
+		default:
+		}
+
 		for _, command := range commands {
 			cmd := exec.Command("bash", "-c", command)
 			stdoutStderr, err := cmd.CombinedOutput()
