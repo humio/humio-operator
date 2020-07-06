@@ -77,7 +77,9 @@ TEST SUITE: None
 
 ## Create Humio cluster
 
-At this point, we should have the humio-operator installed, so all we need to spin up the Humio cluster is to construct a YAML file containing the specifics around the desired configuration. We will be using the following YAML snippet:
+At this point, we should have the humio-operator installed, so all we need to spin up the Humio cluster is to construct a YAML file containing the specifics around the desired configuration. We will be using the following YAML snippet. 
+
+_Note: this configuration is not valid for a long-running or production cluster. For a persistent cluster, we recommend using ephemeral nodes backed by S3, or if that is not an option, persistent volumes. See the [examples](https://github.com/humio/humio-operator/tree/master/examples) directory for those configurations._
 
 ```yaml
 apiVersion: core.humio.com/v1alpha1
