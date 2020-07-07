@@ -24,6 +24,9 @@ func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeS
 	if len(imageSplit) == 2 {
 		productVersion = imageSplit[1]
 	}
+	boolFalse := bool(false)
+	boolTrue := bool(true)
+	userID := int64(65534)
 
 	pod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -43,7 +46,7 @@ func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeS
 			InitContainers: []corev1.Container{
 				{
 					Name:  "zookeeper-prefix",
-					Image: "humio/humio-operator-helper:0.0.1",
+					Image: "humio/humio-operator-helper:0.0.2",
 					Env: []corev1.EnvVar{
 						{
 							Name:  "MODE",
@@ -84,6 +87,10 @@ func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeS
 						},
 					},
 					SecurityContext: &corev1.SecurityContext{
+						Privileged:               &boolFalse,
+						AllowPrivilegeEscalation: &boolFalse,
+						ReadOnlyRootFilesystem:   &boolTrue,
+						RunAsUser:                &userID,
 						Capabilities: &corev1.Capabilities{
 							Drop: []corev1.Capability{
 								"ALL",
@@ -95,7 +102,7 @@ func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeS
 			Containers: []corev1.Container{
 				{
 					Name:  "auth",
-					Image: "humio/humio-operator-helper:0.0.1",
+					Image: "humio/humio-operator-helper:0.0.2",
 					Env: []corev1.EnvVar{
 						{
 							Name: "NAMESPACE",
@@ -111,13 +118,17 @@ func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeS
 						},
 						{
 							Name:  "ADMIN_SECRET_NAME",
-							Value: "admin-token", // TODO: get this from code
+							Value: kubernetes.ServiceTokenSecretName,
+						},
+						{
+							Name:  "CLUSTER_NAME",
+							Value: hc.Name,
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "humio-data",
-							MountPath: "/data",
+							MountPath: "/data/humio-data",
 							ReadOnly:  true,
 						},
 						{
@@ -175,7 +186,12 @@ func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeS
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "humio-data",
-							MountPath: "/data",
+							MountPath: "/data/humio-data",
+						},
+						{
+							Name:      "humio-tmp",
+							MountPath: "/app/humio/humio-data/tmp",
+							ReadOnly:  false,
 						},
 						{
 							Name:      "shared",
@@ -225,6 +241,10 @@ func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeS
 				},
 				{
 					Name:         "tmp",
+					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+				},
+				{
+					Name:         "humio-tmp",
 					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 				},
 				{

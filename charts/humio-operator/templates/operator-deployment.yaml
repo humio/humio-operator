@@ -50,6 +50,7 @@ spec:
       containers:
       - name: humio-operator
         image: {{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag }}
+        imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
         command:
         - humio-operator
         env:
@@ -85,6 +86,7 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
+          runAsUser: 65534
           capabilities:
             add:
             - NET_BIND_SERVICE
