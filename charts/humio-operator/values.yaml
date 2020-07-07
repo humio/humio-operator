@@ -2,6 +2,7 @@ operator:
   image:
     repository: humio/humio-operator
     tag: 0.0.6
+    pullPolicy: IfNotPresent
   rbac:
     create: true
   watchNamespaces: []

@@ -161,7 +161,7 @@ func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, 
 // fileExists returns true if the specified path exists and is not a directory
 func fileExists(path string) bool {
 	fileInfo, err := os.Stat(path)
-	if os.IsNotExist(err) {
+	if err != nil {
 		return false
 	}
 	return !fileInfo.IsDir()
