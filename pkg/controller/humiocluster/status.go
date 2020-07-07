@@ -12,6 +12,7 @@ import (
 // setState is used to change the cluster state
 // TODO: we use this to determine if we should have a delay between startup of humio pods during bootstrap vs starting up pods during an image update
 func (r *ReconcileHumioCluster) setState(ctx context.Context, state string, hc *corev1alpha1.HumioCluster) error {
+	r.logger.Infof("setting cluster state to %s", state)
 	hc.Status.State = state
 	err := r.client.Status().Update(ctx, hc)
 	if err != nil {
@@ -21,6 +22,7 @@ func (r *ReconcileHumioCluster) setState(ctx context.Context, state string, hc *
 }
 
 func (r *ReconcileHumioCluster) setVersion(ctx context.Context, version string, hc *corev1alpha1.HumioCluster) {
+	r.logger.Infof("setting cluster version to %s", version)
 	hc.Status.Version = version
 	err := r.client.Status().Update(ctx, hc)
 	if err != nil {
@@ -29,6 +31,7 @@ func (r *ReconcileHumioCluster) setVersion(ctx context.Context, version string, 
 }
 
 func (r *ReconcileHumioCluster) setNodeCount(ctx context.Context, nodeCount int, hc *corev1alpha1.HumioCluster) {
+	r.logger.Infof("setting cluster node count to %d", nodeCount)
 	hc.Status.NodeCount = nodeCount
 	err := r.client.Status().Update(ctx, hc)
 	if err != nil {
@@ -37,6 +40,7 @@ func (r *ReconcileHumioCluster) setNodeCount(ctx context.Context, nodeCount int,
 }
 
 func (r *ReconcileHumioCluster) setPod(ctx context.Context, hc *corev1alpha1.HumioCluster) {
+	r.logger.Info("setting cluster pod status")
 	var pvcs []corev1.PersistentVolumeClaim
 	pods, err := kubernetes.ListPods(r.client, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
