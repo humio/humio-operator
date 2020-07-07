@@ -1,4 +1,4 @@
-module github.com/humio/humio-operator
+module github.com/humio/humio-operator/images/helper
 
 go 1.14
 
