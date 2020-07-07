@@ -157,6 +157,7 @@ func printKubectlcommands(t *testing.T, namespace string, wg *sync.WaitGroup, do
 	commands := []string{
 		"kubectl get pods -A",
 		fmt.Sprintf("kubectl describe pods -n %s", namespace),
+		fmt.Sprintf("kubectl describe persistentvolumeclaims -n %s", namespace),
 		fmt.Sprintf("kubectl logs deploy/humio-operator -n %s", namespace),
 	}
 

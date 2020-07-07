@@ -38,7 +38,7 @@ make crds
 grep -v "{{" ./charts/humio-operator/templates/crds.yaml >> $global_manifest
 for JSON in $(
   helm template humio-operator $helm_chart_dir --set openshift=true --set installCRDs=true --namespace $operator_namespace -f $helm_chart_dir/$helm_chart_values_file | \
-  $kubectl apply --dry-run --selector=operator-sdk-test-scope=per-operator -o json -f - | \
+  $kubectl apply --dry-run=client --selector=operator-sdk-test-scope=per-operator -o json -f - | \
   jq -c '.items[]'
 )
 do
@@ -50,8 +50,8 @@ done >> $global_manifest
 # namespaced.yaml should be: service_account, role, role_binding, deployment
 >$namespaced_manifest
 for JSON in $(
-  helm template humio-operator $helm_chart_dir --set operator.image.tag=local-$git_rev --set openshift=true --set installCRDs=true --namespace $operator_namespace -f $helm_chart_dir/$helm_chart_values_file | \
-  $kubectl apply --dry-run --selector=operator-sdk-test-scope=per-test -o json -f - | \
+  helm template humio-operator $helm_chart_dir --set operator.image.tag=local-$git_rev --set operator.image.pullPolicy=Always --set openshift=true --set installCRDs=true --namespace $operator_namespace -f $helm_chart_dir/$helm_chart_values_file | \
+  $kubectl apply --dry-run=client --selector=operator-sdk-test-scope=per-test -o json -f - | \
   jq -c '.items[]'
 )
 do

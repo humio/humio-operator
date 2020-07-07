@@ -220,10 +220,13 @@ func containerSecurityContextOrDefault(hc *humioClusterv1alpha1.HumioCluster) *c
 func podSecurityContextOrDefault(hc *humioClusterv1alpha1.HumioCluster) *corev1.PodSecurityContext {
 	boolTrue := bool(true)
 	userID := int64(65534)
+	groupID := int64(0) // TODO: We probably want to move away from this.
 	if hc.Spec.PodSecurityContext == nil {
 		return &corev1.PodSecurityContext{
 			RunAsUser:    &userID,
 			RunAsNonRoot: &boolTrue,
+			RunAsGroup:   &groupID,
+			FSGroup:      &groupID,
 		}
 	}
 	return hc.Spec.PodSecurityContext
