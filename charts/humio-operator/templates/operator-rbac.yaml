@@ -359,6 +359,7 @@ volumes:
 - hostPath
 - secret
 - emptyDir
+- persistentVolumeClaim
 users: []
 {{- end }}
 
