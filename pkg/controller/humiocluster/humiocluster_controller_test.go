@@ -685,7 +685,7 @@ func TestReconcileHumioCluster_Reconcile_persistent_volumes(t *testing.T) {
 			}
 
 			// Simulate creating pods
-			for nodeCount := 1; nodeCount <= tt.humioCluster.Spec.NodeCount; nodeCount++ {
+			for nodeCount := 1; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
 				foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
 				if err != nil {
 					t.Errorf("failed to list pods: %s", err)
@@ -702,9 +702,12 @@ func TestReconcileHumioCluster_Reconcile_persistent_volumes(t *testing.T) {
 				}
 
 				// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
-				_, err = r.Reconcile(req)
+				res, err := r.Reconcile(req)
 				if err != nil {
 					t.Errorf("reconcile: (%v)", err)
+				}
+				if res != (reconcile.Result{Requeue: true}) {
+					t.Errorf("reconcile: (%v)", res)
 				}
 			}
 

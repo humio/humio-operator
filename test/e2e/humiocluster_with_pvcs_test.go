@@ -86,7 +86,15 @@ func (h *humioClusterWithPVCsTest) Wait(f *framework.Framework) error {
 				}
 			}
 
-			if pvcCount < h.cluster.Spec.NodeCount {
+			if h.cluster.Status.NodeCount != h.cluster.Spec.NodeCount {
+				return fmt.Errorf("expected to find node count of %d instead got %d", h.cluster.Spec.NodeCount, h.cluster.Status.NodeCount)
+			}
+
+			if len(foundPodList) != h.cluster.Spec.NodeCount {
+				return fmt.Errorf("expected to find %d pods instead got %d", h.cluster.Spec.NodeCount, len(foundPodList))
+			}
+
+			if pvcCount != h.cluster.Spec.NodeCount {
 				return fmt.Errorf("expected to find %d pods with attached pvcs but instead got %d", h.cluster.Spec.NodeCount, pvcCount)
 			}
 			return nil
