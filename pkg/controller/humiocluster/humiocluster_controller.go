@@ -384,6 +384,7 @@ func (r *ReconcileHumioCluster) ensureHumioPodPermissions(ctx context.Context, h
 		return nil
 	}
 
+	r.logger.Info("ensuring pod permissions")
 	err := r.ensureServiceAccountExists(ctx, hc, humioServiceAccountNameOrDefault(hc), humioServiceAccountAnnotationsOrDefault(hc))
 	if err != nil {
 		r.logger.Errorf("unable to ensure humio service account exists for HumioCluster: %s", err)
@@ -817,6 +818,7 @@ func (r *ReconcileHumioCluster) ensurePartitionsAreBalanced(humioClusterControll
 }
 
 func (r *ReconcileHumioCluster) ensureServiceExists(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
+	r.logger.Info("ensuring service")
 	_, err := kubernetes.GetService(ctx, r.client, hc.Name, hc.Namespace)
 	if k8serrors.IsNotFound(err) {
 		service := kubernetes.ConstructService(hc.Name, hc.Namespace)
@@ -848,6 +850,7 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(ctx context.Conte
 		return reconcile.Result{}, nil
 	}
 
+	r.logger.Info("ensuring mismatching pods are deleted")
 	podBeingDeleted := false
 	for _, pod := range foundPodList {
 		// TODO: can we assume we always only have one pod?
@@ -924,11 +927,13 @@ func (r *ReconcileHumioCluster) ingressesMatch(ingress *v1beta1.Ingress, desired
 func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *corev1alpha1.HumioCluster) (reconcile.Result, error) {
 	// Ensure we have pods for the defined NodeCount.
 	// If scaling down, we will handle the extra/obsolete pods later.
+	r.logger.Info("ensuring pods are bootstrapped")
 	foundPodList, err := kubernetes.ListPods(r.client, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
 		r.logger.Errorf("failed to list pods: %s", err)
 		return reconcile.Result{}, err
 	}
+	r.logger.Debugf("found %d pods", len(foundPodList))
 
 	var podsReadyCount int
 	var podsNotReadyCount int
@@ -937,8 +942,11 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *
 		for _, condition := range pod.Status.Conditions {
 			if condition.Type == "Ready" {
 				if condition.Status == "True" {
+					r.logger.Debugf("pod %s is ready", pod.Name)
 					podsReadyCount++
 					podsNotReadyCount--
+				} else {
+					r.logger.Debugf("pod %s is not ready", pod.Name)
 				}
 			}
 		}
@@ -953,12 +961,14 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 
+	r.logger.Debugf("pod ready count is %d, while desired node count is %d", podsReadyCount, hc.Spec.NodeCount)
 	if podsReadyCount < hc.Spec.NodeCount {
 		pvcList, err := r.pvcList(hc)
 		if err != nil {
 			r.logger.Errorf("problem getting pvc list: %s", err)
 			return reconcile.Result{}, err
 		}
+		r.logger.Debugf("attempting to get volume source, pvc count is %d, pod count is %d", len(pvcList), len(foundPodList))
 		volumeSource, err := volumeSource(hc, foundPodList, pvcList)
 		if err != nil {
 			r.logger.Errorf("unable to construct data volume source for HumioCluster: %s", err)
@@ -970,12 +980,14 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *
 			r.logger.Errorf("unable to construct pod for HumioCluster: %s", err)
 			return reconcile.Result{}, err
 		}
+		r.logger.Debugf("pod %s will use volume source %+v", pod.Name, volumeSource)
 		pod.Annotations["humio_pod_hash"] = podSpecAsSHA256(hc, *pod)
 		if err := controllerutil.SetControllerReference(hc, pod, r.scheme); err != nil {
 			r.logger.Errorf("could not set controller reference: %s", err)
 			return reconcile.Result{}, err
 		}
 
+		r.logger.Infof("creating pod %s", pod.Name)
 		err = r.client.Create(ctx, pod)
 		if err != nil {
 			r.logger.Errorf("unable to create Pod for HumioCluster: %s", err)
@@ -983,13 +995,35 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *
 		}
 		r.logger.Infof("successfully created pod %s for HumioCluster %s", pod.Name, hc.Name)
 		prometheusMetrics.Counters.PodsCreated.Inc()
+
+		// check that we can list the new pod
+		// this is to avoid issues where the requeue is faster than kubernetes
+		if err := r.waitForNewPod(hc, len(foundPodList)+1); err != nil {
+			r.logger.Errorf("failed to validate new pod: %s", err)
+			return reconcile.Result{}, err
+		}
+
 		// We have created a pod. Requeue immediately even if the pod is not ready. We will check the readiness status on the next reconciliation.
-		// RequeueAfter is here to try to avoid issues where the requeue is faster than kubernetes
-		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// TODO: what should happen if we have more pods than are expected?
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileHumioCluster) waitForNewPod(hc *corev1alpha1.HumioCluster, expectedPodCount int) error {
+	for i := 0; i < 30; i++ {
+		latestPodList, err := kubernetes.ListPods(r.client, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+		if err != nil {
+			return err
+		}
+		r.logger.Infof("validating new pod was created. expected pod count %d, current pod count %d", expectedPodCount, len(latestPodList))
+		if len(latestPodList) >= expectedPodCount {
+			return nil
+		}
+		time.Sleep(time.Second * 1)
+	}
+	return fmt.Errorf("timed out waiting to validate new pod was created")
 }
 
 func (r *ReconcileHumioCluster) ensurePodsExist(ctx context.Context, hc *corev1alpha1.HumioCluster) (reconcile.Result, error) {
@@ -1029,6 +1063,14 @@ func (r *ReconcileHumioCluster) ensurePodsExist(ctx context.Context, hc *corev1a
 		}
 		r.logger.Infof("successfully created pod %s for HumioCluster %s", pod.Name, hc.Name)
 		prometheusMetrics.Counters.PodsCreated.Inc()
+
+		// check that we can list the new pod
+		// this is to avoid issues where the requeue is faster than kubernetes
+		if err := r.waitForNewPod(hc, len(foundPodList)+1); err != nil {
+			r.logger.Errorf("failed to validate new pod: %s", err)
+			return reconcile.Result{}, err
+		}
+
 		// We have created a pod. Requeue immediately even if the pod is not ready. We will check the readiness status on the next reconciliation.
 		return reconcile.Result{Requeue: true}, nil
 	}
@@ -1045,6 +1087,7 @@ func (r *ReconcileHumioCluster) ensurePersistentVolumeClaimsExist(ctx context.Co
 
 	r.logger.Info("ensuring pvcs")
 	foundPersistentVolumeClaims, err := kubernetes.ListPersistentVolumeClaims(r.client, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+	r.logger.Debugf("found %d pvcs", len(foundPersistentVolumeClaims))
 
 	if err != nil {
 		r.logger.Errorf("failed to list pvcs: %s", err)
@@ -1052,6 +1095,7 @@ func (r *ReconcileHumioCluster) ensurePersistentVolumeClaimsExist(ctx context.Co
 	}
 
 	if len(foundPersistentVolumeClaims) < hc.Spec.NodeCount {
+		r.logger.Infof("pvc count of %d is less than %d. adding more", len(foundPersistentVolumeClaims), hc.Spec.NodeCount)
 		pvc := constructPersistentVolumeClaim(hc)
 		pvc.Annotations["humio_pvc_hash"] = helpers.AsSHA256(pvc.Spec)
 		if err := controllerutil.SetControllerReference(hc, pvc, r.scheme); err != nil {
