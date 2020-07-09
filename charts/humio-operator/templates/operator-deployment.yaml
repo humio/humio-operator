@@ -6,7 +6,7 @@ metadata:
   annotations:
     productID: "none"
     productName: "humio-operator"
-    productVersion: "0.0.6"
+    productVersion: {{ .Values.operator.image.tag | quote }}
   labels:
     app: '{{ .Chart.Name }}'
     app.kubernetes.io/name: '{{ .Chart.Name }}'
@@ -25,6 +25,10 @@ spec:
       app.kubernetes.io/managed-by: '{{ .Release.Service }}'
   template:
     metadata:
+      annotations:
+        productID: "none"
+        productName: "humio-operator"
+        productVersion: {{ .Values.operator.image.tag | quote }}
       labels:
         app: '{{ .Chart.Name }}'
         app.kubernetes.io/name: '{{ .Chart.Name }}'
