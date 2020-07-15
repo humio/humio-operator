@@ -123,6 +123,13 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 
 	// Set defaults
 	setDefaults(hc)
+	emptyResult := reconcile.Result{}
+
+	// Ensure pods that does not run the desired version are deleted.
+	result, err := r.ensureMismatchedPodsAreDeleted(context.TODO(), hc)
+	if result != emptyResult || err != nil {
+		return result, err
+	}
 
 	// Assume we are bootstrapping if no cluster state is set.
 	// TODO: this is a workaround for the issue where humio pods cannot start up at the same time during the first boot
@@ -172,14 +179,6 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	err = r.ensureKafkaConfigConfigMap(context.TODO(), hc)
 	if err != nil {
 		return reconcile.Result{}, err
-	}
-
-	emptyResult := reconcile.Result{}
-
-	// Ensure pods that does not run the desired version are deleted.
-	result, err := r.ensureMismatchedPodsAreDeleted(context.TODO(), hc)
-	if result != emptyResult || err != nil {
-		return result, err
 	}
 
 	result, err = r.ensurePersistentVolumeClaimsExist(context.TODO(), hc)
