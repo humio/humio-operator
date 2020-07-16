@@ -9,6 +9,7 @@ ENV KUBECTL_VERSION=1.15.11
 ENV KIND_VERSION=0.8.0
 ENV RELEASE_VERSION=v0.17.0
 ENV HELM_VERSION=3.2.0
+ENV OPERATOR_COURIER_VERSION=2.1.7
 
 RUN apk update \
     && apk upgrade \
@@ -22,7 +23,7 @@ RUN curl --max-time 300 -o /usr/local/bin/kubectl -L https://storage.googleapis.
 
 RUN curl -L https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz -o /tmp/helm.tar.gz && tar -zxvf /tmp/helm.tar.gz -C /tmp && mv /tmp/linux-amd64/helm /bin/helm && rm -rf /tmp/*
 
-RUN pip3 install operator-courier
+RUN pip3 install operator-courier==${OPERATOR_COURIER_VERSION}
 
 RUN curl -OJL https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu \
     && chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu \
