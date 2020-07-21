@@ -320,3 +320,19 @@ func esCertificateSecretNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) str
 	}
 	return fmt.Sprintf("%s-es-certificate", hc.Name)
 }
+
+func extraHumioVolumeMountsOrDefault(hc *humioClusterv1alpha1.HumioCluster) []corev1.VolumeMount {
+	emptyVolumeMounts := []corev1.VolumeMount{}
+	if reflect.DeepEqual(hc.Spec.ExtraHumioVolumeMounts, emptyVolumeMounts) {
+		return emptyVolumeMounts
+	}
+	return hc.Spec.ExtraHumioVolumeMounts
+}
+
+func extraVolumesOrDefault(hc *humioClusterv1alpha1.HumioCluster) []corev1.Volume {
+	emptyVolumes := []corev1.Volume{}
+	if reflect.DeepEqual(hc.Spec.ExtraVolumes, emptyVolumes) {
+		return emptyVolumes
+	}
+	return hc.Spec.ExtraVolumes
+}
