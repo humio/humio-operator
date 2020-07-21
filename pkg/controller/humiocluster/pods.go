@@ -16,6 +16,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+const (
+	humioAppPath     = "/app/humio"
+	humioDataPath    = "/data/humio-data"
+	humioDataTmpPath = "/app/humio/humio-data/tmp"
+	sharedPath       = "/shared"
+	tmpPath          = "/tmp"
+)
+
 func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeSource) (*corev1.Pod, error) {
 	var pod corev1.Pod
 	mode := int32(420)
@@ -54,7 +62,7 @@ func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeS
 						},
 						{
 							Name:  "TARGET_FILE",
-							Value: "/shared/zookeeper-prefix",
+							Value: fmt.Sprintf("%s/zookeeper-prefix", sharedPath),
 						},
 						{
 							Name: "NODE_NAME",
@@ -68,7 +76,7 @@ func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeS
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "shared",
-							MountPath: "/shared",
+							MountPath: sharedPath,
 						},
 						{
 							Name:      "init-service-account-secret",
@@ -128,7 +136,7 @@ func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeS
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "humio-data",
-							MountPath: "/data/humio-data",
+							MountPath: humioDataPath,
 							ReadOnly:  true,
 						},
 						{
@@ -169,7 +177,9 @@ func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeS
 					Name:    "humio",
 					Image:   hc.Spec.Image,
 					Command: []string{"/bin/sh"},
-					Args:    []string{"-c", "export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat /shared/zookeeper-prefix)_ && exec bash /app/humio/run.sh"},
+					Args: []string{"-c",
+						fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat %s/zookeeper-prefix)_ && exec bash %s/run.sh",
+							sharedPath, humioAppPath)},
 					Ports: []corev1.ContainerPort{
 						{
 							Name:          "http",
@@ -186,21 +196,21 @@ func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeS
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "humio-data",
-							MountPath: "/data/humio-data",
+							MountPath: humioDataPath,
 						},
 						{
 							Name:      "humio-tmp",
-							MountPath: "/app/humio/humio-data/tmp",
+							MountPath: humioDataTmpPath,
 							ReadOnly:  false,
 						},
 						{
 							Name:      "shared",
-							MountPath: "/shared",
+							MountPath: sharedPath,
 							ReadOnly:  true,
 						},
 						{
 							Name:      "tmp",
-							MountPath: "/tmp",
+							MountPath: tmpPath,
 							ReadOnly:  false,
 						},
 					},
@@ -310,10 +320,6 @@ func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeS
 	}
 
 	if extraKafkaConfigsOrDefault(hc) != "" {
-		idx, err := kubernetes.GetContainerIndexByName(pod, "humio")
-		if err != nil {
-			return &corev1.Pod{}, err
-		}
 		pod.Spec.Containers[idx].Env = append(pod.Spec.Containers[idx].Env, corev1.EnvVar{
 			Name:  "EXTRA_KAFKA_CONFIGS_FILE",
 			Value: fmt.Sprintf("/var/lib/humio/extra-kafka-configs-configmap/%s", extraKafkaPropertiesFilename),
@@ -343,6 +349,26 @@ func constructPod(hc *corev1alpha1.HumioCluster, dataVolumeSource corev1.VolumeS
 		for idx := range pod.Spec.Containers {
 			pod.Spec.Containers[idx].ImagePullPolicy = hc.Spec.ImagePullPolicy
 		}
+	}
+
+	for _, volumeMount := range extraHumioVolumeMountsOrDefault(hc) {
+		for _, existingVolumeMount := range pod.Spec.Containers[idx].VolumeMounts {
+			if existingVolumeMount.Name == volumeMount.Name {
+				return &corev1.Pod{}, fmt.Errorf("extraHumioVolumeMount conflicts with existing name: %s", existingVolumeMount.Name)
+			}
+			if strings.HasPrefix(existingVolumeMount.MountPath, volumeMount.MountPath) {
+				return &corev1.Pod{}, fmt.Errorf("extraHumioVolumeMount conflicts with existing mount path: %s", existingVolumeMount.MountPath)
+			}
+		}
+		pod.Spec.Containers[idx].VolumeMounts = append(pod.Spec.Containers[idx].VolumeMounts, volumeMount)
+	}
+	for _, volume := range extraVolumesOrDefault(hc) {
+		for _, existingVolume := range pod.Spec.Volumes {
+			if existingVolume.Name == volume.Name {
+				return &corev1.Pod{}, fmt.Errorf("extraVolume conflicts with existing name: %s", existingVolume.Name)
+			}
+		}
+		pod.Spec.Volumes = append(pod.Spec.Volumes, volume)
 	}
 
 	return &pod, nil
