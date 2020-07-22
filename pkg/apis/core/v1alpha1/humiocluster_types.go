@@ -62,6 +62,10 @@ type HumioClusterSpec struct {
 	Ingress HumioClusterIngressSpec `json:"ingress,omitempty"`
 	// ImagePullPolicy sets the imagePullPolicy for all the containers in the humio pod
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	// ExtraHumioVolumeMounts is the list of additional volume mounts that will be added to the Humio container
+	ExtraHumioVolumeMounts []corev1.VolumeMount `json:"extraHumioVolumeMounts,omitempty"`
+	// ExtraVolumes is the list of additional volumes that will be added to the Humio pod
+	ExtraVolumes []corev1.Volume `json:"extraVolumes,omitempty"`
 }
 
 // HumioClusterIngressSpec is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster
