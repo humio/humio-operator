@@ -633,6 +633,210 @@ func TestReconcileHumioCluster_Reconcile_extra_kafka_configs_configmap(t *testin
 	}
 }
 
+func TestReconcileHumioCluster_Reconcile_extra_volumes(t *testing.T) {
+	tests := []struct {
+		name                       string
+		humioCluster               *corev1alpha1.HumioCluster
+		humioClient                *humio.MockClientConfig
+		version                    string
+		wantExtraHumioVolumeMounts []corev1.VolumeMount
+		wantExtraVolumes           []corev1.Volume
+		wantError                  bool
+	}{
+		{
+			"test cluster reconciliation with no extra volumes",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{}, nil, nil, nil, ""), "",
+			[]corev1.VolumeMount{},
+			[]corev1.Volume{},
+			false,
+		},
+		{
+			"test cluster reconciliation with extra volumes",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					ExtraHumioVolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "gcp-storage-account-json-file",
+							MountPath: "/var/lib/humio/gcp-storage-account-json-file",
+							ReadOnly:  true,
+						},
+					},
+					ExtraVolumes: []corev1.Volume{
+						{
+							Name: "gcp-storage-account-json-file",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: "gcp-storage-account-json-file",
+								},
+							},
+						},
+					},
+				},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{}, nil, nil, nil, ""), "",
+			[]corev1.VolumeMount{
+				{
+					Name:      "gcp-storage-account-json-file",
+					MountPath: "/var/lib/humio/gcp-storage-account-json-file",
+					ReadOnly:  true,
+				},
+			},
+			[]corev1.Volume{
+				{
+					Name: "gcp-storage-account-json-file",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "gcp-storage-account-json-file",
+						},
+					},
+				},
+			},
+			false,
+		},
+		{
+			"test cluster reconciliation with conflicting volume name",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					ExtraHumioVolumeMounts: []corev1.VolumeMount{
+						{
+							Name: "humio-data",
+						},
+					},
+				},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{}, nil, nil, nil, ""), "",
+			[]corev1.VolumeMount{},
+			[]corev1.Volume{},
+			true,
+		},
+		{
+			"test cluster reconciliation with conflicting volume mount path",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					ExtraHumioVolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "something-unique",
+							MountPath: humioAppPath,
+						},
+					},
+				},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{}, nil, nil, nil, ""), "",
+			[]corev1.VolumeMount{},
+			[]corev1.Volume{},
+			true,
+		},
+		{
+			"test cluster reconciliation with conflicting volume name",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					ExtraVolumes: []corev1.Volume{
+						{
+							Name: "humio-data",
+						},
+					},
+				},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{}, nil, nil, nil, ""), "",
+			[]corev1.VolumeMount{},
+			[]corev1.Volume{},
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, req := reconcileWithHumioClient(tt.humioCluster, tt.humioClient)
+			defer r.logger.Sync()
+
+			_, err := r.Reconcile(req)
+			if !tt.wantError && err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("did not receive error when ensuring volumes, expected: %v, got %v", tt.wantError, err)
+				}
+				return
+			}
+
+			var humioVolumeMounts []corev1.VolumeMount
+			var volumes []corev1.Volume
+
+			foundVolumeMountsCount := 0
+			foundVolumesCount := 0
+
+			foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+			if err != nil {
+				t.Errorf("failed to list pods %s", err)
+			}
+			if len(foundPodList) > 0 {
+				for _, podVolume := range foundPodList[0].Spec.Volumes {
+					volumes = append(volumes, podVolume)
+				}
+				for _, container := range foundPodList[0].Spec.Containers {
+					if container.Name != "humio" {
+						continue
+					}
+					for _, containerVolumeMount := range container.VolumeMounts {
+						humioVolumeMounts = append(humioVolumeMounts, containerVolumeMount)
+					}
+				}
+			}
+
+			for _, humioVolumeMount := range humioVolumeMounts {
+				for _, wantHumioVolumeMount := range tt.wantExtraHumioVolumeMounts {
+					if reflect.DeepEqual(humioVolumeMount, wantHumioVolumeMount) {
+						foundVolumeMountsCount++
+					}
+				}
+			}
+			for _, volume := range volumes {
+				for _, wantVolume := range tt.wantExtraVolumes {
+					if reflect.DeepEqual(volume, wantVolume) {
+						foundVolumesCount++
+					}
+				}
+			}
+
+			if len(tt.wantExtraHumioVolumeMounts) != foundVolumeMountsCount {
+				t.Errorf("failed to validate extra volume mounts, want: %v, got %d matching volume mounts", tt.wantExtraHumioVolumeMounts, foundVolumeMountsCount)
+			}
+			if len(tt.wantExtraVolumes) != foundVolumesCount {
+				t.Errorf("failed to validate extra volumes, want: %v, got %d matching volumes", tt.wantExtraVolumes, foundVolumesCount)
+			}
+
+		})
+	}
+}
+
 func TestReconcileHumioCluster_Reconcile_persistent_volumes(t *testing.T) {
 	tests := []struct {
 		name         string
