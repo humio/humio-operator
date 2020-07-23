@@ -2232,7 +2232,7 @@ spec:
                 type: string
               extraVolumes:
                 description: ExtraVolumes is the list of additional volumes that will
-                  be added to the Humio pods
+                  be added to the Humio pod
                 items:
                   description: Volume represents a named volume in a pod that may
                     be accessed by any container in the pod.
