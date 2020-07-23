@@ -139,6 +139,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 			r.logger.Infof("unable to set cluster state: %s", err)
 			return reconcile.Result{}, err
 		}
+		r.incrementHumioClusterPodRevision(context.TODO(), hc, PodRestartPolicyRolling)
 	}
 
 	// Ensure service exists
@@ -200,10 +201,12 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return result, err
 	}
 
-	err = r.setState(context.TODO(), corev1alpha1.HumioClusterStateRunning, hc)
-	if err != nil {
-		r.logger.Infof("unable to set cluster state: %s", err)
-		return reconcile.Result{}, err
+	if hc.Status.State == corev1alpha1.HumioClusterStateBoostrapping {
+		err = r.setState(context.TODO(), corev1alpha1.HumioClusterStateRunning, hc)
+		if err != nil {
+			r.logger.Infof("unable to set cluster state: %s", err)
+			return reconcile.Result{}, err
+		}
 	}
 
 	defer func(ctx context.Context, hc *corev1alpha1.HumioCluster) {
@@ -835,77 +838,98 @@ func (r *ReconcileHumioCluster) ensureServiceExists(ctx context.Context, hc *cor
 }
 
 // ensureMismatchedPodsAreDeleted is used to delete pods which container spec does not match that which is desired.
-// If a pod is deleted, this will requeue immediately and rely on the next reconciliation to delete the next pod.
-// The method only returns an empty result and no error if all pods are running the desired version,
-// and no pod is currently being deleted.
+// The behavior of this depends on what, if anything, was changed in the pod. If there are changes that fall under a
+// rolling update, then the pod restart policy is set to PodRestartPolicyRolling and the reconciliation will continue if
+// there are any pods not in a ready state. This is so replacement pods may be created.
+// If there are changes that fall under a recreate update, the the pod restart policy is set to PodRestartPolicyRecreate
+// and the reconciliation will requeue and the deletions will continue to be executed until all the pods have been
+// removed.
 func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(ctx context.Context, hc *corev1alpha1.HumioCluster) (reconcile.Result, error) {
 	foundPodList, err := kubernetes.ListPods(r.client, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// if we do not have any pods running we have nothing to clean up, or wait until they have been deleted
+	// if we do not have any pods running we have nothing to delete
 	if len(foundPodList) == 0 {
 		return reconcile.Result{}, nil
 	}
 
+	var podBeingDeleted bool
+	var waitingOnReadyPods bool
 	r.logger.Info("ensuring mismatching pods are deleted")
-	podBeingDeleted := false
-	for _, pod := range foundPodList {
-		// TODO: can we assume we always only have one pod?
-		// Probably not if running in a service mesh with sidecars injected.
-		// Should have a container name variable and match this here.
 
-		// only consider pods not already being deleted
-		if pod.DeletionTimestamp == nil {
-			// if pod spec differs, we want to delete it
-			// use dataVolumeSourceOrDefault() to get either the volume source or an empty volume source in the case
-			// we are using pvcs. this is to avoid doing the pvc lookup and we do not compare pvcs when doing a sha256
-			// hash of the pod spec
-			desiredPod, err := constructPod(hc, dataVolumeSourceOrDefault(hc))
+	// If we allow a rolling update, then don't take down more than one pod at a time.
+	// Check the number of ready pods. if we have already deleted a pod, then the ready count will less than expected,
+	// but we must continue with reconciliation so the pod may be created later in the reconciliation.
+	// If we're doing a non-rolling update (recreate), then we can take down all the pods without waiting, but we will
+	// wait until all the pods are ready before changing the cluster state back to Running.
+	podsReadyCount, podsNotReadyCount := r.podsReady(foundPodList)
+	if podsReadyCount < hc.Spec.NodeCount || podsNotReadyCount > 0 {
+		waitingOnReadyPods = true
+		r.logger.Infof("there are %d/%d humio pods that are ready", podsReadyCount, hc.Spec.NodeCount)
+	}
+
+	if (r.getHumioClusterPodRestartPolicy(hc) == PodRestartPolicyRolling && !waitingOnReadyPods) ||
+		r.getHumioClusterPodRestartPolicy(hc) == PodRestartPolicyRecreate {
+		desiredLifecycleState, err := r.getPodDesiredLifecyleState(hc, foundPodList)
+		if err != nil {
+			r.logger.Errorf("got error when getting pod desired lifecycle: %s", err)
+			return reconcile.Result{}, err
+		}
+		// If we are currently deleting pods, then check if the cluster state is Running. If it is, then change to an
+		// appropriate state depending on the restart policy.
+		// If the cluster state is set as per the restart policy:
+		// 	 PodRestartPolicyRecreate == HumioClusterStateUpgrading
+		// 	 PodRestartPolicyRolling == HumioClusterStateRestarting
+		if desiredLifecycleState.delete {
+			if hc.Status.State == corev1alpha1.HumioClusterStateRunning {
+				if desiredLifecycleState.restartPolicy == PodRestartPolicyRecreate {
+					if err = r.setState(ctx, corev1alpha1.HumioClusterStateUpgrading, hc); err != nil {
+						r.logger.Errorf("failed to set state to %s: %s", corev1alpha1.HumioClusterStateUpgrading, err)
+					}
+					if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRecreate); err != nil {
+						r.logger.Errorf("failed to increment pod revision to %d: %s", revision, err)
+					}
+				}
+				if desiredLifecycleState.restartPolicy == PodRestartPolicyRolling {
+					if err = r.setState(ctx, corev1alpha1.HumioClusterStateRestarting, hc); err != nil {
+						r.logger.Errorf("failed to set state to %s: %s", corev1alpha1.HumioClusterStateRestarting, err)
+					}
+					if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRolling); err != nil {
+						r.logger.Errorf("failed to increment pod revision to %d: %s", revision, err)
+					}
+				}
+			}
+			r.logger.Infof("deleting pod %s", desiredLifecycleState.pod.Name)
+			podBeingDeleted = true
+			err = r.client.Delete(ctx, &desiredLifecycleState.pod)
 			if err != nil {
-				r.logger.Errorf("could not construct pod: %s", err)
+				r.logger.Errorf("could not delete pod %s, got err: %s", desiredLifecycleState.pod.Name, err)
 				return reconcile.Result{}, err
 			}
-
-			podsMatchTest, err := r.podsMatch(hc, pod, *desiredPod)
-			if err != nil {
-				r.logger.Errorf("failed to check if pods match %s", err)
-			}
-			if !podsMatchTest {
-				// TODO: figure out if we should only allow upgrades and not downgrades
-				r.logger.Infof("deleting pod %s", pod.Name)
-				err = r.client.Delete(ctx, &pod)
-				if err != nil {
-					r.logger.Errorf("could not delete pod %s, got err: %s", pod.Name, err)
-					return reconcile.Result{}, err
-				}
-				return reconcile.Result{Requeue: true}, nil
-			}
-		} else {
-			podBeingDeleted = true
 		}
+	}
 
+	// If we have pods being deleted, requeue as long as we're not doing a rolling update. This will ensure all pods
+	// are removed before creating the replacement pods.
+	if podBeingDeleted && (r.getHumioClusterPodRestartPolicy(hc) == PodRestartPolicyRecreate) {
+		return reconcile.Result{Requeue: true}, nil
 	}
-	// if we have pods being deleted, requeue after a short delay
-	if podBeingDeleted {
-		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
+
+	// Set the cluster state back to HumioClusterStateRunning to indicate we are no longer restarting. This can only
+	// happen when we know that all of the pods are in a Ready state and that we are no longer deleting pods.
+	if !waitingOnReadyPods && !podBeingDeleted {
+		if hc.Status.State == corev1alpha1.HumioClusterStateRestarting || hc.Status.State == corev1alpha1.HumioClusterStateUpgrading {
+			r.logger.Infof("no longer deleting pods. changing cluster state from %s to %s", hc.Status.State, corev1alpha1.HumioClusterStateRunning)
+			if err = r.setState(ctx, corev1alpha1.HumioClusterStateRunning, hc); err != nil {
+				r.logger.Errorf("failed to set state to %s: %s", corev1alpha1.HumioClusterStateRunning, err)
+			}
+		}
 	}
+
 	// return empty result and no error indicating that everything was in the state we wanted it to be
 	return reconcile.Result{}, nil
-}
-
-func (r *ReconcileHumioCluster) podsMatch(hc *corev1alpha1.HumioCluster, pod corev1.Pod, desiredPod corev1.Pod) (bool, error) {
-	if _, ok := pod.Annotations[podHashAnnotation]; !ok {
-		r.logger.Errorf("did not find annotation with pod hash")
-		return false, fmt.Errorf("did not find annotation with pod hash")
-	}
-	desiredPodHash := podSpecAsSHA256(hc, desiredPod)
-	if pod.Annotations[podHashAnnotation] == desiredPodHash {
-		return true, nil
-	}
-	r.logger.Infof("pod hash annotation did does not match desired pod: got %+v, expected %+v", pod, desiredPod)
-	return false, nil
 }
 
 func (r *ReconcileHumioCluster) ingressesMatch(ingress *v1beta1.Ingress, desiredIngress *v1beta1.Ingress) bool {
@@ -921,7 +945,6 @@ func (r *ReconcileHumioCluster) ingressesMatch(ingress *v1beta1.Ingress, desired
 	return true
 }
 
-// TODO: change to create 1 pod at a time, return Requeue=true and RequeueAfter.
 // check that other pods, if they exist, are in a ready state
 func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *corev1alpha1.HumioCluster) (reconcile.Result, error) {
 	// Ensure we have pods for the defined NodeCount.
@@ -934,22 +957,7 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *
 	}
 	r.logger.Debugf("found %d pods", len(foundPodList))
 
-	var podsReadyCount int
-	var podsNotReadyCount int
-	for _, pod := range foundPodList {
-		podsNotReadyCount++
-		for _, condition := range pod.Status.Conditions {
-			if condition.Type == "Ready" {
-				if condition.Status == "True" {
-					r.logger.Debugf("pod %s is ready", pod.Name)
-					podsReadyCount++
-					podsNotReadyCount--
-				} else {
-					r.logger.Debugf("pod %s is not ready", pod.Name)
-				}
-			}
-		}
-	}
+	podsReadyCount, podsNotReadyCount := r.podsReady(foundPodList)
 	if podsReadyCount == hc.Spec.NodeCount {
 		r.logger.Info("all humio pods are reporting ready")
 		return reconcile.Result{}, nil
@@ -962,37 +970,11 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *
 
 	r.logger.Debugf("pod ready count is %d, while desired node count is %d", podsReadyCount, hc.Spec.NodeCount)
 	if podsReadyCount < hc.Spec.NodeCount {
-		pvcList, err := r.pvcList(hc)
-		if err != nil {
-			r.logger.Errorf("problem getting pvc list: %s", err)
-			return reconcile.Result{}, err
-		}
-		r.logger.Debugf("attempting to get volume source, pvc count is %d, pod count is %d", len(pvcList), len(foundPodList))
-		volumeSource, err := volumeSource(hc, foundPodList, pvcList)
-		if err != nil {
-			r.logger.Errorf("unable to construct data volume source for HumioCluster: %s", err)
-			return reconcile.Result{}, err
-
-		}
-		pod, err := constructPod(hc, volumeSource)
-		if err != nil {
-			r.logger.Errorf("unable to construct pod for HumioCluster: %s", err)
-			return reconcile.Result{}, err
-		}
-		r.logger.Debugf("pod %s will use volume source %+v", pod.Name, volumeSource)
-		pod.Annotations["humio_pod_hash"] = podSpecAsSHA256(hc, *pod)
-		if err := controllerutil.SetControllerReference(hc, pod, r.scheme); err != nil {
-			r.logger.Errorf("could not set controller reference: %s", err)
-			return reconcile.Result{}, err
-		}
-
-		r.logger.Infof("creating pod %s", pod.Name)
-		err = r.client.Create(ctx, pod)
+		err = r.createPod(ctx, hc, foundPodList)
 		if err != nil {
 			r.logger.Errorf("unable to create Pod for HumioCluster: %s", err)
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}
-		r.logger.Infof("successfully created pod %s for HumioCluster %s", pod.Name, hc.Name)
 		prometheusMetrics.Counters.PodsCreated.Inc()
 
 		// check that we can list the new pod
@@ -1010,21 +992,6 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileHumioCluster) waitForNewPod(hc *corev1alpha1.HumioCluster, expectedPodCount int) error {
-	for i := 0; i < 30; i++ {
-		latestPodList, err := kubernetes.ListPods(r.client, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
-		if err != nil {
-			return err
-		}
-		r.logger.Infof("validating new pod was created. expected pod count %d, current pod count %d", expectedPodCount, len(latestPodList))
-		if len(latestPodList) >= expectedPodCount {
-			return nil
-		}
-		time.Sleep(time.Second * 1)
-	}
-	return fmt.Errorf("timed out waiting to validate new pod was created")
-}
-
 func (r *ReconcileHumioCluster) ensurePodsExist(ctx context.Context, hc *corev1alpha1.HumioCluster) (reconcile.Result, error) {
 	// Ensure we have pods for the defined NodeCount.
 	// If scaling down, we will handle the extra/obsolete pods later.
@@ -1035,32 +1002,11 @@ func (r *ReconcileHumioCluster) ensurePodsExist(ctx context.Context, hc *corev1a
 	}
 
 	if len(foundPodList) < hc.Spec.NodeCount {
-		pvcList, err := r.pvcList(hc)
-		if err != nil {
-			r.logger.Errorf("problem getting pvc list: %s", err)
-			return reconcile.Result{}, err
-		}
-		volumeSource, err := volumeSource(hc, foundPodList, pvcList)
-		if err != nil {
-			r.logger.Errorf("unable to construct data volume source for HumioCluster: %s", err)
-			return reconcile.Result{}, err
-		}
-		pod, err := constructPod(hc, volumeSource)
-		if err != nil {
-			r.logger.Errorf("unable to construct pod for HumioCluster: %s", err)
-			return reconcile.Result{}, err
-		}
-		pod.Annotations["humio_pod_hash"] = podSpecAsSHA256(hc, *pod)
-		if err := controllerutil.SetControllerReference(hc, pod, r.scheme); err != nil {
-			r.logger.Errorf("could not set controller reference: %s", err)
-			return reconcile.Result{}, err
-		}
-		err = r.client.Create(ctx, pod)
+		err = r.createPod(ctx, hc, foundPodList)
 		if err != nil {
 			r.logger.Errorf("unable to create Pod for HumioCluster: %s", err)
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}
-		r.logger.Infof("successfully created pod %s for HumioCluster %s", pod.Name, hc.Name)
 		prometheusMetrics.Counters.PodsCreated.Inc()
 
 		// check that we can list the new pod

@@ -19,7 +19,6 @@ const (
 	elasticPort                  = 9200
 	idpCertificateFilename       = "idp-certificate.pem"
 	extraKafkaPropertiesFilename = "extra-kafka-properties.properties"
-	podHashAnnotation            = "humio_pod_hash"
 
 	// cluster-wide resources:
 	initClusterRoleSuffix        = "init"
