@@ -36,7 +36,7 @@ func newHumioClusterWithRestartTest(clusterName string, namespace string) humioC
 				Namespace: namespace,
 			},
 			Spec: corev1alpha1.HumioClusterSpec{
-				NodeCount: 1,
+				NodeCount: 2,
 				EnvironmentVariables: []corev1.EnvVar{
 					{
 						Name:  "ZOOKEEPER_URL",
@@ -59,8 +59,6 @@ func (b *restartTest) Start(f *framework.Framework, ctx *framework.Context) erro
 
 func (b *restartTest) Wait(f *framework.Framework) error {
 	var gotRestarted bool
-	var podsSimultaneouslyShutdown bool
-
 	for start := time.Now(); time.Since(start) < timeout; {
 		// return after all tests have completed
 		if b.bootstrap.passed && b.restart.passed {
@@ -77,7 +75,6 @@ func (b *restartTest) Wait(f *framework.Framework) error {
 
 		if clusterState == corev1alpha1.HumioClusterStateRunning {
 			b.bootstrap.passed = true
-
 		}
 
 		foundPodList, err := kubernetes.ListPods(
@@ -93,33 +90,12 @@ func (b *restartTest) Wait(f *framework.Framework) error {
 
 		if b.restart.initiated {
 			if !b.restart.passed {
-
 				if clusterState == corev1alpha1.HumioClusterStateRestarting {
 					gotRestarted = true
-					numPodsShutdown := 0
-					for _, pod := range foundPodList {
-						if pod.DeletionTimestamp == nil {
-							for _, condition := range pod.Status.Conditions {
-								if condition.Type == "Ready" {
-									if condition.Status != "True" {
-										numPodsShutdown++
-									}
-								}
-							}
-						} else {
-							numPodsShutdown++
-						}
-					}
-					if numPodsShutdown == b.cluster.Spec.NodeCount {
-						podsSimultaneouslyShutdown = true
-					}
 				}
 				if clusterState == corev1alpha1.HumioClusterStateRunning {
 					if !gotRestarted {
-						return fmt.Errorf("never went into restarting state")
-					}
-					if podsSimultaneouslyShutdown {
-						return fmt.Errorf("pods were shut down at the same time")
+						return fmt.Errorf("error never went into restarting state when restarting: %+v", b.cluster)
 					}
 					if clusterPodRevision != "2" {
 						return fmt.Errorf("got wrong cluster pod revision when restarting: expected: 2 got: %s", clusterPodRevision)

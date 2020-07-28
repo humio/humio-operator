@@ -46,7 +46,6 @@ func TestHumioCluster(t *testing.T) {
 		t.Run("pvc-cluster", HumioClusterWithPVCs)
 		t.Run("cluster-restart", HumioClusterRestart)
 		t.Run("cluster-upgrade", HumioClusterUpgrade)
-
 	})
 }
 

@@ -50,8 +50,6 @@ func (b *upgradeTest) Start(f *framework.Framework, ctx *framework.Context) erro
 
 func (b *upgradeTest) Wait(f *framework.Framework) error {
 	var gotUpgraded bool
-	var podsSimultaneouslyShutdown bool
-
 	for start := time.Now(); time.Since(start) < timeout; {
 		// return after all tests have completed
 		if b.bootstrap.passed && b.upgrade.passed {
@@ -85,30 +83,10 @@ func (b *upgradeTest) Wait(f *framework.Framework) error {
 			if !b.upgrade.passed {
 				if clusterState == corev1alpha1.HumioClusterStateUpgrading {
 					gotUpgraded = true
-					numPodsShutdown := 0
-					for _, pod := range foundPodList {
-						if pod.DeletionTimestamp == nil {
-							for _, condition := range pod.Status.Conditions {
-								if condition.Type == "Ready" {
-									if condition.Status != "True" {
-										numPodsShutdown++
-									}
-								}
-							}
-						} else {
-							numPodsShutdown++
-						}
-					}
-					if numPodsShutdown == b.cluster.Spec.NodeCount {
-						podsSimultaneouslyShutdown = true
-					}
 				}
 				if clusterState == corev1alpha1.HumioClusterStateRunning {
 					if !gotUpgraded {
 						return fmt.Errorf("never went into upgrading state")
-					}
-					if !podsSimultaneouslyShutdown {
-						return fmt.Errorf("pods were not shut down at the same time")
 					}
 					if clusterPodRevision != "2" {
 						return fmt.Errorf("got wrong cluster pod revision when upgrading: expected: 2 got: %s", clusterPodRevision)
