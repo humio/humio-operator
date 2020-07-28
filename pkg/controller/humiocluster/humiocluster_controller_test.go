@@ -416,32 +416,39 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 				}
 			}
 
-			// Ensure all the pods are shut down to prep for the image update
-			foundPodList, err := kubernetes.ListPods(r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
-			if err != nil {
-				t.Errorf("failed to list pods: %s", err)
-			}
-			if len(foundPodList) != 0 {
-				t.Errorf("expected list pods to return equal to %d, got %d", 0, len(foundPodList))
-			}
+			// Ensure all the pods are shut down to prep for the image update (the first check where foundPodList == 0)
+			// Simulate the reconcile being run again for each node so they all are started (the following checks)
+			for nodeCount := 0; nodeCount <= tt.humioCluster.Spec.NodeCount; nodeCount++ {
+				foundPodList, err := kubernetes.ListPods(r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
+				if err != nil {
+					t.Errorf("failed to list pods: %s", err)
+				}
+				if len(foundPodList) != nodeCount {
+					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount, len(foundPodList))
+				}
 
-			// Simulate the reconcile being run again for each node so they all are started
-			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
-				res, err := r.Reconcile(req)
+				// We must update the IP address because when we attempt to add labels to the pod we validate that they have IP addresses first
+				// We also must update the ready condition as the reconciler will wait until all pods are ready before continuing
+				err = markPodsAsRunning(r.client, foundPodList)
+				if err != nil {
+					t.Errorf("failed to update pods to prepare for testing the labels: %s", err)
+				}
+
+				// check that the cluster is in state Upgrading
+				updatedHumioCluster := &corev1alpha1.HumioCluster{}
+				err = r.client.Get(context.TODO(), req.NamespacedName, updatedHumioCluster)
+				if err != nil {
+					t.Errorf("get HumioCluster: (%v)", err)
+				}
+				if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateUpgrading {
+					t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateUpgrading, updatedHumioCluster.Status.State)
+				}
+
+				// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
+				_, err = r.Reconcile(req)
 				if err != nil {
 					t.Errorf("reconcile: (%v)", err)
 				}
-				if res != (reconcile.Result{Requeue: true}) {
-					t.Errorf("reconcile did not match expected %v", res)
-				}
-			}
-
-			foundPodList, err = kubernetes.ListPods(r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
-			if err != nil {
-				t.Errorf("failed to list pods: %s", err)
-			}
-			if len(foundPodList) != tt.humioCluster.Spec.NodeCount {
-				t.Errorf("expected list pods to return equal to %d, got %d", tt.humioCluster.Spec.NodeCount, len(foundPodList))
 			}
 
 			// Test that we have the proper status
@@ -458,6 +465,193 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 			}
 			if updatedHumioCluster.Status.NodeCount != tt.humioCluster.Spec.NodeCount {
 				t.Errorf("expected node count to be %d but got %d", tt.humioCluster.Spec.NodeCount, updatedHumioCluster.Status.NodeCount)
+			}
+		})
+	}
+}
+
+func TestReconcileHumioCluster_Reconcile_update_environment_variable(t *testing.T) {
+	tests := []struct {
+		name           string
+		humioCluster   *corev1alpha1.HumioCluster
+		humioClient    *humio.MockClientConfig
+		envVarToUpdate corev1.EnvVar
+		desiredEnvVar  corev1.EnvVar
+	}{
+		{
+			"test simple cluster environment variable update",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					EnvironmentVariables: []corev1.EnvVar{
+						{
+							Name:  "test",
+							Value: "",
+						},
+					},
+					TargetReplicationFactor: 2,
+					StoragePartitionsCount:  3,
+					DigestPartitionsCount:   3,
+					NodeCount:               3,
+				},
+			},
+			humio.NewMocklient(
+				humioapi.Cluster{
+					Nodes:             buildClusterNodesList(3),
+					StoragePartitions: buildStoragePartitionsList(3, 1),
+					IngestPartitions:  buildIngestPartitionsList(3, 1),
+				}, nil, nil, nil, "1.9.2--build-12365--sha-bf4188482a"),
+			corev1.EnvVar{
+				Name:  "test",
+				Value: "update",
+			},
+			corev1.EnvVar{
+				Name:  "test",
+				Value: "update",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, req := reconcileWithHumioClient(tt.humioCluster, tt.humioClient)
+			defer r.logger.Sync()
+
+			_, err := r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+
+			updatedHumioCluster := &corev1alpha1.HumioCluster{}
+			err = r.client.Get(context.TODO(), req.NamespacedName, updatedHumioCluster)
+			if err != nil {
+				t.Errorf("get HumioCluster: (%v)", err)
+			}
+			if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateBoostrapping {
+				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateBoostrapping, updatedHumioCluster.Status.State)
+			}
+			tt.humioCluster = updatedHumioCluster
+
+			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
+				foundPodList, err := kubernetes.ListPods(r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
+				if err != nil {
+					t.Errorf("failed to list pods: %s", err)
+				}
+				if len(foundPodList) != nodeCount+1 {
+					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount+1, len(foundPodList))
+				}
+
+				// We must update the IP address because when we attempt to add labels to the pod we validate that they have IP addresses first
+				// We also must update the ready condition as the reconciler will wait until all pods are ready before continuing
+				err = markPodsAsRunning(r.client, foundPodList)
+				if err != nil {
+					t.Errorf("failed to update pods to prepare for testing the labels: %s", err)
+				}
+
+				// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
+				_, err = r.Reconcile(req)
+				if err != nil {
+					t.Errorf("reconcile: (%v)", err)
+				}
+			}
+
+			// Simulate sidecar creating the secret which contains the admin token use to authenticate with humio
+			secretData := map[string][]byte{"token": []byte("")}
+			desiredSecret := kubernetes.ConstructSecret(updatedHumioCluster.Name, updatedHumioCluster.Namespace, kubernetes.ServiceTokenSecretName, secretData)
+			err = r.client.Create(context.TODO(), desiredSecret)
+			if err != nil {
+				t.Errorf("unable to create service token secret: %s", err)
+			}
+			_, err = r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+
+			// Test that we have the proper status
+			updatedHumioCluster = &corev1alpha1.HumioCluster{}
+			err = r.client.Get(context.TODO(), req.NamespacedName, updatedHumioCluster)
+			if err != nil {
+				t.Errorf("get HumioCluster: (%v)", err)
+			}
+			if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateRunning {
+				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateRunning, updatedHumioCluster.Status.State)
+			}
+
+			if updatedHumioCluster.Status.NodeCount != tt.humioCluster.Spec.NodeCount {
+				t.Errorf("expected node count to be %d but got %d", tt.humioCluster.Spec.NodeCount, updatedHumioCluster.Status.NodeCount)
+			}
+
+			// Update humio env var
+			for idx, envVar := range updatedHumioCluster.Spec.EnvironmentVariables {
+				if envVar.Name == "test" {
+					updatedHumioCluster.Spec.EnvironmentVariables[idx] = tt.envVarToUpdate
+				}
+			}
+			r.client.Update(context.TODO(), updatedHumioCluster)
+
+			// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
+			_, err = r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+
+			// Simulate the reconcile being run again for each node so they all are restarted
+			for nodeCount := 0; nodeCount < tt.humioCluster.Spec.NodeCount; nodeCount++ {
+
+				foundPodList, err := kubernetes.ListPods(r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
+				if err != nil {
+					t.Errorf("failed to list pods: %s", err)
+				}
+				if len(foundPodList) != tt.humioCluster.Spec.NodeCount {
+					t.Errorf("expected list pods to return equal to %d, got %d", nodeCount, tt.humioCluster.Spec.NodeCount)
+				}
+
+				// check that the cluster is in state Upgrading
+				updatedHumioCluster := &corev1alpha1.HumioCluster{}
+				err = r.client.Get(context.TODO(), req.NamespacedName, updatedHumioCluster)
+				if err != nil {
+					t.Errorf("get HumioCluster: (%v)", err)
+				}
+				if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateRestarting {
+					t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateRestarting, updatedHumioCluster.Status.State)
+				}
+
+				// We must update the IP address because when we attempt to add labels to the pod we validate that they have IP addresses first
+				// We also must update the ready condition as the reconciler will wait until all pods are ready before continuing
+				err = markPodsAsRunning(r.client, foundPodList)
+				if err != nil {
+					t.Errorf("failed to update pods to prepare for testing the labels: %s", err)
+				}
+
+				// Reconcile again so Reconcile() checks pods and updates the HumioCluster resources' Status.
+				_, err = r.Reconcile(req)
+				if err != nil {
+					t.Errorf("reconcile: (%v)", err)
+				}
+
+			}
+
+			// Test that we have the proper status
+			updatedHumioCluster = &corev1alpha1.HumioCluster{}
+			err = r.client.Get(context.TODO(), req.NamespacedName, updatedHumioCluster)
+			if err != nil {
+				t.Errorf("get HumioCluster: (%v)", err)
+			}
+			if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateRunning {
+				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateRunning, updatedHumioCluster.Status.State)
+			}
+
+			if updatedHumioCluster.Status.NodeCount != tt.humioCluster.Spec.NodeCount {
+				t.Errorf("expected node count to be %d but got %d", tt.humioCluster.Spec.NodeCount, updatedHumioCluster.Status.NodeCount)
+			}
+			for _, envVar := range updatedHumioCluster.Spec.EnvironmentVariables {
+				if envVar.Name == "test" {
+					if envVar.Value != tt.desiredEnvVar.Value {
+						t.Errorf("expected test cluster env var to be %s but got %s", tt.desiredEnvVar.Value, envVar.Value)
+					}
+				}
 			}
 		})
 	}
