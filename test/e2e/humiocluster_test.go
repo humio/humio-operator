@@ -215,8 +215,8 @@ func HumioClusterWithTLS(t *testing.T) {
 	// run the tests
 	clusterName := "example-humiocluster-tls"
 	tests := []humioClusterTest{
-		newHumioClusterWithTLSTest(t, fmt.Sprintf("%s-enabled-to-disabled", clusterName), namespace, true, false), // OK, runtime 205 seconds
-		newHumioClusterWithTLSTest(t, fmt.Sprintf("%s-disabled-to-enabled", clusterName), namespace, false, true), // TODO: Validate if this works by itself
+		newHumioClusterWithTLSTest(t, fmt.Sprintf("%s-e-to-d", clusterName), namespace, true, false),
+		newHumioClusterWithTLSTest(t, fmt.Sprintf("%s-d-to-e", clusterName), namespace, false, true),
 	}
 
 	// print kubectl commands until the tests are complete. ensure we wait for the last kubectl command to complete

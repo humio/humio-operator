@@ -3,9 +3,11 @@ package helpers
 import (
 	"crypto/sha256"
 	"fmt"
-	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"os"
 	"reflect"
+	"strings"
+
+	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 
 	humioapi "github.com/humio/cli/api"
 )
@@ -92,4 +94,16 @@ func BoolPtr(val bool) *bool {
 // Int64Ptr returns a int64 pointer to the specified int64 value
 func Int64Ptr(val int64) *int64 {
 	return &val
+}
+
+// MapToString prettifies a string map so it's more suitable for readability when logging
+func MapToString(m map[string]string) string {
+	if len(m) == 0 {
+		return `"":""`
+	}
+	var a []string
+	for k, v := range m {
+		a = append(a, fmt.Sprintf("%s=%s", k, v))
+	}
+	return strings.Join(a, ",")
 }
