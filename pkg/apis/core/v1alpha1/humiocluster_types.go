@@ -10,6 +10,10 @@ const (
 	HumioClusterStateBoostrapping = "Bootstrapping"
 	// HumioClusterStateRunning is the Running state of the cluster
 	HumioClusterStateRunning = "Running"
+	// HumioClusterStateRestarting is the state of the cluster when Humio pods are being restarted
+	HumioClusterStateRestarting = "Restarting"
+	// HumioClusterStateUpgrading is the state of the cluster when Humio pods are being upgraded
+	HumioClusterStateUpgrading = "Upgrading"
 )
 
 // HumioClusterSpec defines the desired state of HumioCluster
@@ -91,7 +95,8 @@ type HumioPodStatus struct {
 
 // HumioClusterStatus defines the observed state of HumioCluster
 type HumioClusterStatus struct {
-	// State will be empty before the cluster is bootstrapped. From there it can be "Bootstrapping" or "Running"
+	// State will be empty before the cluster is bootstrapped. From there it can be "Bootstrapping", "Running",
+	// "Upgrading" or "Restarting"
 	State string `json:"state,omitempty"`
 	// Version is the version of humio running
 	Version string `json:"version,omitempty"`
