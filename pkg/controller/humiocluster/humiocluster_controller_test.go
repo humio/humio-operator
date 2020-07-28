@@ -151,10 +151,14 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			// Check that the init service account, secret, cluster role and cluster role binding are created
-			secret, err := kubernetes.GetSecret(context.TODO(), r.client, initServiceAccountSecretName(updatedHumioCluster), updatedHumioCluster.Namespace)
+			foundSecretsList, err := kubernetes.ListSecrets(context.TODO(), r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForSecret(updatedHumioCluster.Name, initServiceAccountSecretName(updatedHumioCluster)))
 			if err != nil {
-				t.Errorf("get init service account secret: (%v). %+v", err, secret)
+				t.Errorf("get init service account secrets list: (%v). %+v", err, foundSecretsList)
 			}
+			if len(foundSecretsList) != 1 {
+				t.Errorf("get init service account secrets list: (%v). %+v", err, foundSecretsList)
+			}
+
 			_, err = kubernetes.GetServiceAccount(context.TODO(), r.client, initServiceAccountNameOrDefault(updatedHumioCluster), updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("failed to get init service account: %s", err)
@@ -169,10 +173,14 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			}
 
 			// Check that the auth service account, secret, role and role binding are created
-			secret, err = kubernetes.GetSecret(context.TODO(), r.client, authServiceAccountSecretName(updatedHumioCluster), updatedHumioCluster.Namespace)
+			foundSecretsList, err = kubernetes.ListSecrets(context.TODO(), r.client, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForSecret(updatedHumioCluster.Name, authServiceAccountSecretName(updatedHumioCluster)))
 			if err != nil {
-				t.Errorf("get auth service account secret: (%v). %+v", err, secret)
+				t.Errorf("get auth service account secrets list: (%v). %+v", err, foundSecretsList)
 			}
+			if len(foundSecretsList) != 1 {
+				t.Errorf("get auth service account secrets list: (%v). %+v", err, foundSecretsList)
+			}
+
 			_, err = kubernetes.GetServiceAccount(context.TODO(), r.client, authServiceAccountNameOrDefault(updatedHumioCluster), updatedHumioCluster.Namespace)
 			if err != nil {
 				t.Errorf("failed to get auth service account: %s", err)
@@ -1289,6 +1297,90 @@ func TestReconcileHumioCluster_Reconcile_pod_security_context(t *testing.T) {
 
 			if !foundExpectedSecurityContext {
 				t.Errorf("failed to validate pod security context, expected: %v, got %v", *tt.humioCluster.Spec.PodSecurityContext, *foundPodList[0].Spec.SecurityContext)
+			}
+		})
+	}
+}
+
+func TestReconcileHumioCluster_Reconcile_ensure_service_account_annotations(t *testing.T) {
+	tests := []struct {
+		name                  string
+		humioCluster          *corev1alpha1.HumioCluster
+		updatedPodAnnotations map[string]string
+		wantPodAnnotations    map[string]string
+	}{
+		{
+			"test cluster reconciliation with no service account annotations",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{},
+			},
+			map[string]string(nil),
+			map[string]string(nil),
+		},
+		{
+			"test cluster reconciliation with initial service account annotations",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					HumioServiceAccountAnnotations: map[string]string{"some": "annotation"},
+				},
+			},
+			map[string]string(nil),
+			map[string]string{"some": "annotation"},
+		},
+		{
+			"test cluster reconciliation with updated service account annotations",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{},
+			},
+			map[string]string{"some-updated": "annotation"},
+			map[string]string{"some-updated": "annotation"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, req := reconcileInit(tt.humioCluster)
+			defer r.logger.Sync()
+
+			_, err := r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+
+			if reflect.DeepEqual(tt.wantPodAnnotations, tt.updatedPodAnnotations) {
+				// test updating the annotations
+				updatedHumioCluster := &corev1alpha1.HumioCluster{}
+				err = r.client.Get(context.TODO(), req.NamespacedName, updatedHumioCluster)
+				if err != nil {
+					t.Errorf("get HumioCluster: (%v)", err)
+				}
+				updatedHumioCluster.Spec.HumioServiceAccountAnnotations = tt.updatedPodAnnotations
+				r.client.Update(context.TODO(), updatedHumioCluster)
+
+				_, err := r.Reconcile(req)
+				if err != nil {
+					t.Errorf("reconcile: (%v)", err)
+				}
+			}
+
+			serviceAccount, err := kubernetes.GetServiceAccount(context.TODO(), r.client, humioServiceAccountNameOrDefault(tt.humioCluster), tt.humioCluster.Namespace)
+			if err != nil {
+				t.Errorf("failed to get service account")
+			}
+
+			if !reflect.DeepEqual(serviceAccount.Annotations, tt.wantPodAnnotations) {
+				t.Errorf("failed to validate updated service account annotations, expected: %v, got %v", tt.wantPodAnnotations, serviceAccount.Annotations)
 			}
 		})
 	}

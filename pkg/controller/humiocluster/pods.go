@@ -3,11 +3,12 @@ package humiocluster
 import (
 	"context"
 	"fmt"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"reflect"
 	"strings"
 	"time"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -45,7 +46,13 @@ func getProbeScheme(hc *corev1alpha1.HumioCluster) corev1.URIScheme {
 	return corev1.URISchemeHTTPS
 }
 
-func constructPod(hc *corev1alpha1.HumioCluster, humioNodeName string, dataVolumeSource corev1.VolumeSource) (*corev1.Pod, error) {
+type podAttachments struct {
+	dataVolumeSource             corev1.VolumeSource
+	initServiceAccountSecretName string
+	authServiceAccountSecretName string
+}
+
+func constructPod(hc *corev1alpha1.HumioCluster, humioNodeName string, attachments *podAttachments) (*corev1.Pod, error) {
 	var pod corev1.Pod
 	mode := int32(420)
 	productVersion := "unknown"
@@ -296,7 +303,7 @@ func constructPod(hc *corev1alpha1.HumioCluster, humioNodeName string, dataVolum
 					Name: "init-service-account-secret",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName:  initServiceAccountSecretName(hc),
+							SecretName:  attachments.initServiceAccountSecretName,
 							DefaultMode: &mode,
 						},
 					},
@@ -305,7 +312,7 @@ func constructPod(hc *corev1alpha1.HumioCluster, humioNodeName string, dataVolum
 					Name: "auth-service-account-secret",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName:  authServiceAccountSecretName(hc),
+							SecretName:  attachments.authServiceAccountSecretName,
 							DefaultMode: &mode,
 						},
 					},
@@ -318,7 +325,7 @@ func constructPod(hc *corev1alpha1.HumioCluster, humioNodeName string, dataVolum
 
 	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 		Name:         "humio-data",
-		VolumeSource: dataVolumeSource,
+		VolumeSource: attachments.dataVolumeSource,
 	})
 
 	humioIdx, err := kubernetes.GetContainerIndexByName(pod, "humio")
@@ -345,10 +352,6 @@ func constructPod(hc *corev1alpha1.HumioCluster, humioNodeName string, dataVolum
 				},
 			},
 		})
-	}
-
-	if hc.Spec.HumioServiceAccountName != "" {
-		pod.Spec.ServiceAccountName = hc.Spec.HumioServiceAccountName
 	}
 
 	if extraKafkaConfigsOrDefault(hc) != "" {
@@ -590,26 +593,21 @@ func podSpecAsSHA256(hc *corev1alpha1.HumioCluster, sourcePod corev1.Pod) string
 	return helpers.AsSHA256(pod.Spec)
 }
 
-func (r *ReconcileHumioCluster) createPod(ctx context.Context, hc *corev1alpha1.HumioCluster, foundPodList []corev1.Pod) error {
-	pvcList, err := r.pvcList(hc)
-	if err != nil {
-		r.logger.Errorf("problem getting pvc list: %s", err)
-		return err
-	}
-	r.logger.Debugf("attempting to get volume source, pvc count is %d, pod count is %d", len(pvcList), len(foundPodList))
-	volumeSource, err := volumeSource(hc, foundPodList, pvcList)
-	if err != nil {
-		r.logger.Errorf("unable to construct data volume source for HumioCluster: %s", err)
-		return err
-
-	}
+func (r *ReconcileHumioCluster) createPod(ctx context.Context, hc *corev1alpha1.HumioCluster, attachments *podAttachments) error {
 	podName, err := findHumioNodeName(ctx, r.client, hc)
 	if err != nil {
+		r.logger.Errorf("unable to find pod name for HumioCluster: %s", err)
 		return err
 	}
-	pod, err := constructPod(hc, podName, volumeSource)
+
+	pod, err := constructPod(hc, podName, attachments)
 	if err != nil {
 		r.logger.Errorf("unable to construct pod for HumioCluster: %s", err)
+		return err
+	}
+
+	if err := controllerutil.SetControllerReference(hc, pod, r.scheme); err != nil {
+		r.logger.Errorf("could not set controller reference: %s", err)
 		return err
 	}
 	r.logger.Debugf("pod %s will use volume source %+v", pod.Name, volumeSource)
@@ -734,7 +732,7 @@ func (r *ReconcileHumioCluster) podsReady(foundPodList []corev1.Pod) (int, int) 
 	return podsReadyCount, podsNotReadyCount
 }
 
-func (r *ReconcileHumioCluster) getPodDesiredLifecycleState(hc *corev1alpha1.HumioCluster, foundPodList []corev1.Pod) (podLifecycleState, error) {
+func (r *ReconcileHumioCluster) getPodDesiredLifecycleState(hc *corev1alpha1.HumioCluster, foundPodList []corev1.Pod, attachments *podAttachments) (podLifecycleState, error) {
 	for _, pod := range foundPodList {
 		// only consider pods not already being deleted
 		if pod.DeletionTimestamp == nil {
@@ -742,7 +740,8 @@ func (r *ReconcileHumioCluster) getPodDesiredLifecycleState(hc *corev1alpha1.Hum
 			// use dataVolumeSourceOrDefault() to get either the volume source or an empty volume source in the case
 			// we are using pvcs. this is to avoid doing the pvc lookup and we do not compare pvcs when doing a sha256
 			// hash of the pod spec
-			desiredPod, err := constructPod(hc, "", dataVolumeSourceOrDefault(hc))
+
+			desiredPod, err := constructPod(hc, "", attachments)
 			if err != nil {
 				r.logger.Errorf("could not construct pod: %s", err)
 				return podLifecycleState{}, err
@@ -819,4 +818,43 @@ func findHumioNodeName(ctx context.Context, c client.Client, hc *corev1alpha1.Hu
 	}
 
 	return "", fmt.Errorf("found %d certificates but none of them are available to use", len(certificates))
+}
+
+func (r *ReconcileHumioCluster) newPodAttachments(ctx context.Context, hc *corev1alpha1.HumioCluster, foundPodList []corev1.Pod) (*podAttachments, error) {
+	pvcList, err := r.pvcList(hc)
+	if err != nil {
+		r.logger.Errorf("problem getting pvc list: %s", err)
+		return &podAttachments{}, err
+	}
+	r.logger.Debugf("attempting to get volume source, pvc count is %d, pod count is %d", len(pvcList), len(foundPodList))
+	volumeSource, err := volumeSource(hc, foundPodList, pvcList)
+	if err != nil {
+		r.logger.Errorf("unable to construct data volume source for HumioCluster: %s", err)
+		return &podAttachments{}, err
+	}
+	initSASecretName, err := r.getInitServiceAccountSecretName(ctx, hc)
+	if err != nil {
+		r.logger.Errorf("unable get init service account secret for HumioCluster: %s", err)
+		return &podAttachments{}, err
+	}
+	if initSASecretName == "" {
+		r.logger.Error("unable to create Pod for HumioCluster: the init service account secret does not exist")
+		return &podAttachments{}, err
+	}
+	authSASecretName, err := r.getAuthServiceAccountSecretName(ctx, hc)
+	if err != nil {
+		r.logger.Errorf("unable get auth service account secret for HumioCluster: %s", err)
+		return &podAttachments{}, err
+
+	}
+	if authSASecretName == "" {
+		r.logger.Error("unable to create Pod for HumioCluster: the auth service account secret does not exist")
+		return &podAttachments{}, err
+	}
+
+	return &podAttachments{
+		dataVolumeSource:             volumeSource,
+		initServiceAccountSecretName: initSASecretName,
+		authServiceAccountSecretName: authSASecretName,
+	}, nil
 }

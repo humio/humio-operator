@@ -3,12 +3,13 @@ package humiocluster
 import (
 	"context"
 	"fmt"
-	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
-	"k8s.io/apimachinery/pkg/types"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 
 	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
@@ -69,6 +70,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	watchTypes = append(watchTypes, &corev1.Pod{})
 	watchTypes = append(watchTypes, &corev1.Secret{})
 	watchTypes = append(watchTypes, &corev1.Service{})
+	watchTypes = append(watchTypes, &corev1.ServiceAccount{})
 	watchTypes = append(watchTypes, &corev1.PersistentVolumeClaim{})
 	// TODO: figure out if we need to watch SecurityContextConstraints?
 
@@ -152,7 +154,11 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		r.incrementHumioClusterPodRevision(context.TODO(), hc, PodRestartPolicyRolling)
 	}
 
-	// Ensure service exists
+	result, err = r.ensureHumioServiceAccountAnnotations(context.TODO(), hc)
+	if result != emptyResult || err != nil {
+		return result, err
+	}
+
 	err = r.ensureServiceExists(context.TODO(), hc)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -576,7 +582,6 @@ func (r *ReconcileHumioCluster) ensureSecurityContextConstraintsContainsServiceA
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -920,24 +925,28 @@ func (r *ReconcileHumioCluster) ensureServiceAccountExists(ctx context.Context, 
 	return nil
 }
 
-func (r *ReconcileHumioCluster) ensureServiceAccountSecretExists(ctx context.Context, hc *corev1alpha1.HumioCluster, serviceAccountSecretName string, serviceAccountName string) error {
-	_, err := kubernetes.GetSecret(ctx, r.client, serviceAccountSecretName, hc.Namespace)
+func (r *ReconcileHumioCluster) ensureServiceAccountSecretExists(ctx context.Context, hc *corev1alpha1.HumioCluster, serviceAccountSecretName, serviceAccountName string) error {
+	foundServiceAccountSecretsList, err := kubernetes.ListSecrets(ctx, r.client, hc.Namespace, kubernetes.MatchingLabelsForSecret(hc.Name, serviceAccountSecretName))
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			secret := kubernetes.ConstructServiceAccountSecret(hc.Name, hc.Namespace, serviceAccountSecretName, serviceAccountName)
-			if err := controllerutil.SetControllerReference(hc, secret, r.scheme); err != nil {
-				r.logger.Errorf("could not set controller reference: %s", err)
-				return err
-			}
-			err = r.client.Create(ctx, secret)
-			if err != nil {
-				r.logger.Errorf("unable to create service account secret %s for HumioCluster: %s", serviceAccountSecretName, err)
-				return err
-			}
-			r.logger.Infof("successfully created service account secret %s for HumioCluster %s", serviceAccountSecretName, hc.Name)
-			prometheusMetrics.Counters.ServiceAccountSecretsCreated.Inc()
-		}
+		r.logger.Errorf("unable list secrets for HumioCluster: %s", err)
+		return err
 	}
+
+	if len(foundServiceAccountSecretsList) == 0 {
+		secret := kubernetes.ConstructServiceAccountSecret(hc.Name, hc.Namespace, serviceAccountSecretName, serviceAccountName)
+		if err := controllerutil.SetControllerReference(hc, secret, r.scheme); err != nil {
+			r.logger.Errorf("could not set controller reference: %s", err)
+			return err
+		}
+		err = r.client.Create(ctx, secret)
+		if err != nil {
+			r.logger.Errorf("unable to create service account secret %s for HumioCluster: %s", serviceAccountSecretName, err)
+			return err
+		}
+		r.logger.Infof("successfully created service account secret %s for HumioCluster %s", serviceAccountSecretName, hc.Name)
+		prometheusMetrics.Counters.ServiceAccountSecretsCreated.Inc()
+	}
+
 	return nil
 }
 
@@ -1085,7 +1094,7 @@ func (r *ReconcileHumioCluster) cleanupUnusedTLSSecrets(ctx context.Context, hc 
 	}
 
 	// because these secrets are created by cert-manager we cannot use our typical label selector
-	foundSecretList, err := kubernetes.ListSecrets(r.client, hc.Namespace, client.MatchingLabels{})
+	foundSecretList, err := kubernetes.ListSecrets(ctx, r.client, hc.Namespace, client.MatchingLabels{})
 	if err != nil {
 		r.logger.Warnf("unable to list secrets: %s", err)
 		return reconcile.Result{}, err
@@ -1217,6 +1226,77 @@ func (r *ReconcileHumioCluster) tlsCertSecretInUse(ctx context.Context, secretNa
 	return true, err
 }
 
+func (r *ReconcileHumioCluster) getInitServiceAccountSecretName(ctx context.Context, hc *corev1alpha1.HumioCluster) (string, error) {
+	if hc.Spec.InitServiceAccountName != "" {
+		return hc.Spec.InitServiceAccountName, nil
+	}
+	foundInitServiceAccountSecretsList, err := kubernetes.ListSecrets(ctx, r.client, hc.Namespace, kubernetes.MatchingLabelsForSecret(hc.Name, initServiceAccountSecretName(hc)))
+	if err != nil {
+		return "", err
+	}
+	if len(foundInitServiceAccountSecretsList) == 0 {
+		return "", nil
+	}
+	if len(foundInitServiceAccountSecretsList) > 1 {
+		return "", fmt.Errorf("found more than one init service account")
+	}
+	return foundInitServiceAccountSecretsList[0].Name, nil
+}
+
+func (r *ReconcileHumioCluster) getAuthServiceAccountSecretName(ctx context.Context, hc *corev1alpha1.HumioCluster) (string, error) {
+	if hc.Spec.AuthServiceAccountName != "" {
+		return hc.Spec.AuthServiceAccountName, nil
+	}
+	foundAuthServiceAccountNameSecretsList, err := kubernetes.ListSecrets(ctx, r.client, hc.Namespace, kubernetes.MatchingLabelsForSecret(hc.Name, authServiceAccountSecretName(hc)))
+	if err != nil {
+		return "", err
+	}
+	if len(foundAuthServiceAccountNameSecretsList) == 0 {
+		return "", nil
+	}
+	if len(foundAuthServiceAccountNameSecretsList) > 1 {
+		return "", fmt.Errorf("found more than one init service account")
+	}
+	return foundAuthServiceAccountNameSecretsList[0].Name, nil
+}
+
+func (r *ReconcileHumioCluster) ensureHumioServiceAccountAnnotations(ctx context.Context, hc *corev1alpha1.HumioCluster) (reconcile.Result, error) {
+	// Don't change the service account annotations if the service account is not managed by the operator
+	if hc.Spec.HumioServiceAccountName != "" {
+		return reconcile.Result{}, nil
+	}
+	serviceAccountName := humioServiceAccountNameOrDefault(hc)
+	serviceAccountAnnotations := humioServiceAccountAnnotationsOrDefault(hc)
+
+	r.logger.Infof("ensuring service account %s annotations", serviceAccountName)
+	existingServiceAccount, err := kubernetes.GetServiceAccount(ctx, r.client, serviceAccountName, hc.Namespace)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return reconcile.Result{}, nil
+		}
+		r.logger.Errorf("failed to get service account %s: %s", serviceAccountName, err)
+		return reconcile.Result{}, err
+	}
+
+	serviceAccount := kubernetes.ConstructServiceAccount(serviceAccountName, hc.Name, hc.Namespace, serviceAccountAnnotations)
+	if !reflect.DeepEqual(existingServiceAccount.Annotations, serviceAccount.Annotations) {
+		r.logger.Infof("service account annotations do not match: annotations %s, got %s. updating service account %s",
+			helpers.MapToString(serviceAccount.Annotations), helpers.MapToString(existingServiceAccount.Annotations), existingServiceAccount.Name)
+		existingServiceAccount.Annotations = serviceAccount.Annotations
+		err = r.client.Update(ctx, existingServiceAccount)
+		if err != nil {
+			r.logger.Errorf("could not update service account %s, got err: %s", existingServiceAccount.Name, err)
+			return reconcile.Result{}, err
+		}
+
+		// Trigger restart of humio to pick up the updated service account
+		r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRolling)
+
+		return reconcile.Result{Requeue: true}, nil
+	}
+	return reconcile.Result{}, nil
+}
+
 // ensureMismatchedPodsAreDeleted is used to delete pods which container spec does not match that which is desired.
 // The behavior of this depends on what, if anything, was changed in the pod. If there are changes that fall under a
 // rolling update, then the pod restart policy is set to PodRestartPolicyRolling and the reconciliation will continue if
@@ -1239,6 +1319,11 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(ctx context.Conte
 	var waitingOnReadyPods bool
 	r.logger.Info("ensuring mismatching pods are deleted")
 
+	attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
+	if err != nil {
+		r.logger.Errorf("failed to get pod attachments: %s", err)
+	}
+
 	// If we allow a rolling update, then don't take down more than one pod at a time.
 	// Check the number of ready pods. if we have already deleted a pod, then the ready count will less than expected,
 	// but we must continue with reconciliation so the pod may be created later in the reconciliation.
@@ -1252,7 +1337,7 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(ctx context.Conte
 
 	if (r.getHumioClusterPodRestartPolicy(hc) == PodRestartPolicyRolling && !waitingOnReadyPods) ||
 		r.getHumioClusterPodRestartPolicy(hc) == PodRestartPolicyRecreate {
-		desiredLifecycleState, err := r.getPodDesiredLifecycleState(hc, foundPodList)
+		desiredLifecycleState, err := r.getPodDesiredLifecycleState(hc, foundPodList, attachments)
 		if err != nil {
 			r.logger.Errorf("got error when getting pod desired lifecycle: %s", err)
 			return reconcile.Result{}, err
@@ -1350,7 +1435,11 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *
 
 	r.logger.Debugf("pod ready count is %d, while desired node count is %d", podsReadyCount, hc.Spec.NodeCount)
 	if podsReadyCount < hc.Spec.NodeCount {
-		err = r.createPod(ctx, hc, foundPodList)
+		attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
+		if err != nil {
+			r.logger.Errorf("failed to get pod attachments: %s", err)
+		}
+		err = r.createPod(ctx, hc, attachments)
 		if err != nil {
 			r.logger.Errorf("unable to create Pod for HumioCluster: %s", err)
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
@@ -1381,8 +1470,13 @@ func (r *ReconcileHumioCluster) ensurePodsExist(ctx context.Context, hc *corev1a
 		return reconcile.Result{}, err
 	}
 
+	attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
+	if err != nil {
+		r.logger.Errorf("failed to get pod attachments: %s", err)
+	}
+
 	if len(foundPodList) < hc.Spec.NodeCount {
-		err = r.createPod(ctx, hc, foundPodList)
+		err = r.createPod(ctx, hc, attachments)
 		if err != nil {
 			r.logger.Errorf("unable to create Pod for HumioCluster: %s", err)
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
@@ -1406,7 +1500,7 @@ func (r *ReconcileHumioCluster) ensurePodsExist(ctx context.Context, hc *corev1a
 
 func (r *ReconcileHumioCluster) ensurePersistentVolumeClaimsExist(ctx context.Context, hc *corev1alpha1.HumioCluster) (reconcile.Result, error) {
 	if !pvcsEnabled(hc) {
-		r.logger.Info(fmt.Sprintf("skipping pvcs: %+v", hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate))
+		r.logger.Info("pvcs are disabled. skipping")
 		return reconcile.Result{}, nil
 	}
 
