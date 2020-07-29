@@ -122,6 +122,21 @@ rules:
   - patch
   - update
   - watch
+{{- if .Values.certmanager }}
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificates
+  - issuers
+verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+{{- end }}
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -253,6 +268,21 @@ rules:
   - patch
   - update
   - watch
+{{- if .Values.certmanager }}
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificates
+  - issuers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  {{- end }}
 {{- end }}
 - apiGroups:
   - rbac.authorization.k8s.io
@@ -331,15 +361,15 @@ metadata:
     helm.sh/chart: '{{ template "humio.chart" . }}'
     operator-sdk-test-scope: 'per-operator'
 allowPrivilegedContainer: true
+allowHostDirVolumePlugin: true
+allowHostIPC: false
 allowHostNetwork: false
-allowHostDirVolumePlugin: false
+allowHostPID: false
+allowHostPorts: false
 priority: 0
 allowedCapabilities:
 - NET_BIND_SERVICE
 - SYS_NICE
-allowHostPorts: false
-allowHostPID: false
-allowHostIPC: false
 readOnlyRootFilesystem: false
 requiredDropCapabilities:
 - KILL
@@ -352,14 +382,17 @@ runAsUser:
 seLinuxContext:
   type: MustRunAs
 fsGroup:
-  type: MustRunAs
+  type: RunAsAny
 supplementalGroups:
   type: RunAsAny
 volumes:
-- hostPath
-- secret
+- configMap
+- downwardAPI
 - emptyDir
+- hostPath
 - persistentVolumeClaim
+- projected
+- secret
 users: []
 {{- end }}
 

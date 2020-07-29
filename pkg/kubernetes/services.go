@@ -10,6 +10,7 @@ import (
 )
 
 func ConstructService(humioClusterName, humioClusterNamespace string) *corev1.Service {
+	// TODO: right now we hardcode frontend port to 8080, but we should make the frontend ports configurable. When running a TLS-enabled Humio cluster, you may want to proxy external TCP/443 traffic directly to Humio.
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      humioClusterName,

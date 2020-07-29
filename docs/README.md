@@ -32,36 +32,7 @@ humio-cp-zookeeper-0   2/2     Running   0          23s
 
 ## Install humio-operator
 
-First we install the CRD's:
-
-```bash
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.6/deploy/crds/core.humio.com_humioclusters_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.6/deploy/crds/core.humio.com_humioexternalclusters_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.6/deploy/crds/core.humio.com_humioingesttokens_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.6/deploy/crds/core.humio.com_humioparsers_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.6/deploy/crds/core.humio.com_humiorepositories_crd.yaml
-```
-
-Installing the humio-operator on non-OpenShift installations:
-
-```bash
-helm repo add humio-operator https://humio.github.io/humio-operator
-
-helm install humio-operator humio-operator/humio-operator \
-  --namespace default \
-  --values charts/humio-operator/values.yaml
-```
-
-For OpenShift installations:
-
-```bash
-helm repo add humio-operator https://humio.github.io/humio-operator
-
-helm install humio-operator humio-operator/humio-operator \
-  --namespace default \
-  --set openshift=true \
-  --values charts/humio-operator/values.yaml
-```
+Follow the instructions at [charts/humio-operator/README.md](charts/humio-operator/README.md).
 
 Example output:
 
@@ -77,7 +48,7 @@ TEST SUITE: None
 
 ## Create Humio cluster
 
-At this point, we should have the humio-operator installed, so all we need to spin up the Humio cluster is to construct a YAML file containing the specifics around the desired configuration. We will be using the following YAML snippet. 
+At this point, we should have the humio-operator installed, so all we need to spin up the Humio cluster is to construct a YAML file containing the specifics around the desired configuration. We will be using the following YAML snippet.
 
 _Note: this configuration is not valid for a long-running or production cluster. For a persistent cluster, we recommend using ephemeral nodes backed by S3, or if that is not an option, persistent volumes. See the [examples](https://github.com/humio/humio-operator/tree/master/examples) directory for those configurations._
 
@@ -87,7 +58,7 @@ kind: HumioCluster
 metadata:
   name: humio-test-cluster
 spec:
-  image: "humio/humio-core:1.12.0"
+  image: "humio/humio-core:1.13.1"
   environmentVariables:
     - name: "ZOOKEEPER_URL"
       value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless:2181"
@@ -97,6 +68,9 @@ spec:
       value: "single-user"
     - name: "SINGLE_USER_PASSWORD"
       value: "MyVeryS3cretPassword"
+    - name: "HUMIO_JVM_ARGS"
+      value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelOldGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false"
+  extraKafkaConfigs: "security.protocol=PLAINTEXT"
 ```
 
 Save the YAML snippet to a file on your machine called `humio-test-cluster.yaml` and apply it:

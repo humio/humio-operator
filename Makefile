@@ -24,15 +24,15 @@ install-e2e-dependencies:
 	hack/install-e2e-dependencies.sh
 
 run-e2e-tests: install-e2e-dependencies
-	hack/install-zookeeper-kafka-kind.sh
+	hack/install-helm-chart-dependencies-kind.sh
 	hack/run-e2e-tests-kind.sh
 
 run-e2e-tests-local-kind:
 	hack/start-kind-cluster.sh
-	hack/install-zookeeper-kafka-kind.sh
+	hack/install-helm-chart-dependencies-kind.sh
 	hack/run-e2e-tests-kind.sh
 
 run-e2e-tests-local-crc:
 	hack/start-crc-cluster.sh
-	hack/install-zookeeper-kafka-crc.sh
+	hack/install-helm-chart-dependencies-crc.sh
 	hack/run-e2e-tests-crc.sh

@@ -3,6 +3,8 @@ package e2e
 import (
 	goctx "context"
 	"fmt"
+	"github.com/humio/humio-operator/pkg/helpers"
+	"testing"
 	"time"
 
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
@@ -14,11 +16,13 @@ import (
 )
 
 type bootstrapTest struct {
+	test    *testing.T
 	cluster *corev1alpha1.HumioCluster
 }
 
-func newBootstrapTest(clusterName string, namespace string) humioClusterTest {
+func newBootstrapTest(test *testing.T, clusterName string, namespace string) humioClusterTest {
 	return &bootstrapTest{
+		test: test,
 		cluster: &corev1alpha1.HumioCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterName,
@@ -26,6 +30,9 @@ func newBootstrapTest(clusterName string, namespace string) humioClusterTest {
 			},
 			Spec: corev1alpha1.HumioClusterSpec{
 				NodeCount: 1,
+				TLS: &corev1alpha1.HumioClusterTLSSpec{
+					Enabled: helpers.BoolPtr(false),
+				},
 				EnvironmentVariables: []corev1.EnvVar{
 					{
 						Name:  "ZOOKEEPER_URL",
@@ -42,14 +49,29 @@ func newBootstrapTest(clusterName string, namespace string) humioClusterTest {
 }
 
 func (b *bootstrapTest) Start(f *framework.Framework, ctx *framework.Context) error {
+	b.cluster.Spec.EnvironmentVariables = append(b.cluster.Spec.EnvironmentVariables,
+		corev1.EnvVar{
+			Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
+			Value: b.cluster.Name,
+		},
+	)
 	return f.Client.Create(goctx.TODO(), b.cluster, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+}
+
+func (b *bootstrapTest) Update(_ *framework.Framework) error {
+	return nil
+}
+
+func (b *bootstrapTest) Teardown(_ *framework.Framework) error {
+	// we have to keep this cluster running as other tests depend on this cluster being available. Tests that validate parsers, ingest tokens, repositories.
+	return nil
 }
 
 func (b *bootstrapTest) Wait(f *framework.Framework) error {
 	for start := time.Now(); time.Since(start) < timeout; {
 		err := f.Client.Get(goctx.TODO(), types.NamespacedName{Name: b.cluster.ObjectMeta.Name, Namespace: b.cluster.ObjectMeta.Namespace}, b.cluster)
 		if err != nil {
-			fmt.Printf("could not get humio cluster: %s", err)
+			b.test.Logf("could not get humio cluster: %s", err)
 		}
 		if b.cluster.Status.State == corev1alpha1.HumioClusterStateRunning {
 			return nil
@@ -61,7 +83,7 @@ func (b *bootstrapTest) Wait(f *framework.Framework) error {
 			kubernetes.MatchingLabelsForHumio(b.cluster.Name),
 		); err != nil {
 			for _, pod := range foundPodList {
-				fmt.Println(fmt.Sprintf("pod %s status: %#v", pod.Name, pod.Status))
+				b.test.Logf("pod %s status: %#v", pod.Name, pod.Status)
 			}
 		}
 

@@ -48,6 +48,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
+	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 )
 
@@ -133,6 +134,10 @@ func main() {
 		openshiftsecurityv1.AddToScheme(mgr.GetScheme())
 	}
 
+	if helpers.UseCertManager() {
+		cmapi.AddToScheme(mgr.GetScheme())
+	}
+
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
 		logger.Error(err, "")
@@ -140,7 +145,8 @@ func main() {
 	}
 
 	// Add the Metrics Service
-	addMetrics(ctx, cfg, logger)
+	// TODO: Enable this when we can add metadata labels to the metrics Service & ServiceMonitor objects
+	//addMetrics(ctx, cfg, logger)
 
 	logger.Info("Starting the Cmd.")
 

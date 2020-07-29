@@ -1,7 +1,8 @@
 package humioparser
 
 import (
-	"context"
+	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"reflect"
 	"testing"
 
@@ -9,7 +10,6 @@ import (
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -51,16 +51,7 @@ func TestReconcileHumioParser_Reconcile(t *testing.T) {
 			r, req := reconcileInitWithHumioClient(tt.humioParser, tt.humioClient)
 			defer r.logger.Sync()
 
-			cluster, _ := helpers.NewCluster(tt.humioParser.Spec.ManagedClusterName, tt.humioParser.Spec.ExternalClusterName, tt.humioParser.Namespace)
-			// Create developer-token secret
-			secretData := map[string][]byte{"token": []byte("persistentToken")}
-			secret := kubernetes.ConstructSecret(cluster.Name(), tt.humioParser.Namespace, kubernetes.ServiceTokenSecretName, secretData)
-			err := r.client.Create(context.TODO(), secret)
-			if err != nil {
-				t.Errorf("unable to create persistent token secret: %s", err)
-			}
-
-			_, err = r.Reconcile(req)
+			_, err := r.Reconcile(req)
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
 			}
@@ -94,14 +85,34 @@ func reconcileInit(humioParser *corev1alpha1.HumioParser) (*ReconcileHumioParser
 	logger, _ := zap.NewProduction()
 	sugar := logger.Sugar().With("Request.Namespace", humioParser.Namespace, "Request.Name", humioParser.Name)
 
+	humioCluster := &corev1alpha1.HumioCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      humioParser.Spec.ManagedClusterName,
+			Namespace: humioParser.Namespace,
+		},
+	}
+
+	apiTokenSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-admin-token", humioParser.Spec.ManagedClusterName),
+			Namespace: humioParser.Namespace,
+		},
+		StringData: map[string]string{
+			"token": "secret-api-token",
+		},
+	}
+
 	// Objects to track in the fake client.
 	objs := []runtime.Object{
+		humioCluster,
+		apiTokenSecret,
 		humioParser,
 	}
 
 	// Register operator types with the runtime scheme.
 	s := scheme.Scheme
 	s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, humioParser)
+	s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, humioCluster)
 
 	// Create a fake client to mock API calls.
 	cl := fake.NewFakeClient(objs...)

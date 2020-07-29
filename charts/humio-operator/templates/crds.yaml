@@ -4,6 +4,12 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: humiorepositories.core.humio.com
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
 spec:
   group: core.humio.com
   names:
@@ -83,6 +89,12 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: humioexternalclusters.core.humio.com
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
 spec:
   group: core.humio.com
   names:
@@ -92,7 +104,12 @@ spec:
     singular: humioexternalcluster
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: The state of the external Humio cluster
+      jsonPath: .status.state
+      name: State
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: HumioExternalCluster is the Schema for the humioexternalclusters
@@ -113,13 +130,33 @@ spec:
           spec:
             description: HumioExternalClusterSpec defines the desired state of HumioExternalCluster
             properties:
+              apiTokenSecretName:
+                description: APITokenSecretName is used to obtain the API token we
+                  need to use when communicating with the external Humio cluster.
+                  The secret must contain a key "token" which holds the Humio API
+                  token.
+                type: string
+              caSecretName:
+                description: CASecretName is used to point to a Kubernetes secret
+                  that holds the CA that will be used to issue intra-cluster TLS certificates.
+                  The secret must contain a key "ca.crt" which holds the CA certificate
+                  in PEM format.
+                type: string
+              insecure:
+                description: TLSDisabled is used to disable intra-cluster TLS when
+                  cert-manager is being used.
+                type: boolean
               url:
+                description: Url is used to connect to the Humio cluster we want to
+                  use.
                 type: string
             type: object
           status:
             description: HumioExternalClusterStatus defines the observed state of
               HumioExternalCluster
             properties:
+              state:
+                type: string
               version:
                 type: string
             type: object
@@ -133,6 +170,12 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: humioclusters.core.humio.com
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
 spec:
   group: core.humio.com
   names:
@@ -3803,6 +3846,21 @@ spec:
                 description: TargetReplicationFactor is the desired number of replicas
                   of both storage and ingest partitions
                 type: integer
+              tls:
+                description: TLS is used to define TLS specific configuration such
+                  as intra-cluster TLS settings
+                properties:
+                  caSecretName:
+                    description: CASecretName is used to point to a Kubernetes secret
+                      that holds the CA that will be used to issue intra-cluster TLS
+                      certificates
+                    type: string
+                  enabled:
+                    description: Enabled can be used to toggle TLS on/off. Default
+                      behaviour is to configure TLS if cert-manager is present, otherwise
+                      we skip TLS.
+                    type: boolean
+                type: object
             type: object
           status:
             description: HumioClusterStatus defines the observed state of HumioCluster
@@ -3826,7 +3884,8 @@ spec:
                 type: array
               state:
                 description: State will be empty before the cluster is bootstrapped.
-                  From there it can be "Bootstrapping" or "Running"
+                  From there it can be "Bootstrapping", "Running", "Upgrading" or
+                  "Restarting"
                 type: string
               version:
                 description: Version is the version of humio running
@@ -3842,6 +3901,12 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: humioparsers.core.humio.com
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
 spec:
   group: core.humio.com
   names:
@@ -3913,6 +3978,12 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: humioingesttokens.core.humio.com
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
 spec:
   group: core.humio.com
   names:

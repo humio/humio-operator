@@ -29,6 +29,7 @@ type ClusterClient interface {
 	GetIngestPartitions() (*[]humioapi.IngestPartition, error)
 	Authenticate(*humioapi.Config) error
 	GetBaseURL(*corev1alpha1.HumioCluster) string
+	TestAPIToken() error
 	Status() (humioapi.StatusResponse, error)
 }
 
@@ -78,7 +79,9 @@ func (h *ClientConfig) Authenticate(config *humioapi.Config) error {
 	if config.Address == "" {
 		config.Address = h.apiClient.Address()
 	}
-
+	if len(config.CACertificate) == 0 {
+		config.CACertificate = h.apiClient.CACertificate()
+	}
 	newClient, err := humioapi.NewClient(*config)
 	if err != nil {
 		return fmt.Errorf("could not create new humio client: %s", err)
@@ -155,9 +158,23 @@ func (h *ClientConfig) GetIngestPartitions() (*[]humioapi.IngestPartition, error
 	return &[]humioapi.IngestPartition{}, fmt.Errorf("not implemented")
 }
 
-// GetBaseURL returns the api token for the current logged in user
+// GetBaseURL returns the base URL for given HumioCluster
 func (h *ClientConfig) GetBaseURL(hc *corev1alpha1.HumioCluster) string {
-	return fmt.Sprintf("http://%s.%s:%d/", hc.Name, hc.Namespace, 8080)
+	protocol := "https"
+	if !helpers.TLSEnabled(hc) {
+		protocol = "http"
+	}
+	return fmt.Sprintf("%s://%s.%s:%d/", protocol, hc.Name, hc.Namespace, 8080)
+
+}
+
+// GetBaseURL returns the base URL for given HumioCluster
+func (h *ClientConfig) TestAPIToken() error {
+	if h.apiClient == nil {
+		return fmt.Errorf("api client not set yet")
+	}
+	_, err := h.apiClient.Viewer().Username()
+	return err
 }
 
 func (h *ClientConfig) AddIngestToken(hit *corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {

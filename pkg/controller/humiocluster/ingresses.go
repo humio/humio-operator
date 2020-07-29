@@ -2,6 +2,7 @@ package humiocluster
 
 import (
 	"fmt"
+	"github.com/humio/humio-operator/pkg/helpers"
 
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/humio/humio-operator/pkg/kubernetes"
@@ -10,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func constructGeneralIngress(hc *corev1alpha1.HumioCluster) *v1beta1.Ingress {
+func constructNginxIngressAnnotations(hc *corev1alpha1.HumioCluster, hostname string, ingressSpecificAnnotations map[string]string) map[string]string {
 	annotations := make(map[string]string)
 	annotations["nginx.ingress.kubernetes.io/configuration-snippet"] = `
 more_set_headers "Expect-CT: max-age=604800, enforce";
@@ -18,38 +19,34 @@ more_set_headers "Referrer-Policy: no-referrer";
 more_set_headers "X-Content-Type-Options: nosniff";
 more_set_headers "X-Frame-Options: DENY";
 more_set_headers "X-XSS-Protection: 1; mode=block";`
+
 	annotations["nginx.ingress.kubernetes.io/cors-allow-credentials"] = "false"
 	annotations["nginx.ingress.kubernetes.io/cors-allow-headers"] = "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
 	annotations["nginx.ingress.kubernetes.io/cors-allow-methods"] = "GET, PUT, POST, DELETE, PATCH, OPTIONS"
-	annotations["nginx.ingress.kubernetes.io/cors-allow-origin"] = fmt.Sprintf("https://%s", hc.Spec.Hostname)
+	annotations["nginx.ingress.kubernetes.io/cors-allow-origin"] = fmt.Sprintf("https://%s", hostname)
 	annotations["nginx.ingress.kubernetes.io/enable-cors"] = "true"
 	annotations["nginx.ingress.kubernetes.io/force-ssl-redirect"] = "true"
+	annotations["nginx.ingress.kubernetes.io/upstream-vhost"] = hostname
+
+	if helpers.TLSEnabled(hc) {
+		annotations["nginx.ingress.kubernetes.io/backend-protocol"] = "HTTPS"
+		annotations["nginx.ingress.kubernetes.io/proxy-ssl-name"] = fmt.Sprintf("%s.%s", hc.Name, hc.Namespace)
+		annotations["nginx.ingress.kubernetes.io/proxy-ssl-server-name"] = fmt.Sprintf("%s.%s", hc.Name, hc.Namespace)
+		annotations["nginx.ingress.kubernetes.io/proxy-ssl-secret"] = hc.Name
+		annotations["nginx.ingress.kubernetes.io/proxy-ssl-verify"] = "on"
+	}
+
+	for k, v := range ingressSpecificAnnotations {
+		annotations[k] = v
+	}
+	return annotations
+}
+
+func constructGeneralIngress(hc *corev1alpha1.HumioCluster) *v1beta1.Ingress {
+	annotations := make(map[string]string)
 	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = "512m"
 	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = "1.1"
 	annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] = "25"
-	annotations["nginx.ingress.kubernetes.io/server-snippet"] = `
-set $hashkey $remote_addr;
-if ($request_uri ~ "/api/v1/(dataspaces|repositories)/([^/]+)/" ) {
-    set $hashkey $2;
-}
-if ($http_humio_query_session ~ .) {
-    set $hashkey $http_humio_query_session;
-}
-if ($request_uri ~ "/api/v./(dataspaces|repositories)/[^/]+/(ingest|logplex)") {
-    set $hashkey $req_id;
-}
-if ($request_uri ~ "/api/v1/ingest") {
-    set $hashkey $req_id;
-}
-if ($request_uri ~ "/services/collector") {
-    set $hashkey $req_id;
-}
-if ($request_uri ~ "/_bulk") {
-    set $hashkey $req_id;
-}`
-	annotations["nginx.ingress.kubernetes.io/upstream-hash-by"] = "$hashkey"
-	annotations["nginx.ingress.kubernetes.io/upstream-hash-by-subset"] = "false"
-	annotations["nginx.ingress.kubernetes.io/upstream-vhost"] = hc.Spec.Hostname
 	return constructIngress(
 		hc,
 		fmt.Sprintf("%s-general", hc.Name),
@@ -57,32 +54,17 @@ if ($request_uri ~ "/_bulk") {
 		[]string{"/"},
 		humioPort,
 		certificateSecretNameOrDefault(hc),
-		annotations,
+		constructNginxIngressAnnotations(hc, hc.Spec.Hostname, annotations),
 	)
 }
 
 func constructStreamingQueryIngress(hc *corev1alpha1.HumioCluster) *v1beta1.Ingress {
 	annotations := make(map[string]string)
-	annotations["nginx.ingress.kubernetes.io/configuration-snippet"] = `
-more_set_headers "Expect-CT: max-age=604800, enforce";
-more_set_headers "Referrer-Policy: no-referrer";
-more_set_headers "X-Content-Type-Options: nosniff";
-more_set_headers "X-Frame-Options: DENY";
-more_set_headers "X-XSS-Protection: 1; mode=block";`
-	annotations["nginx.ingress.kubernetes.io/cors-allow-credentials"] = "false"
-	annotations["nginx.ingress.kubernetes.io/cors-allow-headers"] = "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
-	annotations["nginx.ingress.kubernetes.io/cors-allow-methods"] = "GET, PUT, POST, DELETE, PATCH, OPTIONS"
-	annotations["nginx.ingress.kubernetes.io/cors-allow-origin"] = fmt.Sprintf("https://%s", hc.Spec.Hostname)
-	annotations["nginx.ingress.kubernetes.io/enable-cors"] = "true"
-	annotations["nginx.ingress.kubernetes.io/force-ssl-redirect"] = "true"
 	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = "512m"
 	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = "1.1"
 	annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] = "4h"
 	annotations["nginx.ingress.kubernetes.io/use-regex"] = "true"
 	annotations["nginx.ingress.kubernetes.io/proxy-buffering"] = "off"
-	annotations["nginx.ingress.kubernetes.io/upstream-hash-by"] = "$hashkey"
-	annotations["nginx.ingress.kubernetes.io/upstream-hash-by-subset"] = "false"
-	annotations["nginx.ingress.kubernetes.io/upstream-vhost"] = hc.Spec.Hostname
 	return constructIngress(
 		hc,
 		fmt.Sprintf("%s-streaming-query", hc.Name),
@@ -90,31 +72,16 @@ more_set_headers "X-XSS-Protection: 1; mode=block";`
 		[]string{"/api/v./(dataspaces|repositories)/[^/]+/query$"},
 		humioPort,
 		certificateSecretNameOrDefault(hc),
-		annotations,
+		constructNginxIngressAnnotations(hc, hc.Spec.Hostname, annotations),
 	)
 }
 
 func constructIngestIngress(hc *corev1alpha1.HumioCluster) *v1beta1.Ingress {
 	annotations := make(map[string]string)
-	annotations["nginx.ingress.kubernetes.io/configuration-snippet"] = `
-more_set_headers "Expect-CT: max-age=604800, enforce";
-more_set_headers "Referrer-Policy: no-referrer";
-more_set_headers "X-Content-Type-Options: nosniff";
-more_set_headers "X-Frame-Options: DENY";
-more_set_headers "X-XSS-Protection: 1; mode=block";`
-	annotations["nginx.ingress.kubernetes.io/cors-allow-credentials"] = "false"
-	annotations["nginx.ingress.kubernetes.io/cors-allow-headers"] = "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
-	annotations["nginx.ingress.kubernetes.io/cors-allow-methods"] = "GET, PUT, POST, DELETE, PATCH, OPTIONS"
-	annotations["nginx.ingress.kubernetes.io/cors-allow-origin"] = fmt.Sprintf("https://%s", hc.Spec.Hostname)
-	annotations["nginx.ingress.kubernetes.io/enable-cors"] = "true"
-	annotations["nginx.ingress.kubernetes.io/force-ssl-redirect"] = "true"
 	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = "512m"
 	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = "1.1"
 	annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] = "90"
 	annotations["nginx.ingress.kubernetes.io/use-regex"] = "true"
-	annotations["nginx.ingress.kubernetes.io/upstream-hash-by"] = "$hashkey"
-	annotations["nginx.ingress.kubernetes.io/upstream-hash-by-subset"] = "false"
-	annotations["nginx.ingress.kubernetes.io/upstream-vhost"] = hc.Spec.Hostname
 	return constructIngress(
 		hc,
 		fmt.Sprintf("%s-ingest", hc.Name),
@@ -127,31 +94,15 @@ more_set_headers "X-XSS-Protection: 1; mode=block";`
 		},
 		humioPort,
 		certificateSecretNameOrDefault(hc),
-		annotations,
+		constructNginxIngressAnnotations(hc, hc.Spec.Hostname, annotations),
 	)
 }
 
 func constructESIngestIngress(hc *corev1alpha1.HumioCluster) *v1beta1.Ingress {
 	annotations := make(map[string]string)
-	annotations["nginx.ingress.kubernetes.io/configuration-snippet"] = `
-more_set_headers "Expect-CT: max-age=604800, enforce";
-more_set_headers "Referrer-Policy: no-referrer";
-more_set_headers "X-Content-Type-Options: nosniff";
-more_set_headers "X-Frame-Options: DENY";
-more_set_headers "X-XSS-Protection: 1; mode=block";`
-	annotations["nginx.ingress.kubernetes.io/cors-allow-credentials"] = "false"
-	annotations["nginx.ingress.kubernetes.io/cors-allow-headers"] = "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
-	annotations["nginx.ingress.kubernetes.io/cors-allow-methods"] = "GET, PUT, POST, DELETE, PATCH, OPTIONS"
-	annotations["nginx.ingress.kubernetes.io/cors-allow-origin"] = fmt.Sprintf("https://%s", hc.Spec.ESHostname)
-	annotations["nginx.ingress.kubernetes.io/enable-cors"] = "true"
-	annotations["nginx.ingress.kubernetes.io/force-ssl-redirect"] = "true"
 	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = "512m"
 	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = "1.1"
 	annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] = "90"
-	annotations["nginx.ingress.kubernetes.io/server-snippet"] = "set $hashkey $req_id;"
-	annotations["nginx.ingress.kubernetes.io/upstream-hash-by"] = "$hashkey"
-	annotations["nginx.ingress.kubernetes.io/upstream-hash-by-subset"] = "false"
-	annotations["nginx.ingress.kubernetes.io/upstream-vhost"] = hc.Spec.ESHostname
 	return constructIngress(
 		hc,
 		fmt.Sprintf("%s-es-ingest", hc.Name),
@@ -161,7 +112,7 @@ more_set_headers "X-XSS-Protection: 1; mode=block";`
 		},
 		elasticPort,
 		esCertificateSecretNameOrDefault(hc),
-		annotations,
+		constructNginxIngressAnnotations(hc, hc.Spec.ESHostname, annotations),
 	)
 }
 

@@ -10,7 +10,6 @@ import (
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -100,33 +99,6 @@ func (r *ReconcileHumioRepository) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	cluster, err := helpers.NewCluster(hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace)
-	if err != nil {
-		r.logger.Error("repository must have one of ManagedClusterName and ExternalClusterName set: %s", err)
-		return reconcile.Result{}, err
-	}
-
-	secret, err := kubernetes.GetSecret(context.TODO(), r.client, kubernetes.ServiceTokenSecretName, hr.Namespace)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			r.logger.Infof("api token secret does not exist for cluster: %s", cluster.Name())
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
-	url, err := cluster.Url(r.client)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	err = r.humioClient.Authenticate(&humioapi.Config{
-		Token:   string(secret.Data["token"]),
-		Address: url,
-	})
-	if err != nil {
-		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
-	}
-
 	defer func(ctx context.Context, humioClient humio.Client, hr *corev1alpha1.HumioRepository) {
 		curRepository, err := humioClient.GetRepository(hr)
 		if err != nil {
@@ -178,6 +150,18 @@ func (r *ReconcileHumioRepository) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 
+	cluster, err := helpers.NewCluster(context.TODO(), r.client, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager())
+	if err != nil || cluster.Config() == nil {
+		r.logger.Errorf("unable to obtain humio client config: %s", err)
+		return reconcile.Result{}, err
+	}
+
+	err = r.humioClient.Authenticate(cluster.Config())
+	if err != nil {
+		r.logger.Warnf("unable to authenticate humio client: %s", err)
+		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+	}
+
 	// Get current repository
 	r.logger.Info("get current repository")
 	curRepository, err := r.humioClient.GetRepository(hr)
@@ -218,6 +202,11 @@ func (r *ReconcileHumioRepository) Reconcile(request reconcile.Request) (reconci
 }
 
 func (r *ReconcileHumioRepository) finalize(hr *corev1alpha1.HumioRepository) error {
+	_, err := helpers.NewCluster(context.TODO(), r.client, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager())
+	if errors.IsNotFound(err) {
+		return nil
+	}
+
 	return r.humioClient.DeleteRepository(hr)
 }
 

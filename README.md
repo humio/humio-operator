@@ -81,9 +81,13 @@ hack/stop-crc.sh
 
 ## Publishing new releases
 
+In order to publish new release of the different components, we have the following procedures we can follow:
+
 - Operator container image: Bump the version defined in [version/version.go](version/version.go).
 - Helper container image: Bump the version defined in [images/helper/version.go](images/helper/version.go).
 - Helm chart: Bump the version defined in [charts/humio-operator/Chart.yaml](charts/humio-operator/Chart.yaml).
+
+Note: For now, we only release one component at a time due to how our workflows in GitHub Actions.
 
 ## License
 
