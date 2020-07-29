@@ -21,10 +21,9 @@ import (
 )
 
 // perhaps we move these somewhere else?
-const AdminTokenFile = "/data/humio-data/local-admin-token.txt"
-const SnapshotFile = "/data/humio-data/global-data-snapshot.json"
-const HumioURL = "http://localhost:8080/"
-const AdminAccountUserName = "admin" // TODO: Pull this from an environment variable
+const localAdminTokenFile = "/data/humio-data/local-admin-token.txt"
+const globalSnapshotFile = "/data/humio-data/global-data-snapshot.json"
+const adminAccountUserName = "admin" // TODO: Pull this from an environment variable
 
 // getFileContent returns the content of a file as a string
 func getFileContent(filePath string) string {
@@ -38,7 +37,7 @@ func getFileContent(filePath string) string {
 // createNewAdminUser creates a new Humio admin user
 func createNewAdminUser(client *humio.Client) error {
 	isRoot := bool(true)
-	_, err := client.Users().Add(AdminAccountUserName, humio.UserChangeSet{
+	_, err := client.Users().Add(adminAccountUserName, humio.UserChangeSet{
 		IsRoot: &isRoot,
 	})
 	return err
@@ -84,7 +83,7 @@ func extractExistingHumioAdminUserID(client *humio.Client) (string, error) {
 	}
 	userID := ""
 	for _, user := range allUsers {
-		if user.Username == AdminAccountUserName {
+		if user.Username == adminAccountUserName {
 			userID = user.Id
 		}
 	}
@@ -123,8 +122,9 @@ func createAndGetAdminAccountUserID(client *humio.Client) (string, error) {
 }
 
 // ensureAdminSecretContent ensures the target Kubernetes secret contains the desired API token
-func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, adminSecretName, desiredAPIToken string) error {
+func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, adminSecretNameSuffix, desiredAPIToken string) error {
 	// Get existing Kubernetes secret
+	adminSecretName := fmt.Sprintf("%s-%s", clusterName, adminSecretNameSuffix)
 	secret, err := clientset.CoreV1().Secrets(namespace).Get(adminSecretName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		// If the secret doesn't exist, create it
@@ -183,9 +183,9 @@ func newKubernetesClientset() *k8s.Clientset {
 // authMode creates an admin account in Humio, then extracts the apiToken for the user and saves the token in a
 // Kubernetes secret such that the operator can access it
 func authMode() {
-	adminSecretName, found := os.LookupEnv("ADMIN_SECRET_NAME")
-	if !found || adminSecretName == "" {
-		panic("environment variable ADMIN_SECRET_NAME not set or empty")
+	adminSecretNameSuffix, found := os.LookupEnv("ADMIN_SECRET_NAME_SUFFIX")
+	if !found || adminSecretNameSuffix == "" {
+		panic("environment variable ADMIN_SECRET_NAME_SUFFIX not set or empty")
 	}
 
 	clusterName, found := os.LookupEnv("CLUSTER_NAME")
@@ -196,6 +196,11 @@ func authMode() {
 	namespace, found := os.LookupEnv("NAMESPACE")
 	if !found || namespace == "" {
 		panic("environment variable NAMESPACE not set or empty")
+	}
+
+	humioNodeURL, found := os.LookupEnv("HUMIO_NODE_URL")
+	if !found || humioNodeURL == "" {
+		panic("environment variable HUMIO_NODE_URL not set or empty")
 	}
 
 	go func() {
@@ -211,21 +216,22 @@ func authMode() {
 
 	for {
 		// Check required files exist before we continue
-		if !fileExists(AdminTokenFile) || !fileExists(SnapshotFile) {
-			fmt.Printf("waiting on files %s, %s\n", AdminTokenFile, SnapshotFile)
+		if !fileExists(localAdminTokenFile) || !fileExists(globalSnapshotFile) {
+			fmt.Printf("waiting on files %s, %s\n", localAdminTokenFile, globalSnapshotFile)
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
 		// Get local admin token and create humio client with it
-		localAdminToken := getFileContent(AdminTokenFile)
+		localAdminToken := getFileContent(localAdminTokenFile)
 		if localAdminToken == "" {
 			fmt.Printf("local admin token file is empty\n")
 			time.Sleep(5 * time.Second)
 			continue
 		}
+
 		humioClient, err := humio.NewClient(humio.Config{
-			Address: HumioURL,
+			Address: humioNodeURL,
 			Token:   localAdminToken,
 		})
 		if err != nil {
@@ -243,7 +249,7 @@ func authMode() {
 		}
 
 		// Get API token for user ID of admin account
-		apiToken, err := getApiTokenForUserID(SnapshotFile, userID)
+		apiToken, err := getApiTokenForUserID(globalSnapshotFile, userID)
 		if err != nil {
 			fmt.Printf("got err trying to obtain api token of admin user: %s\n", err)
 			time.Sleep(5 * time.Second)
@@ -251,7 +257,7 @@ func authMode() {
 		}
 
 		// Update Kubernetes secret if needed
-		err = ensureAdminSecretContent(clientset, namespace, clusterName, adminSecretName, apiToken)
+		err = ensureAdminSecretContent(clientset, namespace, clusterName, adminSecretNameSuffix, apiToken)
 		if err != nil {
 			fmt.Printf("got error ensuring k8s secret contains apiToken: %s\n", err)
 			time.Sleep(5 * time.Second)

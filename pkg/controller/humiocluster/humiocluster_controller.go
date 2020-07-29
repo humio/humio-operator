@@ -3,6 +3,8 @@ package humiocluster
 import (
 	"context"
 	"fmt"
+	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 	"reflect"
 	"strconv"
 	"strings"
@@ -125,6 +127,14 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	setDefaults(hc)
 	emptyResult := reconcile.Result{}
 
+	// Ensure we have a valid CA certificate to configure intra-cluster communication.
+	// Because generating the CA can take a while, we do this before we start tearing down mismatching pods
+	err = r.ensureValidCASecret(context.TODO(), hc)
+	if err != nil {
+		r.logger.Errorf("could not ensure we have a valid CA secret: %s", err)
+		return reconcile.Result{}, err
+	}
+
 	// Ensure pods that does not run the desired version are deleted.
 	result, err := r.ensureMismatchedPodsAreDeleted(context.TODO(), hc)
 	if result != emptyResult || err != nil {
@@ -134,7 +144,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	// Assume we are bootstrapping if no cluster state is set.
 	// TODO: this is a workaround for the issue where humio pods cannot start up at the same time during the first boot
 	if hc.Status.State == "" {
-		err := r.setState(context.TODO(), corev1alpha1.HumioClusterStateBoostrapping, hc)
+		err := r.setState(context.TODO(), corev1alpha1.HumioClusterStateBootstrapping, hc)
 		if err != nil {
 			r.logger.Infof("unable to set cluster state: %s", err)
 			return reconcile.Result{}, err
@@ -163,20 +173,43 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	if helpers.IsOpenShift() {
-		// Ensure the users in the SCC are cleaned up.
-		// This cleanup is only called as part of reconciling HumioCluster objects,
-		// this means that you can end up with the SCC listing the service accounts
-		// used for the last cluster to be deleted, in the case that all HumioCluster's are removed.
-		// TODO: Determine if we should move this to a finalizer to fix the situation described above.
-		err = r.ensureCleanupUsersInSecurityContextConstraints(context.TODO(), hc)
-		if err != nil {
-			r.logger.Errorf("could not ensure we clean up users in SecurityContextConstraints: %s", err)
-			return reconcile.Result{}, err
-		}
+	// Ensure the users in the SCC are cleaned up.
+	// This cleanup is only called as part of reconciling HumioCluster objects,
+	// this means that you can end up with the SCC listing the service accounts
+	// used for the last cluster to be deleted, in the case that all HumioCluster's are removed.
+	// TODO: Determine if we should move this to a finalizer to fix the situation described above.
+	err = r.ensureCleanupUsersInSecurityContextConstraints(context.TODO(), hc)
+	if err != nil {
+		r.logger.Errorf("could not ensure we clean up users in SecurityContextConstraints: %s", err)
+		return reconcile.Result{}, err
 	}
 
-	// Ensure extra kafka configs configmap if specified
+	// Ensure the CA Issuer is valid/ready
+	err = r.ensureValidCAIssuer(context.TODO(), hc)
+	if err != nil {
+		r.logger.Errorf("could not ensure we have a valid CA issuer: %s", err)
+		return reconcile.Result{}, err
+	}
+	// Ensure we have a k8s secret holding the ca.crt
+	// This can be used in reverse proxies talking to Humio.
+	err = r.ensureHumioClusterCACertBundle(context.TODO(), hc)
+	if err != nil {
+		r.logger.Errorf("could not ensure we have a CA cert bundle for the cluster: %s", err)
+		return reconcile.Result{}, err
+	}
+
+	err = r.ensureHumioClusterKeystoreSecret(context.TODO(), hc)
+	if err != nil {
+		r.logger.Errorf("could not ensure we have a secret holding encryption key for keystore: %s", err)
+		return reconcile.Result{}, err
+	}
+
+	err = r.ensureHumioNodeCertificates(context.TODO(), hc)
+	if err != nil {
+		r.logger.Errorf("could not ensure we have certificates ready for Humio nodes: %s", err)
+		return reconcile.Result{}, err
+	}
+
 	err = r.ensureKafkaConfigConfigMap(context.TODO(), hc)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -188,7 +221,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	// Ensure pods exist. Will requeue if not all pods are created and ready
-	if hc.Status.State == corev1alpha1.HumioClusterStateBoostrapping {
+	if hc.Status.State == corev1alpha1.HumioClusterStateBootstrapping {
 		result, err = r.ensurePodsBootstrapped(context.TODO(), hc)
 		if result != emptyResult || err != nil {
 			return result, err
@@ -201,7 +234,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 		return result, err
 	}
 
-	if hc.Status.State == corev1alpha1.HumioClusterStateBoostrapping {
+	if hc.Status.State == corev1alpha1.HumioClusterStateBootstrapping {
 		err = r.setState(context.TODO(), corev1alpha1.HumioClusterStateRunning, hc)
 		if err != nil {
 			r.logger.Infof("unable to set cluster state: %s", err)
@@ -239,6 +272,7 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	if result != emptyResult || err != nil {
 		return result, err
 	}
+
 	err = r.ensureIngress(context.TODO(), hc)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -249,6 +283,18 @@ func (r *ReconcileHumioCluster) Reconcile(request reconcile.Request) (reconcile.
 	err = r.ensurePartitionsAreBalanced(*clusterController, hc)
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	result, err = r.cleanupUnusedTLSCertificates(context.TODO(), hc)
+	if result != emptyResult || err != nil {
+		return result, err
+	}
+
+	// TODO: cleanup of unused TLS secrets only removes those that are related to the current HumioCluster,
+	//       which means we end up with orphaned secrets when deleting a HumioCluster.
+	result, err = r.cleanupUnusedTLSSecrets(context.TODO(), hc)
+	if result != emptyResult || err != nil {
+		return result, err
 	}
 
 	// All done, requeue every 30 seconds even if no changes were made
@@ -572,6 +618,191 @@ func (r *ReconcileHumioCluster) ensureCleanupUsersInSecurityContextConstraints(c
 	return nil
 }
 
+func (r *ReconcileHumioCluster) ensureValidCAIssuer(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
+	if !helpers.TLSEnabled(hc) {
+		r.logger.Debugf("cluster not configured to run with tls, skipping")
+		return nil
+	}
+
+	r.logger.Debugf("checking for an existing valid CA Issuer")
+	validCAIssuer, err := validCAIssuer(ctx, r.client, hc.Namespace, hc.Name)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		r.logger.Warnf("could not validate CA Issuer: %s", err)
+		return err
+	}
+	if validCAIssuer {
+		r.logger.Debugf("found valid CA Issuer")
+		return nil
+	}
+
+	var existingCAIssuer cmapi.Issuer
+	err = r.client.Get(ctx, types.NamespacedName{
+		Namespace: hc.Namespace,
+		Name:      hc.Name,
+	}, &existingCAIssuer)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			caIssuer := constructCAIssuer(hc)
+			if err := controllerutil.SetControllerReference(hc, &caIssuer, r.scheme); err != nil {
+				r.logger.Errorf("could not set controller reference: %s", err)
+				return err
+			}
+			// should only create it if it doesn't exist
+			err = r.client.Create(ctx, &caIssuer)
+			if err != nil {
+				r.logger.Errorf("could not create CA Issuer: %s", err)
+				return err
+			}
+			return nil
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (r *ReconcileHumioCluster) ensureValidCASecret(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
+	if !helpers.TLSEnabled(hc) {
+		r.logger.Debugf("cluster not configured to run with tls, skipping")
+		return nil
+	}
+
+	r.logger.Debugf("checking for an existing CA secret")
+	validCASecret, err := validCASecret(ctx, r.client, hc.Namespace, getCASecretName(hc))
+	if validCASecret {
+		r.logger.Infof("found valid CA secret")
+		return nil
+	}
+	if err != nil && !k8serrors.IsNotFound(err) {
+		r.logger.Warnf("could not validate CA secret")
+		return err
+	}
+
+	if useExistingCA(hc) {
+		r.logger.Errorf("specified CA secret invalid")
+		return fmt.Errorf("configured to use existing CA secret, but the CA secret invalid")
+	}
+
+	r.logger.Debugf("generating new CA certificate")
+	ca, err := generateCACertificate()
+	if err != nil {
+		r.logger.Errorf("could not generate new CA certificate: %s", err)
+		return err
+	}
+
+	r.logger.Debugf("persisting new CA certificate")
+	caSecretData := map[string][]byte{
+		"tls.crt": ca.Certificate,
+		"tls.key": ca.Key,
+	}
+	caSecret := kubernetes.ConstructSecret(hc.Name, hc.Namespace, getCASecretName(hc), caSecretData)
+	if err := controllerutil.SetControllerReference(hc, caSecret, r.scheme); err != nil {
+		r.logger.Errorf("could not set controller reference: %s", err)
+		return err
+	}
+	err = r.client.Create(ctx, caSecret)
+	if err != nil {
+		r.logger.Errorf("could not create secret with CA: %s", err)
+		return err
+	}
+
+	return nil
+}
+
+func (r *ReconcileHumioCluster) ensureHumioClusterKeystoreSecret(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
+	if !helpers.TLSEnabled(hc) {
+		r.logger.Debugf("cluster not configured to run with tls, skipping")
+		return nil
+	}
+
+	existingSecret := &corev1.Secret{}
+	err := r.client.Get(ctx, types.NamespacedName{
+		Namespace: hc.Namespace,
+		Name:      fmt.Sprintf("%s-keystore-passphrase", hc.Name),
+	}, existingSecret)
+
+	if k8serrors.IsNotFound(err) {
+		randomPass := kubernetes.RandomString()
+		secretData := map[string][]byte{
+			"passphrase": []byte(randomPass), // TODO: do we need separate passwords for different aspects?
+		}
+		secret := kubernetes.ConstructSecret(hc.Name, hc.Namespace, fmt.Sprintf("%s-keystore-passphrase", hc.Name), secretData)
+		if err := controllerutil.SetControllerReference(hc, secret, r.scheme); err != nil {
+			r.logger.Errorf("could not set controller reference: %s", err)
+			return err
+		}
+		err := r.client.Create(ctx, secret)
+		if err != nil {
+			r.logger.Errorf("could not create secret: %s", err)
+			return err
+		}
+		return nil
+	}
+
+	return err
+}
+
+func (r *ReconcileHumioCluster) ensureHumioClusterCACertBundle(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
+	if !helpers.TLSEnabled(hc) {
+		r.logger.Debugf("cluster not configured to run with tls, skipping")
+		return nil
+	}
+
+	r.logger.Debugf("ensuring we have a CA cert bundle")
+	existingCertificate := &cmapi.Certificate{}
+	err := r.client.Get(ctx, types.NamespacedName{
+		Namespace: hc.Namespace,
+		Name:      hc.Name,
+	}, existingCertificate)
+	if k8serrors.IsNotFound(err) {
+		r.logger.Infof("CA cert bundle doesn't exist, creating it now")
+		cert := constructClusterCACertificateBundle(hc)
+		if err := controllerutil.SetControllerReference(hc, &cert, r.scheme); err != nil {
+			r.logger.Errorf("could not set controller reference: %s", err)
+			return err
+		}
+		err := r.client.Create(ctx, &cert)
+		if err != nil {
+			r.logger.Errorf("could not create certificate: %s", err)
+			return err
+		}
+		return nil
+
+	}
+
+	return err
+}
+
+func (r *ReconcileHumioCluster) ensureHumioNodeCertificates(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
+	if !helpers.TLSEnabled(hc) {
+		r.logger.Debugf("cluster not configured to run with tls, skipping")
+		return nil
+	}
+	certificates, err := kubernetes.ListCertificates(r.client, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+	if err != nil {
+		return err
+	}
+	existingNodeCertCount := 0
+	for _, cert := range certificates {
+		if strings.HasPrefix(cert.Name, fmt.Sprintf("%s-core", hc.Name)) {
+			existingNodeCertCount++
+		}
+	}
+	for i := existingNodeCertCount; i < hc.Spec.NodeCount; i++ {
+		certificate := constructNodeCertificate(hc, kubernetes.RandomString())
+		r.logger.Infof("creating node TLS certificate with name %s", certificate.Name)
+		if err := controllerutil.SetControllerReference(hc, &certificate, r.scheme); err != nil {
+			r.logger.Errorf("could not set controller reference: %s", err)
+			return err
+		}
+		err := r.client.Create(ctx, &certificate)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *ReconcileHumioCluster) ensureInitClusterRole(ctx context.Context, hc *corev1alpha1.HumioCluster) error {
 	clusterRoleName := initClusterRoleName(hc)
 	_, err := kubernetes.GetClusterRole(ctx, r.client, clusterRoleName)
@@ -598,6 +829,10 @@ func (r *ReconcileHumioCluster) ensureAuthRole(ctx context.Context, hc *corev1al
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			role := kubernetes.ConstructAuthRole(roleName, hc.Name, hc.Namespace)
+			if err := controllerutil.SetControllerReference(hc, role, r.scheme); err != nil {
+				r.logger.Errorf("could not set controller reference: %s", err)
+				return err
+			}
 			err = r.client.Create(ctx, role)
 			if err != nil {
 				r.logger.Errorf("unable to create auth role for HumioCluster: %s", err)
@@ -641,14 +876,18 @@ func (r *ReconcileHumioCluster) ensureAuthRoleBinding(ctx context.Context, hc *c
 	_, err := kubernetes.GetRoleBinding(ctx, r.client, roleBindingName, hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			role := kubernetes.ConstructRoleBinding(
+			roleBinding := kubernetes.ConstructRoleBinding(
 				roleBindingName,
 				authRoleName(hc),
 				hc.Name,
 				hc.Namespace,
 				authServiceAccountNameOrDefault(hc),
 			)
-			err = r.client.Create(ctx, role)
+			if err := controllerutil.SetControllerReference(hc, roleBinding, r.scheme); err != nil {
+				r.logger.Errorf("could not set controller reference: %s", err)
+				return err
+			}
+			err = r.client.Create(ctx, roleBinding)
 			if err != nil {
 				r.logger.Errorf("unable to create auth role binding for HumioCluster: %s", err)
 				return err
@@ -837,6 +1076,147 @@ func (r *ReconcileHumioCluster) ensureServiceExists(ctx context.Context, hc *cor
 	return nil
 }
 
+// cleanupUnusedTLSCertificates finds all existing per-node certificates for a specific HumioCluster
+// and cleans them up if we have no use for them anymore.
+func (r *ReconcileHumioCluster) cleanupUnusedTLSSecrets(ctx context.Context, hc *corev1alpha1.HumioCluster) (reconcile.Result, error) {
+	if !helpers.UseCertManager() {
+		r.logger.Debugf("cert-manager not available, skipping")
+		return reconcile.Result{}, nil
+	}
+
+	// because these secrets are created by cert-manager we cannot use our typical label selector
+	foundSecretList, err := kubernetes.ListSecrets(r.client, hc.Namespace, client.MatchingLabels{})
+	if err != nil {
+		r.logger.Warnf("unable to list secrets: %s", err)
+		return reconcile.Result{}, err
+	}
+	if len(foundSecretList) == 0 {
+		return reconcile.Result{}, nil
+	}
+
+	for _, secret := range foundSecretList {
+		if !helpers.TLSEnabled(hc) {
+			if secret.Type == corev1.SecretTypeOpaque {
+				if secret.Name == fmt.Sprintf("%s-%s", hc.Name, "ca-keypair") ||
+					secret.Name == fmt.Sprintf("%s-%s", hc.Name, "keystore-passphrase") {
+					r.logger.Infof("TLS is not enabled for cluster, removing unused secret: %s", secret.Name)
+					err := r.client.Delete(ctx, &secret)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			}
+		}
+
+		issuerName, found := secret.Annotations[cmapi.IssuerNameAnnotationKey]
+		if !found || issuerName != hc.Name {
+			continue
+		}
+		if secret.Type != corev1.SecretTypeTLS {
+			continue
+		}
+		// only consider secrets not already being deleted
+		if secret.DeletionTimestamp == nil {
+			inUse := true // assume it is in use until we find out otherwise
+			if !strings.HasPrefix(secret.Name, fmt.Sprintf("%s-core-", hc.Name)) {
+				// this is the cluster-wide secret
+				if hc.Spec.TLS != nil {
+					if hc.Spec.TLS.Enabled != nil {
+						if *hc.Spec.TLS.Enabled == false {
+							inUse = false
+						}
+					}
+				}
+			} else {
+				// this is the per-node secret
+				inUse, err = r.tlsCertSecretInUse(ctx, secret.Namespace, secret.Name)
+				if err != nil {
+					r.logger.Warnf("unable to determine if secret is in use: %s", err)
+					return reconcile.Result{}, err
+				}
+			}
+			if !inUse {
+				r.logger.Infof("deleting secret %s", secret.Name)
+				err = r.client.Delete(ctx, &secret)
+				if err != nil {
+					r.logger.Errorf("could not delete secret %s, got err: %s", secret.Name, err)
+					return reconcile.Result{}, err
+				}
+				return reconcile.Result{Requeue: true}, nil
+			}
+		}
+	}
+
+	// return empty result and no error indicating that everything was in the state we wanted it to be
+	return reconcile.Result{}, nil
+}
+
+// cleanupUnusedTLSCertificates finds all existing per-node certificates and cleans them up if we have no matching pod for them
+func (r *ReconcileHumioCluster) cleanupUnusedTLSCertificates(ctx context.Context, hc *corev1alpha1.HumioCluster) (reconcile.Result, error) {
+	if !helpers.UseCertManager() {
+		r.logger.Debugf("cert-manager not available, skipping")
+		return reconcile.Result{}, nil
+	}
+
+	foundCertificateList, err := kubernetes.ListCertificates(r.client, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+	if err != nil {
+		r.logger.Warnf("unable to list certificates: %s", err)
+		return reconcile.Result{}, err
+	}
+	if len(foundCertificateList) == 0 {
+		return reconcile.Result{}, nil
+	}
+
+	for _, certificate := range foundCertificateList {
+		// only consider secrets not already being deleted
+		if certificate.DeletionTimestamp == nil {
+			inUse := true // assume it is in use until we find out otherwise
+			if !strings.HasPrefix(certificate.Name, fmt.Sprintf("%s-core-", hc.Name)) {
+				// this is the cluster-wide secret
+				if hc.Spec.TLS != nil {
+					if hc.Spec.TLS.Enabled != nil {
+						if *hc.Spec.TLS.Enabled == false {
+							inUse = false
+						}
+					}
+				}
+			} else {
+				// this is the per-node secret
+				inUse, err = r.tlsCertSecretInUse(ctx, certificate.Namespace, certificate.Name)
+				if err != nil {
+					r.logger.Warnf("unable to determine if certificate is in use: %s", err)
+					return reconcile.Result{}, err
+				}
+			}
+			if !inUse {
+				r.logger.Infof("deleting certificate %s", certificate.Name)
+				err = r.client.Delete(ctx, &certificate)
+				if err != nil {
+					r.logger.Errorf("could not delete certificate %s, got err: %s", certificate.Name, err)
+					return reconcile.Result{}, err
+				}
+				return reconcile.Result{Requeue: true}, nil
+			}
+		}
+	}
+
+	// return empty result and no error indicating that everything was in the state we wanted it to be
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileHumioCluster) tlsCertSecretInUse(ctx context.Context, secretNamespace, secretName string) (bool, error) {
+	pod := &corev1.Pod{}
+	err := r.client.Get(ctx, types.NamespacedName{
+		Namespace: secretNamespace,
+		Name:      secretName,
+	}, pod)
+
+	if k8serrors.IsNotFound(err) {
+		return false, nil
+	}
+	return true, err
+}
+
 // ensureMismatchedPodsAreDeleted is used to delete pods which container spec does not match that which is desired.
 // The behavior of this depends on what, if anything, was changed in the pod. If there are changes that fall under a
 // rolling update, then the pod restart policy is set to PodRestartPolicyRolling and the reconciliation will continue if
@@ -872,7 +1252,7 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(ctx context.Conte
 
 	if (r.getHumioClusterPodRestartPolicy(hc) == PodRestartPolicyRolling && !waitingOnReadyPods) ||
 		r.getHumioClusterPodRestartPolicy(hc) == PodRestartPolicyRecreate {
-		desiredLifecycleState, err := r.getPodDesiredLifecyleState(hc, foundPodList)
+		desiredLifecycleState, err := r.getPodDesiredLifecycleState(hc, foundPodList)
 		if err != nil {
 			r.logger.Errorf("got error when getting pod desired lifecycle: %s", err)
 			return reconcile.Result{}, err
@@ -1063,21 +1443,36 @@ func (r *ReconcileHumioCluster) ensurePersistentVolumeClaimsExist(ctx context.Co
 }
 
 func (r *ReconcileHumioCluster) authWithSidecarToken(ctx context.Context, hc *corev1alpha1.HumioCluster, url string) (reconcile.Result, error) {
-	existingSecret, err := kubernetes.GetSecret(ctx, r.client, kubernetes.ServiceTokenSecretName, hc.Namespace)
+	adminTokenSecretName := fmt.Sprintf("%s-%s", hc.Name, kubernetes.ServiceTokenSecretNameSuffix)
+	existingSecret, err := kubernetes.GetSecret(ctx, r.client, adminTokenSecretName, hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			r.logger.Infof("waiting for sidecar to populate secret %s for HumioCluster %s", kubernetes.ServiceTokenSecretName, hc.Name)
+			r.logger.Infof("waiting for sidecar to populate secret %s for HumioCluster %s", adminTokenSecretName, hc.Name)
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
 		}
 	}
 
+	humioAPIConfig := &humioapi.Config{
+		Address: url,
+		Token:   string(existingSecret.Data["token"]),
+	}
+
+	// Get CA
+	if helpers.TLSEnabled(hc) {
+		existingCABundle, err := kubernetes.GetSecret(ctx, r.client, constructClusterCACertificateBundle(hc).Spec.SecretName, hc.Namespace)
+		if k8serrors.IsNotFound(err) {
+			r.logger.Infof("waiting for secret with CA bundle")
+			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
+		}
+		if err != nil {
+			r.logger.Warnf("unable to obtain CA certificate: %s", err)
+			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
+		}
+		humioAPIConfig.CACertificate = existingCABundle.Data["ca.crt"]
+	}
+
 	// Either authenticate or re-authenticate with the persistent token
-	return reconcile.Result{}, r.humioClient.Authenticate(
-		&humioapi.Config{
-			Address: url,
-			Token:   string(existingSecret.Data["token"]),
-		},
-	)
+	return reconcile.Result{}, r.humioClient.Authenticate(humioAPIConfig)
 }
 
 // TODO: there is no need for this. We should instead change this to a get method where we return the list of env vars

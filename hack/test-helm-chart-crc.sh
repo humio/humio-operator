@@ -37,7 +37,7 @@ sleep 5
 
 # Create new kind cluster, deploy Kafka and run operator
 crc setup
-crc start --pull-secret-file=.crc-pull-secret.txt
+crc start --pull-secret-file=.crc-pull-secret.txt --memory 20480 --cpus 6
 eval $(crc oc-env)
 eval $(crc console --credentials | grep "To login as an admin, run" | cut -f2 -d"'")
 
@@ -52,8 +52,8 @@ eval $(crc console --credentials | grep "To login as an admin, run" | cut -f2 -d
 #oc import-image solsson/kafka-prometheus-jmx-exporter@sha256:6f82e2b0464f50da8104acd7363fb9b995001ddff77d248379f8788e78946143
 
 # Pre-load humio images
-#docker pull humio/humio-core:1.12.0
-#oc import-image humio/humio-core:1.12.0
+#docker pull humio/humio-core:1.13.1
+#oc import-image humio/humio-core:1.13.1
 
 # Use helm 3 to start up Kafka and Zookeeper
 mkdir ~/git

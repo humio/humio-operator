@@ -1,15 +1,14 @@
 package humiorepository
 
 import (
-	"context"
+	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"reflect"
 	"testing"
 
 	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
-	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -53,16 +52,7 @@ func TestReconcileHumioRepository_Reconcile(t *testing.T) {
 			r, req := reconcileInitWithHumioClient(tt.humioRepository, tt.humioClient)
 			defer r.logger.Sync()
 
-			cluster, _ := helpers.NewCluster(tt.humioRepository.Spec.ManagedClusterName, tt.humioRepository.Spec.ExternalClusterName, tt.humioRepository.Namespace)
-			// Create developer-token secret
-			secretData := map[string][]byte{"token": []byte("persistentToken")}
-			secret := kubernetes.ConstructSecret(cluster.Name(), tt.humioRepository.Namespace, kubernetes.ServiceTokenSecretName, secretData)
-			err := r.client.Create(context.TODO(), secret)
-			if err != nil {
-				t.Errorf("unable to create persistent token secret: %s", err)
-			}
-
-			_, err = r.Reconcile(req)
+			_, err := r.Reconcile(req)
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
 			}
@@ -97,14 +87,34 @@ func reconcileInit(humioRepository *corev1alpha1.HumioRepository) (*ReconcileHum
 	logger, _ := zap.NewProduction()
 	sugar := logger.Sugar().With("Request.Namespace", humioRepository.Namespace, "Request.Name", humioRepository.Name)
 
+	humioCluster := &corev1alpha1.HumioCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      humioRepository.Spec.ManagedClusterName,
+			Namespace: humioRepository.Namespace,
+		},
+	}
+
+	apiTokenSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-admin-token", humioRepository.Spec.ManagedClusterName),
+			Namespace: humioRepository.Namespace,
+		},
+		StringData: map[string]string{
+			"token": "secret-api-token",
+		},
+	}
+
 	// Objects to track in the fake client.
 	objs := []runtime.Object{
+		humioCluster,
+		apiTokenSecret,
 		humioRepository,
 	}
 
 	// Register operator types with the runtime scheme.
 	s := scheme.Scheme
 	s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, humioRepository)
+	s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, humioCluster)
 
 	// Create a fake client to mock API calls.
 	cl := fake.NewFakeClient(objs...)

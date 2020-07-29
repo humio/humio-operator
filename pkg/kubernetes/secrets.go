@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	ServiceTokenSecretName = "admin-token"
+	ServiceTokenSecretNameSuffix = "admin-token"
 )
 
 func ConstructSecret(humioClusterName, humioClusterNamespace, secretName string, data map[string][]byte) *corev1.Secret {
@@ -43,4 +43,15 @@ func GetSecret(ctx context.Context, c client.Client, secretName, humioClusterNam
 		Name:      secretName,
 	}, &existingSecret)
 	return &existingSecret, err
+}
+
+// ListSecrets grabs the list of all secrets associated to a an instance of HumioCluster
+func ListSecrets(c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]corev1.Secret, error) {
+	var foundSecretList corev1.SecretList
+	err := c.List(context.TODO(), &foundSecretList, client.InNamespace(humioClusterNamespace), matchingLabels)
+	if err != nil {
+		return nil, err
+	}
+
+	return foundSecretList.Items, nil
 }

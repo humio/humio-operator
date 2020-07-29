@@ -4,6 +4,7 @@ import (
 	goctx "context"
 	"fmt"
 	"reflect"
+	"testing"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -17,11 +18,14 @@ import (
 )
 
 type humioClusterWithPVCsTest struct {
-	cluster *corev1alpha1.HumioCluster
+	test       *testing.T
+	cluster    *corev1alpha1.HumioCluster
+	tlsEnabled bool
 }
 
-func newHumioClusterWithPVCsTest(clusterName string, namespace string) humioClusterTest {
+func newHumioClusterWithPVCsTest(test *testing.T, clusterName string, namespace string, tlsEnabled bool) humioClusterTest {
 	return &humioClusterWithPVCsTest{
+		test: test,
 		cluster: &corev1alpha1.HumioCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterName,
@@ -38,7 +42,12 @@ func newHumioClusterWithPVCsTest(clusterName string, namespace string) humioClus
 						Name:  "KAFKA_SERVERS",
 						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
 					},
+					{
+						Name:  "HUMIO_JVM_ARGS",
+						Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelOldGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false",
+					},
 				},
+				ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 				DataVolumePersistentVolumeClaimSpecTemplate: corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 					Resources: corev1.ResourceRequirements{
@@ -49,18 +58,34 @@ func newHumioClusterWithPVCsTest(clusterName string, namespace string) humioClus
 				},
 			},
 		},
+		tlsEnabled: tlsEnabled,
 	}
 }
 
 func (h *humioClusterWithPVCsTest) Start(f *framework.Framework, ctx *framework.Context) error {
+	h.cluster.Spec.TLS = &corev1alpha1.HumioClusterTLSSpec{Enabled: &h.tlsEnabled}
+	h.cluster.Spec.EnvironmentVariables = append(h.cluster.Spec.EnvironmentVariables,
+		corev1.EnvVar{
+			Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
+			Value: h.cluster.Name,
+		},
+	)
 	return f.Client.Create(goctx.TODO(), h.cluster, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+}
+
+func (h *humioClusterWithPVCsTest) Update(_ *framework.Framework) error {
+	return nil
+}
+
+func (h *humioClusterWithPVCsTest) Teardown(f *framework.Framework) error {
+	return f.Client.Delete(goctx.TODO(), h.cluster)
 }
 
 func (h *humioClusterWithPVCsTest) Wait(f *framework.Framework) error {
 	for start := time.Now(); time.Since(start) < timeout; {
 		err := f.Client.Get(goctx.TODO(), types.NamespacedName{Name: h.cluster.ObjectMeta.Name, Namespace: h.cluster.ObjectMeta.Namespace}, h.cluster)
 		if err != nil {
-			fmt.Printf("could not get humio cluster: %s", err)
+			h.test.Logf("could not get humio cluster: %s", err)
 		}
 		if h.cluster.Status.State == corev1alpha1.HumioClusterStateRunning {
 			foundPodList, err := kubernetes.ListPods(
@@ -106,7 +131,7 @@ func (h *humioClusterWithPVCsTest) Wait(f *framework.Framework) error {
 			kubernetes.MatchingLabelsForHumio(h.cluster.Name),
 		); err != nil {
 			for _, pod := range foundPodList {
-				fmt.Println(fmt.Sprintf("pod %s status: %#v", pod.Name, pod.Status))
+				h.test.Logf("pod %s status: %#v", pod.Name, pod.Status)
 			}
 		}
 

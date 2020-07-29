@@ -29,7 +29,15 @@ $kubectl create namespace $operator_namespace
 
 operator-sdk build $operator_image
 
+# Preload default humio-core container version
+docker pull humio/humio-core:1.13.1
+kind load docker-image --name kind humio/humio-core:1.13.1
 
+# Preload humio-core used by e2e tests
+docker pull humio/humio-core:1.13.0
+kind load docker-image --name kind humio/humio-core:1.13.0
+
+# Preload newly built humio-operator image
 kind load docker-image --name kind $operator_image
 
 # Populate global.yaml with CRD's, ClusterRole, ClusterRoleBinding (and SecurityContextConstraints for OpenShift)
@@ -63,6 +71,7 @@ done >> $namespaced_manifest
 # NB: The YAML files cannot contain unnamed "List" objects as the parsing with operator-sdk failes with that.
 
 operator-sdk test local ./test/e2e \
+--go-test-flags="-timeout 30m" \
 --global-manifest=$global_manifest \
 --namespaced-manifest=$namespaced_manifest \
 --operator-namespace=$operator_namespace \

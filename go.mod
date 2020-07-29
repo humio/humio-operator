@@ -4,11 +4,14 @@ go 1.14
 
 require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/fsouza/go-dockerclient v1.6.5 // indirect
 	github.com/gofrs/uuid v3.3.0+incompatible // indirect
 	github.com/golang/protobuf v1.4.2 // indirect
-	github.com/humio/cli v0.25.1-0.20200519180520-db8b24bcb4d1
+	github.com/google/martian v2.1.0+incompatible
+	github.com/humio/cli v0.25.1-0.20200723074229-b8323ee694cb
+	github.com/jetstack/cert-manager v0.16.0
 	github.com/mattn/go-runewidth v0.0.9 // indirect
-	github.com/mitchellh/mapstructure v1.3.0 // indirect
+	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/olekukonko/tablewriter v0.0.4 // indirect
 	github.com/openshift/api v0.0.0-20200205133042-34f0ec8dab87
 	github.com/operator-framework/operator-sdk v0.17.0
@@ -16,21 +19,24 @@ require (
 	github.com/prometheus/client_golang v1.5.1
 	github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
+	github.com/spf13/afero v1.3.2 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.0.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.0 // indirect
 	go.uber.org/zap v1.14.1
-	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37 // indirect
-	golang.org/x/net v0.0.0-20200519113804-d87ec0cfa476 // indirect
+	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899 // indirect
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
-	golang.org/x/sys v0.0.0-20200519105757-fe76b779f299 // indirect
+	golang.org/x/sys v0.0.0-20200722175500-76b94024e4b6 // indirect
+	golang.org/x/text v0.3.3 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
-	gopkg.in/ini.v1 v1.56.0 // indirect
-	k8s.io/api v0.17.4
-	k8s.io/apimachinery v0.17.4
-	k8s.io/apiserver v0.17.3
+	google.golang.org/protobuf v1.25.0 // indirect
+	gopkg.in/ini.v1 v1.57.0 // indirect
+	k8s.io/api v0.18.5
+	k8s.io/apimachinery v0.18.5
+	k8s.io/apiserver v0.18.5
 	k8s.io/client-go v12.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.5.2
 )
