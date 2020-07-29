@@ -3,6 +3,7 @@ package helpers
 import (
 	"crypto/sha256"
 	"fmt"
+	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"os"
 	"reflect"
 
@@ -58,9 +59,37 @@ func IsOpenShift() bool {
 	return found && sccName != ""
 }
 
+// UseCertManager returns whether the operator will use cert-manager
+func UseCertManager() bool {
+	certmanagerEnabled, found := os.LookupEnv("USE_CERTMANAGER")
+	return found && certmanagerEnabled == "true"
+}
+
+// TLSEnabled returns whether we a cluster should configure TLS or not
+func TLSEnabled(hc *corev1alpha1.HumioCluster) bool {
+	if hc.Spec.TLS == nil {
+		return UseCertManager()
+	}
+	if hc.Spec.TLS.Enabled == nil {
+		return UseCertManager()
+	}
+
+	return UseCertManager() && *hc.Spec.TLS.Enabled
+}
+
 // AsSHA256 does a sha 256 hash on an object and returns the result
 func AsSHA256(o interface{}) string {
 	h := sha256.New()
 	h.Write([]byte(fmt.Sprintf("%v", o)))
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+// BoolPtr returns a bool pointer to the specified boolean value
+func BoolPtr(val bool) *bool {
+	return &val
+}
+
+// Int64Ptr returns a int64 pointer to the specified int64 value
+func Int64Ptr(val int64) *int64 {
+	return &val
 }

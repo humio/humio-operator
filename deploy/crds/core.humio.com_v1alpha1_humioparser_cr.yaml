@@ -2,6 +2,11 @@ apiVersion: core.humio.com/v1alpha1
 kind: HumioParser
 metadata:
   name: example-humioparser
+  labels:
+    app: 'humioparser'
+    app.kubernetes.io/name: 'humioparser'
+    app.kubernetes.io/instance: 'example-humioparser'
+    app.kubernetes.io/managed-by: 'manual'
 spec:
   managedClusterName: example-humiocluster
   name: "example-humioparser"

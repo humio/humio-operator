@@ -2,6 +2,11 @@ apiVersion: core.humio.com/v1alpha1
 kind: HumioRepository
 metadata:
   name: example-humiorepository
+  labels:
+    app: 'humiorepository'
+    app.kubernetes.io/name: 'humiorepository'
+    app.kubernetes.io/instance: 'example-humiorepository'
+    app.kubernetes.io/managed-by: 'manual'
 spec:
   managedClusterName: example-humiocluster
   name: "example-repository"

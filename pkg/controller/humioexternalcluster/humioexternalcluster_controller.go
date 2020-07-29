@@ -2,11 +2,13 @@ package humioexternalcluster
 
 import (
 	"context"
+	humioapi "github.com/humio/cli/api"
+	"github.com/humio/humio-operator/pkg/humio"
+	"time"
 
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,7 +27,15 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileHumioExternalCluster{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+
+	return &ReconcileHumioExternalCluster{
+		client:      mgr.GetClient(),
+		scheme:      mgr.GetScheme(),
+		humioClient: humio.NewClient(logger.Sugar(), &humioapi.Config{}),
+		logger:      logger.Sugar(),
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -42,16 +52,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner HumioExternalCluster
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &corev1alpha1.HumioExternalCluster{},
-	})
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -62,9 +62,10 @@ var _ reconcile.Reconciler = &ReconcileHumioExternalCluster{}
 type ReconcileHumioExternalCluster struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
-	logger *zap.SugaredLogger
+	client      client.Client
+	scheme      *runtime.Scheme
+	humioClient humio.Client
+	logger      *zap.SugaredLogger
 }
 
 // Reconcile reads that state of the cluster for a HumioExternalCluster object and makes changes based on the state read
@@ -79,8 +80,8 @@ func (r *ReconcileHumioExternalCluster) Reconcile(request reconcile.Request) (re
 	r.logger.Info("Reconciling HumioExternalCluster")
 
 	// Fetch the HumioExternalCluster instance
-	instance := &corev1alpha1.HumioExternalCluster{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	hec := &corev1alpha1.HumioExternalCluster{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, hec)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -91,5 +92,41 @@ func (r *ReconcileHumioExternalCluster) Reconcile(request reconcile.Request) (re
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-	return reconcile.Result{}, nil
+
+	if hec.Status.State == "" {
+		err := r.setState(context.TODO(), corev1alpha1.HumioExternalClusterStateUnknown, hec)
+		if err != nil {
+			r.logger.Infof("unable to set cluster state: %s", err)
+			return reconcile.Result{}, err
+		}
+	}
+
+	cluster, err := helpers.NewCluster(context.TODO(), r.client, "", hec.Name, hec.Namespace, helpers.UseCertManager())
+	if err != nil || cluster.Config() == nil {
+		r.logger.Error("unable to obtain humio client config: %s", err)
+		return reconcile.Result{}, err
+	}
+
+	err = r.humioClient.Authenticate(cluster.Config())
+	if err != nil {
+		r.logger.Warnf("unable to authenticate humio client: %s", err)
+		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+	}
+
+	err = r.humioClient.TestAPIToken()
+	if err != nil {
+		err := r.setState(context.TODO(), corev1alpha1.HumioExternalClusterStateUnknown, hec)
+		if err != nil {
+			r.logger.Infof("unable to set cluster state: %s", err)
+			return reconcile.Result{}, err
+		}
+	}
+
+	err = r.setState(context.TODO(), corev1alpha1.HumioExternalClusterStateReady, hec)
+	if err != nil {
+		r.logger.Infof("unable to set cluster state: %s", err)
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 30}, nil
 }

@@ -2,15 +2,17 @@ package humiocluster
 
 import (
 	"fmt"
+	"github.com/humio/humio-operator/pkg/helpers"
 	"reflect"
 	"strconv"
+	"strings"
 
 	humioClusterv1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 )
 
 const (
-	image                        = "humio/humio-core:1.12.0"
+	image                        = "humio/humio-core:1.13.1"
 	targetReplicationFactor      = 2
 	storagePartitionsCount       = 24
 	digestPartitionsCount        = 24
@@ -192,16 +194,13 @@ func podResourcesOrDefault(hc *humioClusterv1alpha1.HumioCluster) corev1.Resourc
 }
 
 func containerSecurityContextOrDefault(hc *humioClusterv1alpha1.HumioCluster) *corev1.SecurityContext {
-	boolFalse := bool(false)
-	boolTrue := bool(true)
-	userID := int64(65534)
 	if hc.Spec.ContainerSecurityContext == nil {
 		return &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &boolFalse,
-			Privileged:               &boolFalse,
-			ReadOnlyRootFilesystem:   &boolTrue,
-			RunAsUser:                &userID,
-			RunAsNonRoot:             &boolTrue,
+			AllowPrivilegeEscalation: helpers.BoolPtr(false),
+			Privileged:               helpers.BoolPtr(false),
+			ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
+			RunAsUser:                helpers.Int64Ptr(65534),
+			RunAsNonRoot:             helpers.BoolPtr(true),
 			Capabilities: &corev1.Capabilities{
 				Add: []corev1.Capability{
 					"NET_BIND_SERVICE",
@@ -217,28 +216,29 @@ func containerSecurityContextOrDefault(hc *humioClusterv1alpha1.HumioCluster) *c
 }
 
 func podSecurityContextOrDefault(hc *humioClusterv1alpha1.HumioCluster) *corev1.PodSecurityContext {
-	boolTrue := bool(true)
-	userID := int64(65534)
-	groupID := int64(0) // TODO: We probably want to move away from this.
 	if hc.Spec.PodSecurityContext == nil {
 		return &corev1.PodSecurityContext{
-			RunAsUser:    &userID,
-			RunAsNonRoot: &boolTrue,
-			RunAsGroup:   &groupID,
-			FSGroup:      &groupID,
+			RunAsUser:    helpers.Int64Ptr(65534),
+			RunAsNonRoot: helpers.BoolPtr(true),
+			RunAsGroup:   helpers.Int64Ptr(0), // TODO: We probably want to move away from this.
+			FSGroup:      helpers.Int64Ptr(0), // TODO: We probably want to move away from this.
 		}
 	}
 	return hc.Spec.PodSecurityContext
 }
 
 func setEnvironmentVariableDefaults(hc *humioClusterv1alpha1.HumioCluster) {
+	scheme := "https"
+	if !helpers.TLSEnabled(hc) {
+		scheme = "http"
+	}
+
 	envDefaults := []corev1.EnvVar{
 		{
 			Name: "THIS_POD_IP",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
-					APIVersion: "v1",
-					FieldPath:  "status.podIP",
+					FieldPath: "status.podIP",
 				},
 			},
 		},
@@ -246,8 +246,7 @@ func setEnvironmentVariableDefaults(hc *humioClusterv1alpha1.HumioCluster) {
 			Name: "POD_NAME",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
-					APIVersion: "v1",
-					FieldPath:  "metadata.name",
+					FieldPath: "metadata.name",
 				},
 			},
 		},
@@ -255,8 +254,7 @@ func setEnvironmentVariableDefaults(hc *humioClusterv1alpha1.HumioCluster) {
 			Name: "POD_NAMESPACE",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
-					APIVersion: "v1",
-					FieldPath:  "metadata.namespace",
+					FieldPath: "metadata.namespace",
 				},
 			},
 		},
@@ -268,7 +266,7 @@ func setEnvironmentVariableDefaults(hc *humioClusterv1alpha1.HumioCluster) {
 		{Name: "AUTHENTICATION_METHOD", Value: "single-user"},
 		{
 			Name:  "EXTERNAL_URL", // URL used by other Humio hosts.
-			Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)",
+			Value: fmt.Sprintf("%s://$(POD_NAME).%s.$(POD_NAMESPACE):$(HUMIO_PORT)", strings.ToLower(scheme), hc.Name),
 		},
 		{
 			Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
@@ -292,7 +290,7 @@ func setEnvironmentVariableDefaults(hc *humioClusterv1alpha1.HumioCluster) {
 	} else {
 		appendEnvironmentVariableDefault(hc, corev1.EnvVar{
 			Name:  "PUBLIC_URL", // URL used by users/browsers.
-			Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)",
+			Value: fmt.Sprintf("%s://$(THIS_POD_IP):$(HUMIO_PORT)", scheme),
 		})
 	}
 }

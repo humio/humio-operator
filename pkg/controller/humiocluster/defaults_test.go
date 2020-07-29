@@ -1,6 +1,7 @@
 package humiocluster
 
 import (
+	"github.com/humio/humio-operator/pkg/helpers"
 	"testing"
 
 	humioClusterv1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
@@ -19,7 +20,13 @@ func Test_setEnvironmentVariableDefaults(t *testing.T) {
 		{
 			"test that default env vars are set",
 			args{
-				&humioClusterv1alpha1.HumioCluster{},
+				&humioClusterv1alpha1.HumioCluster{
+					Spec: humioClusterv1alpha1.HumioClusterSpec{
+						TLS: &humioClusterv1alpha1.HumioClusterTLSSpec{
+							Enabled: helpers.BoolPtr(false),
+						},
+					},
+				},
 			},
 			[]corev1.EnvVar{
 				{

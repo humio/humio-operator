@@ -3,6 +3,7 @@ package humiocluster
 import (
 	"context"
 	"fmt"
+	"github.com/humio/humio-operator/pkg/helpers"
 	"reflect"
 	"testing"
 	"time"
@@ -145,8 +146,8 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 			if err != nil {
 				t.Errorf("get HumioCluster: (%v)", err)
 			}
-			if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateBoostrapping {
-				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateBoostrapping, updatedHumioCluster.Status.State)
+			if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateBootstrapping {
+				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateBootstrapping, updatedHumioCluster.Status.State)
 			}
 
 			// Check that the init service account, secret, cluster role and cluster role binding are created
@@ -210,7 +211,8 @@ func TestReconcileHumioCluster_Reconcile(t *testing.T) {
 
 			// Simulate sidecar creating the secret which contains the admin token use to authenticate with humio
 			secretData := map[string][]byte{"token": []byte("")}
-			desiredSecret := kubernetes.ConstructSecret(updatedHumioCluster.Name, updatedHumioCluster.Namespace, kubernetes.ServiceTokenSecretName, secretData)
+			adminTokenSecretName := fmt.Sprintf("%s-%s", updatedHumioCluster.Name, kubernetes.ServiceTokenSecretNameSuffix)
+			desiredSecret := kubernetes.ConstructSecret(updatedHumioCluster.Name, updatedHumioCluster.Namespace, adminTokenSecretName, secretData)
 			err = r.client.Create(context.TODO(), desiredSecret)
 			if err != nil {
 				t.Errorf("unable to create service token secret: %s", err)
@@ -314,7 +316,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 					Namespace: "logging",
 				},
 				Spec: corev1alpha1.HumioClusterSpec{
-					Image:                   image,
+					Image:                   "humio/humio-core:1.13.0",
 					TargetReplicationFactor: 2,
 					StoragePartitionsCount:  3,
 					DigestPartitionsCount:   3,
@@ -327,7 +329,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 					StoragePartitions: buildStoragePartitionsList(3, 1),
 					IngestPartitions:  buildIngestPartitionsList(3, 1),
 				}, nil, nil, nil, "1.9.2--build-12365--sha-bf4188482a"),
-			"humio/humio-core:1.9.2",
+			"humio/humio-core:1.13.1",
 			"1.9.2--build-12365--sha-bf4188482a",
 		},
 	}
@@ -346,8 +348,8 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 			if err != nil {
 				t.Errorf("get HumioCluster: (%v)", err)
 			}
-			if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateBoostrapping {
-				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateBoostrapping, updatedHumioCluster.Status.State)
+			if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateBootstrapping {
+				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateBootstrapping, updatedHumioCluster.Status.State)
 			}
 			tt.humioCluster = updatedHumioCluster
 
@@ -376,7 +378,8 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 
 			// Simulate sidecar creating the secret which contains the admin token use to authenticate with humio
 			secretData := map[string][]byte{"token": []byte("")}
-			desiredSecret := kubernetes.ConstructSecret(updatedHumioCluster.Name, updatedHumioCluster.Namespace, kubernetes.ServiceTokenSecretName, secretData)
+			adminTokenSecretName := fmt.Sprintf("%s-%s", updatedHumioCluster.Name, kubernetes.ServiceTokenSecretNameSuffix)
+			desiredSecret := kubernetes.ConstructSecret(updatedHumioCluster.Name, updatedHumioCluster.Namespace, adminTokenSecretName, secretData)
 			err = r.client.Create(context.TODO(), desiredSecret)
 			if err != nil {
 				t.Errorf("unable to create service token secret: %s", err)
@@ -412,7 +415,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 					t.Errorf("reconcile: (%v)", err)
 				}
 				if res != (reconcile.Result{Requeue: true}) {
-					t.Errorf("reconcile did not match expected %v", res)
+					t.Errorf("reconcile did not match expected: %v", res)
 				}
 			}
 
@@ -529,8 +532,8 @@ func TestReconcileHumioCluster_Reconcile_update_environment_variable(t *testing.
 			if err != nil {
 				t.Errorf("get HumioCluster: (%v)", err)
 			}
-			if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateBoostrapping {
-				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateBoostrapping, updatedHumioCluster.Status.State)
+			if updatedHumioCluster.Status.State != corev1alpha1.HumioClusterStateBootstrapping {
+				t.Errorf("expected cluster state to be %s but got %s", corev1alpha1.HumioClusterStateBootstrapping, updatedHumioCluster.Status.State)
 			}
 			tt.humioCluster = updatedHumioCluster
 
@@ -559,7 +562,7 @@ func TestReconcileHumioCluster_Reconcile_update_environment_variable(t *testing.
 
 			// Simulate sidecar creating the secret which contains the admin token use to authenticate with humio
 			secretData := map[string][]byte{"token": []byte("")}
-			desiredSecret := kubernetes.ConstructSecret(updatedHumioCluster.Name, updatedHumioCluster.Namespace, kubernetes.ServiceTokenSecretName, secretData)
+			desiredSecret := kubernetes.ConstructSecret(updatedHumioCluster.Name, updatedHumioCluster.Namespace, fmt.Sprintf("%s-%s", updatedHumioCluster.Name, kubernetes.ServiceTokenSecretNameSuffix), secretData)
 			err = r.client.Create(context.TODO(), desiredSecret)
 			if err != nil {
 				t.Errorf("unable to create service token secret: %s", err)
@@ -1250,7 +1253,7 @@ func TestReconcileHumioCluster_Reconcile_pod_security_context(t *testing.T) {
 				},
 				Spec: corev1alpha1.HumioClusterSpec{
 					PodSecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: boolptr(true),
+						RunAsNonRoot: helpers.BoolPtr(true),
 					},
 				},
 			},
@@ -1733,8 +1736,4 @@ func buildClusterNodesList(numberOfNodes int) []humioapi.ClusterNode {
 		clusterNodes = append(clusterNodes, clusterNode)
 	}
 	return clusterNodes
-}
-
-func boolptr(val bool) *bool {
-	return &val
 }

@@ -9,6 +9,13 @@ export PATH=$BIN_DIR:$PATH
 
 kind get kubeconfig > $tmp_kubeconfig
 
+kubectl --kubeconfig=$tmp_kubeconfig create namespace cert-manager
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+helm install --kubeconfig=$tmp_kubeconfig cert-manager jetstack/cert-manager --namespace cert-manager \
+--version v0.16.0 \
+--set installCRDs=true
+
 helm repo add humio https://humio.github.io/cp-helm-charts
 helm install --kubeconfig=$tmp_kubeconfig humio humio/cp-helm-charts --namespace=default \
 --set cp-zookeeper.servers=1 --set cp-kafka.brokers=1 --set cp-schema-registry.enabled=false \

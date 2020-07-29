@@ -1,13 +1,6 @@
 # humio-operator
 
-[humio-operator](https://github.com/humio/humio-operator) Kubernetes Operator for running Humio on top of Kubernetes
-
-## TL;DR
-
-```bash
-helm repo add humio-operator https://humio.github.io/humio-operator
-helm install humio-operator humio-operator/humio-operator
-```
+[humio-operator](https://github.com/humio/humio-operator) Kubernetes Operator for running Humio on top of Kubernetes.
 
 ## Introduction
 
@@ -15,7 +8,9 @@ This chart bootstraps a humio-operator deployment on a [Kubernetes](http://kuber
 
 ## Prerequisites
 
-- Kubernetes 1.16+
+- [Kubernetes](https://kubernetes.io) 1.16+
+- [cert-manager](https://cert-manager.io) v0.16+ (by default, but can be disabled with `certmanager` set to `false`)
+- [NGINX Ingress Controller](https://kubernetes.github.io/ingress-nginx) controller v0.34.1 (only required if configuring HumioCluster CR's with `ingress.controller` set to `nginx`)
 
 ## Installing the CRD's
 
@@ -36,8 +31,12 @@ To install the chart with the release name `humio-operator`:
 helm install humio-operator humio-operator/humio-operator --namespace humio-operator -f values.yaml
 
 # Helm v2
-helm install humio-operator/humio-helm-charts --name humio --namespace humio-operator -f values.yaml
+helm install humio-operator/humio-operator --name humio-operator --namespace humio-operator -f values.yaml
 ```
+
+> **Note**: By default, we expect cert-manager to be installed in order to configure TLS. If you do not have cert-manager installed, or if you know you do not want TLS, see the [configuration](#configuration) section for how to disable this.
+
+> **Note**: By default, we expect a non-OpenShift installation, see the [configuration](#configuration) section for how to enable OpenShift specific functionality.
 
 The command deploys humio-operator on the Kubernetes cluster in the default configuration. The [configuration](#configuration) section lists the parameters that can be configured during installation.
 
@@ -65,6 +64,7 @@ Parameter | Description | Default
 `operator.watchNamespaces` | list of namespaces the operator will watch for resources (if empty, it watches all namespaces) | `[]`
 `installCRDs` | automatically install CRDs. NB: if this is set to true, custom resources will be removed if the Helm chart is uninstalled | `false`
 `openshift` | install additional RBAC resources specific to OpenShift | `false`
+`certmanager` | whether cert-manager is present on the cluster, which will be used for TLS functionality | `true`
 
 These parameters can be passed via Helm's `--set` option
 

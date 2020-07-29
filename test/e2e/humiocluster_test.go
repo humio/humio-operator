@@ -16,14 +16,16 @@ import (
 
 const (
 	retryInterval        = time.Second * 5
-	timeout              = time.Second * 300
+	timeout              = time.Second * 600
 	cleanupRetryInterval = time.Second * 1
 	cleanupTimeout       = time.Second * 5
 )
 
 type humioClusterTest interface {
-	Start(f *framework.Framework, ctx *framework.Context) error
-	Wait(f *framework.Framework) error
+	Start(*framework.Framework, *framework.Context) error
+	Update(*framework.Framework) error
+	Teardown(*framework.Framework) error
+	Wait(*framework.Framework) error
 }
 
 func TestHumioCluster(t *testing.T) {
@@ -46,6 +48,7 @@ func TestHumioCluster(t *testing.T) {
 		t.Run("pvc-cluster", HumioClusterWithPVCs)
 		t.Run("cluster-restart", HumioClusterRestart)
 		t.Run("cluster-upgrade", HumioClusterUpgrade)
+		t.Run("tls-cluster", HumioClusterWithTLS)
 	})
 }
 
@@ -74,10 +77,14 @@ func HumioCluster(t *testing.T) {
 	// run the tests
 	clusterName := "example-humiocluster"
 	tests := []humioClusterTest{
-		newBootstrapTest(clusterName, namespace),
-		newIngestTokenTest(clusterName, namespace),
-		newParserTest(clusterName, namespace),
-		newRepositoryTest(clusterName, namespace),
+		newBootstrapTest(t, clusterName, namespace), // we cannot tear this down until the other 3 tests are done.
+
+		// The 3 tests below depends on the cluster from "newBootstrapTest" running.
+		// TODO: Fix the race between tearing down the operator and waiting for it to run the finalizers for the CR's.
+		//       If the operator goes away too early, the CR's will be stuck due to CR's finalizers not being run.
+		newIngestTokenTest(t, clusterName, namespace),
+		newParserTest(t, clusterName, namespace),
+		newRepositoryTest(t, clusterName, namespace),
 	}
 
 	// print kubectl commands until the tests are complete. ensure we wait for the last kubectl command to complete
@@ -97,12 +104,26 @@ func HumioCluster(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	for _, test := range tests {
+		if err = test.Update(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Wait(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Teardown(f); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	done <- true
 	wg.Wait()
 }
 
-// TODO: Run this in the HumioCluster function once we support multiple namespaces
 func HumioClusterWithPVCs(t *testing.T) {
 	t.Parallel()
 	ctx := framework.NewContext(t)
@@ -128,7 +149,8 @@ func HumioClusterWithPVCs(t *testing.T) {
 	// run the tests
 	clusterName := "example-humiocluster-pvc"
 	tests := []humioClusterTest{
-		newHumioClusterWithPVCsTest(clusterName, namespace),
+		newHumioClusterWithPVCsTest(t, fmt.Sprintf("%s-tls-disabled", clusterName), namespace, false),
+		newHumioClusterWithPVCsTest(t, fmt.Sprintf("%s-tls-enabled", clusterName), namespace, true),
 	}
 
 	// print kubectl commands until the tests are complete. ensure we wait for the last kubectl command to complete
@@ -145,6 +167,87 @@ func HumioClusterWithPVCs(t *testing.T) {
 	}
 	for _, test := range tests {
 		if err = test.Wait(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Update(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Wait(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Teardown(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	done <- true
+	wg.Wait()
+}
+
+func HumioClusterWithTLS(t *testing.T) {
+	t.Parallel()
+	ctx := framework.NewContext(t)
+	defer ctx.Cleanup()
+	err := ctx.InitializeClusterResources(&framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatalf("failed to initialize cluster resources: %v", err)
+	}
+	t.Log("Initialized cluster resources")
+
+	// GetNamespace creates a namespace if it doesn't exist
+	namespace, _ := ctx.GetOperatorNamespace()
+
+	// get global framework variables
+	f := framework.Global
+
+	// wait for humio-operator to be ready
+	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "humio-operator", 1, retryInterval, timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// run the tests
+	clusterName := "example-humiocluster-tls"
+	tests := []humioClusterTest{
+		newHumioClusterWithTLSTest(t, fmt.Sprintf("%s-enabled-to-disabled", clusterName), namespace, true, false), // OK, runtime 205 seconds
+		newHumioClusterWithTLSTest(t, fmt.Sprintf("%s-disabled-to-enabled", clusterName), namespace, false, true), // TODO: Validate if this works by itself
+	}
+
+	// print kubectl commands until the tests are complete. ensure we wait for the last kubectl command to complete
+	// before exiting to avoid trying to exec a kubectl command after the test has shut down
+	var wg sync.WaitGroup
+	wg.Add(1)
+	done := make(chan bool, 1)
+	go printKubectlcommands(t, namespace, &wg, done)
+
+	for _, test := range tests {
+		if err = test.Start(f, ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Wait(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Update(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Wait(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Teardown(f); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -178,7 +281,8 @@ func HumioClusterRestart(t *testing.T) {
 	// run the tests
 	clusterName := "example-humiocluster-restart"
 	tests := []humioClusterTest{
-		newHumioClusterWithRestartTest(clusterName, namespace),
+		newHumioClusterWithRestartTest(fmt.Sprintf("%s-tls-disabled", clusterName), namespace, false),
+		newHumioClusterWithRestartTest(fmt.Sprintf("%s-tls-enabled", clusterName), namespace, true),
 	}
 
 	// print kubectl commands until the tests are complete. ensure we wait for the last kubectl command to complete
@@ -195,6 +299,21 @@ func HumioClusterRestart(t *testing.T) {
 	}
 	for _, test := range tests {
 		if err = test.Wait(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Update(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Wait(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Teardown(f); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -228,7 +347,8 @@ func HumioClusterUpgrade(t *testing.T) {
 	// run the tests
 	clusterName := "example-humiocluster-upgrade"
 	tests := []humioClusterTest{
-		newHumioClusterWithUpgradeTest(clusterName, namespace),
+		newHumioClusterWithUpgradeTest(fmt.Sprintf("%s-tls-disabled", clusterName), namespace, false),
+		newHumioClusterWithUpgradeTest(fmt.Sprintf("%s-tls-enabled", clusterName), namespace, true),
 	}
 
 	// print kubectl commands until the tests are complete. ensure we wait for the last kubectl command to complete
@@ -245,6 +365,21 @@ func HumioClusterUpgrade(t *testing.T) {
 	}
 	for _, test := range tests {
 		if err = test.Wait(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Update(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Wait(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range tests {
+		if err = test.Teardown(f); err != nil {
 			t.Fatal(err)
 		}
 	}
