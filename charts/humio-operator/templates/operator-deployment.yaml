@@ -66,6 +66,8 @@ spec:
               fieldPath: metadata.name
         - name: OPERATOR_NAME
           value: "humio-operator"
+        - name: USE_CERTMANAGER
+          value: {{ .Values.certmanager | quote }}
 {{- if .Values.openshift }}
         - name: OPENSHIFT_SCC_NAME
           value: '{{ default "default" .Release.Namespace }}-{{ .Release.Name }}'
@@ -80,11 +82,11 @@ spec:
             port: 8383
         resources:
           limits:
-            cpu: "100m"
-            memory: "100Mi"
+            cpu: "250m"
+            memory: "200Mi"
           requests:
-            cpu: "100m"
-            memory: "100Mi"
+            cpu: "250m"
+            memory: "200Mi"
         securityContext:
           allowPrivilegeEscalation: false
           privileged: false

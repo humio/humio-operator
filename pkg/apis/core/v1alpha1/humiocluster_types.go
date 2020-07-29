@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	// HumioClusterStateBoostrapping is the Bootstrapping state of the cluster
-	HumioClusterStateBoostrapping = "Bootstrapping"
+	// HumioClusterStateBootstrapping is the Bootstrapping state of the cluster
+	HumioClusterStateBootstrapping = "Bootstrapping"
 	// HumioClusterStateRunning is the Running state of the cluster
 	HumioClusterStateRunning = "Running"
 	// HumioClusterStateRestarting is the state of the cluster when Humio pods are being restarted
@@ -70,6 +70,8 @@ type HumioClusterSpec struct {
 	ExtraHumioVolumeMounts []corev1.VolumeMount `json:"extraHumioVolumeMounts,omitempty"`
 	// ExtraVolumes is the list of additional volumes that will be added to the Humio pod
 	ExtraVolumes []corev1.Volume `json:"extraVolumes,omitempty"`
+	// TLS is used to define TLS specific configuration such as intra-cluster TLS settings
+	TLS *HumioClusterTLSSpec `json:"tls,omitempty"`
 }
 
 // HumioClusterIngressSpec is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster
@@ -84,6 +86,13 @@ type HumioClusterIngressSpec struct {
 	ESSecretName string `json:"esSecretName,omitempty"`
 	// Annotations can be used to specify annotations appended to the annotations set by the operator when creating ingress-related objects
 	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+type HumioClusterTLSSpec struct {
+	// Enabled can be used to toggle TLS on/off. Default behaviour is to configure TLS if cert-manager is present, otherwise we skip TLS.
+	Enabled *bool `json:"enabled,omitempty"`
+	// CASecretName is used to point to a Kubernetes secret that holds the CA that will be used to issue intra-cluster TLS certificates
+	CASecretName string `json:"caSecretName,omitempty"`
 }
 
 // HumioPodStatus shows the status of individual humio pods

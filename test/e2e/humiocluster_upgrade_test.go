@@ -14,12 +14,13 @@ import (
 )
 
 type upgradeTest struct {
-	cluster   *corev1alpha1.HumioCluster
-	bootstrap testState
-	upgrade   testState
+	cluster    *corev1alpha1.HumioCluster
+	tlsEnabled bool
+	bootstrap  testState
+	upgrade    testState
 }
 
-func newHumioClusterWithUpgradeTest(clusterName string, namespace string) humioClusterTest {
+func newHumioClusterWithUpgradeTest(clusterName string, namespace string, tlsEnabled bool) humioClusterTest {
 	return &upgradeTest{
 		cluster: &corev1alpha1.HumioCluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -37,15 +38,30 @@ func newHumioClusterWithUpgradeTest(clusterName string, namespace string) humioC
 						Name:  "KAFKA_SERVERS",
 						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
 					},
+					{
+						Name:  "HUMIO_JVM_ARGS",
+						Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelOldGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false",
+					},
 				},
+				ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 			},
 		},
+		tlsEnabled: tlsEnabled,
 	}
 }
 
 func (b *upgradeTest) Start(f *framework.Framework, ctx *framework.Context) error {
+	b.cluster.Spec.TLS = &corev1alpha1.HumioClusterTLSSpec{Enabled: &b.tlsEnabled}
 	b.bootstrap.initiated = true
 	return f.Client.Create(goctx.TODO(), b.cluster, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+}
+
+func (h *upgradeTest) Update(_ *framework.Framework) error {
+	return nil
+}
+
+func (h *upgradeTest) Teardown(f *framework.Framework) error {
+	return f.Client.Delete(goctx.TODO(), h.cluster)
 }
 
 func (b *upgradeTest) Wait(f *framework.Framework) error {
@@ -107,7 +123,7 @@ func (b *upgradeTest) Wait(f *framework.Framework) error {
 					return fmt.Errorf("got wrong cluster pod revision before upgrading: expected: 1 got: %s", clusterPodRevision)
 				}
 
-				b.cluster.Spec.Image = "humio/humio-core:1.13.0"
+				b.cluster.Spec.Image = "humio/humio-core:1.13.0" // this is actually a downgrade as default image is newer, but the important part is to change the version and validate that it works
 				f.Client.Update(goctx.TODO(), b.cluster)
 				b.upgrade.initiated = true
 			}

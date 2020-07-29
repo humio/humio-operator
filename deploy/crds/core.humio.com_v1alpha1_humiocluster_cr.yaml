@@ -2,12 +2,22 @@ apiVersion: core.humio.com/v1alpha1
 kind: HumioCluster
 metadata:
   name: example-humiocluster
+  labels:
+    app: 'humiocluster'
+    app.kubernetes.io/name: 'humiocluster'
+    app.kubernetes.io/instance: 'example-humiocluster'
+    app.kubernetes.io/managed-by: 'manual'
 spec:
-  image: "humio/humio-core:1.12.0"
+  extraKafkaConfigs: "security.protocol=PLAINTEXT"
+  tls:
+    enabled: false
+  image: "humio/humio-core:1.13.1"
   environmentVariables:
+    - name: "HUMIO_JVM_ARGS"
+      value:  "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelOldGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false"
     - name: "ZOOKEEPER_URL"
       value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless:2181"
     - name: "KAFKA_SERVERS"
       value: "humio-cp-kafka-0.humio-cp-kafka-headless:9092"
-    - name: SINGLE_USER_PASSWORD
+    - name: "SINGLE_USER_PASSWORD"
       value: "develop3r"

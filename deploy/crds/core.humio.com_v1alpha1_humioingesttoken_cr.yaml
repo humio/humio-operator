@@ -2,6 +2,11 @@ apiVersion: core.humio.com/v1alpha1
 kind: HumioIngestToken
 metadata:
   name: example-humioingesttoken-managed
+  labels:
+    app: 'humioingesttoken'
+    app.kubernetes.io/name: 'humioingesttoken'
+    app.kubernetes.io/instance: 'example-humioingesttoken-managed'
+    app.kubernetes.io/managed-by: 'manual'
 spec:
   managedClusterName: example-humiocluster
   name: example-token
@@ -11,7 +16,13 @@ apiVersion: core.humio.com/v1alpha1
 kind: HumioIngestToken
 metadata:
   name: example-humioingesttoken-external
+  labels:
+    app: 'humioingesttoken'
+    app.kubernetes.io/name: 'humioingesttoken'
+    app.kubernetes.io/instance: 'example-humioingesttoken-external'
+    app.kubernetes.io/managed-by: 'manual'
 spec:
   externalClusterName: example-humioexternalcluster
   name: example-token-external
   repositoryName: humio
+  tokenSecretName: humio-ingesttoken

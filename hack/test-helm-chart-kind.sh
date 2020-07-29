@@ -52,8 +52,14 @@ kind load docker-image --name kind docker.io/confluentinc/cp-zookeeper:5.4.1
 kind load docker-image --name kind solsson/kafka-prometheus-jmx-exporter@sha256:6f82e2b0464f50da8104acd7363fb9b995001ddff77d248379f8788e78946143
 
 # Pre-load humio images
-docker pull humio/humio-core:1.12.0
-kind load docker-image --name kind humio/humio-core:1.12.0
+docker pull humio/humio-core:1.13.1
+kind load docker-image --name kind humio/humio-core:1.13.1
+
+# Use helm 3 to install cert-manager
+$kubectl create namespace cert-manager
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v0.16.0 --set installCRDs=true
 
 # Use helm 3 to start up Kafka and Zookeeper
 mkdir ~/git

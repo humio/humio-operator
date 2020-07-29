@@ -19,11 +19,13 @@ package helpers
 import (
 	"context"
 	"fmt"
-
+	"github.com/google/martian/log"
+	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	"strings"
 
 	"github.com/humio/humio-operator/pkg/kubernetes"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -31,50 +33,76 @@ import (
 type ClusterInterface interface {
 	Url(client.Client) (string, error)
 	Name() string
+	Config() *humioapi.Config
+	constructHumioConfig(context.Context, client.Client) (*humioapi.Config, error)
 }
 
 type Cluster struct {
 	managedClusterName  string
 	externalClusterName string
 	namespace           string
+	certManagerEnabled  bool
+	humioConfig         *humioapi.Config
 }
 
-func NewCluster(managedClusterName, externalClusterName, namespace string) (ClusterInterface, error) {
+func NewCluster(ctx context.Context, k8sClient client.Client, managedClusterName, externalClusterName, namespace string, certManagerEnabled bool) (ClusterInterface, error) {
 	// Return error immediately if we do not have exactly one of the cluster names configured
 	if managedClusterName != "" && externalClusterName != "" {
-		return Cluster{}, fmt.Errorf("ingest token cannot have both ManagedClusterName and ExternalClusterName set at the same time")
+		return Cluster{}, fmt.Errorf("cannot have both ManagedClusterName and ExternalClusterName set at the same time")
 	}
 	if managedClusterName == "" && externalClusterName == "" {
-		return Cluster{}, fmt.Errorf("ingest token must have one of ManagedClusterName and ExternalClusterName set")
+		return Cluster{}, fmt.Errorf("must have one of ManagedClusterName and ExternalClusterName set")
 	}
-	return Cluster{
+	if namespace == "" {
+		return Cluster{}, fmt.Errorf("must have non-empty namespace set")
+	}
+	cluster := Cluster{
 		externalClusterName: externalClusterName,
 		managedClusterName:  managedClusterName,
 		namespace:           namespace,
-	}, nil
+		certManagerEnabled:  certManagerEnabled,
+	}
+
+	humioConfig, err := cluster.constructHumioConfig(ctx, k8sClient)
+	if err != nil {
+		return nil, err
+	}
+	cluster.humioConfig = humioConfig
+
+	return cluster, nil
 }
 
 func (c Cluster) Url(k8sClient client.Client) (string, error) {
 	if c.managedClusterName != "" {
-		service := kubernetes.ConstructService(c.Name(), c.namespace)
-		// TODO: do not hardcode port here
-		return fmt.Sprintf("http://%s.%s:8080/", service.Name, service.Namespace), nil
+		// Lookup ManagedHumioCluster resource to figure out if we expect to use TLS or not
+		var humioManagedCluster corev1alpha1.HumioCluster
+		err := k8sClient.Get(context.TODO(), types.NamespacedName{
+			Namespace: c.namespace,
+			Name:      c.managedClusterName,
+		}, &humioManagedCluster)
+		if err != nil {
+			return "", err
+		}
+
+		protocol := "https"
+		if !c.certManagerEnabled {
+			log.Infof("not using cert-manager, falling back to http")
+			protocol = "http"
+		}
+		if !TLSEnabled(&humioManagedCluster) {
+			log.Infof("humio managed cluster configured as insecure, using http")
+			protocol = "http"
+		}
+		return fmt.Sprintf("%s://%s.%s:%d/", protocol, c.managedClusterName, c.namespace, 8080), nil
 	}
 
-	// Fetch the HumioIngestToken instance
+	// Fetch the HumioExternalCluster instance
 	var humioExternalCluster corev1alpha1.HumioExternalCluster
 	err := k8sClient.Get(context.TODO(), types.NamespacedName{
 		Namespace: c.namespace,
 		Name:      c.externalClusterName,
 	}, &humioExternalCluster)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return "", fmt.Errorf("could not find humio external cluster: %s", err)
-		}
-		// Error reading the object - requeue the request.
 		return "", err
 	}
 
@@ -86,4 +114,141 @@ func (c Cluster) Name() string {
 		return c.managedClusterName
 	}
 	return c.externalClusterName
+}
+
+func (c Cluster) Config() *humioapi.Config {
+	return c.humioConfig
+}
+
+// constructHumioConfig returns a config to use with Humio API client with the necessary CA and API token.
+func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Client) (*humioapi.Config, error) {
+	if c.managedClusterName != "" {
+		// Lookup ManagedHumioCluster resource to figure out if we expect to use TLS or not
+		var humioManagedCluster corev1alpha1.HumioCluster
+		err := k8sClient.Get(context.TODO(), types.NamespacedName{
+			Namespace: c.namespace,
+			Name:      c.managedClusterName,
+		}, &humioManagedCluster)
+		if err != nil {
+			return nil, err
+		}
+
+		// Get the URL we want to use
+		url, err := c.Url(k8sClient)
+		if err != nil {
+			return nil, err
+		}
+
+		// Get API token
+		var apiToken corev1.Secret
+		err = k8sClient.Get(ctx, types.NamespacedName{
+			Namespace: c.namespace,
+			Name:      fmt.Sprintf("%s-%s", c.managedClusterName, kubernetes.ServiceTokenSecretNameSuffix),
+		}, &apiToken)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get secret containing api token: %s", err)
+		}
+
+		// If we do not use TLS, return a client without CA certificate
+		if !c.certManagerEnabled {
+			return &humioapi.Config{
+				Address:       url,
+				Token:         string(apiToken.Data["token"]),
+				CACertificate: nil,
+				Insecure:      true,
+			}, nil
+		}
+		if !TLSEnabled(&humioManagedCluster) {
+			return &humioapi.Config{
+				Address:       url,
+				Token:         string(apiToken.Data["token"]),
+				CACertificate: nil,
+				Insecure:      true,
+			}, nil
+		}
+
+		// Look up the CA certificate stored in the cluster CA bundle
+		var caCertificate corev1.Secret
+		err = k8sClient.Get(ctx, types.NamespacedName{
+			Namespace: c.namespace,
+			Name:      c.managedClusterName,
+		}, &caCertificate)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get CA certificate: %s", err)
+		}
+
+		return &humioapi.Config{
+			Address:       url,
+			Token:         string(apiToken.Data["token"]),
+			CACertificate: caCertificate.Data["ca.crt"],
+			Insecure:      false,
+		}, nil
+	}
+
+	// Fetch the HumioExternalCluster instance
+	var humioExternalCluster corev1alpha1.HumioExternalCluster
+	err := k8sClient.Get(context.TODO(), types.NamespacedName{
+		Namespace: c.namespace,
+		Name:      c.externalClusterName,
+	}, &humioExternalCluster)
+	if err != nil {
+		return nil, err
+	}
+
+	if humioExternalCluster.Spec.Url == "" {
+		return nil, fmt.Errorf("no url specified")
+	}
+
+	if humioExternalCluster.Spec.APITokenSecretName == "" {
+		return nil, fmt.Errorf("no api token secret name specified")
+	}
+
+	if strings.HasPrefix(humioExternalCluster.Spec.Url, "http://") && !humioExternalCluster.Spec.Insecure {
+		return nil, fmt.Errorf("not possible to run secure cluster with plain http")
+	}
+
+	// Get API token
+	var apiToken corev1.Secret
+	err = k8sClient.Get(ctx, types.NamespacedName{
+		Namespace: c.namespace,
+		Name:      humioExternalCluster.Spec.APITokenSecretName,
+	}, &apiToken)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get secret containing api token: %s", err)
+	}
+
+	// If we do not use TLS, return a config without CA certificate
+	if humioExternalCluster.Spec.Insecure {
+		return &humioapi.Config{
+			Address:       humioExternalCluster.Spec.Url,
+			Token:         string(apiToken.Data["token"]),
+			CACertificate: nil,
+			Insecure:      humioExternalCluster.Spec.Insecure,
+		}, nil
+	}
+
+	// If CA secret is specified, return a configuration which loads the CA
+	if humioExternalCluster.Spec.CASecretName != "" {
+		var caCertificate corev1.Secret
+		err = k8sClient.Get(ctx, types.NamespacedName{
+			Namespace: c.namespace,
+			Name:      humioExternalCluster.Spec.CASecretName,
+		}, &caCertificate)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get CA certificate: %s", err)
+		}
+		return &humioapi.Config{
+			Address:       humioExternalCluster.Spec.Url,
+			Token:         string(apiToken.Data["token"]),
+			CACertificate: caCertificate.Data["ca.crt"],
+			Insecure:      humioExternalCluster.Spec.Insecure,
+		}, nil
+	}
+
+	return &humioapi.Config{
+		Address:       humioExternalCluster.Spec.Url,
+		Token:         string(apiToken.Data["token"]),
+		CACertificate: nil,
+		Insecure:      humioExternalCluster.Spec.Insecure,
+	}, nil
 }

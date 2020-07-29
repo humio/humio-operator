@@ -116,33 +116,6 @@ func (r *ReconcileHumioIngestToken) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, err
 	}
 
-	cluster, err := helpers.NewCluster(hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName, hit.Namespace)
-	if err != nil {
-		r.logger.Error("ingest token must have one of ManagedClusterName and ExternalClusterName set: %s", err)
-		return reconcile.Result{}, err
-	}
-
-	secret, err := kubernetes.GetSecret(context.TODO(), r.client, kubernetes.ServiceTokenSecretName, hit.Namespace)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			r.logger.Infof("api token secret does not exist for cluster: %s", cluster.Name())
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
-	url, err := cluster.Url(r.client)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	err = r.humioClient.Authenticate(&humioapi.Config{
-		Token:   string(secret.Data["token"]),
-		Address: url,
-	})
-	if err != nil {
-		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
-	}
-
 	defer func(ctx context.Context, humioClient humio.Client, hit *corev1alpha1.HumioIngestToken) {
 		curToken, err := humioClient.GetIngestToken(hit)
 		if err != nil {
@@ -194,6 +167,18 @@ func (r *ReconcileHumioIngestToken) Reconcile(request reconcile.Request) (reconc
 		}
 	}
 
+	cluster, err := helpers.NewCluster(context.TODO(), r.client, hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName, hit.Namespace, helpers.UseCertManager())
+	if err != nil || cluster.Config() == nil {
+		r.logger.Errorf("unable to obtain humio client config: %s", err)
+		return reconcile.Result{}, err
+	}
+
+	err = r.humioClient.Authenticate(cluster.Config())
+	if err != nil {
+		r.logger.Warnf("unable to authenticate humio client: %s", err)
+		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+	}
+
 	// Get current ingest token
 	r.logger.Info("get current ingest token")
 	curToken, err := r.humioClient.GetIngestToken(hit)
@@ -241,6 +226,11 @@ func (r *ReconcileHumioIngestToken) Reconcile(request reconcile.Request) (reconc
 }
 
 func (r *ReconcileHumioIngestToken) finalize(hit *corev1alpha1.HumioIngestToken) error {
+	_, err := helpers.NewCluster(context.TODO(), r.client, hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName, hit.Namespace, helpers.UseCertManager())
+	if errors.IsNotFound(err) {
+		return nil
+	}
+
 	return r.humioClient.DeleteIngestToken(hit)
 }
 

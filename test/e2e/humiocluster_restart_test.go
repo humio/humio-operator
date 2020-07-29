@@ -18,9 +18,10 @@ const (
 )
 
 type restartTest struct {
-	cluster   *corev1alpha1.HumioCluster
-	bootstrap testState
-	restart   testState
+	cluster    *corev1alpha1.HumioCluster
+	tlsEnabled bool
+	bootstrap  testState
+	restart    testState
 }
 
 type testState struct {
@@ -28,7 +29,7 @@ type testState struct {
 	passed    bool
 }
 
-func newHumioClusterWithRestartTest(clusterName string, namespace string) humioClusterTest {
+func newHumioClusterWithRestartTest(clusterName string, namespace string, tlsEnabled bool) humioClusterTest {
 	return &restartTest{
 		cluster: &corev1alpha1.HumioCluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -46,15 +47,30 @@ func newHumioClusterWithRestartTest(clusterName string, namespace string) humioC
 						Name:  "KAFKA_SERVERS",
 						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
 					},
+					{
+						Name:  "HUMIO_JVM_ARGS",
+						Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelOldGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false",
+					},
 				},
+				ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 			},
 		},
+		tlsEnabled: tlsEnabled,
 	}
 }
 
 func (b *restartTest) Start(f *framework.Framework, ctx *framework.Context) error {
+	b.cluster.Spec.TLS = &corev1alpha1.HumioClusterTLSSpec{Enabled: &b.tlsEnabled}
 	b.bootstrap.initiated = true
 	return f.Client.Create(goctx.TODO(), b.cluster, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+}
+
+func (h *restartTest) Update(_ *framework.Framework) error {
+	return nil
+}
+
+func (h *restartTest) Teardown(f *framework.Framework) error {
+	return f.Client.Delete(goctx.TODO(), h.cluster)
 }
 
 func (b *restartTest) Wait(f *framework.Framework) error {

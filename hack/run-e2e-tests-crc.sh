@@ -63,6 +63,7 @@ done >> $namespaced_manifest
 # NB: The YAML files cannot contain unnamed "List" objects as the parsing with operator-sdk failes with that.
 
 operator-sdk test local ./test/e2e \
+--go-test-flags="-timeout 30m" \
 --global-manifest=$global_manifest \
 --namespaced-manifest=$namespaced_manifest \
 --operator-namespace=$operator_namespace \

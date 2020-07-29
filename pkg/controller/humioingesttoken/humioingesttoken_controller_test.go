@@ -2,12 +2,13 @@ package humioingesttoken
 
 import (
 	"context"
+	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"reflect"
 	"testing"
 
 	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
-	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	"go.uber.org/zap"
@@ -49,16 +50,7 @@ func TestReconcileHumioIngestToken_Reconcile(t *testing.T) {
 			r, req := reconcileInitWithHumioClient(tt.humioIngestToken, tt.humioClient)
 			defer r.logger.Sync()
 
-			cluster, _ := helpers.NewCluster(tt.humioIngestToken.Spec.ManagedClusterName, tt.humioIngestToken.Spec.ExternalClusterName, tt.humioIngestToken.Namespace)
-			// Create developer-token secret
-			secretData := map[string][]byte{"token": []byte("persistentToken")}
-			secret := kubernetes.ConstructSecret(cluster.Name(), tt.humioIngestToken.Namespace, kubernetes.ServiceTokenSecretName, secretData)
-			err := r.client.Create(context.TODO(), secret)
-			if err != nil {
-				t.Errorf("unable to create persistent token secret: %s", err)
-			}
-
-			_, err = r.Reconcile(req)
+			_, err := r.Reconcile(req)
 			if err != nil {
 				t.Errorf("reconcile: (%v)", err)
 			}
@@ -129,17 +121,8 @@ func TestReconcileHumioIngestToken_Reconcile_ingest_token_secret(t *testing.T) {
 			r, req := reconcileInitWithHumioClient(tt.humioIngestToken, tt.humioClient)
 			defer r.logger.Sync()
 
-			cluster, _ := helpers.NewCluster(tt.humioIngestToken.Spec.ManagedClusterName, tt.humioIngestToken.Spec.ExternalClusterName, tt.humioIngestToken.Namespace)
-			// Create developer-token secret
-			secretData := map[string][]byte{"token": []byte("persistentToken")}
-			secret := kubernetes.ConstructSecret(cluster.Name(), tt.humioIngestToken.Namespace, kubernetes.ServiceTokenSecretName, secretData)
-			err := r.client.Create(context.TODO(), secret)
-			if err != nil {
-				t.Errorf("unable to create persistent token secret: %s", err)
-			}
-
 			for i := 0; i < 2; i++ {
-				_, err = r.Reconcile(req)
+				_, err := r.Reconcile(req)
 				if err != nil {
 					t.Errorf("reconcile: (%v)", err)
 				}
@@ -172,14 +155,34 @@ func reconcileInit(humioIngestToken *corev1alpha1.HumioIngestToken) (*ReconcileH
 	logger, _ := zap.NewProduction()
 	sugar := logger.Sugar().With("Request.Namespace", humioIngestToken.Namespace, "Request.Name", humioIngestToken.Name)
 
+	humioCluster := &corev1alpha1.HumioCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      humioIngestToken.Spec.ManagedClusterName,
+			Namespace: humioIngestToken.Namespace,
+		},
+	}
+
+	apiTokenSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-admin-token", humioIngestToken.Spec.ManagedClusterName),
+			Namespace: humioIngestToken.Namespace,
+		},
+		StringData: map[string]string{
+			"token": "secret-api-token",
+		},
+	}
+
 	// Objects to track in the fake client.
 	objs := []runtime.Object{
+		humioCluster,
+		apiTokenSecret,
 		humioIngestToken,
 	}
 
 	// Register operator types with the runtime scheme.
 	s := scheme.Scheme
 	s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, humioIngestToken)
+	s.AddKnownTypes(corev1alpha1.SchemeGroupVersion, humioCluster)
 
 	// Create a fake client to mock API calls.
 	cl := fake.NewFakeClient(objs...)

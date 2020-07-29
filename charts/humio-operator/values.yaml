@@ -8,3 +8,4 @@ operator:
   watchNamespaces: []
 installCRDs: false
 openshift: false
+certmanager: true

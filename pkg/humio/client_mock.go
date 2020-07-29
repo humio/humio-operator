@@ -129,6 +129,10 @@ func (h *MockClientConfig) GetBaseURL(hc *corev1alpha1.HumioCluster) string {
 	return fmt.Sprintf("http://%s.%s:%d/", hc.Name, hc.Namespace, 8080)
 }
 
+func (h *MockClientConfig) TestAPIToken() error {
+	return nil
+}
+
 func (h *MockClientConfig) AddIngestToken(hit *corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
 	updatedApiClient := h.apiClient
 	updatedApiClient.IngestToken = humioapi.IngestToken{
