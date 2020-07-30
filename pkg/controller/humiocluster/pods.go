@@ -74,7 +74,7 @@ func constructPod(hc *corev1alpha1.HumioCluster, humioNodeName string, dataVolum
 			InitContainers: []corev1.Container{
 				{
 					Name:  "zookeeper-prefix",
-					Image: "humio/humio-operator-helper:dev",
+					Image: "humio/humio-operator-helper:0.0.3",
 					Env: []corev1.EnvVar{
 						{
 							Name:  "MODE",
@@ -130,7 +130,7 @@ func constructPod(hc *corev1alpha1.HumioCluster, humioNodeName string, dataVolum
 			Containers: []corev1.Container{
 				{
 					Name:  "auth",
-					Image: "humio/humio-operator-helper:dev",
+					Image: "humio/humio-operator-helper:0.0.3",
 					Env: []corev1.EnvVar{
 						{
 							Name: "NAMESPACE",

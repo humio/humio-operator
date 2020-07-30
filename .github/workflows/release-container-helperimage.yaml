@@ -20,6 +20,16 @@ jobs:
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       run:  echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
     - name: docker build
-      run: docker build -t humio/humio-operator-helper:${{ env.RELEASE_VERSION }} images/helper
+      run: docker build --label	version=${{ env.RELEASE_VERSION }} --label release=${{github.run_id}} -t humio/humio-operator-helper:${{ env.RELEASE_VERSION }} images/helper
     - name: docker push
       run: docker push humio/humio-operator-helper:${{ env.RELEASE_VERSION }}
+    - name: redhat scan login
+      env:
+        RH_SCAN_KEY: ${{ secrets.RH_SCAN_HUMIO_OPERATOR_HELPER_KEY }}
+        RH_SCAN_OSPID: ${{ secrets.RH_SCAN_HUMIO_OPERATOR_HELPER_OSPID }}
+      run:  echo $RH_SCAN_KEY | docker login -u unused scan.connect.redhat.com --password-stdin
+    - name: redhat scan tag
+      run: docker tag humio/humio-operator-helper:${{ env.RELEASE_VERSION }} scan.connect.redhat.com/${{ env.RH_SCAN_OPSID }}/humio-operator-helper:${{ env.RELEASE_VERSION }}
+    - name: redhat scan push
+      run: docker push scan.connect.redhat.com/${{ env.RH_SCAN_OPSID }}/humio-operator-helper:${{ env.RELEASE_VERSION }}
+
