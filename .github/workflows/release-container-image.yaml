@@ -24,9 +24,18 @@ jobs:
         GO111MODULE: "on"
       uses: ./.github/action/operator-sdk
       with:
-        args: operator-sdk build humio/humio-operator:${{ env.RELEASE_VERSION }}
+        args: operator-sdk build --image-build-args "--label version=${{ env.RELEASE_VERSION }} --label release=${{github.run_id}}" humio/humio-operator:${{ env.RELEASE_VERSION }}
     - name: docker push
       run:  docker push humio/humio-operator:${{ env.RELEASE_VERSION }}
+    - name: redhat scan login
+      env:
+        RH_SCAN_KEY: ${{ secrets.RH_SCAN_HUMIO_OPERATOR_KEY }}
+        RH_SCAN_OSPID: ${{ secrets.RH_SCAN_HUMIO_OPERATOR_OSPID }}
+      run:  echo $RH_SCAN_KEY | docker login -u unused scan.connect.redhat.com --password-stdin
+    - name: redhat scan tag
+      run: docker tag humio/humio-operator:${{ env.RELEASE_VERSION }} scan.connect.redhat.com/${{ env.RH_SCAN_OPSID }}/humio-operator:${{ env.RELEASE_VERSION }}
+    - name: redhat scan push
+      run: docker push scan.connect.redhat.com/${{ env.RH_SCAN_OPSID }}/humio-operator:${{ env.RELEASE_VERSION }}
     - name: operator-courier push
       env:
         GO111MODULE: "on"
