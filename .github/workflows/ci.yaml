@@ -30,5 +30,7 @@ jobs:
       uses: ./.github/action/operator-sdk
       with:
         args: operator-sdk build humio/humio-operator:${{ github.sha }}
+    - name: copy license
+      run: cp ./LICENSE images/helper/
     - name: helper image
       run: docker build -t humio/humio-operator-helper:${{ github.sha }} images/helper
