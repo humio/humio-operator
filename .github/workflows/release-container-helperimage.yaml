@@ -19,6 +19,8 @@ jobs:
         DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       run:  echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+    - name: copy license
+      run: cp ./LICENSE images/helper/
     - name: docker build
       run: docker build --label version=${{ env.RELEASE_VERSION }} --label release=${{github.run_id}} -t humio/humio-operator-helper:${{ env.RELEASE_VERSION }} images/helper
     - name: docker push
