@@ -33,6 +33,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: copy license
+        run: cp ./LICENSE images/helper
       - name: docker build
         run: docker build -t humio/humio-operator-helper:master images/helper
       - name: docker login
