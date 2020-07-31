@@ -15,5 +15,7 @@ jobs:
     - name: run e2e tests
       env:
         BIN_DIR: ${{ steps.bin_dir.outputs.BIN_DIR }}
+        E2E_LOGS_HUMIO_HOSTNAME: ${{ secrets.E2E_LOGS_HUMIO_HOSTNAME }}
+        E2E_LOGS_HUMIO_INGEST_TOKEN: ${{ secrets.E2E_LOGS_HUMIO_INGEST_TOKEN }}
       run: |
         make run-e2e-tests
