@@ -4,6 +4,7 @@ set -x
 
 declare -r bin_dir=${BIN_DIR:-/usr/local/bin}
 declare -r e2e_run_ref=${GITHUB_REF:-outside-github-$(hostname)}
+declare -r e2e_run_id=${GITHUB_RUN_ID:-none}
 declare -r humio_hostname=${E2E_LOGS_HUMIO_HOSTNAME:-none}
 declare -r humio_ingest_token=${E2E_LOGS_HUMIO_INGEST_TOKEN:-none}
 declare -r tmp_kubeconfig=/tmp/kubeconfig
@@ -19,6 +20,7 @@ if [[ $humio_hostname != "none" ]] && [[ $humio_ingest_token != "none" ]]; then
     Name    modify
     Match   kube.*
     Set E2E_RUN_REF $e2e_run_ref
+    Set E2E_RUN_ID $e2e_run_id
 EOF
 )
 
