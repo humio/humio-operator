@@ -583,6 +583,26 @@ func podSpecAsSHA256(hc *corev1alpha1.HumioCluster, sourcePod corev1.Pod) string
 					},
 				},
 			})
+		} else if volume.Name == "init-service-account-secret" {
+			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+				Name: "init-service-account-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  fmt.Sprintf("%s-init-%s", hc.Name, ""),
+						DefaultMode: &mode,
+					},
+				},
+			})
+		} else if volume.Name == "auth-service-account-secret" {
+			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+				Name: "auth-service-account-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  fmt.Sprintf("%s-auth-%s", hc.Name, ""),
+						DefaultMode: &mode,
+					},
+				},
+			})
 		} else {
 			sanitizedVolumes = append(sanitizedVolumes, volume)
 		}
@@ -679,7 +699,7 @@ func (r *ReconcileHumioCluster) podsMatch(hc *corev1alpha1.HumioCluster, pod cor
 		revisionMatches = true
 	}
 	if !specMatches {
-		r.logger.Infof("pod annotation %s does not match desired pod: got %+v, expected %+v", podHashAnnotation, pod.Annotations[podHashAnnotation], desiredPod.Annotations[podHashAnnotation])
+		r.logger.Infof("pod annotation %s does not match desired pod: got %+v, expected %+v", podHashAnnotation, pod.Annotations[podHashAnnotation], desiredPodHash)
 		return false, nil
 	}
 	if !revisionMatches {
