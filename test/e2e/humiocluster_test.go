@@ -408,7 +408,7 @@ func printKubectlcommands(t *testing.T, namespace string, wg *sync.WaitGroup, do
 		for _, command := range commands {
 			cmd := exec.Command("bash", "-c", command)
 			stdoutStderr, err := cmd.CombinedOutput()
-			t.Log(fmt.Sprintf("%s, %s\n", stdoutStderr, err))
+			t.Logf("%s, %s\n", stdoutStderr, err)
 		}
 	}
 }
