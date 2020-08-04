@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,14 +12,27 @@ import (
 
 const (
 	ServiceTokenSecretNameSuffix = "admin-token"
+	SecretNameLabelName          = "humio.com/secret-identifier"
 )
+
+func LabelsForSecret(clusterName string, secretName string) map[string]string {
+	labels := LabelsForHumio(clusterName)
+	labels[SecretNameLabelName] = secretName
+	return labels
+}
+
+func MatchingLabelsForSecret(clusterName, secretName string) client.MatchingLabels {
+	var matchingLabels client.MatchingLabels
+	matchingLabels = LabelsForSecret(clusterName, secretName)
+	return matchingLabels
+}
 
 func ConstructSecret(humioClusterName, humioClusterNamespace, secretName string, data map[string][]byte) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: humioClusterNamespace,
-			Labels:    LabelsForHumio(humioClusterName),
+			Labels:    LabelsForSecret(humioClusterName, secretName),
 		},
 		Data: data,
 	}
@@ -27,13 +41,23 @@ func ConstructSecret(humioClusterName, humioClusterNamespace, secretName string,
 func ConstructServiceAccountSecret(humioClusterName, humioClusterNamespace, secretName string, serviceAccountName string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        secretName,
+			Name:        fmt.Sprintf("%s-%s", secretName, RandomString()),
 			Namespace:   humioClusterNamespace,
-			Labels:      LabelsForHumio(humioClusterName),
+			Labels:      LabelsForSecret(humioClusterName, secretName),
 			Annotations: map[string]string{"kubernetes.io/service-account.name": serviceAccountName},
 		},
 		Type: "kubernetes.io/service-account-token",
 	}
+}
+
+func ListSecrets(ctx context.Context, c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]corev1.Secret, error) {
+	var foundSecretList corev1.SecretList
+	err := c.List(ctx, &foundSecretList, client.InNamespace(humioClusterNamespace), matchingLabels)
+	if err != nil {
+		return nil, err
+	}
+
+	return foundSecretList.Items, nil
 }
 
 func GetSecret(ctx context.Context, c client.Client, secretName, humioClusterNamespace string) (*corev1.Secret, error) {
@@ -43,15 +67,4 @@ func GetSecret(ctx context.Context, c client.Client, secretName, humioClusterNam
 		Name:      secretName,
 	}, &existingSecret)
 	return &existingSecret, err
-}
-
-// ListSecrets grabs the list of all secrets associated to a an instance of HumioCluster
-func ListSecrets(c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]corev1.Secret, error) {
-	var foundSecretList corev1.SecretList
-	err := c.List(context.TODO(), &foundSecretList, client.InNamespace(humioClusterNamespace), matchingLabels)
-	if err != nil {
-		return nil, err
-	}
-
-	return foundSecretList.Items, nil
 }

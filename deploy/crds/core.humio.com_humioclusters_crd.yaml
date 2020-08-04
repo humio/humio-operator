@@ -3523,6 +3523,9 @@ spec:
               nodeCount:
                 description: NodeCount is the desired number of humio cluster nodes
                 type: integer
+              nodeUUIDPrefix:
+                description: NodeUUIDPrefix is the prefix for the Humio Node's UUID
+                type: string
               podSecurityContext:
                 description: PodSecurityContext is the security context applied to
                   the Humio pod

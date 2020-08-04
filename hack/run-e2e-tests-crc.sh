@@ -2,6 +2,7 @@
 
 set -x
 
+declare -r current_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 declare -r tmp_kubeconfig=$HOME/.crc/machines/crc/kubeconfig
 declare -r operator_namespace=${NAMESPACE:-humio-operator}
 declare -r kubectl="oc --kubeconfig $tmp_kubeconfig"
@@ -18,19 +19,20 @@ cleanup() {
   docker rmi -f $operator_image
 }
 
-export PATH=$BIN_DIR:$PATH
+source "${current_dir}/helpers.sh"
 
+export PATH=$BIN_DIR:$PATH
 trap cleanup EXIT
 
 eval $(crc oc-env)
 eval $(crc console --credentials | grep "To login as an admin, run" | cut -f2 -d"'")
-
 $kubectl create namespace $operator_namespace
-
 operator-sdk build $operator_image
 
 # TODO: Figure out how to use the image without pushing the image to Docker Hub
 docker push $operator_image
+
+python_bin=$(get_python_binary)
 
 # Populate global.yaml with CRD's, ClusterRole, ClusterRoleBinding (and SecurityContextConstraints for OpenShift)
 >$global_manifest
@@ -43,7 +45,7 @@ for JSON in $(
 )
 do
   echo -E $JSON | \
-  python -c 'import sys, yaml, json; j=json.loads(sys.stdin.read()); print("---") ; print(yaml.safe_dump(j))' | \
+  $python_bin -c 'import sys, yaml, json; j=json.loads(sys.stdin.read()); print("---") ; print(yaml.safe_dump(j))' | \
   grep -vE "resourceVersion"
 done >> $global_manifest
 
@@ -56,14 +58,14 @@ for JSON in $(
 )
 do
   echo -E $JSON | \
-  python -c 'import sys, yaml, json; j=json.loads(sys.stdin.read()); print("---") ; print(yaml.safe_dump(j))' | \
+  $python_bin -c 'import sys, yaml, json; j=json.loads(sys.stdin.read()); print("---") ; print(yaml.safe_dump(j))' | \
   grep -vE "resourceVersion"
 done >> $namespaced_manifest
 
 # NB: The YAML files cannot contain unnamed "List" objects as the parsing with operator-sdk failes with that.
 
 operator-sdk test local ./test/e2e \
---go-test-flags="-timeout 30m" \
+--go-test-flags="-timeout 45m" \
 --global-manifest=$global_manifest \
 --namespaced-manifest=$namespaced_manifest \
 --operator-namespace=$operator_namespace \

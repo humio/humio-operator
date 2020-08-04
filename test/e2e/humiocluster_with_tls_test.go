@@ -3,11 +3,12 @@ package e2e
 import (
 	goctx "context"
 	"fmt"
-	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"testing"
 	"time"
+
+	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/humio/humio-operator/pkg/kubernetes"
@@ -49,6 +50,7 @@ func newHumioClusterWithTLSTest(test *testing.T, clusterName, namespace string, 
 					},
 				},
 				ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
+				NodeUUIDPrefix:    fmt.Sprintf("humio_%s_", clusterName),
 			},
 		},
 		initialTLSEnabled: initialTLSEnabled,
@@ -189,7 +191,7 @@ func (h *humioClusterWithTLSTest) Wait(f *framework.Framework) error {
 			}
 
 			// validate we have the expected amount of per-cluster TLS secrets
-			foundSecretList, err := kubernetes.ListSecrets(f.Client.Client, h.cluster.Namespace, kubernetes.MatchingLabelsForHumio(h.cluster.Name))
+			foundSecretList, err := kubernetes.ListSecrets(goctx.TODO(), f.Client.Client, h.cluster.Namespace, kubernetes.MatchingLabelsForHumio(h.cluster.Name))
 			if err != nil {
 				h.test.Logf("unable to list secrets: %s", err)
 				continue
@@ -216,7 +218,7 @@ func (h *humioClusterWithTLSTest) Wait(f *framework.Framework) error {
 			}
 
 			// validate we have the expected amount of per-node TLS secrets, because these secrets are created by cert-manager we cannot use our typical label selector
-			foundSecretList, err = kubernetes.ListSecrets(f.Client.Client, h.cluster.Namespace, client.MatchingLabels{})
+			foundSecretList, err = kubernetes.ListSecrets(goctx.TODO(), f.Client.Client, h.cluster.Namespace, client.MatchingLabels{})
 			if err != nil {
 				h.test.Logf("unable to list secrets: %s", err)
 				continue

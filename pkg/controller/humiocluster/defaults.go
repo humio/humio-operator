@@ -2,10 +2,11 @@ package humiocluster
 
 import (
 	"fmt"
-	"github.com/humio/humio-operator/pkg/helpers"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/humio/humio-operator/pkg/helpers"
 
 	humioClusterv1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,21 +22,22 @@ const (
 	elasticPort                  = 9200
 	idpCertificateFilename       = "idp-certificate.pem"
 	extraKafkaPropertiesFilename = "extra-kafka-properties.properties"
+	nodeUUIDPrefix               = "humio_"
 
 	// cluster-wide resources:
 	initClusterRoleSuffix        = "init"
 	initClusterRoleBindingSuffix = "init"
 
 	// namespaced resources:
-	humioServiceAccountNameSuffix        = "humio"
-	initServiceAccountNameSuffix         = "init"
-	initServiceAccountSecretNameSuffix   = "init"
-	authServiceAccountNameSuffix         = "auth"
-	authServiceAccountSecretNameSuffix   = "auth"
-	authRoleSuffix                       = "auth"
-	authRoleBindingSuffix                = "auth"
-	extraKafkaConfigsConfigMapNameSuffix = "extra-kafka-configs"
-	idpCertificateSecretNameSuffix       = "idp-certificate"
+	humioServiceAccountNameSuffix          = "humio"
+	initServiceAccountNameSuffix           = "init"
+	initServiceAccountSecretNameIdentifier = "init"
+	authServiceAccountNameSuffix           = "auth"
+	authServiceAccountSecretNameIdentifier = "auth"
+	authRoleSuffix                         = "auth"
+	authRoleBindingSuffix                  = "auth"
+	extraKafkaConfigsConfigMapNameSuffix   = "extra-kafka-configs"
+	idpCertificateSecretNameSuffix         = "idp-certificate"
 )
 
 func setDefaults(hc *humioClusterv1alpha1.HumioCluster) {
@@ -122,7 +124,7 @@ func humioServiceAccountAnnotationsOrDefault(hc *humioClusterv1alpha1.HumioClust
 	if hc.Spec.HumioServiceAccountAnnotations != nil {
 		return hc.Spec.HumioServiceAccountAnnotations
 	}
-	return map[string]string{}
+	return map[string]string(nil)
 }
 
 func humioServiceAccountNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
@@ -140,7 +142,7 @@ func initServiceAccountNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) stri
 }
 
 func initServiceAccountSecretName(hc *humioClusterv1alpha1.HumioCluster) string {
-	return fmt.Sprintf("%s-%s", hc.Name, initServiceAccountSecretNameSuffix)
+	return fmt.Sprintf("%s-%s", hc.Name, initServiceAccountSecretNameIdentifier)
 }
 
 func authServiceAccountNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
@@ -151,7 +153,7 @@ func authServiceAccountNameOrDefault(hc *humioClusterv1alpha1.HumioCluster) stri
 }
 
 func authServiceAccountSecretName(hc *humioClusterv1alpha1.HumioCluster) string {
-	return fmt.Sprintf("%s-%s", hc.Name, authServiceAccountSecretNameSuffix)
+	return fmt.Sprintf("%s-%s", hc.Name, authServiceAccountSecretNameIdentifier)
 }
 
 func extraKafkaConfigsOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
@@ -332,4 +334,11 @@ func extraVolumesOrDefault(hc *humioClusterv1alpha1.HumioCluster) []corev1.Volum
 		return emptyVolumes
 	}
 	return hc.Spec.ExtraVolumes
+}
+
+func nodeUUIDPrefixOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
+	if hc.Spec.NodeUUIDPrefix != "" {
+		return hc.Spec.NodeUUIDPrefix
+	}
+	return nodeUUIDPrefix
 }
