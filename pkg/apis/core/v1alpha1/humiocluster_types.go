@@ -72,6 +72,8 @@ type HumioClusterSpec struct {
 	ExtraVolumes []corev1.Volume `json:"extraVolumes,omitempty"`
 	// TLS is used to define TLS specific configuration such as intra-cluster TLS settings
 	TLS *HumioClusterTLSSpec `json:"tls,omitempty"`
+	// NodeUUIDPrefix is the prefix for the Humio Node's UUID
+	NodeUUIDPrefix string `json:"nodeUUIDPrefix,omitempty"`
 }
 
 // HumioClusterIngressSpec is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster
