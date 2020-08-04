@@ -342,3 +342,25 @@ func nodeUUIDPrefixOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
 	}
 	return nodeUUIDPrefix
 }
+
+func humioServiceTypeOrDefault(hc *humioClusterv1alpha1.HumioCluster) corev1.ServiceType {
+	if hc.Spec.HumioServiceType != "" {
+		return hc.Spec.HumioServiceType
+	}
+	return corev1.ServiceTypeClusterIP
+}
+
+func humioServicePortOrDefault(hc *humioClusterv1alpha1.HumioCluster) int32 {
+	if hc.Spec.HumioServicePort != 0 {
+		return hc.Spec.HumioServicePort
+	}
+	return humioPort
+
+}
+
+func humioESServicePortOrDefault(hc *humioClusterv1alpha1.HumioCluster) int32 {
+	if hc.Spec.HumioESServicePort != 0 {
+		return hc.Spec.HumioESServicePort
+	}
+	return elasticPort
+}

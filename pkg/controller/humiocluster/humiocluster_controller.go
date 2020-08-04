@@ -1071,7 +1071,7 @@ func (r *ReconcileHumioCluster) ensureServiceExists(ctx context.Context, hc *cor
 	r.logger.Info("ensuring service")
 	_, err := kubernetes.GetService(ctx, r.client, hc.Name, hc.Namespace)
 	if k8serrors.IsNotFound(err) {
-		service := kubernetes.ConstructService(hc.Name, hc.Namespace)
+		service := constructService(hc)
 		if err := controllerutil.SetControllerReference(hc, service, r.scheme); err != nil {
 			r.logger.Errorf("could not set controller reference: %s", err)
 			return err
