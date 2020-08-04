@@ -2,10 +2,11 @@ package humiocluster
 
 import (
 	"fmt"
-	"github.com/humio/humio-operator/pkg/helpers"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/humio/humio-operator/pkg/helpers"
 
 	humioClusterv1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +22,7 @@ const (
 	elasticPort                  = 9200
 	idpCertificateFilename       = "idp-certificate.pem"
 	extraKafkaPropertiesFilename = "extra-kafka-properties.properties"
+	nodeUUIDPrefix               = "humio_"
 
 	// cluster-wide resources:
 	initClusterRoleSuffix        = "init"
@@ -332,4 +334,11 @@ func extraVolumesOrDefault(hc *humioClusterv1alpha1.HumioCluster) []corev1.Volum
 		return emptyVolumes
 	}
 	return hc.Spec.ExtraVolumes
+}
+
+func nodeUUIDPrefixOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
+	if hc.Spec.NodeUUIDPrefix != "" {
+		return hc.Spec.NodeUUIDPrefix
+	}
+	return nodeUUIDPrefix
 }

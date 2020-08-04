@@ -3,10 +3,11 @@ package humiocluster
 import (
 	"context"
 	"fmt"
-	"github.com/humio/humio-operator/pkg/helpers"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/humio/humio-operator/pkg/helpers"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -1381,6 +1382,63 @@ func TestReconcileHumioCluster_Reconcile_ensure_service_account_annotations(t *t
 
 			if !reflect.DeepEqual(serviceAccount.Annotations, tt.wantPodAnnotations) {
 				t.Errorf("failed to validate updated service account annotations, expected: %v, got %v", tt.wantPodAnnotations, serviceAccount.Annotations)
+			}
+		})
+	}
+}
+
+func TestReconcileHumioCluster_Reconcile_humio_container_args(t *testing.T) {
+	tests := []struct {
+		name                  string
+		humioCluster          *corev1alpha1.HumioCluster
+		expectedContainerArgs []string
+	}{
+		{
+			"test cluster reconciliation with default spec",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{},
+			},
+			[]string{"-c",
+				"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat /shared/zookeeper-prefix)_ && exec bash /app/humio/run.sh"},
+		},
+		{
+			"test cluster reconciliation with custom node UUID prefix",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					NodeUUIDPrefix: "humio_humiocluster_",
+				},
+			},
+			[]string{"-c",
+				"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_humiocluster_$(cat /shared/zookeeper-prefix)_ && exec bash /app/humio/run.sh"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, req := reconcileInit(tt.humioCluster)
+			defer r.logger.Sync()
+
+			_, err := r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+
+			foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+			for _, pod := range foundPodList {
+				idx, err := kubernetes.GetContainerIndexByName(pod, "humio")
+				if err != nil {
+					t.Errorf("failed to get humio container for pod %s", err)
+				}
+				if !reflect.DeepEqual(pod.Spec.Containers[idx].Args, tt.expectedContainerArgs) {
+					t.Errorf("failed to validate container command, expected %s, got %s", tt.expectedContainerArgs, pod.Spec.Containers[idx].Args)
+				}
 			}
 		})
 	}

@@ -217,8 +217,8 @@ func constructPod(hc *corev1alpha1.HumioCluster, humioNodeName string, attachmen
 					Image:   hc.Spec.Image,
 					Command: []string{"/bin/sh"},
 					Args: []string{"-c",
-						fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat %s/zookeeper-prefix)_ && exec bash %s/run.sh",
-							sharedPath, humioAppPath)},
+						fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/%s$(cat %s/zookeeper-prefix)_ && exec bash %s/run.sh",
+							nodeUUIDPrefixOrDefault(hc), sharedPath, humioAppPath)},
 					Ports: []corev1.ContainerPort{
 						{
 							Name:          "http",
