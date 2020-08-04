@@ -1319,10 +1319,9 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(ctx context.Conte
 	var waitingOnReadyPods bool
 	r.logger.Info("ensuring mismatching pods are deleted")
 
-	attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
-	if err != nil {
-		r.logger.Errorf("failed to get pod attachments: %s", err)
-	}
+	// It's not necessary to have real attachments here since we are only using them to get the desired state of the pod
+	// which sanitizes the attachments in podSpecAsSHA256().
+	attachments := &podAttachments{}
 
 	// If we allow a rolling update, then don't take down more than one pod at a time.
 	// Check the number of ready pods. if we have already deleted a pod, then the ready count will less than expected,
@@ -1438,7 +1437,7 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *
 		attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
 		if err != nil {
 			r.logger.Errorf("failed to get pod attachments: %s", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}
 		err = r.createPod(ctx, hc, attachments)
 		if err != nil {
@@ -1471,12 +1470,12 @@ func (r *ReconcileHumioCluster) ensurePodsExist(ctx context.Context, hc *corev1a
 		return reconcile.Result{}, err
 	}
 
-	attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
-	if err != nil {
-		r.logger.Errorf("failed to get pod attachments: %s", err)
-	}
-
 	if len(foundPodList) < hc.Spec.NodeCount {
+		attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
+		if err != nil {
+			r.logger.Errorf("failed to get pod attachments: %s", err)
+			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+		}
 		err = r.createPod(ctx, hc, attachments)
 		if err != nil {
 			r.logger.Errorf("unable to create Pod for HumioCluster: %s", err)
