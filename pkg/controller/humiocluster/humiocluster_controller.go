@@ -1438,6 +1438,7 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *
 		attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
 		if err != nil {
 			r.logger.Errorf("failed to get pod attachments: %s", err)
+			return reconcile.Result{}, err
 		}
 		err = r.createPod(ctx, hc, attachments)
 		if err != nil {
