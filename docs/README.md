@@ -70,7 +70,7 @@ spec:
       value: "MyVeryS3cretPassword"
     - name: "HUMIO_JVM_ARGS"
       value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelOldGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false"
-  extraKafkaConfigs: "security.protocol=PLAINTEXT"
+  extraKafkaConfigs: "security.protocol=PLAINTEXT" # If Humio should use TLS/SSL when communicating with Kafka, set this to "security.protocol=SSL"
 ```
 
 Save the YAML snippet to a file on your machine called `humio-test-cluster.yaml` and apply it:
