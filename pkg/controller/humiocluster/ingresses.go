@@ -2,6 +2,7 @@ package humiocluster
 
 import (
 	"fmt"
+
 	"github.com/humio/humio-operator/pkg/helpers"
 
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
@@ -122,7 +123,7 @@ func constructIngress(hc *corev1alpha1.HumioCluster, name string, hostname strin
 		httpIngressPaths = append(httpIngressPaths, v1beta1.HTTPIngressPath{
 			Path: path,
 			Backend: v1beta1.IngressBackend{
-				ServiceName: (*kubernetes.ConstructService(hc.Name, hc.Namespace)).Name,
+				ServiceName: (*constructService(hc)).Name,
 				ServicePort: intstr.FromInt(port),
 			},
 		})
