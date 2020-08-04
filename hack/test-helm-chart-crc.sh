@@ -35,7 +35,7 @@ crc delete --force
 # Wait a bit before we start everything up again
 sleep 5
 
-# Create new kind cluster, deploy Kafka and run operator
+# Create new crc cluster, deploy Kafka and run operator
 crc setup
 crc start --pull-secret-file=.crc-pull-secret.txt --memory 20480 --cpus 6
 eval $(crc oc-env)

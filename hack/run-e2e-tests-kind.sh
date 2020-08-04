@@ -2,6 +2,7 @@
 
 set -x
 
+declare -r current_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 declare -r tmp_kubeconfig=/tmp/kubeconfig
 declare -r operator_namespace=${NAMESPACE:-humio-operator}
 declare -r kubectl="kubectl --kubeconfig $tmp_kubeconfig"
@@ -18,15 +19,13 @@ cleanup() {
   docker rmi -f $operator_image
 }
 
-export PATH=$BIN_DIR:$PATH
+source "${current_dir}/helpers.sh"
 
+export PATH=$BIN_DIR:$PATH
 trap cleanup EXIT
 
 kind get kubeconfig > $tmp_kubeconfig
-
-
 $kubectl create namespace $operator_namespace
-
 operator-sdk build $operator_image
 
 # Preload default humio-core container version
@@ -40,6 +39,8 @@ kind load docker-image --name kind humio/humio-core:1.13.0
 # Preload newly built humio-operator image
 kind load docker-image --name kind $operator_image
 
+python_bin=$(get_python_binary)
+
 # Populate global.yaml with CRD's, ClusterRole, ClusterRoleBinding (and SecurityContextConstraints for OpenShift)
 >$global_manifest
 make crds
@@ -51,7 +52,7 @@ for JSON in $(
 )
 do
   echo -E $JSON | \
-  python -c 'import sys, yaml, json; j=json.loads(sys.stdin.read()); print("---") ; print(yaml.safe_dump(j))' | \
+  $python_bin -c 'import sys, yaml, json; j=json.loads(sys.stdin.read()); print("---") ; print(yaml.safe_dump(j))' | \
   grep -vE "resourceVersion"
 done >> $global_manifest
 
@@ -64,14 +65,14 @@ for JSON in $(
 )
 do
   echo -E $JSON | \
-  python -c 'import sys, yaml, json; j=json.loads(sys.stdin.read()); print("---") ; print(yaml.safe_dump(j))' | \
+  $python_bin -c 'import sys, yaml, json; j=json.loads(sys.stdin.read()); print("---") ; print(yaml.safe_dump(j))' | \
   grep -vE "resourceVersion"
 done >> $namespaced_manifest
 
 # NB: The YAML files cannot contain unnamed "List" objects as the parsing with operator-sdk failes with that.
 
 operator-sdk test local ./test/e2e \
---go-test-flags="-timeout 30m" \
+--go-test-flags="-timeout 45m" \
 --global-manifest=$global_manifest \
 --namespaced-manifest=$namespaced_manifest \
 --operator-namespace=$operator_namespace \
