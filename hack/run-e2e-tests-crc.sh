@@ -69,4 +69,5 @@ operator-sdk test local ./test/e2e \
 --global-manifest=$global_manifest \
 --namespaced-manifest=$namespaced_manifest \
 --operator-namespace=$operator_namespace \
---kubeconfig=$tmp_kubeconfig
+--kubeconfig=$tmp_kubeconfig \
+--verbose
