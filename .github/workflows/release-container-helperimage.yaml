@@ -31,7 +31,7 @@ jobs:
         RH_SCAN_OSPID: ${{ secrets.RH_SCAN_HUMIO_OPERATOR_HELPER_OSPID }}
       run:  echo $RH_SCAN_KEY | docker login -u unused scan.connect.redhat.com --password-stdin
     - name: redhat scan tag
-      run: docker tag humio/humio-operator-helper:${{ env.RELEASE_VERSION }} scan.connect.redhat.com/${{ env.RH_SCAN_OSPID }}/humio-operator-helper:${{ env.RELEASE_VERSION }}
+      run: docker tag humio/humio-operator-helper:${{ env.RELEASE_VERSION }} scan.connect.redhat.com/$RH_SCAN_OSPID/humio-operator-helper:${{ env.RELEASE_VERSION }}
     - name: redhat scan push
-      run: docker push scan.connect.redhat.com/${{ env.RH_SCAN_OPSID }}/humio-operator-helper:${{ env.RELEASE_VERSION }}
+      run: docker push scan.connect.redhat.com/$RH_SCAN_OSPID/humio-operator-helper:${{ env.RELEASE_VERSION }}
 
