@@ -52,8 +52,8 @@ eval $(crc console --credentials | grep "To login as an admin, run" | cut -f2 -d
 #oc import-image solsson/kafka-prometheus-jmx-exporter@sha256:6f82e2b0464f50da8104acd7363fb9b995001ddff77d248379f8788e78946143
 
 # Pre-load humio images
-#docker pull humio/humio-core:1.13.1
-#oc import-image humio/humio-core:1.13.1
+#docker pull humio/humio-core:1.13.4
+#oc import-image humio/humio-core:1.13.4
 
 # Use helm 3 to start up Kafka and Zookeeper
 mkdir ~/git
