@@ -29,8 +29,8 @@ $kubectl create namespace $operator_namespace
 operator-sdk build $operator_image
 
 # Preload default humio-core container version
-docker pull humio/humio-core:1.13.1
-kind load docker-image --name kind humio/humio-core:1.13.1
+docker pull humio/humio-core:1.13.4
+kind load docker-image --name kind humio/humio-core:1.13.4
 
 # Preload humio-core used by e2e tests
 docker pull humio/humio-core:1.13.0
