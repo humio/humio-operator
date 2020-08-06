@@ -3,6 +3,7 @@ package e2e
 import (
 	goctx "context"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -268,9 +269,34 @@ func (h *humioClusterWithTLSTest) Wait(f *framework.Framework) error {
 				continue
 			}
 
+			// validate we have the expected pvc status
+			emptyPersistentVolumeClaim := corev1.PersistentVolumeClaimVolumeSource{}
+			var pvcCount int
+			for _, pod := range foundPodList {
+				for _, volume := range pod.Spec.Volumes {
+					if volume.Name == "humio-data" {
+						if !reflect.DeepEqual(volume.PersistentVolumeClaim, emptyPersistentVolumeClaim) {
+							pvcCount++
+						} else {
+							return fmt.Errorf("expected pod %s to have a pvc but instead got %+v", pod.Name, volume)
+						}
+					}
+				}
+			}
+
+			if h.cluster.Status.NodeCount != h.cluster.Spec.NodeCount {
+				return fmt.Errorf("expected to find node count of %d instead got %d", h.cluster.Spec.NodeCount, h.cluster.Status.NodeCount)
+			}
+
+			if len(foundPodList) != h.cluster.Spec.NodeCount {
+				return fmt.Errorf("expected to find %d pods instead got %d", h.cluster.Spec.NodeCount, len(foundPodList))
+			}
+
+			if pvcCount != h.cluster.Spec.NodeCount {
+				return fmt.Errorf("expected to find %d pods with attached pvcs but instead got %d", h.cluster.Spec.NodeCount, pvcCount)
+			}
 			return nil
 		}
-
 		time.Sleep(time.Second * 10)
 	}
 
