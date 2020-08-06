@@ -338,7 +338,7 @@ func TestReconcileHumioCluster_Reconcile_update_humio_image(t *testing.T) {
 					StoragePartitions: buildStoragePartitionsList(3, 1),
 					IngestPartitions:  buildIngestPartitionsList(3, 1),
 				}, nil, nil, nil, "1.9.2--build-12365--sha-bf4188482a"),
-			"humio/humio-core:1.13.1",
+			"humio/humio-core:1.13.4",
 			"1.9.2--build-12365--sha-bf4188482a",
 		},
 	}
