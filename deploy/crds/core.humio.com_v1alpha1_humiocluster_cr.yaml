@@ -11,7 +11,7 @@ spec:
   extraKafkaConfigs: "security.protocol=PLAINTEXT"
   tls:
     enabled: false
-  image: "humio/humio-core:1.13.1"
+  image: "humio/humio-core:1.13.4"
   environmentVariables:
     - name: "HUMIO_JVM_ARGS"
       value:  "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelOldGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false"
