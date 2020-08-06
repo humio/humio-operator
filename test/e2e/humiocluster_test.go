@@ -2,8 +2,6 @@ package e2e
 
 import (
 	"fmt"
-	"os/exec"
-	"sync"
 	"testing"
 	"time"
 
@@ -87,13 +85,6 @@ func HumioCluster(t *testing.T) {
 		newRepositoryTest(t, clusterName, namespace),
 	}
 
-	// print kubectl commands until the tests are complete. ensure we wait for the last kubectl command to complete
-	// before exiting to avoid trying to exec a kubectl command after the test has shut down
-	var wg sync.WaitGroup
-	wg.Add(1)
-	done := make(chan bool, 1)
-	go printKubectlcommands(t, namespace, &wg, done)
-
 	for _, test := range tests {
 		if err = test.Start(f, ctx); err != nil {
 			t.Fatal(err)
@@ -119,9 +110,6 @@ func HumioCluster(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-
-	done <- true
-	wg.Wait()
 }
 
 func HumioClusterWithPVCs(t *testing.T) {
@@ -153,13 +141,6 @@ func HumioClusterWithPVCs(t *testing.T) {
 		newHumioClusterWithPVCsTest(t, fmt.Sprintf("%s-tls-enabled", clusterName), namespace, true),
 	}
 
-	// print kubectl commands until the tests are complete. ensure we wait for the last kubectl command to complete
-	// before exiting to avoid trying to exec a kubectl command after the test has shut down
-	var wg sync.WaitGroup
-	wg.Add(1)
-	done := make(chan bool, 1)
-	go printKubectlcommands(t, namespace, &wg, done)
-
 	for _, test := range tests {
 		if err = test.Start(f, ctx); err != nil {
 			t.Fatal(err)
@@ -185,9 +166,6 @@ func HumioClusterWithPVCs(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-
-	done <- true
-	wg.Wait()
 }
 
 func HumioClusterWithTLS(t *testing.T) {
@@ -219,13 +197,6 @@ func HumioClusterWithTLS(t *testing.T) {
 		newHumioClusterWithTLSTest(t, fmt.Sprintf("%s-d-to-e", clusterName), namespace, false, true),
 	}
 
-	// print kubectl commands until the tests are complete. ensure we wait for the last kubectl command to complete
-	// before exiting to avoid trying to exec a kubectl command after the test has shut down
-	var wg sync.WaitGroup
-	wg.Add(1)
-	done := make(chan bool, 1)
-	go printKubectlcommands(t, namespace, &wg, done)
-
 	for _, test := range tests {
 		if err = test.Start(f, ctx); err != nil {
 			t.Fatal(err)
@@ -251,9 +222,6 @@ func HumioClusterWithTLS(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-
-	done <- true
-	wg.Wait()
 }
 
 func HumioClusterRestart(t *testing.T) {
@@ -285,13 +253,6 @@ func HumioClusterRestart(t *testing.T) {
 		newHumioClusterWithRestartTest(fmt.Sprintf("%s-tls-enabled", clusterName), namespace, true),
 	}
 
-	// print kubectl commands until the tests are complete. ensure we wait for the last kubectl command to complete
-	// before exiting to avoid trying to exec a kubectl command after the test has shut down
-	var wg sync.WaitGroup
-	wg.Add(1)
-	done := make(chan bool, 1)
-	go printKubectlcommands(t, namespace, &wg, done)
-
 	for _, test := range tests {
 		if err = test.Start(f, ctx); err != nil {
 			t.Fatal(err)
@@ -317,9 +278,6 @@ func HumioClusterRestart(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-
-	done <- true
-	wg.Wait()
 }
 
 func HumioClusterUpgrade(t *testing.T) {
@@ -351,13 +309,6 @@ func HumioClusterUpgrade(t *testing.T) {
 		newHumioClusterWithUpgradeTest(fmt.Sprintf("%s-tls-enabled", clusterName), namespace, true),
 	}
 
-	// print kubectl commands until the tests are complete. ensure we wait for the last kubectl command to complete
-	// before exiting to avoid trying to exec a kubectl command after the test has shut down
-	var wg sync.WaitGroup
-	wg.Add(1)
-	done := make(chan bool, 1)
-	go printKubectlcommands(t, namespace, &wg, done)
-
 	for _, test := range tests {
 		if err = test.Start(f, ctx); err != nil {
 			t.Fatal(err)
@@ -381,34 +332,6 @@ func HumioClusterUpgrade(t *testing.T) {
 	for _, test := range tests {
 		if err = test.Teardown(f); err != nil {
 			t.Fatal(err)
-		}
-	}
-
-	done <- true
-	wg.Wait()
-}
-
-func printKubectlcommands(t *testing.T, namespace string, wg *sync.WaitGroup, done <-chan bool) {
-	defer wg.Done()
-
-	commands := []string{
-		"kubectl get pods -A",
-		fmt.Sprintf("kubectl describe pods -n %s", namespace),
-		fmt.Sprintf("kubectl describe persistentvolumeclaims -n %s", namespace),
-	}
-
-	ticker := time.NewTicker(time.Second * 5)
-	for range ticker.C {
-		select {
-		case <-done:
-			return
-		default:
-		}
-
-		for _, command := range commands {
-			cmd := exec.Command("bash", "-c", command)
-			stdoutStderr, err := cmd.CombinedOutput()
-			t.Logf("%s, %s\n", stdoutStderr, err)
 		}
 	}
 }

@@ -1444,6 +1444,84 @@ func TestReconcileHumioCluster_Reconcile_humio_container_args(t *testing.T) {
 	}
 }
 
+func TestReconcileHumioCluster_Reconcile_custom_humio_service(t *testing.T) {
+	tests := []struct {
+		name                       string
+		humioCluster               *corev1alpha1.HumioCluster
+		expectedServiceType        corev1.ServiceType
+		expectedHumioServicePort   int32
+		expectedHumioESServicePort int32
+	}{
+		{
+			"test cluster reconciliation with default spec",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{},
+			},
+			corev1.ServiceTypeClusterIP,
+			8080,
+			9200,
+		},
+		{
+			"test cluster reconciliation with custom serviceType and servicePorts",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					HumioServiceType:   corev1.ServiceTypeLoadBalancer,
+					HumioServicePort:   443,
+					HumioESServicePort: 9201,
+				},
+			},
+			corev1.ServiceTypeLoadBalancer,
+			443,
+			9201,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, req := reconcileInit(tt.humioCluster)
+			defer r.logger.Sync()
+
+			_, err := r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+
+			service, err := kubernetes.GetService(context.TODO(), r.client, tt.humioCluster.Name, tt.humioCluster.Namespace)
+			if !reflect.DeepEqual(service.Spec.Type, tt.expectedServiceType) {
+				t.Errorf("failed to validate serviceType, expected %+v, got %+v", tt.expectedServiceType, service.Spec.Type)
+			}
+
+			var numServicePortsValidated int
+			for _, servicePort := range service.Spec.Ports {
+				if servicePort.Name == "http" {
+					if servicePort.Port == tt.expectedHumioServicePort {
+						numServicePortsValidated++
+						continue
+					}
+					t.Errorf("failed to validate humioServicePort, expected %d, got %d", tt.expectedHumioServicePort, servicePort.Port)
+				}
+				if servicePort.Name == "es" {
+					if servicePort.Port == tt.expectedHumioESServicePort {
+						numServicePortsValidated++
+						continue
+					}
+					t.Errorf("failed to validate humioESServicePort, expected %d, got %d", tt.expectedHumioESServicePort, servicePort.Port)
+				}
+			}
+			if numServicePortsValidated < 2 {
+				t.Errorf("number of validated service ports too small, expected %d, got %d", 2, numServicePortsValidated)
+			}
+		})
+	}
+}
+
 func TestReconcileHumioCluster_ensureIngress_create_ingress(t *testing.T) {
 	tests := []struct {
 		name                  string

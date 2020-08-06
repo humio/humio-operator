@@ -3449,6 +3449,12 @@ spec:
                 description: Hostname is the public hostname used by clients to access
                   Humio
                 type: string
+              humioESServicePort:
+                description: HumioESServicePort is the port number of the Humio Service
+                  that is used to direct traffic to the ES interface of the Humio
+                  pods.
+                format: int32
+                type: integer
               humioServiceAccountAnnotations:
                 additionalProperties:
                   type: string
@@ -3459,6 +3465,16 @@ spec:
               humioServiceAccountName:
                 description: HumioServiceAccountName is the name of the Kubernetes
                   Service Account that will be attached to the Humio pods
+                type: string
+              humioServicePort:
+                description: HumioServicePort is the port number of the Humio Service
+                  that is used to direct traffic to the http interface of the Humio
+                  pods.
+                format: int32
+                type: integer
+              humioServiceType:
+                description: HumioServiceType is the ServiceType of the Humio Service
+                  that is used to direct traffic to the Humio pods
                 type: string
               idpCertificateSecretName:
                 description: IdpCertificateSecretName is the name of the secret that
