@@ -9,6 +9,7 @@ import (
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -53,6 +54,15 @@ func newHumioClusterWithRestartTest(clusterName string, namespace string, tlsEna
 					},
 				},
 				ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
+				NodeUUIDPrefix:    fmt.Sprintf("humio_%s_", clusterName),
+				DataVolumePersistentVolumeClaimSpecTemplate: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("1Gi"),
+						},
+					},
+				},
 			},
 		},
 		tlsEnabled: tlsEnabled,
