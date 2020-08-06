@@ -2,6 +2,7 @@ package humiocluster
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -843,33 +844,27 @@ func findHumioNodeName(ctx context.Context, c client.Client, hc *corev1alpha1.Hu
 func (r *ReconcileHumioCluster) newPodAttachments(ctx context.Context, hc *corev1alpha1.HumioCluster, foundPodList []corev1.Pod) (*podAttachments, error) {
 	pvcList, err := r.pvcList(hc)
 	if err != nil {
-		r.logger.Errorf("problem getting pvc list: %s", err)
-		return &podAttachments{}, err
+		return &podAttachments{}, fmt.Errorf("problem getting pvc list: %s", err)
 	}
 	r.logger.Debugf("attempting to get volume source, pvc count is %d, pod count is %d", len(pvcList), len(foundPodList))
 	volumeSource, err := volumeSource(hc, foundPodList, pvcList)
 	if err != nil {
-		r.logger.Errorf("unable to construct data volume source for HumioCluster: %s", err)
-		return &podAttachments{}, err
+		return &podAttachments{}, fmt.Errorf("unable to construct data volume source for HumioCluster: %s", err)
 	}
 	initSASecretName, err := r.getInitServiceAccountSecretName(ctx, hc)
 	if err != nil {
-		r.logger.Errorf("unable get init service account secret for HumioCluster: %s", err)
-		return &podAttachments{}, err
+		return &podAttachments{}, fmt.Errorf("unable get init service account secret for HumioCluster: %s", err)
 	}
 	if initSASecretName == "" {
-		r.logger.Error("unable to create Pod for HumioCluster: the init service account secret does not exist")
-		return &podAttachments{}, err
+		return &podAttachments{}, errors.New("unable to create Pod for HumioCluster: the init service account secret does not exist")
 	}
 	authSASecretName, err := r.getAuthServiceAccountSecretName(ctx, hc)
 	if err != nil {
-		r.logger.Errorf("unable get auth service account secret for HumioCluster: %s", err)
-		return &podAttachments{}, err
+		return &podAttachments{}, fmt.Errorf("unable get auth service account secret for HumioCluster: %s", err)
 
 	}
 	if authSASecretName == "" {
-		r.logger.Error("unable to create Pod for HumioCluster: the auth service account secret does not exist")
-		return &podAttachments{}, err
+		return &podAttachments{}, errors.New("unable to create Pod for HumioCluster: the auth service account secret does not exist")
 	}
 
 	return &podAttachments{
