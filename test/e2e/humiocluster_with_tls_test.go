@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/humio/humio-operator/pkg/helpers"
+
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -36,7 +38,7 @@ func newHumioClusterWithTLSTest(test *testing.T, clusterName, namespace string, 
 				Namespace: namespace,
 			},
 			Spec: corev1alpha1.HumioClusterSpec{
-				NodeCount: 2,
+				NodeCount: helpers.IntPtr(2),
 				EnvironmentVariables: []corev1.EnvVar{
 					{
 						Name:  "ZOOKEEPER_URL",
@@ -247,9 +249,9 @@ func (h *humioClusterWithTLSTest) Wait(f *framework.Framework) error {
 				h.test.Logf("cluster TLS set to %+v, but found %d secrets of type TLS", *h.cluster.Spec.TLS.Enabled, foundTLSTypeSecrets)
 				continue
 			}
-			if *h.cluster.Spec.TLS.Enabled && (foundTLSTypeSecrets != h.cluster.Spec.NodeCount+1) {
+			if *h.cluster.Spec.TLS.Enabled && (foundTLSTypeSecrets != *h.cluster.Spec.NodeCount+1) {
 				// we expect one TLS secret per Humio node and one cluster-wide TLS secret
-				h.test.Logf("cluster TLS enabled but number of secrets is not correct, expected: %d, got: %d", h.cluster.Spec.NodeCount+1, foundTLSTypeSecrets)
+				h.test.Logf("cluster TLS enabled but number of secrets is not correct, expected: %d, got: %d", *h.cluster.Spec.NodeCount+1, foundTLSTypeSecrets)
 				continue
 			}
 
@@ -263,9 +265,9 @@ func (h *humioClusterWithTLSTest) Wait(f *framework.Framework) error {
 				h.test.Logf("cluster TLS set to %+v, but found %d certificates", *h.cluster.Spec.TLS.Enabled, len(foundCertificateList))
 				continue
 			}
-			if *h.cluster.Spec.TLS.Enabled && (len(foundCertificateList) != h.cluster.Spec.NodeCount+1) {
+			if *h.cluster.Spec.TLS.Enabled && (len(foundCertificateList) != *h.cluster.Spec.NodeCount+1) {
 				// we expect one TLS certificate per Humio node and one cluster-wide certificate
-				h.test.Logf("cluster TLS enabled but number of certificates is not correct, expected: %d, got: %d", h.cluster.Spec.NodeCount+1, len(foundCertificateList))
+				h.test.Logf("cluster TLS enabled but number of certificates is not correct, expected: %d, got: %d", *h.cluster.Spec.NodeCount+1, len(foundCertificateList))
 				continue
 			}
 
@@ -284,16 +286,16 @@ func (h *humioClusterWithTLSTest) Wait(f *framework.Framework) error {
 				}
 			}
 
-			if h.cluster.Status.NodeCount != h.cluster.Spec.NodeCount {
-				return fmt.Errorf("expected to find node count of %d instead got %d", h.cluster.Spec.NodeCount, h.cluster.Status.NodeCount)
+			if h.cluster.Status.NodeCount != *h.cluster.Spec.NodeCount {
+				return fmt.Errorf("expected to find node count of %d instead got %d", *h.cluster.Spec.NodeCount, h.cluster.Status.NodeCount)
 			}
 
-			if len(foundPodList) != h.cluster.Spec.NodeCount {
-				return fmt.Errorf("expected to find %d pods instead got %d", h.cluster.Spec.NodeCount, len(foundPodList))
+			if len(foundPodList) != *h.cluster.Spec.NodeCount {
+				return fmt.Errorf("expected to find %d pods instead got %d", *h.cluster.Spec.NodeCount, len(foundPodList))
 			}
 
-			if pvcCount != h.cluster.Spec.NodeCount {
-				return fmt.Errorf("expected to find %d pods with attached pvcs but instead got %d", h.cluster.Spec.NodeCount, pvcCount)
+			if pvcCount != *h.cluster.Spec.NodeCount {
+				return fmt.Errorf("expected to find %d pods with attached pvcs but instead got %d", *h.cluster.Spec.NodeCount, pvcCount)
 			}
 			return nil
 		}
