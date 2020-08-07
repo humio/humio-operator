@@ -96,6 +96,11 @@ func Int64Ptr(val int64) *int64 {
 	return &val
 }
 
+// IntPtr returns a int pointer to the specified int value
+func IntPtr(val int) *int {
+	return &val
+}
+
 // MapToString prettifies a string map so it's more suitable for readability when logging
 func MapToString(m map[string]string) string {
 	if len(m) == 0 {

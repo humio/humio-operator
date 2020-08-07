@@ -29,7 +29,7 @@ type HumioClusterSpec struct {
 	// DigestPartitionsCount is the desired number of digest partitions
 	DigestPartitionsCount int `json:"digestPartitionsCount,omitempty"`
 	// NodeCount is the desired number of humio cluster nodes
-	NodeCount int `json:"nodeCount,omitempty"`
+	NodeCount *int `json:"nodeCount,omitempty"`
 	// EnvironmentVariables that will be merged with default environment variables then set on the humio container
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
 	// DataVolumeSource is the volume that is mounted on the humio pods. This conflicts with DataVolumePersistentVolumeClaimSpecTemplate.
