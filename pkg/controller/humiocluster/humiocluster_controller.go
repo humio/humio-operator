@@ -1255,7 +1255,7 @@ func (r *ReconcileHumioCluster) getAuthServiceAccountSecretName(ctx context.Cont
 		return "", nil
 	}
 	if len(foundAuthServiceAccountNameSecretsList) > 1 {
-		return "", fmt.Errorf("found more than one init service account")
+		return "", fmt.Errorf("found more than one auth service account")
 	}
 	return foundAuthServiceAccountNameSecretsList[0].Name, nil
 }
