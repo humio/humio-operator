@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/humio/humio-operator/pkg/helpers"
+
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
@@ -38,7 +40,7 @@ func newHumioClusterWithRestartTest(clusterName string, namespace string, tlsEna
 				Namespace: namespace,
 			},
 			Spec: corev1alpha1.HumioClusterSpec{
-				NodeCount: 2,
+				NodeCount: helpers.IntPtr(2),
 				EnvironmentVariables: []corev1.EnvVar{
 					{
 						Name:  "ZOOKEEPER_URL",
