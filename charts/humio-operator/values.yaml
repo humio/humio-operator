@@ -1,7 +1,7 @@
 operator:
   image:
     repository: humio/humio-operator
-    tag: 0.0.8
+    tag: 0.0.9
     pullPolicy: IfNotPresent
   rbac:
     create: true
