@@ -37,10 +37,10 @@ spec:
       requiredDuringSchedulingIgnoredDuringExecution:
       - labelSelector:
           matchExpressions:
-          - key: app
+          - key: app.kubernetes.io/name
             operator: In
             values:
-            - humio-core
+            - humio
         topologyKey: kubernetes.io/hostname
   dataVolumeSource:
     hostPath:
