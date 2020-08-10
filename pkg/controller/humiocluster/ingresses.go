@@ -33,7 +33,7 @@ more_set_headers "X-XSS-Protection: 1; mode=block";`
 		annotations["nginx.ingress.kubernetes.io/backend-protocol"] = "HTTPS"
 		annotations["nginx.ingress.kubernetes.io/proxy-ssl-name"] = fmt.Sprintf("%s.%s", hc.Name, hc.Namespace)
 		annotations["nginx.ingress.kubernetes.io/proxy-ssl-server-name"] = fmt.Sprintf("%s.%s", hc.Name, hc.Namespace)
-		annotations["nginx.ingress.kubernetes.io/proxy-ssl-secret"] = hc.Name
+		annotations["nginx.ingress.kubernetes.io/proxy-ssl-secret"] = fmt.Sprintf("%s/%s", hc.Namespace, hc.Name)
 		annotations["nginx.ingress.kubernetes.io/proxy-ssl-verify"] = "on"
 	}
 
