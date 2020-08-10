@@ -793,7 +793,7 @@ func (r *ReconcileHumioCluster) ensureHumioNodeCertificates(ctx context.Context,
 			existingNodeCertCount++
 		}
 	}
-	for i := existingNodeCertCount; i < hc.Spec.NodeCount; i++ {
+	for i := existingNodeCertCount; i < nodeCountOrDefault(hc); i++ {
 		certificate := constructNodeCertificate(hc, kubernetes.RandomString())
 		r.logger.Infof("creating node TLS certificate with name %s", certificate.Name)
 		if err := controllerutil.SetControllerReference(hc, &certificate, r.scheme); err != nil {
@@ -1329,9 +1329,9 @@ func (r *ReconcileHumioCluster) ensureMismatchedPodsAreDeleted(ctx context.Conte
 	// If we're doing a non-rolling update (recreate), then we can take down all the pods without waiting, but we will
 	// wait until all the pods are ready before changing the cluster state back to Running.
 	podsReadyCount, podsNotReadyCount := r.podsReady(foundPodList)
-	if podsReadyCount < hc.Spec.NodeCount || podsNotReadyCount > 0 {
+	if podsReadyCount < nodeCountOrDefault(hc) || podsNotReadyCount > 0 {
 		waitingOnReadyPods = true
-		r.logger.Infof("there are %d/%d humio pods that are ready", podsReadyCount, hc.Spec.NodeCount)
+		r.logger.Infof("there are %d/%d humio pods that are ready", podsReadyCount, nodeCountOrDefault(hc))
 	}
 
 	if (r.getHumioClusterPodRestartPolicy(hc) == PodRestartPolicyRolling && !waitingOnReadyPods) ||
@@ -1422,7 +1422,7 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *
 	r.logger.Debugf("found %d pods", len(foundPodList))
 
 	podsReadyCount, podsNotReadyCount := r.podsReady(foundPodList)
-	if podsReadyCount == hc.Spec.NodeCount {
+	if podsReadyCount == nodeCountOrDefault(hc) {
 		r.logger.Info("all humio pods are reporting ready")
 		return reconcile.Result{}, nil
 	}
@@ -1432,8 +1432,8 @@ func (r *ReconcileHumioCluster) ensurePodsBootstrapped(ctx context.Context, hc *
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 
-	r.logger.Debugf("pod ready count is %d, while desired node count is %d", podsReadyCount, hc.Spec.NodeCount)
-	if podsReadyCount < hc.Spec.NodeCount {
+	r.logger.Debugf("pod ready count is %d, while desired node count is %d", podsReadyCount, nodeCountOrDefault(hc))
+	if podsReadyCount < nodeCountOrDefault(hc) {
 		attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
 		if err != nil {
 			r.logger.Errorf("failed to get pod attachments: %s", err)
@@ -1470,7 +1470,7 @@ func (r *ReconcileHumioCluster) ensurePodsExist(ctx context.Context, hc *corev1a
 		return reconcile.Result{}, err
 	}
 
-	if len(foundPodList) < hc.Spec.NodeCount {
+	if len(foundPodList) < nodeCountOrDefault(hc) {
 		attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
 		if err != nil {
 			r.logger.Errorf("failed to get pod attachments: %s", err)
@@ -1513,8 +1513,8 @@ func (r *ReconcileHumioCluster) ensurePersistentVolumeClaimsExist(ctx context.Co
 		return reconcile.Result{}, err
 	}
 
-	if len(foundPersistentVolumeClaims) < hc.Spec.NodeCount {
-		r.logger.Infof("pvc count of %d is less than %d. adding more", len(foundPersistentVolumeClaims), hc.Spec.NodeCount)
+	if len(foundPersistentVolumeClaims) < nodeCountOrDefault(hc) {
+		r.logger.Infof("pvc count of %d is less than %d. adding more", len(foundPersistentVolumeClaims), nodeCountOrDefault(hc))
 		pvc := constructPersistentVolumeClaim(hc)
 		pvc.Annotations["humio_pvc_hash"] = helpers.AsSHA256(pvc.Spec)
 		if err := controllerutil.SetControllerReference(hc, pvc, r.scheme); err != nil {

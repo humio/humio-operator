@@ -3,9 +3,10 @@ package e2e
 import (
 	goctx "context"
 	"fmt"
-	"github.com/humio/humio-operator/pkg/helpers"
 	"testing"
 	"time"
+
+	"github.com/humio/humio-operator/pkg/helpers"
 
 	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
 	"github.com/humio/humio-operator/pkg/kubernetes"
@@ -29,7 +30,7 @@ func newBootstrapTest(test *testing.T, clusterName string, namespace string) hum
 				Namespace: namespace,
 			},
 			Spec: corev1alpha1.HumioClusterSpec{
-				NodeCount: 1,
+				NodeCount: helpers.IntPtr(1),
 				TLS: &corev1alpha1.HumioClusterTLSSpec{
 					Enabled: helpers.BoolPtr(false),
 				},

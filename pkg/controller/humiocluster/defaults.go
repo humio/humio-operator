@@ -53,9 +53,14 @@ func setDefaults(hc *humioClusterv1alpha1.HumioCluster) {
 	if hc.Spec.DigestPartitionsCount == 0 {
 		hc.Spec.DigestPartitionsCount = digestPartitionsCount
 	}
-	if hc.Spec.NodeCount == 0 {
-		hc.Spec.NodeCount = nodeCount
+
+}
+
+func nodeCountOrDefault(hc *humioClusterv1alpha1.HumioCluster) int {
+	if hc.Spec.NodeCount == nil {
+		return nodeCount
 	}
+	return *hc.Spec.NodeCount
 }
 
 func imagePullSecretsOrDefault(hc *humioClusterv1alpha1.HumioCluster) []corev1.LocalObjectReference {
