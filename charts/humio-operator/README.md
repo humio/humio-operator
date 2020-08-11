@@ -15,11 +15,11 @@ This chart bootstraps a humio-operator deployment on a [Kubernetes](http://kuber
 ## Installing the CRD's
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.9/deploy/crds/core.humio.com_humioclusters_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.9/deploy/crds/core.humio.com_humioexternalclusters_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.9/deploy/crds/core.humio.com_humioingesttokens_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.9/deploy/crds/core.humio.com_humioparsers_crd.yaml
-kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.9/deploy/crds/core.humio.com_humiorepositories_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.10/deploy/crds/core.humio.com_humioclusters_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.10/deploy/crds/core.humio.com_humioexternalclusters_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.10/deploy/crds/core.humio.com_humioingesttokens_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.10/deploy/crds/core.humio.com_humioparsers_crd.yaml
+kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-operator-0.0.10/deploy/crds/core.humio.com_humiorepositories_crd.yaml
 ```
 
 ## Installing the Chart
@@ -59,7 +59,7 @@ The following table lists the configurable parameters of the ingress-nginx chart
 Parameter | Description | Default
 --- | --- | ---
 `operator.image.repository` | operator container image repository | `humio/humio-operator`
-`operator.image.tag` | operator container image tag | `0.0.9`
+`operator.image.tag` | operator container image tag | `0.0.10`
 `operator.rbac.create` | automatically create operator RBAC resources | `true`
 `operator.watchNamespaces` | list of namespaces the operator will watch for resources (if empty, it watches all namespaces) | `[]`
 `installCRDs` | automatically install CRDs. NB: if this is set to true, custom resources will be removed if the Helm chart is uninstalled | `false`
@@ -71,11 +71,11 @@ These parameters can be passed via Helm's `--set` option
 ```bash
 # Helm v3+
 helm install humio-operator humio-operator/humio-operator \
-  --set operator.image.tag=0.0.9
+  --set operator.image.tag=0.0.10
 
 # Helm v2
 helm install humio-operator --name humio-operator \
-  --set operator.image.tag=0.0.9
+  --set operator.image.tag=0.0.10
 ```
 
 Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
