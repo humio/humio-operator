@@ -1117,6 +1117,14 @@ func (r *ReconcileHumioCluster) cleanupUnusedTLSSecrets(ctx context.Context, hc 
 			}
 		}
 
+		commonName, found := secret.Annotations[cmapi.CommonNameAnnotationKey]
+		if !found || commonName != "" {
+			continue
+		}
+		issuerKind, found := secret.Annotations[cmapi.IssuerKindAnnotationKey]
+		if !found || issuerKind != cmapi.IssuerKind {
+			continue
+		}
 		issuerName, found := secret.Annotations[cmapi.IssuerNameAnnotationKey]
 		if !found || issuerName != hc.Name {
 			continue
@@ -1179,6 +1187,9 @@ func (r *ReconcileHumioCluster) cleanupUnusedTLSCertificates(ctx context.Context
 	for _, certificate := range foundCertificateList {
 		// only consider secrets not already being deleted
 		if certificate.DeletionTimestamp == nil {
+			if certificate.OwnerReferences[0].Kind != "HumioCluster" {
+				continue
+			}
 			inUse := true // assume it is in use until we find out otherwise
 			if !strings.HasPrefix(certificate.Name, fmt.Sprintf("%s-core-", hc.Name)) {
 				// this is the cluster-wide secret
