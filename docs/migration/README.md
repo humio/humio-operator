@@ -655,7 +655,7 @@ kubectl create secret generic idp-certificate --from-file=idp-certificate=./my-i
 
 HumioCluster:
 ```bash
-kubectl create secret generic <cluster-name>-idp-certificate --from-file=idp-certificate=./my-idp-certificate.pem -n <namespace>
+kubectl create secret generic <cluster-name>-idp-certificate --from-file=idp-certificate.pem=./my-idp-certificate.pem -n <namespace>
 ```
 
 #### Humio Helm Chart
