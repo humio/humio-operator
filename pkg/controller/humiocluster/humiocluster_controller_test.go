@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -1438,6 +1439,185 @@ func TestReconcileHumioCluster_Reconcile_humio_container_args(t *testing.T) {
 				}
 				if !reflect.DeepEqual(pod.Spec.Containers[idx].Args, tt.expectedContainerArgs) {
 					t.Errorf("failed to validate container command, expected %s, got %s", tt.expectedContainerArgs, pod.Spec.Containers[idx].Args)
+				}
+			}
+		})
+	}
+}
+
+func TestReconcileHumioCluster_Reconcile_humio_custom_path(t *testing.T) {
+	tests := []struct {
+		name                  string
+		humioCluster          *corev1alpha1.HumioCluster
+		expectedSetEnvVars    []corev1.EnvVar
+		expectedAbsentEnvVars []corev1.EnvVar
+		expectedPath          string
+	}{
+		{
+			"test cluster reconciliation with default path",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{},
+			},
+			[]corev1.EnvVar{
+				{
+					Name:  "PUBLIC_URL",
+					Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)",
+				},
+			},
+			[]corev1.EnvVar{
+				{
+					Name: "PROXY_PREFIX_URL",
+				},
+			},
+			"/",
+		},
+		{
+			"test cluster reconciliation with custom path",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					Path: "/logs",
+				},
+			},
+			[]corev1.EnvVar{
+				{
+					Name:  "PUBLIC_URL",
+					Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)/logs",
+				},
+				{
+					Name:  "PROXY_PREFIX_URL",
+					Value: "/logs",
+				},
+			},
+			[]corev1.EnvVar{},
+			"/logs",
+		},
+		{
+			"test cluster reconciliation with default path and ingress",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					Hostname:   "https://test-cluster.humio.com",
+					ESHostname: "https://test-cluster-es.humio.com",
+					Ingress: corev1alpha1.HumioClusterIngressSpec{
+						Enabled:    true,
+						Controller: "nginx",
+					},
+				},
+			},
+			[]corev1.EnvVar{
+				{
+					Name:  "PUBLIC_URL",
+					Value: "https://https://test-cluster.humio.com",
+				},
+			},
+			[]corev1.EnvVar{
+				{
+					Name: "PROXY_PREFIX_URL",
+				},
+			},
+			"/",
+		},
+		{
+			"test cluster reconciliation with custom path and ingress",
+			&corev1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humiocluster",
+					Namespace: "logging",
+				},
+				Spec: corev1alpha1.HumioClusterSpec{
+					Hostname:   "https://test-cluster.humio.com",
+					ESHostname: "https://test-cluster-es.humio.com",
+					Ingress: corev1alpha1.HumioClusterIngressSpec{
+						Enabled:    true,
+						Controller: "nginx",
+					},
+					Path: "/logs",
+				},
+			},
+			[]corev1.EnvVar{
+				{
+					Name:  "PUBLIC_URL",
+					Value: "https://https://test-cluster.humio.com/logs",
+				},
+				{
+					Name:  "PROXY_PREFIX_URL",
+					Value: "/logs",
+				},
+			},
+			[]corev1.EnvVar{},
+			"/logs",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, req := reconcileInit(tt.humioCluster)
+			defer r.logger.Sync()
+
+			_, err := r.Reconcile(req)
+			if err != nil {
+				t.Errorf("reconcile: (%v)", err)
+			}
+
+			foundPodList, err := kubernetes.ListPods(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+			for _, pod := range foundPodList {
+				idx, err := kubernetes.GetContainerIndexByName(pod, "humio")
+				if err != nil {
+					t.Errorf("failed to get humio container for pod %s", err)
+				}
+
+				setEnvVarsCount := 0
+				for _, expectedEnvVar := range tt.expectedSetEnvVars {
+					for _, setEnvVar := range pod.Spec.Containers[idx].Env {
+						if expectedEnvVar.Name == setEnvVar.Name && expectedEnvVar.Value == setEnvVar.Value {
+							setEnvVarsCount++
+						}
+					}
+				}
+				if setEnvVarsCount != len(tt.expectedSetEnvVars) {
+					t.Errorf("set env vars does not include env vars that were expected, expected %+v, got env var list of %+v", tt.expectedSetEnvVars, pod.Spec.Containers[idx].Env)
+				}
+
+				absentEnvVarsCount := 0
+				for _, expectedEnvVar := range tt.expectedAbsentEnvVars {
+					for _, setEnvVar := range pod.Spec.Containers[idx].Env {
+						if expectedEnvVar.Name == setEnvVar.Name {
+							absentEnvVarsCount++
+						}
+					}
+				}
+				if absentEnvVarsCount > 0 {
+					t.Errorf("set env vars includes env vars that were not expected, expected absent env vars %+v, got env var list of %+v", tt.expectedAbsentEnvVars, pod.Spec.Containers[idx].Env)
+				}
+			}
+
+			if tt.humioCluster.Spec.Ingress.Enabled {
+				err := r.ensureIngress(context.TODO(), tt.humioCluster)
+
+				foundIngressList, err := kubernetes.ListIngresses(r.client, tt.humioCluster.Namespace, kubernetes.MatchingLabelsForHumio(tt.humioCluster.Name))
+				if err != nil {
+					t.Errorf("failed to list ingresses %s", err)
+				}
+
+				for _, ingress := range foundIngressList {
+					for _, rule := range ingress.Spec.Rules {
+						for _, httpPath := range rule.HTTP.Paths {
+							if !strings.HasPrefix(httpPath.Path, tt.expectedPath) {
+								t.Errorf("could not validate ingress path prefix, expected prefix of %s, but not path value of %s", tt.expectedPath, httpPath.Path)
+							}
+						}
+
+					}
 				}
 			}
 		})

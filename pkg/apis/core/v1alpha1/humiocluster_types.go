@@ -62,6 +62,8 @@ type HumioClusterSpec struct {
 	Hostname string `json:"hostname,omitempty"`
 	// ESHostname is the public hostname used by log shippers with support for ES bulk API to access Humio
 	ESHostname string `json:"esHostname,omitempty"`
+	// Path is the root URI path of the Humio cluster
+	Path string `json:"path,omitempty"`
 	// Ingress is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster
 	Ingress HumioClusterIngressSpec `json:"ingress,omitempty"`
 	// ImagePullPolicy sets the imagePullPolicy for all the containers in the humio pod
