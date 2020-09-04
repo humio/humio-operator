@@ -3710,6 +3710,9 @@ spec:
               nodeUUIDPrefix:
                 description: NodeUUIDPrefix is the prefix for the Humio Node's UUID
                 type: string
+              path:
+                description: Path is the root URI path of the Humio cluster
+                type: string
               podSecurityContext:
                 description: PodSecurityContext is the security context applied to
                   the Humio pod
