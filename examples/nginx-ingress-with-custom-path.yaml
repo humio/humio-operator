@@ -1,0 +1,17 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioCluster
+metadata:
+  name: example-humiocluster
+spec:
+  image: "humio/humio-core:1.13.4"
+  environmentVariables:
+    - name: "ZOOKEEPER_URL"
+      value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless:2181"
+    - name: "KAFKA_SERVERS"
+      value: "humio-cp-kafka-0.humio-cp-kafka-headless:9092"
+  hostname: "humio.example.com"
+  esHostname: "humio-es.example.com"
+  path: /logs
+  ingress:
+    enabled: true
+    controller: nginx
