@@ -289,15 +289,31 @@ func setEnvironmentVariableDefaults(hc *humioClusterv1alpha1.HumioCluster) {
 		appendEnvironmentVariableDefault(hc, defaultEnvVar)
 	}
 
-	if hc.Spec.Ingress.Enabled {
+	// Allow overriding PUBLIC_URL. This may be useful when other methods of exposing the cluster are used other than
+	// ingress
+	if !envVarHasKey(envDefaults, "PUBLIC_URL") {
+		// Only include the path suffix if it's non-root. It likely wouldn't harm anything, but it's unnecessary
+		pathSuffix := ""
+		if humioPathOrDefault(hc) != "/" {
+			pathSuffix = humioPathOrDefault(hc)
+		}
+		if hc.Spec.Ingress.Enabled {
+			appendEnvironmentVariableDefault(hc, corev1.EnvVar{
+				Name:  "PUBLIC_URL", // URL used by users/browsers.
+				Value: fmt.Sprintf("https://%s%s", hc.Spec.Hostname, pathSuffix),
+			})
+		} else {
+			appendEnvironmentVariableDefault(hc, corev1.EnvVar{
+				Name:  "PUBLIC_URL", // URL used by users/browsers.
+				Value: fmt.Sprintf("%s://$(THIS_POD_IP):$(HUMIO_PORT)%s", scheme, pathSuffix),
+			})
+		}
+	}
+
+	if humioPathOrDefault(hc) != "/" {
 		appendEnvironmentVariableDefault(hc, corev1.EnvVar{
-			Name:  "PUBLIC_URL", // URL used by users/browsers.
-			Value: fmt.Sprintf("https://%s", hc.Spec.Hostname),
-		})
-	} else {
-		appendEnvironmentVariableDefault(hc, corev1.EnvVar{
-			Name:  "PUBLIC_URL", // URL used by users/browsers.
-			Value: fmt.Sprintf("%s://$(THIS_POD_IP):$(HUMIO_PORT)", scheme),
+			Name:  "PROXY_PREFIX_URL",
+			Value: humioPathOrDefault(hc),
 		})
 	}
 }
@@ -368,4 +384,15 @@ func humioESServicePortOrDefault(hc *humioClusterv1alpha1.HumioCluster) int32 {
 		return hc.Spec.HumioESServicePort
 	}
 	return elasticPort
+}
+
+func humioPathOrDefault(hc *humioClusterv1alpha1.HumioCluster) string {
+	if hc.Spec.Path != "" {
+		if strings.HasPrefix(hc.Spec.Path, "/") {
+			return hc.Spec.Path
+		} else {
+			return fmt.Sprintf("/%s", hc.Spec.Path)
+		}
+	}
+	return "/"
 }

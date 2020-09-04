@@ -525,6 +525,15 @@ func envVarHasValue(envVars []corev1.EnvVar, key string, value string) bool {
 	return false
 }
 
+func envVarHasKey(envVars []corev1.EnvVar, key string) bool {
+	for _, envVar := range envVars {
+		if envVar.Name == key {
+			return true
+		}
+	}
+	return false
+}
+
 // podSpecAsSHA256 looks at the pod spec minus known nondeterministic fields and returns a sha256 hash of the spec
 func podSpecAsSHA256(hc *corev1alpha1.HumioCluster, sourcePod corev1.Pod) string {
 	pod := sourcePod.DeepCopy()
