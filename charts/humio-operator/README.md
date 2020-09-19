@@ -27,6 +27,8 @@ kubectl apply -f https://raw.githubusercontent.com/humio/humio-operator/humio-op
 To install the chart with the release name `humio-operator`:
 
 ```bash
+helm repo add humio-operator https://humio.github.io/humio-operator
+
 # Helm v3+
 helm install humio-operator humio-operator/humio-operator --namespace humio-operator -f values.yaml
 
