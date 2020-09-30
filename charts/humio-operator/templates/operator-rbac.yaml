@@ -12,7 +12,6 @@ metadata:
     app.kubernetes.io/instance: '{{ .Release.Name }}'
     app.kubernetes.io/managed-by: '{{ .Release.Service }}'
     helm.sh/chart: '{{ template "humio.chart" . }}'
-    operator-sdk-test-scope: 'per-test'
 
 {{- range .Values.operator.watchNamespaces }}
 ---
@@ -27,7 +26,6 @@ metadata:
     app.kubernetes.io/instance: '{{ $.Release.Name }}'
     app.kubernetes.io/managed-by: '{{ $.Release.Service }}'
     helm.sh/chart: '{{ template "humio.chart" $ }}'
-    operator-sdk-test-scope: 'per-test'
 rules:
 - apiGroups:
   - ""
@@ -150,7 +148,6 @@ metadata:
     app.kubernetes.io/instance: '{{ $.Release.Name }}'
     app.kubernetes.io/managed-by: '{{ $.Release.Service }}'
     helm.sh/chart: '{{ template "humio.chart" $ }}'
-    operator-sdk-test-scope: 'per-test'
 subjects:
 - kind: ServiceAccount
   name: '{{ $.Release.Name }}'
@@ -172,7 +169,6 @@ metadata:
     app.kubernetes.io/instance: '{{ .Release.Name }}'
     app.kubernetes.io/managed-by: '{{ .Release.Service }}'
     helm.sh/chart: '{{ template "humio.chart" . }}'
-    operator-sdk-test-scope: 'per-operator'
 rules:
 {{- if not .Values.operator.watchNamespaces }}
 - apiGroups:
@@ -337,7 +333,6 @@ metadata:
     app.kubernetes.io/instance: '{{ .Release.Name }}'
     app.kubernetes.io/managed-by: '{{ .Release.Service }}'
     helm.sh/chart: '{{ template "humio.chart" . }}'
-    operator-sdk-test-scope: 'per-operator'
 subjects:
 - kind: ServiceAccount
   name: '{{ .Release.Name }}'
@@ -359,7 +354,6 @@ metadata:
     app.kubernetes.io/instance: '{{ .Release.Name }}'
     app.kubernetes.io/managed-by: '{{ .Release.Service }}'
     helm.sh/chart: '{{ template "humio.chart" . }}'
-    operator-sdk-test-scope: 'per-operator'
 allowPrivilegedContainer: true
 allowHostDirVolumePlugin: true
 allowHostIPC: false

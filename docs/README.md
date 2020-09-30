@@ -58,7 +58,7 @@ kind: HumioCluster
 metadata:
   name: humio-test-cluster
 spec:
-  image: "humio/humio-core:1.13.4"
+  image: "humio/humio-core:1.15.2"
   environmentVariables:
     - name: "ZOOKEEPER_URL"
       value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless:2181"
@@ -87,7 +87,7 @@ NAME                 STATE           NODES   VERSION
 humio-test-cluster   Bootstrapping
 ```
 
-After a few minutes the Humio pods should be started and the HumioCluster state should update to "Running":
+After a few minutes the Humio pods should be started, and the HumioCluster state should update to "Running":
 
 ```bash
 kubectl get pods,humioclusters

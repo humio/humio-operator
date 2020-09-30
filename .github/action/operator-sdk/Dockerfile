@@ -1,19 +1,19 @@
-FROM golang:1.13.9-alpine3.11
+FROM golang:1.15.1-alpine3.12
 
 LABEL "com.github.actions.name"="operator-sdk"
 LABEL "com.github.actions.description"="operator-sdk image builder"
 LABEL "com.github.actions.icon"="layers"
 LABEL "com.github.actions.color"="red"
 
-ENV KUBECTL_VERSION=1.15.11
-ENV KIND_VERSION=0.8.0
-ENV RELEASE_VERSION=v0.17.0
-ENV HELM_VERSION=3.2.0
-ENV OPERATOR_COURIER_VERSION=2.1.7
+ENV KUBECTL_VERSION=1.16.4
+ENV KIND_VERSION=0.9.0
+ENV RELEASE_VERSION=v1.0.1
+ENV HELM_VERSION=3.3.4
+ENV OPERATOR_COURIER_VERSION=2.1.10
 
 RUN apk update \
     && apk upgrade \
-    && apk add --no-cache bash curl git openssh make mercurial openrc docker python3 git \
+    && apk add --no-cache bash curl git openssh make mercurial openrc docker python3 git py-pip gcc \
     && pip3 install --upgrade pip setuptools
 
 RUN curl -Lo ./kind "https://kind.sigs.k8s.io/dl/v${KIND_VERSION}/kind-$(uname)-amd64" && chmod +x ./kind && mv ./kind /usr/bin/kind

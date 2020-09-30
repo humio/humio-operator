@@ -1,0 +1,24 @@
+# permissions for end users to edit humioexternalclusters.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: humioexternalcluster-editor-role
+rules:
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioexternalclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioexternalclusters/status
+  verbs:
+  - get

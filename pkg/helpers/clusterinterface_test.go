@@ -1,9 +1,25 @@
+/*
+Copyright 2020 Humio https://humio.com
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package helpers
 
 import (
 	"context"
 	"fmt"
-	humioClusterv1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,18 +31,18 @@ import (
 func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 	tests := []struct {
 		name                string
-		managedHumioCluster humioClusterv1alpha1.HumioCluster
+		managedHumioCluster humiov1alpha1.HumioCluster
 		certManagerEnabled  bool
 	}{
 		{
 			"test managed humio cluster with insecure and no cert-manager",
-			humioClusterv1alpha1.HumioCluster{
+			humiov1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-1",
 					Namespace: "namespace-1",
 				},
-				Spec: humioClusterv1alpha1.HumioClusterSpec{
-					TLS: &humioClusterv1alpha1.HumioClusterTLSSpec{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					TLS: &humiov1alpha1.HumioClusterTLSSpec{
 						Enabled: BoolPtr(false),
 					},
 				},
@@ -35,13 +51,13 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 		},
 		{
 			"test managed humio cluster with insecure and cert-manager",
-			humioClusterv1alpha1.HumioCluster{
+			humiov1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-2",
 					Namespace: "namespace-2",
 				},
-				Spec: humioClusterv1alpha1.HumioClusterSpec{
-					TLS: &humioClusterv1alpha1.HumioClusterTLSSpec{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					TLS: &humiov1alpha1.HumioClusterTLSSpec{
 						Enabled: BoolPtr(false),
 					},
 				},
@@ -50,13 +66,13 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 		},
 		{
 			"test managed humio cluster with secure and no cert-manager",
-			humioClusterv1alpha1.HumioCluster{
+			humiov1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-3",
 					Namespace: "namespace-3",
 				},
-				Spec: humioClusterv1alpha1.HumioClusterSpec{
-					TLS: &humioClusterv1alpha1.HumioClusterTLSSpec{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					TLS: &humiov1alpha1.HumioClusterTLSSpec{
 						Enabled: BoolPtr(true),
 					},
 				},
@@ -65,13 +81,13 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 		},
 		{
 			"test managed humio cluster with secure and cert-manager",
-			humioClusterv1alpha1.HumioCluster{
+			humiov1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-4",
 					Namespace: "namespace-4",
 				},
-				Spec: humioClusterv1alpha1.HumioClusterSpec{
-					TLS: &humioClusterv1alpha1.HumioClusterTLSSpec{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					TLS: &humiov1alpha1.HumioClusterTLSSpec{
 						Enabled: BoolPtr(true),
 					},
 				},
@@ -80,48 +96,48 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 		},
 		{
 			"test managed humio cluster with default tls and no cert-manager",
-			humioClusterv1alpha1.HumioCluster{
+			humiov1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-5",
 					Namespace: "namespace-5",
 				},
-				Spec: humioClusterv1alpha1.HumioClusterSpec{},
+				Spec: humiov1alpha1.HumioClusterSpec{},
 			},
 			false,
 		},
 		{
 			"test managed humio cluster with default tls and cert-manager",
-			humioClusterv1alpha1.HumioCluster{
+			humiov1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-6",
 					Namespace: "namespace-6",
 				},
-				Spec: humioClusterv1alpha1.HumioClusterSpec{},
+				Spec: humiov1alpha1.HumioClusterSpec{},
 			},
 			true,
 		},
 		{
 			"test managed humio cluster with default tls enabled and no cert-manager",
-			humioClusterv1alpha1.HumioCluster{
+			humiov1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-7",
 					Namespace: "namespace-7",
 				},
-				Spec: humioClusterv1alpha1.HumioClusterSpec{
-					TLS: &humioClusterv1alpha1.HumioClusterTLSSpec{},
+				Spec: humiov1alpha1.HumioClusterSpec{
+					TLS: &humiov1alpha1.HumioClusterTLSSpec{},
 				},
 			},
 			false,
 		},
 		{
 			"test managed humio cluster with default tls enabled and cert-manager",
-			humioClusterv1alpha1.HumioCluster{
+			humiov1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-8",
 					Namespace: "namespace-8",
 				},
-				Spec: humioClusterv1alpha1.HumioClusterSpec{
-					TLS: &humioClusterv1alpha1.HumioClusterTLSSpec{},
+				Spec: humiov1alpha1.HumioClusterSpec{
+					TLS: &humiov1alpha1.HumioClusterTLSSpec{},
 				},
 			},
 			true,
@@ -154,7 +170,7 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 			}
 			// Register operator types with the runtime scheme.
 			s := scheme.Scheme
-			s.AddKnownTypes(humioClusterv1alpha1.SchemeGroupVersion, &tt.managedHumioCluster)
+			s.AddKnownTypes(humiov1alpha1.GroupVersion, &tt.managedHumioCluster)
 
 			cl := fake.NewFakeClient(objs...)
 
@@ -196,17 +212,17 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 	tests := []struct {
 		name                  string
-		externalHumioCluster  humioClusterv1alpha1.HumioExternalCluster
+		externalHumioCluster  humiov1alpha1.HumioExternalCluster
 		expectedConfigFailure bool
 	}{
 		{
 			"external cluster with https and api token",
-			humioClusterv1alpha1.HumioExternalCluster{
+			humiov1alpha1.HumioExternalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-1",
 					Namespace: "namespace-1",
 				},
-				Spec: humioClusterv1alpha1.HumioExternalClusterSpec{
+				Spec: humiov1alpha1.HumioExternalClusterSpec{
 					Url:                "https://humio-1.example.com/",
 					APITokenSecretName: "cluster-1-admin-token",
 				},
@@ -215,12 +231,12 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 		},
 		{
 			"external cluster with insecure https and api token",
-			humioClusterv1alpha1.HumioExternalCluster{
+			humiov1alpha1.HumioExternalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-2",
 					Namespace: "namespace-2",
 				},
-				Spec: humioClusterv1alpha1.HumioExternalClusterSpec{
+				Spec: humiov1alpha1.HumioExternalClusterSpec{
 					Url:                "https://humio-2.example.com/",
 					APITokenSecretName: "cluster-2-admin-token",
 					Insecure:           true,
@@ -230,12 +246,12 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 		},
 		{
 			"external cluster with http url and api token",
-			humioClusterv1alpha1.HumioExternalCluster{
+			humiov1alpha1.HumioExternalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-3",
 					Namespace: "namespace-3",
 				},
-				Spec: humioClusterv1alpha1.HumioExternalClusterSpec{
+				Spec: humiov1alpha1.HumioExternalClusterSpec{
 					Url:                "http://humio-3.example.com/",
 					APITokenSecretName: "cluster-3-admin-token",
 					Insecure:           true,
@@ -245,12 +261,12 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 		},
 		{
 			"external cluster with secure http url",
-			humioClusterv1alpha1.HumioExternalCluster{
+			humiov1alpha1.HumioExternalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-4",
 					Namespace: "namespace-4",
 				},
-				Spec: humioClusterv1alpha1.HumioExternalClusterSpec{
+				Spec: humiov1alpha1.HumioExternalClusterSpec{
 					Url:                "http://humio-4.example.com/",
 					APITokenSecretName: "cluster-4-admin-token",
 					Insecure:           false,
@@ -260,12 +276,12 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 		},
 		{
 			"external cluster with https url but no api token",
-			humioClusterv1alpha1.HumioExternalCluster{
+			humiov1alpha1.HumioExternalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-5",
 					Namespace: "namespace-5",
 				},
-				Spec: humioClusterv1alpha1.HumioExternalClusterSpec{
+				Spec: humiov1alpha1.HumioExternalClusterSpec{
 					Url: "https://humio-5.example.com/",
 				},
 			},
@@ -274,12 +290,12 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 
 		{
 			"external cluster with http url but no api token",
-			humioClusterv1alpha1.HumioExternalCluster{
+			humiov1alpha1.HumioExternalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-6",
 					Namespace: "namespace-6",
 				},
-				Spec: humioClusterv1alpha1.HumioExternalClusterSpec{
+				Spec: humiov1alpha1.HumioExternalClusterSpec{
 					Url: "http://humio-6.example.com/",
 				},
 			},
@@ -287,12 +303,12 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 		},
 		{
 			"external cluster with https url, api token and custom ca certificate",
-			humioClusterv1alpha1.HumioExternalCluster{
+			humiov1alpha1.HumioExternalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-7",
 					Namespace: "namespace-7",
 				},
-				Spec: humioClusterv1alpha1.HumioExternalClusterSpec{
+				Spec: humiov1alpha1.HumioExternalClusterSpec{
 					Url:                "https://humio-7.example.com/",
 					APITokenSecretName: "cluster-7-admin-token",
 					CASecretName:       "cluster-7-ca-secret",
@@ -302,12 +318,12 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 		},
 		{
 			"external cluster with http url, api token and custom ca certificate",
-			humioClusterv1alpha1.HumioExternalCluster{
+			humiov1alpha1.HumioExternalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cluster-8",
 					Namespace: "namespace-8",
 				},
-				Spec: humioClusterv1alpha1.HumioExternalClusterSpec{
+				Spec: humiov1alpha1.HumioExternalClusterSpec{
 					Url:                "http://humio-8.example.com/",
 					APITokenSecretName: "cluster-8-admin-token",
 					CASecretName:       "cluster-8-ca-secret",
@@ -351,7 +367,7 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 			}
 			// Register operator types with the runtime scheme.
 			s := scheme.Scheme
-			s.AddKnownTypes(humioClusterv1alpha1.SchemeGroupVersion, &tt.externalHumioCluster)
+			s.AddKnownTypes(humiov1alpha1.GroupVersion, &tt.externalHumioCluster)
 
 			cl := fake.NewFakeClient(objs...)
 
@@ -438,19 +454,19 @@ func TestCluster_NewCluster(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			managedHumioCluster := humioClusterv1alpha1.HumioCluster{
+			managedHumioCluster := humiov1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "managed",
 					Namespace: "default",
 				},
-				Spec: humioClusterv1alpha1.HumioClusterSpec{},
+				Spec: humiov1alpha1.HumioClusterSpec{},
 			}
-			externalHumioCluster := humioClusterv1alpha1.HumioExternalCluster{
+			externalHumioCluster := humiov1alpha1.HumioExternalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "external",
 					Namespace: "default",
 				},
-				Spec: humioClusterv1alpha1.HumioExternalClusterSpec{
+				Spec: humiov1alpha1.HumioExternalClusterSpec{
 					Url:                "https://127.0.0.1/",
 					APITokenSecretName: "managed-admin-token",
 					Insecure:           false,
@@ -473,8 +489,8 @@ func TestCluster_NewCluster(t *testing.T) {
 			}
 			// Register operator types with the runtime scheme.
 			s := scheme.Scheme
-			s.AddKnownTypes(humioClusterv1alpha1.SchemeGroupVersion, &managedHumioCluster)
-			s.AddKnownTypes(humioClusterv1alpha1.SchemeGroupVersion, &externalHumioCluster)
+			s.AddKnownTypes(humiov1alpha1.GroupVersion, &managedHumioCluster)
+			s.AddKnownTypes(humiov1alpha1.GroupVersion, &externalHumioCluster)
 
 			cl := fake.NewFakeClient(objs...)
 

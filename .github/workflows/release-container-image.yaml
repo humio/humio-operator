@@ -3,7 +3,7 @@ on:
     branches:
     - master
     paths:
-    - version/version.go
+    - VERSION
 name: Publish Container Image Release
 jobs:
   build-and-publish:
@@ -13,25 +13,26 @@ jobs:
     - uses: actions/checkout@v2
     - name: Get release version
       id: get_version
-      run: echo ::set-env name=RELEASE_VERSION::$(grep "Version =" version/version.go | awk -F'"' '{print $2}')
-    - name: docker login
-      env:
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      run:  echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+      run: echo ::set-env name=RELEASE_VERSION::$(cat VERSION)
+    - name: Login to DockerHub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
     - name: operator-sdk build
       env:
         GO111MODULE: "on"
       uses: ./.github/action/operator-sdk
       with:
-        args: operator-sdk build --image-build-args "--label version=${{ env.RELEASE_VERSION }} --label release=${{github.run_id}}" humio/humio-operator:${{ env.RELEASE_VERSION }}
+        args: make docker-build-operator IMG=humio/humio-operator:${{ env.RELEASE_VERSION }} IMG_BUILD_ARGS="--label version=${{ env.RELEASE_VERSION }} --label release=${{github.run_id}}"
     - name: docker push
-      run:  docker push humio/humio-operator:${{ env.RELEASE_VERSION }}
+      run:  make docker-push IMG=humio/humio-operator:${{ env.RELEASE_VERSION }}
     - name: redhat scan login
-      env:
-        RH_SCAN_KEY: ${{ secrets.RH_SCAN_HUMIO_OPERATOR_KEY }}
-        RH_SCAN_OSPID: ${{ secrets.RH_SCAN_HUMIO_OPERATOR_OSPID }}
-      run:  echo $RH_SCAN_KEY | docker login -u unused scan.connect.redhat.com --password-stdin
+      uses: docker/login-action@v1
+      with:
+        registry: scan.connect.redhat.com
+        username: unused
+        password: ${{ secrets.RH_SCAN_HUMIO_OPERATOR_KEY }}
     - name: redhat scan tag
       env:
         RH_SCAN_OSPID: ${{ secrets.RH_SCAN_HUMIO_OPERATOR_OSPID }}
@@ -39,7 +40,7 @@ jobs:
     - name: redhat scan push
       env:
         RH_SCAN_OSPID: ${{ secrets.RH_SCAN_HUMIO_OPERATOR_OSPID }}
-      run: docker push scan.connect.redhat.com/$RH_SCAN_OSPID/humio-operator:${{ env.RELEASE_VERSION }}
+      run: make docker-push IMG=scan.connect.redhat.com/$RH_SCAN_OSPID/humio-operator:${{ env.RELEASE_VERSION }}
     - name: operator-courier push
       env:
         GO111MODULE: "on"
@@ -55,7 +56,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: Get release version
         id: get_version
-        run: echo ::set-env name=RELEASE_VERSION::$(grep "Version =" version/version.go | awk -F'"' '{print $2}')
+        run: echo ::set-env name=RELEASE_VERSION::$(cat VERSION)
       - uses: actions/create-release@latest
         id: create_release
         env:
