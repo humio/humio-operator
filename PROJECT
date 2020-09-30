@@ -1,0 +1,23 @@
+domain: humio.com
+layout: go.kubebuilder.io/v2
+projectName: humio-operator
+repo: github.com/humio/humio-operator
+resources:
+- group: core
+  kind: HumioExternalCluster
+  version: v1alpha1
+- group: core
+  kind: HumioCluster
+  version: v1alpha1
+- group: core
+  kind: HumioIngestToken
+  version: v1alpha1
+- group: core
+  kind: HumioParser
+  version: v1alpha1
+- group: core
+  kind: HumioRepository
+  version: v1alpha1
+version: 3-alpha
+plugins:
+  go.sdk.operatorframework.io/v2-alpha: {}

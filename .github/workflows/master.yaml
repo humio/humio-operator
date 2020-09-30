@@ -20,27 +20,25 @@ jobs:
         GO111MODULE: "on"
       uses: ./.github/action/operator-sdk
       with:
-        args: operator-sdk build humio/humio-operator:master
-    - name: docker login
-      env:
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      run:  echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+        args: make docker-build-operator IMG=humio/humio-operator:master
+    - name: Login to DockerHub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
     - name: docker push
-      run: docker push humio/humio-operator:master
+      run: make docker-push IMG=humio/humio-operator:master
   build-and-publish-helper:
     name: Build and Publish Helperimage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: copy license
-        run: cp ./LICENSE images/helper
       - name: docker build
-        run: docker build -t humio/humio-operator-helper:master images/helper
-      - name: docker login
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        run:  echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+        run: make docker-build-helper IMG=humio/humio-operator-helper:master
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
       - name: docker push
-        run: docker push humio/humio-operator-helper:master
+        run: make docker-push IMG=humio/humio-operator-helper:master

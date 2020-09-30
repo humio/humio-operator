@@ -1,10 +1,26 @@
+/*
+Copyright 2020 Humio https://humio.com
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package humio
 
 import (
 	"fmt"
 
 	humioapi "github.com/humio/cli/api"
-	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
 )
 
@@ -125,7 +141,7 @@ func (h *MockClientConfig) GetIngestPartitions() (*[]humioapi.IngestPartition, e
 	return &h.apiClient.Cluster.IngestPartitions, nil
 }
 
-func (h *MockClientConfig) GetBaseURL(hc *corev1alpha1.HumioCluster) string {
+func (h *MockClientConfig) GetBaseURL(hc *humiov1alpha1.HumioCluster) string {
 	return fmt.Sprintf("http://%s.%s:%d/", hc.Name, hc.Namespace, 8080)
 }
 
@@ -133,7 +149,7 @@ func (h *MockClientConfig) TestAPIToken() error {
 	return nil
 }
 
-func (h *MockClientConfig) AddIngestToken(hit *corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
+func (h *MockClientConfig) AddIngestToken(hit *humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
 	updatedApiClient := h.apiClient
 	updatedApiClient.IngestToken = humioapi.IngestToken{
 		Name:           hit.Spec.Name,
@@ -143,21 +159,21 @@ func (h *MockClientConfig) AddIngestToken(hit *corev1alpha1.HumioIngestToken) (*
 	return &h.apiClient.IngestToken, nil
 }
 
-func (h *MockClientConfig) GetIngestToken(hit *corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
+func (h *MockClientConfig) GetIngestToken(hit *humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
 	return &h.apiClient.IngestToken, nil
 }
 
-func (h *MockClientConfig) UpdateIngestToken(hit *corev1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
+func (h *MockClientConfig) UpdateIngestToken(hit *humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
 	return h.AddIngestToken(hit)
 }
 
-func (h *MockClientConfig) DeleteIngestToken(hit *corev1alpha1.HumioIngestToken) error {
+func (h *MockClientConfig) DeleteIngestToken(hit *humiov1alpha1.HumioIngestToken) error {
 	updatedApiClient := h.apiClient
 	updatedApiClient.IngestToken = humioapi.IngestToken{}
 	return nil
 }
 
-func (h *MockClientConfig) AddParser(hp *corev1alpha1.HumioParser) (*humioapi.Parser, error) {
+func (h *MockClientConfig) AddParser(hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
 	updatedApiClient := h.apiClient
 	updatedApiClient.Parser = humioapi.Parser{
 		Name:      hp.Spec.Name,
@@ -168,21 +184,21 @@ func (h *MockClientConfig) AddParser(hp *corev1alpha1.HumioParser) (*humioapi.Pa
 	return &h.apiClient.Parser, nil
 }
 
-func (h *MockClientConfig) GetParser(hp *corev1alpha1.HumioParser) (*humioapi.Parser, error) {
+func (h *MockClientConfig) GetParser(hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
 	return &h.apiClient.Parser, nil
 }
 
-func (h *MockClientConfig) UpdateParser(hp *corev1alpha1.HumioParser) (*humioapi.Parser, error) {
+func (h *MockClientConfig) UpdateParser(hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
 	return h.AddParser(hp)
 }
 
-func (h *MockClientConfig) DeleteParser(hp *corev1alpha1.HumioParser) error {
+func (h *MockClientConfig) DeleteParser(hp *humiov1alpha1.HumioParser) error {
 	updatedApiClient := h.apiClient
 	updatedApiClient.Parser = humioapi.Parser{Tests: []humioapi.ParserTestCase{}}
 	return nil
 }
 
-func (h *MockClientConfig) AddRepository(hr *corev1alpha1.HumioRepository) (*humioapi.Repository, error) {
+func (h *MockClientConfig) AddRepository(hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
 	updatedApiClient := h.apiClient
 	updatedApiClient.Repository = humioapi.Repository{
 		Name:                   hr.Spec.Name,
@@ -194,15 +210,15 @@ func (h *MockClientConfig) AddRepository(hr *corev1alpha1.HumioRepository) (*hum
 	return &h.apiClient.Repository, nil
 }
 
-func (h *MockClientConfig) GetRepository(hr *corev1alpha1.HumioRepository) (*humioapi.Repository, error) {
+func (h *MockClientConfig) GetRepository(hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
 	return &h.apiClient.Repository, nil
 }
 
-func (h *MockClientConfig) UpdateRepository(hr *corev1alpha1.HumioRepository) (*humioapi.Repository, error) {
+func (h *MockClientConfig) UpdateRepository(hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
 	return h.AddRepository(hr)
 }
 
-func (h *MockClientConfig) DeleteRepository(hr *corev1alpha1.HumioRepository) error {
+func (h *MockClientConfig) DeleteRepository(hr *humiov1alpha1.HumioRepository) error {
 	updatedApiClient := h.apiClient
 	updatedApiClient.Repository = humioapi.Repository{}
 	return nil
