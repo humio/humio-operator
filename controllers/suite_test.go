@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
@@ -33,10 +35,12 @@ import (
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 	"testing"
 	"time"
 
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -44,10 +48,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -72,11 +72,11 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(done Done) {
-	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
-
-	// TODO: Figure out if we *really* want to keep zap
-	logger, _ := uberzap.NewProduction()
-	defer logger.Sync()
+	var log logr.Logger
+	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+	defer zapLog.Sync()
+	log = zapr.NewLogger(zapLog)
+	logf.SetLogger(log)
 
 	By("bootstrapping test environment")
 	useExistingCluster := true
@@ -85,7 +85,7 @@ var _ = BeforeSuite(func(done Done) {
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &useExistingCluster,
 		}
-		humioClient = humio.NewClient(logger.Sugar(), &humioapi.Config{})
+		humioClient = humio.NewClient(log, &humioapi.Config{})
 	} else {
 		testTimeout = time.Second * 30
 		testEnv = &envtest.Environment{
@@ -127,11 +127,12 @@ var _ = BeforeSuite(func(done Done) {
 		Scheme:             scheme.Scheme,
 		MetricsBindAddress: "0",
 		Namespace:          watchNamespace,
+		Logger:             log,
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
 	if strings.Contains(watchNamespace, ",") {
-		logger.Info(fmt.Sprintf("manager will be watching namespace %q", watchNamespace))
+		log.Info(fmt.Sprintf("manager will be watching namespace %q", watchNamespace))
 		// configure cluster-scoped with MultiNamespacedCacheBuilder
 		options.Namespace = ""
 		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(watchNamespace, ","))

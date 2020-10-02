@@ -652,24 +652,24 @@ func podSpecAsSHA256(hc *humiov1alpha1.HumioCluster, sourcePod corev1.Pod) strin
 func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha1.HumioCluster, attachments *podAttachments) error {
 	podName, err := findHumioNodeName(ctx, r, hc)
 	if err != nil {
-		r.logger.Errorf("unable to find pod name for HumioCluster: %s", err)
+		r.Log.Error(err, "unable to find pod name")
 		return err
 	}
 
 	pod, err := constructPod(hc, podName, attachments)
 	if err != nil {
-		r.logger.Errorf("unable to construct pod for HumioCluster: %s", err)
+		r.Log.Error(err, "unable to construct pod")
 		return err
 	}
 
 	if err := controllerutil.SetControllerReference(hc, pod, r.Scheme); err != nil {
-		r.logger.Errorf("could not set controller reference: %s", err)
+		r.Log.Error(err, "could not set controller reference")
 		return err
 	}
-	r.logger.Debugf("pod %s will use volume source %+v", pod.Name, volumeSource)
+	r.Log.Info(fmt.Sprintf("pod %s will use attachments %+v", pod.Name, attachments))
 	pod.Annotations[podHashAnnotation] = podSpecAsSHA256(hc, *pod)
 	if err := controllerutil.SetControllerReference(hc, pod, r.Scheme); err != nil {
-		r.logger.Errorf("could not set controller reference: %s", err)
+		r.Log.Error(err, "could not set controller reference")
 		return err
 	}
 
@@ -677,18 +677,18 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 	if err != nil {
 		return err
 	}
-	r.logger.Infof("setting pod %s revision to %d", pod.Name, podRevision)
+	r.Log.Info(fmt.Sprintf("setting pod %s revision to %d", pod.Name, podRevision))
 	err = r.setPodRevision(pod, podRevision)
 	if err != nil {
 		return err
 	}
 
-	r.logger.Infof("creating pod %s", pod.Name)
+	r.Log.Info(fmt.Sprintf("creating pod %s", pod.Name))
 	err = r.Create(ctx, pod)
 	if err != nil {
 		return err
 	}
-	r.logger.Infof("successfully created pod %s for HumioCluster %s", pod.Name, hc.Name)
+	r.Log.Info(fmt.Sprintf("successfully created pod %s", pod.Name))
 	return nil
 }
 
@@ -698,7 +698,7 @@ func (r *HumioClusterReconciler) waitForNewPod(hc *humiov1alpha1.HumioCluster, e
 		if err != nil {
 			return err
 		}
-		r.logger.Infof("validating new pod was created. expected pod count %d, current pod count %d", expectedPodCount, len(latestPodList))
+		r.Log.Info(fmt.Sprintf("validating new pod was created. expected pod count %d, current pod count %d", expectedPodCount, len(latestPodList)))
 		if len(latestPodList) >= expectedPodCount {
 			return nil
 		}
@@ -709,11 +709,9 @@ func (r *HumioClusterReconciler) waitForNewPod(hc *humiov1alpha1.HumioCluster, e
 
 func (r *HumioClusterReconciler) podsMatch(hc *humiov1alpha1.HumioCluster, pod corev1.Pod, desiredPod corev1.Pod) (bool, error) {
 	if _, ok := pod.Annotations[podHashAnnotation]; !ok {
-		r.logger.Errorf("did not find annotation with pod hash")
 		return false, fmt.Errorf("did not find annotation with pod hash")
 	}
 	if _, ok := pod.Annotations[podRevisionAnnotation]; !ok {
-		r.logger.Errorf("did not find annotation with pod revision")
 		return false, fmt.Errorf("did not find annotation with pod revision")
 	}
 	var specMatches bool
@@ -735,11 +733,11 @@ func (r *HumioClusterReconciler) podsMatch(hc *humiov1alpha1.HumioCluster, pod c
 		revisionMatches = true
 	}
 	if !specMatches {
-		r.logger.Infof("pod annotation %s does not match desired pod: got %+v, expected %+v", podHashAnnotation, pod.Annotations[podHashAnnotation], desiredPodHash)
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", podHashAnnotation, pod.Annotations[podHashAnnotation], desiredPodHash))
 		return false, nil
 	}
 	if !revisionMatches {
-		r.logger.Infof("pod annotation %s does not match desired pod: got %+v, expected %+v", podRevisionAnnotation, pod.Annotations[podRevisionAnnotation], desiredPod.Annotations[podRevisionAnnotation])
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", podRevisionAnnotation, pod.Annotations[podRevisionAnnotation], desiredPod.Annotations[podRevisionAnnotation]))
 		return false, nil
 	}
 	return true, nil
@@ -775,11 +773,11 @@ func (r *HumioClusterReconciler) podsReady(foundPodList []corev1.Pod) (int, int)
 			for _, condition := range pod.Status.Conditions {
 				if condition.Type == "Ready" {
 					if condition.Status == "True" {
-						r.logger.Debugf("pod %s is ready", pod.Name)
+						r.Log.Info(fmt.Sprintf("pod %s is ready", pod.Name))
 						podsReadyCount++
 						podsNotReadyCount--
 					} else {
-						r.logger.Debugf("pod %s is not ready", pod.Name)
+						r.Log.Info(fmt.Sprintf("pod %s is not ready", pod.Name))
 					}
 				}
 			}
@@ -799,19 +797,19 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hc *humiov1alpha1.H
 
 			desiredPod, err := constructPod(hc, "", attachments)
 			if err != nil {
-				r.logger.Errorf("could not construct pod: %s", err)
+				r.Log.Error(err, "could not construct pod")
 				return podLifecycleState{}, err
 			}
 
 			podsMatchTest, err := r.podsMatch(hc, pod, *desiredPod)
 			if err != nil {
-				r.logger.Errorf("failed to check if pods match %s", err)
+				r.Log.Error(err, "failed to check if pods match")
 			}
 			if !podsMatchTest {
 				// TODO: figure out if we should only allow upgrades and not downgrades
 				restartPolicy, err := r.getRestartPolicyFromPodInspection(pod, *desiredPod)
 				if err != nil {
-					r.logger.Errorf("could not get restart policy for HumioCluster: %s", err)
+					r.Log.Error(err, "could not get restart policy")
 					return podLifecycleState{}, err
 				}
 				return podLifecycleState{
@@ -881,7 +879,7 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hc *humi
 	if err != nil {
 		return &podAttachments{}, fmt.Errorf("problem getting pvc list: %s", err)
 	}
-	r.logger.Debugf("attempting to get volume source, pvc count is %d, pod count is %d", len(pvcList), len(foundPodList))
+	r.Log.Info(fmt.Sprintf("attempting to get volume source, pvc count is %d, pod count is %d", len(pvcList), len(foundPodList)))
 	volumeSource, err := volumeSource(hc, foundPodList, pvcList)
 	if err != nil {
 		return &podAttachments{}, fmt.Errorf("unable to construct data volume source for HumioCluster: %s", err)
