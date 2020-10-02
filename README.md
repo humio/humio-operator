@@ -43,16 +43,22 @@ We use [kind](https://kind.sigs.k8s.io/) for local testing.
 
 Note that for running zookeeper and kafka locally, we currently rely on the [cp-helm-charts](https://github.com/humio/cp-helm-charts) and that that repository is cloned into a directory `~/git/humio-cp-helm-charts`.
 
-To run a e2e test locally using `kind`, execute:
+To run a E2E tests locally using `kind`, execute:
 
 ```bash
 make run-e2e-tests-local-kind
 ```
 
-To stop the `kind` cluster again, execute:
+We also have a script to start up `kind` cluster, deploy to it with Helm and spin up a basic Humio cluster:
 
 ```bash
-hack/stop-kind.sh
+hack/test-helm-chart-crc.sh
+```
+
+To delete the `kind` cluster again, execute:
+
+```bash
+hack/stop-kind-cluster.sh
 ```
 
 ### E2E Testing (OpenShift)
@@ -67,16 +73,22 @@ Prerequisites:
 - Populate a file named `.crc-pull-secret.txt` in the root of the repository with your pull secret for `crc`.
 
 
-To run a e2e test locally using `crc`, execute:
+To run a e2e tests locally using `crc`, execute:
 
 ```bash
 make run-e2e-tests-local-crc
 ```
 
-To stop the `crc` cluster again, execute:
+We also provide a script to start up `crc` cluster, deploy to it with Helm and spin up a basic Humio cluster:
 
 ```bash
-hack/stop-crc.sh
+hack/test-helm-chart-crc.sh
+```
+
+To delete the `crc` cluster again, execute:
+
+```bash
+hack/stop-crc-cluster.sh
 ```
 
 ## Publishing new releases
