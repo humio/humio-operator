@@ -41,14 +41,15 @@ jobs:
       env:
         RH_SCAN_OSPID: ${{ secrets.RH_SCAN_HUMIO_OPERATOR_OSPID }}
       run: make docker-push IMG=scan.connect.redhat.com/$RH_SCAN_OSPID/humio-operator:${{ env.RELEASE_VERSION }}
-    - name: operator-courier push
-      env:
-        GO111MODULE: "on"
-        QUAY_ACCESS_TOKEN: ${{ secrets.QUAY_ACCESS_TOKEN }}
-        QUAY_NAMESPACE: ${{ secrets.QUAY_NAMESPACE }}
-      uses: ./.github/action/operator-sdk
-      with:
-        args: operator-courier push deploy/olm-catalog/humio-operator ${{ env.QUAY_NAMESPACE }} humio-operator ${{ env.RELEASE_VERSION }} "basic ${{ env.QUAY_ACCESS_TOKEN }}"
+# Disable olm push until we have a new bundle
+#    - name: operator-courier push
+#      env:
+#        GO111MODULE: "on"
+#        QUAY_ACCESS_TOKEN: ${{ secrets.QUAY_ACCESS_TOKEN }}
+#        QUAY_NAMESPACE: ${{ secrets.QUAY_NAMESPACE }}
+#      uses: ./.github/action/operator-sdk
+#      with:
+#        args: operator-courier push deploy/olm-catalog/humio-operator ${{ env.QUAY_NAMESPACE }} humio-operator ${{ env.RELEASE_VERSION }} "basic ${{ env.QUAY_ACCESS_TOKEN }}"
   gh-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest

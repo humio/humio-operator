@@ -9,12 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: operator-sdk lint
-      env:
-        GO111MODULE: "on"
-      uses: ./.github/action/operator-sdk
-      with:
-        args: operator-courier --verbose verify --ui_validate_io deploy/olm-catalog/humio-operator
+# Disable olm checks until we have a new bundle we want to validate against
+#    - name: operator-sdk lint
+#      env:
+#        GO111MODULE: "on"
+#      uses: ./.github/action/operator-sdk
+#      with:
+#        args: operator-courier --verbose verify --ui_validate_io deploy/olm-catalog/humio-operator
     - name: operator-sdk build
       env:
         GO111MODULE: "on"
