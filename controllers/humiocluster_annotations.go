@@ -40,7 +40,7 @@ func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Co
 		return -1, err
 	}
 	newRevision++
-	r.logger.Infof("setting cluster pod revision to %d", newRevision)
+	r.Log.Info(fmt.Sprintf("setting cluster pod revision to %d", newRevision))
 	hc.Annotations[podRevisionAnnotation] = strconv.Itoa(newRevision)
 
 	r.setRestartPolicy(hc, restartPolicy)
@@ -84,6 +84,6 @@ func (r *HumioClusterReconciler) setPodRevision(pod *corev1.Pod, newRevision int
 }
 
 func (r *HumioClusterReconciler) setRestartPolicy(hc *humiov1alpha1.HumioCluster, policy string) {
-	r.logger.Infof("setting HumioCluster annotation %s to %s", podRestartPolicyAnnotation, policy)
+	r.Log.Info(fmt.Sprintf("setting HumioCluster annotation %s to %s", podRestartPolicyAnnotation, policy))
 	hc.Annotations[podRestartPolicyAnnotation] = policy
 }

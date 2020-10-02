@@ -17,12 +17,13 @@ limitations under the License.
 package humio
 
 import (
+	"github.com/go-logr/zapr"
+	uberzap "go.uber.org/zap"
 	"reflect"
 	"testing"
 
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"go.uber.org/zap"
 )
 
 func TestClusterController_AreAllRegisteredNodesAvailable(t *testing.T) {
@@ -462,12 +463,12 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewProduction()
-			defer logger.Sync()
+			zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+			defer zapLog.Sync()
 
 			c := &ClusterController{
 				client: tt.fields.client,
-				logger: logger.Sugar().With("tt.name", tt.name),
+				logger: zapr.NewLogger(zapLog).WithValues("tt.name", tt.name),
 			}
 			got, err := c.AreStoragePartitionsBalanced(tt.args.hc)
 			if (err != nil) != tt.wantErr {
@@ -553,12 +554,12 @@ func TestClusterController_RebalanceStoragePartitions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewProduction()
-			defer logger.Sync() // flushes buffer, if any
+			zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+			defer zapLog.Sync()
 
 			c := &ClusterController{
 				client: tt.fields.client,
-				logger: logger.Sugar().With("tt.name", tt.name),
+				logger: zapr.NewLogger(zapLog).WithValues("tt.name", tt.name),
 			}
 			if err := c.RebalanceStoragePartitions(tt.args.hc); (err != nil) != tt.wantErr {
 				t.Errorf("ClusterController.RebalanceStoragePartitions() error = %v, wantErr %v", err, tt.wantErr)
@@ -754,12 +755,12 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewProduction()
-			defer logger.Sync()
+			zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+			defer zapLog.Sync()
 
 			c := &ClusterController{
 				client: tt.fields.client,
-				logger: logger.Sugar().With("tt.name", tt.name),
+				logger: zapr.NewLogger(zapLog).WithValues("tt.name", tt.name),
 			}
 			got, err := c.AreIngestPartitionsBalanced(tt.args.hc)
 			if (err != nil) != tt.wantErr {
@@ -845,12 +846,12 @@ func TestClusterController_RebalanceIngestPartitions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, _ := zap.NewProduction()
-			defer logger.Sync() // flushes buffer, if any
+			zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+			defer zapLog.Sync()
 
 			c := &ClusterController{
 				client: tt.fields.client,
-				logger: logger.Sugar().With("tt.name", tt.name),
+				logger: zapr.NewLogger(zapLog).WithValues("tt.name", tt.name),
 			}
 			if err := c.RebalanceIngestPartitions(tt.args.hc); (err != nil) != tt.wantErr {
 				t.Errorf("ClusterController.RebalanceIngestPartitions() error = %v, wantErr %v", err, tt.wantErr)

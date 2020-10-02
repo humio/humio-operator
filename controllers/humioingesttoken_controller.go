@@ -19,23 +19,20 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
-	"go.uber.org/zap"
+	uberzap "go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
-
-	"github.com/go-logr/logr"
-	//"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/humio"
@@ -46,8 +43,7 @@ const humioFinalizer = "finalizer.humio.com" // TODO: Not only used for ingest t
 // HumioIngestTokenReconciler reconciles a HumioIngestToken object
 type HumioIngestTokenReconciler struct {
 	client.Client
-	Log         logr.Logger // TODO: Migrate to *zap.SugaredLogger
-	logger      *zap.SugaredLogger
+	Log         logr.Logger
 	Scheme      *runtime.Scheme
 	HumioClient humio.Client
 }
@@ -57,11 +53,10 @@ type HumioIngestTokenReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 
 func (r *HumioIngestTokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	logger, _ := zap.NewProduction()
-	defer logger.Sync()
-	r.logger = logger.Sugar().With("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
-	r.logger.Info("Reconciling HumioIngestToken")
-	// TODO: Add back controllerutil.SetControllerReference everywhere we create k8s objects
+	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+	defer zapLog.Sync()
+	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
+	r.Log.Info("Reconciling HumioIngestToken")
 
 	// Fetch the HumioIngestToken instance
 	hit := &humiov1alpha1.HumioIngestToken{}
@@ -91,38 +86,38 @@ func (r *HumioIngestTokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		r.setState(ctx, humiov1alpha1.HumioIngestTokenStateNotFound, hit)
 	}(context.TODO(), r.HumioClient, hit)
 
-	r.logger.Info("Checking if ingest token is marked to be deleted")
+	r.Log.Info("Checking if ingest token is marked to be deleted")
 	// Check if the HumioIngestToken instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
 	isHumioIngestTokenMarkedToBeDeleted := hit.GetDeletionTimestamp() != nil
 	if isHumioIngestTokenMarkedToBeDeleted {
-		r.logger.Info("Ingest token marked to be deleted")
+		r.Log.Info("Ingest token marked to be deleted")
 		if helpers.ContainsElement(hit.GetFinalizers(), humioFinalizer) {
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
-			r.logger.Info("Ingest token contains finalizer so run finalizer method")
+			r.Log.Info("Ingest token contains finalizer so run finalizer method")
 			if err := r.finalize(hit); err != nil {
-				r.logger.Infof("Finalizer method returned error: %v", err)
+				r.Log.Error(err, "Finalizer method returned error")
 				return reconcile.Result{}, err
 			}
 
 			// Remove humioFinalizer. Once all finalizers have been
 			// removed, the object will be deleted.
-			r.logger.Info("Finalizer done. Removing finalizer")
+			r.Log.Info("Finalizer done. Removing finalizer")
 			hit.SetFinalizers(helpers.RemoveElement(hit.GetFinalizers(), humioFinalizer))
 			err := r.Update(context.TODO(), hit)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			r.logger.Info("Finalizer removed successfully")
+			r.Log.Info("Finalizer removed successfully")
 		}
 		return reconcile.Result{}, nil
 	}
 
 	// Add finalizer for this CR
 	if !helpers.ContainsElement(hit.GetFinalizers(), humioFinalizer) {
-		r.logger.Info("Finalizer not present, adding finalizer to ingest token")
+		r.Log.Info("Finalizer not present, adding finalizer to ingest token")
 		if err := r.addFinalizer(hit); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -130,21 +125,21 @@ func (r *HumioIngestTokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 
 	cluster, err := helpers.NewCluster(context.TODO(), r, hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName, hit.Namespace, helpers.UseCertManager())
 	if err != nil || cluster.Config() == nil {
-		r.logger.Errorf("unable to obtain humio client config: %s", err)
+		r.Log.Error(err, "unable to obtain humio client config")
 		return reconcile.Result{}, err
 	}
 
 	err = r.HumioClient.Authenticate(cluster.Config())
 	if err != nil {
-		r.logger.Warnf("unable to authenticate humio client: %s", err)
+		r.Log.Error(err, "unable to authenticate humio client")
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 	}
 
 	// Get current ingest token
-	r.logger.Info("get current ingest token")
+	r.Log.Info("get current ingest token")
 	curToken, err := r.HumioClient.GetIngestToken(hit)
 	if err != nil {
-		r.logger.Infof("could not check if ingest token exists in repo %s: %+v", hit.Spec.RepositoryName, err)
+		r.Log.Error(err, "could not check if ingest token exists", "Repository.Name", hit.Spec.RepositoryName)
 		return reconcile.Result{}, fmt.Errorf("could not check if ingest token exists: %s", err)
 	}
 	// If token doesn't exist, the Get returns: nil, err.
@@ -152,20 +147,20 @@ func (r *HumioIngestTokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	// TODO: change the way we do errors from the API so we can get rid of this hack
 	emptyToken := humioapi.IngestToken{}
 	if emptyToken == *curToken {
-		r.logger.Info("ingest token doesn't exist. Now adding ingest token")
+		r.Log.Info("ingest token doesn't exist. Now adding ingest token")
 		// create token
 		_, err := r.HumioClient.AddIngestToken(hit)
 		if err != nil {
-			r.logger.Info("could not create ingest token: %s", err)
+			r.Log.Error(err, "could not create ingest token")
 			return reconcile.Result{}, fmt.Errorf("could not create ingest token: %s", err)
 		}
-		r.logger.Infof("created ingest token: %s", hit.Spec.Name)
+		r.Log.Info("created ingest token")
 		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Trigger update if parser name changed
 	if curToken.AssignedParser != hit.Spec.ParserName {
-		r.logger.Infof("parser name differs, triggering update, parser should be %s but got %s", hit.Spec.ParserName, curToken.AssignedParser)
+		r.Log.Info("parser name differs, triggering update", "Expected", hit.Spec.ParserName, "Got", curToken.AssignedParser)
 		_, updateErr := r.HumioClient.UpdateIngestToken(hit)
 		if updateErr != nil {
 			return reconcile.Result{}, fmt.Errorf("could not update ingest token: %s", updateErr)
@@ -203,13 +198,13 @@ func (r *HumioIngestTokenReconciler) finalize(hit *humiov1alpha1.HumioIngestToke
 }
 
 func (r *HumioIngestTokenReconciler) addFinalizer(hit *humiov1alpha1.HumioIngestToken) error {
-	r.logger.Info("Adding Finalizer for the HumioIngestToken")
+	r.Log.Info("Adding Finalizer for the HumioIngestToken")
 	hit.SetFinalizers(append(hit.GetFinalizers(), humioFinalizer))
 
 	// Update CR
 	err := r.Update(context.TODO(), hit)
 	if err != nil {
-		r.logger.Error(err, "Failed to update HumioIngestToken with finalizer")
+		r.Log.Error(err, "Failed to update HumioIngestToken with finalizer")
 		return err
 	}
 	return nil
@@ -238,14 +233,14 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 			if err != nil {
 				return fmt.Errorf("unable to create ingest token secret for HumioIngestToken: %s", err)
 			}
-			r.logger.Infof("successfully created ingest token secret %s for HumioIngestToken %s", hit.Spec.TokenSecretName, hit.Name)
+			r.Log.Info("successfully created ingest token secret", "TokenSecretName", hit.Spec.TokenSecretName)
 			humioIngestTokenPrometheusMetrics.Counters.ServiceAccountSecretsCreated.Inc()
 		}
 	} else {
 		// kubernetes secret exists, check if we need to update it
-		r.logger.Infof("ingest token secret %s already exists for HumioIngestToken %s", hit.Spec.TokenSecretName, hit.Name)
+		r.Log.Info("ingest token secret already exists", "TokenSecretName", hit.Spec.TokenSecretName)
 		if string(existingSecret.Data["token"]) != string(desiredSecret.Data["token"]) {
-			r.logger.Infof("ingest token %s stored in secret %s does not match the token in Humio. Updating token for %s.", hit.Name, hit.Spec.TokenSecretName)
+			r.Log.Info("secret does not match the token in Humio. Updating token", "TokenSecretName", hit.Spec.TokenSecretName)
 			r.Update(ctx, desiredSecret)
 		}
 	}
