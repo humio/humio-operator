@@ -4,15 +4,14 @@ set -x
 
 echo "detected OSTYPE = $OSTYPE"
 
-operator-sdk generate crds
-export RELEASE_VERSION=$(grep "Version =" version/version.go | awk -F'"' '{print $2}')
-# TODO: Figure out what the sed command looks like on linux vs mac and if we even want to depend on gsed on mac's
+export RELEASE_VERSION=$(cat VERSION)
 
 echo "{{- if .Values.installCRDs -}}" > charts/humio-operator/templates/crds.yaml
-for c in $(find deploy/crds/ -iname '*crd.yaml'); do
-  echo "---" >> charts/humio-operator/templates/crds.yaml
+for c in $(find config/crd/bases/ -iname '*.yaml'); do
+  # Write base CRD to helm chart file
   cat $c >> charts/humio-operator/templates/crds.yaml
 
+  # Update base CRD's in-place with static values
   if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     sed -i "/^spec:/i \  labels:\n    app: 'humio-operator'\n    app.kubernetes.io/name: 'humio-operator'\n    app.kubernetes.io/instance: 'humio-operator'\n    app.kubernetes.io/managed-by: 'Helm'\n    helm.sh/chart: 'humio-operator-$RELEASE_VERSION'" $c
   elif [[ "$OSTYPE" == "darwin"* ]]; then
@@ -33,6 +32,7 @@ for c in $(find deploy/crds/ -iname '*crd.yaml'); do
 done
 echo "{{- end }}" >> charts/humio-operator/templates/crds.yaml
 
+# Update helm chart CRD's with additional chart install values.
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 	sed -i "/^spec:/i \  labels:\n    app: '{{ .Chart.Name }}'\n    app.kubernetes.io/name: '{{ .Chart.Name }}'\n    app.kubernetes.io/instance: '{{ .Release.Name }}'\n    app.kubernetes.io/managed-by: '{{ .Release.Service }}'\n    helm.sh/chart: '{{ template \"humio.chart\" . }}'" charts/humio-operator/templates/crds.yaml
 elif [[ "$OSTYPE" == "darwin"* ]]; then

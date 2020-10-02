@@ -1,0 +1,24 @@
+# permissions for end users to edit humioingesttokens.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: humioingesttoken-editor-role
+rules:
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioingesttokens
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioingesttokens/status
+  verbs:
+  - get

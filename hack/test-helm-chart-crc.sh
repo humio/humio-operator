@@ -4,72 +4,52 @@
 # The purpose of this script is to test the following process: #
 # 0. Delete existing OpenShift cluster with crc                #
 # 1. Spin up an OpenShift cluster with crc                     #
-# 2. Start up Kafka and Zookeeper                              #
+# 2. Start up cert-manager, Kafka and Zookeeper                #
 # 3. Install humio-operator using Helm                         #
-# 4. Create CR's to test the operator behaviour                #
+# 4. Create CR to test the operator behaviour                  #
 ################################################################
 
 # This script assumes you have installed the following tools:
 # - Git: https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
 # - Helm v3: https://helm.sh/docs/intro/install/
-# - Operator SDK: https://docs.openshift.com/container-platform/4.4/operators/operator_sdk/osdk-getting-started.html#osdk-installing-cli_osdk-getting-started
-# - OpenShift CLI: https://docs.openshift.com/container-platform/4.4/cli_reference/openshift_cli/getting-started-cli.html#installing-the-cli
+# - Operator SDK: https://docs.openshift.com/container-platform/4.5/operators/operator_sdk/osdk-getting-started.html#osdk-installing-cli_osdk-getting-started
+# - OpenShift CLI: https://docs.openshift.com/container-platform/4.5/cli_reference/openshift_cli/getting-started-cli.html#installing-the-cli
 # - Red Hat CodeReady Containers: https://developers.redhat.com/products/codeready-containers/overview
-#   - You have put a file named `.crc-pull-secret.txt` in the root of the humio-operator Git repository.
+#   - NOTE: You have put a file named `.crc-pull-secret.txt` in the root of the humio-operator Git repository.
 
 set -x
 
 declare -r operator_namespace=${NAMESPACE:-default}
-declare -r kubectl="oc --context default/api-crc-testing:6443/kube:admin"
+declare -r tmp_kubeconfig=$HOME/.crc/machines/crc/kubeconfig
+declare -r kubectl="oc --kubeconfig $tmp_kubeconfig"
 declare -r git_rev=$(git rev-parse --short HEAD)
 declare -r operator_image=humio/humio-operator:local-$git_rev
 declare -r helm_chart_dir=./charts/humio-operator
 declare -r helm_chart_values_file=values.yaml
+declare -r hack_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Clean up old stuff
-$kubectl delete humiocluster humiocluster-sample
-helm template humio ~/git/humio-cp-helm-charts --namespace=$operator_namespace --set cp-zookeeper.servers=1 --set cp-kafka.brokers=1 --set cp-schema-registry.enabled=false --set cp-kafka-rest.enabled=false --set cp-kafka-connect.enabled=false --set cp-ksql-server.enabled=false --set cp-control-center.enabled=false | $kubectl delete -f -
-$kubectl get pvc | grep -v ^NAME | cut -f1 -d' ' | xargs -I{} $kubectl delete pvc {}
-crc delete --force
+# Ensure we start from scratch
+source ${hack_dir}/delete-crc-cluster.sh
 
 # Wait a bit before we start everything up again
 sleep 5
 
-# Create new crc cluster, deploy Kafka and run operator
-crc setup
-crc start --pull-secret-file=.crc-pull-secret.txt --memory 20480 --cpus 6
-eval $(crc oc-env)
-eval $(crc console --credentials | grep "To login as an admin, run" | cut -f2 -d"'")
+# Create new crc cluster
+source ${hack_dir}/start-crc-cluster.sh
 
-# Pre-load confluent images
-#docker pull confluentinc/cp-enterprise-kafka:5.4.1
-#docker pull confluentinc/cp-zookeeper:5.4.1
-#docker pull docker.io/confluentinc/cp-enterprise-kafka:5.4.1
-#docker pull docker.io/confluentinc/cp-zookeeper:5.4.1
-#docker pull solsson/kafka-prometheus-jmx-exporter@sha256:6f82e2b0464f50da8104acd7363fb9b995001ddff77d248379f8788e78946143
-#oc import-image confluentinc/cp-enterprise-kafka:5.4.1
-#oc import-image docker.io/confluentinc/cp-zookeeper:5.4.1
-#oc import-image solsson/kafka-prometheus-jmx-exporter@sha256:6f82e2b0464f50da8104acd7363fb9b995001ddff77d248379f8788e78946143
-
-# Pre-load humio images
-#docker pull humio/humio-core:1.13.4
-#oc import-image humio/humio-core:1.13.4
-
-# Use helm 3 to start up Kafka and Zookeeper
-mkdir ~/git
-git clone https://github.com/humio/cp-helm-charts.git ~/git/humio-cp-helm-charts
-helm template humio ~/git/humio-cp-helm-charts --namespace=$operator_namespace --set cp-zookeeper.servers=1 --set cp-kafka.brokers=1 --set cp-schema-registry.enabled=false --set cp-kafka-rest.enabled=false --set cp-kafka-connect.enabled=false --set cp-ksql-server.enabled=false --set cp-control-center.enabled=false | $kubectl apply -f -
+# Use helm to install cert-manager, Kafka and Zookeeper
+source ${hack_dir}/install-helm-chart-dependencies-crc.sh
 
 # Create a CR instance of HumioCluster
 sleep 10
 
 # Ensure we use the most recent CRD's
-make crds
+make manifests
 
 # Build and pre-load the image into the cluster
-operator-sdk build humio/humio-operator:local-$git_rev
+make docker-build-operator IMG=$operator_image
 # TODO: Figure out how to use the image without pushing the image to Docker Hub
-docker push humio/humio-operator:local-$git_rev
+make docker-push IMG=$operator_image
 
 $kubectl create namespace $operator_namespace
 
@@ -82,11 +62,7 @@ helm upgrade --install humio-operator $helm_chart_dir \
 
 sleep 10
 
-$kubectl apply -f deploy/crds/core.humio.com_v1alpha1_humioexternalcluster_cr.yaml
-$kubectl apply -f deploy/crds/core.humio.com_v1alpha1_humiocluster_cr.yaml
-$kubectl apply -f deploy/crds/core.humio.com_v1alpha1_humioingesttoken_cr.yaml
-$kubectl apply -f deploy/crds/core.humio.com_v1alpha1_humioparser_cr.yaml
-$kubectl apply -f deploy/crds/core.humio.com_v1alpha1_humiorepository_cr.yaml
+$kubectl apply -f config/samples/core_v1alpha1_humiocluster.yaml
 
 while [[ $($kubectl get humiocluster example-humiocluster -o 'jsonpath={..status.state}') != "Running" ]]
 do

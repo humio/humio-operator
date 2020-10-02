@@ -1,5 +1,0 @@
-channels:
-- currentCSV: humio-operator.v0.0.8
-  name: alpha
-defaultChannel: alpha
-packageName: humio-operator

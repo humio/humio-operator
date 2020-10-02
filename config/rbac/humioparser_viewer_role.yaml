@@ -1,0 +1,20 @@
+# permissions for end users to view humioparsers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: humioparser-viewer-role
+rules:
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioparsers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioparsers/status
+  verbs:
+  - get

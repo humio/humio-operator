@@ -13,7 +13,6 @@ metadata:
     app.kubernetes.io/instance: '{{ .Release.Name }}'
     app.kubernetes.io/managed-by: '{{ .Release.Service }}'
     helm.sh/chart: '{{ template "humio.chart" . }}'
-    operator-sdk-test-scope: 'per-test'
 spec:
   replicas: 1
   strategy:
@@ -56,7 +55,7 @@ spec:
         image: {{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag }}
         imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
         command:
-        - humio-operator
+        - /manager
         env:
         - name: WATCH_NAMESPACE
           value: {{ .Values.operator.watchNamespaces | join "," | quote }}
@@ -75,11 +74,11 @@ spec:
         livenessProbe:
           httpGet:
             path: /metrics
-            port: 8383
+            port: 8080
         readinessProbe:
           httpGet:
             path: /metrics
-            port: 8383
+            port: 8080
         resources:
           limits:
             cpu: "250m"
