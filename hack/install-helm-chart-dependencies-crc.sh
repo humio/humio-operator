@@ -1,8 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -x
 
-declare -r bin_dir=${BIN_DIR:-/usr/local/bin}
 declare -r tmp_kubeconfig=$HOME/.crc/machines/crc/kubeconfig
 
 export PATH=$BIN_DIR:$PATH
@@ -13,7 +12,7 @@ oc --kubeconfig=$tmp_kubeconfig create namespace cert-manager
 helm repo add jetstack https://charts.jetstack.io
 helm repo update
 helm install --kubeconfig=$tmp_kubeconfig cert-manager jetstack/cert-manager --namespace cert-manager \
---version v0.16.0 \
+--version v1.0.2 \
 --set installCRDs=true
 
 helm repo add humio https://humio.github.io/cp-helm-charts

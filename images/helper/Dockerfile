@@ -1,9 +1,9 @@
-FROM golang:1.14.3 as builder
+FROM golang:1.15 as builder
 WORKDIR /src
 COPY . /src
 RUN CGO_ENABLED=0 go build -o /app /src/*.go
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal
+FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
 LABEL "name"="humio-operator-helper"
 LABEL "vendor"="humio"

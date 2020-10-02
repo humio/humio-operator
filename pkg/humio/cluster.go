@@ -1,10 +1,26 @@
+/*
+Copyright 2020 Humio https://humio.com
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package humio
 
 import (
 	"fmt"
 
 	humioapi "github.com/humio/cli/api"
-	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/shurcooL/graphql"
 	"go.uber.org/zap"
 )
@@ -93,7 +109,7 @@ func (c *ClusterController) CanBeSafelyUnregistered(podID int) (bool, error) {
 // First, if all storage partitions are consumed by the expected (target replication factor) number of storage nodes.
 // Second, all storage nodes must have storage partitions assigned.
 // Third, the difference in number of partitiones assigned per storage node must be at most 1.
-func (c *ClusterController) AreStoragePartitionsBalanced(hc *corev1alpha1.HumioCluster) (bool, error) {
+func (c *ClusterController) AreStoragePartitionsBalanced(hc *humiov1alpha1.HumioCluster) (bool, error) {
 	cluster, err := c.client.GetClusters()
 	if err != nil {
 		return false, err
@@ -145,7 +161,7 @@ func (c *ClusterController) AreStoragePartitionsBalanced(hc *corev1alpha1.HumioC
 }
 
 // RebalanceStoragePartitions will assign storage partitions evenly across registered storage nodes. If replication is not set, we set it to 1.
-func (c *ClusterController) RebalanceStoragePartitions(hc *corev1alpha1.HumioCluster) error {
+func (c *ClusterController) RebalanceStoragePartitions(hc *humiov1alpha1.HumioCluster) error {
 	c.logger.Info("rebalancing storage partitions")
 
 	cluster, err := c.client.GetClusters()
@@ -179,7 +195,7 @@ func (c *ClusterController) RebalanceStoragePartitions(hc *corev1alpha1.HumioClu
 // First, if all ingest partitions are consumed by the expected (target replication factor) number of digest nodes.
 // Second, all digest nodes must have ingest partitions assigned.
 // Third, the difference in number of partitiones assigned per digest node must be at most 1.
-func (c *ClusterController) AreIngestPartitionsBalanced(hc *corev1alpha1.HumioCluster) (bool, error) {
+func (c *ClusterController) AreIngestPartitionsBalanced(hc *humiov1alpha1.HumioCluster) (bool, error) {
 	cluster, err := c.client.GetClusters()
 	if err != nil {
 		return false, err
@@ -232,7 +248,7 @@ func (c *ClusterController) AreIngestPartitionsBalanced(hc *corev1alpha1.HumioCl
 }
 
 // RebalanceIngestPartitions will assign ingest partitions evenly across registered digest nodes. If replication is not set, we set it to 1.
-func (c *ClusterController) RebalanceIngestPartitions(hc *corev1alpha1.HumioCluster) error {
+func (c *ClusterController) RebalanceIngestPartitions(hc *humiov1alpha1.HumioCluster) error {
 	c.logger.Info("rebalancing ingest partitions")
 
 	cluster, err := c.client.GetClusters()
@@ -265,7 +281,7 @@ func (c *ClusterController) RebalanceIngestPartitions(hc *corev1alpha1.HumioClus
 // StartDataRedistribution notifies the Humio cluster that it should start redistributing data to match current assignments
 // TODO: how often, or when do we run this? Is it necessary for storage and digest? Is it necessary for MoveStorageRouteAwayFromNode
 // and MoveIngestRoutesAwayFromNode?
-func (c *ClusterController) StartDataRedistribution(hc *corev1alpha1.HumioCluster) error {
+func (c *ClusterController) StartDataRedistribution(hc *humiov1alpha1.HumioCluster) error {
 	c.logger.Info("starting data redistribution")
 
 	if err := c.client.StartDataRedistribution(); err != nil {
@@ -275,7 +291,7 @@ func (c *ClusterController) StartDataRedistribution(hc *corev1alpha1.HumioCluste
 }
 
 // MoveStorageRouteAwayFromNode notifies the Humio cluster that a node ID should be removed from handling any storage partitions
-func (c *ClusterController) MoveStorageRouteAwayFromNode(hc *corev1alpha1.HumioCluster, nodeID int) error {
+func (c *ClusterController) MoveStorageRouteAwayFromNode(hc *humiov1alpha1.HumioCluster, nodeID int) error {
 	c.logger.Infof("moving storage route away from node %d", nodeID)
 
 	if err := c.client.ClusterMoveStorageRouteAwayFromNode(nodeID); err != nil {
@@ -285,7 +301,7 @@ func (c *ClusterController) MoveStorageRouteAwayFromNode(hc *corev1alpha1.HumioC
 }
 
 // MoveIngestRoutesAwayFromNode notifies the Humio cluster that a node ID should be removed from handling any ingest partitions
-func (c *ClusterController) MoveIngestRoutesAwayFromNode(hc *corev1alpha1.HumioCluster, nodeID int) error {
+func (c *ClusterController) MoveIngestRoutesAwayFromNode(hc *humiov1alpha1.HumioCluster, nodeID int) error {
 	c.logger.Infof("moving ingest routes away from node %d", nodeID)
 
 	if err := c.client.ClusterMoveIngestRoutesAwayFromNode(nodeID); err != nil {
@@ -295,7 +311,7 @@ func (c *ClusterController) MoveIngestRoutesAwayFromNode(hc *corev1alpha1.HumioC
 }
 
 // ClusterUnregisterNode tells the Humio cluster that we want to unregister a node
-func (c *ClusterController) ClusterUnregisterNode(hc *corev1alpha1.HumioCluster, nodeID int) error {
+func (c *ClusterController) ClusterUnregisterNode(hc *humiov1alpha1.HumioCluster, nodeID int) error {
 	c.logger.Infof("unregistering node with id %d", nodeID)
 
 	err := c.client.Unregister(nodeID)
@@ -330,7 +346,7 @@ func generateStoragePartitionSchemeCandidate(storageNodeIDs []int, partitionCoun
 
 // TODO: move this to the cli
 // TODO: perhaps we need to move the zones to groups. e.g. zone a becomes group 1, zone c becomes zone 2 if there is no zone b
-func generateIngestPartitionSchemeCandidate(hc *corev1alpha1.HumioCluster, ingestNodeIDs []int, partitionCount, targetReplication int) ([]humioapi.IngestPartitionInput, error) {
+func generateIngestPartitionSchemeCandidate(hc *humiov1alpha1.HumioCluster, ingestNodeIDs []int, partitionCount, targetReplication int) ([]humioapi.IngestPartitionInput, error) {
 	replicas := targetReplication
 	if targetReplication > len(ingestNodeIDs) {
 		replicas = len(ingestNodeIDs)

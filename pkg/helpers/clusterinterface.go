@@ -1,5 +1,5 @@
 /*
-Copyright 2020 Humio.
+Copyright 2020 Humio https://humio.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/google/martian/log"
 	humioapi "github.com/humio/cli/api"
-	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"strings"
 
@@ -75,7 +75,7 @@ func NewCluster(ctx context.Context, k8sClient client.Client, managedClusterName
 func (c Cluster) Url(k8sClient client.Client) (string, error) {
 	if c.managedClusterName != "" {
 		// Lookup ManagedHumioCluster resource to figure out if we expect to use TLS or not
-		var humioManagedCluster corev1alpha1.HumioCluster
+		var humioManagedCluster humiov1alpha1.HumioCluster
 		err := k8sClient.Get(context.TODO(), types.NamespacedName{
 			Namespace: c.namespace,
 			Name:      c.managedClusterName,
@@ -97,7 +97,7 @@ func (c Cluster) Url(k8sClient client.Client) (string, error) {
 	}
 
 	// Fetch the HumioExternalCluster instance
-	var humioExternalCluster corev1alpha1.HumioExternalCluster
+	var humioExternalCluster humiov1alpha1.HumioExternalCluster
 	err := k8sClient.Get(context.TODO(), types.NamespacedName{
 		Namespace: c.namespace,
 		Name:      c.externalClusterName,
@@ -124,7 +124,7 @@ func (c Cluster) Config() *humioapi.Config {
 func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Client) (*humioapi.Config, error) {
 	if c.managedClusterName != "" {
 		// Lookup ManagedHumioCluster resource to figure out if we expect to use TLS or not
-		var humioManagedCluster corev1alpha1.HumioCluster
+		var humioManagedCluster humiov1alpha1.HumioCluster
 		err := k8sClient.Get(context.TODO(), types.NamespacedName{
 			Namespace: c.namespace,
 			Name:      c.managedClusterName,
@@ -186,7 +186,7 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 	}
 
 	// Fetch the HumioExternalCluster instance
-	var humioExternalCluster corev1alpha1.HumioExternalCluster
+	var humioExternalCluster humiov1alpha1.HumioExternalCluster
 	err := k8sClient.Get(context.TODO(), types.NamespacedName{
 		Namespace: c.namespace,
 		Name:      c.externalClusterName,

@@ -1,3 +1,19 @@
+/*
+Copyright 2020 Humio https://humio.com
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package humio
 
 import (
@@ -5,7 +21,7 @@ import (
 	"testing"
 
 	humioapi "github.com/humio/cli/api"
-	corev1alpha1 "github.com/humio/humio-operator/pkg/apis/core/v1alpha1"
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"go.uber.org/zap"
 )
 
@@ -274,7 +290,7 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 		client Client
 	}
 	type args struct {
-		hc *corev1alpha1.HumioCluster
+		hc *humiov1alpha1.HumioCluster
 	}
 	tests := []struct {
 		name    string
@@ -314,8 +330,8 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 					}}, nil, nil, nil, ""),
 			},
 			args{
-				&corev1alpha1.HumioCluster{
-					Spec: corev1alpha1.HumioClusterSpec{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
 						TargetReplicationFactor: 1,
 					},
 				},
@@ -354,8 +370,8 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 					}}, nil, nil, nil, ""),
 			},
 			args{
-				&corev1alpha1.HumioCluster{
-					Spec: corev1alpha1.HumioClusterSpec{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
 						TargetReplicationFactor: 1,
 					},
 				},
@@ -394,8 +410,8 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 					}}, nil, nil, nil, ""),
 			},
 			args{
-				&corev1alpha1.HumioCluster{
-					Spec: corev1alpha1.HumioClusterSpec{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
 						TargetReplicationFactor: 3,
 					},
 				},
@@ -434,8 +450,8 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 					}}, nil, nil, nil, ""),
 			},
 			args{
-				&corev1alpha1.HumioCluster{
-					Spec: corev1alpha1.HumioClusterSpec{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
 						TargetReplicationFactor: 1,
 					},
 				},
@@ -470,7 +486,7 @@ func TestClusterController_RebalanceStoragePartitions(t *testing.T) {
 		expectedPartitions *[]humioapi.StoragePartition
 	}
 	type args struct {
-		hc *corev1alpha1.HumioCluster
+		hc *humiov1alpha1.HumioCluster
 	}
 	tests := []struct {
 		name    string
@@ -524,8 +540,8 @@ func TestClusterController_RebalanceStoragePartitions(t *testing.T) {
 				},
 			},
 			args{
-				&corev1alpha1.HumioCluster{
-					Spec: corev1alpha1.HumioClusterSpec{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
 						TargetReplicationFactor: 2,
 						StoragePartitionsCount:  3,
 					},
@@ -566,7 +582,7 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 		client Client
 	}
 	type args struct {
-		hc *corev1alpha1.HumioCluster
+		hc *humiov1alpha1.HumioCluster
 	}
 	tests := []struct {
 		name    string
@@ -606,8 +622,8 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 					}}, nil, nil, nil, ""),
 			},
 			args{
-				&corev1alpha1.HumioCluster{
-					Spec: corev1alpha1.HumioClusterSpec{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
 						TargetReplicationFactor: 1,
 					},
 				},
@@ -646,8 +662,8 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 					}}, nil, nil, nil, ""),
 			},
 			args{
-				&corev1alpha1.HumioCluster{
-					Spec: corev1alpha1.HumioClusterSpec{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
 						TargetReplicationFactor: 1,
 					},
 				},
@@ -686,8 +702,8 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 					}}, nil, nil, nil, ""),
 			},
 			args{
-				&corev1alpha1.HumioCluster{
-					Spec: corev1alpha1.HumioClusterSpec{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
 						TargetReplicationFactor: 3,
 					},
 				},
@@ -726,8 +742,8 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 					}}, nil, nil, nil, ""),
 			},
 			args{
-				&corev1alpha1.HumioCluster{
-					Spec: corev1alpha1.HumioClusterSpec{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
 						TargetReplicationFactor: 1,
 					},
 				},
@@ -762,7 +778,7 @@ func TestClusterController_RebalanceIngestPartitions(t *testing.T) {
 		expectedPartitions *[]humioapi.IngestPartition
 	}
 	type args struct {
-		hc *corev1alpha1.HumioCluster
+		hc *humiov1alpha1.HumioCluster
 	}
 	tests := []struct {
 		name    string
@@ -816,8 +832,8 @@ func TestClusterController_RebalanceIngestPartitions(t *testing.T) {
 				},
 			},
 			args{
-				&corev1alpha1.HumioCluster{
-					Spec: corev1alpha1.HumioClusterSpec{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
 						TargetReplicationFactor: 2,
 						DigestPartitionsCount:   3,
 					},
