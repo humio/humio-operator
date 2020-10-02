@@ -19,12 +19,13 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	"github.com/humio/humio-operator/pkg/openshift"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
-	"go.uber.org/zap"
+	uberzap "go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -48,8 +49,7 @@ import (
 // HumioClusterReconciler reconciles a HumioCluster object
 type HumioClusterReconciler struct {
 	client.Client
-	Log         logr.Logger // TODO: Migrate to *zap.SugaredLogger
-	logger      *zap.SugaredLogger
+	Log         logr.Logger
 	Scheme      *runtime.Scheme
 	HumioClient humio.Client
 }
@@ -68,11 +68,10 @@ type HumioClusterReconciler struct {
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingress,verbs=create;delete;get;list;patch;update;watch
 
 func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	logger, _ := zap.NewProduction()
-	defer logger.Sync()
-	r.logger = logger.Sugar().With("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
-	r.logger.Info("Reconciling HumioCluster")
-	// TODO: Add back controllerutil.SetControllerReference everywhere we create k8s objects
+	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+	defer zapLog.Sync()
+	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
+	r.Log.Info("Reconciling HumioCluster")
 
 	// Fetch the HumioCluster
 	hc := &humiov1alpha1.HumioCluster{}
@@ -96,7 +95,7 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	// Because generating the CA can take a while, we do this before we start tearing down mismatching pods
 	err = r.ensureValidCASecret(context.TODO(), hc)
 	if err != nil {
-		r.logger.Errorf("could not ensure we have a valid CA secret: %s", err)
+		r.Log.Error(err, "could not ensure we have a valid CA secret")
 		return reconcile.Result{}, err
 	}
 
@@ -110,7 +109,7 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	if err != nil {
 		err = r.setState(context.TODO(), humiov1alpha1.HumioClusterStateConfigError, hc)
 		if err != nil {
-			r.logger.Infof("unable to set cluster state: %s", err)
+			r.Log.Error(err, "unable to set cluster state")
 		}
 		return reconcile.Result{}, err
 	}
@@ -120,7 +119,7 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	if hc.Status.State == "" {
 		err := r.setState(context.TODO(), humiov1alpha1.HumioClusterStateBootstrapping, hc)
 		if err != nil {
-			r.logger.Infof("unable to set cluster state: %s", err)
+			r.Log.Error(err, "unable to set cluster state")
 			return reconcile.Result{}, err
 		}
 		r.incrementHumioClusterPodRevision(context.TODO(), hc, PodRestartPolicyRolling)
@@ -158,33 +157,33 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	// TODO: Determine if we should move this to a finalizer to fix the situation described above.
 	err = r.ensureCleanupUsersInSecurityContextConstraints(context.TODO(), hc)
 	if err != nil {
-		r.logger.Errorf("could not ensure we clean up users in SecurityContextConstraints: %s", err)
+		r.Log.Error(err, "could not ensure we clean up users in SecurityContextConstraints")
 		return reconcile.Result{}, err
 	}
 
 	// Ensure the CA Issuer is valid/ready
 	err = r.ensureValidCAIssuer(context.TODO(), hc)
 	if err != nil {
-		r.logger.Errorf("could not ensure we have a valid CA issuer: %s", err)
+		r.Log.Error(err, "could not ensure we have a valid CA issuer")
 		return reconcile.Result{}, err
 	}
 	// Ensure we have a k8s secret holding the ca.crt
 	// This can be used in reverse proxies talking to Humio.
 	err = r.ensureHumioClusterCACertBundle(context.TODO(), hc)
 	if err != nil {
-		r.logger.Errorf("could not ensure we have a CA cert bundle for the cluster: %s", err)
+		r.Log.Error(err, "could not ensure we have a CA cert bundle")
 		return reconcile.Result{}, err
 	}
 
 	err = r.ensureHumioClusterKeystoreSecret(context.TODO(), hc)
 	if err != nil {
-		r.logger.Errorf("could not ensure we have a secret holding encryption key for keystore: %s", err)
+		r.Log.Error(err, "could not ensure we have a secret holding keystore encryption key")
 		return reconcile.Result{}, err
 	}
 
 	err = r.ensureHumioNodeCertificates(context.TODO(), hc)
 	if err != nil {
-		r.logger.Errorf("could not ensure we have certificates ready for Humio nodes: %s", err)
+		r.Log.Error(err, "could not ensure we have certificates ready for Humio nodes")
 		return reconcile.Result{}, err
 	}
 
@@ -215,7 +214,7 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	if hc.Status.State == humiov1alpha1.HumioClusterStateBootstrapping {
 		err = r.setState(context.TODO(), humiov1alpha1.HumioClusterStateRunning, hc)
 		if err != nil {
-			r.logger.Infof("unable to set cluster state: %s", err)
+			r.Log.Error(err, "unable to set cluster state")
 			return reconcile.Result{}, err
 		}
 	}
@@ -228,7 +227,7 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
 		status, err := humioClient.Status()
 		if err != nil {
-			r.logger.Infof("unable to get status: %s", err)
+			r.Log.Error(err, "unable to get status")
 		}
 		r.setVersion(ctx, status.Version, hc)
 		r.setPod(ctx, hc)
@@ -257,7 +256,7 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	// TODO: wait until all pods are ready before continuing
-	clusterController := humio.NewClusterController(r.logger, r.HumioClient)
+	clusterController := humio.NewClusterController(r.Log, r.HumioClient)
 	err = r.ensurePartitionsAreBalanced(*clusterController, hc)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -275,7 +274,7 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return result, err
 	}
 
-	r.logger.Info("done reconciling, will requeue after 15 seconds")
+	r.Log.Info("done reconciling, will requeue after 15 seconds")
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
 }
 
@@ -309,15 +308,15 @@ func (r *HumioClusterReconciler) ensureKafkaConfigConfigMap(ctx context.Context,
 				hc.Namespace,
 			)
 			if err := controllerutil.SetControllerReference(hc, configMap, r.Scheme); err != nil {
-				r.logger.Errorf("could not set controller reference: %s", err)
+				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
 			err = r.Create(ctx, configMap)
 			if err != nil {
-				r.logger.Errorf("unable to create extra kafka configs configmap for HumioCluster: %s", err)
+				r.Log.Error(err, "unable to create extra kafka configs configmap")
 				return err
 			}
-			r.logger.Infof("successfully created extra kafka configs configmap %s for HumioCluster %s", configMap, hc.Name)
+			r.Log.Info(fmt.Sprintf("successfully created extra kafka configs configmap name %s", configMap))
 			humioClusterPrometheusMetrics.Counters.ClusterRolesCreated.Inc()
 		}
 	}
@@ -341,10 +340,10 @@ func (r *HumioClusterReconciler) ensureNoIngressesIfIngressNotEnabled(ctx contex
 	for _, ingress := range foundIngressList {
 		// only consider ingresses not already being deleted
 		if ingress.DeletionTimestamp == nil {
-			r.logger.Infof("deleting ingress %s", ingress.Name)
+			r.Log.Info(fmt.Sprintf("deleting ingress with name %s", ingress.Name))
 			err = r.Delete(ctx, &ingress)
 			if err != nil {
-				r.logger.Errorf("could not delete ingress %s, got err: %s", ingress.Name, err)
+				r.Log.Error(err, "could not delete ingress")
 				return reconcile.Result{}, err
 			}
 		}
@@ -364,7 +363,7 @@ func (r *HumioClusterReconciler) ensureIngress(ctx context.Context, hc *humiov1a
 	case "nginx":
 		err := r.ensureNginxIngress(ctx, hc)
 		if err != nil {
-			r.logger.Errorf("could not ensure nginx ingress")
+			r.Log.Error(err, "could not ensure nginx ingress")
 			return err
 		}
 	default:
@@ -389,27 +388,27 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 		if err != nil {
 			if errors.IsNotFound(err) {
 				if err := controllerutil.SetControllerReference(hc, ingress, r.Scheme); err != nil {
-					r.logger.Errorf("could not set controller reference: %s", err)
+					r.Log.Error(err, "could not set controller reference")
 					return err
 				}
 				err = r.Create(ctx, ingress)
 				if err != nil {
-					r.logger.Errorf("unable to create ingress %s for HumioCluster: %s", ingress.Name, err)
+					r.Log.Error(err, "unable to create ingress")
 					return err
 				}
-				r.logger.Infof("successfully created ingress %s for HumioCluster %s", ingress.Name, hc.Name)
+				r.Log.Info(fmt.Sprintf("successfully created ingress with name %s", ingress.Name))
 				humioClusterPrometheusMetrics.Counters.IngressesCreated.Inc()
 				continue
 			}
 		}
 		if !r.ingressesMatch(existingIngress, ingress) {
-			r.logger.Infof("ingress object already exists, there is a difference between expected vs existing, updating ingress object %s", ingress.Name)
+			r.Log.Info(fmt.Sprintf("ingress object already exists, there is a difference between expected vs existing, updating ingress object with name %s", ingress.Name))
 			existingIngress.Annotations = ingress.Annotations
 			existingIngress.Labels = ingress.Labels
 			existingIngress.Spec = ingress.Spec
 			err = r.Update(ctx, existingIngress)
 			if err != nil {
-				r.logger.Errorf("could not perform update of ingress %s: %v", existingIngress.Name, err)
+				r.Log.Error(err, "could not update ingress")
 				return err
 			}
 		}
@@ -424,10 +423,10 @@ func (r *HumioClusterReconciler) ensureHumioPodPermissions(ctx context.Context, 
 		return nil
 	}
 
-	r.logger.Info("ensuring pod permissions")
+	r.Log.Info("ensuring pod permissions")
 	err := r.ensureServiceAccountExists(ctx, hc, humioServiceAccountNameOrDefault(hc), humioServiceAccountAnnotationsOrDefault(hc))
 	if err != nil {
-		r.logger.Errorf("unable to ensure humio service account exists for HumioCluster: %s", err)
+		r.Log.Error(err, "unable to ensure humio service account exists")
 		return err
 	}
 
@@ -435,7 +434,7 @@ func (r *HumioClusterReconciler) ensureHumioPodPermissions(ctx context.Context, 
 	if helpers.IsOpenShift() {
 		err = r.ensureSecurityContextConstraintsContainsServiceAccount(ctx, hc, humioServiceAccountNameOrDefault(hc))
 		if err != nil {
-			r.logger.Errorf("could not ensure SecurityContextConstraints contains ServiceAccount: %s", err)
+			r.Log.Error(err, "could not ensure SecurityContextConstraints contains ServiceAccount")
 			return err
 		}
 	}
@@ -449,7 +448,7 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 	// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
 	err := r.ensureServiceAccountSecretExists(ctx, hc, initServiceAccountSecretName(hc), initServiceAccountNameOrDefault(hc))
 	if err != nil {
-		r.logger.Errorf("unable to ensure init service account secret exists for HumioCluster: %s", err)
+		r.Log.Error(err, "unable to ensure init service account secret exists for HumioCluster")
 		return err
 	}
 
@@ -465,7 +464,7 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 	// to have an autoscaling group per zone.
 	err = r.ensureServiceAccountExists(ctx, hc, initServiceAccountNameOrDefault(hc), map[string]string{})
 	if err != nil {
-		r.logger.Errorf("unable to ensure init service account exists for HumioCluster: %s", err)
+		r.Log.Error(err, "unable to ensure init service account exists")
 		return err
 	}
 
@@ -473,7 +472,7 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 	// Required until https://github.com/kubernetes/kubernetes/issues/40610 is fixed
 	err = r.ensureInitClusterRole(ctx, hc)
 	if err != nil {
-		r.logger.Errorf("unable to ensure init cluster role exists for HumioCluster: %s", err)
+		r.Log.Error(err, "unable to ensure init cluster role exists")
 		return err
 	}
 
@@ -481,7 +480,7 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 	// Required until https://github.com/kubernetes/kubernetes/issues/40610 is fixed
 	err = r.ensureInitClusterRoleBinding(ctx, hc)
 	if err != nil {
-		r.logger.Errorf("unable to ensure init cluster role binding exists for HumioCluster: %s", err)
+		r.Log.Error(err, "unable to ensure init cluster role binding exists")
 		return err
 	}
 
@@ -489,7 +488,7 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 	if helpers.IsOpenShift() {
 		err = r.ensureSecurityContextConstraintsContainsServiceAccount(ctx, hc, initServiceAccountNameOrDefault(hc))
 		if err != nil {
-			r.logger.Errorf("could not ensure SecurityContextConstraints contains ServiceAccount: %s", err)
+			r.Log.Error(err, "could not ensure SecurityContextConstraints contains ServiceAccount")
 			return err
 		}
 	}
@@ -503,7 +502,7 @@ func (r *HumioClusterReconciler) ensureAuthContainerPermissions(ctx context.Cont
 	// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
 	err := r.ensureServiceAccountSecretExists(ctx, hc, authServiceAccountSecretName(hc), authServiceAccountNameOrDefault(hc))
 	if err != nil {
-		r.logger.Errorf("unable to ensure auth service account secret exists for HumioCluster: %s", err)
+		r.Log.Error(err, "unable to ensure auth service account secret exists")
 		return err
 	}
 
@@ -516,19 +515,19 @@ func (r *HumioClusterReconciler) ensureAuthContainerPermissions(ctx context.Cont
 	// The service account is used by the auth container attached to the humio pods.
 	err = r.ensureServiceAccountExists(ctx, hc, authServiceAccountNameOrDefault(hc), map[string]string{})
 	if err != nil {
-		r.logger.Errorf("unable to ensure auth service account exists for HumioCluster: %s", err)
+		r.Log.Error(err, "unable to ensure auth service account exists")
 		return err
 	}
 
 	err = r.ensureAuthRole(ctx, hc)
 	if err != nil {
-		r.logger.Errorf("unable to ensure auth role exists for HumioCluster: %s", err)
+		r.Log.Error(err, "unable to ensure auth role exists")
 		return err
 	}
 
 	err = r.ensureAuthRoleBinding(ctx, hc)
 	if err != nil {
-		r.logger.Errorf("unable to ensure auth role binding exists for HumioCluster: %s", err)
+		r.Log.Error(err, "unable to ensure auth role binding exists")
 		return err
 	}
 
@@ -536,7 +535,7 @@ func (r *HumioClusterReconciler) ensureAuthContainerPermissions(ctx context.Cont
 	if helpers.IsOpenShift() {
 		err = r.ensureSecurityContextConstraintsContainsServiceAccount(ctx, hc, authServiceAccountNameOrDefault(hc))
 		if err != nil {
-			r.logger.Errorf("could not ensure SecurityContextConstraints contains ServiceAccount: %s", err)
+			r.Log.Error(err, "could not ensure SecurityContextConstraints contains ServiceAccount")
 			return err
 		}
 	}
@@ -554,7 +553,7 @@ func (r *HumioClusterReconciler) ensureSecurityContextConstraintsContainsService
 	// Get current SCC
 	scc, err := openshift.GetSecurityContextConstraints(ctx, r)
 	if err != nil {
-		r.logger.Errorf("unable to get details about SecurityContextConstraints: %s", err)
+		r.Log.Error(err, "unable to get details about SecurityContextConstraints")
 		return err
 	}
 
@@ -564,7 +563,7 @@ func (r *HumioClusterReconciler) ensureSecurityContextConstraintsContainsService
 		scc.Users = append(scc.Users, usersEntry)
 		err = r.Update(ctx, scc)
 		if err != nil {
-			r.logger.Errorf("could not update SecurityContextConstraints %s to add ServiceAccount %s: %s", scc.Name, serviceAccountName, err)
+			r.Log.Error(err, fmt.Sprintf("could not update SecurityContextConstraints %s to add ServiceAccount %s", scc.Name, serviceAccountName))
 			return err
 		}
 	}
@@ -578,7 +577,7 @@ func (r *HumioClusterReconciler) ensureCleanupUsersInSecurityContextConstraints(
 
 	scc, err := openshift.GetSecurityContextConstraints(ctx, r)
 	if err != nil {
-		r.logger.Errorf("unable to get details about SecurityContextConstraints: %s", err)
+		r.Log.Error(err, "unable to get details about SecurityContextConstraints")
 		return err
 	}
 
@@ -597,11 +596,11 @@ func (r *HumioClusterReconciler) ensureCleanupUsersInSecurityContextConstraints(
 			scc.Users = helpers.RemoveElement(scc.Users, fmt.Sprintf("system:serviceaccount:%s:%s", sccUserNamespace, sccUserName))
 			err = r.Update(ctx, scc)
 			if err != nil {
-				r.logger.Errorf("unable to update SecurityContextConstraints: %s", err)
+				r.Log.Error(err, "unable to update SecurityContextConstraints")
 				return err
 			}
 		} else {
-			r.logger.Errorf("unable to get existing service account: %s", err)
+			r.Log.Error(err, "unable to get existing service account")
 			return err
 		}
 	}
@@ -611,18 +610,18 @@ func (r *HumioClusterReconciler) ensureCleanupUsersInSecurityContextConstraints(
 
 func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.logger.Debugf("cluster not configured to run with tls, skipping")
+		r.Log.Info("cluster not configured to run with TLS, skipping")
 		return nil
 	}
 
-	r.logger.Debugf("checking for an existing valid CA Issuer")
+	r.Log.Info("checking for an existing valid CA Issuer")
 	validCAIssuer, err := validCAIssuer(ctx, r, hc.Namespace, hc.Name)
 	if err != nil && !errors.IsNotFound(err) {
-		r.logger.Warnf("could not validate CA Issuer: %s", err)
+		r.Log.Error(err, "could not validate CA Issuer")
 		return err
 	}
 	if validCAIssuer {
-		r.logger.Debugf("found valid CA Issuer")
+		r.Log.Info("found valid CA Issuer")
 		return nil
 	}
 
@@ -635,13 +634,13 @@ func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *hu
 		if errors.IsNotFound(err) {
 			caIssuer := constructCAIssuer(hc)
 			if err := controllerutil.SetControllerReference(hc, &caIssuer, r.Scheme); err != nil {
-				r.logger.Errorf("could not set controller reference: %s", err)
+				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
 			// should only create it if it doesn't exist
 			err = r.Create(ctx, &caIssuer)
 			if err != nil {
-				r.logger.Errorf("could not create CA Issuer: %s", err)
+				r.Log.Error(err, "could not create CA Issuer")
 				return err
 			}
 			return nil
@@ -654,46 +653,46 @@ func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *hu
 
 func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.logger.Debugf("cluster not configured to run with tls, skipping")
+		r.Log.Info("cluster not configured to run with TLS, skipping")
 		return nil
 	}
 
-	r.logger.Debugf("checking for an existing CA secret")
+	r.Log.Info("checking for an existing CA secret")
 	validCASecret, err := validCASecret(ctx, r, hc.Namespace, getCASecretName(hc))
 	if validCASecret {
-		r.logger.Infof("found valid CA secret")
+		r.Log.Info("found valid CA secret")
 		return nil
 	}
 	if err != nil && !errors.IsNotFound(err) {
-		r.logger.Warnf("could not validate CA secret")
+		r.Log.Error(err, "could not validate CA secret")
 		return err
 	}
 
 	if useExistingCA(hc) {
-		r.logger.Errorf("specified CA secret invalid")
+		r.Log.Info("specified CA secret invalid")
 		return fmt.Errorf("configured to use existing CA secret, but the CA secret invalid")
 	}
 
-	r.logger.Debugf("generating new CA certificate")
+	r.Log.Info("generating new CA certificate")
 	ca, err := generateCACertificate()
 	if err != nil {
-		r.logger.Errorf("could not generate new CA certificate: %s", err)
+		r.Log.Error(err, "could not generate new CA certificate")
 		return err
 	}
 
-	r.logger.Debugf("persisting new CA certificate")
+	r.Log.Info("persisting new CA certificate")
 	caSecretData := map[string][]byte{
 		"tls.crt": ca.Certificate,
 		"tls.key": ca.Key,
 	}
 	caSecret := kubernetes.ConstructSecret(hc.Name, hc.Namespace, getCASecretName(hc), caSecretData)
 	if err := controllerutil.SetControllerReference(hc, caSecret, r.Scheme); err != nil {
-		r.logger.Errorf("could not set controller reference: %s", err)
+		r.Log.Error(err, "could not set controller reference")
 		return err
 	}
 	err = r.Create(ctx, caSecret)
 	if err != nil {
-		r.logger.Errorf("could not create secret with CA: %s", err)
+		r.Log.Error(err, "could not create secret with CA")
 		return err
 	}
 
@@ -702,7 +701,7 @@ func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *hu
 
 func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.logger.Debugf("cluster not configured to run with tls, skipping")
+		r.Log.Info("cluster not configured to run with TLS, skipping")
 		return nil
 	}
 
@@ -719,12 +718,12 @@ func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Co
 		}
 		secret := kubernetes.ConstructSecret(hc.Name, hc.Namespace, fmt.Sprintf("%s-keystore-passphrase", hc.Name), secretData)
 		if err := controllerutil.SetControllerReference(hc, secret, r.Scheme); err != nil {
-			r.logger.Errorf("could not set controller reference: %s", err)
+			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
 		err := r.Create(ctx, secret)
 		if err != nil {
-			r.logger.Errorf("could not create secret: %s", err)
+			r.Log.Error(err, "could not create secret")
 			return err
 		}
 		return nil
@@ -735,26 +734,26 @@ func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Co
 
 func (r *HumioClusterReconciler) ensureHumioClusterCACertBundle(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.logger.Debugf("cluster not configured to run with tls, skipping")
+		r.Log.Info("cluster not configured to run with TLS, skipping")
 		return nil
 	}
 
-	r.logger.Debugf("ensuring we have a CA cert bundle")
+	r.Log.Info("ensuring we have a CA cert bundle")
 	existingCertificate := &cmapi.Certificate{}
 	err := r.Get(ctx, types.NamespacedName{
 		Namespace: hc.Namespace,
 		Name:      hc.Name,
 	}, existingCertificate)
 	if errors.IsNotFound(err) {
-		r.logger.Infof("CA cert bundle doesn't exist, creating it now")
+		r.Log.Info("CA cert bundle doesn't exist, creating it now")
 		cert := constructClusterCACertificateBundle(hc)
 		if err := controllerutil.SetControllerReference(hc, &cert, r.Scheme); err != nil {
-			r.logger.Errorf("could not set controller reference: %s", err)
+			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
 		err := r.Create(ctx, &cert)
 		if err != nil {
-			r.logger.Errorf("could not create certificate: %s", err)
+			r.Log.Error(err, "could not create certificate")
 			return err
 		}
 		return nil
@@ -766,7 +765,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterCACertBundle(ctx context.Cont
 
 func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.logger.Debugf("cluster not configured to run with tls, skipping")
+		r.Log.Info("cluster not configured to run with TLS, skipping")
 		return nil
 	}
 	certificates, err := kubernetes.ListCertificates(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
@@ -781,9 +780,9 @@ func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context
 	}
 	for i := existingNodeCertCount; i < nodeCountOrDefault(hc); i++ {
 		certificate := constructNodeCertificate(hc, kubernetes.RandomString())
-		r.logger.Infof("creating node TLS certificate with name %s", certificate.Name)
+		r.Log.Info(fmt.Sprintf("creating node TLS certificate with name %s", certificate.Name))
 		if err := controllerutil.SetControllerReference(hc, &certificate, r.Scheme); err != nil {
-			r.logger.Errorf("could not set controller reference: %s", err)
+			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
 		err := r.Create(ctx, &certificate)
@@ -804,10 +803,10 @@ func (r *HumioClusterReconciler) ensureInitClusterRole(ctx context.Context, hc *
 			// We probably need another way to ensure we clean them up. Perhaps we can use finalizers?
 			err = r.Create(ctx, clusterRole)
 			if err != nil {
-				r.logger.Errorf("unable to create init cluster role for HumioCluster: %s", err)
+				r.Log.Error(err, "unable to create init cluster role")
 				return err
 			}
-			r.logger.Infof("successfully created init cluster role %s for HumioCluster %s", clusterRoleName, hc.Name)
+			r.Log.Info(fmt.Sprintf("successfully created init cluster role %s", clusterRoleName))
 			humioClusterPrometheusMetrics.Counters.ClusterRolesCreated.Inc()
 		}
 	}
@@ -821,15 +820,15 @@ func (r *HumioClusterReconciler) ensureAuthRole(ctx context.Context, hc *humiov1
 		if errors.IsNotFound(err) {
 			role := kubernetes.ConstructAuthRole(roleName, hc.Name, hc.Namespace)
 			if err := controllerutil.SetControllerReference(hc, role, r.Scheme); err != nil {
-				r.logger.Errorf("could not set controller reference: %s", err)
+				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
 			err = r.Create(ctx, role)
 			if err != nil {
-				r.logger.Errorf("unable to create auth role for HumioCluster: %s", err)
+				r.Log.Error(err, "unable to create auth role")
 				return err
 			}
-			r.logger.Infof("successfully created auth role %s for HumioCluster %s", roleName, hc.Name)
+			r.Log.Info(fmt.Sprintf("successfully created auth role %s", roleName))
 			humioClusterPrometheusMetrics.Counters.RolesCreated.Inc()
 		}
 	}
@@ -852,10 +851,10 @@ func (r *HumioClusterReconciler) ensureInitClusterRoleBinding(ctx context.Contex
 			// We probably need another way to ensure we clean them up. Perhaps we can use finalizers?
 			err = r.Create(ctx, clusterRole)
 			if err != nil {
-				r.logger.Errorf("unable to create init cluster role binding for HumioCluster: %s", err)
+				r.Log.Error(err, "unable to create init cluster role binding")
 				return err
 			}
-			r.logger.Infof("successfully created init cluster role binding %s for HumioCluster %s", clusterRoleBindingName, hc.Name)
+			r.Log.Info(fmt.Sprintf("successfully created init cluster role binding %s", clusterRoleBindingName))
 			humioClusterPrometheusMetrics.Counters.ClusterRoleBindingsCreated.Inc()
 		}
 	}
@@ -875,15 +874,15 @@ func (r *HumioClusterReconciler) ensureAuthRoleBinding(ctx context.Context, hc *
 				authServiceAccountNameOrDefault(hc),
 			)
 			if err := controllerutil.SetControllerReference(hc, roleBinding, r.Scheme); err != nil {
-				r.logger.Errorf("could not set controller reference: %s", err)
+				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
 			err = r.Create(ctx, roleBinding)
 			if err != nil {
-				r.logger.Errorf("unable to create auth role binding for HumioCluster: %s", err)
+				r.Log.Error(err, "unable to create auth role binding")
 				return err
 			}
-			r.logger.Infof("successfully created auth role binding %s for HumioCluster %s", roleBindingName, hc.Name)
+			r.Log.Info(fmt.Sprintf("successfully created auth role binding %s", roleBindingName))
 			humioClusterPrometheusMetrics.Counters.RoleBindingsCreated.Inc()
 		}
 	}
@@ -896,15 +895,15 @@ func (r *HumioClusterReconciler) ensureServiceAccountExists(ctx context.Context,
 		if errors.IsNotFound(err) {
 			serviceAccount := kubernetes.ConstructServiceAccount(serviceAccountName, hc.Name, hc.Namespace, serviceAccountAnnotations)
 			if err := controllerutil.SetControllerReference(hc, serviceAccount, r.Scheme); err != nil {
-				r.logger.Errorf("could not set controller reference: %s", err)
+				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
 			err = r.Create(ctx, serviceAccount)
 			if err != nil {
-				r.logger.Errorf("unable to create service account %s for HumioCluster: %s", serviceAccountName, err)
+				r.Log.Error(err, fmt.Sprintf("unable to create service account %s", serviceAccountName))
 				return err
 			}
-			r.logger.Infof("successfully created service account %s for HumioCluster %s", serviceAccountName, hc.Name)
+			r.Log.Info(fmt.Sprintf("successfully created service account %s", serviceAccountName))
 			humioClusterPrometheusMetrics.Counters.ServiceAccountsCreated.Inc()
 		}
 	}
@@ -914,22 +913,22 @@ func (r *HumioClusterReconciler) ensureServiceAccountExists(ctx context.Context,
 func (r *HumioClusterReconciler) ensureServiceAccountSecretExists(ctx context.Context, hc *humiov1alpha1.HumioCluster, serviceAccountSecretName, serviceAccountName string) error {
 	foundServiceAccountSecretsList, err := kubernetes.ListSecrets(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForSecret(hc.Name, serviceAccountSecretName))
 	if err != nil {
-		r.logger.Errorf("unable list secrets for HumioCluster: %s", err)
+		r.Log.Error(err, "unable list secrets")
 		return err
 	}
 
 	if len(foundServiceAccountSecretsList) == 0 {
 		secret := kubernetes.ConstructServiceAccountSecret(hc.Name, hc.Namespace, serviceAccountSecretName, serviceAccountName)
 		if err := controllerutil.SetControllerReference(hc, secret, r.Scheme); err != nil {
-			r.logger.Errorf("could not set controller reference: %s", err)
+			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
 		err = r.Create(ctx, secret)
 		if err != nil {
-			r.logger.Errorf("unable to create service account secret %s for HumioCluster: %s", serviceAccountSecretName, err)
+			r.Log.Error(err, fmt.Sprintf("unable to create service account secret %s", serviceAccountSecretName))
 			return err
 		}
-		r.logger.Infof("successfully created service account secret %s for HumioCluster %s", serviceAccountSecretName, hc.Name)
+		r.Log.Info(fmt.Sprintf("successfully created service account secret %s", serviceAccountSecretName))
 		humioClusterPrometheusMetrics.Counters.ServiceAccountSecretsCreated.Inc()
 	}
 
@@ -937,22 +936,22 @@ func (r *HumioClusterReconciler) ensureServiceAccountSecretExists(ctx context.Co
 }
 
 func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	r.logger.Info("ensuring labels")
+	r.Log.Info("ensuring labels")
 	cluster, err := r.HumioClient.GetClusters()
 	if err != nil {
-		r.logger.Errorf("failed to get clusters: %s", err)
+		r.Log.Error(err, "failed to get clusters")
 		return err
 	}
 
 	foundPodList, err := kubernetes.ListPods(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
-		r.logger.Errorf("failed to list pods: %s", err)
+		r.Log.Error(err, "failed to list pods")
 		return err
 	}
 
 	pvcList, err := r.pvcList(hc)
 	if err != nil {
-		r.logger.Errorf("failed to list pvcs to assign labels: %s", err)
+		r.Log.Error(err, "failed to list pvcs to assign labels")
 		return err
 	}
 
@@ -962,7 +961,7 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1al
 			if pvcsEnabled(hc) {
 				err := r.ensurePvcLabels(ctx, hc, pod, pvcList)
 				if err != nil {
-					r.logger.Error(err)
+					r.Log.Error(err, "could not ensure pvc labels")
 					return err
 				}
 			}
@@ -970,23 +969,23 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1al
 		}
 		// If pod does not have an IP yet it is probably pending
 		if pod.Status.PodIP == "" {
-			r.logger.Infof("not setting labels for pod %s because it is in state %s", pod.Name, pod.Status.Phase)
+			r.Log.Info(fmt.Sprintf("not setting labels for pod %s because it is in state %s", pod.Name, pod.Status.Phase))
 			continue
 		}
-		r.logger.Infof("setting labels for nodes: %v", cluster.Nodes)
+		r.Log.Info(fmt.Sprintf("setting labels for nodes: %v", cluster.Nodes))
 		for _, node := range cluster.Nodes {
 			if node.Uri == fmt.Sprintf("http://%s:%d", pod.Status.PodIP, humioPort) {
 				labels := kubernetes.LabelsForPod(hc.Name, node.Id)
-				r.logger.Infof("setting labels for pod %s, labels=%v", pod.Name, labels)
+				r.Log.Info(fmt.Sprintf("setting labels for pod %s, labels=%v", pod.Name, labels))
 				pod.SetLabels(labels)
 				if err := r.Update(ctx, &pod); err != nil {
-					r.logger.Errorf("failed to update labels on pod %s: %s", pod.Name, err)
+					r.Log.Error(err, fmt.Sprintf("failed to update labels on pod %s", pod.Name))
 					return err
 				}
 				if pvcsEnabled(hc) {
 					err = r.ensurePvcLabels(ctx, hc, pod, pvcList)
 					if err != nil {
-						r.logger.Error(err)
+						r.Log.Error(err, "could not ensure pvc labels")
 						return err
 					}
 				}
@@ -999,7 +998,7 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1al
 func (r *HumioClusterReconciler) ensurePvcLabels(ctx context.Context, hc *humiov1alpha1.HumioCluster, pod corev1.Pod, pvcList []corev1.PersistentVolumeClaim) error {
 	pvc, err := findPvcForPod(pvcList, pod)
 	if err != nil {
-		r.logger.Errorf("failed to get pvc for pod to assign labels: %s", err)
+		r.Log.Error(err, "failed to get pvc for pod to assign labels")
 		return err
 	}
 	if kubernetes.LabelListContainsLabel(pvc.GetLabels(), kubernetes.NodeIdLabelName) {
@@ -1010,10 +1009,10 @@ func (r *HumioClusterReconciler) ensurePvcLabels(ctx context.Context, hc *humiov
 		return fmt.Errorf("unable to set label on pvc, nodeid %v is invalid: %s", pod.Labels[kubernetes.NodeIdLabelName], err)
 	}
 	labels := kubernetes.LabelsForPersistentVolume(hc.Name, nodeId)
-	r.logger.Infof("setting labels for pvc %s, labels=%v", pvc.Name, labels)
+	r.Log.Info(fmt.Sprintf("setting labels for pvc %s, labels=%v", pvc.Name, labels))
 	pvc.SetLabels(labels)
 	if err := r.Update(ctx, &pvc); err != nil {
-		r.logger.Errorf("failed to update labels on pvc %s: %s", pod.Name, err)
+		r.Log.Error(err, fmt.Sprintf("failed to update labels on pvc %s", pod.Name))
 		return err
 	}
 	return nil
@@ -1021,32 +1020,32 @@ func (r *HumioClusterReconciler) ensurePvcLabels(ctx context.Context, hc *humiov
 
 func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(humioClusterController humio.ClusterController, hc *humiov1alpha1.HumioCluster) error {
 	if !hc.Spec.AutoRebalancePartitions {
-		r.logger.Info("partition auto-rebalancing not enabled, skipping")
+		r.Log.Info("partition auto-rebalancing not enabled, skipping")
 		return nil
 	}
 	partitionsBalanced, err := humioClusterController.AreStoragePartitionsBalanced(hc)
 	if err != nil {
-		r.logger.Errorf("unable to check if storage partitions are balanced: %s", err)
+		r.Log.Error(err, "unable to check if storage partitions are balanced")
 		return err
 	}
 	if !partitionsBalanced {
-		r.logger.Info("storage partitions are not balanced. Balancing now")
+		r.Log.Info("storage partitions are not balanced. Balancing now")
 		err = humioClusterController.RebalanceStoragePartitions(hc)
 		if err != nil {
-			r.logger.Errorf("failed to balance storage partitions: %s", err)
+			r.Log.Error(err, "failed to balance storage partitions")
 			return err
 		}
 	}
 	partitionsBalanced, err = humioClusterController.AreIngestPartitionsBalanced(hc)
 	if err != nil {
-		r.logger.Errorf("unable to check if ingest partitions are balanced: %s", err)
+		r.Log.Error(err, "unable to check if ingest partitions are balanced")
 		return err
 	}
 	if !partitionsBalanced {
-		r.logger.Info("ingest partitions are not balanced. Balancing now")
+		r.Log.Info("ingest partitions are not balanced. Balancing now")
 		err = humioClusterController.RebalanceIngestPartitions(hc)
 		if err != nil {
-			r.logger.Errorf("failed to balance ingest partitions: %s", err)
+			r.Log.Error(err, "failed to balance ingest partitions")
 			return err
 		}
 	}
@@ -1054,17 +1053,17 @@ func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(humioClusterControl
 }
 
 func (r *HumioClusterReconciler) ensureServiceExists(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	r.logger.Info("ensuring service")
+	r.Log.Info("ensuring service")
 	_, err := kubernetes.GetService(ctx, r, hc.Name, hc.Namespace)
 	if errors.IsNotFound(err) {
 		service := constructService(hc)
 		if err := controllerutil.SetControllerReference(hc, service, r.Scheme); err != nil {
-			r.logger.Errorf("could not set controller reference: %s", err)
+			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
 		err = r.Create(ctx, service)
 		if err != nil {
-			r.logger.Errorf("unable to create service for HumioCluster: %s", err)
+			r.Log.Error(err, "unable to create service for HumioCluster")
 			return err
 		}
 	}
@@ -1075,14 +1074,14 @@ func (r *HumioClusterReconciler) ensureServiceExists(ctx context.Context, hc *hu
 // and cleans them up if we have no use for them anymore.
 func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
 	if !helpers.UseCertManager() {
-		r.logger.Debugf("cert-manager not available, skipping")
+		r.Log.Info("cert-manager not available, skipping")
 		return reconcile.Result{}, nil
 	}
 
 	// because these secrets are created by cert-manager we cannot use our typical label selector
 	foundSecretList, err := kubernetes.ListSecrets(ctx, r, hc.Namespace, client.MatchingLabels{})
 	if err != nil {
-		r.logger.Warnf("unable to list secrets: %s", err)
+		r.Log.Error(err, "unable to list secrets")
 		return reconcile.Result{}, err
 	}
 	if len(foundSecretList) == 0 {
@@ -1094,7 +1093,7 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc
 			if secret.Type == corev1.SecretTypeOpaque {
 				if secret.Name == fmt.Sprintf("%s-%s", hc.Name, "ca-keypair") ||
 					secret.Name == fmt.Sprintf("%s-%s", hc.Name, "keystore-passphrase") {
-					r.logger.Infof("TLS is not enabled for cluster, removing unused secret: %s", secret.Name)
+					r.Log.Info(fmt.Sprintf("TLS is not enabled for cluster, removing unused secret: %s", secret.Name))
 					err := r.Delete(ctx, &secret)
 					if err != nil {
 						return reconcile.Result{}, err
@@ -1134,15 +1133,15 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc
 				// this is the per-node secret
 				inUse, err = r.tlsCertSecretInUse(ctx, secret.Namespace, secret.Name)
 				if err != nil {
-					r.logger.Warnf("unable to determine if secret is in use: %s", err)
+					r.Log.Error(err, "unable to determine if secret is in use")
 					return reconcile.Result{}, err
 				}
 			}
 			if !inUse {
-				r.logger.Infof("deleting secret %s", secret.Name)
+				r.Log.Info(fmt.Sprintf("deleting secret %s", secret.Name))
 				err = r.Delete(ctx, &secret)
 				if err != nil {
-					r.logger.Errorf("could not delete secret %s, got err: %s", secret.Name, err)
+					r.Log.Error(err, fmt.Sprintf("could not delete secret %s", secret.Name))
 					return reconcile.Result{}, err
 				}
 				return reconcile.Result{Requeue: true}, nil
@@ -1157,13 +1156,13 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc
 // cleanupUnusedTLSCertificates finds all existing per-node certificates and cleans them up if we have no matching pod for them
 func (r *HumioClusterReconciler) cleanupUnusedTLSCertificates(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
 	if !helpers.UseCertManager() {
-		r.logger.Debugf("cert-manager not available, skipping")
+		r.Log.Info("cert-manager not available, skipping")
 		return reconcile.Result{}, nil
 	}
 
 	foundCertificateList, err := kubernetes.ListCertificates(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
-		r.logger.Warnf("unable to list certificates: %s", err)
+		r.Log.Error(err, "unable to list certificates")
 		return reconcile.Result{}, err
 	}
 	if len(foundCertificateList) == 0 {
@@ -1190,15 +1189,15 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSCertificates(ctx context.Contex
 				// this is the per-node secret
 				inUse, err = r.tlsCertSecretInUse(ctx, certificate.Namespace, certificate.Name)
 				if err != nil {
-					r.logger.Warnf("unable to determine if certificate is in use: %s", err)
+					r.Log.Error(err, "unable to determine if certificate is in use")
 					return reconcile.Result{}, err
 				}
 			}
 			if !inUse {
-				r.logger.Infof("deleting certificate %s", certificate.Name)
+				r.Log.Info(fmt.Sprintf("deleting certificate %s", certificate.Name))
 				err = r.Delete(ctx, &certificate)
 				if err != nil {
-					r.logger.Errorf("could not delete certificate %s, got err: %s", certificate.Name, err)
+					r.Log.Error(err, fmt.Sprintf("could not delete certificate %s", certificate.Name))
 					return reconcile.Result{}, err
 				}
 				return reconcile.Result{Requeue: true}, nil
@@ -1265,24 +1264,24 @@ func (r *HumioClusterReconciler) ensureHumioServiceAccountAnnotations(ctx contex
 	serviceAccountName := humioServiceAccountNameOrDefault(hc)
 	serviceAccountAnnotations := humioServiceAccountAnnotationsOrDefault(hc)
 
-	r.logger.Infof("ensuring service account %s annotations", serviceAccountName)
+	r.Log.Info(fmt.Sprintf("ensuring service account %s annotations", serviceAccountName))
 	existingServiceAccount, err := kubernetes.GetServiceAccount(ctx, r, serviceAccountName, hc.Namespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
-		r.logger.Errorf("failed to get service account %s: %s", serviceAccountName, err)
+		r.Log.Error(err, fmt.Sprintf("failed to get service account %s", serviceAccountName))
 		return reconcile.Result{}, err
 	}
 
 	serviceAccount := kubernetes.ConstructServiceAccount(serviceAccountName, hc.Name, hc.Namespace, serviceAccountAnnotations)
 	if !reflect.DeepEqual(existingServiceAccount.Annotations, serviceAccount.Annotations) {
-		r.logger.Infof("service account annotations do not match: annotations %s, got %s. updating service account %s",
-			helpers.MapToString(serviceAccount.Annotations), helpers.MapToString(existingServiceAccount.Annotations), existingServiceAccount.Name)
+		r.Log.Info(fmt.Sprintf("service account annotations do not match: annotations %s, got %s. updating service account %s",
+			helpers.MapToString(serviceAccount.Annotations), helpers.MapToString(existingServiceAccount.Annotations), existingServiceAccount.Name))
 		existingServiceAccount.Annotations = serviceAccount.Annotations
 		err = r.Update(ctx, existingServiceAccount)
 		if err != nil {
-			r.logger.Errorf("could not update service account %s, got err: %s", existingServiceAccount.Name, err)
+			r.Log.Error(err, fmt.Sprintf("could not update service account %s", existingServiceAccount.Name))
 			return reconcile.Result{}, err
 		}
 
@@ -1314,7 +1313,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 
 	var podBeingDeleted bool
 	var waitingOnReadyPods bool
-	r.logger.Info("ensuring mismatching pods are deleted")
+	r.Log.Info("ensuring mismatching pods are deleted")
 
 	// It's not necessary to have real attachments here since we are only using them to get the desired state of the pod
 	// which sanitizes the attachments in podSpecAsSHA256().
@@ -1328,14 +1327,14 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	podsReadyCount, podsNotReadyCount := r.podsReady(foundPodList)
 	if podsReadyCount < nodeCountOrDefault(hc) || podsNotReadyCount > 0 {
 		waitingOnReadyPods = true
-		r.logger.Infof("there are %d/%d humio pods that are ready", podsReadyCount, nodeCountOrDefault(hc))
+		r.Log.Info(fmt.Sprintf("there are %d/%d humio pods that are ready", podsReadyCount, nodeCountOrDefault(hc)))
 	}
 
 	if (r.getHumioClusterPodRestartPolicy(hc) == PodRestartPolicyRolling && !waitingOnReadyPods) ||
 		r.getHumioClusterPodRestartPolicy(hc) == PodRestartPolicyRecreate {
 		desiredLifecycleState, err := r.getPodDesiredLifecycleState(hc, foundPodList, attachments)
 		if err != nil {
-			r.logger.Errorf("got error when getting pod desired lifecycle: %s", err)
+			r.Log.Error(err, "got error when getting pod desired lifecycle")
 			return reconcile.Result{}, err
 		}
 		// If we are currently deleting pods, then check if the cluster state is Running. If it is, then change to an
@@ -1347,26 +1346,26 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 			if hc.Status.State == humiov1alpha1.HumioClusterStateRunning {
 				if desiredLifecycleState.restartPolicy == PodRestartPolicyRecreate {
 					if err = r.setState(ctx, humiov1alpha1.HumioClusterStateUpgrading, hc); err != nil {
-						r.logger.Errorf("failed to set state to %s: %s", humiov1alpha1.HumioClusterStateUpgrading, err)
+						r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateUpgrading))
 					}
 					if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRecreate); err != nil {
-						r.logger.Errorf("failed to increment pod revision to %d: %s", revision, err)
+						r.Log.Error(err, fmt.Sprintf("failed to increment pod revision to %d", revision))
 					}
 				}
 				if desiredLifecycleState.restartPolicy == PodRestartPolicyRolling {
 					if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRestarting, hc); err != nil {
-						r.logger.Errorf("failed to set state to %s: %s", humiov1alpha1.HumioClusterStateRestarting, err)
+						r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRestarting))
 					}
 					if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRolling); err != nil {
-						r.logger.Errorf("failed to increment pod revision to %d: %s", revision, err)
+						r.Log.Error(err, fmt.Sprintf("failed to increment pod revision to %d", revision))
 					}
 				}
 			}
-			r.logger.Infof("deleting pod %s", desiredLifecycleState.pod.Name)
+			r.Log.Info(fmt.Sprintf("deleting pod %s", desiredLifecycleState.pod.Name))
 			podBeingDeleted = true
 			err = r.Delete(ctx, &desiredLifecycleState.pod)
 			if err != nil {
-				r.logger.Errorf("could not delete pod %s, got err: %s", desiredLifecycleState.pod.Name, err)
+				r.Log.Error(err, fmt.Sprintf("could not delete pod %s", desiredLifecycleState.pod.Name))
 				return reconcile.Result{}, err
 			}
 		}
@@ -1382,9 +1381,9 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	// happen when we know that all of the pods are in a Ready state and that we are no longer deleting pods.
 	if !waitingOnReadyPods && !podBeingDeleted {
 		if hc.Status.State == humiov1alpha1.HumioClusterStateRestarting || hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading {
-			r.logger.Infof("no longer deleting pods. changing cluster state from %s to %s", hc.Status.State, humiov1alpha1.HumioClusterStateRunning)
+			r.Log.Info(fmt.Sprintf("no longer deleting pods. changing cluster state from %s to %s", hc.Status.State, humiov1alpha1.HumioClusterStateRunning))
 			if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc); err != nil {
-				r.logger.Errorf("failed to set state to %s: %s", humiov1alpha1.HumioClusterStateRunning, err)
+				r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning))
 			}
 		}
 	}
@@ -1407,12 +1406,12 @@ func (r *HumioClusterReconciler) ingressesMatch(ingress *v1beta1.Ingress, desire
 	}
 
 	if !reflect.DeepEqual(ingress.Spec, desiredIngress.Spec) {
-		r.logger.Infof("ingress specs do not match: got %+v, wanted %+v", ingress.Spec, desiredIngress.Spec)
+		r.Log.Info(fmt.Sprintf("ingress specs do not match: got %+v, wanted %+v", ingress.Spec, desiredIngress.Spec))
 		return false
 	}
 
 	if !reflect.DeepEqual(ingress.Annotations, desiredIngress.Annotations) {
-		r.logger.Infof("ingress annotations do not match: got %+v, wanted %+v", ingress.Annotations, desiredIngress.Annotations)
+		r.Log.Info(fmt.Sprintf("ingress annotations do not match: got %+v, wanted %+v", ingress.Annotations, desiredIngress.Annotations))
 		return false
 	}
 	return true
@@ -1422,35 +1421,35 @@ func (r *HumioClusterReconciler) ingressesMatch(ingress *v1beta1.Ingress, desire
 func (r *HumioClusterReconciler) ensurePodsBootstrapped(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
 	// Ensure we have pods for the defined NodeCount.
 	// If scaling down, we will handle the extra/obsolete pods later.
-	r.logger.Info("ensuring pods are bootstrapped")
+	r.Log.Info("ensuring pods are bootstrapped")
 	foundPodList, err := kubernetes.ListPods(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
-		r.logger.Errorf("failed to list pods: %s", err)
+		r.Log.Error(err, "failed to list pods")
 		return reconcile.Result{}, err
 	}
-	r.logger.Debugf("found %d pods", len(foundPodList))
+	r.Log.Info(fmt.Sprintf("found %d pods", len(foundPodList)))
 
 	podsReadyCount, podsNotReadyCount := r.podsReady(foundPodList)
 	if podsReadyCount == nodeCountOrDefault(hc) {
-		r.logger.Info("all humio pods are reporting ready")
+		r.Log.Info("all humio pods are reporting ready")
 		return reconcile.Result{}, nil
 	}
 
 	if podsNotReadyCount > 0 {
-		r.logger.Infof("there are %d humio pods that are not ready. all humio pods must report ready before reconciliation can continue", podsNotReadyCount)
+		r.Log.Info(fmt.Sprintf("there are %d humio pods that are not ready. all humio pods must report ready before reconciliation can continue", podsNotReadyCount))
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 
-	r.logger.Debugf("pod ready count is %d, while desired node count is %d", podsReadyCount, nodeCountOrDefault(hc))
+	r.Log.Info(fmt.Sprintf("pod ready count is %d, while desired node count is %d", podsReadyCount, nodeCountOrDefault(hc)))
 	if podsReadyCount < nodeCountOrDefault(hc) {
 		attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
 		if err != nil {
-			r.logger.Errorf("failed to get pod attachments: %s", err)
+			r.Log.Error(err, "failed to get pod attachments")
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}
 		err = r.createPod(ctx, hc, attachments)
 		if err != nil {
-			r.logger.Errorf("unable to create Pod for HumioCluster: %s", err)
+			r.Log.Error(err, "unable to create pod")
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}
 		humioClusterPrometheusMetrics.Counters.PodsCreated.Inc()
@@ -1458,7 +1457,7 @@ func (r *HumioClusterReconciler) ensurePodsBootstrapped(ctx context.Context, hc 
 		// check that we can list the new pod
 		// this is to avoid issues where the requeue is faster than kubernetes
 		if err := r.waitForNewPod(hc, len(foundPodList)+1); err != nil {
-			r.logger.Errorf("failed to validate new pod: %s", err)
+			r.Log.Error(err, "failed to validate new pod")
 			return reconcile.Result{}, err
 		}
 
@@ -1475,19 +1474,19 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 	// If scaling down, we will handle the extra/obsolete pods later.
 	foundPodList, err := kubernetes.ListPods(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
-		r.logger.Errorf("failed to list pods: %s", err)
+		r.Log.Error(err, "failed to list pods")
 		return reconcile.Result{}, err
 	}
 
 	if len(foundPodList) < nodeCountOrDefault(hc) {
 		attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
 		if err != nil {
-			r.logger.Errorf("failed to get pod attachments: %s", err)
+			r.Log.Error(err, "failed to get pod attachments")
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}
 		err = r.createPod(ctx, hc, attachments)
 		if err != nil {
-			r.logger.Errorf("unable to create Pod for HumioCluster: %s", err)
+			r.Log.Error(err, "unable to create pod")
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}
 		humioClusterPrometheusMetrics.Counters.PodsCreated.Inc()
@@ -1495,7 +1494,7 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 		// check that we can list the new pod
 		// this is to avoid issues where the requeue is faster than kubernetes
 		if err := r.waitForNewPod(hc, len(foundPodList)+1); err != nil { // TODO: We often end in situations where we expect one more than we have, causing this to timeout after 30 seconds. This doesn't happen during bootstrapping.
-			r.logger.Errorf("failed to validate new pod: %s", err)
+			r.Log.Error(err, "failed to validate new pod")
 			return reconcile.Result{}, err
 		}
 
@@ -1509,33 +1508,33 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 
 func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
 	if !pvcsEnabled(hc) {
-		r.logger.Info("pvcs are disabled. skipping")
+		r.Log.Info("pvcs are disabled. skipping")
 		return reconcile.Result{}, nil
 	}
 
-	r.logger.Info("ensuring pvcs")
+	r.Log.Info("ensuring pvcs")
 	foundPersistentVolumeClaims, err := kubernetes.ListPersistentVolumeClaims(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
-	r.logger.Debugf("found %d pvcs", len(foundPersistentVolumeClaims))
+	r.Log.Info("found %d pvcs", len(foundPersistentVolumeClaims))
 
 	if err != nil {
-		r.logger.Errorf("failed to list pvcs: %s", err)
+		r.Log.Error(err, "failed to list pvcs")
 		return reconcile.Result{}, err
 	}
 
 	if len(foundPersistentVolumeClaims) < nodeCountOrDefault(hc) {
-		r.logger.Infof("pvc count of %d is less than %d. adding more", len(foundPersistentVolumeClaims), nodeCountOrDefault(hc))
+		r.Log.Info(fmt.Sprintf("pvc count of %d is less than %d. adding more", len(foundPersistentVolumeClaims), nodeCountOrDefault(hc)))
 		pvc := constructPersistentVolumeClaim(hc)
 		pvc.Annotations["humio_pvc_hash"] = helpers.AsSHA256(pvc.Spec)
 		if err := controllerutil.SetControllerReference(hc, pvc, r.Scheme); err != nil {
-			r.logger.Errorf("could not set controller reference: %s", err)
+			r.Log.Error(err, "could not set controller reference")
 			return reconcile.Result{}, err
 		}
 		err = r.Create(ctx, pvc)
 		if err != nil {
-			r.logger.Errorf("unable to create pvc for HumioCluster: %s", err)
+			r.Log.Error(err, "unable to create pvc")
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}
-		r.logger.Infof("successfully created pvc %s for HumioCluster %s", pvc.Name, hc.Name)
+		r.Log.Info(fmt.Sprintf("successfully created pvc %s for HumioCluster %s", pvc.Name, hc.Name))
 		humioClusterPrometheusMetrics.Counters.PvcsCreated.Inc()
 
 		return reconcile.Result{Requeue: true}, nil
@@ -1550,7 +1549,7 @@ func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *h
 	existingSecret, err := kubernetes.GetSecret(ctx, r, adminTokenSecretName, hc.Namespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			r.logger.Infof("waiting for sidecar to populate secret %s for HumioCluster %s", adminTokenSecretName, hc.Name)
+			r.Log.Info(fmt.Sprintf("waiting for sidecar to populate secret %s", adminTokenSecretName))
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
 		}
 	}
@@ -1564,11 +1563,11 @@ func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *h
 	if helpers.TLSEnabled(hc) {
 		existingCABundle, err := kubernetes.GetSecret(ctx, r, constructClusterCACertificateBundle(hc).Spec.SecretName, hc.Namespace)
 		if errors.IsNotFound(err) {
-			r.logger.Infof("waiting for secret with CA bundle")
+			r.Log.Info("waiting for secret with CA bundle")
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
 		}
 		if err != nil {
-			r.logger.Warnf("unable to obtain CA certificate: %s", err)
+			r.Log.Error(err, "unable to obtain CA certificate")
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
 		}
 		humioAPIConfig.CACertificate = existingCABundle.Data["ca.crt"]

@@ -18,21 +18,21 @@ package humio
 
 import (
 	"fmt"
+	"github.com/go-logr/logr"
 
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/shurcooL/graphql"
-	"go.uber.org/zap"
 )
 
 // ClusterController holds our client
 type ClusterController struct {
 	client Client
-	logger *zap.SugaredLogger
+	logger logr.Logger
 }
 
 // NewClusterController returns a ClusterController
-func NewClusterController(logger *zap.SugaredLogger, client Client) *ClusterController {
+func NewClusterController(logger logr.Logger, client Client) *ClusterController {
 	return &ClusterController{
 		client: client,
 		logger: logger,
@@ -134,7 +134,7 @@ func (c *ClusterController) AreStoragePartitionsBalanced(hc *humiov1alpha1.Humio
 	var min, max int
 	for i, partitionCount := range nodeToPartitionCount {
 		if partitionCount == 0 {
-			c.logger.Infof("node id %d does not contain any storage partitions", i)
+			c.logger.Info(fmt.Sprintf("node id %d does not contain any storage partitions", i))
 			return false, nil
 		}
 		if min == 0 {
@@ -152,11 +152,11 @@ func (c *ClusterController) AreStoragePartitionsBalanced(hc *humiov1alpha1.Humio
 	}
 
 	if max-min > 1 {
-		c.logger.Infof("the difference in number of storage partitions assigned per storage node is greater than 1, min=%d, max=%d", min, max)
+		c.logger.Info(fmt.Sprintf("the difference in number of storage partitions assigned per storage node is greater than 1, min=%d, max=%d", min, max))
 		return false, nil
 	}
 
-	c.logger.Infof("storage partitions are balanced min=%d, max=%d", min, max)
+	c.logger.Info(fmt.Sprintf("storage partitions are balanced min=%d, max=%d", min, max))
 	return true, nil
 }
 
@@ -221,7 +221,7 @@ func (c *ClusterController) AreIngestPartitionsBalanced(hc *humiov1alpha1.HumioC
 	var min, max int
 	for i, partitionCount := range nodeToPartitionCount {
 		if partitionCount == 0 {
-			c.logger.Infof("node id %d does not contain any ingest partitions", i)
+			c.logger.Info(fmt.Sprintf("node id %d does not contain any ingest partitions", i))
 			return false, nil
 		}
 		if min == 0 {
@@ -239,11 +239,11 @@ func (c *ClusterController) AreIngestPartitionsBalanced(hc *humiov1alpha1.HumioC
 	}
 
 	if max-min > 1 {
-		c.logger.Infof("the difference in number of ingest partitions assigned per storage node is greater than 1, min=%d, max=%d", min, max)
+		c.logger.Info(fmt.Sprintf("the difference in number of ingest partitions assigned per storage node is greater than 1, min=%d, max=%d", min, max))
 		return false, nil
 	}
 
-	c.logger.Infof("ingest partitions are balanced min=%d, max=%d", min, max)
+	c.logger.Info(fmt.Sprintf("ingest partitions are balanced min=%d, max=%d", min, max))
 	return true, nil
 }
 
@@ -292,7 +292,7 @@ func (c *ClusterController) StartDataRedistribution(hc *humiov1alpha1.HumioClust
 
 // MoveStorageRouteAwayFromNode notifies the Humio cluster that a node ID should be removed from handling any storage partitions
 func (c *ClusterController) MoveStorageRouteAwayFromNode(hc *humiov1alpha1.HumioCluster, nodeID int) error {
-	c.logger.Infof("moving storage route away from node %d", nodeID)
+	c.logger.Info(fmt.Sprintf("moving storage route away from node %d", nodeID))
 
 	if err := c.client.ClusterMoveStorageRouteAwayFromNode(nodeID); err != nil {
 		return fmt.Errorf("could not move storage route away from node: %s", err)
@@ -302,7 +302,7 @@ func (c *ClusterController) MoveStorageRouteAwayFromNode(hc *humiov1alpha1.Humio
 
 // MoveIngestRoutesAwayFromNode notifies the Humio cluster that a node ID should be removed from handling any ingest partitions
 func (c *ClusterController) MoveIngestRoutesAwayFromNode(hc *humiov1alpha1.HumioCluster, nodeID int) error {
-	c.logger.Infof("moving ingest routes away from node %d", nodeID)
+	c.logger.Info(fmt.Sprintf("moving ingest routes away from node %d", nodeID))
 
 	if err := c.client.ClusterMoveIngestRoutesAwayFromNode(nodeID); err != nil {
 		return fmt.Errorf("could not move ingest routes away from node: %s", err)
@@ -312,7 +312,7 @@ func (c *ClusterController) MoveIngestRoutesAwayFromNode(hc *humiov1alpha1.Humio
 
 // ClusterUnregisterNode tells the Humio cluster that we want to unregister a node
 func (c *ClusterController) ClusterUnregisterNode(hc *humiov1alpha1.HumioCluster, nodeID int) error {
-	c.logger.Infof("unregistering node with id %d", nodeID)
+	c.logger.Info(fmt.Sprintf("unregistering node with id %d", nodeID))
 
 	err := c.client.Unregister(nodeID)
 	if err != nil {
