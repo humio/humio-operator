@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -28,7 +29,7 @@ import (
 // setState is used to change the cluster state
 // TODO: we use this to determine if we should have a delay between startup of humio pods during bootstrap vs starting up pods during an image update
 func (r *HumioClusterReconciler) setState(ctx context.Context, state string, hc *humiov1alpha1.HumioCluster) error {
-	r.logger.Infof("setting cluster state to %s", state)
+	r.Log.Info(fmt.Sprintf("setting cluster state to %s", state))
 	hc.Status.State = state
 	err := r.Status().Update(ctx, hc)
 	if err != nil {
@@ -38,36 +39,36 @@ func (r *HumioClusterReconciler) setState(ctx context.Context, state string, hc 
 }
 
 func (r *HumioClusterReconciler) setVersion(ctx context.Context, version string, hc *humiov1alpha1.HumioCluster) {
-	r.logger.Infof("setting cluster version to %s", version)
+	r.Log.Info(fmt.Sprintf("setting cluster version to %s", version))
 	hc.Status.Version = version
 	err := r.Status().Update(ctx, hc)
 	if err != nil {
-		r.logger.Errorf("unable to set version status %s", err)
+		r.Log.Error(err, "unable to set version status")
 	}
 }
 
 func (r *HumioClusterReconciler) setNodeCount(ctx context.Context, nodeCount int, hc *humiov1alpha1.HumioCluster) {
-	r.logger.Infof("setting cluster node count to %d", nodeCount)
+	r.Log.Info(fmt.Sprintf("setting cluster node count to %d", nodeCount))
 	hc.Status.NodeCount = nodeCount
 	err := r.Status().Update(ctx, hc)
 	if err != nil {
-		r.logger.Errorf("unable to set node count status %s", err)
+		r.Log.Error(err, "unable to set node count status")
 	}
 }
 
 func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
-	r.logger.Info("setting cluster pod status")
+	r.Log.Info("setting cluster pod status")
 	var pvcs []corev1.PersistentVolumeClaim
 	pods, err := kubernetes.ListPods(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
-		r.logger.Errorf("unable to set pod status: %s", err)
+		r.Log.Error(err, "unable to set pod status")
 		return
 	}
 
 	if pvcsEnabled(hc) {
 		pvcs, err = kubernetes.ListPersistentVolumeClaims(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 		if err != nil {
-			r.logger.Errorf("unable to set pod status: %s", err)
+			r.Log.Error(err, "unable to set pod status")
 			return
 		}
 	}
@@ -80,7 +81,7 @@ func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.H
 		if nodeIdStr, ok := pod.Labels[kubernetes.NodeIdLabelName]; ok {
 			nodeId, err := strconv.Atoi(nodeIdStr)
 			if err != nil {
-				r.logger.Errorf("unable to set pod status, node id %s is invalid: %s", nodeIdStr, err)
+				r.Log.Error(err, fmt.Sprintf("unable to set pod status, node id %s is invalid", nodeIdStr))
 				return
 			}
 			podStatus.NodeId = nodeId
@@ -88,7 +89,7 @@ func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.H
 		if pvcsEnabled(hc) {
 			pvc, err := findPvcForPod(pvcs, pod)
 			if err != nil {
-				r.logger.Errorf("unable to set pod status: %s", err)
+				r.Log.Error(err, "unable to set pod status")
 				return
 			}
 			podStatus.PvcName = pvc.Name
@@ -98,6 +99,6 @@ func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.H
 
 	err = r.Status().Update(ctx, hc)
 	if err != nil {
-		r.logger.Errorf("unable to set pod status %s", err)
+		r.Log.Error(err, "unable to set pod status")
 	}
 }

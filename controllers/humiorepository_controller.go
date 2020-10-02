@@ -19,9 +19,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
-	"go.uber.org/zap"
+	uberzap "go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -39,8 +40,7 @@ import (
 // HumioRepositoryReconciler reconciles a HumioRepository object
 type HumioRepositoryReconciler struct {
 	client.Client
-	Log         logr.Logger // TODO: Migrate to *zap.SugaredLogger
-	logger      *zap.SugaredLogger
+	Log         logr.Logger
 	Scheme      *runtime.Scheme
 	HumioClient humio.Client
 }
@@ -50,11 +50,10 @@ type HumioRepositoryReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 
 func (r *HumioRepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	logger, _ := zap.NewProduction()
-	defer logger.Sync()
-	r.logger = logger.Sugar().With("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
-	r.logger.Info("Reconciling HumioRepository")
-	// TODO: Add back controllerutil.SetControllerReference everywhere we create k8s objects
+	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+	defer zapLog.Sync()
+	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
+	r.Log.Info("Reconciling HumioRepository")
 
 	// Fetch the HumioRepository instance
 	hr := &humiov1alpha1.HumioRepository{}
@@ -84,38 +83,38 @@ func (r *HumioRepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 		r.setState(ctx, humiov1alpha1.HumioRepositoryStateExists, hr)
 	}(context.TODO(), r.HumioClient, hr)
 
-	r.logger.Info("Checking if repository is marked to be deleted")
+	r.Log.Info("Checking if repository is marked to be deleted")
 	// Check if the HumioRepository instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
 	isHumioRepositoryMarkedToBeDeleted := hr.GetDeletionTimestamp() != nil
 	if isHumioRepositoryMarkedToBeDeleted {
-		r.logger.Info("Repository marked to be deleted")
+		r.Log.Info("Repository marked to be deleted")
 		if helpers.ContainsElement(hr.GetFinalizers(), humioFinalizer) {
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
-			r.logger.Info("Repository contains finalizer so run finalizer method")
+			r.Log.Info("Repository contains finalizer so run finalizer method")
 			if err := r.finalize(hr); err != nil {
-				r.logger.Infof("Finalizer method returned error: %v", err)
+				r.Log.Error(err, "Finalizer method returned error")
 				return reconcile.Result{}, err
 			}
 
 			// Remove humioFinalizer. Once all finalizers have been
 			// removed, the object will be deleted.
-			r.logger.Info("Finalizer done. Removing finalizer")
+			r.Log.Info("Finalizer done. Removing finalizer")
 			hr.SetFinalizers(helpers.RemoveElement(hr.GetFinalizers(), humioFinalizer))
 			err := r.Update(context.TODO(), hr)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			r.logger.Info("Finalizer removed successfully")
+			r.Log.Info("Finalizer removed successfully")
 		}
 		return reconcile.Result{}, nil
 	}
 
 	// Add finalizer for this CR
 	if !helpers.ContainsElement(hr.GetFinalizers(), humioFinalizer) {
-		r.logger.Info("Finalizer not present, adding finalizer to repository")
+		r.Log.Info("Finalizer not present, adding finalizer to repository")
 		if err := r.addFinalizer(hr); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -123,34 +122,34 @@ func (r *HumioRepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 
 	cluster, err := helpers.NewCluster(context.TODO(), r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager())
 	if err != nil || cluster.Config() == nil {
-		r.logger.Errorf("unable to obtain humio client config: %s", err)
+		r.Log.Error(err, "unable to obtain humio client config")
 		return reconcile.Result{}, err
 	}
 
 	err = r.HumioClient.Authenticate(cluster.Config())
 	if err != nil {
-		r.logger.Warnf("unable to authenticate humio client: %s", err)
+		r.Log.Error(err, "unable to authenticate humio client")
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 	}
 
 	// Get current repository
-	r.logger.Info("get current repository")
+	r.Log.Info("get current repository")
 	curRepository, err := r.HumioClient.GetRepository(hr)
 	if err != nil {
-		r.logger.Infof("could not check if repository exists: %s", err)
+		r.Log.Error(err, "could not check if repository exists")
 		return reconcile.Result{}, fmt.Errorf("could not check if repository exists: %s", err)
 	}
 
 	emptyRepository := humioapi.Repository{}
 	if reflect.DeepEqual(emptyRepository, *curRepository) {
-		r.logger.Info("repository doesn't exist. Now adding repository")
+		r.Log.Info("repository doesn't exist. Now adding repository")
 		// create repository
 		_, err := r.HumioClient.AddRepository(hr)
 		if err != nil {
-			r.logger.Infof("could not create repository: %s", err)
+			r.Log.Error(err, "could not create repository")
 			return reconcile.Result{}, fmt.Errorf("could not create repository: %s", err)
 		}
-		r.logger.Infof("created repository: %s", hr.Spec.Name)
+		r.Log.Info("created repository", "RepositoryName", hr.Spec.Name)
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -158,7 +157,7 @@ func (r *HumioRepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 		(curRepository.RetentionDays != float64(hr.Spec.Retention.TimeInDays)) ||
 		(curRepository.IngestRetentionSizeGB != float64(hr.Spec.Retention.IngestSizeInGB)) ||
 		(curRepository.StorageRetentionSizeGB != float64(hr.Spec.Retention.StorageSizeInGB)) {
-		r.logger.Infof("repository information differs, triggering update, expected %v/%v/%v/%v, got: %v/%v/%v/%v",
+		r.Log.Info(fmt.Sprintf("repository information differs, triggering update, expected %v/%v/%v/%v, got: %v/%v/%v/%v",
 			hr.Spec.Description,
 			float64(hr.Spec.Retention.TimeInDays),
 			float64(hr.Spec.Retention.IngestSizeInGB),
@@ -166,10 +165,10 @@ func (r *HumioRepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 			curRepository.Description,
 			curRepository.RetentionDays,
 			curRepository.IngestRetentionSizeGB,
-			curRepository.StorageRetentionSizeGB)
+			curRepository.StorageRetentionSizeGB))
 		_, err = r.HumioClient.UpdateRepository(hr)
 		if err != nil {
-			r.logger.Infof("could not update repository: %s", err)
+			r.Log.Error(err, "could not update repository")
 			return reconcile.Result{}, fmt.Errorf("could not update repository: %s", err)
 		}
 	}
@@ -199,13 +198,13 @@ func (r *HumioRepositoryReconciler) finalize(hr *humiov1alpha1.HumioRepository) 
 }
 
 func (r *HumioRepositoryReconciler) addFinalizer(hr *humiov1alpha1.HumioRepository) error {
-	r.logger.Info("Adding Finalizer for the HumioRepository")
+	r.Log.Info("Adding Finalizer for the HumioRepository")
 	hr.SetFinalizers(append(hr.GetFinalizers(), humioFinalizer))
 
 	// Update CR
 	err := r.Update(context.TODO(), hr)
 	if err != nil {
-		r.logger.Error(err, "Failed to update HumioRepository with finalizer")
+		r.Log.Error(err, "Failed to update HumioRepository with finalizer")
 		return err
 	}
 	return nil

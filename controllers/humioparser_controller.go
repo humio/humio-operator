@@ -19,9 +19,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
-	"go.uber.org/zap"
+	uberzap "go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -39,8 +40,7 @@ import (
 // HumioParserReconciler reconciles a HumioParser object
 type HumioParserReconciler struct {
 	client.Client
-	Log         logr.Logger // TODO: Migrate to *zap.SugaredLogger
-	logger      *zap.SugaredLogger
+	Log         logr.Logger
 	Scheme      *runtime.Scheme
 	HumioClient humio.Client
 }
@@ -50,11 +50,10 @@ type HumioParserReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 
 func (r *HumioParserReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	logger, _ := zap.NewProduction()
-	defer logger.Sync()
-	r.logger = logger.Sugar().With("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
-	r.logger.Info("Reconciling HumioParser")
-	// TODO: Add back controllerutil.SetControllerReference everywhere we create k8s objects
+	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+	defer zapLog.Sync()
+	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
+	r.Log.Info("Reconciling HumioParser")
 
 	// Fetch the HumioParser instance
 	hp := &humiov1alpha1.HumioParser{}
@@ -84,38 +83,38 @@ func (r *HumioParserReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 		r.setState(ctx, humiov1alpha1.HumioParserStateExists, hp)
 	}(context.TODO(), r.HumioClient, hp)
 
-	r.logger.Info("Checking if parser is marked to be deleted")
+	r.Log.Info("Checking if parser is marked to be deleted")
 	// Check if the HumioParser instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
 	isHumioParserMarkedToBeDeleted := hp.GetDeletionTimestamp() != nil
 	if isHumioParserMarkedToBeDeleted {
-		r.logger.Info("Parser marked to be deleted")
+		r.Log.Info("Parser marked to be deleted")
 		if helpers.ContainsElement(hp.GetFinalizers(), humioFinalizer) {
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
-			r.logger.Info("Parser contains finalizer so run finalizer method")
+			r.Log.Info("Parser contains finalizer so run finalizer method")
 			if err := r.finalize(hp); err != nil {
-				r.logger.Infof("Finalizer method returned error: %v", err)
+				r.Log.Error(err, "Finalizer method returned error")
 				return reconcile.Result{}, err
 			}
 
 			// Remove humioFinalizer. Once all finalizers have been
 			// removed, the object will be deleted.
-			r.logger.Info("Finalizer done. Removing finalizer")
+			r.Log.Info("Finalizer done. Removing finalizer")
 			hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), humioFinalizer))
 			err := r.Update(context.TODO(), hp)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			r.logger.Info("Finalizer removed successfully")
+			r.Log.Info("Finalizer removed successfully")
 		}
 		return reconcile.Result{}, nil
 	}
 
 	// Add finalizer for this CR
 	if !helpers.ContainsElement(hp.GetFinalizers(), humioFinalizer) {
-		r.logger.Info("Finalizer not present, adding finalizer to parser")
+		r.Log.Info("Finalizer not present, adding finalizer to parser")
 		if err := r.addFinalizer(hp); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -123,42 +122,42 @@ func (r *HumioParserReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 
 	cluster, err := helpers.NewCluster(context.TODO(), r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager())
 	if err != nil || cluster.Config() == nil {
-		r.logger.Errorf("unable to obtain humio client config: %s", err)
+		r.Log.Error(err, "unable to obtain humio client config")
 		return reconcile.Result{}, err
 	}
 
 	err = r.HumioClient.Authenticate(cluster.Config())
 	if err != nil {
-		r.logger.Warnf("unable to authenticate humio client: %s", err)
+		r.Log.Error(err, "unable to authenticate humio client")
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 	}
 
 	// Get current parser
-	r.logger.Info("get current parser")
+	r.Log.Info("get current parser")
 	curParser, err := r.HumioClient.GetParser(hp) // This returns 401 instead of 200
 	if err != nil {
-		r.logger.Infof("could not check if parser exists in repo %s: %+v", hp.Spec.RepositoryName, err)
+		r.Log.Error(err, "could not check if parser exists", "Repository.Name", hp.Spec.RepositoryName)
 		return reconcile.Result{}, fmt.Errorf("could not check if parser exists: %s", err)
 	}
 
 	emptyParser := humioapi.Parser{Tests: []humioapi.ParserTestCase{}, TagFields: nil} // when using a real humio, we need to do this, ensure tests work the same way. tests currently set this to nil whereas it should be the empty list
 	if reflect.DeepEqual(emptyParser, *curParser) {
-		r.logger.Info("parser doesn't exist. Now adding parser")
+		r.Log.Info("parser doesn't exist. Now adding parser")
 		// create parser
 		_, err := r.HumioClient.AddParser(hp)
 		if err != nil {
-			r.logger.Infof("could not create parser: %s", err)
+			r.Log.Error(err, "could not create parser")
 			return reconcile.Result{}, fmt.Errorf("could not create parser: %s", err)
 		}
-		r.logger.Infof("created parser: %s", hp.Spec.Name)
+		r.Log.Info("created parser")
 		return reconcile.Result{Requeue: true}, nil
 	}
 
 	if (curParser.Script != hp.Spec.ParserScript) || !reflect.DeepEqual(curParser.TagFields, hp.Spec.TagFields) || !reflect.DeepEqual(curParser.Tests, helpers.MapTests(hp.Spec.TestData, helpers.ToTestCase)) {
-		r.logger.Info("parser information differs, triggering update")
+		r.Log.Info("parser information differs, triggering update")
 		_, err = r.HumioClient.UpdateParser(hp)
 		if err != nil {
-			r.logger.Infof("could not update parser: %s", err)
+			r.Log.Error(err, "could not update parser")
 			return reconcile.Result{}, fmt.Errorf("could not update parser: %s", err)
 		}
 	}
@@ -188,13 +187,13 @@ func (r *HumioParserReconciler) finalize(hp *humiov1alpha1.HumioParser) error {
 }
 
 func (r *HumioParserReconciler) addFinalizer(hp *humiov1alpha1.HumioParser) error {
-	r.logger.Info("Adding Finalizer for the HumioParser")
+	r.Log.Info("Adding Finalizer for the HumioParser")
 	hp.SetFinalizers(append(hp.GetFinalizers(), humioFinalizer))
 
 	// Update CR
 	err := r.Update(context.TODO(), hp)
 	if err != nil {
-		r.logger.Error(err, "Failed to update HumioParser with finalizer")
+		r.Log.Error(err, "Failed to update HumioParser with finalizer")
 		return err
 	}
 	return nil

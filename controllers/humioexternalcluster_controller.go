@@ -18,8 +18,9 @@ package controllers
 
 import (
 	"context"
+	"github.com/go-logr/zapr"
 	"github.com/humio/humio-operator/pkg/helpers"
-	"go.uber.org/zap"
+	uberzap "go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
@@ -36,8 +37,7 @@ import (
 // HumioExternalClusterReconciler reconciles a HumioExternalCluster object
 type HumioExternalClusterReconciler struct {
 	client.Client
-	Log         logr.Logger // TODO: Migrate to *zap.SugaredLogger
-	logger      *zap.SugaredLogger
+	Log         logr.Logger
 	Scheme      *runtime.Scheme
 	HumioClient humio.Client
 }
@@ -47,10 +47,10 @@ type HumioExternalClusterReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 
 func (r *HumioExternalClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	logger, _ := zap.NewProduction()
-	defer logger.Sync()
-	r.logger = logger.Sugar().With("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
-	r.logger.Info("Reconciling HumioExternalCluster")
+	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+	defer zapLog.Sync()
+	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
+	r.Log.Info("Reconciling HumioExternalCluster")
 
 	// Fetch the HumioExternalCluster instance
 	hec := &humiov1alpha1.HumioExternalCluster{}
@@ -69,20 +69,20 @@ func (r *HumioExternalClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Resul
 	if hec.Status.State == "" {
 		err := r.setState(context.TODO(), humiov1alpha1.HumioExternalClusterStateUnknown, hec)
 		if err != nil {
-			r.logger.Infof("unable to set cluster state: %s", err)
+			r.Log.Error(err, "unable to set cluster state")
 			return reconcile.Result{}, err
 		}
 	}
 
 	cluster, err := helpers.NewCluster(context.TODO(), r, "", hec.Name, hec.Namespace, helpers.UseCertManager())
 	if err != nil || cluster.Config() == nil {
-		r.logger.Error("unable to obtain humio client config: %s", err)
+		r.Log.Error(err, "unable to obtain humio client config")
 		return reconcile.Result{}, err
 	}
 
 	err = r.HumioClient.Authenticate(cluster.Config())
 	if err != nil {
-		r.logger.Warnf("unable to authenticate humio client: %s", err)
+		r.Log.Error(err, "unable to authenticate humio client")
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 	}
 
@@ -90,12 +90,12 @@ func (r *HumioExternalClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Resul
 	if err != nil {
 		err = r.Client.Get(context.TODO(), req.NamespacedName, hec)
 		if err != nil {
-			r.logger.Infof("unable to get cluster state: %s", err)
+			r.Log.Error(err, "unable to get cluster state")
 			return reconcile.Result{}, err
 		}
 		err = r.setState(context.TODO(), humiov1alpha1.HumioExternalClusterStateUnknown, hec)
 		if err != nil {
-			r.logger.Infof("unable to set cluster state: %s", err)
+			r.Log.Error(err, "unable to set cluster state")
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
@@ -103,13 +103,13 @@ func (r *HumioExternalClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Resul
 
 	err = r.Client.Get(context.TODO(), req.NamespacedName, hec)
 	if err != nil {
-		r.logger.Infof("unable to get cluster state: %s", err)
+		r.Log.Error(err, "unable to get cluster state")
 		return reconcile.Result{}, err
 	}
 	if hec.Status.State != humiov1alpha1.HumioExternalClusterStateReady {
 		err = r.setState(context.TODO(), humiov1alpha1.HumioExternalClusterStateReady, hec)
 		if err != nil {
-			r.logger.Infof("unable to set cluster state: %s", err)
+			r.Log.Error(err, "unable to set cluster state")
 			return reconcile.Result{}, err
 		}
 	}

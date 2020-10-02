@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	github.com/go-logr/logr v0.1.0
+	github.com/go-logr/zapr v0.1.1
 	github.com/google/martian v2.1.0+incompatible
 	github.com/humio/cli v0.27.0
 	github.com/jetstack/cert-manager v0.16.1
