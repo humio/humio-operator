@@ -61,7 +61,11 @@ func setDefaults(hc *humiov1alpha1.HumioCluster) {
 		hc.Spec.Image = image
 	}
 	if hc.Spec.TargetReplicationFactor == 0 {
-		hc.Spec.TargetReplicationFactor = targetReplicationFactor
+		if nodeCountOrDefault(hc) < targetReplicationFactor {
+			hc.Spec.TargetReplicationFactor = nodeCountOrDefault(hc)
+		} else {
+			hc.Spec.TargetReplicationFactor = targetReplicationFactor
+		}
 	}
 	if hc.Spec.StoragePartitionsCount == 0 {
 		hc.Spec.StoragePartitionsCount = storagePartitionsCount
@@ -330,6 +334,19 @@ func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster) {
 		appendEnvironmentVariableDefault(hc, corev1.EnvVar{
 			Name:  "PROXY_PREFIX_URL",
 			Value: humioPathOrDefault(hc),
+		})
+	}
+
+	if hc.Status.State != humiov1alpha1.HumioClusterStateBootstrapping {
+		// Exclude replication factors if we are bootstrapping a cluster as that causes problems with the cluster
+		// not containing enough nodes to comply with the replication factor
+		appendEnvironmentVariableDefault(hc, corev1.EnvVar{
+			Name:  "DIGEST_REPLICATION_FACTOR",
+			Value: strconv.Itoa(hc.Spec.TargetReplicationFactor),
+		})
+		appendEnvironmentVariableDefault(hc, corev1.EnvVar{
+			Name:  "STORAGE_REPLICATION_FACTOR",
+			Value: strconv.Itoa(hc.Spec.TargetReplicationFactor),
 		})
 	}
 }
