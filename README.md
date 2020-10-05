@@ -3,9 +3,6 @@
 [![Build Status](https://github.com/humio/humio-operator/workflows/CI/badge.svg)](https://github.com/humio/humio-operator/actions?query=workflow%3ACI)
 [![Go Report Card](https://goreportcard.com/badge/github.com/humio/humio-operator)](https://goreportcard.com/report/github.com/humio/humio-operator)
 
-
-**WARNING: The CRD/API has yet to be defined. Everything as of this moment is considered experimental.**
-
 The Humio operator is a Kubernetes operator to automate provisioning, management, ~~autoscaling~~ and operations of [Humio](https://humio.com) clusters deployed to Kubernetes.
 
 ## Terminology
@@ -15,17 +12,13 @@ The Humio operator is a Kubernetes operator to automate provisioning, management
 - Controller and Operator: These are common terms within the Kubernetes ecosystem and they are implementations that take a defined desired state (e.g. from a CR of our HumioCluster CRD), and ensure the current state matches it. They typically includes what is called a reconciliation loop to help continuously ensuring the health of the system.
 - Reconciliation loop: This is a term used for describing the loop running within controllers/operators to keep ensuring current state matches the desired state.
 
-## Prerequisites
-
-The Humio Operator expects a running Zookeeper and Kafka. There are many ways to run Zookeeper and Kafka but generally a good choice is the [Banzai Cloud Kafka Operator](https://operatorhub.io/operator/banzaicloud-kafka-operator). They also recommend using [Pravega's Zookeeper Operator](https://github.com/pravega/zookeeper-operator). If you are running in AWS, we generally recommend the MSK service.
-
 ## Installation
 
-See [charts/humio-operator/README.md](charts/humio-operator/README.md).
+See the [Installation Guide](https://docs.humio.com/installation/kubernetes/operator/installation). There is also a step-by-step [Quick Start](https://docs.humio.com/installation/kubernetes/operator/quick_start/) guide that walks through creating a cluster on AWS.
 
 ## Running a Humio Cluster
 
-See instructions at [docs/README.md](docs/README.md) and examples of custom resources at [examples/](examples/).
+See instructions and examples in the [Humio Operator Resources](https://docs.humio.com/installation/kubernetes/operator/resources/) section of the docs.
 
 ## Development
 
