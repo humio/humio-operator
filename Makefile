@@ -15,8 +15,8 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 IMG ?= humio/humio-operator:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
-# Image URL to use all building/pushing image targets
-IMG_BUILD_ARGS ?= ""
+# Additional Docker build arguments
+IMG_BUILD_ARGS ?=
 
 # Use bash specifically due to how envtest is set up
 SHELL=bash
@@ -83,12 +83,12 @@ generate: controller-gen
 
 # Build the operator docker image
 docker-build-operator: test
-	docker build . -t ${IMG}
+	docker build . -t ${IMG} ${IMG_BUILD_ARGS}
 
 # Build the helper docker image
 docker-build-helper:
 	cp LICENSE images/helper/
-	docker build images/helper -t ${IMG}
+	docker build images/helper -t ${IMG} ${IMG_BUILD_ARGS}
 
 # Push the docker image
 docker-push:
