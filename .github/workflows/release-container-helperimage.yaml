@@ -20,7 +20,7 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
     - name: docker build
-      run: docker build --label version=${{ env.RELEASE_VERSION }} --label release=${{github.run_id}} -t humio/humio-operator-helper:${{ env.RELEASE_VERSION }} images/helper
+      run: make docker-build-helper IMG=humio/humio-operator-helper:${{ env.RELEASE_VERSION }} IMG_BUILD_ARGS="--label version=${{ env.RELEASE_VERSION }} --label release=${{ github.run_id }}"
     - name: docker push
       run: make docker-push IMG=humio/humio-operator-helper:${{ env.RELEASE_VERSION }}
     - name: redhat scan login
