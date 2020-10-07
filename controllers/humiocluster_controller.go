@@ -972,7 +972,7 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1al
 			r.Log.Info(fmt.Sprintf("not setting labels for pod %s because it is in state %s", pod.Name, pod.Status.Phase))
 			continue
 		}
-		r.Log.Info(fmt.Sprintf("setting labels for nodes: %v", cluster.Nodes))
+		r.Log.Info(fmt.Sprintf("setting labels for nodes: %#+v", cluster.Nodes))
 		for _, node := range cluster.Nodes {
 			if node.Uri == fmt.Sprintf("http://%s:%d", pod.Status.PodIP, humioPort) {
 				labels := kubernetes.LabelsForPod(hc.Name, node.Id)
