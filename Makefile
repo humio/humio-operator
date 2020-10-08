@@ -82,7 +82,7 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the operator docker image
-docker-build-operator: test
+docker-build-operator:
 	docker build . -t ${IMG} ${IMG_BUILD_ARGS}
 
 # Build the helper docker image

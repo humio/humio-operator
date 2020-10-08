@@ -7,10 +7,12 @@ on:
 name: Publish Container Image Release
 jobs:
   build-and-publish:
-    name: Build and Publish
+    name: Test, Build and Publish
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - shell: bash
+      run: make test
     - name: Get release version
       id: get_version
       run: echo ::set-env name=RELEASE_VERSION::$(cat VERSION)
