@@ -1514,7 +1514,7 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 
 	r.Log.Info("ensuring pvcs")
 	foundPersistentVolumeClaims, err := kubernetes.ListPersistentVolumeClaims(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
-	r.Log.Info("found %d pvcs", len(foundPersistentVolumeClaims))
+	r.Log.Info(fmt.Sprintf("found %d pvcs", len(foundPersistentVolumeClaims)))
 
 	if err != nil {
 		r.Log.Error(err, "failed to list pvcs")
