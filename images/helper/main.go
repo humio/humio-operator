@@ -316,7 +316,10 @@ func initMode() {
 	if err != nil {
 		panic(err.Error())
 	} else {
-		zone := node.Labels[corev1.LabelZoneFailureDomain]
+		zone, found := node.Labels[corev1.LabelZoneFailureDomainStable]
+		if !found {
+			zone, _ = node.Labels[corev1.LabelZoneFailureDomain]
+		}
 		err := ioutil.WriteFile(targetFile, []byte(zone), 0644)
 		if err != nil {
 			panic("unable to write file with availability zone information")
