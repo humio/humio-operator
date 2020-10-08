@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	humio "github.com/humio/cli/api"
 	"github.com/savaki/jq"
@@ -140,7 +141,7 @@ func createAndGetAdminAccountUserID(client *humio.Client) (string, error) {
 func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, adminSecretNameSuffix, desiredAPIToken string) error {
 	// Get existing Kubernetes secret
 	adminSecretName := fmt.Sprintf("%s-%s", clusterName, adminSecretNameSuffix)
-	secret, err := clientset.CoreV1().Secrets(namespace).Get(adminSecretName, metav1.GetOptions{})
+	secret, err := clientset.CoreV1().Secrets(namespace).Get(context.TODO(), adminSecretName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		// If the secret doesn't exist, create it
 		secret := corev1.Secret{
@@ -154,7 +155,7 @@ func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, 
 			},
 			Type: corev1.SecretTypeOpaque,
 		}
-		_, err := clientset.CoreV1().Secrets(namespace).Create(&secret)
+		_, err := clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, metav1.CreateOptions{})
 		return err
 	} else if err != nil {
 		// If we got an error which was not because the secret doesn't exist, return the error
@@ -164,7 +165,7 @@ func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, 
 	// If we got no error, we compare current token with desired token and update if needed.
 	if secret.StringData["token"] != desiredAPIToken {
 		secret.StringData = map[string]string{"token": desiredAPIToken}
-		_, err := clientset.CoreV1().Secrets(namespace).Update(secret)
+		_, err := clientset.CoreV1().Secrets(namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -311,11 +312,14 @@ func initMode() {
 
 	clientset := newKubernetesClientset()
 
-	node, err := clientset.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+	node, err := clientset.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
 	if err != nil {
 		panic(err.Error())
 	} else {
-		zone := node.Labels[corev1.LabelZoneFailureDomain]
+		zone, found := node.Labels[corev1.LabelZoneFailureDomainStable]
+		if !found {
+			zone, _ = node.Labels[corev1.LabelZoneFailureDomain]
+		}
 		err := ioutil.WriteFile(targetFile, []byte(zone), 0644)
 		if err != nil {
 			panic("unable to write file with availability zone information")
