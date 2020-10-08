@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/Masterminds/semver"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
@@ -32,6 +33,7 @@ import (
 	"os"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 const autoCleanupAfterTestAnnotationName = "humio.com/auto-cleanup-after-test"
@@ -61,7 +63,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	Context("Humio Cluster Reconciliation Simple", func() {
 		It("Should bootstrap cluster correctly", func() {
 			key := types.NamespacedName{
-				Name:      "humiocluster",
+				Name:      "humiocluster-simple",
 				Namespace: "default",
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
@@ -69,11 +71,8 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			By("Creating the cluster successfully")
 			createAndBootstrapCluster(toCreate)
-
-			// TODO: Use kubernetes.LabelListContainsLabel(pod.GetLabels(), kubernetes.NodeIdLabelName)
 		})
 	})
-	// TODO: Figure out if we can split the simple reconcile into two separate tests, one with partition rebalancing enabled, and one without?
 
 	Context("Humio Cluster Update Image", func() {
 		It("Update should correctly replace pods to use new image", func() {
@@ -119,6 +118,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 
+			By("Confirming pod revision is the same for all pods and the cluster itself")
 			k8sClient.Get(context.Background(), key, &updatedHumioCluster)
 			Expect(updatedHumioCluster.Annotations[podRevisionAnnotation]).To(Equal("2"))
 
@@ -479,7 +479,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
-				Expect(pod.Spec.Containers[humioIdx].Args).To(Equal([]string{"-c", "export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat /shared/zookeeper-prefix)_ && exec bash /app/humio/run.sh"}))
+				Expect(pod.Spec.Containers[humioIdx].Args).To(Equal([]string{"-c", "export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat /shared/availability-zone)_ && exec bash /app/humio/run.sh"}))
 			}
 
 			By("Updating node uuid prefix")
@@ -493,7 +493,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
-					if reflect.DeepEqual(pod.Spec.Containers[humioIdx].Args, []string{"-c", "export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_humiocluster_$(cat /shared/zookeeper-prefix)_ && exec bash /app/humio/run.sh"}) {
+					if reflect.DeepEqual(pod.Spec.Containers[humioIdx].Args, []string{"-c", "export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_humiocluster_$(cat /shared/availability-zone)_ && exec bash /app/humio/run.sh"}) {
 						return true
 					}
 				}
@@ -1273,6 +1273,35 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 		val, _ := updatedHumioCluster.Annotations[podRevisionAnnotation]
 		return val
 	}, testTimeout, testInterval).Should(Equal("1"))
+
+	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+		// TODO: We can drop this version comparison when we only support 1.16 and newer.
+		versionWithZone, _ := semver.NewConstraint(">= 1.16.0")
+		clusterImage := strings.SplitN(cluster.Spec.Image, ":", 2)
+		Expect(clusterImage).To(HaveLen(2))
+		clusterImage = strings.SplitN(clusterImage[1], "-", 2)
+		clusterImageVersion, _ := semver.NewVersion(clusterImage[0])
+		if versionWithZone.Check(clusterImageVersion) {
+			By("Validating zone is set on Humio nodes")
+			Eventually(func() []string {
+				cluster, err := humioClient.GetClusters()
+				if err != nil || len(cluster.Nodes) < 1 {
+					return []string{}
+				}
+				keys := make(map[string]bool)
+				var zoneList []string
+				for _, node := range cluster.Nodes {
+					if _, value := keys[node.Zone]; !value {
+						if node.Zone != "" {
+							keys[node.Zone] = true
+							zoneList = append(zoneList, node.Zone)
+						}
+					}
+				}
+				return zoneList
+			}, testTimeout, testInterval).ShouldNot(BeEmpty())
+		}
+	}
 }
 
 func constructBasicSingleNodeHumioCluster(key types.NamespacedName) *humiov1alpha1.HumioCluster {
@@ -1284,6 +1313,7 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName) *humiov1alph
 		},
 		Spec: humiov1alpha1.HumioClusterSpec{
 			ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
+			Image:             image,
 			NodeCount:         helpers.IntPtr(1),
 			EnvironmentVariables: []corev1.EnvVar{
 				{

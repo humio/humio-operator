@@ -15,6 +15,8 @@ github.com/Azure/go-autorest/logger v0.1.0/go.mod h1:oExouG+K6PryycPJfVSxi/koC6L
 github.com/Azure/go-autorest/tracing v0.5.0/go.mod h1:r/s2XiOKccPW3HrqB+W0TQzfbtp2fGCgRFtBroKn4Dk=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/MakeNowJust/heredoc v0.0.0-20170808103936-bb23615498cd/go.mod h1:64YHyfSL2R96J44Nlwm39UHepQbyR5q10x7iYa1ks2E=
+github.com/Masterminds/semver v1.5.0 h1:H65muMkzWKEuNDnfl9d70GUjFniHKHRbFPGBuZ3QEww=
+github.com/Masterminds/semver v1.5.0/go.mod h1:MB6lktGJrhw8PrUyiEoblNEGEQ+RzHPF078ddwwvV3Y=
 github.com/NYTimes/gziphandler v0.0.0-20170623195520-56545f4a5d46/go.mod h1:3wb06e3pkSAbeQ52E9H9iFoQsEEwGN64994WTCIhntQ=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/PuerkitoBio/purell v1.0.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
@@ -241,6 +243,8 @@ github.com/humio/cli v0.26.1 h1:WpqcqJJwkIqN11POhIlSP1M1J8tHv/LPOyXp+dDcgos=
 github.com/humio/cli v0.26.1/go.mod h1:9v5/6etu0lFf/PNRwvojGyIUO2V7EMBpzQcMjTFyY7g=
 github.com/humio/cli v0.26.2-0.20200923221341-5120306a558c h1:exAzLk3legOD0rUfS7JOxCVFr/qLrOcspjGqAu5rdPo=
 github.com/humio/cli v0.26.2-0.20200923221341-5120306a558c/go.mod h1:NfCIf3bPf0Y/fNvw8qJJzddBDPgSirRUgnttapIpRAE=
+github.com/humio/cli v0.26.2-0.20201006145633-07c972c1cfdf h1:uKZJginULuvGxYjGp6+Ac1KEo5mtMtriildERMG60qM=
+github.com/humio/cli v0.26.2-0.20201006145633-07c972c1cfdf/go.mod h1:NfCIf3bPf0Y/fNvw8qJJzddBDPgSirRUgnttapIpRAE=
 github.com/humio/cli v0.27.0 h1:SjT/zxVO5egiy3NUuQ2fVVC5iXqrJoJZQeSEo/iX42o=
 github.com/humio/cli v0.27.0/go.mod h1:NfCIf3bPf0Y/fNvw8qJJzddBDPgSirRUgnttapIpRAE=
 github.com/imdario/mergo v0.3.5/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=

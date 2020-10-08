@@ -96,7 +96,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 			Hostname:           humioNodeName,
 			InitContainers: []corev1.Container{
 				{
-					Name:  "zookeeper-prefix",
+					Name:  "init",
 					Image: "humio/humio-operator-helper:0.0.7",
 					Env: []corev1.EnvVar{
 						{
@@ -105,7 +105,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 						},
 						{
 							Name:  "TARGET_FILE",
-							Value: fmt.Sprintf("%s/zookeeper-prefix", sharedPath),
+							Value: fmt.Sprintf("%s/availability-zone", sharedPath),
 						},
 						{
 							Name: "NODE_NAME",
@@ -233,8 +233,8 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 					Image:   hc.Spec.Image,
 					Command: []string{"/bin/sh"},
 					Args: []string{"-c",
-						fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/%s$(cat %s/zookeeper-prefix)_ && exec bash %s/run.sh",
-							nodeUUIDPrefixOrDefault(hc), sharedPath, humioAppPath)},
+						fmt.Sprintf("export ZONE=$(cat %s/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/%s$(cat %s/availability-zone)_ && exec bash %s/run.sh",
+							sharedPath, nodeUUIDPrefixOrDefault(hc), sharedPath, humioAppPath)},
 					Ports: []corev1.ContainerPort{
 						{
 							Name:          "http",
