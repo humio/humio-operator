@@ -137,6 +137,33 @@ func createAndGetAdminAccountUserID(client *humio.Client) (string, error) {
 	return "", fmt.Errorf("could not obtain user ID")
 }
 
+// validateAdminSecretContent grabs the current token stored in kubernetes and returns nil if it is valid
+func validateAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, adminSecretNameSuffix, humioNodeURL string) error {
+	// Get existing Kubernetes secret
+	adminSecretName := fmt.Sprintf("%s-%s", clusterName, adminSecretNameSuffix)
+	secret, err := clientset.CoreV1().Secrets(namespace).Get(context.TODO(), adminSecretName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Check if secret currently holds a valid humio api token
+	if adminToken, ok := secret.Data["token"]; ok {
+		humioClient, err := humio.NewClient(humio.Config{
+			Address: humioNodeURL,
+			Token:   string(adminToken),
+		})
+
+		_, err = humioClient.Clusters().Get()
+		if err != nil {
+			return err
+		}
+
+		// We could successfully get information about the cluster, so the token must be valid
+		return nil
+	}
+	return fmt.Errorf("unable to validate if kubernetes secret %s holds a valid humio api token", adminSecretName)
+}
+
 // ensureAdminSecretContent ensures the target Kubernetes secret contains the desired API token
 func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, adminSecretNameSuffix, desiredAPIToken string) error {
 	// Get existing Kubernetes secret
@@ -257,6 +284,13 @@ func authMode() {
 			continue
 		}
 
+		err := validateAdminSecretContent(clientset, namespace, clusterName, adminSecretNameSuffix, humioNodeURL)
+		if err == nil {
+			fmt.Printf("validated existing token, no changes required. waiting 30 seconds\n")
+			time.Sleep(30 * time.Second)
+			continue
+		}
+
 		humioClient, err := humio.NewClient(humio.Config{
 			Address: humioNodeURL,
 			Token:   localAdminToken,
@@ -292,7 +326,7 @@ func authMode() {
 		}
 
 		// All done, wait a bit then run validation again
-		fmt.Printf("validated token. waiting 30 seconds\n")
+		fmt.Printf("created/updated token. waiting 30 seconds\n")
 		time.Sleep(30 * time.Second)
 	}
 }
