@@ -219,7 +219,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
 							corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
-							corev1.ResourceMemory: *resource.NewQuantity(150*1024*1024, resource.BinarySI),
+							corev1.ResourceMemory: *resource.NewQuantity(750*1024*1024, resource.BinarySI),
 						},
 						Requests: corev1.ResourceList{
 							corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
