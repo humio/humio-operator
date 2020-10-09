@@ -776,10 +776,35 @@ func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context
 	for _, cert := range certificates {
 		if strings.HasPrefix(cert.Name, fmt.Sprintf("%s-core", hc.Name)) {
 			existingNodeCertCount++
+
+			// Check if we should update the existing certificate
+			desiredCertificateHash := helpers.AsSHA256(constructNodeCertificate(hc, ""))
+			currentCertificateHash, _ := cert.Annotations[certHashAnnotation]
+			if currentCertificateHash != desiredCertificateHash {
+				r.Log.Info(fmt.Sprintf("node certificate %s doesn't have expected hash, got: %s, expected: %s",
+					cert.Name, currentCertificateHash, desiredCertificateHash))
+				currentCertificateNameSubstrings := strings.Split(cert.Name, "-")
+				currentCertificateSuffix := currentCertificateNameSubstrings[len(currentCertificateNameSubstrings)-1]
+
+				desiredCertificate := constructNodeCertificate(hc, currentCertificateSuffix)
+				desiredCertificate.ResourceVersion = cert.ResourceVersion
+				desiredCertificate.Annotations[certHashAnnotation] = desiredCertificateHash
+				r.Log.Info(fmt.Sprintf("updating node TLS certificate with name %s", desiredCertificate.Name))
+				if err := controllerutil.SetControllerReference(hc, &desiredCertificate, r.Scheme); err != nil {
+					r.Log.Error(err, "could not set controller reference")
+					return err
+				}
+				err = r.Update(ctx, &desiredCertificate)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 	for i := existingNodeCertCount; i < nodeCountOrDefault(hc); i++ {
 		certificate := constructNodeCertificate(hc, kubernetes.RandomString())
+		certificateHash := helpers.AsSHA256(constructNodeCertificate(hc, ""))
+		certificate.Annotations[certHashAnnotation] = certificateHash
 		r.Log.Info(fmt.Sprintf("creating node TLS certificate with name %s", certificate.Name))
 		if err := controllerutil.SetControllerReference(hc, &certificate, r.Scheme); err != nil {
 			r.Log.Error(err, "could not set controller reference")
@@ -1172,6 +1197,9 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSCertificates(ctx context.Contex
 	for _, certificate := range foundCertificateList {
 		// only consider secrets not already being deleted
 		if certificate.DeletionTimestamp == nil {
+			if len(certificate.OwnerReferences) == 0 {
+				continue
+			}
 			if certificate.OwnerReferences[0].Kind != "HumioCluster" {
 				continue
 			}
@@ -1524,7 +1552,7 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 	if len(foundPersistentVolumeClaims) < nodeCountOrDefault(hc) {
 		r.Log.Info(fmt.Sprintf("pvc count of %d is less than %d. adding more", len(foundPersistentVolumeClaims), nodeCountOrDefault(hc)))
 		pvc := constructPersistentVolumeClaim(hc)
-		pvc.Annotations["humio_pvc_hash"] = helpers.AsSHA256(pvc.Spec)
+		pvc.Annotations[pvcHashAnnotation] = helpers.AsSHA256(pvc.Spec)
 		if err := controllerutil.SetControllerReference(hc, pvc, r.Scheme); err != nil {
 			r.Log.Error(err, "could not set controller reference")
 			return reconcile.Result{}, err
