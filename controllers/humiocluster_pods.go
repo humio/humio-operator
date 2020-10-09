@@ -185,7 +185,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 						},
 						{
 							Name:  "HUMIO_NODE_URL",
-							Value: fmt.Sprintf("%s://$(POD_NAME).$(CLUSTER_NAME).$(NAMESPACE):%d/", strings.ToLower(string(getProbeScheme(hc))), humioPort),
+							Value: fmt.Sprintf("%s://$(POD_NAME):%d/", strings.ToLower(string(getProbeScheme(hc))), humioPort),
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{
