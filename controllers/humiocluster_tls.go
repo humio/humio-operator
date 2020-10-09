@@ -170,13 +170,15 @@ func constructClusterCACertificateBundle(hc *humiov1alpha1.HumioCluster) cmapi.C
 func constructNodeCertificate(hc *humiov1alpha1.HumioCluster, nodeSuffix string) cmapi.Certificate {
 	return cmapi.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: hc.Namespace,
-			Name:      fmt.Sprintf("%s-core-%s", hc.Name, nodeSuffix),
-			Labels:    kubernetes.MatchingLabelsForHumio(hc.Name),
+			Annotations: map[string]string{},
+			Namespace:   hc.Namespace,
+			Name:        fmt.Sprintf("%s-core-%s", hc.Name, nodeSuffix),
+			Labels:      kubernetes.MatchingLabelsForHumio(hc.Name),
 		},
 		Spec: cmapi.CertificateSpec{
 			DNSNames: []string{
-				fmt.Sprintf("%s-core-%s.%s.%s", hc.Name, nodeSuffix, hc.Name, hc.Namespace), // Used for intra-cluster communication and auth sidecar
+				fmt.Sprintf("%s-core-%s.%s.%s", hc.Name, nodeSuffix, hc.Name, hc.Namespace), // Used for intra-cluster communication
+				fmt.Sprintf("%s-core-%s", hc.Name, nodeSuffix),                              // Used for auth sidecar
 				fmt.Sprintf("%s.%s", hc.Name, hc.Namespace),                                 // Used by humio-operator and ingress controllers to reach the Humio API
 			},
 			IssuerRef: cmmeta.ObjectReference{
