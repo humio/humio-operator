@@ -20,11 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"reflect"
 	"strings"
 	"time"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -153,7 +154,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 			Containers: []corev1.Container{
 				{
 					Name:  "auth",
-					Image: "humio/humio-operator-helper:0.0.7",
+					Image: "humio/humio-operator-helper:0.0.8",
 					Env: []corev1.EnvVar{
 						{
 							Name: "NAMESPACE",
