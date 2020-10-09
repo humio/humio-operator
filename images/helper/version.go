@@ -17,5 +17,5 @@ limitations under the License.
 package main
 
 var (
-	Version = "0.0.7"
+	Version = "0.0.8"
 )
