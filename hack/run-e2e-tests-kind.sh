@@ -9,8 +9,8 @@ declare -r ginkgo=$(go env GOPATH)/bin/ginkgo
 declare -r proxy_method=${PROXY_METHOD:-inject-tcp}
 
 # Preload default humio-core container version
-docker pull humio/humio-core:1.15.2
-kind load docker-image --name kind humio/humio-core:1.15.2
+docker pull humio/humio-core:1.16.0
+kind load docker-image --name kind humio/humio-core:1.16.0
 
 # Preload humio-core used by e2e tests
 docker pull humio/humio-core:1.13.0
