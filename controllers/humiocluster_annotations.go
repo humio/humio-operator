@@ -27,11 +27,13 @@ import (
 )
 
 const (
+	certHashAnnotation         = "humio.com/certificate-hash"
 	podHashAnnotation          = "humio.com/pod-hash"
 	podRevisionAnnotation      = "humio.com/pod-revision"
 	podRestartPolicyAnnotation = "humio.com/pod-restart-policy"
 	PodRestartPolicyRolling    = "rolling"
 	PodRestartPolicyRecreate   = "recreate"
+	pvcHashAnnotation          = "humio_pvc_hash"
 )
 
 func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Context, hc *humiov1alpha1.HumioCluster, restartPolicy string) (int, error) {
