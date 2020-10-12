@@ -78,7 +78,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 		productVersion = imageSplit[1]
 	}
 	userID := int64(65534)
-	helperImageTag := "humio/humio-operator-helper:0.0.8"
+	helperImageTag := "humio/humio-operator-helper:0.0.9"
 
 	pod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -511,6 +511,17 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 					},
 				},
 			},
+		})
+	}
+
+	if envVarHasValue(pod.Spec.Containers[humioIdx].Env, "ENABLE_ORGANIZATIONS", "true") && envVarHasKey(pod.Spec.Containers[humioIdx].Env, "ORGANIZATION_MODE") {
+		authIdx, err := kubernetes.GetContainerIndexByName(pod, "auth")
+		if err != nil {
+			return &corev1.Pod{}, err
+		}
+		pod.Spec.Containers[authIdx].Env = append(pod.Spec.Containers[authIdx].Env, corev1.EnvVar{
+			Name:  "ORGANIZATION_MODE",
+			Value: envVarValue(pod.Spec.Containers[humioIdx].Env, "ORGANIZATION_MODE"),
 		})
 	}
 
