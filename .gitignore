@@ -78,6 +78,7 @@ tags
 # End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 .idea
 images/helper/LICENSE
+images/helper/helper
 telepresence.log
 bin/
 testbin/
