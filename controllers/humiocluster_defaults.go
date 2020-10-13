@@ -38,6 +38,7 @@ const (
 	elasticPort                  = 9200
 	idpCertificateFilename       = "idp-certificate.pem"
 	extraKafkaPropertiesFilename = "extra-kafka-properties.properties"
+	viewGroupPermissionsFilename = "view-group-permissions.json"
 	nodeUUIDPrefix               = "humio_"
 
 	// cluster-wide resources:
@@ -45,15 +46,16 @@ const (
 	initClusterRoleBindingSuffix = "init"
 
 	// namespaced resources:
-	humioServiceAccountNameSuffix          = "humio"
-	initServiceAccountNameSuffix           = "init"
-	initServiceAccountSecretNameIdentifier = "init"
-	authServiceAccountNameSuffix           = "auth"
-	authServiceAccountSecretNameIdentifier = "auth"
-	authRoleSuffix                         = "auth"
-	authRoleBindingSuffix                  = "auth"
-	extraKafkaConfigsConfigMapNameSuffix   = "extra-kafka-configs"
-	idpCertificateSecretNameSuffix         = "idp-certificate"
+	humioServiceAccountNameSuffix           = "humio"
+	initServiceAccountNameSuffix            = "init"
+	initServiceAccountSecretNameIdentifier  = "init"
+	authServiceAccountNameSuffix            = "auth"
+	authServiceAccountSecretNameIdentifier  = "auth"
+	authRoleSuffix                          = "auth"
+	authRoleBindingSuffix                   = "auth"
+	extraKafkaConfigsConfigMapNameSuffix    = "extra-kafka-configs"
+	viewGroupPermissionsConfigMapNameSuffix = "view-group-permissions"
+	idpCertificateSecretNameSuffix          = "idp-certificate"
 )
 
 func setDefaults(hc *humiov1alpha1.HumioCluster) {
@@ -181,8 +183,16 @@ func extraKafkaConfigsOrDefault(hc *humiov1alpha1.HumioCluster) string {
 	return hc.Spec.ExtraKafkaConfigs
 }
 
+func viewGroupPermissionsOrDefault(hc *humiov1alpha1.HumioCluster) string {
+	return hc.Spec.ViewGroupPermissions
+}
+
 func extraKafkaConfigsConfigMapName(hc *humiov1alpha1.HumioCluster) string {
 	return fmt.Sprintf("%s-%s", hc.Name, extraKafkaConfigsConfigMapNameSuffix)
+}
+
+func viewGroupPermissionsConfigMapName(hc *humiov1alpha1.HumioCluster) string {
+	return fmt.Sprintf("%s-%s", hc.Name, viewGroupPermissionsConfigMapNameSuffix)
 }
 
 func idpCertificateSecretNameOrDefault(hc *humiov1alpha1.HumioCluster) string {

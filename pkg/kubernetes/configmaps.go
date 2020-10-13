@@ -37,6 +37,17 @@ func ConstructExtraKafkaConfigsConfigMap(extraKafkaConfigsConfigMapName, extraKa
 	}
 }
 
+func ConstructViewGroupPermissionsConfigMap(viewGroupPermissionsConfigMapName, viewGroupPermissionsFilename, viewGroupPermissionsConfigMapData, humioClusterName, humioClusterNamespace string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      viewGroupPermissionsConfigMapName,
+			Namespace: humioClusterNamespace,
+			Labels:    LabelsForHumio(humioClusterName),
+		},
+		Data: map[string]string{viewGroupPermissionsFilename: viewGroupPermissionsConfigMapData},
+	}
+}
+
 // GetConfigMap returns the configmap for the given configmap name if it exists
 func GetConfigMap(ctx context.Context, c client.Client, configMapName, humioClusterNamespace string) (*corev1.ConfigMap, error) {
 	var existingConfigMap corev1.ConfigMap

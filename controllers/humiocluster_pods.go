@@ -395,6 +395,30 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 		})
 	}
 
+	if viewGroupPermissionsOrDefault(hc) != "" {
+		pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
+			Name:  "READ_GROUP_PERMISSIONS_FROM_FILE",
+			Value: "true",
+		})
+		pod.Spec.Containers[humioIdx].VolumeMounts = append(pod.Spec.Containers[humioIdx].VolumeMounts, corev1.VolumeMount{
+			Name:      "view-group-permissions",
+			ReadOnly:  true,
+			MountPath: fmt.Sprintf("%s/%s", humioDataPath, viewGroupPermissionsFilename),
+			SubPath:   viewGroupPermissionsFilename,
+		})
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: "view-group-permissions",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: viewGroupPermissionsConfigMapName(hc),
+					},
+					DefaultMode: &mode,
+				},
+			},
+		})
+	}
+
 	if hc.Spec.ImagePullPolicy != "" {
 		for i := range pod.Spec.InitContainers {
 			pod.Spec.InitContainers[i].ImagePullPolicy = hc.Spec.ImagePullPolicy
