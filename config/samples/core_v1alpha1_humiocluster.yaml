@@ -11,7 +11,7 @@ spec:
   extraKafkaConfigs: "security.protocol=PLAINTEXT"
   tls:
     enabled: false
-  image: "humio/humio-core:1.15.2"
+  image: "humio/humio-core:1.16.0"
   nodeCount: 1
   environmentVariables:
     - name: "HUMIO_JVM_ARGS"
