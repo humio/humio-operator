@@ -34,7 +34,6 @@ import (
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"strings"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -43,8 +42,7 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme = runtime.NewScheme()
 )
 
 func init() {
@@ -63,11 +61,15 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	var log logr.Logger
+	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+	defer zapLog.Sync()
+	log = zapr.NewLogger(zapLog)
+	ctrl.SetLogger(log)
 
 	watchNamespace, err := getWatchNamespace()
 	if err != nil {
-		setupLog.Error(err, "unable to get WatchNamespace, "+
+		ctrl.Log.Error(err, "unable to get WatchNamespace, "+
 			"the manager will watch and manage resources in all namespaces")
 	}
 
@@ -82,7 +84,7 @@ func main() {
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
 	if strings.Contains(watchNamespace, ",") {
-		setupLog.Info(fmt.Sprintf("manager will be watching namespace %q", watchNamespace))
+		ctrl.Log.Info(fmt.Sprintf("manager will be watching namespace %q", watchNamespace))
 		// configure cluster-scoped with MultiNamespacedCacheBuilder
 		options.Namespace = ""
 		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(watchNamespace, ","))
@@ -90,7 +92,7 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
+		ctrl.Log.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
@@ -102,17 +104,12 @@ func main() {
 		cmapi.AddToScheme(mgr.GetScheme())
 	}
 
-	var log logr.Logger
-	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
-	defer zapLog.Sync()
-	log = zapr.NewLogger(zapLog)
-
 	if err = (&controllers.HumioExternalClusterReconciler{
 		Client:      mgr.GetClient(),
 		Scheme:      mgr.GetScheme(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "HumioExternalCluster")
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioExternalCluster")
 		os.Exit(1)
 	}
 	if err = (&controllers.HumioClusterReconciler{
@@ -120,7 +117,7 @@ func main() {
 		Scheme:      mgr.GetScheme(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "HumioCluster")
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioCluster")
 		os.Exit(1)
 	}
 	if err = (&controllers.HumioIngestTokenReconciler{
@@ -128,7 +125,7 @@ func main() {
 		Scheme:      mgr.GetScheme(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "HumioIngestToken")
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioIngestToken")
 		os.Exit(1)
 	}
 	if err = (&controllers.HumioParserReconciler{
@@ -136,7 +133,7 @@ func main() {
 		Scheme:      mgr.GetScheme(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "HumioParser")
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioParser")
 		os.Exit(1)
 	}
 	if err = (&controllers.HumioRepositoryReconciler{
@@ -144,14 +141,14 @@ func main() {
 		Scheme:      mgr.GetScheme(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "HumioRepository")
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioRepository")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
 
-	setupLog.Info("starting manager")
+	ctrl.Log.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
+		ctrl.Log.Error(err, "problem running manager")
 		os.Exit(1)
 	}
 }
