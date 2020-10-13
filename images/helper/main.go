@@ -21,6 +21,7 @@ import (
 	"fmt"
 	humio "github.com/humio/cli/api"
 	"github.com/savaki/jq"
+	"github.com/shurcooL/graphql"
 	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -52,7 +53,7 @@ func getFileContent(filePath string) string {
 
 // createNewAdminUser creates a new Humio admin user
 func createNewAdminUser(client *humio.Client) error {
-	isRoot := bool(true)
+	isRoot := true
 	_, err := client.Users().Add(adminAccountUserName, humio.UserChangeSet{
 		IsRoot: &isRoot,
 	})
@@ -81,8 +82,8 @@ type user struct {
 	Username string
 }
 
-// listAllHumioUsers returns a list of all Humio users with user ID and username
-func listAllHumioUsers(client *humio.Client) ([]user, error) {
+// listAllHumioUsersSingleOrg returns a list of all Humio users when running in single org mode with user ID and username
+func listAllHumioUsersSingleOrg(client *humio.Client) ([]user, error) {
 	var q struct {
 		Users []user `graphql:"users"`
 	}
@@ -90,26 +91,80 @@ func listAllHumioUsers(client *humio.Client) ([]user, error) {
 	return q.Users, err
 }
 
-// extractExistingHumioAdminUserID finds the user ID of the Humio user for the admin account
-func extractExistingHumioAdminUserID(client *humio.Client) (string, error) {
-	allUsers, err := listAllHumioUsers(client)
+type OrganizationSearchResultEntry struct {
+	EntityId         string `graphql:"entityId"`
+	SearchMatch      string `graphql:"searchMatch"`
+	OrganizationName string `graphql:"organizationName"`
+}
+
+type OrganizationSearchResultSet struct {
+	Results []OrganizationSearchResultEntry `graphql:"results"`
+}
+
+// listAllHumioUsersMultiOrg returns a list of all Humio users when running in multi org mode with user ID and username
+func listAllHumioUsersMultiOrg(client *humio.Client) ([]OrganizationSearchResultEntry, error) {
+	var q struct {
+		OrganizationSearchResultSet `graphql:"searchOrganizations(searchFilter: $username, typeFilter: User, sortBy: Name, orderBy: ASC, limit: 1000000, skip: 0)"`
+	}
+
+	variables := map[string]interface{}{
+		"username": graphql.String(adminAccountUserName),
+	}
+
+	err := client.Query(&q, variables)
+	if err != nil {
+		return []OrganizationSearchResultEntry{}, err
+	}
+
+	var allUserResultEntries []OrganizationSearchResultEntry
+	for _, result := range q.OrganizationSearchResultSet.Results {
+		if result.OrganizationName == "RecoveryRootOrg" {
+			allUserResultEntries = append(allUserResultEntries, result)
+		}
+	}
+
+	return allUserResultEntries, nil
+}
+
+// extractExistingHumioAdminUserID finds the user ID of the Humio user for the admin account, and returns
+// empty string and no error if the user doesn't exist
+func extractExistingHumioAdminUserID(client *humio.Client, organizationMode string) (string, error) {
+	if organizationMode == "multi" {
+		var allUserResults []OrganizationSearchResultEntry
+		allUserResults, err := listAllHumioUsersMultiOrg(client)
+		if err != nil {
+			// unable to list all users
+			return "", err
+		}
+		for _, userResult := range allUserResults {
+			if userResult.OrganizationName == "RecoveryRootOrg" {
+				if userResult.SearchMatch == fmt.Sprintf(" | %s () ()", adminAccountUserName) {
+					fmt.Printf("found user id using multi-organization query\n")
+					return userResult.EntityId, nil
+				}
+			}
+		}
+	}
+
+	allUsers, err := listAllHumioUsersSingleOrg(client)
 	if err != nil {
 		// unable to list all users
 		return "", err
 	}
-	userID := ""
 	for _, user := range allUsers {
 		if user.Username == adminAccountUserName {
-			userID = user.Id
+			fmt.Printf("found user id using single-organization query\n")
+			return user.Id, nil
 		}
 	}
-	return userID, nil
+
+	return "", nil
 }
 
 // createAndGetAdminAccountUserID ensures a Humio admin account exists and returns the user ID for it
-func createAndGetAdminAccountUserID(client *humio.Client) (string, error) {
+func createAndGetAdminAccountUserID(client *humio.Client, organizationMode string) (string, error) {
 	// List all users and grab the user ID for an existing user
-	userID, err := extractExistingHumioAdminUserID(client)
+	userID, err := extractExistingHumioAdminUserID(client, organizationMode)
 	if err != nil {
 		// Error while grabbing the user ID
 		return "", err
@@ -124,7 +179,7 @@ func createAndGetAdminAccountUserID(client *humio.Client) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	userID, err = extractExistingHumioAdminUserID(client)
+	userID, err = extractExistingHumioAdminUserID(client, organizationMode)
 	if err != nil {
 		return "", err
 	}
@@ -257,6 +312,8 @@ func authMode() {
 		panic("environment variable HUMIO_NODE_URL not set or empty")
 	}
 
+	organizationMode, _ := os.LookupEnv("ORGANIZATION_MODE")
+
 	go func() {
 		// Run separate go routine for readiness/liveness endpoint
 		http.HandleFunc("/", httpHandler)
@@ -291,6 +348,9 @@ func authMode() {
 			continue
 		}
 
+		fmt.Printf("could not validate existing admin secret: %s\n", err)
+		fmt.Printf("continuing to create/update token\n")
+
 		humioClient, err := humio.NewClient(humio.Config{
 			Address: humioNodeURL,
 			Token:   localAdminToken,
@@ -302,7 +362,7 @@ func authMode() {
 		}
 
 		// Get user ID of admin account
-		userID, err := createAndGetAdminAccountUserID(humioClient)
+		userID, err := createAndGetAdminAccountUserID(humioClient, organizationMode)
 		if err != nil {
 			fmt.Printf("got err trying to obtain user ID of admin user: %s\n", err)
 			time.Sleep(5 * time.Second)
