@@ -1,6 +1,5 @@
----
 {{- if .Values.operator.rbac.create -}}
-
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
