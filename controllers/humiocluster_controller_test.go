@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -854,6 +855,141 @@ var _ = Describe("HumioCluster Controller", func() {
 					},
 				},
 			}))
+		})
+	})
+
+	Context("Humio Cluster View Group Permissions", func() {
+		It("Should correctly handle view group permissions", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-vgp",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.ViewGroupPermissions = `
+{
+  "views": {
+    "REPO1": {
+      "GROUP1": {
+        "queryPrefix": "QUERY1",
+        "canEditDashboards": true
+      },
+      "GROUP2": {
+        "queryPrefix": "QUERY2",
+        "canEditDashboards": false
+      }
+    },
+    "REPO2": {
+      "GROUP2": {
+        "queryPrefix": "QUERY3"
+      },
+      "GROUP3": {
+        "queryPrefix": "QUERY4"
+      }
+    }
+  }
+}
+`
+			By("Creating the cluster successfully with view group permissions")
+			createAndBootstrapCluster(toCreate)
+
+			By("Confirming config map was created")
+			Eventually(func() error {
+				_, err := kubernetes.GetConfigMap(context.Background(), k8sClient, viewGroupPermissionsConfigMapName(toCreate), toCreate.Namespace)
+				return err
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Confirming pods have the expected environment variable, volume and volume mounts")
+			mode := int32(420)
+			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			for _, pod := range clusterPods {
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElement(corev1.EnvVar{
+					Name:  "READ_GROUP_PERMISSIONS_FROM_FILE",
+					Value: "true",
+				}))
+				Expect(pod.Spec.Containers[humioIdx].VolumeMounts).To(ContainElement(corev1.VolumeMount{
+					Name:      "view-group-permissions",
+					ReadOnly:  true,
+					MountPath: fmt.Sprintf("%s/%s", humioDataPath, viewGroupPermissionsFilename),
+					SubPath:   viewGroupPermissionsFilename,
+				}))
+				Expect(pod.Spec.Volumes).To(ContainElement(corev1.Volume{
+					Name: "view-group-permissions",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: viewGroupPermissionsConfigMapName(toCreate),
+							},
+							DefaultMode: &mode,
+						},
+					},
+				}))
+			}
+
+			By("Confirming config map contains desired view group permissions")
+			configMap, _ := kubernetes.GetConfigMap(context.Background(), k8sClient, viewGroupPermissionsConfigMapName(toCreate), key.Namespace)
+			Expect(configMap.Data[viewGroupPermissionsFilename]).To(Equal(toCreate.Spec.ViewGroupPermissions))
+
+			By("Removing view group permissions")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				updatedHumioCluster.Spec.ViewGroupPermissions = ""
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Confirming pods do not have environment variable enabling view group permissions")
+			Eventually(func() []corev1.EnvVar {
+				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				for _, pod := range clusterPods {
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					return pod.Spec.Containers[humioIdx].Env
+				}
+				return []corev1.EnvVar{}
+			}, testTimeout, testInterval).ShouldNot(ContainElement(corev1.EnvVar{
+				Name:  "READ_GROUP_PERMISSIONS_FROM_FILE",
+				Value: "true",
+			}))
+
+			By("Confirming pods do not have additional volume mounts for view group permissions")
+			Eventually(func() []corev1.VolumeMount {
+				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				for _, pod := range clusterPods {
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					return pod.Spec.Containers[humioIdx].VolumeMounts
+				}
+				return []corev1.VolumeMount{}
+			}, testTimeout, testInterval).ShouldNot(ContainElement(corev1.VolumeMount{
+				Name:      "view-group-permissions",
+				ReadOnly:  true,
+				MountPath: fmt.Sprintf("%s/%s", humioDataPath, viewGroupPermissionsFilename),
+				SubPath:   viewGroupPermissionsFilename,
+			}))
+
+			By("Confirming pods do not have additional volumes for view group permissions")
+			Eventually(func() []corev1.Volume {
+				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				for _, pod := range clusterPods {
+					return pod.Spec.Volumes
+				}
+				return []corev1.Volume{}
+			}, testTimeout, testInterval).ShouldNot(ContainElement(corev1.Volume{
+				Name: "view-group-permissions",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: viewGroupPermissionsConfigMapName(toCreate),
+						},
+						DefaultMode: &mode,
+					},
+				},
+			}))
+
+			By("Confirming config map was cleaned up")
+			Eventually(func() bool {
+				_, err := kubernetes.GetConfigMap(context.Background(), k8sClient, viewGroupPermissionsConfigMapName(toCreate), toCreate.Namespace)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
 		})
 	})
 

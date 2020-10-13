@@ -187,7 +187,12 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return reconcile.Result{}, err
 	}
 
-	err = r.ensureKafkaConfigConfigMap(context.TODO(), hc)
+	err = r.ensureExtraKafkaConfigsConfigMap(context.TODO(), hc)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	err = r.ensureViewGroupPermissionsConfigMap(context.TODO(), hc)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -286,13 +291,14 @@ func (r *HumioClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
+		Owns(&corev1.ConfigMap{}).
 		Owns(&v1beta1.Ingress{}).
 		Complete(r)
 }
 
-// ensureKafkaConfigConfigMap creates a configmap containing configs specified in extraKafkaConfigs which will be mounted
+// ensureExtraKafkaConfigsConfigMap creates a configmap containing configs specified in extraKafkaConfigs which will be mounted
 // into the Humio container and pointed to by Humio's configuration option EXTRA_KAFKA_CONFIGS_FILE
-func (r *HumioClusterReconciler) ensureKafkaConfigConfigMap(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	extraKafkaConfigsConfigMapData := extraKafkaConfigsOrDefault(hc)
 	if extraKafkaConfigsConfigMapData == "" {
 		return nil
@@ -316,8 +322,48 @@ func (r *HumioClusterReconciler) ensureKafkaConfigConfigMap(ctx context.Context,
 				r.Log.Error(err, "unable to create extra kafka configs configmap")
 				return err
 			}
-			r.Log.Info(fmt.Sprintf("successfully created extra kafka configs configmap name %s", configMap))
-			humioClusterPrometheusMetrics.Counters.ClusterRolesCreated.Inc()
+			r.Log.Info(fmt.Sprintf("successfully created extra kafka configs configmap name %s", configMap.Name))
+			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
+		}
+	}
+	return nil
+}
+
+// ensureViewGroupPermissionsConfigMap creates a configmap containing configs specified in viewGroupPermissions which will be mounted
+// into the Humio container and used by Humio's configuration option READ_GROUP_PERMISSIONS_FROM_FILE
+func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	viewGroupPermissionsConfigMapData := viewGroupPermissionsOrDefault(hc)
+	if viewGroupPermissionsConfigMapData == "" {
+		viewGroupPermissionsConfigMap, err := kubernetes.GetConfigMap(ctx, r, viewGroupPermissionsConfigMapName(hc), hc.Namespace)
+		if err == nil {
+			err = r.Delete(ctx, viewGroupPermissionsConfigMap)
+			if err != nil {
+				r.Log.Error(err, "unable to delete view group permissions config map")
+			}
+		}
+		return nil
+	}
+	_, err := kubernetes.GetConfigMap(ctx, r, viewGroupPermissionsConfigMapName(hc), hc.Namespace)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			configMap := kubernetes.ConstructViewGroupPermissionsConfigMap(
+				viewGroupPermissionsConfigMapName(hc),
+				viewGroupPermissionsFilename,
+				viewGroupPermissionsConfigMapData,
+				hc.Name,
+				hc.Namespace,
+			)
+			if err := controllerutil.SetControllerReference(hc, configMap, r.Scheme); err != nil {
+				r.Log.Error(err, "could not set controller reference")
+				return err
+			}
+			err = r.Create(ctx, configMap)
+			if err != nil {
+				r.Log.Error(err, "unable to create view group permissions configmap")
+				return err
+			}
+			r.Log.Info(fmt.Sprintf("successfully created view group permissions configmap name %s", configMap.Name))
+			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
 		}
 	}
 	return nil
