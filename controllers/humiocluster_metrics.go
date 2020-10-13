@@ -44,6 +44,7 @@ type humioClusterPrometheusCountersCollection struct {
 	ServiceAccountsCreated       prometheus.Counter
 	ServiceAccountSecretsCreated prometheus.Counter
 	IngressesCreated             prometheus.Counter
+	ConfigMapsCreated            prometheus.Counter
 }
 
 func newHumioClusterPrometheusCollection() humioClusterPrometheusCollection {
@@ -96,6 +97,10 @@ func newHumioClusterPrometheusCollection() humioClusterPrometheusCollection {
 			IngressesCreated: prometheus.NewCounter(prometheus.CounterOpts{
 				Name: "humiocluster_controller_ingresses_created_total",
 				Help: "Total number of ingress objects created by controller",
+			}),
+			ConfigMapsCreated: prometheus.NewCounter(prometheus.CounterOpts{
+				Name: "humiocluster_controller_configmaps_created_total",
+				Help: "Total number of configmap objects created by controller",
 			}),
 		},
 	}

@@ -3706,6 +3706,10 @@ spec:
                     TLS.
                   type: boolean
               type: object
+            viewGroupPermissions:
+              description: ViewGroupPermissions is a multi-line string containing
+                view-group-permissions.json
+              type: string
           type: object
         status:
           description: HumioClusterStatus defines the observed state of HumioCluster
