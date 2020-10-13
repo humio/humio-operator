@@ -19,6 +19,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
+	"reflect"
+	"strings"
+
 	"github.com/Masterminds/semver"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
@@ -31,10 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"os"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 const autoCleanupAfterTestAnnotationName = "humio.com/auto-cleanup-after-test"
@@ -501,21 +502,21 @@ var _ = Describe("HumioCluster Controller", func() {
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
-				Expect(pod.Spec.Containers[humioIdx].Args).To(Equal([]string{"-c", "export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat /shared/availability-zone)_ && exec bash /app/humio/run.sh"}))
+				Expect(pod.Spec.Containers[humioIdx].Args).To(Equal([]string{"-c", "export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_ && exec bash /app/humio/run.sh"}))
 			}
 
-			By("Updating node uuid prefix")
+			By("Updating node uuid prefix which includes zone")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
 				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
-				updatedHumioCluster.Spec.NodeUUIDPrefix = "humio_humiocluster_"
+				updatedHumioCluster.Spec.NodeUUIDPrefix = "humio_{{.Zone}}_"
 				return k8sClient.Update(context.Background(), &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
 			Eventually(func() bool {
 				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
-					if reflect.DeepEqual(pod.Spec.Containers[humioIdx].Args, []string{"-c", "export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_humiocluster_$(cat /shared/availability-zone)_ && exec bash /app/humio/run.sh"}) {
+					if reflect.DeepEqual(pod.Spec.Containers[humioIdx].Args, []string{"-c", "export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat /shared/availability-zone)_ && exec bash /app/humio/run.sh"}) {
 						return true
 					}
 				}
