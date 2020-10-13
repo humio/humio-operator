@@ -778,7 +778,14 @@ func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context
 			existingNodeCertCount++
 
 			// Check if we should update the existing certificate
-			desiredCertificateHash := helpers.AsSHA256(constructNodeCertificate(hc, ""))
+			certForHash := constructNodeCertificate(hc, "")
+
+			// Keystores will always contain a new pointer when constructing a certificate.
+			// To work around this, we override it to nil before calculating the hash,
+			// if we do not do this, the hash will always be different.
+			certForHash.Spec.Keystores = nil
+
+			desiredCertificateHash := helpers.AsSHA256(certForHash)
 			currentCertificateHash, _ := cert.Annotations[certHashAnnotation]
 			if currentCertificateHash != desiredCertificateHash {
 				r.Log.Info(fmt.Sprintf("node certificate %s doesn't have expected hash, got: %s, expected: %s",
@@ -803,7 +810,14 @@ func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context
 	}
 	for i := existingNodeCertCount; i < nodeCountOrDefault(hc); i++ {
 		certificate := constructNodeCertificate(hc, kubernetes.RandomString())
-		certificateHash := helpers.AsSHA256(constructNodeCertificate(hc, ""))
+
+		certForHash := constructNodeCertificate(hc, "")
+		// Keystores will always contain a new pointer when constructing a certificate.
+		// To work around this, we override it to nil before calculating the hash,
+		// if we do not do this, the hash will always be different.
+		certForHash.Spec.Keystores = nil
+
+		certificateHash := helpers.AsSHA256(certForHash)
 		certificate.Annotations[certHashAnnotation] = certificateHash
 		r.Log.Info(fmt.Sprintf("creating node TLS certificate with name %s", certificate.Name))
 		if err := controllerutil.SetControllerReference(hc, &certificate, r.Scheme); err != nil {
