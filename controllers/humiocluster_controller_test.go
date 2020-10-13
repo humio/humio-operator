@@ -98,7 +98,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations[podRevisionAnnotation]).To(Equal("1"))
 
 			By("Updating the cluster image successfully")
-			updatedImage := "humio/humio-core:1.15.2"
+			updatedImage := "humio/humio-core:1.16.0"
 			Eventually(func() error {
 				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
 				updatedHumioCluster.Spec.Image = updatedImage

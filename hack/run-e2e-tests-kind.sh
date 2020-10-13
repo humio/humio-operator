@@ -9,14 +9,15 @@ declare -r ginkgo=$(go env GOPATH)/bin/ginkgo
 declare -r proxy_method=${PROXY_METHOD:-inject-tcp}
 
 # Preload default humio-core container version
-docker pull humio/humio-core:1.15.2
-kind load docker-image --name kind humio/humio-core:1.15.2
+docker pull humio/humio-core:1.16.0
+kind load docker-image --name kind humio/humio-core:1.16.0
 
 # Preload humio-core used by e2e tests
 docker pull humio/humio-core:1.13.0
 kind load docker-image --name kind humio/humio-core:1.13.0
 
 $kubectl apply -k config/crd/
+$kubectl label node --overwrite --all failure-domain.beta.kubernetes.io/zone=az1
 
 # TODO: add -p to automatically detect optimal number of test nodes, OR, -nodes=n to set parallelism, and add -stream to output logs from tests running in parallel.
 # We skip the helpers package as those tests assumes the environment variable USE_CERT_MANAGER is not set.
