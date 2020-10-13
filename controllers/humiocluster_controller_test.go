@@ -61,7 +61,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	// your API definition.
 	// Avoid adding tests for vanilla CRUD operations because they would
 	// test Kubernetes API server, which isn't the goal here.
-	Context("Humio Cluster Reconciliation Simple", func() {
+	Context("Humio Cluster Simple", func() {
 		It("Should bootstrap cluster correctly", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-simple",
@@ -69,6 +69,27 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+		})
+	})
+
+	Context("Humio Cluster Multi Organizations", func() {
+		It("Should bootstrap cluster correctly", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-multi-org",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+				Name:  "ENABLE_ORGANIZATIONS",
+				Value: "true",
+			})
+			toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+				Name:  "ORGANIZATION_MODE",
+				Value: "multi",
+			})
 
 			By("Creating the cluster successfully")
 			createAndBootstrapCluster(toCreate)
@@ -1409,6 +1430,13 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 		val, _ := updatedHumioCluster.Annotations[podRevisionAnnotation]
 		return val
 	}, testTimeout, testInterval).Should(Equal("1"))
+
+	Eventually(func() error {
+		return k8sClient.Get(context.Background(), types.NamespacedName{
+			Namespace: key.Namespace,
+			Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix),
+		}, &corev1.Secret{})
+	}, testTimeout, testInterval).Should(Succeed())
 
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 		// TODO: We can drop this version comparison when we only support 1.16 and newer.
