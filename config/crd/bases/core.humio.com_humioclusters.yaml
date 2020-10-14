@@ -3446,7 +3446,11 @@ spec:
               description: NodeCount is the desired number of humio cluster nodes
               type: integer
             nodeUUIDPrefix:
-              description: NodeUUIDPrefix is the prefix for the Humio Node's UUID
+              description: NodeUUIDPrefix is the prefix for the Humio Node's UUID.
+                By default this does not include the zone. If it's necessary to include
+                zone, there is a special `Zone` variable that can be used. To use
+                this, set `{{.Zone}}`. For compatibility with pre-0.0.14 spec defaults,
+                this should be set to `humio_{{.Zone}}`
               type: string
             path:
               description: Path is the root URI path of the Humio cluster

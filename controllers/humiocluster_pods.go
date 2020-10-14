@@ -17,9 +17,11 @@ limitations under the License.
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"html/template"
 	"reflect"
 	"strings"
 	"time"
@@ -69,6 +71,41 @@ type podAttachments struct {
 	authServiceAccountSecretName string
 }
 
+// nodeUUIDTemplateVars contains the variables that are allowed to be rendered for the nodeUUID string
+type nodeUUIDTemplateVars struct {
+	Zone string
+}
+
+// constructNodeUUIDPrefix checks the value of the nodeUUID prefix and attempts to render it as a template. If the template
+// renders {{.Zone}} as the string set to containsZoneIdentifier, then we can be assured that the desired outcome is
+// that the zone in included inside the nodeUUID prefix.
+func constructNodeUUIDPrefix(hc *humiov1alpha1.HumioCluster) (string, error) {
+	prefix := nodeUUIDPrefixOrDefault(hc)
+	containsZoneIdentifier := "containsZone"
+
+	t := template.Must(template.New("prefix").Parse(prefix))
+	data := nodeUUIDTemplateVars{Zone: containsZoneIdentifier}
+
+	var tpl bytes.Buffer
+	if err := t.Execute(&tpl, data); err != nil {
+		return "", err
+	}
+	nodeUUIDPrefix := tpl.String()
+
+	if strings.Contains(nodeUUIDPrefix, containsZoneIdentifier) {
+		nodeUUIDPrefix = strings.Replace(nodeUUIDPrefix, containsZoneIdentifier, fmt.Sprintf("$(cat %s/availability-zone)", sharedPath), 1)
+	}
+
+	if !strings.HasPrefix(nodeUUIDPrefix, "/") {
+		nodeUUIDPrefix = fmt.Sprintf("/%s", nodeUUIDPrefix)
+	}
+	if !strings.HasSuffix(nodeUUIDPrefix, "_") {
+		nodeUUIDPrefix = fmt.Sprintf("%s_", nodeUUIDPrefix)
+	}
+
+	return nodeUUIDPrefix, nil
+}
+
 func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachments *podAttachments) (*corev1.Pod, error) {
 	var pod corev1.Pod
 	mode := int32(420)
@@ -79,6 +116,11 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 	}
 	userID := int64(65534)
 	helperImageTag := "humio/humio-operator-helper:0.0.9"
+
+	nodeUUIDPrefix, err := constructNodeUUIDPrefix(hc)
+	if err != nil {
+		return &pod, fmt.Errorf("unable to construct node UUID: %s", err)
+	}
 
 	pod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -235,8 +277,8 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 					Image:   hc.Spec.Image,
 					Command: []string{"/bin/sh"},
 					Args: []string{"-c",
-						fmt.Sprintf("export ZONE=$(cat %s/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/%s$(cat %s/availability-zone)_ && exec bash %s/run.sh",
-							sharedPath, nodeUUIDPrefixOrDefault(hc), sharedPath, humioAppPath)},
+						fmt.Sprintf("export ZONE=$(cat %s/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s && exec bash %s/run.sh",
+							sharedPath, nodeUUIDPrefix, humioAppPath)},
 					Ports: []corev1.ContainerPort{
 						{
 							Name:          "http",

@@ -94,7 +94,9 @@ type HumioClusterSpec struct {
 	ExtraVolumes []corev1.Volume `json:"extraVolumes,omitempty"`
 	// TLS is used to define TLS specific configuration such as intra-cluster TLS settings
 	TLS *HumioClusterTLSSpec `json:"tls,omitempty"`
-	// NodeUUIDPrefix is the prefix for the Humio Node's UUID
+	// NodeUUIDPrefix is the prefix for the Humio Node's UUID. By default this does not include the zone. If it's
+	// necessary to include zone, there is a special `Zone` variable that can be used. To use this, set `{{.Zone}}`. For
+	// compatibility with pre-0.0.14 spec defaults, this should be set to `humio_{{.Zone}}`
 	NodeUUIDPrefix string `json:"nodeUUIDPrefix,omitempty"`
 	// HumioServiceType is the ServiceType of the Humio Service that is used to direct traffic to the Humio pods
 	HumioServiceType corev1.ServiceType `json:"humioServiceType,omitempty"`
