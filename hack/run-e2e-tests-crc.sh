@@ -12,7 +12,7 @@ eval $(crc oc-env)
 eval $(crc console --credentials | grep "To login as an admin, run" | cut -f2 -d"'")
 
 $kubectl apply -k config/crd/
-$kubectl label node --overwrite --all failure-domain.beta.kubernetes.io/zone=az1
+$kubectl label node --overwrite --all topology.kubernetes.io/zone=az1
 
 # https://github.com/telepresenceio/telepresence/issues/1309
 oc adm policy add-scc-to-user anyuid -z default
