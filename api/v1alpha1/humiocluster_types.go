@@ -78,6 +78,8 @@ type HumioClusterSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 	// PodSecurityContext is the security context applied to the Humio pod
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	// PodAnnotations can be used to specify annotations that will be added to the Humio pods
+	PodAnnotations map[string]string `json:"podAnnotations,omitempty"`
 	// Hostname is the public hostname used by clients to access Humio
 	Hostname string `json:"hostname,omitempty"`
 	// ESHostname is the public hostname used by log shippers with support for ES bulk API to access Humio
