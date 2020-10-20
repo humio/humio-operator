@@ -3491,6 +3491,12 @@ spec:
             path:
               description: Path is the root URI path of the Humio cluster
               type: string
+            podAnnotations:
+              additionalProperties:
+                type: string
+              description: PodAnnotations can be used to specify annotations that
+                will be added to the Humio pods
+              type: object
             podSecurityContext:
               description: PodSecurityContext is the security context applied to the
                 Humio pod
