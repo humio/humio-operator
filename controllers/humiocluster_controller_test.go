@@ -411,6 +411,32 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster Pod Annotations", func() {
+		It("Should be correctly annotated", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-pods",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.PodAnnotations = map[string]string{"humio.com/new-important-annotation": "true"}
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+
+			Eventually(func() bool {
+				clusterPods, _ := kubernetes.ListPods(k8sClient, toCreate.Namespace, kubernetes.MatchingLabelsForHumio(toCreate.Name))
+				Expect(len(clusterPods)).To(BeIdenticalTo(*toCreate.Spec.NodeCount))
+
+				for _, pod := range clusterPods {
+					Expect(pod.Annotations["humio.com/new-important-annotation"]).Should(Equal("true"))
+					Expect(pod.Annotations["productName"]).Should(Equal("humio"))
+				}
+				return true
+			}, testTimeout, testInterval).Should(BeTrue())
+
+		})
+	})
+
 	Context("Humio Cluster Custom Service", func() {
 		It("Should correctly use default service", func() {
 			key := types.NamespacedName{

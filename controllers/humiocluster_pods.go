@@ -124,14 +124,10 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 
 	pod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      humioNodeName,
-			Namespace: hc.Namespace,
-			Labels:    kubernetes.LabelsForHumio(hc.Name),
-			Annotations: map[string]string{
-				"productID":      "none",
-				"productName":    "humio",
-				"productVersion": productVersion,
-			},
+			Name:        humioNodeName,
+			Namespace:   hc.Namespace,
+			Labels:      kubernetes.LabelsForHumio(hc.Name),
+			Annotations: kubernetes.AnnotationsForHumio(hc.Spec.PodAnnotations, productVersion),
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: humioServiceAccountNameOrDefault(hc),

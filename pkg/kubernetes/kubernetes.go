@@ -64,3 +64,23 @@ func RandomString() string {
 	}
 	return b.String()
 }
+
+// AnnotationsForHumio returns the set of annotations for humio pods
+func AnnotationsForHumio(podAnnotations map[string]string, productVersion string) map[string]string {
+	annotations := map[string]string{
+		"productID":      "none",
+		"productName":    "humio",
+		"productVersion": productVersion,
+	}
+	if len(podAnnotations) == 0 {
+		return annotations
+	}
+	for k, v := range podAnnotations {
+		if _, ok := annotations[k]; ok {
+			// TODO: Maybe log out here, if the user specifies annotations already existing?
+			continue
+		}
+		annotations[k] = v
+	}
+	return annotations
+}
