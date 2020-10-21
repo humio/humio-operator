@@ -51,3 +51,12 @@ func GetContainerIndexByName(pod corev1.Pod, name string) (int, error) {
 	}
 	return 0, fmt.Errorf("container with name %s not found", name)
 }
+
+func GetInitContainerIndexByName(pod corev1.Pod, name string) (int, error) {
+	for idx, container := range pod.Spec.InitContainers {
+		if container.Name == name {
+			return idx, nil
+		}
+	}
+	return 0, fmt.Errorf("initcontainer with name %s not found", name)
+}
