@@ -19,6 +19,11 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
@@ -30,12 +35,8 @@ import (
 	"k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/humio/humio-operator/pkg/humio"
@@ -1311,9 +1312,6 @@ func (r *HumioClusterReconciler) tlsCertSecretInUse(ctx context.Context, secretN
 }
 
 func (r *HumioClusterReconciler) getInitServiceAccountSecretName(ctx context.Context, hc *humiov1alpha1.HumioCluster) (string, error) {
-	if hc.Spec.InitServiceAccountName != "" {
-		return hc.Spec.InitServiceAccountName, nil
-	}
 	foundInitServiceAccountSecretsList, err := kubernetes.ListSecrets(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForSecret(hc.Name, initServiceAccountSecretName(hc)))
 	if err != nil {
 		return "", err
@@ -1328,9 +1326,6 @@ func (r *HumioClusterReconciler) getInitServiceAccountSecretName(ctx context.Con
 }
 
 func (r *HumioClusterReconciler) getAuthServiceAccountSecretName(ctx context.Context, hc *humiov1alpha1.HumioCluster) (string, error) {
-	if hc.Spec.AuthServiceAccountName != "" {
-		return hc.Spec.AuthServiceAccountName, nil
-	}
 	foundAuthServiceAccountNameSecretsList, err := kubernetes.ListSecrets(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForSecret(hc.Name, authServiceAccountSecretName(hc)))
 	if err != nil {
 		return "", err
