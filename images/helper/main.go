@@ -19,19 +19,20 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
 	humio "github.com/humio/cli/api"
 	"github.com/savaki/jq"
 	"github.com/shurcooL/graphql"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"net/http"
-	"os"
-	"strings"
-	"time"
 
 	// load all auth plugins
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -416,7 +417,7 @@ func initMode() {
 		}
 		err := ioutil.WriteFile(targetFile, []byte(zone), 0644)
 		if err != nil {
-			panic("unable to write file with availability zone information")
+			panic(fmt.Sprintf("unable to write file with availability zone information: %s", err))
 		}
 	}
 }
