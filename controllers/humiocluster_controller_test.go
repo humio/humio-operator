@@ -638,14 +638,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(context.Background(), &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
 
-			// TODO: Seems like pod replacement is not handled properly when updating the PodSecurityContext. Right now, delete pods manually and see new pods come up as expected.
-			clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-			for _, pod := range clusterPods {
-				Expect(k8sClient.Delete(context.Background(), &pod)).To(Succeed())
-			}
-
 			Eventually(func() corev1.PodSecurityContext {
 				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				markPodsAsRunning(k8sClient, clusterPods)
 				for _, pod := range clusterPods {
 					return *pod.Spec.SecurityContext
 				}
@@ -711,14 +706,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(context.Background(), &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
 
-			// TODO: Seems like pod replacement is not handled properly when updating ContainerSecurityContext. Right now, delete pods manually and see new pods come up as expected.
-			clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-			for _, pod := range clusterPods {
-				Expect(k8sClient.Delete(context.Background(), &pod)).To(Succeed())
-			}
-
 			Eventually(func() corev1.SecurityContext {
 				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				markPodsAsRunning(k8sClient, clusterPods)
+
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
 					return *pod.Spec.Containers[humioIdx].SecurityContext
@@ -1021,40 +1012,23 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return k8sClient.Update(context.Background(), &updatedHumioCluster)
 			}).Should(Succeed())
+
 			Eventually(func() ([]corev1.PersistentVolumeClaim, error) {
 				return kubernetes.ListPersistentVolumeClaims(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			}, testTimeout, testInterval).Should(HaveLen(*toCreate.Spec.NodeCount))
 
-			// TODO: Seems like pod replacement is not handled properly when updating DataVolumePersistentVolumeClaimSpecTemplate. Right now, delete pods manually and see new pods come up as expected.
-			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-			for _, pod := range clusterPods {
-				Expect(k8sClient.Delete(context.Background(), &pod)).To(Succeed())
-			}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
 
-			By("Waiting for old pods to be deleted and new pods to become ready")
-			Eventually(func() []corev1.Pod {
-				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-				for _, pod := range clusterPods {
-					if pod.DeletionTimestamp != nil {
-						return []corev1.Pod{}
-					}
-				}
-				return clusterPods
-			}, testTimeout, testInterval).Should(HaveLen(*toCreate.Spec.NodeCount))
-			Eventually(func() []corev1.Pod {
-				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			Eventually(func() string {
+				clusterPods, _ := kubernetes.ListPods(k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
 				markPodsAsRunning(k8sClient, clusterPods)
-				for _, pod := range clusterPods {
-					for _, condition := range pod.Status.Conditions {
-						if condition.Type == "Ready" {
-							if condition.Status != "True" {
-								return []corev1.Pod{}
-							}
-						}
-					}
-				}
-				return clusterPods
-			}, testTimeout, testInterval).Should(HaveLen(*toCreate.Spec.NodeCount))
+
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 
 			By("Confirming pods are using PVC's and no PVC is left unused")
 			pvcList, _ := kubernetes.ListPersistentVolumeClaims(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
