@@ -19,6 +19,7 @@ package controllers
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -44,11 +45,12 @@ import (
 )
 
 const (
-	humioAppPath     = "/app/humio"
-	humioDataPath    = "/data/humio-data"
-	humioDataTmpPath = "/app/humio/humio-data/tmp"
-	sharedPath       = "/shared"
-	tmpPath          = "/tmp"
+	humioAppPath             = "/app/humio"
+	humioDataPath            = "/data/humio-data"
+	humioDataTmpPath         = "/app/humio/humio-data/tmp"
+	sharedPath               = "/shared"
+	tmpPath                  = "/tmp"
+	waitForPodTimeoutSeconds = 30
 )
 
 type podLifecycleState struct {
@@ -639,7 +641,7 @@ func envVarHasKey(envVars []corev1.EnvVar, key string) bool {
 func podSpecAsSHA256(hc *humiov1alpha1.HumioCluster, sourcePod corev1.Pod) string {
 	pod := sourcePod.DeepCopy()
 	sanitizedVolumes := make([]corev1.Volume, 0)
-	emptyPersistentVolumeClaim := corev1.PersistentVolumeClaimVolumeSource{}
+	emptyPersistentVolumeClaimSource := corev1.PersistentVolumeClaimVolumeSource{}
 	hostname := fmt.Sprintf("%s-core-%s", hc.Name, "")
 	mode := int32(420)
 
@@ -679,10 +681,15 @@ func podSpecAsSHA256(hc *humiov1alpha1.HumioCluster, sourcePod corev1.Pod) strin
 	}
 
 	for _, volume := range pod.Spec.Volumes {
-		if volume.Name == "humio-data" && !reflect.DeepEqual(volume.PersistentVolumeClaim, emptyPersistentVolumeClaim) {
+		if volume.Name == "humio-data" && reflect.DeepEqual(volume.PersistentVolumeClaim, emptyPersistentVolumeClaimSource) {
 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
 				Name:         "humio-data",
 				VolumeSource: dataVolumeSourceOrDefault(hc),
+			})
+		} else if volume.Name == "humio-data" && !reflect.DeepEqual(volume.PersistentVolumeClaim, emptyPersistentVolumeClaimSource) {
+			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+				Name:         "humio-data",
+				VolumeSource: dataVolumePersistentVolumeClaimSpecTemplateOrDefault(hc, ""),
 			})
 		} else if volume.Name == "tls-cert" {
 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
@@ -721,7 +728,8 @@ func podSpecAsSHA256(hc *humiov1alpha1.HumioCluster, sourcePod corev1.Pod) strin
 	pod.Spec.Volumes = sanitizedVolumes
 	pod.Spec.Hostname = hostname
 
-	return helpers.AsSHA256(pod.Spec)
+	b, _ := json.Marshal(pod.Spec)
+	return helpers.AsSHA256(string(b))
 }
 
 func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha1.HumioCluster, attachments *podAttachments) error {
@@ -768,7 +776,7 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 }
 
 func (r *HumioClusterReconciler) waitForNewPod(hc *humiov1alpha1.HumioCluster, expectedPodCount int) error {
-	for i := 0; i < 3; i++ { // TODO: Figure out why we almost always see this timing out in tests when this method is called from ensurePodsExist()
+	for i := 0; i < waitForPodTimeoutSeconds; i++ {
 		latestPodList, err := kubernetes.ListPods(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 		if err != nil {
 			return err
@@ -866,10 +874,6 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hc *humiov1alpha1.H
 		// only consider pods not already being deleted
 		if pod.DeletionTimestamp == nil {
 			// if pod spec differs, we want to delete it
-			// use dataVolumeSourceOrDefault() to get either the volume source or an empty volume source in the case
-			// we are using pvcs. this is to avoid doing the pvc lookup and we do not compare pvcs when doing a sha256
-			// hash of the pod spec
-
 			desiredPod, err := constructPod(hc, "", attachments)
 			if err != nil {
 				r.Log.Error(err, "could not construct pod")

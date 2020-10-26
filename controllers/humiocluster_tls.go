@@ -23,18 +23,27 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"math/big"
+	"strings"
+	"time"
+
+	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"math/big"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+)
+
+const (
+	waitForNodeCertificateTimeoutSeconds = 30
 )
 
 func getCASecretName(hc *humiov1alpha1.HumioCluster) string {
@@ -198,4 +207,67 @@ func constructNodeCertificate(hc *humiov1alpha1.HumioCluster, nodeSuffix string)
 			},
 		},
 	}
+}
+
+func (r *HumioClusterReconciler) waitForNewNodeCertificate(ctx context.Context, hc *humiov1alpha1.HumioCluster, expectedCertCount int) error {
+	for i := 0; i < waitForNodeCertificateTimeoutSeconds; i++ {
+		existingNodeCertCount, err := r.updateNodeCertificates(ctx, hc)
+		if err != nil {
+			return err
+		}
+		r.Log.Info(fmt.Sprintf("validating new pod certificate was created. expected pod certificate count %d, current pod certificate count %d", expectedCertCount, existingNodeCertCount))
+		if existingNodeCertCount >= expectedCertCount {
+			return nil
+		}
+		time.Sleep(time.Second * 1)
+	}
+	return fmt.Errorf("timed out waiting to validate new pod certificate was created")
+}
+
+// updateNodeCertificates updates existing node certificates that have been changed. Returns the count of existing node
+// certificates
+func (r *HumioClusterReconciler) updateNodeCertificates(ctx context.Context, hc *humiov1alpha1.HumioCluster) (int, error) {
+	certificates, err := kubernetes.ListCertificates(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+	if err != nil {
+		return -1, err
+	}
+
+	existingNodeCertCount := 0
+	for _, cert := range certificates {
+		if strings.HasPrefix(cert.Name, fmt.Sprintf("%s-core", hc.Name)) {
+			existingNodeCertCount++
+
+			// Check if we should update the existing certificate
+			certForHash := constructNodeCertificate(hc, "")
+
+			// Keystores will always contain a new pointer when constructing a certificate.
+			// To work around this, we override it to nil before calculating the hash,
+			// if we do not do this, the hash will always be different.
+			certForHash.Spec.Keystores = nil
+
+			b, _ := json.Marshal(certForHash)
+			desiredCertificateHash := helpers.AsSHA256(string(b))
+			currentCertificateHash, _ := cert.Annotations[certHashAnnotation]
+			if currentCertificateHash != desiredCertificateHash {
+				r.Log.Info(fmt.Sprintf("node certificate %s doesn't have expected hash, got: %s, expected: %s",
+					cert.Name, currentCertificateHash, desiredCertificateHash))
+				currentCertificateNameSubstrings := strings.Split(cert.Name, "-")
+				currentCertificateSuffix := currentCertificateNameSubstrings[len(currentCertificateNameSubstrings)-1]
+
+				desiredCertificate := constructNodeCertificate(hc, currentCertificateSuffix)
+				desiredCertificate.ResourceVersion = cert.ResourceVersion
+				desiredCertificate.Annotations[certHashAnnotation] = desiredCertificateHash
+				r.Log.Info(fmt.Sprintf("updating node TLS certificate with name %s", desiredCertificate.Name))
+				if err := controllerutil.SetControllerReference(hc, &desiredCertificate, r.Scheme); err != nil {
+					r.Log.Error(err, "could not set controller reference")
+					return existingNodeCertCount, err
+				}
+				err = r.Update(ctx, &desiredCertificate)
+				if err != nil {
+					return existingNodeCertCount, err
+				}
+			}
+		}
+	}
+	return existingNodeCertCount, nil
 }

@@ -231,6 +231,8 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}(context.TODO(), hc)
 
 	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
+		r.getLatestHumioCluster(ctx, hc)
+
 		status, err := humioClient.Status()
 		if err != nil {
 			r.Log.Error(err, "unable to get status")
@@ -826,45 +828,10 @@ func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context
 		r.Log.Info("cluster not configured to run with TLS, skipping")
 		return nil
 	}
-	certificates, err := kubernetes.ListCertificates(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+
+	existingNodeCertCount, err := r.updateNodeCertificates(ctx, hc)
 	if err != nil {
 		return err
-	}
-	existingNodeCertCount := 0
-	for _, cert := range certificates {
-		if strings.HasPrefix(cert.Name, fmt.Sprintf("%s-core", hc.Name)) {
-			existingNodeCertCount++
-
-			// Check if we should update the existing certificate
-			certForHash := constructNodeCertificate(hc, "")
-
-			// Keystores will always contain a new pointer when constructing a certificate.
-			// To work around this, we override it to nil before calculating the hash,
-			// if we do not do this, the hash will always be different.
-			certForHash.Spec.Keystores = nil
-
-			desiredCertificateHash := helpers.AsSHA256(certForHash)
-			currentCertificateHash, _ := cert.Annotations[certHashAnnotation]
-			if currentCertificateHash != desiredCertificateHash {
-				r.Log.Info(fmt.Sprintf("node certificate %s doesn't have expected hash, got: %s, expected: %s",
-					cert.Name, currentCertificateHash, desiredCertificateHash))
-				currentCertificateNameSubstrings := strings.Split(cert.Name, "-")
-				currentCertificateSuffix := currentCertificateNameSubstrings[len(currentCertificateNameSubstrings)-1]
-
-				desiredCertificate := constructNodeCertificate(hc, currentCertificateSuffix)
-				desiredCertificate.ResourceVersion = cert.ResourceVersion
-				desiredCertificate.Annotations[certHashAnnotation] = desiredCertificateHash
-				r.Log.Info(fmt.Sprintf("updating node TLS certificate with name %s", desiredCertificate.Name))
-				if err := controllerutil.SetControllerReference(hc, &desiredCertificate, r.Scheme); err != nil {
-					r.Log.Error(err, "could not set controller reference")
-					return err
-				}
-				err = r.Update(ctx, &desiredCertificate)
-				if err != nil {
-					return err
-				}
-			}
-		}
 	}
 	for i := existingNodeCertCount; i < nodeCountOrDefault(hc); i++ {
 		certificate := constructNodeCertificate(hc, kubernetes.RandomString())
@@ -886,6 +853,7 @@ func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context
 		if err != nil {
 			return err
 		}
+		r.waitForNewNodeCertificate(ctx, hc, existingNodeCertCount+1)
 	}
 	return nil
 }
@@ -1409,9 +1377,12 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	var waitingOnReadyPods bool
 	r.Log.Info("ensuring mismatching pods are deleted")
 
-	// It's not necessary to have real attachments here since we are only using them to get the desired state of the pod
-	// which sanitizes the attachments in podSpecAsSHA256().
 	attachments := &podAttachments{}
+	// In the case we are using PVCs, we cannot lookup the available PVCs since they may already be in use
+	emptyPersistentVolumeClaimSpec := corev1.PersistentVolumeClaimSpec{}
+	if !reflect.DeepEqual(hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate, emptyPersistentVolumeClaimSpec) {
+		attachments.dataVolumeSource = dataVolumePersistentVolumeClaimSpecTemplateOrDefault(hc, "")
+	}
 
 	// If we allow a rolling update, then don't take down more than one pod at a time.
 	// Check the number of ready pods. if we have already deleted a pod, then the ready count will less than expected,
@@ -1608,12 +1579,11 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 
 	r.Log.Info("ensuring pvcs")
 	foundPersistentVolumeClaims, err := kubernetes.ListPersistentVolumeClaims(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
-	r.Log.Info(fmt.Sprintf("found %d pvcs", len(foundPersistentVolumeClaims)))
-
 	if err != nil {
 		r.Log.Error(err, "failed to list pvcs")
 		return reconcile.Result{}, err
 	}
+	r.Log.Info(fmt.Sprintf("found %d pvcs", len(foundPersistentVolumeClaims)))
 
 	if len(foundPersistentVolumeClaims) < nodeCountOrDefault(hc) {
 		r.Log.Info(fmt.Sprintf("pvc count of %d is less than %d. adding more", len(foundPersistentVolumeClaims), nodeCountOrDefault(hc)))

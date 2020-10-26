@@ -23,8 +23,17 @@ import (
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/kubernetes"
-	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
+
+// getLatestHumioCluster ensures we have the latest HumioCluster resource. It may have been changed during the
+// reconciliation
+func (r *HumioClusterReconciler) getLatestHumioCluster(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
+	r.Get(ctx, types.NamespacedName{
+		Name:      hc.Name,
+		Namespace: hc.Namespace,
+	}, hc)
+}
 
 // setState is used to change the cluster state
 // TODO: we use this to determine if we should have a delay between startup of humio pods during bootstrap vs starting up pods during an image update
@@ -58,19 +67,10 @@ func (r *HumioClusterReconciler) setNodeCount(ctx context.Context, nodeCount int
 
 func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
 	r.Log.Info("setting cluster pod status")
-	var pvcs []corev1.PersistentVolumeClaim
 	pods, err := kubernetes.ListPods(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
 		r.Log.Error(err, "unable to set pod status")
 		return
-	}
-
-	if pvcsEnabled(hc) {
-		pvcs, err = kubernetes.ListPersistentVolumeClaims(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
-		if err != nil {
-			r.Log.Error(err, "unable to set pod status")
-			return
-		}
 	}
 
 	hc.Status.PodStatus = []humiov1alpha1.HumioPodStatus{}
@@ -87,12 +87,18 @@ func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.H
 			podStatus.NodeId = nodeId
 		}
 		if pvcsEnabled(hc) {
-			pvc, err := findPvcForPod(pvcs, pod)
-			if err != nil {
-				r.Log.Error(err, "unable to set pod status")
-				return
+			for _, volume := range pod.Spec.Volumes {
+				if volume.Name == "humio-data" {
+					if volume.PersistentVolumeClaim != nil {
+						podStatus.PvcName = volume.PersistentVolumeClaim.ClaimName
+					} else {
+						// This is not actually an error in every case. If the HumioCluster resource is migrating to
+						// PVCs then this will happen in a rolling fashion thus some pods will not have PVCs for a
+						// short time.
+						r.Log.Info(fmt.Sprintf("unable to set pod pvc status for pod %s because there is no pvc attached to the pod", pod.Name))
+					}
+				}
 			}
-			podStatus.PvcName = pvc.Name
 		}
 		hc.Status.PodStatus = append(hc.Status.PodStatus, podStatus)
 	}
