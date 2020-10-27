@@ -1358,6 +1358,33 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster Without TLS for Ingress", func() {
+		It("Creating cluster without TLS for ingress", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-without-tls-ingress",
+				Namespace: "default",
+			}
+			tlsDisabled := false
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.Ingress.Enabled = true
+			toCreate.Spec.Ingress.Controller = "nginx"
+			toCreate.Spec.Ingress.TLS = &tlsDisabled
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+
+			By("Confirming ingress objects do not have TLS configured")
+			var ingresses []v1beta1.Ingress
+			Eventually(func() ([]v1beta1.Ingress, error) {
+				return kubernetes.ListIngresses(k8sClient, toCreate.Namespace, kubernetes.MatchingLabelsForHumio(toCreate.Name))
+			}, testTimeout, testInterval).Should(HaveLen(4))
+
+			for _, ingress := range ingresses {
+				Expect(ingress.Spec.TLS).To(BeNil())
+			}
+		})
+	})
+
 	Context("Humio Cluster With Custom Service Accounts", func() {
 		It("Creating cluster with custom service accounts", func() {
 			key := types.NamespacedName{
