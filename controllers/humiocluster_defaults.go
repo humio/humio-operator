@@ -419,6 +419,13 @@ func humioESServicePortOrDefault(hc *humiov1alpha1.HumioCluster) int32 {
 	return elasticPort
 }
 
+func humioServiceAnnotationsOrDefault(hc *humiov1alpha1.HumioCluster) map[string]string {
+	if hc.Spec.HumioServiceAnnotations != nil {
+		return hc.Spec.HumioServiceAnnotations
+	}
+	return map[string]string(nil)
+}
+
 func humioPathOrDefault(hc *humiov1alpha1.HumioCluster) string {
 	if hc.Spec.Path != "" {
 		if strings.HasPrefix(hc.Spec.Path, "/") {
