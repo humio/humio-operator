@@ -147,6 +147,13 @@ func (in *HumioClusterSpec) DeepCopyInto(out *HumioClusterSpec) {
 		*out = new(v1.PodSecurityContext)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.PodAnnotations != nil {
+		in, out := &in.PodAnnotations, &out.PodAnnotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	in.Ingress.DeepCopyInto(&out.Ingress)
 	if in.ExtraHumioVolumeMounts != nil {
 		in, out := &in.ExtraHumioVolumeMounts, &out.ExtraHumioVolumeMounts
