@@ -108,6 +108,9 @@ type HumioClusterSpec struct {
 	// HumioESServicePort is the port number of the Humio Service that is used to direct traffic to the ES interface of
 	// the Humio pods.
 	HumioESServicePort int32 `json:"humioESServicePort,omitempty"`
+	// HumioServiceAnnotations is the set of annotations added to the Kubernetes Service that is used to direct traffic
+	// to the Humio pods
+	HumioServiceAnnotations map[string]string `json:"humioServiceAnnotations,omitempty"`
 }
 
 // HumioClusterIngressSpec is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster

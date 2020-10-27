@@ -3501,6 +3501,13 @@ spec:
               description: HumioServiceAccountName is the name of the Kubernetes Service
                 Account that will be attached to the Humio pods
               type: string
+            humioServiceAnnotations:
+              additionalProperties:
+                type: string
+              description: HumioServiceAnnotations is the set of annotations added
+                to the Kubernetes Service that is used to direct traffic to the Humio
+                pods
+              type: object
             humioServicePort:
               description: HumioServicePort is the port number of the Humio Service
                 that is used to direct traffic to the http interface of the Humio
