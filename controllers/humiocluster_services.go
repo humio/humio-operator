@@ -26,9 +26,10 @@ import (
 func constructService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      hc.Name,
-			Namespace: hc.Namespace,
-			Labels:    kubernetes.LabelsForHumio(hc.Name),
+			Name:        hc.Name,
+			Namespace:   hc.Namespace,
+			Labels:      kubernetes.LabelsForHumio(hc.Name),
+			Annotations: humioServiceAnnotationsOrDefault(hc),
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     humioServiceTypeOrDefault(hc),
