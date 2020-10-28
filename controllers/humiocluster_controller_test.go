@@ -1441,6 +1441,62 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(pod.Spec.ServiceAccountName).To(Equal(toCreate.Spec.HumioServiceAccountName))
 			}
 		})
+
+		It("Creating cluster with custom service accounts sharing the same name", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-custom-sa-same-name",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.InitServiceAccountName = "custom-service-account"
+			toCreate.Spec.AuthServiceAccountName = "custom-service-account"
+			toCreate.Spec.HumioServiceAccountName = "custom-service-account"
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+
+			By("Confirming init container is using the correct service account")
+			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			for _, pod := range clusterPods {
+				humioIdx, _ := kubernetes.GetInitContainerIndexByName(pod, "init")
+				var serviceAccountSecretVolumeName string
+				for _, volumeMount := range pod.Spec.InitContainers[humioIdx].VolumeMounts {
+					if volumeMount.MountPath == "/var/run/secrets/kubernetes.io/serviceaccount" {
+						serviceAccountSecretVolumeName = volumeMount.Name
+					}
+				}
+				Expect(serviceAccountSecretVolumeName).To(Not(BeEmpty()))
+				for _, volume := range pod.Spec.Volumes {
+					if volume.Name == serviceAccountSecretVolumeName {
+						secret, err := kubernetes.GetSecret(context.Background(), k8sClient, volume.Secret.SecretName, key.Namespace)
+						Expect(err).ShouldNot(HaveOccurred())
+						Expect(secret.ObjectMeta.Annotations["kubernetes.io/service-account.name"]).To(Equal(toCreate.Spec.InitServiceAccountName))
+					}
+				}
+			}
+			By("Confirming auth container is using the correct service account")
+			for _, pod := range clusterPods {
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "auth")
+				var serviceAccountSecretVolumeName string
+				for _, volumeMount := range pod.Spec.Containers[humioIdx].VolumeMounts {
+					if volumeMount.MountPath == "/var/run/secrets/kubernetes.io/serviceaccount" {
+						serviceAccountSecretVolumeName = volumeMount.Name
+					}
+				}
+				Expect(serviceAccountSecretVolumeName).To(Not(BeEmpty()))
+				for _, volume := range pod.Spec.Volumes {
+					if volume.Name == serviceAccountSecretVolumeName {
+						secret, err := kubernetes.GetSecret(context.Background(), k8sClient, volume.Secret.SecretName, key.Namespace)
+						Expect(err).ShouldNot(HaveOccurred())
+						Expect(secret.ObjectMeta.Annotations["kubernetes.io/service-account.name"]).To(Equal(toCreate.Spec.AuthServiceAccountName))
+					}
+				}
+			}
+			By("Confirming humio pod is using the correct service account")
+			for _, pod := range clusterPods {
+				Expect(pod.Spec.ServiceAccountName).To(Equal(toCreate.Spec.HumioServiceAccountName))
+			}
+		})
 	})
 
 	Context("Humio Cluster With Service Annotations", func() {
@@ -1484,8 +1540,10 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 	}
 
 	if cluster.Spec.InitServiceAccountName != "" {
-		initServiceAccount := kubernetes.ConstructServiceAccount(cluster.Spec.InitServiceAccountName, cluster.Name, cluster.Namespace, map[string]string{})
-		Expect(k8sClient.Create(context.Background(), initServiceAccount)).To(Succeed())
+		if cluster.Spec.InitServiceAccountName != cluster.Spec.HumioServiceAccountName {
+			initServiceAccount := kubernetes.ConstructServiceAccount(cluster.Spec.InitServiceAccountName, cluster.Name, cluster.Namespace, map[string]string{})
+			Expect(k8sClient.Create(context.Background(), initServiceAccount)).To(Succeed())
+		}
 
 		initClusterRole := kubernetes.ConstructInitClusterRole(cluster.Spec.InitServiceAccountName, key.Name)
 		Expect(k8sClient.Create(context.Background(), initClusterRole)).To(Succeed())
@@ -1495,9 +1553,10 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 	}
 
 	if cluster.Spec.AuthServiceAccountName != "" {
-		authServiceAccount := kubernetes.ConstructServiceAccount(cluster.Spec.AuthServiceAccountName, cluster.Name, cluster.Namespace, map[string]string{})
-		Expect(k8sClient.Create(context.Background(), authServiceAccount)).To(Succeed())
-
+		if cluster.Spec.AuthServiceAccountName != cluster.Spec.HumioServiceAccountName {
+			authServiceAccount := kubernetes.ConstructServiceAccount(cluster.Spec.AuthServiceAccountName, cluster.Name, cluster.Namespace, map[string]string{})
+			Expect(k8sClient.Create(context.Background(), authServiceAccount)).To(Succeed())
+		}
 		authRole := kubernetes.ConstructAuthRole(cluster.Spec.AuthServiceAccountName, key.Name, key.Namespace)
 		Expect(k8sClient.Create(context.Background(), authRole)).To(Succeed())
 
