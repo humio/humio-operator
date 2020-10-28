@@ -116,6 +116,8 @@ type HumioClusterIngressSpec struct {
 	Enabled bool `json:"enabled,omitempty"`
 	// Controller is used to specify the controller used for ingress in the Kubernetes cluster. For now, only nginx is supported.
 	Controller string `json:"controller,omitempty"`
+	// TLS is used to specify whether the ingress controller will be using TLS for requests from external clients
+	TLS *bool `json:"tls,omitempty"`
 	// SecretName is used to specify the Kubernetes secret that contains the TLS certificate that should be used
 	SecretName string `json:"secretName,omitempty"`
 	// ESSecretName is used to specify the Kubernetes secret that contains the TLS certificate that should be used, specifically for the ESHostname

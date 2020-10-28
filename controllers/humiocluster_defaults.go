@@ -367,6 +367,13 @@ func esCertificateSecretNameOrDefault(hc *humiov1alpha1.HumioCluster) string {
 	return fmt.Sprintf("%s-es-certificate", hc.Name)
 }
 
+func ingressTLSOrDefault(hc *humiov1alpha1.HumioCluster) bool {
+	if hc.Spec.Ingress.TLS == nil {
+		return true
+	}
+	return *hc.Spec.Ingress.TLS
+}
+
 func extraHumioVolumeMountsOrDefault(hc *humiov1alpha1.HumioCluster) []corev1.VolumeMount {
 	emptyVolumeMounts := []corev1.VolumeMount{}
 	if reflect.DeepEqual(hc.Spec.ExtraHumioVolumeMounts, emptyVolumeMounts) {

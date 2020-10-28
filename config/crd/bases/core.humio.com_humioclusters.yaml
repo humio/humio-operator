@@ -3473,6 +3473,10 @@ spec:
                   description: SecretName is used to specify the Kubernetes secret
                     that contains the TLS certificate that should be used
                   type: string
+                tls:
+                  description: TLS is used to specify whether the ingress controller
+                    will be using TLS for requests from external clients
+                  type: boolean
               type: object
             initServiceAccountName:
               description: InitServiceAccountName is the name of the Kubernetes Service
