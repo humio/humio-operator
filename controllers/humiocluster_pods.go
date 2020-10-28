@@ -115,7 +115,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 		productVersion = imageSplit[1]
 	}
 	userID := int64(65534)
-	helperImageTag := "humio/humio-operator-helper:0.0.9"
+	helperImageTag := "humio/humio-operator-helper:0.1.0"
 
 	nodeUUIDPrefix, err := constructNodeUUIDPrefix(hc)
 	if err != nil {
