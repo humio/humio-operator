@@ -1442,6 +1442,34 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 		})
 	})
+
+	Context("Humio Cluster With Service Annotations", func() {
+		It("Creating cluster with custom service annotations", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-custom-svc-annotations",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.HumioServiceAnnotations = map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-type":                              "nlb",
+				"service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled": "false",
+				"service.beta.kubernetes.io/aws-load-balancer-ssl-cert":                          "arn:aws:acm:region:account:certificate/123456789012-1234-1234-1234-12345678",
+				"service.beta.kubernetes.io/aws-load-balancer-backend-protocol":                  "ssl",
+				"service.beta.kubernetes.io/aws-load-balancer-ssl-ports":                         "443",
+				"service.beta.kubernetes.io/aws-load-balancer-internal":                          "0.0.0.0/0",
+			}
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+
+			By("Confirming service was created using the correct annotations")
+			svc, err := kubernetes.GetService(context.Background(), k8sClient, toCreate.Name, toCreate.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			for k, v := range toCreate.Spec.HumioServiceAnnotations {
+				Expect(svc.Annotations).To(HaveKeyWithValue(k, v))
+			}
+		})
+	})
 })
 
 func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
