@@ -42,8 +42,11 @@ more_set_headers "X-XSS-Protection: 1; mode=block";`
 	annotations["nginx.ingress.kubernetes.io/cors-allow-methods"] = "GET, PUT, POST, DELETE, PATCH, OPTIONS"
 	annotations["nginx.ingress.kubernetes.io/cors-allow-origin"] = fmt.Sprintf("https://%s", hostname)
 	annotations["nginx.ingress.kubernetes.io/enable-cors"] = "true"
-	annotations["nginx.ingress.kubernetes.io/force-ssl-redirect"] = "true"
 	annotations["nginx.ingress.kubernetes.io/upstream-vhost"] = hostname
+
+	if ingressTLSOrDefault(hc) {
+		annotations["nginx.ingress.kubernetes.io/force-ssl-redirect"] = "true"
+	}
 
 	if helpers.TLSEnabled(hc) {
 		annotations["nginx.ingress.kubernetes.io/backend-protocol"] = "HTTPS"
@@ -163,13 +166,15 @@ func constructIngress(hc *humiov1alpha1.HumioCluster, name string, hostname stri
 					},
 				},
 			},
-			TLS: []v1beta1.IngressTLS{
-				{
-					Hosts:      []string{hostname},
-					SecretName: secretName,
-				},
-			},
 		},
+	}
+	if ingressTLSOrDefault(hc) {
+		ingress.Spec.TLS = []v1beta1.IngressTLS{
+			{
+				Hosts:      []string{hostname},
+				SecretName: secretName,
+			},
+		}
 	}
 
 	for k, v := range hc.Spec.Ingress.Annotations {
