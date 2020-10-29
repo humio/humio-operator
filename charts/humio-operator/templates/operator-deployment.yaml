@@ -79,13 +79,10 @@ spec:
           httpGet:
             path: /metrics
             port: 8080
+{{- with .Values.operator.resources }}
         resources:
-          limits:
-            cpu: "250m"
-            memory: "200Mi"
-          requests:
-            cpu: "250m"
-            memory: "200Mi"
+          {{- toYaml . | nindent 10 }}
+{{- end }}
         securityContext:
           allowPrivilegeEscalation: false
           privileged: false
