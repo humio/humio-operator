@@ -9,12 +9,12 @@ declare -r ginkgo=$(go env GOPATH)/bin/ginkgo
 declare -r proxy_method=${PROXY_METHOD:-inject-tcp}
 
 # Preload default humio-core container version
-docker pull humio/humio-core:1.16.0
-kind load docker-image --name kind humio/humio-core:1.16.0
+docker pull humio/humio-core:1.16.1
+kind load docker-image --name kind humio/humio-core:1.16.1
 
 # Preload humio-core used by e2e tests
-docker pull humio/humio-core:1.13.0
-kind load docker-image --name kind humio/humio-core:1.13.0
+docker pull humio/humio-core:1.14.5
+kind load docker-image --name kind humio/humio-core:1.14.5
 
 $kubectl apply -k config/crd/
 $kubectl label node --overwrite --all topology.kubernetes.io/zone=az1
