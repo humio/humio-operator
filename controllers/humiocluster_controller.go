@@ -430,29 +430,40 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 		constructIngestIngress(hc),
 		constructESIngestIngress(hc),
 	}
-	for _, ingress := range ingresses {
-		existingIngress, err := kubernetes.GetIngress(ctx, r, ingress.Name, hc.Namespace)
+	for _, desiredIngress := range ingresses {
+		existingIngress, err := kubernetes.GetIngress(ctx, r, desiredIngress.Name, hc.Namespace)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				if err := controllerutil.SetControllerReference(hc, ingress, r.Scheme); err != nil {
+				if err := controllerutil.SetControllerReference(hc, desiredIngress, r.Scheme); err != nil {
 					r.Log.Error(err, "could not set controller reference")
 					return err
 				}
-				err = r.Create(ctx, ingress)
+				for _, rule := range desiredIngress.Spec.Rules {
+					if rule.Host == "" {
+						continue
+					}
+				}
+				err = r.Create(ctx, desiredIngress)
 				if err != nil {
 					r.Log.Error(err, "unable to create ingress")
 					return err
 				}
-				r.Log.Info(fmt.Sprintf("successfully created ingress with name %s", ingress.Name))
+				r.Log.Info(fmt.Sprintf("successfully created ingress with name %s", desiredIngress.Name))
 				humioClusterPrometheusMetrics.Counters.IngressesCreated.Inc()
 				continue
 			}
 		}
-		if !r.ingressesMatch(existingIngress, ingress) {
-			r.Log.Info(fmt.Sprintf("ingress object already exists, there is a difference between expected vs existing, updating ingress object with name %s", ingress.Name))
-			existingIngress.Annotations = ingress.Annotations
-			existingIngress.Labels = ingress.Labels
-			existingIngress.Spec = ingress.Spec
+		if !r.ingressesMatch(existingIngress, desiredIngress) {
+			for _, rule := range desiredIngress.Spec.Rules {
+				if rule.Host == "" {
+					r.Log.Info(fmt.Sprintf("hostname not defined for ingress object, deleting ingress object with name %s", existingIngress.Name))
+					err = r.Delete(ctx, existingIngress)
+				}
+			}
+			r.Log.Info(fmt.Sprintf("ingress object already exists, there is a difference between expected vs existing, updating ingress object with name %s", desiredIngress.Name))
+			existingIngress.Annotations = desiredIngress.Annotations
+			existingIngress.Labels = desiredIngress.Labels
+			existingIngress.Spec = desiredIngress.Spec
 			err = r.Update(ctx, existingIngress)
 			if err != nil {
 				r.Log.Error(err, "could not update ingress")
