@@ -528,16 +528,44 @@ var _ = Describe("HumioCluster Controller", func() {
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
-				Expect(pod.Spec.Containers[humioIdx].Args).To(Equal([]string{"-c", "export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_ && exec bash /app/humio/run.sh"}))
+				Expect(pod.Spec.Containers[humioIdx].Args).To(Equal([]string{"-c", "export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"}))
 			}
 
-			By("Updating node uuid prefix which includes zone")
+			By("Updating to use ephemeral disks")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				updatedHumioCluster.Spec.EnvironmentVariables = append(updatedHumioCluster.Spec.EnvironmentVariables, corev1.EnvVar{Name: "USING_EPHEMERAL_DISKS", Value: "true"})
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+			Eventually(func() bool {
+				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				for _, pod := range clusterPods {
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					if reflect.DeepEqual(pod.Spec.Containers[humioIdx].Args, []string{"-c", "export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_ && exec bash /app/humio/run.sh"}) {
+						return true
+					}
+				}
+				return false
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Updating node uuid prefix which includes zone")
 			Eventually(func() error {
 				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
 				updatedHumioCluster.Spec.NodeUUIDPrefix = "humio_{{.Zone}}_"
 				return k8sClient.Update(context.Background(), &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
+
+			// TODO: delete the pods as this and the above case result in Humio failing to start due to the Humio error:
+			// Invalid Configuration Option 'USING_EPHEMERAL_DISKS'. Requires a bucket storage target being configured.
+			//
+			// We can still inspect the pod for the arguments, however we do not currently clean up humio pods that have
+			// failed to start. See https://github.com/humio/humio-operator/issues/210.
+			clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			for _, pod := range clusterPods {
+				Expect(k8sClient.Delete(context.Background(), &pod)).To(Succeed())
+			}
+
 			Eventually(func() bool {
 				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
