@@ -732,57 +732,77 @@ func podSpecAsSHA256(hc *humiov1alpha1.HumioCluster, sourcePod corev1.Pod) strin
 	return helpers.AsSHA256(string(b))
 }
 
-func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha1.HumioCluster, attachments *podAttachments) error {
+func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha1.HumioCluster, attachments *podAttachments) (*corev1.Pod, error) {
 	podName, err := findHumioNodeName(ctx, r, hc)
 	if err != nil {
 		r.Log.Error(err, "unable to find pod name")
-		return err
+		return &corev1.Pod{}, err
 	}
 
 	pod, err := constructPod(hc, podName, attachments)
 	if err != nil {
 		r.Log.Error(err, "unable to construct pod")
-		return err
+		return &corev1.Pod{}, err
 	}
 
 	if err := controllerutil.SetControllerReference(hc, pod, r.Scheme); err != nil {
 		r.Log.Error(err, "could not set controller reference")
-		return err
+		return &corev1.Pod{}, err
 	}
 	r.Log.Info(fmt.Sprintf("pod %s will use attachments %+v", pod.Name, attachments))
 	pod.Annotations[podHashAnnotation] = podSpecAsSHA256(hc, *pod)
 	if err := controllerutil.SetControllerReference(hc, pod, r.Scheme); err != nil {
 		r.Log.Error(err, "could not set controller reference")
-		return err
+		return &corev1.Pod{}, err
 	}
 
 	podRevision, err := r.getHumioClusterPodRevision(hc)
 	if err != nil {
-		return err
+		return &corev1.Pod{}, err
 	}
 	r.Log.Info(fmt.Sprintf("setting pod %s revision to %d", pod.Name, podRevision))
 	err = r.setPodRevision(pod, podRevision)
 	if err != nil {
-		return err
+		return &corev1.Pod{}, err
 	}
 
 	r.Log.Info(fmt.Sprintf("creating pod %s", pod.Name))
 	err = r.Create(ctx, pod)
 	if err != nil {
-		return err
+		return &corev1.Pod{}, err
 	}
 	r.Log.Info(fmt.Sprintf("successfully created pod %s", pod.Name))
-	return nil
+	return pod, nil
 }
 
-func (r *HumioClusterReconciler) waitForNewPod(hc *humiov1alpha1.HumioCluster, expectedPodCount int) error {
+// waitForNewPod can be used to wait for a new pod to be created after the create call is issued. It is important that
+// the previousPodList contains the list of pods prior to when the new pod was created
+func (r *HumioClusterReconciler) waitForNewPod(hc *humiov1alpha1.HumioCluster, previousPodList []corev1.Pod, expectedPod *corev1.Pod) error {
+	// We must check only pods that were running prior to the new pod being created, and we must only include pods that
+	// were running the same revision as the newly created pod. This is because there may be pods under the previous
+	// revision that were still terminating when the new pod was created
+	var expectedPodCount int
+	for _, pod := range previousPodList {
+		if pod.Annotations[podHashAnnotation] == expectedPod.Annotations[podHashAnnotation] {
+			expectedPodCount++
+		}
+	}
+	// This will account for the newly created pod
+	expectedPodCount++
+
 	for i := 0; i < waitForPodTimeoutSeconds; i++ {
+		var podsMatchingRevisionCount int
 		latestPodList, err := kubernetes.ListPods(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 		if err != nil {
 			return err
 		}
-		r.Log.Info(fmt.Sprintf("validating new pod was created. expected pod count %d, current pod count %d", expectedPodCount, len(latestPodList)))
-		if len(latestPodList) >= expectedPodCount {
+		for _, pod := range latestPodList {
+			if pod.Annotations[podHashAnnotation] == expectedPod.Annotations[podHashAnnotation] {
+				podsMatchingRevisionCount++
+			}
+		}
+		r.Log.Info(fmt.Sprintf("validating new pod was created. expected pod count %d, current pod count %d", expectedPodCount, podsMatchingRevisionCount))
+		if podsMatchingRevisionCount >= expectedPodCount {
 			return nil
 		}
 		time.Sleep(time.Second * 1)
