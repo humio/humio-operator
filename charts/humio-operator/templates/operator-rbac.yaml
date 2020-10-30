@@ -97,6 +97,7 @@ rules:
   - patch
   - update
   - watch
+{{- if .Values.operator.rbac.allowManageRoles }}
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -110,6 +111,7 @@ rules:
   - patch
   - update
   - watch
+{{- end }}
 - apiGroups:
   - networking.k8s.io
   resources:
@@ -244,6 +246,7 @@ rules:
   - patch
   - update
   - watch
+{{- if .Values.operator.rbac.allowManageRoles }}
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -257,6 +260,7 @@ rules:
   - patch
   - update
   - watch
+{{- end }}
 - apiGroups:
   - networking.k8s.io
   resources:
@@ -285,6 +289,7 @@ rules:
   - watch
   {{- end }}
 {{- end }}
+{{- if .Values.operator.rbac.allowManageClusterRoles }}
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -298,6 +303,7 @@ rules:
   - patch
   - update
   - watch
+{{- end }}
 - apiGroups:
   - ""
   resources:
