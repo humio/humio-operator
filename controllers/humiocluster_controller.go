@@ -1512,7 +1512,7 @@ func (r *HumioClusterReconciler) ensurePodsBootstrapped(ctx context.Context, hc 
 			r.Log.Error(err, "failed to get pod attachments")
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}
-		err = r.createPod(ctx, hc, attachments)
+		pod, err := r.createPod(ctx, hc, attachments)
 		if err != nil {
 			r.Log.Error(err, "unable to create pod")
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
@@ -1521,7 +1521,7 @@ func (r *HumioClusterReconciler) ensurePodsBootstrapped(ctx context.Context, hc 
 
 		// check that we can list the new pod
 		// this is to avoid issues where the requeue is faster than kubernetes
-		if err := r.waitForNewPod(hc, len(foundPodList)+1); err != nil {
+		if err := r.waitForNewPod(hc, foundPodList, pod); err != nil {
 			r.Log.Error(err, "failed to validate new pod")
 			return reconcile.Result{}, err
 		}
@@ -1549,7 +1549,7 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 			r.Log.Error(err, "failed to get pod attachments")
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}
-		err = r.createPod(ctx, hc, attachments)
+		pod, err := r.createPod(ctx, hc, attachments)
 		if err != nil {
 			r.Log.Error(err, "unable to create pod")
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
@@ -1558,7 +1558,7 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 
 		// check that we can list the new pod
 		// this is to avoid issues where the requeue is faster than kubernetes
-		if err := r.waitForNewPod(hc, len(foundPodList)+1); err != nil { // TODO: We often end in situations where we expect one more than we have, causing this to timeout after 30 seconds. This doesn't happen during bootstrapping.
+		if err := r.waitForNewPod(hc, foundPodList, pod); err != nil {
 			r.Log.Error(err, "failed to validate new pod")
 			return reconcile.Result{}, err
 		}
