@@ -78,6 +78,26 @@ type nodeUUIDTemplateVars struct {
 	Zone string
 }
 
+// constructContainerArgs returns the container arguments for the Humio pods. We want to grab a UUID from zookeeper
+// only when using ephemeral disks. If we're using persistent storage, then we rely on Humio to generate the UUID.
+// Note that relying on PVCs may not be good enough here as it's possible to have persistent storage using hostPath.
+// For this reason, we rely on the USING_EPHEMERAL_DISKS environment variable.
+func constructContainerArgs(hc *humiov1alpha1.HumioCluster, podEnvVars []corev1.EnvVar) ([]string, error) {
+	containerArgs := []string{"-c"}
+	if envVarHasValue(podEnvVars, "USING_EPHEMERAL_DISKS", "true") {
+		nodeUUIDPrefix, err := constructNodeUUIDPrefix(hc)
+		if err != nil {
+			return []string{""}, fmt.Errorf("unable to construct node UUID: %s", err)
+		}
+		containerArgs = append(containerArgs, fmt.Sprintf("export ZONE=$(cat %s/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s && exec bash %s/run.sh",
+			sharedPath, nodeUUIDPrefix, humioAppPath))
+	} else {
+		containerArgs = append(containerArgs, fmt.Sprintf("export ZONE=$(cat %s/availability-zone) && exec bash %s/run.sh",
+			sharedPath, humioAppPath))
+	}
+	return containerArgs, nil
+}
+
 // constructNodeUUIDPrefix checks the value of the nodeUUID prefix and attempts to render it as a template. If the template
 // renders {{.Zone}} as the string set to containsZoneIdentifier, then we can be assured that the desired outcome is
 // that the zone in included inside the nodeUUID prefix.
@@ -118,11 +138,6 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 	}
 	userID := int64(65534)
 	helperImageTag := "humio/humio-operator-helper:0.1.0"
-
-	nodeUUIDPrefix, err := constructNodeUUIDPrefix(hc)
-	if err != nil {
-		return &pod, fmt.Errorf("unable to construct node UUID: %s", err)
-	}
 
 	pod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -274,9 +289,6 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 					Name:    "humio",
 					Image:   hc.Spec.Image,
 					Command: []string{"/bin/sh"},
-					Args: []string{"-c",
-						fmt.Sprintf("export ZONE=$(cat %s/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s && exec bash %s/run.sh",
-							sharedPath, nodeUUIDPrefix, humioAppPath)},
 					Ports: []corev1.ContainerPort{
 						{
 							Name:          "http",
@@ -588,6 +600,12 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 			Value: envVarValue(pod.Spec.Containers[humioIdx].Env, "ORGANIZATION_MODE"),
 		})
 	}
+
+	containerArgs, err := constructContainerArgs(hc, pod.Spec.Containers[humioIdx].Env)
+	if err != nil {
+		return &corev1.Pod{}, fmt.Errorf("unable to construct node container args: %s", err)
+	}
+	pod.Spec.Containers[humioIdx].Args = containerArgs
 
 	return &pod, nil
 }
