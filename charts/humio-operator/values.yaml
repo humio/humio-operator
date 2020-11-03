@@ -3,6 +3,9 @@ operator:
     repository: humio/humio-operator
     tag: 0.1.1
     pullPolicy: IfNotPresent
+  prometheus:
+    serviceMonitor:
+      enabled: false
   rbac:
     create: true
   resources:
