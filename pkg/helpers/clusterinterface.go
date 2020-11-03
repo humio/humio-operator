@@ -23,6 +23,7 @@ import (
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"net/url"
 	"strings"
 
 	"github.com/humio/humio-operator/pkg/kubernetes"
@@ -31,7 +32,7 @@ import (
 )
 
 type ClusterInterface interface {
-	Url(client.Client) (string, error)
+	Url(client.Client) (*url.URL, error)
 	Name() string
 	Config() *humioapi.Config
 	constructHumioConfig(context.Context, client.Client) (*humioapi.Config, error)
@@ -72,7 +73,7 @@ func NewCluster(ctx context.Context, k8sClient client.Client, managedClusterName
 	return cluster, nil
 }
 
-func (c Cluster) Url(k8sClient client.Client) (string, error) {
+func (c Cluster) Url(k8sClient client.Client) (*url.URL, error) {
 	if c.managedClusterName != "" {
 		// Lookup ManagedHumioCluster resource to figure out if we expect to use TLS or not
 		var humioManagedCluster humiov1alpha1.HumioCluster
@@ -81,7 +82,7 @@ func (c Cluster) Url(k8sClient client.Client) (string, error) {
 			Name:      c.managedClusterName,
 		}, &humioManagedCluster)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		protocol := "https"
@@ -93,7 +94,8 @@ func (c Cluster) Url(k8sClient client.Client) (string, error) {
 			log.Infof("humio managed cluster configured as insecure, using http")
 			protocol = "http"
 		}
-		return fmt.Sprintf("%s://%s.%s:%d/", protocol, c.managedClusterName, c.namespace, 8080), nil
+		baseURL, _ := url.Parse(fmt.Sprintf("%s://%s.%s:%d/", protocol, c.managedClusterName, c.namespace, 8080))
+		return baseURL, nil
 	}
 
 	// Fetch the HumioExternalCluster instance
@@ -103,10 +105,14 @@ func (c Cluster) Url(k8sClient client.Client) (string, error) {
 		Name:      c.externalClusterName,
 	}, &humioExternalCluster)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return humioExternalCluster.Spec.Url, nil
+	baseURL, err := url.Parse(humioExternalCluster.Spec.Url)
+	if err != nil {
+		return nil, err
+	}
+	return baseURL, nil
 }
 
 func (c Cluster) Name() string {
@@ -134,7 +140,7 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 		}
 
 		// Get the URL we want to use
-		url, err := c.Url(k8sClient)
+		clusterURL, err := c.Url(k8sClient)
 		if err != nil {
 			return nil, err
 		}
@@ -152,18 +158,16 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 		// If we do not use TLS, return a client without CA certificate
 		if !c.certManagerEnabled {
 			return &humioapi.Config{
-				Address:       url,
-				Token:         string(apiToken.Data["token"]),
-				CACertificate: nil,
-				Insecure:      true,
+				Address:  clusterURL,
+				Token:    string(apiToken.Data["token"]),
+				Insecure: true,
 			}, nil
 		}
 		if !TLSEnabled(&humioManagedCluster) {
 			return &humioapi.Config{
-				Address:       url,
-				Token:         string(apiToken.Data["token"]),
-				CACertificate: nil,
-				Insecure:      true,
+				Address:  clusterURL,
+				Token:    string(apiToken.Data["token"]),
+				Insecure: true,
 			}, nil
 		}
 
@@ -178,10 +182,10 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 		}
 
 		return &humioapi.Config{
-			Address:       url,
-			Token:         string(apiToken.Data["token"]),
-			CACertificate: caCertificate.Data["ca.crt"],
-			Insecure:      false,
+			Address:          clusterURL,
+			Token:            string(apiToken.Data["token"]),
+			CACertificatePEM: string(caCertificate.Data["ca.crt"]),
+			Insecure:         false,
 		}, nil
 	}
 
@@ -217,13 +221,17 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 		return nil, fmt.Errorf("unable to get secret containing api token: %s", err)
 	}
 
+	clusterURL, err := url.Parse(humioExternalCluster.Spec.Url)
+	if err != nil {
+		return nil, err
+	}
+
 	// If we do not use TLS, return a config without CA certificate
 	if humioExternalCluster.Spec.Insecure {
 		return &humioapi.Config{
-			Address:       humioExternalCluster.Spec.Url,
-			Token:         string(apiToken.Data["token"]),
-			CACertificate: nil,
-			Insecure:      humioExternalCluster.Spec.Insecure,
+			Address:  clusterURL,
+			Token:    string(apiToken.Data["token"]),
+			Insecure: humioExternalCluster.Spec.Insecure,
 		}, nil
 	}
 
@@ -238,17 +246,16 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 			return nil, fmt.Errorf("unable to get CA certificate: %s", err)
 		}
 		return &humioapi.Config{
-			Address:       humioExternalCluster.Spec.Url,
-			Token:         string(apiToken.Data["token"]),
-			CACertificate: caCertificate.Data["ca.crt"],
-			Insecure:      humioExternalCluster.Spec.Insecure,
+			Address:          clusterURL,
+			Token:            string(apiToken.Data["token"]),
+			CACertificatePEM: string(caCertificate.Data["ca.crt"]),
+			Insecure:         humioExternalCluster.Spec.Insecure,
 		}, nil
 	}
 
 	return &humioapi.Config{
-		Address:       humioExternalCluster.Spec.Url,
-		Token:         string(apiToken.Data["token"]),
-		CACertificate: nil,
-		Insecure:      humioExternalCluster.Spec.Insecure,
+		Address:  clusterURL,
+		Token:    string(apiToken.Data["token"]),
+		Insecure: humioExternalCluster.Spec.Insecure,
 	}, nil
 }

@@ -247,6 +247,8 @@ github.com/humio/cli v0.26.2-0.20201006145633-07c972c1cfdf h1:uKZJginULuvGxYjGp6
 github.com/humio/cli v0.26.2-0.20201006145633-07c972c1cfdf/go.mod h1:NfCIf3bPf0Y/fNvw8qJJzddBDPgSirRUgnttapIpRAE=
 github.com/humio/cli v0.27.0 h1:SjT/zxVO5egiy3NUuQ2fVVC5iXqrJoJZQeSEo/iX42o=
 github.com/humio/cli v0.27.0/go.mod h1:NfCIf3bPf0Y/fNvw8qJJzddBDPgSirRUgnttapIpRAE=
+github.com/humio/cli v0.28.0 h1:JyoyKf4RN0qV7VGIzJZ9P2lTYMAyBTKTxMD/1ktlaaU=
+github.com/humio/cli v0.28.0/go.mod h1:24GlXZtyAUK5ZSFH2AIaTQnf11XopEViTilrRU1Mb/4=
 github.com/imdario/mergo v0.3.5/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/imdario/mergo v0.3.6/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/imdario/mergo v0.3.9 h1:UauaLniWCFHWd+Jp9oCEkTBj8VO/9DKg3PV3VCNMDIg=
