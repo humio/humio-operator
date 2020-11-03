@@ -10,7 +10,7 @@ require (
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/gophercloud/gophercloud v0.13.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
-	github.com/humio/cli v0.27.0
+	github.com/humio/cli v0.28.0
 	github.com/imdario/mergo v0.3.5 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect

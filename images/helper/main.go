@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -194,7 +195,7 @@ func createAndGetAdminAccountUserID(client *humio.Client, organizationMode strin
 }
 
 // validateAdminSecretContent grabs the current token stored in kubernetes and returns nil if it is valid
-func validateAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, adminSecretNameSuffix, humioNodeURL string) error {
+func validateAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, adminSecretNameSuffix string, humioNodeURL *url.URL) error {
 	// Get existing Kubernetes secret
 	adminSecretName := fmt.Sprintf("%s-%s", clusterName, adminSecretNameSuffix)
 	secret, err := clientset.CoreV1().Secrets(namespace).Get(context.TODO(), adminSecretName, metav1.GetOptions{})
@@ -204,7 +205,7 @@ func validateAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName
 
 	// Check if secret currently holds a valid humio api token
 	if adminToken, ok := secret.Data["token"]; ok {
-		humioClient, err := humio.NewClient(humio.Config{
+		humioClient := humio.NewClient(humio.Config{
 			Address: humioNodeURL,
 			Token:   string(adminToken),
 		})
@@ -342,7 +343,14 @@ func authMode() {
 			continue
 		}
 
-		err := validateAdminSecretContent(clientset, namespace, clusterName, adminSecretNameSuffix, humioNodeURL)
+		humioNodeURL, err := url.Parse(humioNodeURL)
+		if err != nil {
+			fmt.Printf("unable to parse url: %s\n", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		err = validateAdminSecretContent(clientset, namespace, clusterName, adminSecretNameSuffix, humioNodeURL)
 		if err == nil {
 			fmt.Printf("validated existing token, no changes required. waiting 30 seconds\n")
 			time.Sleep(30 * time.Second)
@@ -352,15 +360,10 @@ func authMode() {
 		fmt.Printf("could not validate existing admin secret: %s\n", err)
 		fmt.Printf("continuing to create/update token\n")
 
-		humioClient, err := humio.NewClient(humio.Config{
+		humioClient := humio.NewClient(humio.Config{
 			Address: humioNodeURL,
 			Token:   localAdminToken,
 		})
-		if err != nil {
-			fmt.Printf("got err trying to create humio client: %s\n", err)
-			time.Sleep(5 * time.Second)
-			continue
-		}
 
 		// Get user ID of admin account
 		userID, err := createAndGetAdminAccountUserID(humioClient, organizationMode)

@@ -19,6 +19,7 @@ package humio
 import (
 	"fmt"
 	"github.com/go-logr/logr"
+	"net/url"
 
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -44,7 +45,7 @@ type ClusterClient interface {
 	GetStoragePartitions() (*[]humioapi.StoragePartition, error)
 	GetIngestPartitions() (*[]humioapi.IngestPartition, error)
 	Authenticate(*humioapi.Config) error
-	GetBaseURL(*humiov1alpha1.HumioCluster) string
+	GetBaseURL(*humiov1alpha1.HumioCluster) *url.URL
 	TestAPIToken() error
 	Status() (humioapi.StatusResponse, error)
 }
@@ -78,10 +79,7 @@ type ClientConfig struct {
 
 // NewClient returns a ClientConfig
 func NewClient(logger logr.Logger, config *humioapi.Config) *ClientConfig {
-	client, err := humioapi.NewClient(*config)
-	if err != nil {
-		logger.Error(err, "could not create humio client")
-	}
+	client := humioapi.NewClient(*config)
 	return &ClientConfig{
 		apiClient: client,
 		logger:    logger,
@@ -92,16 +90,13 @@ func (h *ClientConfig) Authenticate(config *humioapi.Config) error {
 	if config.Token == "" {
 		config.Token = h.apiClient.Token()
 	}
-	if config.Address == "" {
+	if config.Address == nil {
 		config.Address = h.apiClient.Address()
 	}
-	if len(config.CACertificate) == 0 {
-		config.CACertificate = h.apiClient.CACertificate()
+	if config.CACertificatePEM == "" {
+		config.CACertificatePEM = h.apiClient.CACertificate()
 	}
-	newClient, err := humioapi.NewClient(*config)
-	if err != nil {
-		return fmt.Errorf("could not create new humio client: %s", err)
-	}
+	newClient := humioapi.NewClient(*config)
 
 	h.apiClient = newClient
 	return nil
@@ -175,16 +170,17 @@ func (h *ClientConfig) GetIngestPartitions() (*[]humioapi.IngestPartition, error
 }
 
 // GetBaseURL returns the base URL for given HumioCluster
-func (h *ClientConfig) GetBaseURL(hc *humiov1alpha1.HumioCluster) string {
+func (h *ClientConfig) GetBaseURL(hc *humiov1alpha1.HumioCluster) *url.URL {
 	protocol := "https"
 	if !helpers.TLSEnabled(hc) {
 		protocol = "http"
 	}
-	return fmt.Sprintf("%s://%s.%s:%d/", protocol, hc.Name, hc.Namespace, 8080)
+	baseURL, _ := url.Parse(fmt.Sprintf("%s://%s.%s:%d/", protocol, hc.Name, hc.Namespace, 8080))
+	return baseURL
 
 }
 
-// GetBaseURL returns the base URL for given HumioCluster
+// TestAPIToken tests if an API token is valid by fetching the username that the API token belongs to
 func (h *ClientConfig) TestAPIToken() error {
 	if h.apiClient == nil {
 		return fmt.Errorf("api client not set yet")
