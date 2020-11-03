@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"testing"
 )
@@ -188,7 +189,7 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 				protocol = "http"
 			}
 			expectedURL := fmt.Sprintf("%s://%s.%s:8080/", protocol, tt.managedHumioCluster.Name, tt.managedHumioCluster.Namespace)
-			if cluster.Config().Address != expectedURL {
+			if cluster.Config().Address.String() != expectedURL {
 				t.Errorf("url not correct, expected: %s, got: %s", expectedURL, cluster.Config().Address)
 			}
 
@@ -197,11 +198,11 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 				t.Errorf("config does not contain an API token, expected: %s, got: %s", expectedAPIToken, cluster.Config().Token)
 			}
 
-			if !tt.certManagerEnabled && len(cluster.Config().CACertificate) != 0 {
+			if !tt.certManagerEnabled && cluster.Config().CACertificatePEM != "" {
 				t.Errorf("config should not include CA certificate when cert-manager is disabled or cluster is marked insecure")
 			} else {
 				expectedCACertificate := string(caCertificateSecret.Data["ca.crt"])
-				if expectedCACertificate != string(cluster.Config().CACertificate) {
+				if expectedCACertificate != cluster.Config().CACertificatePEM {
 					t.Errorf("config does not include CA certificate even though it should")
 				}
 			}
@@ -382,8 +383,12 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 
 				}
 				if cluster.Config() != nil {
-					if tt.externalHumioCluster.Spec.Url != cluster.Config().Address {
-						t.Errorf("url not set in config, expected: %+v, got: %+v", tt.externalHumioCluster.Spec.Url, cluster.Config().Address)
+					baseURL, err := url.Parse(tt.externalHumioCluster.Spec.Url)
+					if err != nil {
+						t.Errorf("could not parse url: %s", err)
+					}
+					if baseURL.String() != cluster.Config().Address.String() {
+						t.Errorf("url not set in config, expected: %+v, got: %+v", baseURL.String(), cluster.Config().Address.String())
 					}
 
 					expectedAPIToken := string(apiTokenSecret.Data["token"])
@@ -392,13 +397,13 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 					}
 
 					if tt.externalHumioCluster.Spec.Insecure {
-						if len(cluster.Config().CACertificate) != 0 {
+						if cluster.Config().CACertificatePEM != "" {
 							t.Errorf("config should not include CA certificate when cert-manager is disabled or cluster is marked insecure")
 						}
 
 					} else {
 						expectedCACertificate := string(caCertificateSecret.Data["ca.crt"])
-						if expectedCACertificate != string(cluster.Config().CACertificate) {
+						if expectedCACertificate != cluster.Config().CACertificatePEM {
 							t.Errorf("config does not include CA certificate even though it should")
 						}
 					}

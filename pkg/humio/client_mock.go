@@ -18,6 +18,7 @@ package humio
 
 import (
 	"fmt"
+	"net/url"
 
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -141,8 +142,9 @@ func (h *MockClientConfig) GetIngestPartitions() (*[]humioapi.IngestPartition, e
 	return &h.apiClient.Cluster.IngestPartitions, nil
 }
 
-func (h *MockClientConfig) GetBaseURL(hc *humiov1alpha1.HumioCluster) string {
-	return fmt.Sprintf("http://%s.%s:%d/", hc.Name, hc.Namespace, 8080)
+func (h *MockClientConfig) GetBaseURL(hc *humiov1alpha1.HumioCluster) *url.URL {
+	baseURL, _ := url.Parse(fmt.Sprintf("http://%s.%s:%d/", hc.Name, hc.Namespace, 8080))
+	return baseURL
 }
 
 func (h *MockClientConfig) TestAPIToken() error {

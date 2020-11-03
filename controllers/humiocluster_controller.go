@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -1608,7 +1609,7 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 	return reconcile.Result{}, nil
 }
 
-func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *humiov1alpha1.HumioCluster, url string) (reconcile.Result, error) {
+func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *humiov1alpha1.HumioCluster, baseURL *url.URL) (reconcile.Result, error) {
 	adminTokenSecretName := fmt.Sprintf("%s-%s", hc.Name, kubernetes.ServiceTokenSecretNameSuffix)
 	existingSecret, err := kubernetes.GetSecret(ctx, r, adminTokenSecretName, hc.Namespace)
 	if err != nil {
@@ -1619,7 +1620,7 @@ func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *h
 	}
 
 	humioAPIConfig := &humioapi.Config{
-		Address: url,
+		Address: baseURL,
 		Token:   string(existingSecret.Data["token"]),
 	}
 
@@ -1634,7 +1635,7 @@ func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *h
 			r.Log.Error(err, "unable to obtain CA certificate")
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
 		}
-		humioAPIConfig.CACertificate = existingCABundle.Data["ca.crt"]
+		humioAPIConfig.CACertificatePEM = string(existingCABundle.Data["ca.crt"])
 	}
 
 	// Either authenticate or re-authenticate with the persistent token
