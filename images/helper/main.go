@@ -364,11 +364,6 @@ func authMode() {
 			Address: humioNodeURL,
 			Token:   localAdminToken,
 		})
-		if err != nil {
-			fmt.Printf("got err trying to create humio client: %s\n", err)
-			time.Sleep(5 * time.Second)
-			continue
-		}
 
 		// Get user ID of admin account
 		userID, err := createAndGetAdminAccountUserID(humioClient, organizationMode)
