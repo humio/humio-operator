@@ -1,0 +1,23 @@
+{{- if .Values.operator.prometheus.serviceMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: '{{ .Release.Name }}'
+  namespace: '{{ .Release.Namespace }}'
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+spec:
+  selector:
+    matchLabels:
+      app: '{{ .Chart.Name }}'
+      app.kubernetes.io/name: '{{ .Chart.Name }}'
+      app.kubernetes.io/instance: '{{ .Release.Name }}'
+  endpoints:
+  - port: metrics
+    path: /metrics
+  namespaceSelector:
+    matchNames:
+    - '{{ .Release.Namespace }}'
+{{- end }}
