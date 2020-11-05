@@ -19,12 +19,17 @@ package controllers
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	waitForPvcTimeoutSeconds = 30
 )
 
 func constructPersistentVolumeClaim(hc *humiov1alpha1.HumioCluster) *corev1.PersistentVolumeClaim {
@@ -81,4 +86,21 @@ func findNextAvailablePvc(pvcList []corev1.PersistentVolumeClaim, podList []core
 func pvcsEnabled(hc *humiov1alpha1.HumioCluster) bool {
 	emptyPersistentVolumeClaimSpec := corev1.PersistentVolumeClaimSpec{}
 	return !reflect.DeepEqual(hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate, emptyPersistentVolumeClaimSpec)
+}
+
+func (r *HumioClusterReconciler) waitForNewPvc(hc *humiov1alpha1.HumioCluster, expectedPvc *corev1.PersistentVolumeClaim) error {
+	for i := 0; i < waitForPvcTimeoutSeconds; i++ {
+		r.Log.Info(fmt.Sprintf("validating new pvc was created. waiting for pvc with name %s", expectedPvc.Name))
+		latestPvcList, err := kubernetes.ListPersistentVolumeClaims(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+		if err != nil {
+			return fmt.Errorf("failed to list pvcs: %s", err)
+		}
+		for _, pvc := range latestPvcList {
+			if pvc.Name == expectedPvc.Name {
+				return nil
+			}
+		}
+		time.Sleep(time.Second * 1)
+	}
+	return fmt.Errorf("timed out waiting to validate new pvc with name %s was created", expectedPvc.Name)
 }
