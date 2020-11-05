@@ -1602,9 +1602,10 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 		r.Log.Info(fmt.Sprintf("successfully created pvc %s for HumioCluster %s", pvc.Name, hc.Name))
 		humioClusterPrometheusMetrics.Counters.PvcsCreated.Inc()
 
-		// Ensure there is some time for the k8s api to add the PVC before trying to add another one
-		// TODO: we should wait for the new PVC to be added rather than sleeping
-		time.Sleep(time.Second * 5)
+		if r.waitForNewPvc(hc, pvc); err != nil {
+			r.Log.Error(err, "unable to create pvc: %s", err)
+			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+		}
 
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
