@@ -1619,6 +1619,33 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 		})
 	})
+
+	Context("Humio Cluster With Custom Tolerations", func() {
+		It("Creating cluster with custom tolerations", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-custom-tolerations",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.Tolerations = []corev1.Toleration{
+				{
+					Key:      "key",
+					Operator: "Equal",
+					Value:    "value",
+					Effect:   "NoSchedule",
+				},
+			}
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+
+			By("Confirming the humio pods use the requested tolerations")
+			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			for _, pod := range clusterPods {
+				Expect(pod.Spec.Tolerations).To(ContainElement(toCreate.Spec.Tolerations[0]))
+			}
+		})
+	})
 })
 
 func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {

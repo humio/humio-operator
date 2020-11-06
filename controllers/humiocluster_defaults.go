@@ -143,6 +143,14 @@ func affinityOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Affinity {
 	return &hc.Spec.Affinity
 }
 
+func tolerationsOrDefault(hc *humiov1alpha1.HumioCluster) []corev1.Toleration {
+	emptyTolerations := []corev1.Toleration{}
+	if reflect.DeepEqual(hc.Spec.Tolerations, emptyTolerations) {
+		return emptyTolerations
+	}
+	return hc.Spec.Tolerations
+}
+
 func humioServiceAccountAnnotationsOrDefault(hc *humiov1alpha1.HumioCluster) map[string]string {
 	if hc.Spec.HumioServiceAccountAnnotations != nil {
 		return hc.Spec.HumioServiceAccountAnnotations
