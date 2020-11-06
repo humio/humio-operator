@@ -33,6 +33,7 @@ type ClientMock struct {
 	IngestToken                       humioapi.IngestToken
 	Parser                            humioapi.Parser
 	Repository                        humioapi.Repository
+	View                              humioapi.View
 }
 
 type MockClientConfig struct {
@@ -54,6 +55,7 @@ func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePar
 			IngestToken:                       humioapi.IngestToken{},
 			Parser:                            humioapi.Parser{Tests: []humioapi.ParserTestCase{}},
 			Repository:                        humioapi.Repository{},
+			View:                              humioapi.View{},
 		},
 		Version: version,
 	}
@@ -224,4 +226,26 @@ func (h *MockClientConfig) DeleteRepository(hr *humiov1alpha1.HumioRepository) e
 	updatedApiClient := h.apiClient
 	updatedApiClient.Repository = humioapi.Repository{}
 	return nil
+}
+
+func (h *MockClientConfig) GetView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	return &h.apiClient.View, nil
+}
+
+func (h *MockClientConfig) AddView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	updatedApiClient := h.apiClient
+
+	connections := make([]humioapi.ViewConnection, 0)
+	for _, connection := range hv.Spec.Connections {
+		connections = append(connections, humioapi.ViewConnection{
+			RepoName: connection.RepositoryName,
+			Filter:   connection.Filter,
+		})
+	}
+
+	updatedApiClient.View = humioapi.View{
+		Name:        hv.Spec.Name,
+		Connections: connections,
+	}
+	return &h.apiClient.View, nil
 }

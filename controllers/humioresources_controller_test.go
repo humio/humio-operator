@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	humioapi "github.com/humio/cli/api"
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -27,10 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"os"
-	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
 
 // This test covers resource types which covers cases outside managing Humio cluster nodes
@@ -338,6 +335,98 @@ var _ = Describe("Humio Resources Controllers", func() {
 				err := k8sClient.Get(context.Background(), key, fetched)
 				return errors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
+		})
+	})
+
+	Context("Humio View", func() {
+		It("Should handle view correctly", func() {
+			repositoryKey := types.NamespacedName{
+				Name:      "humiorepository",
+				Namespace: "default",
+			}
+
+			repositoryToCreate := &humiov1alpha1.HumioRepository{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      repositoryKey.Name,
+					Namespace: repositoryKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioRepositorySpec{
+					ManagedClusterName: "humiocluster-shared",
+					Name:               "example-repository",
+					Description:        "important description",
+					Retention: humiov1alpha1.HumioRetention{
+						TimeInDays:      30,
+						IngestSizeInGB:  5,
+						StorageSizeInGB: 1,
+					},
+				},
+			}
+
+			viewKey := types.NamespacedName{
+				Name:      "humioview",
+				Namespace: "default",
+			}
+
+			connections := make([]humiov1alpha1.HumioViewConnection, 0)
+			connections = append(connections, humiov1alpha1.HumioViewConnection{
+				RepositoryName: "repositoryName",
+				Filter:         "*",
+			})
+			viewToCreate := &humiov1alpha1.HumioView{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      viewKey.Name,
+					Namespace: viewKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioViewSpec{
+					ManagedClusterName: "humiocluster-shared",
+					Name:               "example-repository",
+					Description:        "important description",
+					Connections:        connections,
+				},
+			}
+
+			By("Creating the repository successfully")
+			Expect(k8sClient.Create(context.Background(), repositoryToCreate)).Should(Succeed())
+
+			fetched := &humiov1alpha1.HumioRepository{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), repositoryKey, fetched)
+				return fetched.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
+
+			By("Creating the view successfully")
+			Expect(k8sClient.Create(context.Background(), viewToCreate)).Should(Succeed())
+
+			fetchedView := &humiov1alpha1.HumioView{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), viewKey, fetchedView)
+				return fetched.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioViewStateExists))
+
+			initialView, err := humioClient.GetView(viewToCreate)
+			Expect(err).To(BeNil())
+			Expect(initialView).ToNot(BeNil())
+
+			expectedViewConnections := make([]humioapi.ViewConnection, 0)
+			for _, viewConnection := range viewToCreate.Spec.Connections {
+				expectedViewConnections = append(expectedViewConnections, humioapi.ViewConnection{
+					RepoName: viewConnection.RepositoryName,
+					Filter:   viewConnection.Filter,
+				})
+			}
+
+			expectedInitialView := humioapi.View{
+				Name:        viewToCreate.Spec.Name,
+				Connections: expectedViewConnections,
+			}
+
+			Eventually(func() humioapi.View {
+				initialView, err := humioClient.GetView(fetchedView)
+				if err != nil {
+					return humioapi.View{}
+				}
+				return *initialView
+			}, testTimeout, testInterval).Should(Equal(expectedInitialView))
 		})
 	})
 

@@ -1,0 +1,7 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioView
+metadata:
+  name: humioview-sample
+spec:
+  # Add fields here
+  foo: bar

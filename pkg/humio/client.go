@@ -32,6 +32,7 @@ type Client interface {
 	IngestTokensClient
 	ParsersClient
 	RepositoriesClient
+	ViewsClient
 }
 
 type ClusterClient interface {
@@ -69,6 +70,11 @@ type RepositoriesClient interface {
 	GetRepository(*humiov1alpha1.HumioRepository) (*humioapi.Repository, error)
 	UpdateRepository(*humiov1alpha1.HumioRepository) (*humioapi.Repository, error)
 	DeleteRepository(*humiov1alpha1.HumioRepository) error
+}
+
+type ViewsClient interface {
+	AddView(hv *humiov1alpha1.HumioView) (*humioapi.View, error)
+	GetView(view *humiov1alpha1.HumioView) (*humioapi.View, error)
 }
 
 // ClientConfig stores our Humio api client
@@ -332,4 +338,52 @@ func (h *ClientConfig) DeleteRepository(hr *humiov1alpha1.HumioRepository) error
 		"deleted by humio-operator",
 		hr.Spec.AllowDataDeletion,
 	)
+}
+
+func (h *ClientConfig) GetView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	viewList, err := h.apiClient.Views().List()
+	if err != nil {
+		return &humioapi.View{}, fmt.Errorf("could not list views: %s", err)
+	}
+	for _, v := range viewList {
+		if v.Name == hv.Spec.Name {
+			// we now know the view exists
+			view, err := h.apiClient.Views().Get(hv.Spec.Name)
+			return view, err
+		}
+	}
+	return &humioapi.View{}, nil
+}
+
+func (h *ClientConfig) AddView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	viewConnections := h.CreateViewConnections(hv)
+	connectionMap := h.CreateConnectionMap(viewConnections)
+
+	view := humioapi.View{
+		Name:        hv.Spec.Name,
+		Connections: viewConnections,
+	}
+
+	err := h.apiClient.Views().Create(hv.Spec.Name, hv.Spec.Description, connectionMap)
+	return &view, err
+}
+
+func (h *ClientConfig) CreateConnectionMap(viewConnections []humioapi.ViewConnection) map[string]string {
+	connectionMap := make(map[string]string)
+	for _, connection := range viewConnections {
+		connectionMap[connection.RepoName] = connection.Filter
+	}
+	return connectionMap
+}
+
+func (h *ClientConfig) CreateViewConnections(hv *humiov1alpha1.HumioView) []humioapi.ViewConnection {
+	viewConnections := make([]humioapi.ViewConnection, 0)
+
+	for _, connection := range hv.Spec.Connections {
+		viewConnections = append(viewConnections, humioapi.ViewConnection{
+			RepoName: connection.RepositoryName,
+			Filter:   connection.Filter,
+		})
+	}
+	return viewConnections
 }
