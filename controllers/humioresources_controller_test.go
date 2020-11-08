@@ -28,6 +28,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"os"
+	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // This test covers resource types which covers cases outside managing Humio cluster nodes
