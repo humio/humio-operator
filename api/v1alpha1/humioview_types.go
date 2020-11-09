@@ -17,15 +17,16 @@ limitations under the License.
 package v1alpha1
 
 import (
+	humioapi "github.com/humio/cli/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	// HumioRepositoryStateUnknown is the Unknown state of the repository
+	// HumioViewStateUnknown is the Unknown state of the view
 	HumioViewStateUnknown = "Unknown"
-	// HumioRepositoryStateExists is the Exists state of the repository
+	// HumioViewStateExists is the Exists state of the view
 	HumioViewStateExists = "Exists"
-	// HumioRepositoryStateNotFound is the NotFound state of the repository
+	// HumioViewStateNotFound is the NotFound state of the view
 	HumioViewStateNotFound = "NotFound"
 )
 
@@ -77,4 +78,16 @@ type HumioViewList struct {
 
 func init() {
 	SchemeBuilder.Register(&HumioView{}, &HumioViewList{})
+}
+
+func (hv *HumioView) GetViewConnections() []humioapi.ViewConnection {
+	viewConnections := make([]humioapi.ViewConnection, 0)
+
+	for _, connection := range hv.Spec.Connections {
+		viewConnections = append(viewConnections, humioapi.ViewConnection{
+			RepoName: connection.RepositoryName,
+			Filter:   connection.Filter,
+		})
+	}
+	return viewConnections
 }
