@@ -376,7 +376,7 @@ func (h *ClientConfig) UpdateView(hv *humiov1alpha1.HumioView) (*humioapi.View, 
 		return &humioapi.View{}, err
 	}
 	connections := hv.GetViewConnections()
-	if reflect.DeepEqual(curView.Connections, connections) {
+	if reflect.DeepEqual(curView.Connections, connections) == false {
 		err = h.apiClient.Views().UpdateConnections(
 			hv.Spec.Name,
 			GetConnectionMap(connections),
