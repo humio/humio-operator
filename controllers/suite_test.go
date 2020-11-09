@@ -50,7 +50,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 
-	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -122,9 +121,6 @@ var _ = BeforeSuite(func(done Done) {
 		err = cmapi.AddToScheme(scheme.Scheme)
 		Expect(err).NotTo(HaveOccurred())
 	}
-
-	err = corev1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
 
