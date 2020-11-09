@@ -1,7 +1,11 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioView
 metadata:
-  name: humioview-sample
+  name: example-humioview-managed
 spec:
-  # Add fields here
-  foo: bar
+  managedClusterName: example-humiocluster
+  Name: "example-view"
+  description: "this is an important message"
+  connections:
+    - repositoryName: "example-repository"
+      filter: "*"
