@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	"net/url"
+	"reflect"
 
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -73,8 +74,9 @@ type RepositoriesClient interface {
 }
 
 type ViewsClient interface {
-	AddView(hv *humiov1alpha1.HumioView) (*humioapi.View, error)
+	AddView(view *humiov1alpha1.HumioView) (*humioapi.View, error)
 	GetView(view *humiov1alpha1.HumioView) (*humioapi.View, error)
+	UpdateView(view *humiov1alpha1.HumioView) (*humioapi.View, error)
 }
 
 // ClientConfig stores our Humio api client
@@ -356,34 +358,41 @@ func (h *ClientConfig) GetView(hv *humiov1alpha1.HumioView) (*humioapi.View, err
 }
 
 func (h *ClientConfig) AddView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
-	viewConnections := h.CreateViewConnections(hv)
-	connectionMap := h.CreateConnectionMap(viewConnections)
+	viewConnections := hv.GetViewConnections()
 
 	view := humioapi.View{
 		Name:        hv.Spec.Name,
 		Connections: viewConnections,
 	}
 
+	connectionMap := GetConnectionMap(viewConnections)
 	err := h.apiClient.Views().Create(hv.Spec.Name, hv.Spec.Description, connectionMap)
 	return &view, err
 }
 
-func (h *ClientConfig) CreateConnectionMap(viewConnections []humioapi.ViewConnection) map[string]string {
+func (h *ClientConfig) UpdateView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	curView, err := h.GetView(hv)
+	if err != nil {
+		return &humioapi.View{}, err
+	}
+	connections := hv.GetViewConnections()
+	if reflect.DeepEqual(curView.Connections, connections) {
+		err = h.apiClient.Views().UpdateConnections(
+			hv.Spec.Name,
+			GetConnectionMap(connections),
+		)
+		if err != nil {
+			return &humioapi.View{}, err
+		}
+	}
+
+	return h.GetView(hv)
+}
+
+func GetConnectionMap(viewConnections []humioapi.ViewConnection) map[string]string {
 	connectionMap := make(map[string]string)
 	for _, connection := range viewConnections {
 		connectionMap[connection.RepoName] = connection.Filter
 	}
 	return connectionMap
-}
-
-func (h *ClientConfig) CreateViewConnections(hv *humiov1alpha1.HumioView) []humioapi.ViewConnection {
-	viewConnections := make([]humioapi.ViewConnection, 0)
-
-	for _, connection := range hv.Spec.Connections {
-		viewConnections = append(viewConnections, humioapi.ViewConnection{
-			RepoName: connection.RepositoryName,
-			Filter:   connection.Filter,
-		})
-	}
-	return viewConnections
 }

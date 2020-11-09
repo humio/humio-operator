@@ -249,3 +249,7 @@ func (h *MockClientConfig) AddView(hv *humiov1alpha1.HumioView) (*humioapi.View,
 	}
 	return &h.apiClient.View, nil
 }
+
+func (h *MockClientConfig) UpdateView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	return h.AddView(hv)
+}
