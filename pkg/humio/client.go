@@ -366,7 +366,7 @@ func (h *ClientConfig) AddView(hv *humiov1alpha1.HumioView) (*humioapi.View, err
 		Connections: viewConnections,
 	}
 
-	connectionMap := GetConnectionMap(viewConnections)
+	connectionMap := getConnectionMap(viewConnections)
 	err := h.apiClient.Views().Create(hv.Spec.Name, hv.Spec.Description, connectionMap)
 	return &view, err
 }
@@ -380,7 +380,7 @@ func (h *ClientConfig) UpdateView(hv *humiov1alpha1.HumioView) (*humioapi.View, 
 	if reflect.DeepEqual(curView.Connections, connections) == false {
 		err = h.apiClient.Views().UpdateConnections(
 			hv.Spec.Name,
-			GetConnectionMap(connections),
+			getConnectionMap(connections),
 		)
 		if err != nil {
 			return &humioapi.View{}, err
@@ -394,7 +394,7 @@ func (h *ClientConfig) DeleteView(hv *humiov1alpha1.HumioView) error {
 	return h.apiClient.Views().Delete(hv.Spec.Name, "Deleted by humio-operator")
 }
 
-func GetConnectionMap(viewConnections []humioapi.ViewConnection) map[string]string {
+func getConnectionMap(viewConnections []humioapi.ViewConnection) map[string]string {
 	connectionMap := make(map[string]string)
 	for _, connection := range viewConnections {
 		connectionMap[connection.RepoName] = connection.Filter
