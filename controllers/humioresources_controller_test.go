@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// This test covers resource types which covers cases outside managing Humio cluster nodes
 var _ = Describe("Humio Resources Controllers", func() {
 
 	BeforeEach(func() {
@@ -390,36 +389,29 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("Creating the repository successfully")
 			Expect(k8sClient.Create(context.Background(), repositoryToCreate)).Should(Succeed())
 
-			fetched := &humiov1alpha1.HumioRepository{}
+			fetchedRepo := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
-				k8sClient.Get(context.Background(), repositoryKey, fetched)
-				return fetched.Status.State
+				k8sClient.Get(context.Background(), repositoryKey, fetchedRepo)
+				return fetchedRepo.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
 
-			By("Creating the view successfully")
+			By("Creating the view successfully in k8s")
 			Expect(k8sClient.Create(context.Background(), viewToCreate)).Should(Succeed())
 
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
 				k8sClient.Get(context.Background(), viewKey, fetchedView)
-				return fetched.Status.State
+				return fetchedRepo.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioViewStateExists))
 
+			By("Creating the view successfully in Humio")
 			initialView, err := humioClient.GetView(viewToCreate)
 			Expect(err).To(BeNil())
 			Expect(initialView).ToNot(BeNil())
 
-			expectedViewConnections := make([]humioapi.ViewConnection, 0)
-			for _, viewConnection := range viewToCreate.Spec.Connections {
-				expectedViewConnections = append(expectedViewConnections, humioapi.ViewConnection{
-					RepoName: viewConnection.RepositoryName,
-					Filter:   viewConnection.Filter,
-				})
-			}
-
 			expectedInitialView := humioapi.View{
 				Name:        viewToCreate.Spec.Name,
-				Connections: expectedViewConnections,
+				Connections: viewToCreate.GetViewConnections(),
 			}
 
 			Eventually(func() humioapi.View {
@@ -429,8 +421,47 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}
 				return *initialView
 			}, testTimeout, testInterval).Should(Equal(expectedInitialView))
+
+			By("Updating the view successfully in k8s")
+			updatedConnections := []humiov1alpha1.HumioViewConnection{
+				{
+					RepositoryName: "updatedRepositoryName",
+					Filter:         "*",
+				},
+			}
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), viewKey, fetchedView)
+				fetchedView.Spec.Connections = updatedConnections
+				return k8sClient.Update(context.Background(), fetchedView)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			
+			By("Updating the view successfully in Humio")
+			updatedView, err := humioClient.GetView(fetchedView)
+			Expect(err).To(BeNil())
+			Expect(updatedView).ToNot(BeNil())
+
+			expectedUpdatedView := humioapi.View{
+				Name:			viewToCreate.Spec.Name,
+				Connections:	fetchedView.GetViewConnections(),
+			}
+			Eventually(func() humioapi.View {
+				updatedView, err := humioClient.GetView(fetchedView)
+				if err != nil {
+					return humioapi.View{}
+				}
+				return *updatedView
+			}, testTimeout, testInterval).Should(Equal(expectedUpdatedView))
+
+			By("Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedView)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), viewKey, fetchedView)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
 		})
 	})
+
 
 	Context("Humio Parser", func() {
 		It("Should handle parser correctly", func() {
