@@ -55,7 +55,7 @@ func (r *HumioViewReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	r.Log.Info("Reconciling HumioView")
 
 	// Fetch the HumioView instance
-	hv, err := r.getViewSpec(req)
+	humioViewSpec, err := r.getViewSpec(req)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -67,19 +67,19 @@ func (r *HumioViewReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, err
 	}
 
-	defer r.setLatestState(hv)
+	defer r.setLatestState(humioViewSpec)
 
-	result, err := r.authenticate(hv)
+	result, err := r.authenticate(humioViewSpec)
 	if err != nil {
 		return result, err
 	}
 
-	curView, result, err := r.getView(hv)
+	curView, result, err := r.getView(humioViewSpec)
 	if err != nil {
 		return result, err
 	}
 
-	reconcileHumioViewResult, err := r.reconcileHumioView(curView, hv)
+	reconcileHumioViewResult, err := r.reconcileHumioView(curView, humioViewSpec)
 	if err != nil {
 		return reconcileHumioViewResult, err
 	}
