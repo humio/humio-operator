@@ -381,7 +381,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioViewSpec{
 					ManagedClusterName: "humiocluster-shared",
 					Name:               "example-repository",
-					Description:        "important description",
 					Connections:        connections,
 				},
 			}

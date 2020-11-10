@@ -43,7 +43,6 @@ type HumioViewSpec struct {
 
 	// Input
 	Name        string                `json:"name,omitempty"`
-	Description string                `json:"description,omitempty"`
 	Connections []HumioViewConnection `json:"connections,omitempty"`
 }
 

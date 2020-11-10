@@ -366,8 +366,10 @@ func (h *ClientConfig) AddView(hv *humiov1alpha1.HumioView) (*humioapi.View, err
 		Connections: viewConnections,
 	}
 
+	description := ""
 	connectionMap := getConnectionMap(viewConnections)
-	err := h.apiClient.Views().Create(hv.Spec.Name, hv.Spec.Description, connectionMap)
+
+	err := h.apiClient.Views().Create(hv.Spec.Name, description, connectionMap)
 	return &view, err
 }
 
@@ -376,15 +378,18 @@ func (h *ClientConfig) UpdateView(hv *humiov1alpha1.HumioView) (*humioapi.View, 
 	if err != nil {
 		return &humioapi.View{}, err
 	}
+
 	connections := hv.GetViewConnections()
-	if reflect.DeepEqual(curView.Connections, connections) == false {
-		err = h.apiClient.Views().UpdateConnections(
-			hv.Spec.Name,
-			getConnectionMap(connections),
-		)
-		if err != nil {
-			return &humioapi.View{}, err
-		}
+	if reflect.DeepEqual(curView.Connections, connections)  {
+		return h.GetView(hv)
+	}
+
+	err = h.apiClient.Views().UpdateConnections(
+		hv.Spec.Name,
+		getConnectionMap(connections),
+	)
+	if err != nil {
+		return &humioapi.View{}, err
 	}
 
 	return h.GetView(hv)
