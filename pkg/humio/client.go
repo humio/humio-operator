@@ -77,6 +77,7 @@ type ViewsClient interface {
 	AddView(view *humiov1alpha1.HumioView) (*humioapi.View, error)
 	GetView(view *humiov1alpha1.HumioView) (*humioapi.View, error)
 	UpdateView(view *humiov1alpha1.HumioView) (*humioapi.View, error)
+	DeleteView(view *humiov1alpha1.HumioView) error
 }
 
 // ClientConfig stores our Humio api client
@@ -387,6 +388,10 @@ func (h *ClientConfig) UpdateView(hv *humiov1alpha1.HumioView) (*humioapi.View, 
 	}
 
 	return h.GetView(hv)
+}
+
+func (h *ClientConfig) DeleteView(hv *humiov1alpha1.HumioView) error {
+	return h.apiClient.Views().Delete(hv.Spec.Name, "Deleted by humio-operator")
 }
 
 func GetConnectionMap(viewConnections []humioapi.ViewConnection) map[string]string {
