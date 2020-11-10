@@ -91,7 +91,7 @@ func (r *HumioViewReconciler) reconcileHumioView(curView *humioapi.View, hv *hum
 	emptyView := humioapi.View{}
 
 	// Delete
-	r.Log.Info("Checking if repository is marked to be deleted")
+	r.Log.Info("Checking if view is marked to be deleted")
 	isMarkedForDeletion := hv.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
 		r.Log.Info("View marked to be deleted")
