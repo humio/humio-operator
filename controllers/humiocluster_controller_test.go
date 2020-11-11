@@ -1669,6 +1669,92 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 		})
 	})
+
+	Context("Humio Cluster with shared process namespace and sidecars", func() {
+		It("Creating cluster without shared process namespace and sidecar", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-custom-sidecars",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.SidecarContainers = nil
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+
+			By("Confirming the humio pods are not using shared process namespace nor additional sidecars")
+			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			for _, pod := range clusterPods {
+				if pod.Spec.ShareProcessNamespace != nil {
+					Expect(*pod.Spec.ShareProcessNamespace).To(BeFalse())
+				}
+				Expect(pod.Spec.Containers).Should(HaveLen(2))
+			}
+
+			By("Enabling shared process namespace and sidecars")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+			updatedHumioCluster.Spec.ShareProcessNamespace = helpers.BoolPtr(true)
+			updatedHumioCluster.Spec.SidecarContainers = []corev1.Container{
+				{
+					Name:    "jmap",
+					Image:   image,
+					Command: []string{"/bin/sh"},
+					Args:    []string{"-c", "HUMIO_PID=$(ps -e | grep java | awk '{print $1'}); while :; do sleep 30 ; jmap -histo:live $HUMIO_PID | head -n203 ; done"},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "tmp",
+							MountPath: tmpPath,
+							ReadOnly:  false,
+						},
+					},
+					SecurityContext: &corev1.SecurityContext{
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{
+								"ALL",
+							},
+						},
+						Privileged:               helpers.BoolPtr(false),
+						RunAsUser:                helpers.Int64Ptr(65534),
+						RunAsNonRoot:             helpers.BoolPtr(true),
+						ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
+						AllowPrivilegeEscalation: helpers.BoolPtr(false),
+					},
+				},
+			}
+			Expect(k8sClient.Update(context.Background(), &updatedHumioCluster))
+
+			By("Confirming the humio pods use shared process namespace")
+			Eventually(func() bool {
+				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				for _, pod := range clusterPods {
+					if pod.Spec.ShareProcessNamespace != nil {
+						return *pod.Spec.ShareProcessNamespace
+					}
+				}
+				return false
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Confirming pods contain the new sidecar")
+			Eventually(func() string {
+				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				for _, pod := range clusterPods {
+					for _, container := range pod.Spec.Containers {
+						if container.Name == humioContainerName {
+							continue
+						}
+						if container.Name == authContainerName {
+							continue
+						}
+						return container.Name
+					}
+				}
+				return ""
+			}, testTimeout, testInterval).Should(Equal("jmap"))
+		})
+	})
 })
 
 func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
