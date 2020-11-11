@@ -147,10 +147,11 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 			Annotations: kubernetes.AnnotationsForHumio(hc.Spec.PodAnnotations, productVersion),
 		},
 		Spec: corev1.PodSpec{
-			ServiceAccountName: humioServiceAccountNameOrDefault(hc),
-			ImagePullSecrets:   imagePullSecretsOrDefault(hc),
-			Subdomain:          hc.Name,
-			Hostname:           humioNodeName,
+			ShareProcessNamespace: shareProcessNamespaceOrDefault(hc),
+			ServiceAccountName:    humioServiceAccountNameOrDefault(hc),
+			ImagePullSecrets:      imagePullSecretsOrDefault(hc),
+			Subdomain:             hc.Name,
+			Hostname:              humioNodeName,
 			InitContainers: []corev1.Container{
 				{
 					Name:  initContainerName,
@@ -470,6 +471,16 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 				},
 			},
 		})
+	}
+
+	for _, sidecar := range sidecarContainersOrDefault(hc) {
+		for _, existingContainer := range pod.Spec.Containers {
+			if sidecar.Name == existingContainer.Name {
+				return &corev1.Pod{}, fmt.Errorf("sidecarContainer conflicts with existing name: %s", sidecar.Name)
+
+			}
+		}
+		pod.Spec.Containers = append(pod.Spec.Containers, sidecar)
 	}
 
 	if hc.Spec.ImagePullPolicy != "" {
