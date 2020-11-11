@@ -153,7 +153,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 			Hostname:           humioNodeName,
 			InitContainers: []corev1.Container{
 				{
-					Name:  "init",
+					Name:  initContainerName,
 					Image: helperImageTag,
 					Env: []corev1.EnvVar{
 						{
@@ -209,7 +209,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 			},
 			Containers: []corev1.Container{
 				{
-					Name:  "auth",
+					Name:  authContainerName,
 					Image: helperImageTag,
 					Env: []corev1.EnvVar{
 						{
@@ -286,7 +286,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 					SecurityContext: containerSecurityContextOrDefault(hc),
 				},
 				{
-					Name:    "humio",
+					Name:    humioContainerName,
 					Image:   hc.Spec.Image,
 					Command: []string{"/bin/sh"},
 					Ports: []corev1.ContainerPort{
@@ -399,7 +399,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 		VolumeSource: attachments.dataVolumeSource,
 	})
 
-	humioIdx, err := kubernetes.GetContainerIndexByName(pod, "humio")
+	humioIdx, err := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 	if err != nil {
 		return &corev1.Pod{}, err
 	}
@@ -551,7 +551,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 		})
 
 		// Configuration specific to auth container
-		authIdx, err := kubernetes.GetContainerIndexByName(pod, "auth")
+		authIdx, err := kubernetes.GetContainerIndexByName(pod, authContainerName)
 		if err != nil {
 			return &corev1.Pod{}, err
 		}
@@ -592,7 +592,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 	}
 
 	if envVarHasValue(pod.Spec.Containers[humioIdx].Env, "ENABLE_ORGANIZATIONS", "true") && envVarHasKey(pod.Spec.Containers[humioIdx].Env, "ORGANIZATION_MODE") {
-		authIdx, err := kubernetes.GetContainerIndexByName(pod, "auth")
+		authIdx, err := kubernetes.GetContainerIndexByName(pod, authContainerName)
 		if err != nil {
 			return &corev1.Pod{}, err
 		}
@@ -666,7 +666,7 @@ func podSpecAsSHA256(hc *humiov1alpha1.HumioCluster, sourcePod corev1.Pod) strin
 
 	for idx, container := range pod.Spec.Containers {
 		sanitizedEnvVars := make([]corev1.EnvVar, 0)
-		if container.Name == "humio" {
+		if container.Name == humioContainerName {
 			for _, envVar := range container.Env {
 				if envVar.Name == "EXTERNAL_URL" {
 					sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
@@ -682,7 +682,7 @@ func podSpecAsSHA256(hc *humiov1alpha1.HumioCluster, sourcePod corev1.Pod) strin
 				}
 			}
 			container.Env = sanitizedEnvVars
-		} else if container.Name == "auth" {
+		} else if container.Name == authContainerName {
 			for _, envVar := range container.Env {
 				if envVar.Name == "HUMIO_NODE_URL" {
 					sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
@@ -866,11 +866,11 @@ func (r *HumioClusterReconciler) podsMatch(hc *humiov1alpha1.HumioCluster, pod c
 }
 
 func (r *HumioClusterReconciler) getRestartPolicyFromPodInspection(pod, desiredPod corev1.Pod) (string, error) {
-	humioContainerIdx, err := kubernetes.GetContainerIndexByName(pod, "humio")
+	humioContainerIdx, err := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 	if err != nil {
 		return "", err
 	}
-	desiredHumioContainerIdx, err := kubernetes.GetContainerIndexByName(desiredPod, "humio")
+	desiredHumioContainerIdx, err := kubernetes.GetContainerIndexByName(desiredPod, humioContainerName)
 	if err != nil {
 		return "", err
 	}

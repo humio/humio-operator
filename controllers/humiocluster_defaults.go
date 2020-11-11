@@ -40,6 +40,9 @@ const (
 	extraKafkaPropertiesFilename = "extra-kafka-properties.properties"
 	viewGroupPermissionsFilename = "view-group-permissions.json"
 	nodeUUIDPrefix               = "humio_"
+	humioContainerName           = "humio"
+	authContainerName            = "auth"
+	initContainerName            = "init"
 
 	// cluster-wide resources:
 	initClusterRoleSuffix        = "init"
