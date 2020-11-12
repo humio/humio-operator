@@ -111,6 +111,9 @@ type HumioClusterSpec struct {
 	// HumioServiceAnnotations is the set of annotations added to the Kubernetes Service that is used to direct traffic
 	// to the Humio pods
 	HumioServiceAnnotations map[string]string `json:"humioServiceAnnotations,omitempty"`
+	// HumioServiceLabels is the set of labels added to the Kubernetes Service that is used to direct traffic
+	// to the Humio pods
+	HumioServiceLabels map[string]string `json:"humioServiceLabels,omitempty"`
 }
 
 // HumioClusterIngressSpec is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster

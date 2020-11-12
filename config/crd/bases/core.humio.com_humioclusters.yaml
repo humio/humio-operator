@@ -3417,6 +3417,12 @@ spec:
                 to the Kubernetes Service that is used to direct traffic to the Humio
                 pods
               type: object
+            humioServiceLabels:
+              additionalProperties:
+                type: string
+              description: HumioServiceLabels is the set of labels added to the Kubernetes
+                Service that is used to direct traffic to the Humio pods
+              type: object
             humioServicePort:
               description: HumioServicePort is the port number of the Humio Service
                 that is used to direct traffic to the http interface of the Humio

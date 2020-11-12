@@ -1619,6 +1619,29 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 		})
 	})
+
+	Context("Humio Cluster With Service Labels", func() {
+		It("Creating cluster with custom service labels", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-custom-svc-labels",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.HumioServiceLabels = map[string]string{
+				"mirror.linkerd.io/exported": "true",
+			}
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+
+			By("Confirming service was created using the correct annotations")
+			svc, err := kubernetes.GetService(context.Background(), k8sClient, toCreate.Name, toCreate.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			for k, v := range toCreate.Spec.HumioServiceAnnotations {
+				Expect(svc.Labels).To(HaveKeyWithValue(k, v))
+			}
+		})
+	})
 })
 
 func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
