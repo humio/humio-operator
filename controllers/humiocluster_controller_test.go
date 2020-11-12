@@ -1619,6 +1619,33 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 		})
 	})
+
+	Context("Humio Cluster With Custom Tolerations", func() {
+		It("Creating cluster with custom tolerations", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-custom-tolerations",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.Tolerations = []corev1.Toleration{
+				{
+					Key:      "key",
+					Operator: "Equal",
+					Value:    "value",
+					Effect:   "NoSchedule",
+				},
+			}
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+
+			By("Confirming the humio pods use the requested tolerations")
+			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			for _, pod := range clusterPods {
+				Expect(pod.Spec.Tolerations).To(ContainElement(toCreate.Spec.Tolerations[0]))
+			}
+		})
+	})
 })
 
 func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
@@ -1628,43 +1655,54 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 	}
 
 	if cluster.Spec.HumioServiceAccountName != "" {
+		By("Creating service account for humio container")
 		humioServiceAccount := kubernetes.ConstructServiceAccount(cluster.Spec.HumioServiceAccountName, cluster.Name, cluster.Namespace, map[string]string{})
 		Expect(k8sClient.Create(context.Background(), humioServiceAccount)).To(Succeed())
 	}
 
 	if cluster.Spec.InitServiceAccountName != "" {
 		if cluster.Spec.InitServiceAccountName != cluster.Spec.HumioServiceAccountName {
+			By("Creating service account for init container")
 			initServiceAccount := kubernetes.ConstructServiceAccount(cluster.Spec.InitServiceAccountName, cluster.Name, cluster.Namespace, map[string]string{})
 			Expect(k8sClient.Create(context.Background(), initServiceAccount)).To(Succeed())
 		}
 
+		By("Creating cluster role for init container")
 		initClusterRole := kubernetes.ConstructInitClusterRole(cluster.Spec.InitServiceAccountName, key.Name)
 		Expect(k8sClient.Create(context.Background(), initClusterRole)).To(Succeed())
 
+		By("Creating cluster role binding for init container")
 		initClusterRoleBinding := kubernetes.ConstructClusterRoleBinding(cluster.Spec.InitServiceAccountName, initClusterRole.Name, key.Name, key.Namespace, cluster.Spec.InitServiceAccountName)
 		Expect(k8sClient.Create(context.Background(), initClusterRoleBinding)).To(Succeed())
 	}
 
 	if cluster.Spec.AuthServiceAccountName != "" {
 		if cluster.Spec.AuthServiceAccountName != cluster.Spec.HumioServiceAccountName {
+			By("Creating service account for auth container")
 			authServiceAccount := kubernetes.ConstructServiceAccount(cluster.Spec.AuthServiceAccountName, cluster.Name, cluster.Namespace, map[string]string{})
 			Expect(k8sClient.Create(context.Background(), authServiceAccount)).To(Succeed())
 		}
+
+		By("Creating role for auth container")
 		authRole := kubernetes.ConstructAuthRole(cluster.Spec.AuthServiceAccountName, key.Name, key.Namespace)
 		Expect(k8sClient.Create(context.Background(), authRole)).To(Succeed())
 
+		By("Creating role binding for auth container")
 		authRoleBinding := kubernetes.ConstructRoleBinding(cluster.Spec.AuthServiceAccountName, authRole.Name, key.Name, key.Namespace, cluster.Spec.AuthServiceAccountName)
 		Expect(k8sClient.Create(context.Background(), authRoleBinding)).To(Succeed())
 	}
 
+	By("Creating HumioCluster resource")
 	Expect(k8sClient.Create(context.Background(), cluster)).Should(Succeed())
 
+	By("Confirming cluster enters bootstrapping state")
 	var updatedHumioCluster humiov1alpha1.HumioCluster
 	Eventually(func() string {
 		k8sClient.Get(context.Background(), key, &updatedHumioCluster)
 		return updatedHumioCluster.Status.State
 	}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateBootstrapping))
 
+	By("Waiting to have the correct number of pods")
 	var clusterPods []corev1.Pod
 	Eventually(func() []corev1.Pod {
 		clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -1676,10 +1714,12 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 		// Simulate sidecar creating the secret which contains the admin token use to authenticate with humio
 		secretData := map[string][]byte{"token": []byte("")}
 		adminTokenSecretName := fmt.Sprintf("%s-%s", updatedHumioCluster.Name, kubernetes.ServiceTokenSecretNameSuffix)
+		By("Simulating the auth container creating the secret containing the API token")
 		desiredSecret := kubernetes.ConstructSecret(updatedHumioCluster.Name, updatedHumioCluster.Namespace, adminTokenSecretName, secretData)
 		Expect(k8sClient.Create(context.Background(), desiredSecret)).To(Succeed())
 	}
 
+	By("Confirming cluster enters running state")
 	Eventually(func() string {
 		clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 		markPodsAsRunning(k8sClient, clusterPods)
@@ -1688,12 +1728,14 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 		return updatedHumioCluster.Status.State
 	}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 
+	By("Validating cluster has expected pod revision annotation")
 	Eventually(func() string {
 		k8sClient.Get(context.Background(), key, &updatedHumioCluster)
 		val, _ := updatedHumioCluster.Annotations[podRevisionAnnotation]
 		return val
 	}, testTimeout, testInterval).Should(Equal("1"))
 
+	By("Waiting for the auth sidecar to populate the secret containing the API token")
 	Eventually(func() error {
 		return k8sClient.Get(context.Background(), types.NamespacedName{
 			Namespace: key.Namespace,
@@ -1703,6 +1745,7 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 		// TODO: We can drop this version comparison when we only support 1.16 and newer.
+		By("Validating cluster nodes have ZONE configured correctly")
 		versionWithZone, _ := semver.NewConstraint(">= 1.16.0")
 		clusterImage := strings.SplitN(cluster.Spec.Image, ":", 2)
 		Expect(clusterImage).To(HaveLen(2))
