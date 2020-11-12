@@ -26,9 +26,6 @@ import (
 // humioServiceLabels generates the set of labels to attach to the humio kubernetes service
 func humioServiceLabels(hc *humiov1alpha1.HumioCluster) map[string]string {
 	labels := kubernetes.LabelsForHumio(hc.Name)
-	if len(hc.Spec.HumioServiceLabels) == 0 {
-		return labels
-	}
 	for k, v := range hc.Spec.HumioServiceLabels {
 		if _, ok := labels[k]; ok {
 			continue
