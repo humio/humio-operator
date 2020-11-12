@@ -1637,7 +1637,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Confirming service was created using the correct annotations")
 			svc, err := kubernetes.GetService(context.Background(), k8sClient, toCreate.Name, toCreate.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			for k, v := range toCreate.Spec.HumioServiceAnnotations {
+			for k, v := range toCreate.Spec.HumioServiceLabels {
 				Expect(svc.Labels).To(HaveKeyWithValue(k, v))
 			}
 		})
