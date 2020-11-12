@@ -58,6 +58,8 @@ type HumioClusterSpec struct {
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// Affinity defines the affinity policies that will be attached to the humio pods
 	Affinity corev1.Affinity `json:"affinity,omitempty"`
+	// Tolerations defines the tolerations that will be attached to the humio pods
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// IdpCertificateSecretName is the name of the secret that contains the IDP Certificate when using SAML authentication
 	IdpCertificateSecretName string `json:"idpCertificateSecretName,omitempty"`
 	// HumioServiceAccountAnnotations is the set of annotations added to the Kubernetes Service Account that will be attached to the Humio pods

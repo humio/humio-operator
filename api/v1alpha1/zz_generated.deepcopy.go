@@ -134,6 +134,13 @@ func (in *HumioClusterSpec) DeepCopyInto(out *HumioClusterSpec) {
 		copy(*out, *in)
 	}
 	in.Affinity.DeepCopyInto(&out.Affinity)
+	if in.Tolerations != nil {
+		in, out := &in.Tolerations, &out.Tolerations
+		*out = make([]v1.Toleration, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.HumioServiceAccountAnnotations != nil {
 		in, out := &in.HumioServiceAccountAnnotations, &out.HumioServiceAccountAnnotations
 		*out = make(map[string]string, len(*in))
