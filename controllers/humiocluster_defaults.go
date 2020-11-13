@@ -40,6 +40,9 @@ const (
 	extraKafkaPropertiesFilename = "extra-kafka-properties.properties"
 	viewGroupPermissionsFilename = "view-group-permissions.json"
 	nodeUUIDPrefix               = "humio_"
+	humioContainerName           = "humio"
+	authContainerName            = "auth"
+	initContainerName            = "init"
 
 	// cluster-wide resources:
 	initClusterRoleSuffix        = "init"
@@ -149,6 +152,13 @@ func tolerationsOrDefault(hc *humiov1alpha1.HumioCluster) []corev1.Toleration {
 		return emptyTolerations
 	}
 	return hc.Spec.Tolerations
+}
+
+func shareProcessNamespaceOrDefault(hc *humiov1alpha1.HumioCluster) *bool {
+	if hc.Spec.ShareProcessNamespace == nil {
+		return helpers.BoolPtr(false)
+	}
+	return hc.Spec.ShareProcessNamespace
 }
 
 func humioServiceAccountAnnotationsOrDefault(hc *humiov1alpha1.HumioCluster) map[string]string {
@@ -403,6 +413,14 @@ func nodeUUIDPrefixOrDefault(hc *humiov1alpha1.HumioCluster) string {
 		return hc.Spec.NodeUUIDPrefix
 	}
 	return nodeUUIDPrefix
+}
+
+func sidecarContainersOrDefault(hc *humiov1alpha1.HumioCluster) []corev1.Container {
+	emptySidecarContainers := []corev1.Container{}
+	if reflect.DeepEqual(hc.Spec.SidecarContainers, emptySidecarContainers) {
+		return emptySidecarContainers
+	}
+	return hc.Spec.SidecarContainers
 }
 
 func humioServiceTypeOrDefault(hc *humiov1alpha1.HumioCluster) corev1.ServiceType {
