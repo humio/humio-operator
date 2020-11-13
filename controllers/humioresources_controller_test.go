@@ -366,7 +366,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			connections := make([]humiov1alpha1.HumioViewConnection, 0)
 			connections = append(connections, humiov1alpha1.HumioViewConnection{
-				RepositoryName: "repositoryName",
+				RepositoryName: "example-repository-view",
 				Filter:         "*",
 			})
 			viewToCreate := &humiov1alpha1.HumioView{
@@ -376,7 +376,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioViewSpec{
 					ManagedClusterName: "humiocluster-shared",
-					Name:               "example-repository-view",
+					Name:               "example-view",
 					Connections:        connections,
 				},
 			}
@@ -420,7 +420,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("Updating the view successfully in k8s")
 			updatedConnections := []humiov1alpha1.HumioViewConnection{
 				{
-					RepositoryName: "updatedRepositoryName",
+					RepositoryName: "humio",
 					Filter:         "*",
 				},
 			}
