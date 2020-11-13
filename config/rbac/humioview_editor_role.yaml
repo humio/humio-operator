@@ -1,0 +1,24 @@
+# permissions for end users to edit humioviews.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: humioview-editor-role
+rules:
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioviews
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioviews/status
+  verbs:
+  - get

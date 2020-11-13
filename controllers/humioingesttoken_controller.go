@@ -38,7 +38,7 @@ import (
 	"github.com/humio/humio-operator/pkg/humio"
 )
 
-const humioFinalizer = "finalizer.humio.com" // TODO: Not only used for ingest tokens, but also parsers and repositories.
+const humioFinalizer = "finalizer.humio.com" // TODO: Not only used for ingest tokens, but also parsers, repositories and views.
 
 // HumioIngestTokenReconciler reconciles a HumioIngestToken object
 type HumioIngestTokenReconciler struct {

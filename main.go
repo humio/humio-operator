@@ -19,11 +19,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/humio"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 	uberzap "go.uber.org/zap"
@@ -31,10 +32,11 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"strings"
+
+	"github.com/humio/humio-operator/pkg/helpers"
+	"github.com/humio/humio-operator/pkg/humio"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
@@ -142,6 +144,14 @@ func main() {
 		HumioClient: humio.NewClient(log, &humioapi.Config{}),
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioRepository")
+		os.Exit(1)
+	}
+	if err = (&controllers.HumioViewReconciler{
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		HumioClient: humio.NewClient(log, &humioapi.Config{}),
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioView")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

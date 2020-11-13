@@ -83,6 +83,9 @@ rules:
   - humiorepositories
   - humiorepositories/finalizers
   - humiorepositories/status
+  - humioviews
+  - humioviews/finalizers
+  - humioviews/status
   - humioexternalclusters
   - humioexternalclusters/finalizers
   - humioexternalclusters/status
@@ -227,6 +230,9 @@ rules:
   - humiorepositories
   - humiorepositories/finalizers
   - humiorepositories/status
+  - humioviews
+  - humioviews/finalizers
+  - humioviews/status
   - humioexternalclusters
   - humioexternalclusters/finalizers
   - humioexternalclusters/status

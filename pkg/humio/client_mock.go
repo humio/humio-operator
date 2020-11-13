@@ -18,11 +18,11 @@ package humio
 
 import (
 	"fmt"
-	"net/url"
-
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
+	"math/rand"
+	"net/url"
 )
 
 type ClientMock struct {
@@ -33,6 +33,7 @@ type ClientMock struct {
 	IngestToken                       humioapi.IngestToken
 	Parser                            humioapi.Parser
 	Repository                        humioapi.Repository
+	View                              humioapi.View
 }
 
 type MockClientConfig struct {
@@ -54,6 +55,7 @@ func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePar
 			IngestToken:                       humioapi.IngestToken{},
 			Parser:                            humioapi.Parser{Tests: []humioapi.ParserTestCase{}},
 			Repository:                        humioapi.Repository{},
+			View:                              humioapi.View{},
 		},
 		Version: version,
 	}
@@ -203,6 +205,7 @@ func (h *MockClientConfig) DeleteParser(hp *humiov1alpha1.HumioParser) error {
 func (h *MockClientConfig) AddRepository(hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
 	updatedApiClient := h.apiClient
 	updatedApiClient.Repository = humioapi.Repository{
+		ID:                     fmt.Sprintf("%d", rand.Int()),
 		Name:                   hr.Spec.Name,
 		Description:            hr.Spec.Description,
 		RetentionDays:          float64(hr.Spec.Retention.TimeInDays),
@@ -223,5 +226,37 @@ func (h *MockClientConfig) UpdateRepository(hr *humiov1alpha1.HumioRepository) (
 func (h *MockClientConfig) DeleteRepository(hr *humiov1alpha1.HumioRepository) error {
 	updatedApiClient := h.apiClient
 	updatedApiClient.Repository = humioapi.Repository{}
+	return nil
+}
+
+func (h *MockClientConfig) GetView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	return &h.apiClient.View, nil
+}
+
+func (h *MockClientConfig) AddView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	updatedApiClient := h.apiClient
+
+	connections := make([]humioapi.ViewConnection, 0)
+	for _, connection := range hv.Spec.Connections {
+		connections = append(connections, humioapi.ViewConnection{
+			RepoName: connection.RepositoryName,
+			Filter:   connection.Filter,
+		})
+	}
+
+	updatedApiClient.View = humioapi.View{
+		Name:        hv.Spec.Name,
+		Connections: connections,
+	}
+	return &h.apiClient.View, nil
+}
+
+func (h *MockClientConfig) UpdateView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	return h.AddView(hv)
+}
+
+func (h *MockClientConfig) DeleteView(hv *humiov1alpha1.HumioView) error {
+	updateApiClient := h.apiClient
+	updateApiClient.View = humioapi.View{}
 	return nil
 }

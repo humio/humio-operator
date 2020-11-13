@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	"net/url"
+	"reflect"
 
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -32,6 +33,7 @@ type Client interface {
 	IngestTokensClient
 	ParsersClient
 	RepositoriesClient
+	ViewsClient
 }
 
 type ClusterClient interface {
@@ -69,6 +71,13 @@ type RepositoriesClient interface {
 	GetRepository(*humiov1alpha1.HumioRepository) (*humioapi.Repository, error)
 	UpdateRepository(*humiov1alpha1.HumioRepository) (*humioapi.Repository, error)
 	DeleteRepository(*humiov1alpha1.HumioRepository) error
+}
+
+type ViewsClient interface {
+	AddView(view *humiov1alpha1.HumioView) (*humioapi.View, error)
+	GetView(view *humiov1alpha1.HumioView) (*humioapi.View, error)
+	UpdateView(view *humiov1alpha1.HumioView) (*humioapi.View, error)
+	DeleteView(view *humiov1alpha1.HumioView) error
 }
 
 // ClientConfig stores our Humio api client
@@ -332,4 +341,68 @@ func (h *ClientConfig) DeleteRepository(hr *humiov1alpha1.HumioRepository) error
 		"deleted by humio-operator",
 		hr.Spec.AllowDataDeletion,
 	)
+}
+
+func (h *ClientConfig) GetView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	viewList, err := h.apiClient.Views().List()
+	if err != nil {
+		return &humioapi.View{}, fmt.Errorf("could not list views: %s", err)
+	}
+	for _, v := range viewList {
+		if v.Name == hv.Spec.Name {
+			// we now know the view exists
+			view, err := h.apiClient.Views().Get(hv.Spec.Name)
+			return view, err
+		}
+	}
+	return &humioapi.View{}, nil
+}
+
+func (h *ClientConfig) AddView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	viewConnections := hv.GetViewConnections()
+
+	view := humioapi.View{
+		Name:        hv.Spec.Name,
+		Connections: viewConnections,
+	}
+
+	description := ""
+	connectionMap := getConnectionMap(viewConnections)
+
+	err := h.apiClient.Views().Create(hv.Spec.Name, description, connectionMap)
+	return &view, err
+}
+
+func (h *ClientConfig) UpdateView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	curView, err := h.GetView(hv)
+	if err != nil {
+		return &humioapi.View{}, err
+	}
+
+	connections := hv.GetViewConnections()
+	if reflect.DeepEqual(curView.Connections, connections) {
+		return h.GetView(hv)
+	}
+
+	err = h.apiClient.Views().UpdateConnections(
+		hv.Spec.Name,
+		getConnectionMap(connections),
+	)
+	if err != nil {
+		return &humioapi.View{}, err
+	}
+
+	return h.GetView(hv)
+}
+
+func (h *ClientConfig) DeleteView(hv *humiov1alpha1.HumioView) error {
+	return h.apiClient.Views().Delete(hv.Spec.Name, "Deleted by humio-operator")
+}
+
+func getConnectionMap(viewConnections []humioapi.ViewConnection) map[string]string {
+	connectionMap := make(map[string]string)
+	for _, connection := range viewConnections {
+		connectionMap[connection.RepoName] = connection.Filter
+	}
+	return connectionMap
 }

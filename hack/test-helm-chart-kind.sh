@@ -22,7 +22,8 @@ set -x
 declare -r operator_namespace=${NAMESPACE:-default}
 declare -r kubectl="kubectl --context kind-kind"
 declare -r git_rev=$(git rev-parse --short HEAD)
-declare -r operator_image=humio/humio-operator:local-$git_rev
+declare -r operator_image_tag=local-$git_rev`date +%s`
+declare -r operator_image=humio/humio-operator:${operator_image_tag}
 declare -r helm_chart_dir=./charts/humio-operator
 declare -r helm_chart_values_file=values.yaml
 declare -r hack_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -54,7 +55,7 @@ $kubectl create namespace $operator_namespace
 
 helm upgrade --install humio-operator $helm_chart_dir \
   --namespace $operator_namespace \
-  --set operator.image.tag=local-$git_rev \
+  --set operator.image.tag=${operator_image_tag} \
   --set installCRDs=true \
   --values $helm_chart_dir/$helm_chart_values_file
 
