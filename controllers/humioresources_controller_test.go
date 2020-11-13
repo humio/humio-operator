@@ -18,7 +18,11 @@ package controllers
 
 import (
 	"context"
+	"os"
+	"reflect"
+
 	humioapi "github.com/humio/cli/api"
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -26,14 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"os"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
 
-// This test covers resource types which covers cases outside managing Humio cluster nodes
 var _ = Describe("Humio Resources Controllers", func() {
 
 	BeforeEach(func() {
@@ -290,19 +289,26 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(initialRepository).ToNot(BeNil())
 
-			expectedInitialRepository := humioapi.Repository{
+			expectedInitialRepository := repositoryExpectation{
 				Name:                   toCreate.Spec.Name,
 				Description:            toCreate.Spec.Description,
 				RetentionDays:          float64(toCreate.Spec.Retention.TimeInDays),
 				IngestRetentionSizeGB:  float64(toCreate.Spec.Retention.IngestSizeInGB),
 				StorageRetentionSizeGB: float64(toCreate.Spec.Retention.StorageSizeInGB),
 			}
-			Eventually(func() humioapi.Repository {
+			Eventually(func() repositoryExpectation {
 				initialRepository, err := humioClient.GetRepository(fetched)
 				if err != nil {
-					return humioapi.Repository{}
+					return repositoryExpectation{}
 				}
-				return *initialRepository
+				return repositoryExpectation{
+					Name:                   initialRepository.Name,
+					Description:            initialRepository.Description,
+					RetentionDays:          initialRepository.RetentionDays,
+					IngestRetentionSizeGB:  initialRepository.IngestRetentionSizeGB,
+					StorageRetentionSizeGB: initialRepository.StorageRetentionSizeGB,
+					SpaceUsed:              initialRepository.SpaceUsed,
+				}
 			}, testTimeout, testInterval).Should(Equal(expectedInitialRepository))
 
 			By("Updating the repository successfully")
@@ -317,25 +323,149 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(updatedRepository).ToNot(BeNil())
 
-			expectedUpdatedRepository := humioapi.Repository{
+			expectedUpdatedRepository := repositoryExpectation{
 				Name:                   toCreate.Spec.Name,
 				Description:            updatedDescription,
 				RetentionDays:          float64(toCreate.Spec.Retention.TimeInDays),
 				IngestRetentionSizeGB:  float64(toCreate.Spec.Retention.IngestSizeInGB),
 				StorageRetentionSizeGB: float64(toCreate.Spec.Retention.StorageSizeInGB),
 			}
-			Eventually(func() humioapi.Repository {
+			Eventually(func() repositoryExpectation {
 				updatedRepository, err := humioClient.GetRepository(fetched)
 				if err != nil {
-					return humioapi.Repository{}
+					return repositoryExpectation{}
 				}
-				return *updatedRepository
+
+				return repositoryExpectation{
+					Name:                   updatedRepository.Name,
+					Description:            updatedRepository.Description,
+					RetentionDays:          updatedRepository.RetentionDays,
+					IngestRetentionSizeGB:  updatedRepository.IngestRetentionSizeGB,
+					StorageRetentionSizeGB: updatedRepository.StorageRetentionSizeGB,
+					SpaceUsed:              updatedRepository.SpaceUsed,
+				}
 			}, testTimeout, testInterval).Should(Equal(expectedUpdatedRepository))
 
 			By("Successfully deleting it")
 			Expect(k8sClient.Delete(context.Background(), fetched)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(context.Background(), key, fetched)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+		})
+	})
+
+	Context("Humio View", func() {
+		It("Should handle view correctly", func() {
+			viewKey := types.NamespacedName{
+				Name:      "humioview",
+				Namespace: "default",
+			}
+
+			repositoryToCreate := &humiov1alpha1.HumioRepository{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      viewKey.Name,
+					Namespace: viewKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioRepositorySpec{
+					ManagedClusterName: "humiocluster-shared",
+					Name:               "example-repository-view",
+					Description:        "important description",
+					Retention: humiov1alpha1.HumioRetention{
+						TimeInDays:      30,
+						IngestSizeInGB:  5,
+						StorageSizeInGB: 1,
+					},
+				},
+			}
+
+			connections := make([]humiov1alpha1.HumioViewConnection, 0)
+			connections = append(connections, humiov1alpha1.HumioViewConnection{
+				RepositoryName: "example-repository-view",
+				Filter:         "*",
+			})
+			viewToCreate := &humiov1alpha1.HumioView{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      viewKey.Name,
+					Namespace: viewKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioViewSpec{
+					ManagedClusterName: "humiocluster-shared",
+					Name:               "example-view",
+					Connections:        connections,
+				},
+			}
+
+			By("Creating the repository successfully")
+			Expect(k8sClient.Create(context.Background(), repositoryToCreate)).Should(Succeed())
+
+			fetchedRepo := &humiov1alpha1.HumioRepository{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), viewKey, fetchedRepo)
+				return fetchedRepo.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
+
+			By("Creating the view successfully in k8s")
+			Expect(k8sClient.Create(context.Background(), viewToCreate)).Should(Succeed())
+
+			fetchedView := &humiov1alpha1.HumioView{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), viewKey, fetchedView)
+				return fetchedRepo.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioViewStateExists))
+
+			By("Creating the view successfully in Humio")
+			initialView, err := humioClient.GetView(viewToCreate)
+			Expect(err).To(BeNil())
+			Expect(initialView).ToNot(BeNil())
+
+			expectedInitialView := humioapi.View{
+				Name:        viewToCreate.Spec.Name,
+				Connections: viewToCreate.GetViewConnections(),
+			}
+
+			Eventually(func() humioapi.View {
+				initialView, err := humioClient.GetView(fetchedView)
+				if err != nil {
+					return humioapi.View{}
+				}
+				return *initialView
+			}, testTimeout, testInterval).Should(Equal(expectedInitialView))
+
+			By("Updating the view successfully in k8s")
+			updatedConnections := []humiov1alpha1.HumioViewConnection{
+				{
+					RepositoryName: "humio",
+					Filter:         "*",
+				},
+			}
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), viewKey, fetchedView)
+				fetchedView.Spec.Connections = updatedConnections
+				return k8sClient.Update(context.Background(), fetchedView)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Updating the view successfully in Humio")
+			updatedView, err := humioClient.GetView(fetchedView)
+			Expect(err).To(BeNil())
+			Expect(updatedView).ToNot(BeNil())
+
+			expectedUpdatedView := humioapi.View{
+				Name:        viewToCreate.Spec.Name,
+				Connections: fetchedView.GetViewConnections(),
+			}
+			Eventually(func() humioapi.View {
+				updatedView, err := humioClient.GetView(fetchedView)
+				if err != nil {
+					return humioapi.View{}
+				}
+				return *updatedView
+			}, testTimeout, testInterval).Should(Equal(expectedUpdatedView))
+
+			By("Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedView)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), viewKey, fetchedView)
 				return errors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
 		})
@@ -459,3 +589,12 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 })
+
+type repositoryExpectation struct {
+	Name                   string
+	Description            string
+	RetentionDays          float64 `graphql:"timeBasedRetention"`
+	IngestRetentionSizeGB  float64 `graphql:"ingestSizeBasedRetention"`
+	StorageRetentionSizeGB float64 `graphql:"storageSizeBasedRetention"`
+	SpaceUsed              int64   `graphql:"compressedByteSize"`
+}
