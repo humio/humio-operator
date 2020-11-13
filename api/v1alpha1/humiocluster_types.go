@@ -113,6 +113,16 @@ type HumioClusterSpec struct {
 	// HumioServiceAnnotations is the set of annotations added to the Kubernetes Service that is used to direct traffic
 	// to the Humio pods
 	HumioServiceAnnotations map[string]string `json:"humioServiceAnnotations,omitempty"`
+	// HumioServiceLabels is the set of labels added to the Kubernetes Service that is used to direct traffic
+	// to the Humio pods
+	HumioServiceLabels map[string]string `json:"humioServiceLabels,omitempty"`
+	// SidecarContainers can be used in advanced use-cases where you want one or more sidecar container added to the
+	// Humio pod to help out in debugging purposes.
+	SidecarContainers []corev1.Container `json:"sidecarContainer,omitempty"`
+	// ShareProcessNamespace can be useful in combination with SidecarContainers to be able to inspect the main Humio
+	// process. This should not be enabled, unless you need this for debugging purposes.
+	// https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/
+	ShareProcessNamespace *bool `json:"shareProcessNamespace,omitempty"`
 }
 
 // HumioClusterIngressSpec is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster
