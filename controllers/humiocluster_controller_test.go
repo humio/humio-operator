@@ -113,7 +113,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
 				Expect(pod.Annotations[podRevisionAnnotation]).To(Equal("1"))
 			}
@@ -148,7 +148,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			clusterPods, _ = kubernetes.ListPods(k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
 			Expect(clusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
 			for _, pod := range clusterPods {
-				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
 				Expect(pod.Annotations[podRevisionAnnotation]).To(Equal("2"))
 			}
@@ -191,7 +191,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIndex].Env).Should(ContainElement(toCreate.Spec.EnvironmentVariables[0]))
 			}
 
@@ -242,7 +242,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(len(clusterPods)).To(BeIdenticalTo(*toCreate.Spec.NodeCount))
 
 				for _, pod := range clusterPods {
-					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 					Expect(pod.Spec.Containers[humioIndex].Env).Should(ContainElement(updatedEnvironmentVariables[0]))
 				}
 				return true
@@ -527,7 +527,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].Args).To(Equal([]string{"-c", "export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"}))
 			}
 
@@ -544,7 +544,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() bool {
 				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 					if reflect.DeepEqual(pod.Spec.Containers[humioIdx].Args, []string{"-c", "export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat /shared/availability-zone)_ && exec bash /app/humio/run.sh"}) {
 						return true
 					}
@@ -567,7 +567,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].Args).To(Equal([]string{"-c", "export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"}))
 			}
 
@@ -583,7 +583,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() bool {
 				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 					if reflect.DeepEqual(pod.Spec.Containers[humioIdx].Args, []string{"-c", "export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_ && exec bash /app/humio/run.sh"}) {
 						return true
 					}
@@ -708,7 +708,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			createAndBootstrapCluster(toCreate)
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].SecurityContext).To(Equal(containerSecurityContextOrDefault(toCreate)))
 			}
 			By("Updating Container Security Context to be empty")
@@ -721,7 +721,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() bool {
 				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 					if !reflect.DeepEqual(pod.Spec.Containers[humioIdx].SecurityContext, &corev1.SecurityContext{}) {
 						return false
 					}
@@ -731,7 +731,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].SecurityContext).To(Equal(&corev1.SecurityContext{}))
 			}
 
@@ -753,7 +753,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				markPodsAsRunning(k8sClient, clusterPods)
 
 				for _, pod := range clusterPods {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 					return *pod.Spec.Containers[humioIdx].SecurityContext
 				}
 				return corev1.SecurityContext{}
@@ -767,7 +767,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].SecurityContext).To(Equal(&corev1.SecurityContext{
 					Capabilities: &corev1.Capabilities{
 						Add: []corev1.Capability{
@@ -791,7 +791,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			createAndBootstrapCluster(toCreate)
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElement(corev1.EnvVar{
 					Name:  "EXTRA_KAFKA_CONFIGS_FILE",
 					Value: fmt.Sprintf("/var/lib/humio/extra-kafka-configs-configmap/%s", extraKafkaPropertiesFilename),
@@ -802,7 +802,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() []corev1.VolumeMount {
 				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 					return pod.Spec.Containers[humioIdx].VolumeMounts
 				}
 				return []corev1.VolumeMount{}
@@ -848,7 +848,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() []corev1.EnvVar {
 				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 					return pod.Spec.Containers[humioIdx].Env
 				}
 				return []corev1.EnvVar{}
@@ -861,7 +861,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() []corev1.VolumeMount {
 				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 					return pod.Spec.Containers[humioIdx].VolumeMounts
 				}
 				return []corev1.VolumeMount{}
@@ -936,7 +936,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			mode := int32(420)
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElement(corev1.EnvVar{
 					Name:  "READ_GROUP_PERMISSIONS_FROM_FILE",
 					Value: "true",
@@ -976,7 +976,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() []corev1.EnvVar {
 				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 					return pod.Spec.Containers[humioIdx].Env
 				}
 				return []corev1.EnvVar{}
@@ -989,7 +989,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() []corev1.VolumeMount {
 				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 					return pod.Spec.Containers[humioIdx].VolumeMounts
 				}
 				return []corev1.VolumeMount{}
@@ -1108,7 +1108,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.Volumes).To(HaveLen(initialExpectedVolumesCount))
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].VolumeMounts).To(HaveLen(initialExpectedVolumeMountsCount))
 			}
 
@@ -1146,7 +1146,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() []corev1.VolumeMount {
 				clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 					return pod.Spec.Containers[humioIdx].VolumeMounts
 				}
 				return []corev1.VolumeMount{}
@@ -1154,7 +1154,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.Volumes).Should(ContainElement(extraVolume))
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].VolumeMounts).Should(ContainElement(extraVolumeMount))
 			}
 		})
@@ -1178,7 +1178,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Confirming PUBLIC_URL is set to default value and PROXY_PREFIX_URL is not set")
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(envVarValue(pod.Spec.Containers[humioIdx].Env, "PUBLIC_URL")).Should(Equal(fmt.Sprintf("%s://$(THIS_POD_IP):$(HUMIO_PORT)", protocol)))
 				Expect(envVarHasKey(pod.Spec.Containers[humioIdx].Env, "PROXY_PREFIX_URL")).To(BeFalse())
 			}
@@ -1195,7 +1195,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() bool {
 				clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 					if !envVarHasKey(pod.Spec.Containers[humioIdx].Env, "PROXY_PREFIX_URL") {
 						return false
 					}
@@ -1206,7 +1206,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Confirming PUBLIC_URL and PROXY_PREFIX_URL have been correctly configured")
 			clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(envVarValue(pod.Spec.Containers[humioIdx].Env, "PUBLIC_URL")).Should(Equal(fmt.Sprintf("%s://$(THIS_POD_IP):$(HUMIO_PORT)/logs", protocol)))
 				Expect(envVarHasValue(pod.Spec.Containers[humioIdx].Env, "PROXY_PREFIX_URL", "/logs")).To(BeTrue())
 			}
@@ -1240,7 +1240,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Confirming PUBLIC_URL is set to default value and PROXY_PREFIX_URL is not set")
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(envVarValue(pod.Spec.Containers[humioIdx].Env, "PUBLIC_URL")).Should(Equal("https://test-cluster.humio.com"))
 				Expect(envVarHasKey(pod.Spec.Containers[humioIdx].Env, "PROXY_PREFIX_URL")).To(BeFalse())
 			}
@@ -1257,7 +1257,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() bool {
 				clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 					if !envVarHasKey(pod.Spec.Containers[humioIdx].Env, "PROXY_PREFIX_URL") {
 						return false
 					}
@@ -1268,7 +1268,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Confirming PUBLIC_URL and PROXY_PREFIX_URL have been correctly configured")
 			clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(envVarValue(pod.Spec.Containers[humioIdx].Env, "PUBLIC_URL")).Should(Equal("https://test-cluster.humio.com/logs"))
 				Expect(envVarHasValue(pod.Spec.Containers[humioIdx].Env, "PROXY_PREFIX_URL", "/logs")).To(BeTrue())
 			}
@@ -1495,7 +1495,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Confirming init container is using the correct service account")
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetInitContainerIndexByName(pod, "init")
+				humioIdx, _ := kubernetes.GetInitContainerIndexByName(pod, initContainerName)
 				var serviceAccountSecretVolumeName string
 				for _, volumeMount := range pod.Spec.InitContainers[humioIdx].VolumeMounts {
 					if volumeMount.MountPath == "/var/run/secrets/kubernetes.io/serviceaccount" {
@@ -1513,7 +1513,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			By("Confirming auth container is using the correct service account")
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "auth")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, authContainerName)
 				var serviceAccountSecretVolumeName string
 				for _, volumeMount := range pod.Spec.Containers[humioIdx].VolumeMounts {
 					if volumeMount.MountPath == "/var/run/secrets/kubernetes.io/serviceaccount" {
@@ -1551,7 +1551,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Confirming init container is using the correct service account")
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetInitContainerIndexByName(pod, "init")
+				humioIdx, _ := kubernetes.GetInitContainerIndexByName(pod, initContainerName)
 				var serviceAccountSecretVolumeName string
 				for _, volumeMount := range pod.Spec.InitContainers[humioIdx].VolumeMounts {
 					if volumeMount.MountPath == "/var/run/secrets/kubernetes.io/serviceaccount" {
@@ -1569,7 +1569,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			By("Confirming auth container is using the correct service account")
 			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "auth")
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, authContainerName)
 				var serviceAccountSecretVolumeName string
 				for _, volumeMount := range pod.Spec.Containers[humioIdx].VolumeMounts {
 					if volumeMount.MountPath == "/var/run/secrets/kubernetes.io/serviceaccount" {
@@ -1644,6 +1644,115 @@ var _ = Describe("HumioCluster Controller", func() {
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.Tolerations).To(ContainElement(toCreate.Spec.Tolerations[0]))
 			}
+		})
+	})
+
+	Context("Humio Cluster With Service Labels", func() {
+		It("Creating cluster with custom service labels", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-custom-svc-labels",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.HumioServiceLabels = map[string]string{
+				"mirror.linkerd.io/exported": "true",
+			}
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+
+			By("Confirming service was created using the correct annotations")
+			svc, err := kubernetes.GetService(context.Background(), k8sClient, toCreate.Name, toCreate.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			for k, v := range toCreate.Spec.HumioServiceLabels {
+				Expect(svc.Labels).To(HaveKeyWithValue(k, v))
+			}
+		})
+	})
+
+	Context("Humio Cluster with shared process namespace and sidecars", func() {
+		It("Creating cluster without shared process namespace and sidecar", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-custom-sidecars",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.SidecarContainers = nil
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+
+			By("Confirming the humio pods are not using shared process namespace nor additional sidecars")
+			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			for _, pod := range clusterPods {
+				if pod.Spec.ShareProcessNamespace != nil {
+					Expect(*pod.Spec.ShareProcessNamespace).To(BeFalse())
+				}
+				Expect(pod.Spec.Containers).Should(HaveLen(2))
+			}
+
+			By("Enabling shared process namespace and sidecars")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+			updatedHumioCluster.Spec.ShareProcessNamespace = helpers.BoolPtr(true)
+			updatedHumioCluster.Spec.SidecarContainers = []corev1.Container{
+				{
+					Name:    "jmap",
+					Image:   image,
+					Command: []string{"/bin/sh"},
+					Args:    []string{"-c", "HUMIO_PID=$(ps -e | grep java | awk '{print $1'}); while :; do sleep 30 ; jmap -histo:live $HUMIO_PID | head -n203 ; done"},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "tmp",
+							MountPath: tmpPath,
+							ReadOnly:  false,
+						},
+					},
+					SecurityContext: &corev1.SecurityContext{
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{
+								"ALL",
+							},
+						},
+						Privileged:               helpers.BoolPtr(false),
+						RunAsUser:                helpers.Int64Ptr(65534),
+						RunAsNonRoot:             helpers.BoolPtr(true),
+						ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
+						AllowPrivilegeEscalation: helpers.BoolPtr(false),
+					},
+				},
+			}
+			Expect(k8sClient.Update(context.Background(), &updatedHumioCluster))
+
+			By("Confirming the humio pods use shared process namespace")
+			Eventually(func() bool {
+				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				for _, pod := range clusterPods {
+					if pod.Spec.ShareProcessNamespace != nil {
+						return *pod.Spec.ShareProcessNamespace
+					}
+				}
+				return false
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Confirming pods contain the new sidecar")
+			Eventually(func() string {
+				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				for _, pod := range clusterPods {
+					for _, container := range pod.Spec.Containers {
+						if container.Name == humioContainerName {
+							continue
+						}
+						if container.Name == authContainerName {
+							continue
+						}
+						return container.Name
+					}
+				}
+				return ""
+			}, testTimeout, testInterval).Should(Equal("jmap"))
 		})
 	})
 })
