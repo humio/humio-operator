@@ -18,11 +18,11 @@ package humio
 
 import (
 	"fmt"
-	"net/url"
-
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
+	"math/rand"
+	"net/url"
 )
 
 type ClientMock struct {
@@ -205,6 +205,7 @@ func (h *MockClientConfig) DeleteParser(hp *humiov1alpha1.HumioParser) error {
 func (h *MockClientConfig) AddRepository(hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
 	updatedApiClient := h.apiClient
 	updatedApiClient.Repository = humioapi.Repository{
+		ID:                     fmt.Sprintf("%d", rand.Int()),
 		Name:                   hr.Spec.Name,
 		Description:            hr.Spec.Description,
 		RetentionDays:          float64(hr.Spec.Retention.TimeInDays),

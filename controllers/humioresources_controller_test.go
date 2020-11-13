@@ -289,19 +289,26 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(initialRepository).ToNot(BeNil())
 
-			expectedInitialRepository := humioapi.Repository{
+			expectedInitialRepository := repositoryExpectation{
 				Name:                   toCreate.Spec.Name,
 				Description:            toCreate.Spec.Description,
 				RetentionDays:          float64(toCreate.Spec.Retention.TimeInDays),
 				IngestRetentionSizeGB:  float64(toCreate.Spec.Retention.IngestSizeInGB),
 				StorageRetentionSizeGB: float64(toCreate.Spec.Retention.StorageSizeInGB),
 			}
-			Eventually(func() humioapi.Repository {
+			Eventually(func() repositoryExpectation {
 				initialRepository, err := humioClient.GetRepository(fetched)
 				if err != nil {
-					return humioapi.Repository{}
+					return repositoryExpectation{}
 				}
-				return *initialRepository
+				return repositoryExpectation{
+					Name:                   initialRepository.Name,
+					Description:            initialRepository.Description,
+					RetentionDays:          initialRepository.RetentionDays,
+					IngestRetentionSizeGB:  initialRepository.IngestRetentionSizeGB,
+					StorageRetentionSizeGB: initialRepository.StorageRetentionSizeGB,
+					SpaceUsed:              initialRepository.SpaceUsed,
+				}
 			}, testTimeout, testInterval).Should(Equal(expectedInitialRepository))
 
 			By("Updating the repository successfully")
@@ -316,19 +323,27 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(updatedRepository).ToNot(BeNil())
 
-			expectedUpdatedRepository := humioapi.Repository{
+			expectedUpdatedRepository := repositoryExpectation{
 				Name:                   toCreate.Spec.Name,
 				Description:            updatedDescription,
 				RetentionDays:          float64(toCreate.Spec.Retention.TimeInDays),
 				IngestRetentionSizeGB:  float64(toCreate.Spec.Retention.IngestSizeInGB),
 				StorageRetentionSizeGB: float64(toCreate.Spec.Retention.StorageSizeInGB),
 			}
-			Eventually(func() humioapi.Repository {
+			Eventually(func() repositoryExpectation {
 				updatedRepository, err := humioClient.GetRepository(fetched)
 				if err != nil {
-					return humioapi.Repository{}
+					return repositoryExpectation{}
 				}
-				return *updatedRepository
+
+				return repositoryExpectation{
+					Name:                   updatedRepository.Name,
+					Description:            updatedRepository.Description,
+					RetentionDays:          updatedRepository.RetentionDays,
+					IngestRetentionSizeGB:  updatedRepository.IngestRetentionSizeGB,
+					StorageRetentionSizeGB: updatedRepository.StorageRetentionSizeGB,
+					SpaceUsed:              updatedRepository.SpaceUsed,
+				}
 			}, testTimeout, testInterval).Should(Equal(expectedUpdatedRepository))
 
 			By("Successfully deleting it")
@@ -574,3 +589,12 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 })
+
+type repositoryExpectation struct {
+	Name                   string
+	Description            string
+	RetentionDays          float64 `graphql:"timeBasedRetention"`
+	IngestRetentionSizeGB  float64 `graphql:"ingestSizeBasedRetention"`
+	StorageRetentionSizeGB float64 `graphql:"storageSizeBasedRetention"`
+	SpaceUsed              int64   `graphql:"compressedByteSize"`
+}
