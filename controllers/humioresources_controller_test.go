@@ -18,6 +18,9 @@ package controllers
 
 import (
 	"context"
+	"os"
+	"reflect"
+
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
@@ -27,8 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"os"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -341,19 +342,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 	Context("Humio View", func() {
 		It("Should handle view correctly", func() {
-			repositoryKey := types.NamespacedName{
-				Name:      "humiorepository",
+			viewKey := types.NamespacedName{
+				Name:      "humioview",
 				Namespace: "default",
 			}
 
 			repositoryToCreate := &humiov1alpha1.HumioRepository{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      repositoryKey.Name,
-					Namespace: repositoryKey.Namespace,
+					Name:      viewKey.Name,
+					Namespace: viewKey.Namespace,
 				},
 				Spec: humiov1alpha1.HumioRepositorySpec{
 					ManagedClusterName: "humiocluster-shared",
-					Name:               "example-repository",
+					Name:               "example-repository-view",
 					Description:        "important description",
 					Retention: humiov1alpha1.HumioRetention{
 						TimeInDays:      30,
@@ -361,11 +362,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 						StorageSizeInGB: 1,
 					},
 				},
-			}
-
-			viewKey := types.NamespacedName{
-				Name:      "humioview",
-				Namespace: "default",
 			}
 
 			connections := make([]humiov1alpha1.HumioViewConnection, 0)
@@ -380,7 +376,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioViewSpec{
 					ManagedClusterName: "humiocluster-shared",
-					Name:               "example-repository",
+					Name:               "example-repository-view",
 					Connections:        connections,
 				},
 			}
@@ -390,7 +386,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedRepo := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
-				k8sClient.Get(context.Background(), repositoryKey, fetchedRepo)
+				k8sClient.Get(context.Background(), viewKey, fetchedRepo)
 				return fetchedRepo.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
 
@@ -434,15 +430,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8sClient.Update(context.Background(), fetchedView)
 			}, testTimeout, testInterval).Should(Succeed())
 
-			
 			By("Updating the view successfully in Humio")
 			updatedView, err := humioClient.GetView(fetchedView)
 			Expect(err).To(BeNil())
 			Expect(updatedView).ToNot(BeNil())
 
 			expectedUpdatedView := humioapi.View{
-				Name:			viewToCreate.Spec.Name,
-				Connections:	fetchedView.GetViewConnections(),
+				Name:        viewToCreate.Spec.Name,
+				Connections: fetchedView.GetViewConnections(),
 			}
 			Eventually(func() humioapi.View {
 				updatedView, err := humioClient.GetView(fetchedView)
@@ -460,7 +455,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(BeTrue())
 		})
 	})
-
 
 	Context("Humio Parser", func() {
 		It("Should handle parser correctly", func() {

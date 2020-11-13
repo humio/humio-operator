@@ -58,8 +58,6 @@ spec:
                 - filter
                 type: object
               type: array
-            description:
-              type: string
             externalClusterName:
               type: string
             managedClusterName:

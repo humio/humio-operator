@@ -380,7 +380,7 @@ func (h *ClientConfig) UpdateView(hv *humiov1alpha1.HumioView) (*humioapi.View, 
 	}
 
 	connections := hv.GetViewConnections()
-	if reflect.DeepEqual(curView.Connections, connections)  {
+	if reflect.DeepEqual(curView.Connections, connections) {
 		return h.GetView(hv)
 	}
 
