@@ -389,9 +389,10 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 					},
 				},
 			},
-			Affinity:        affinityOrDefault(hc),
-			Tolerations:     tolerationsOrDefault(hc),
-			SecurityContext: podSecurityContextOrDefault(hc),
+			Affinity:                      affinityOrDefault(hc),
+			Tolerations:                   tolerationsOrDefault(hc),
+			SecurityContext:               podSecurityContextOrDefault(hc),
+			TerminationGracePeriodSeconds: terminationGracePeriodSecondsOrDefault(hc),
 		},
 	}
 

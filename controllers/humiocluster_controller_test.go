@@ -1755,6 +1755,54 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Equal("jmap"))
 		})
 	})
+
+	Context("Humio Cluster pod termination grace period", func() {
+		It("Should validate default configuration", func() {
+			By("Creating Humio cluster without a termination grace period set")
+			key := types.NamespacedName{
+				Name:      "humiocluster-grace-default",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.TerminationGracePeriodSeconds = nil
+
+			Eventually(func() error {
+				return k8sClient.Create(context.Background(), toCreate)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Validating pod is created with the default grace period")
+			Eventually(func() int64 {
+				clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				markPodsAsRunning(k8sClient, clusterPods)
+
+				for _, pod := range clusterPods {
+					if pod.Spec.TerminationGracePeriodSeconds != nil {
+						return *pod.Spec.TerminationGracePeriodSeconds
+					}
+				}
+				return 0
+			}, testTimeout, testInterval).Should(BeEquivalentTo(300))
+
+			By("Overriding termination grace period")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+			updatedHumioCluster.Spec.TerminationGracePeriodSeconds = helpers.Int64Ptr(120)
+			Expect(k8sClient.Update(context.Background(), &updatedHumioCluster))
+
+			By("Validating pod is recreated using the explicitly defined grace period")
+			Eventually(func() int64 {
+				clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				for _, pod := range clusterPods {
+					if pod.Spec.TerminationGracePeriodSeconds != nil {
+						return *pod.Spec.TerminationGracePeriodSeconds
+					}
+				}
+				return 0
+			}, testTimeout, testInterval).Should(BeEquivalentTo(120))
+		})
+	})
 })
 
 func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
