@@ -38,6 +38,8 @@ const (
 type HumioClusterSpec struct {
 	// Image is the desired humio container image, including the image tag
 	Image string `json:"image,omitempty"`
+	// HelperImage is the desired helper container image, including image tag
+	HelperImage string `json:"helperImage,omitempty"`
 	// AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes
 	AutoRebalancePartitions bool `json:"autoRebalancePartitions,omitempty"`
 	// TargetReplicationFactor is the desired number of replicas of both storage and ingest partitions
