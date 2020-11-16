@@ -21,9 +21,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"strings"
 
-	"github.com/Masterminds/semver"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
@@ -1903,30 +1901,27 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 		// TODO: We can drop this version comparison when we only support 1.16 and newer.
 		By("Validating cluster nodes have ZONE configured correctly")
-		versionWithZone, _ := semver.NewConstraint(">= 1.16.0")
-		clusterImage := strings.SplitN(cluster.Spec.Image, ":", 2)
-		Expect(clusterImage).To(HaveLen(2))
-		clusterImage = strings.SplitN(clusterImage[1], "-", 2)
-		clusterImageVersion, _ := semver.NewVersion(clusterImage[0])
-		if versionWithZone.Check(clusterImageVersion) {
-			By("Validating zone is set on Humio nodes")
-			Eventually(func() []string {
-				cluster, err := humioClient.GetClusters()
-				if err != nil || len(cluster.Nodes) < 1 {
-					return []string{}
-				}
-				keys := make(map[string]bool)
-				var zoneList []string
-				for _, node := range cluster.Nodes {
-					if _, value := keys[node.Zone]; !value {
-						if node.Zone != "" {
-							keys[node.Zone] = true
-							zoneList = append(zoneList, node.Zone)
+		if humioVersion, err := HumioVersionFromCluster(cluster); err != nil {
+			if ok, err := humioVersion.AtLeast(HumioVersionWhichContainsZone); ok && err != nil {
+				By("Validating zone is set on Humio nodes")
+				Eventually(func() []string {
+					cluster, err := humioClient.GetClusters()
+					if err != nil || len(cluster.Nodes) < 1 {
+						return []string{}
+					}
+					keys := make(map[string]bool)
+					var zoneList []string
+					for _, node := range cluster.Nodes {
+						if _, value := keys[node.Zone]; !value {
+							if node.Zone != "" {
+								keys[node.Zone] = true
+								zoneList = append(zoneList, node.Zone)
+							}
 						}
 					}
-				}
-				return zoneList
-			}, testTimeout, testInterval).ShouldNot(BeEmpty())
+					return zoneList
+				}, testTimeout, testInterval).ShouldNot(BeEmpty())
+			}
 		}
 	}
 }

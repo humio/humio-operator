@@ -17,6 +17,8 @@ limitations under the License.
 package controllers
 
 import (
+	"strings"
+
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
 	. "github.com/onsi/ginkgo"
@@ -118,6 +120,47 @@ var _ = Describe("HumioCluster Defaults", func() {
 					Value: "test",
 				},
 			}))
+		})
+	})
+
+	Context("Humio Cluster Log4j Environment Variable", func() {
+		It("Should contain legacy Log4J Environment Variable", func() {
+			toCreate := &humiov1alpha1.HumioCluster{
+				Spec: humiov1alpha1.HumioClusterSpec{
+					Image: "humio/humio-core:1.18.0",
+				},
+			}
+
+			setEnvironmentVariableDefaults(toCreate)
+			Expect(toCreate.Spec.EnvironmentVariables).Should(ContainElements([]corev1.EnvVar{
+				{
+					Name:  "LOG4J_CONFIGURATION",
+					Value: "log4j2-stdout-json.xml",
+				},
+			}))
+		})
+
+		It("Should contain supported Log4J Environment Variable", func() {
+			versions := []string{"1.19.0", "master", "latest"}
+			for _, version := range versions {
+				image := "humio/humio-core"
+				if version != "" {
+					image = strings.Join([]string{image, version}, ":")
+				}
+				toCreate := &humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
+						Image: image,
+					},
+				}
+
+				setEnvironmentVariableDefaults(toCreate)
+				Expect(toCreate.Spec.EnvironmentVariables).Should(ContainElements([]corev1.EnvVar{
+					{
+						Name:  "HUMIO_LOG4J_CONFIGURATION",
+						Value: "log4j2-stdout-json.xml",
+					},
+				}))
+			}
 		})
 	})
 })
