@@ -56,7 +56,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		}
 	})
 
-	// Add Tests for OpenAPI validation (or additonal CRD features) specified in
+	// Add Tests for OpenAPI validation (or additional CRD features) specified in
 	// your API definition.
 	// Avoid adding tests for vanilla CRUD operations because they would
 	// test Kubernetes API server, which isn't the goal here.
