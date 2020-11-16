@@ -278,6 +278,13 @@ func podSecurityContextOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.PodSecu
 	return hc.Spec.PodSecurityContext
 }
 
+func terminationGracePeriodSecondsOrDefault(hc *humiov1alpha1.HumioCluster) *int64 {
+	if hc.Spec.TerminationGracePeriodSeconds == nil {
+		return helpers.Int64Ptr(300)
+	}
+	return hc.Spec.TerminationGracePeriodSeconds
+}
+
 func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster) {
 	scheme := "https"
 	if !helpers.TLSEnabled(hc) {

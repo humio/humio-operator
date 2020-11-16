@@ -4801,6 +4801,13 @@ spec:
                 description: TargetReplicationFactor is the desired number of replicas
                   of both storage and ingest partitions
                 type: integer
+              terminationGracePeriodSeconds:
+                description: TerminationGracePeriodSeconds defines the amount of time
+                  to allow cluster pods to gracefully terminate before being forcefully
+                  restarted. If using bucket storage, this should allow enough time
+                  for Humio to finish uploading data to bucket storage.
+                format: int64
+                type: integer
               tls:
                 description: TLS is used to define TLS specific configuration such
                   as intra-cluster TLS settings
