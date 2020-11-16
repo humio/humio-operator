@@ -18,8 +18,6 @@ package kubernetes
 
 import (
 	"context"
-	"strconv"
-
 	corev1 "k8s.io/api/core/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,10 +32,4 @@ func ListPersistentVolumeClaims(c client.Client, humioClusterNamespace string, m
 	}
 
 	return foundPersistentVolumeClaimList.Items, nil
-}
-
-func LabelsForPersistentVolume(clusterName string, nodeID int) map[string]string {
-	labels := LabelsForHumio(clusterName)
-	labels[NodeIdLabelName] = strconv.Itoa(nodeID)
-	return labels
 }

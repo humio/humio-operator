@@ -26,6 +26,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// ConstructClusterRoleBinding constructs a cluster role binding which binds the given serviceAccountName to the
+// ClusterRole passed in as clusterRoleName
 func ConstructClusterRoleBinding(clusterRoleBindingName, clusterRoleName, humioClusterName, humioClusterNamespace, serviceAccountName string) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{

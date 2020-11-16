@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// GetService returns the given service if it exists
 func GetService(ctx context.Context, c client.Client, humioClusterName, humioClusterNamespace string) (*corev1.Service, error) {
 	var existingService corev1.Service
 	err := c.Get(ctx, types.NamespacedName{

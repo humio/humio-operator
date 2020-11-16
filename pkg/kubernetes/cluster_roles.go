@@ -26,6 +26,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// ConstructInitClusterRole returns the cluster role used by the init container to obtain information about the
+// Kubernetes worker node that the Humio cluster pod was scheduled on
 func ConstructInitClusterRole(clusterRoleName, humioClusterName string) *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{

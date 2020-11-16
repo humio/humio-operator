@@ -19,13 +19,13 @@ package kubernetes
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// ConstructRoleBinding constructs a role binding which binds the given serviceAccountName to the role passed in
 func ConstructRoleBinding(roleBindingName, roleName, humioClusterName, humioClusterNamespace, serviceAccountName string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
