@@ -137,7 +137,6 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 		productVersion = imageSplit[1]
 	}
 	userID := int64(65534)
-	helperImageTag := "humio/humio-operator-helper:0.1.0"
 
 	pod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -155,7 +154,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 			InitContainers: []corev1.Container{
 				{
 					Name:  initContainerName,
-					Image: helperImageTag,
+					Image: helperImageOrDefault(hc),
 					Env: []corev1.EnvVar{
 						{
 							Name:  "MODE",
@@ -211,7 +210,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 			Containers: []corev1.Container{
 				{
 					Name:  authContainerName,
-					Image: helperImageTag,
+					Image: helperImageOrDefault(hc),
 					Env: []corev1.EnvVar{
 						{
 							Name: "NAMESPACE",

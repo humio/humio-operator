@@ -3539,6 +3539,10 @@ spec:
                   - name
                   type: object
                 type: array
+              helperImage:
+                description: HelperImage is the desired helper container image, including
+                  image tag
+                type: string
               hostname:
                 description: Hostname is the public hostname used by clients to access
                   Humio
