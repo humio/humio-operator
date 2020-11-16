@@ -109,6 +109,7 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 
 	_, err = constructPod(hc, "", &podAttachments{})
 	if err != nil {
+		r.Log.Error(err, "got error while trying to construct pod")
 		err = r.setState(context.TODO(), humiov1alpha1.HumioClusterStateConfigError, hc)
 		if err != nil {
 			r.Log.Error(err, "unable to set cluster state")

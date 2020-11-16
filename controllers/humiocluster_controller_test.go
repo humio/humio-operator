@@ -155,6 +155,77 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster Update Helper Image", func() {
+		It("Update should correctly replace pods to use new image", func() {
+			By("Creating a cluster with default helper image")
+			key := types.NamespacedName{
+				Name:      "humiocluster-update-helper-image",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.HelperImage = ""
+			createAndBootstrapCluster(toCreate)
+
+			By("Validating pod uses default helper image as init container")
+			Eventually(func() string {
+				clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				markPodsAsRunning(k8sClient, clusterPods)
+
+				for _, pod := range clusterPods {
+					initIdx, _ := kubernetes.GetInitContainerIndexByName(pod, initContainerName)
+					return pod.Spec.InitContainers[initIdx].Image
+				}
+				return ""
+			}, testTimeout, testInterval).Should(Equal(helperImage))
+
+			By("Validating pod uses default helper image as auth sidecar container")
+			Eventually(func() string {
+				clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				markPodsAsRunning(k8sClient, clusterPods)
+
+				for _, pod := range clusterPods {
+					authIdx, _ := kubernetes.GetContainerIndexByName(pod, authContainerName)
+					return pod.Spec.InitContainers[authIdx].Image
+				}
+				return ""
+			}, testTimeout, testInterval).Should(Equal(helperImage))
+
+			By("Overriding helper image")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+			customHelperImage := "custom/helper-image:0.0.1"
+			updatedHumioCluster.Spec.HelperImage = customHelperImage
+			Expect(k8sClient.Update(context.Background(), &updatedHumioCluster))
+
+			By("Validating pod is recreated using the explicitly defined helper image as init container")
+			Eventually(func() string {
+				clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				markPodsAsRunning(k8sClient, clusterPods)
+
+				for _, pod := range clusterPods {
+					initIdx, _ := kubernetes.GetInitContainerIndexByName(pod, initContainerName)
+					return pod.Spec.InitContainers[initIdx].Image
+				}
+				return ""
+			}, testTimeout, testInterval).Should(Equal(customHelperImage))
+
+			By("Validating pod is recreated using the explicitly defined helper image as auth sidecar container")
+			Eventually(func() string {
+				clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				markPodsAsRunning(k8sClient, clusterPods)
+
+				for _, pod := range clusterPods {
+					authIdx, _ := kubernetes.GetContainerIndexByName(pod, authContainerName)
+					return pod.Spec.InitContainers[authIdx].Image
+				}
+				return ""
+			}, testTimeout, testInterval).Should(Equal(customHelperImage))
+
+		})
+	})
+
 	Context("Humio Cluster Update Environment Variable", func() {
 		It("Should correctly replace pods to use new environment variable", func() {
 			key := types.NamespacedName{
@@ -1939,8 +2010,8 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName) *humiov1alph
 			Annotations: map[string]string{autoCleanupAfterTestAnnotationName: "true"},
 		},
 		Spec: humiov1alpha1.HumioClusterSpec{
-			ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 			Image:             image,
+			ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 			NodeCount:         helpers.IntPtr(1),
 			EnvironmentVariables: []corev1.EnvVar{
 				{
