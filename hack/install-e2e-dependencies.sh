@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -ex
+
 declare -r helm_version=3.3.4
 declare -r operator_sdk_version=1.0.1
 declare -r telepresence_version=0.108
