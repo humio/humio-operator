@@ -93,6 +93,9 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	setDefaults(hc)
 	emptyResult := reconcile.Result{}
 
+	if result, err := r.ensureValidHumioVersion(context.TODO(), hc); err != nil {
+		return result, err
+	}
 	// Ensure we have a valid CA certificate to configure intra-cluster communication.
 	// Because generating the CA can take a while, we do this before we start tearing down mismatching pods
 	err = r.ensureValidCASecret(context.TODO(), hc)
@@ -1612,6 +1615,16 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 
 	// TODO: what should happen if we have more pvcs than are expected?
 	return reconcile.Result{}, nil
+}
+
+func (r *HumioClusterReconciler) ensureValidHumioVersion(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
+	hv, err := HumioVersionFromCluster(hc)
+	if err == nil {
+		return reconcile.Result{}, nil
+	}
+
+	r.Log.Error(err, fmt.Sprintf("detected invalid Humio version: %s", hv.version))
+	return reconcile.Result{}, err
 }
 
 func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *humiov1alpha1.HumioCluster, baseURL *url.URL) (reconcile.Result, error) {
