@@ -123,6 +123,10 @@ type HumioClusterSpec struct {
 	// process. This should not be enabled, unless you need this for debugging purposes.
 	// https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/
 	ShareProcessNamespace *bool `json:"shareProcessNamespace,omitempty"`
+	// TerminationGracePeriodSeconds defines the amount of time to allow cluster pods to gracefully terminate
+	// before being forcefully restarted. If using bucket storage, this should allow enough time for Humio to finish
+	// uploading data to bucket storage.
+	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 }
 
 // HumioClusterIngressSpec is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster
