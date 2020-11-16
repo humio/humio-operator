@@ -30,6 +30,7 @@ import (
 
 const (
 	image                        = "humio/humio-core:1.16.1"
+	helperImage                  = "humio/humio-operator-helper:0.1.0"
 	targetReplicationFactor      = 2
 	storagePartitionsCount       = 24
 	digestPartitionsCount        = 24
@@ -75,6 +76,13 @@ func setDefaults(hc *humiov1alpha1.HumioCluster) {
 		hc.Spec.DigestPartitionsCount = digestPartitionsCount
 	}
 
+}
+
+func helperImageOrDefault(hc *humiov1alpha1.HumioCluster) string {
+	if hc.Spec.HelperImage == "" {
+		return helperImage
+	}
+	return hc.Spec.HelperImage
 }
 
 func nodeCountOrDefault(hc *humiov1alpha1.HumioCluster) int {
