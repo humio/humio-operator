@@ -18,6 +18,7 @@ package kubernetes
 
 import (
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,12 +40,22 @@ func LabelsForHumio(clusterName string) map[string]string {
 	return labels
 }
 
+// MatchingLabelsForHumio returns a MatchingLabels which can be passed on to the Kubernetes client to only return
+// objects related to a specific HumioCluster instance
 func MatchingLabelsForHumio(clusterName string) client.MatchingLabels {
 	var matchingLabels client.MatchingLabels
 	matchingLabels = LabelsForHumio(clusterName)
 	return matchingLabels
 }
 
+// LabelsForHumioNodeID returns a set of labels for a specific pod given the name of the cluster and the Humio node ID
+func LabelsForHumioNodeID(clusterName string, nodeID int) map[string]string {
+	labels := LabelsForHumio(clusterName)
+	labels[NodeIdLabelName] = strconv.Itoa(nodeID)
+	return labels
+}
+
+// LabelListContainsLabel returns true if the set of labels contain a label with the specified name
 func LabelListContainsLabel(labelList map[string]string, label string) bool {
 	for labelName := range labelList {
 		if labelName == label {
@@ -54,6 +65,7 @@ func LabelListContainsLabel(labelList map[string]string, label string) bool {
 	return false
 }
 
+// RandomString returns a string of fixed length. The random strings are valid to use in Kubernetes object names.
 func RandomString() string {
 	rand.Seed(time.Now().UnixNano())
 	chars := []rune("abcdefghijklmnopqrstuvwxyz")

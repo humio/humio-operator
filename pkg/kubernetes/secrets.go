@@ -37,12 +37,15 @@ func LabelsForSecret(clusterName string, secretName string) map[string]string {
 	return labels
 }
 
+// MatchingLabelsForSecret returns a MatchingLabels which can be passed on to the Kubernetes client to only return
+// secrets related to a specific HumioCluster instance
 func MatchingLabelsForSecret(clusterName, secretName string) client.MatchingLabels {
 	var matchingLabels client.MatchingLabels
 	matchingLabels = LabelsForSecret(clusterName, secretName)
 	return matchingLabels
 }
 
+// ConstructSecret returns an opaque secret which holds the given data
 func ConstructSecret(humioClusterName, humioClusterNamespace, secretName string, data map[string][]byte) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -54,6 +57,7 @@ func ConstructSecret(humioClusterName, humioClusterNamespace, secretName string,
 	}
 }
 
+// ConstructServiceAccountSecret returns a secret which holds the service account token for the given service account name
 func ConstructServiceAccountSecret(humioClusterName, humioClusterNamespace, secretName string, serviceAccountName string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -66,6 +70,7 @@ func ConstructServiceAccountSecret(humioClusterName, humioClusterNamespace, secr
 	}
 }
 
+// ListSecrets returns all secrets in a given namespace which matches the label selector
 func ListSecrets(ctx context.Context, c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]corev1.Secret, error) {
 	var foundSecretList corev1.SecretList
 	err := c.List(ctx, &foundSecretList, client.InNamespace(humioClusterNamespace), matchingLabels)
@@ -76,6 +81,7 @@ func ListSecrets(ctx context.Context, c client.Client, humioClusterNamespace str
 	return foundSecretList.Items, nil
 }
 
+// GetSecret returns the given service if it exists
 func GetSecret(ctx context.Context, c client.Client, secretName, humioClusterNamespace string) (*corev1.Secret, error) {
 	var existingSecret corev1.Secret
 	err := c.Get(ctx, types.NamespacedName{

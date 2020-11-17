@@ -6,7 +6,5 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: helm v2 lint
-        run: docker run --rm --volume $GITHUB_WORKSPACE:/workspace --workdir /workspace alpine/helm:2.16.9 lint charts/humio-operator
       - name: helm v3 lint
         run: docker run --rm --volume $GITHUB_WORKSPACE:/workspace --workdir /workspace alpine/helm:3.3.4 lint charts/humio-operator
