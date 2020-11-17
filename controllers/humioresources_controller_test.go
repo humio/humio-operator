@@ -411,7 +411,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
 				k8sClient.Get(context.Background(), viewKey, fetchedView)
-				return fetchedRepo.Status.State
+				return fetchedView.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioViewStateExists))
 
 			By("Creating the view successfully in Humio")
