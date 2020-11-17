@@ -128,7 +128,10 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 			r.Log.Error(err, "unable to set cluster state")
 			return reconcile.Result{}, err
 		}
-		r.incrementHumioClusterPodRevision(context.TODO(), hc, PodRestartPolicyRolling)
+		if _, err := r.incrementHumioClusterPodRevision(context.TODO(), hc, PodRestartPolicyRolling); err != nil {
+			r.Log.Error(err, "unable to increment pod revision")
+			return reconcile.Result{}, err
+		}
 	}
 
 	result, err = r.ensureHumioServiceAccountAnnotations(context.TODO(), hc)
@@ -1421,17 +1424,21 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 				if desiredLifecycleState.restartPolicy == PodRestartPolicyRecreate {
 					if err = r.setState(ctx, humiov1alpha1.HumioClusterStateUpgrading, hc); err != nil {
 						r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateUpgrading))
+						return reconcile.Result{}, err
 					}
 					if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRecreate); err != nil {
 						r.Log.Error(err, fmt.Sprintf("failed to increment pod revision to %d", revision))
+						return reconcile.Result{}, err
 					}
 				}
 				if desiredLifecycleState.restartPolicy == PodRestartPolicyRolling {
 					if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRestarting, hc); err != nil {
 						r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRestarting))
+						return reconcile.Result{}, err
 					}
 					if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRolling); err != nil {
 						r.Log.Error(err, fmt.Sprintf("failed to increment pod revision to %d", revision))
+						return reconcile.Result{}, err
 					}
 				}
 			}
@@ -1458,6 +1465,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 			r.Log.Info(fmt.Sprintf("no longer deleting pods. changing cluster state from %s to %s", hc.Status.State, humiov1alpha1.HumioClusterStateRunning))
 			if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc); err != nil {
 				r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning))
+				return reconcile.Result{}, err
 			}
 		}
 	}
