@@ -26,6 +26,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// ConstructExtraKafkaConfigsConfigMap constructs the ConfigMap object used to store the file which is passed on to
+// Humio using the configuration option EXTRA_KAFKA_CONFIGS_FILE
 func ConstructExtraKafkaConfigsConfigMap(extraKafkaConfigsConfigMapName, extraKafkaPropertiesFilename, extraKafkaConfigsConfigMapData, humioClusterName, humioClusterNamespace string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -37,6 +39,8 @@ func ConstructExtraKafkaConfigsConfigMap(extraKafkaConfigsConfigMapName, extraKa
 	}
 }
 
+// ConstructViewGroupPermissionsConfigMap constructs a ConfigMap object used to store the file which Humio uses when
+// enabling READ_GROUP_PERMISSIONS_FROM_FILE to control RBAC using a file rather than the Humio UI
 func ConstructViewGroupPermissionsConfigMap(viewGroupPermissionsConfigMapName, viewGroupPermissionsFilename, viewGroupPermissionsConfigMapData, humioClusterName, humioClusterNamespace string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{

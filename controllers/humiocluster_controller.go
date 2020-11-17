@@ -465,6 +465,10 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 				if rule.Host == "" {
 					r.Log.Info(fmt.Sprintf("hostname not defined for ingress object, deleting ingress object with name %s", existingIngress.Name))
 					err = r.Delete(ctx, existingIngress)
+					if err != nil {
+						r.Log.Error(err, "unable to delete ingress object")
+						return err
+					}
 				}
 			}
 			r.Log.Info(fmt.Sprintf("ingress object already exists, there is a difference between expected vs existing, updating ingress object with name %s", desiredIngress.Name))
@@ -1045,7 +1049,7 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1al
 		r.Log.Info(fmt.Sprintf("setting labels for nodes: %#+v", cluster.Nodes))
 		for _, node := range cluster.Nodes {
 			if node.Uri == fmt.Sprintf("http://%s:%d", pod.Status.PodIP, humioPort) {
-				labels := kubernetes.LabelsForPod(hc.Name, node.Id)
+				labels := kubernetes.LabelsForHumioNodeID(hc.Name, node.Id)
 				r.Log.Info(fmt.Sprintf("setting labels for pod %s, labels=%v", pod.Name, labels))
 				pod.SetLabels(labels)
 				if err := r.Update(ctx, &pod); err != nil {
@@ -1078,7 +1082,7 @@ func (r *HumioClusterReconciler) ensurePvcLabels(ctx context.Context, hc *humiov
 	if err != nil {
 		return fmt.Errorf("unable to set label on pvc, nodeid %v is invalid: %s", pod.Labels[kubernetes.NodeIdLabelName], err)
 	}
-	labels := kubernetes.LabelsForPersistentVolume(hc.Name, nodeId)
+	labels := kubernetes.LabelsForHumioNodeID(hc.Name, nodeId)
 	r.Log.Info(fmt.Sprintf("setting labels for pvc %s, labels=%v", pvc.Name, labels))
 	pvc.SetLabels(labels)
 	if err := r.Update(ctx, &pvc); err != nil {

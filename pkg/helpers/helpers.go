@@ -28,6 +28,7 @@ import (
 	humioapi "github.com/humio/cli/api"
 )
 
+// GetTypeName returns the name of the type of object which is obtained by using reflection
 func GetTypeName(myvar interface{}) string {
 	t := reflect.TypeOf(myvar)
 	if t.Kind() == reflect.Ptr {
@@ -36,6 +37,7 @@ func GetTypeName(myvar interface{}) string {
 	return t.Name()
 }
 
+// ContainsElement returns true if 's' is an element in the list
 func ContainsElement(list []string, s string) bool {
 	for _, v := range list {
 		if v == s {
@@ -45,6 +47,7 @@ func ContainsElement(list []string, s string) bool {
 	return false
 }
 
+// RemoveElement returns a list where the element 's' has been removed
 func RemoveElement(list []string, s string) []string {
 	for i, v := range list {
 		if v == s {
@@ -55,6 +58,8 @@ func RemoveElement(list []string, s string) []string {
 }
 
 // TODO: refactor, this is copied from the humio/cli/api/parsers.go
+// MapTests returns a matching slice of ParserTestCase, which is generated using the slice of strings and a function
+// for obtaining the ParserTestCase elements from each string.
 func MapTests(vs []string, f func(string) humioapi.ParserTestCase) []humioapi.ParserTestCase {
 	vsm := make([]humioapi.ParserTestCase, len(vs))
 	for i, v := range vs {
@@ -64,6 +69,7 @@ func MapTests(vs []string, f func(string) humioapi.ParserTestCase) []humioapi.Pa
 }
 
 // TODO: refactor, this is copied from the humio/cli/api/parsers.go
+// ToTestCase takes the input string of a ParserTestCase and returns a ParserTestCase object using the input string
 func ToTestCase(line string) humioapi.ParserTestCase {
 	return humioapi.ParserTestCase{
 		Input:  line,

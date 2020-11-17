@@ -25,6 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// ConstructServiceAccount constructs and returns a service account which can be used for the given cluster and which
+// will contain the specified annotations on the service account
 func ConstructServiceAccount(serviceAccountName, humioClusterName, humioClusterNamespace string, serviceAccountAnnotations map[string]string) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{

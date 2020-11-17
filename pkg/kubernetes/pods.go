@@ -19,8 +19,6 @@ package kubernetes
 import (
 	"context"
 	"fmt"
-	"strconv"
-
 	corev1 "k8s.io/api/core/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,12 +35,8 @@ func ListPods(c client.Client, humioClusterNamespace string, matchingLabels clie
 	return foundPodList.Items, nil
 }
 
-func LabelsForPod(clusterName string, nodeID int) map[string]string {
-	labels := LabelsForHumio(clusterName)
-	labels[NodeIdLabelName] = strconv.Itoa(nodeID)
-	return labels
-}
-
+// GetContainerIndexByName returns the index of the container in the list of containers of a pod.
+// If no container is found with the given name in the pod, an error is returned.
 func GetContainerIndexByName(pod corev1.Pod, name string) (int, error) {
 	for idx, container := range pod.Spec.Containers {
 		if container.Name == name {
@@ -52,6 +46,8 @@ func GetContainerIndexByName(pod corev1.Pod, name string) (int, error) {
 	return 0, fmt.Errorf("container with name %s not found", name)
 }
 
+// GetInitContainerIndexByName returns the index of the init container in the list of init containers of a pod.
+// If no init container is found with the given name in the pod, an error is returned.
 func GetInitContainerIndexByName(pod corev1.Pod, name string) (int, error) {
 	for idx, container := range pod.Spec.InitContainers {
 		if container.Name == name {
