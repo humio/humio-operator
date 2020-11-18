@@ -8,6 +8,8 @@ operator:
       enabled: false
   rbac:
     create: true
+    allowManageRoles: true
+    allowManageClusterRoles: true
   resources:
     limits:
       cpu: 250m
