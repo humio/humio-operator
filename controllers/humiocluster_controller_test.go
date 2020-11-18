@@ -190,12 +190,15 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			By("Overriding helper image")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
-			Eventually(func() error {
-				return k8sClient.Get(context.Background(), key, &updatedHumioCluster)
-			}, testTimeout, testInterval).Should(Succeed())
 			customHelperImage := "custom/helper-image:0.0.1"
-			updatedHumioCluster.Spec.HelperImage = customHelperImage
-			Expect(k8sClient.Update(context.Background(), &updatedHumioCluster))
+			Eventually(func() error {
+				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.HelperImage = customHelperImage
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
 
 			By("Validating pod is recreated using the explicitly defined helper image as init container")
 			Eventually(func() string {
@@ -536,7 +539,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(context.Background(), &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
 			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
-			Expect(k8sClient.Delete(context.Background(), constructService(&updatedHumioCluster)))
+			Expect(k8sClient.Delete(context.Background(), constructService(&updatedHumioCluster))).To(Succeed())
 			Eventually(func() corev1.ServiceType {
 				svc, _ = kubernetes.GetService(context.Background(), k8sClient, key.Name, key.Namespace)
 				return svc.Spec.Type
@@ -550,7 +553,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
-			Expect(k8sClient.Delete(context.Background(), constructService(&updatedHumioCluster)))
+			Expect(k8sClient.Delete(context.Background(), constructService(&updatedHumioCluster))).To(Succeed())
 			Eventually(func() int32 {
 				svc, _ = kubernetes.GetService(context.Background(), k8sClient, key.Name, key.Namespace)
 				for _, port := range svc.Spec.Ports {
@@ -569,7 +572,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
-			Expect(k8sClient.Delete(context.Background(), constructService(&updatedHumioCluster)))
+			Expect(k8sClient.Delete(context.Background(), constructService(&updatedHumioCluster))).To(Succeed())
 			Eventually(func() int32 {
 				svc, _ = kubernetes.GetService(context.Background(), k8sClient, key.Name, key.Namespace)
 				for _, port := range svc.Spec.Ports {
@@ -1503,12 +1506,15 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			By("Setting the ESHostname")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
-			Eventually(func() error {
-				return k8sClient.Get(context.Background(), key, &updatedHumioCluster)
-			}, testTimeout, testInterval).Should(Succeed())
 			esHostname := "test-cluster-es.humio.com"
-			updatedHumioCluster.Spec.ESHostname = esHostname
-			Expect(k8sClient.Update(context.Background(), &updatedHumioCluster))
+			Eventually(func() error {
+				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.ESHostname = esHostname
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
 
 			By("Confirming ingresses for ES Hostname gets created")
 			Eventually(func() []v1beta1.Ingress {
@@ -1526,10 +1532,13 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			By("Removing the ESHostname")
 			Eventually(func() error {
-				return k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.ESHostname = ""
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
-			updatedHumioCluster.Spec.ESHostname = ""
-			Expect(k8sClient.Update(context.Background(), &updatedHumioCluster))
 
 			By("Confirming ingresses for ES Hostname gets removed")
 			Eventually(func() []v1beta1.Ingress {
@@ -1763,37 +1772,42 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Enabling shared process namespace and sidecars")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
-				return k8sClient.Get(context.Background(), key, &updatedHumioCluster)
-			}, testTimeout, testInterval).Should(Succeed())
-			updatedHumioCluster.Spec.ShareProcessNamespace = helpers.BoolPtr(true)
-			updatedHumioCluster.Spec.SidecarContainers = []corev1.Container{
-				{
-					Name:    "jmap",
-					Image:   image,
-					Command: []string{"/bin/sh"},
-					Args:    []string{"-c", "HUMIO_PID=$(ps -e | grep java | awk '{print $1'}); while :; do sleep 30 ; jmap -histo:live $HUMIO_PID | head -n203 ; done"},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "tmp",
-							MountPath: tmpPath,
-							ReadOnly:  false,
-						},
-					},
-					SecurityContext: &corev1.SecurityContext{
-						Capabilities: &corev1.Capabilities{
-							Drop: []corev1.Capability{
-								"ALL",
+				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+
+				updatedHumioCluster.Spec.ShareProcessNamespace = helpers.BoolPtr(true)
+				updatedHumioCluster.Spec.SidecarContainers = []corev1.Container{
+					{
+						Name:    "jmap",
+						Image:   image,
+						Command: []string{"/bin/sh"},
+						Args:    []string{"-c", "HUMIO_PID=$(ps -e | grep java | awk '{print $1'}); while :; do sleep 30 ; jmap -histo:live $HUMIO_PID | head -n203 ; done"},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      "tmp",
+								MountPath: tmpPath,
+								ReadOnly:  false,
 							},
 						},
-						Privileged:               helpers.BoolPtr(false),
-						RunAsUser:                helpers.Int64Ptr(65534),
-						RunAsNonRoot:             helpers.BoolPtr(true),
-						ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
-						AllowPrivilegeEscalation: helpers.BoolPtr(false),
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{
+									"ALL",
+								},
+							},
+							Privileged:               helpers.BoolPtr(false),
+							RunAsUser:                helpers.Int64Ptr(65534),
+							RunAsNonRoot:             helpers.BoolPtr(true),
+							ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
+							AllowPrivilegeEscalation: helpers.BoolPtr(false),
+						},
 					},
-				},
-			}
-			Expect(k8sClient.Update(context.Background(), &updatedHumioCluster))
+				}
+
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
 
 			By("Confirming the humio pods use shared process namespace")
 			Eventually(func() bool {
@@ -1855,10 +1869,13 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Overriding termination grace period")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
-				return k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.TerminationGracePeriodSeconds = helpers.Int64Ptr(120)
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
-			updatedHumioCluster.Spec.TerminationGracePeriodSeconds = helpers.Int64Ptr(120)
-			Expect(k8sClient.Update(context.Background(), &updatedHumioCluster))
 
 			By("Validating pod is recreated using the explicitly defined grace period")
 			Eventually(func() int64 {
