@@ -266,7 +266,7 @@ var _ = BeforeSuite(func(done Done) {
 				Groups:                 nil,
 				SeccompProfiles:        nil,
 			}
-			Expect(k8sClient.Create(context.Background(), &scc))
+			Expect(k8sClient.Create(context.Background(), &scc)).To(Succeed())
 		}
 	}
 
