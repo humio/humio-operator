@@ -38,6 +38,16 @@ import (
 
 const autoCleanupAfterTestAnnotationName = "humio.com/auto-cleanup-after-test"
 
+// TODO: refactor, this is copied from humio/humio-operator/images/helper/main.go
+const (
+	// apiTokenMethodAnnotationName is used to signal what mechanism was used to obtain the API token
+	apiTokenMethodAnnotationName = "humio.com/api-token-method"
+	// apiTokenMethodFromAPI is used to indicate that the API token was obtained using an API call
+	apiTokenMethodFromAPI = "api"
+	// apiTokenMethodFromFile is used to indicate that the API token was obtained using the global snapshot file
+	apiTokenMethodFromFile = "file"
+)
+
 var _ = Describe("HumioCluster Controller", func() {
 
 	BeforeEach(func() {
@@ -1985,6 +1995,29 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 			Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix),
 		}, &corev1.Secret{})
 	}, testTimeout, testInterval).Should(Succeed())
+
+	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+		By("Validating API token was obtained using the expected method")
+		humioVersion, err := HumioVersionFromCluster(cluster)
+		Expect(err).ToNot(HaveOccurred())
+		var apiTokenSecret corev1.Secret
+		Eventually(func() error {
+			return k8sClient.Get(context.Background(), types.NamespacedName{
+				Namespace: key.Namespace,
+				Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix),
+			}, &apiTokenSecret)
+		}, testTimeout, testInterval).Should(Succeed())
+
+		ok, err := humioVersion.AtLeast(HumioVersionWhichContainsAPITokenRotationMutation)
+		Expect(err).ToNot(HaveOccurred())
+		if ok {
+			By(fmt.Sprintf("Should be using API because of image %s", cluster.Spec.Image))
+			Expect(apiTokenSecret.Annotations).Should(HaveKeyWithValue(apiTokenMethodAnnotationName, apiTokenMethodFromAPI))
+		} else {
+			By(fmt.Sprintf("Should be using File because of image %s", cluster.Spec.Image))
+			Expect(apiTokenSecret.Annotations).Should(HaveKeyWithValue(apiTokenMethodAnnotationName, apiTokenMethodFromFile))
+		}
+	}
 
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 		// TODO: We can drop this version comparison when we only support 1.16 and newer.
