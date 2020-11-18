@@ -44,6 +44,15 @@ const localAdminTokenFile = "/data/humio-data/local-admin-token.txt"
 const globalSnapshotFile = "/data/humio-data/global-data-snapshot.json"
 const adminAccountUserName = "admin" // TODO: Pull this from an environment variable
 
+const (
+	// apiTokenMethodAnnotationName is used to signal what mechanism was used to obtain the API token
+	apiTokenMethodAnnotationName = "humio.com/api-token-method"
+	// apiTokenMethodFromAPI is used to indicate that the API token was obtained using an API call
+	apiTokenMethodFromAPI = "api"
+	// apiTokenMethodFromFile is used to indicate that the API token was obtained using the global snapshot file
+	apiTokenMethodFromFile = "file"
+)
+
 // getFileContent returns the content of a file as a string
 func getFileContent(filePath string) string {
 	data, err := ioutil.ReadFile(filePath)
@@ -63,13 +72,13 @@ func createNewAdminUser(client *humio.Client) error {
 }
 
 // getApiTokenForUserID returns the API token for the given user ID
-func getApiTokenForUserID(client *humio.Client, snapShotFile, userID string) (string, error) {
+func getApiTokenForUserID(client *humio.Client, snapShotFile, userID string) (string, string, error) {
 	// Try using the API to rotate and get the API token
 	token, err := client.Users().RotateUserApiTokenAndGet(userID)
 	if err == nil {
 		// If API works, return the token
 		fmt.Printf("got api token using api\n")
-		return token, nil
+		return token, apiTokenMethodFromAPI, nil
 	}
 
 	// If we had issues using the API for extracting the API token we can grab it from global snapshot file
@@ -77,7 +86,7 @@ func getApiTokenForUserID(client *humio.Client, snapShotFile, userID string) (st
 	//       When that happens we can also lower resource requests/limits for the auth sidecar container.
 	op, err := jq.Parse(fmt.Sprintf(".users.%s.entity.apiToken", userID))
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	snapShotFileContent := getFileContent(snapShotFile)
@@ -85,10 +94,10 @@ func getApiTokenForUserID(client *humio.Client, snapShotFile, userID string) (st
 	apiToken := strings.ReplaceAll(string(data), "\"", "")
 	if string(data) != "" {
 		fmt.Printf("got api token using global snapshot file\n")
-		return apiToken, nil
+		return apiToken, apiTokenMethodFromFile, nil
 	}
 
-	return "", fmt.Errorf("could not find apiToken for userID: %s", userID)
+	return "", "", fmt.Errorf("could not find apiToken for userID: %s", userID)
 }
 
 type user struct {
@@ -234,7 +243,7 @@ func validateAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName
 }
 
 // ensureAdminSecretContent ensures the target Kubernetes secret contains the desired API token
-func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, adminSecretNameSuffix, desiredAPIToken string) error {
+func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, adminSecretNameSuffix, desiredAPIToken, methodUsedToObtainToken string) error {
 	// Get existing Kubernetes secret
 	adminSecretName := fmt.Sprintf("%s-%s", clusterName, adminSecretNameSuffix)
 	secret, err := clientset.CoreV1().Secrets(namespace).Get(context.TODO(), adminSecretName, metav1.GetOptions{})
@@ -245,6 +254,9 @@ func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, 
 				Name:      adminSecretName,
 				Namespace: namespace,
 				Labels:    labelsForHumio(clusterName),
+				Annotations: map[string]string{
+					apiTokenMethodAnnotationName: methodUsedToObtainToken,
+				},
 			},
 			StringData: map[string]string{
 				"token": desiredAPIToken,
@@ -386,7 +398,7 @@ func authMode() {
 		}
 
 		// Get API token for user ID of admin account
-		apiToken, err := getApiTokenForUserID(humioClient, globalSnapshotFile, userID)
+		apiToken, methodUsed, err := getApiTokenForUserID(humioClient, globalSnapshotFile, userID)
 		if err != nil {
 			fmt.Printf("got err trying to obtain api token of admin user: %s\n", err)
 			time.Sleep(5 * time.Second)
@@ -394,7 +406,7 @@ func authMode() {
 		}
 
 		// Update Kubernetes secret if needed
-		err = ensureAdminSecretContent(clientset, namespace, clusterName, adminSecretNameSuffix, apiToken)
+		err = ensureAdminSecretContent(clientset, namespace, clusterName, adminSecretNameSuffix, apiToken, methodUsed)
 		if err != nil {
 			fmt.Printf("got error ensuring k8s secret contains apiToken: %s\n", err)
 			time.Sleep(5 * time.Second)
