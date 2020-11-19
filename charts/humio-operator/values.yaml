@@ -3,6 +3,7 @@ operator:
     repository: humio/humio-operator
     tag: 0.2.0
     pullPolicy: IfNotPresent
+    pullSecrets: []
   prometheus:
     serviceMonitor:
       enabled: false
