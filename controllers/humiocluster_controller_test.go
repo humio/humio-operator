@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
@@ -78,6 +79,20 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+		})
+	})
+
+	Context("Humio Cluster Without Init Container", func() {
+		It("Should bootstrap cluster correctly", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-no-init-container",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.DisableInitContainer = true
 
 			By("Creating the cluster successfully")
 			createAndBootstrapCluster(toCreate)
@@ -1454,6 +1469,31 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			k8sClient.Delete(context.Background(), &updatedHumioCluster)
 		})
+		It("Creating cluster with higher replication factor than nodes", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-err-repl-factor",
+				Namespace: "default",
+			}
+			cluster := &humiov1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioClusterSpec{
+					TargetReplicationFactor: 2,
+					NodeCount:               helpers.IntPtr(1),
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), cluster)).Should(Succeed())
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			By("should indicate cluster configuration error")
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			k8sClient.Delete(context.Background(), &updatedHumioCluster)
+		})
 	})
 
 	Context("Humio Cluster Without TLS for Ingress", func() {
@@ -1913,20 +1953,22 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 		Expect(k8sClient.Create(context.Background(), humioServiceAccount)).To(Succeed())
 	}
 
-	if cluster.Spec.InitServiceAccountName != "" {
-		if cluster.Spec.InitServiceAccountName != cluster.Spec.HumioServiceAccountName {
-			By("Creating service account for init container")
-			initServiceAccount := kubernetes.ConstructServiceAccount(cluster.Spec.InitServiceAccountName, cluster.Name, cluster.Namespace, map[string]string{})
-			Expect(k8sClient.Create(context.Background(), initServiceAccount)).To(Succeed())
+	if !cluster.Spec.DisableInitContainer {
+		if cluster.Spec.InitServiceAccountName != "" {
+			if cluster.Spec.InitServiceAccountName != cluster.Spec.HumioServiceAccountName {
+				By("Creating service account for init container")
+				initServiceAccount := kubernetes.ConstructServiceAccount(cluster.Spec.InitServiceAccountName, cluster.Name, cluster.Namespace, map[string]string{})
+				Expect(k8sClient.Create(context.Background(), initServiceAccount)).To(Succeed())
+			}
+
+			By("Creating cluster role for init container")
+			initClusterRole := kubernetes.ConstructInitClusterRole(cluster.Spec.InitServiceAccountName, key.Name)
+			Expect(k8sClient.Create(context.Background(), initClusterRole)).To(Succeed())
+
+			By("Creating cluster role binding for init container")
+			initClusterRoleBinding := kubernetes.ConstructClusterRoleBinding(cluster.Spec.InitServiceAccountName, initClusterRole.Name, key.Name, key.Namespace, cluster.Spec.InitServiceAccountName)
+			Expect(k8sClient.Create(context.Background(), initClusterRoleBinding)).To(Succeed())
 		}
-
-		By("Creating cluster role for init container")
-		initClusterRole := kubernetes.ConstructInitClusterRole(cluster.Spec.InitServiceAccountName, key.Name)
-		Expect(k8sClient.Create(context.Background(), initClusterRole)).To(Succeed())
-
-		By("Creating cluster role binding for init container")
-		initClusterRoleBinding := kubernetes.ConstructClusterRoleBinding(cluster.Spec.InitServiceAccountName, initClusterRole.Name, key.Name, key.Namespace, cluster.Spec.InitServiceAccountName)
-		Expect(k8sClient.Create(context.Background(), initClusterRoleBinding)).To(Succeed())
 	}
 
 	if cluster.Spec.AuthServiceAccountName != "" {
@@ -1962,6 +2004,19 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 		markPodsAsRunning(k8sClient, clusterPods)
 		return clusterPods
 	}, testTimeout, testInterval).Should(HaveLen(*cluster.Spec.NodeCount))
+
+	humioIdx, err := kubernetes.GetContainerIndexByName(clusterPods[0], humioContainerName)
+	Expect(err).ToNot(HaveOccurred())
+	humioContainerArgs := strings.Join(clusterPods[0].Spec.Containers[humioIdx].Args, " ")
+	if cluster.Spec.DisableInitContainer {
+		By("Confirming pods do not use init container")
+		Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(0))
+		Expect(humioContainerArgs).ToNot(ContainSubstring("export ZONE="))
+	} else {
+		By("Confirming pods have an init container")
+		Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(1))
+		Expect(humioContainerArgs).To(ContainSubstring("export ZONE="))
+	}
 
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
 		// Simulate sidecar creating the secret which contains the admin token use to authenticate with humio
@@ -2055,9 +2110,10 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName) *humiov1alph
 			Annotations: map[string]string{autoCleanupAfterTestAnnotationName: "true"},
 		},
 		Spec: humiov1alpha1.HumioClusterSpec{
-			Image:             image,
-			ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
-			NodeCount:         helpers.IntPtr(1),
+			Image:                   image,
+			ExtraKafkaConfigs:       "security.protocol=PLAINTEXT",
+			NodeCount:               helpers.IntPtr(1),
+			TargetReplicationFactor: 1,
 			EnvironmentVariables: []corev1.EnvVar{
 				{
 					Name:  "HUMIO_JVM_ARGS",

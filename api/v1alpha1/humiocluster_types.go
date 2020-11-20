@@ -40,7 +40,11 @@ type HumioClusterSpec struct {
 	Image string `json:"image,omitempty"`
 	// HelperImage is the desired helper container image, including image tag
 	HelperImage string `json:"helperImage,omitempty"`
-	// AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes
+	// DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
+	// This is not recommended, unless you are using auto rebalancing partitions and are running in a single single availability zone.
+	DisableInitContainer bool `json:"disableInitContainer,omitempty"`
+	// AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes.
+	// If all Kubernetes worker nodes are located in the same availability zone, you must set DisableInitContainer to true to use auto rebalancing of partitions.
 	AutoRebalancePartitions bool `json:"autoRebalancePartitions,omitempty"`
 	// TargetReplicationFactor is the desired number of replicas of both storage and ingest partitions
 	TargetReplicationFactor int `json:"targetReplicationFactor,omitempty"`
