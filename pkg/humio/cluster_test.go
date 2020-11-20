@@ -484,7 +484,7 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 func TestClusterController_RebalanceStoragePartitions(t *testing.T) {
 	type fields struct {
 		client             Client
-		expectedPartitions *[]humioapi.StoragePartition
+		expectedPartitions []humioapi.StoragePartition
 	}
 	type args struct {
 		hc *humiov1alpha1.HumioCluster
@@ -525,7 +525,7 @@ func TestClusterController_RebalanceStoragePartitions(t *testing.T) {
 							Id: 2,
 						},
 					}}, nil, nil, nil, ""),
-				&[]humioapi.StoragePartition{
+				[]humioapi.StoragePartition{
 					{
 						Id:      0,
 						NodeIds: []int{0, 1},
@@ -564,8 +564,8 @@ func TestClusterController_RebalanceStoragePartitions(t *testing.T) {
 			if err := c.RebalanceStoragePartitions(tt.args.hc); (err != nil) != tt.wantErr {
 				t.Errorf("ClusterController.RebalanceStoragePartitions() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			if sps, _ := c.client.GetStoragePartitions(); !reflect.DeepEqual(*sps, *tt.fields.expectedPartitions) {
-				t.Errorf("ClusterController.GetStoragePartitions() expected = %v, want %v", *tt.fields.expectedPartitions, *sps)
+			if cluster, _ := c.client.GetClusters(); !reflect.DeepEqual(cluster.StoragePartitions, tt.fields.expectedPartitions) {
+				t.Errorf("ClusterController.GetCluster() expected = %v, want %v", tt.fields.expectedPartitions, cluster.StoragePartitions)
 			}
 			got, err := c.AreStoragePartitionsBalanced(tt.args.hc)
 			if (err != nil) != tt.wantErr {
@@ -776,7 +776,7 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 func TestClusterController_RebalanceIngestPartitions(t *testing.T) {
 	type fields struct {
 		client             Client
-		expectedPartitions *[]humioapi.IngestPartition
+		expectedPartitions []humioapi.IngestPartition
 	}
 	type args struct {
 		hc *humiov1alpha1.HumioCluster
@@ -817,7 +817,7 @@ func TestClusterController_RebalanceIngestPartitions(t *testing.T) {
 							Id: 2,
 						},
 					}}, nil, nil, nil, ""),
-				&[]humioapi.IngestPartition{
+				[]humioapi.IngestPartition{
 					{
 						Id:      0,
 						NodeIds: []int{0, 1},
@@ -856,8 +856,8 @@ func TestClusterController_RebalanceIngestPartitions(t *testing.T) {
 			if err := c.RebalanceIngestPartitions(tt.args.hc); (err != nil) != tt.wantErr {
 				t.Errorf("ClusterController.RebalanceIngestPartitions() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			if sps, _ := c.client.GetIngestPartitions(); !reflect.DeepEqual(*sps, *tt.fields.expectedPartitions) {
-				t.Errorf("ClusterController.GetIngestPartitions() expected = %v, got %v", *tt.fields.expectedPartitions, *sps)
+			if cluster, _ := c.client.GetClusters(); !reflect.DeepEqual(cluster.IngestPartitions, tt.fields.expectedPartitions) {
+				t.Errorf("ClusterController.GetCluster() expected = %v, got %v", tt.fields.expectedPartitions, cluster.IngestPartitions)
 			}
 			got, err := c.AreIngestPartitionsBalanced(tt.args.hc)
 			if (err != nil) != tt.wantErr {
