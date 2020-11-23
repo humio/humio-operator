@@ -95,7 +95,7 @@ var _ = BeforeSuite(func(done Done) {
 			// TODO: If we want to add support for TLS-functionality, we need to install cert-manager's CRD's
 			CRDDirectoryPaths: []string{filepath.Join("..", "config", "crd", "bases")},
 		}
-		humioClient = humio.NewMocklient(
+		humioClient = humio.NewMockClient(
 			humioapi.Cluster{},
 			nil,
 			nil,
