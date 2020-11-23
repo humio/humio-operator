@@ -267,7 +267,7 @@ func (c *ClusterController) RebalanceIngestPartitions(hc *humiov1alpha1.HumioClu
 		digestNodeIDs = append(digestNodeIDs, node.Id)
 	}
 
-	partitionAssignment, err := generateIngestPartitionSchemeCandidate(hc, digestNodeIDs, hc.Spec.DigestPartitionsCount, replication)
+	partitionAssignment, err := generateIngestPartitionSchemeCandidate(digestNodeIDs, hc.Spec.DigestPartitionsCount, replication)
 	if err != nil {
 		return fmt.Errorf("could not generate ingest partition scheme candidate: %s", err)
 	}
@@ -346,7 +346,7 @@ func generateStoragePartitionSchemeCandidate(storageNodeIDs []int, partitionCoun
 
 // TODO: move this to the cli
 // TODO: perhaps we need to move the zones to groups. e.g. zone a becomes group 1, zone c becomes zone 2 if there is no zone b
-func generateIngestPartitionSchemeCandidate(hc *humiov1alpha1.HumioCluster, ingestNodeIDs []int, partitionCount, targetReplication int) ([]humioapi.IngestPartitionInput, error) {
+func generateIngestPartitionSchemeCandidate(ingestNodeIDs []int, partitionCount, targetReplication int) ([]humioapi.IngestPartitionInput, error) {
 	replicas := targetReplication
 	if targetReplication > len(ingestNodeIDs) {
 		replicas = len(ingestNodeIDs)

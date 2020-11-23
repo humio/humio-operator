@@ -44,8 +44,8 @@ type ClusterClient interface {
 	ClusterMoveStorageRouteAwayFromNode(int) error
 	ClusterMoveIngestRoutesAwayFromNode(int) error
 	Unregister(int) error
-	GetStoragePartitions() (*[]humioapi.StoragePartition, error)
-	GetIngestPartitions() (*[]humioapi.IngestPartition, error)
+	SuggestedStoragePartitions() ([]humioapi.StoragePartitionInput, error)
+	SuggestedIngestPartitions() ([]humioapi.IngestPartitionInput, error)
 	Authenticate(*humioapi.Config) error
 	GetBaseURL(*humiov1alpha1.HumioCluster) *url.URL
 	TestAPIToken() error
@@ -168,14 +168,14 @@ func (h *ClientConfig) Unregister(id int) error {
 	return h.apiClient.ClusterNodes().Unregister(int64(id), false)
 }
 
-// GetStoragePartitions is not implemented. It is only used in the mock to validate partition layout
-func (h *ClientConfig) GetStoragePartitions() (*[]humioapi.StoragePartition, error) {
-	return &[]humioapi.StoragePartition{}, fmt.Errorf("not implemented")
+// SuggestedStoragePartitions gets the suggested storage partition layout
+func (h *ClientConfig) SuggestedStoragePartitions() ([]humioapi.StoragePartitionInput, error) {
+	return h.apiClient.Clusters().SuggestedStoragePartitions()
 }
 
-// GetIngestPartitions is not implemented. It is only used in the mock to validate partition layout
-func (h *ClientConfig) GetIngestPartitions() (*[]humioapi.IngestPartition, error) {
-	return &[]humioapi.IngestPartition{}, fmt.Errorf("not implemented")
+// SuggestedIngestPartitions gets the suggested ingest partition layout
+func (h *ClientConfig) SuggestedIngestPartitions() ([]humioapi.IngestPartitionInput, error) {
+	return h.apiClient.Clusters().SuggestedIngestPartitions()
 }
 
 // GetBaseURL returns the base URL for given HumioCluster

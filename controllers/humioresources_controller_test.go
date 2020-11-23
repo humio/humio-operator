@@ -65,10 +65,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Namespace: clusterKey.Namespace,
 				},
 				Spec: humiov1alpha1.HumioClusterSpec{
-					Image:             image,
-					NodeCount:         helpers.IntPtr(1),
-					ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
-					TLS:               &humiov1alpha1.HumioClusterTLSSpec{Enabled: helpers.BoolPtr(false)},
+					Image:                   image,
+					NodeCount:               helpers.IntPtr(1),
+					TargetReplicationFactor: 1,
+					ExtraKafkaConfigs:       "security.protocol=PLAINTEXT",
+					TLS:                     &humiov1alpha1.HumioClusterTLSSpec{Enabled: helpers.BoolPtr(false)},
 					EnvironmentVariables: []corev1.EnvVar{
 						{
 							Name:  "HUMIO_JVM_ARGS",
