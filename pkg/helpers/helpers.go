@@ -19,6 +19,7 @@ package helpers
 import (
 	"crypto/sha256"
 	"fmt"
+	"github.com/shurcooL/graphql"
 	"os"
 	"reflect"
 	"strings"
@@ -55,6 +56,46 @@ func RemoveElement(list []string, s string) []string {
 		}
 	}
 	return list
+}
+
+func MapStoragePartition(vs []humioapi.StoragePartition, f func(partition humioapi.StoragePartition) humioapi.StoragePartitionInput) []humioapi.StoragePartitionInput {
+	vsm := make([]humioapi.StoragePartitionInput, len(vs))
+	for i, v := range vs {
+		vsm[i] = f(v)
+	}
+	return vsm
+}
+
+func ToStoragePartitionInput(line humioapi.StoragePartition) humioapi.StoragePartitionInput {
+	var input humioapi.StoragePartitionInput
+	nodeIds := make([]graphql.Int, len(line.NodeIds))
+	for i, v := range line.NodeIds {
+		nodeIds[i] = graphql.Int(v)
+	}
+	input.ID = graphql.Int(line.Id)
+	input.NodeIDs = nodeIds
+
+	return input
+}
+
+func MapIngestPartition(vs []humioapi.IngestPartition, f func(partition humioapi.IngestPartition) humioapi.IngestPartitionInput) []humioapi.IngestPartitionInput {
+	vsm := make([]humioapi.IngestPartitionInput, len(vs))
+	for i, v := range vs {
+		vsm[i] = f(v)
+	}
+	return vsm
+}
+
+func ToIngestPartitionInput(line humioapi.IngestPartition) humioapi.IngestPartitionInput {
+	var input humioapi.IngestPartitionInput
+	nodeIds := make([]graphql.Int, len(line.NodeIds))
+	for i, v := range line.NodeIds {
+		nodeIds[i] = graphql.Int(v)
+	}
+	input.ID = graphql.Int(line.Id)
+	input.NodeIDs = nodeIds
+
+	return input
 }
 
 // TODO: refactor, this is copied from the humio/cli/api/parsers.go

@@ -89,11 +89,21 @@ func constructContainerArgs(hc *humiov1alpha1.HumioCluster, podEnvVars []corev1.
 		if err != nil {
 			return []string{""}, fmt.Errorf("unable to construct node UUID: %s", err)
 		}
-		containerArgs = append(containerArgs, fmt.Sprintf("export ZONE=$(cat %s/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s && exec bash %s/run.sh",
-			sharedPath, nodeUUIDPrefix, humioAppPath))
+		if hc.Spec.DisableInitContainer {
+			containerArgs = append(containerArgs, fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s && exec bash %s/run.sh",
+				nodeUUIDPrefix, humioAppPath))
+		} else {
+			containerArgs = append(containerArgs, fmt.Sprintf("export ZONE=$(cat %s/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s && exec bash %s/run.sh",
+				sharedPath, nodeUUIDPrefix, humioAppPath))
+		}
 	} else {
-		containerArgs = append(containerArgs, fmt.Sprintf("export ZONE=$(cat %s/availability-zone) && exec bash %s/run.sh",
-			sharedPath, humioAppPath))
+		if hc.Spec.DisableInitContainer {
+			containerArgs = append(containerArgs, fmt.Sprintf("exec bash %s/run.sh",
+				humioAppPath))
+		} else {
+			containerArgs = append(containerArgs, fmt.Sprintf("export ZONE=$(cat %s/availability-zone) && exec bash %s/run.sh",
+				sharedPath, humioAppPath))
+		}
 	}
 	return containerArgs, nil
 }
@@ -151,62 +161,6 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 			ImagePullSecrets:      imagePullSecretsOrDefault(hc),
 			Subdomain:             hc.Name,
 			Hostname:              humioNodeName,
-			InitContainers: []corev1.Container{
-				{
-					Name:  initContainerName,
-					Image: helperImageOrDefault(hc),
-					Env: []corev1.EnvVar{
-						{
-							Name:  "MODE",
-							Value: "init",
-						},
-						{
-							Name:  "TARGET_FILE",
-							Value: fmt.Sprintf("%s/availability-zone", sharedPath),
-						},
-						{
-							Name: "NODE_NAME",
-							ValueFrom: &corev1.EnvVarSource{
-								FieldRef: &corev1.ObjectFieldSelector{
-									FieldPath: "spec.nodeName",
-								},
-							},
-						},
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "shared",
-							MountPath: sharedPath,
-						},
-						{
-							Name:      "init-service-account-secret",
-							MountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
-							ReadOnly:  true,
-						},
-					},
-					Resources: corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{
-							corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
-							corev1.ResourceMemory: *resource.NewQuantity(50*1024*1024, resource.BinarySI),
-						},
-						Requests: corev1.ResourceList{
-							corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
-							corev1.ResourceMemory: *resource.NewQuantity(50*1024*1024, resource.BinarySI),
-						},
-					},
-					SecurityContext: &corev1.SecurityContext{
-						Privileged:               helpers.BoolPtr(false),
-						AllowPrivilegeEscalation: helpers.BoolPtr(false),
-						ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
-						RunAsUser:                &userID,
-						Capabilities: &corev1.Capabilities{
-							Drop: []corev1.Capability{
-								"ALL",
-							},
-						},
-					},
-				},
-			},
 			Containers: []corev1.Container{
 				{
 					Name:  authContainerName,
@@ -370,15 +324,6 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 				},
 				{
-					Name: "init-service-account-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  attachments.initServiceAccountSecretName,
-							DefaultMode: &mode,
-						},
-					},
-				},
-				{
 					Name: "auth-service-account-secret",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
@@ -420,6 +365,74 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  idpCertificateSecretNameOrDefault(hc),
+					DefaultMode: &mode,
+				},
+			},
+		})
+	}
+
+	if !hc.Spec.DisableInitContainer {
+		pod.Spec.InitContainers = []corev1.Container{
+			{
+				Name:  initContainerName,
+				Image: helperImageOrDefault(hc),
+				Env: []corev1.EnvVar{
+					{
+						Name:  "MODE",
+						Value: "init",
+					},
+					{
+						Name:  "TARGET_FILE",
+						Value: fmt.Sprintf("%s/availability-zone", sharedPath),
+					},
+					{
+						Name: "NODE_NAME",
+						ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{
+								FieldPath: "spec.nodeName",
+							},
+						},
+					},
+				},
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						Name:      "shared",
+						MountPath: sharedPath,
+					},
+					{
+						Name:      "init-service-account-secret",
+						MountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
+						ReadOnly:  true,
+					},
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
+						corev1.ResourceMemory: *resource.NewQuantity(50*1024*1024, resource.BinarySI),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
+						corev1.ResourceMemory: *resource.NewQuantity(50*1024*1024, resource.BinarySI),
+					},
+				},
+				SecurityContext: &corev1.SecurityContext{
+					Privileged:               helpers.BoolPtr(false),
+					AllowPrivilegeEscalation: helpers.BoolPtr(false),
+					ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
+					RunAsUser:                &userID,
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{
+							"ALL",
+						},
+					},
+				},
+			},
+		}
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: "init-service-account-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  attachments.initServiceAccountSecretName,
 					DefaultMode: &mode,
 				},
 			},
@@ -1013,13 +1026,6 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hc *humi
 	if err != nil {
 		return &podAttachments{}, fmt.Errorf("unable to construct data volume source for HumioCluster: %s", err)
 	}
-	initSASecretName, err := r.getInitServiceAccountSecretName(ctx, hc)
-	if err != nil {
-		return &podAttachments{}, fmt.Errorf("unable get init service account secret for HumioCluster: %s", err)
-	}
-	if initSASecretName == "" {
-		return &podAttachments{}, errors.New("unable to create Pod for HumioCluster: the init service account secret does not exist")
-	}
 	authSASecretName, err := r.getAuthServiceAccountSecretName(ctx, hc)
 	if err != nil {
 		return &podAttachments{}, fmt.Errorf("unable get auth service account secret for HumioCluster: %s", err)
@@ -1027,6 +1033,20 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hc *humi
 	}
 	if authSASecretName == "" {
 		return &podAttachments{}, errors.New("unable to create Pod for HumioCluster: the auth service account secret does not exist")
+	}
+	if hc.Spec.DisableInitContainer {
+		return &podAttachments{
+			dataVolumeSource:             volumeSource,
+			authServiceAccountSecretName: authSASecretName,
+		}, nil
+	}
+
+	initSASecretName, err := r.getInitServiceAccountSecretName(ctx, hc)
+	if err != nil {
+		return &podAttachments{}, fmt.Errorf("unable get init service account secret for HumioCluster: %s", err)
+	}
+	if initSASecretName == "" {
+		return &podAttachments{}, errors.New("unable to create Pod for HumioCluster: the init service account secret does not exist")
 	}
 
 	return &podAttachments{

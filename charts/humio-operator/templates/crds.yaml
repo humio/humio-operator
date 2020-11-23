@@ -747,7 +747,9 @@ spec:
               autoRebalancePartitions:
                 description: AutoRebalancePartitions will enable auto-rebalancing
                   of both digest and storage partitions assigned to humio cluster
-                  nodes
+                  nodes. If all Kubernetes worker nodes are located in the same availability
+                  zone, you must set DisableInitContainer to true to use auto rebalancing
+                  of partitions.
                 type: boolean
               containerSecurityContext:
                 description: ContainerSecurityContext is the security context applied
@@ -2178,6 +2180,13 @@ spec:
                 description: DigestPartitionsCount is the desired number of digest
                   partitions
                 type: integer
+              disableInitContainer:
+                description: DisableInitContainer is used to disable the init container
+                  completely which collects the availability zone from the Kubernetes
+                  worker node. This is not recommended, unless you are using auto
+                  rebalancing partitions and are running in a single single availability
+                  zone.
+                type: boolean
               environmentVariables:
                 description: EnvironmentVariables that will be merged with default
                   environment variables then set on the humio container

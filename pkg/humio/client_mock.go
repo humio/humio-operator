@@ -136,12 +136,20 @@ func (h *MockClientConfig) StartDataRedistribution() error {
 	return nil
 }
 
-func (h *MockClientConfig) GetStoragePartitions() (*[]humioapi.StoragePartition, error) {
-	return &h.apiClient.Cluster.StoragePartitions, nil
+func (h *MockClientConfig) SuggestedStoragePartitions() ([]humioapi.StoragePartitionInput, error) {
+	var nodeIds []int
+	for _, node := range h.apiClient.Cluster.Nodes {
+		nodeIds = append(nodeIds, node.Id)
+	}
+	return generateStoragePartitionSchemeCandidate(nodeIds, 24, 2)
 }
 
-func (h *MockClientConfig) GetIngestPartitions() (*[]humioapi.IngestPartition, error) {
-	return &h.apiClient.Cluster.IngestPartitions, nil
+func (h *MockClientConfig) SuggestedIngestPartitions() ([]humioapi.IngestPartitionInput, error) {
+	var nodeIds []int
+	for _, node := range h.apiClient.Cluster.Nodes {
+		nodeIds = append(nodeIds, node.Id)
+	}
+	return generateIngestPartitionSchemeCandidate(nodeIds, 24, 2)
 }
 
 func (h *MockClientConfig) GetBaseURL(hc *humiov1alpha1.HumioCluster) *url.URL {
