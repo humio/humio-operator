@@ -38,7 +38,7 @@ func TestClusterController_AreAllRegisteredNodesAvailable(t *testing.T) {
 	}{
 		{
 			"test available nodes",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					Nodes: []humioapi.ClusterNode{{
 						IsAvailable: true,
@@ -49,7 +49,7 @@ func TestClusterController_AreAllRegisteredNodesAvailable(t *testing.T) {
 		},
 		{
 			"test no available nodes",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					Nodes: []humioapi.ClusterNode{{
 						IsAvailable: false,
@@ -87,7 +87,7 @@ func TestClusterController_NoDataMissing(t *testing.T) {
 	}{
 		{
 			"test no missing segments",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					MissingSegmentSize: 0,
 				}, nil, nil, nil, ""),
@@ -97,7 +97,7 @@ func TestClusterController_NoDataMissing(t *testing.T) {
 		},
 		{
 			"test missing segments",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					MissingSegmentSize: 1,
 				}, nil, nil, nil, ""),
@@ -138,7 +138,7 @@ func TestClusterController_IsNodeRegistered(t *testing.T) {
 	}{
 		{
 			"test node is registered",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					Nodes: []humioapi.ClusterNode{{
 						Id: 1,
@@ -152,7 +152,7 @@ func TestClusterController_IsNodeRegistered(t *testing.T) {
 		},
 		{
 			"test node is not registered",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					Nodes: []humioapi.ClusterNode{{
 						Id: 2,
@@ -193,7 +193,7 @@ func TestClusterController_CountNodesRegistered(t *testing.T) {
 	}{
 		{
 			"test count registered nodes",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					Nodes: []humioapi.ClusterNode{{}}}, nil, nil, nil, ""),
 			},
@@ -202,7 +202,7 @@ func TestClusterController_CountNodesRegistered(t *testing.T) {
 		},
 		{
 			"test count no registered nodes",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{}, nil, nil, nil, ""),
 			},
 			0,
@@ -241,7 +241,7 @@ func TestClusterController_CanBeSafelyUnregistered(t *testing.T) {
 	}{
 		{
 			"test node is can be safely unregistered",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					Nodes: []humioapi.ClusterNode{{
 						Id:                      1,
@@ -256,7 +256,7 @@ func TestClusterController_CanBeSafelyUnregistered(t *testing.T) {
 		},
 		{
 			"test node is cannot be safely unregistered",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					Nodes: []humioapi.ClusterNode{{
 						Id:                      1,
@@ -302,7 +302,7 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 	}{
 		{
 			"test storage partitions are balanced",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					StoragePartitions: []humioapi.StoragePartition{
 						{
@@ -342,7 +342,7 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 		},
 		{
 			"test storage partitions do no equal the target replication factor",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					StoragePartitions: []humioapi.StoragePartition{
 						{
@@ -382,7 +382,7 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 		},
 		{
 			"test storage partitions are unbalanced by more than a factor of 1",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					StoragePartitions: []humioapi.StoragePartition{
 						{
@@ -422,7 +422,7 @@ func TestClusterController_IsStoragePartitionsBalanced(t *testing.T) {
 		},
 		{
 			"test storage partitions are not balanced",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					StoragePartitions: []humioapi.StoragePartition{
 						{
@@ -498,7 +498,7 @@ func TestClusterController_RebalanceStoragePartitions(t *testing.T) {
 	}{
 		{
 			"test rebalancing storage partitions",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					StoragePartitions: []humioapi.StoragePartition{
 						{
@@ -594,7 +594,7 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 	}{
 		{
 			"test ingest partitions are balanced",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					IngestPartitions: []humioapi.IngestPartition{
 						{
@@ -634,7 +634,7 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 		},
 		{
 			"test ingest partitions do no equal the target replication factor",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					IngestPartitions: []humioapi.IngestPartition{
 						{
@@ -674,7 +674,7 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 		},
 		{
 			"test ingest partitions are unbalanced by more than a factor of 1",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					IngestPartitions: []humioapi.IngestPartition{
 						{
@@ -714,7 +714,7 @@ func TestClusterController_AreIngestPartitionsBalanced(t *testing.T) {
 		},
 		{
 			"test ingest partitions are not balanced",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					IngestPartitions: []humioapi.IngestPartition{
 						{
@@ -790,7 +790,7 @@ func TestClusterController_RebalanceIngestPartitions(t *testing.T) {
 	}{
 		{
 			"test rebalancing ingest partitions",
-			fields{NewMocklient(
+			fields{NewMockClient(
 				humioapi.Cluster{
 					IngestPartitions: []humioapi.IngestPartition{
 						{

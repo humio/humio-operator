@@ -42,7 +42,7 @@ type MockClientConfig struct {
 	Version   string
 }
 
-func NewMocklient(cluster humioapi.Cluster, clusterError error, updateStoragePartitionSchemeError error, updateIngestPartitionSchemeError error, version string) *MockClientConfig {
+func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePartitionSchemeError error, updateIngestPartitionSchemeError error, version string) *MockClientConfig {
 	storagePartition := humioapi.StoragePartition{}
 	ingestPartition := humioapi.IngestPartition{}
 
