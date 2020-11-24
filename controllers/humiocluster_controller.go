@@ -297,6 +297,11 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return result, err
 	}
 
+	result, err = r.cleanupUnusedCAIssuer(context.TODO(), hc)
+	if result != emptyResult || err != nil {
+		return result, err
+	}
+
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
 }
@@ -1276,6 +1281,34 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc
 	}
 
 	// return empty result and no error indicating that everything was in the state we wanted it to be
+	return reconcile.Result{}, nil
+}
+
+// cleanupUnusedCAIssuer deletes the the CA Issuer for a cluster if TLS has been disabled
+func (r *HumioClusterReconciler) cleanupUnusedCAIssuer(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
+	if helpers.TLSEnabled(hc) {
+		return reconcile.Result{}, nil
+	}
+
+	var existingCAIssuer cmapi.Issuer
+	err := r.Get(ctx, types.NamespacedName{
+		Namespace: hc.Namespace,
+		Name:      hc.Name,
+	}, &existingCAIssuer)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{Requeue: true}, err
+	}
+
+	r.Log.Info("found existing CA Issuer but cluster is configured without TLS, deleting CA Issuer")
+	err = r.Delete(ctx, &existingCAIssuer)
+	if err != nil {
+		r.Log.Error(err, "unable to delete CA Issuer")
+		return reconcile.Result{Requeue: true}, err
+	}
+
 	return reconcile.Result{}, nil
 }
 
