@@ -463,12 +463,20 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return *updatedView
 			}, testTimeout, testInterval).Should(Equal(expectedUpdatedView))
 
-			By("Successfully deleting it")
+			By("Successfully deleting the view")
 			Expect(k8sClient.Delete(context.Background(), fetchedView)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(context.Background(), viewKey, fetchedView)
 				return errors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("Successfully deleting the repo")
+			Expect(k8sClient.Delete(context.Background(), fetchedRepo)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), viewKey, fetchedRepo)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+
 		})
 	})
 
