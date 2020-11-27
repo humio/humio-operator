@@ -61,8 +61,10 @@ var _ = Describe("HumioCluster Controller", func() {
 		var existingClusters humiov1alpha1.HumioClusterList
 		k8sClient.List(context.Background(), &existingClusters)
 		for _, cluster := range existingClusters.Items {
-			if _, ok := cluster.Annotations[autoCleanupAfterTestAnnotationName]; ok {
-				k8sClient.Delete(context.Background(), &cluster)
+			if val, ok := cluster.Annotations[autoCleanupAfterTestAnnotationName]; ok {
+				if val == testProcessID {
+					_ = k8sClient.Delete(context.Background(), &cluster)
+				}
 			}
 		}
 	})
@@ -2107,7 +2109,7 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName) *humiov1alph
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        key.Name,
 			Namespace:   key.Namespace,
-			Annotations: map[string]string{autoCleanupAfterTestAnnotationName: "true"},
+			Annotations: map[string]string{autoCleanupAfterTestAnnotationName: testProcessID},
 		},
 		Spec: humiov1alpha1.HumioClusterSpec{
 			Image:                   image,
