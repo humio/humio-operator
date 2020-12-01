@@ -1467,8 +1467,6 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		return reconcile.Result{}, nil
 	}
 
-	var podBeingDeleted bool
-	var waitingOnReadyPods bool
 	r.Log.Info("ensuring mismatching pods are deleted")
 
 	attachments := &podAttachments{}
@@ -1478,71 +1476,69 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		attachments.dataVolumeSource = dataVolumePersistentVolumeClaimSpecTemplateOrDefault(hc, "")
 	}
 
+	podsStatus, err := r.getPodsStatus(hc, foundPodList)
+	if err != nil {
+		r.Log.Error(err, "failed to get pod status")
+		return reconcile.Result{}, err
+	}
+
+	// prioritize deleting the pods with errors
+	desiredLifecycleState := podLifecycleState{}
+	if podsStatus.havePodsWithContainerStateWaitingErrors() {
+		r.Log.Info(fmt.Sprintf("found %d humio pods with errors", len(podsStatus.podErrors)))
+		desiredLifecycleState, err = r.getPodDesiredLifecycleState(hc, podsStatus.podErrors, attachments)
+	} else {
+		desiredLifecycleState, err = r.getPodDesiredLifecycleState(hc, foundPodList, attachments)
+	}
+	if err != nil {
+		r.Log.Error(err, "got error when getting pod desired lifecycle")
+		return reconcile.Result{}, err
+	}
+
+	// If we are currently deleting pods, then check if the cluster state is Running or in a ConfigError state. If it
+	// is, then change to an appropriate state depending on the restart policy.
+	// If the cluster state is set as per the restart policy:
+	// 	 PodRestartPolicyRecreate == HumioClusterStateUpgrading
+	// 	 PodRestartPolicyRolling == HumioClusterStateRestarting
+	if desiredLifecycleState.delete {
+		if hc.Status.State == humiov1alpha1.HumioClusterStateRunning || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
+			if desiredLifecycleState.restartPolicy == PodRestartPolicyRecreate {
+				if err = r.setState(ctx, humiov1alpha1.HumioClusterStateUpgrading, hc); err != nil {
+					r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateUpgrading))
+					return reconcile.Result{}, err
+				}
+				if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRecreate); err != nil {
+					r.Log.Error(err, fmt.Sprintf("failed to increment pod revision to %d", revision))
+					return reconcile.Result{}, err
+				}
+			}
+			if desiredLifecycleState.restartPolicy == PodRestartPolicyRolling {
+				if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRestarting, hc); err != nil {
+					r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRestarting))
+					return reconcile.Result{}, err
+				}
+				if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRolling); err != nil {
+					r.Log.Error(err, fmt.Sprintf("failed to increment pod revision to %d", revision))
+					return reconcile.Result{}, err
+				}
+			}
+		}
+		r.Log.Info(fmt.Sprintf("deleting pod %s", desiredLifecycleState.pod.Name))
+		err = r.Delete(ctx, &desiredLifecycleState.pod)
+		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("could not delete pod %s", desiredLifecycleState.pod.Name))
+			return reconcile.Result{}, err
+		}
+	}
+
 	// If we allow a rolling update, then don't take down more than one pod at a time.
 	// Check the number of ready pods. if we have already deleted a pod, then the ready count will less than expected,
 	// but we must continue with reconciliation so the pod may be created later in the reconciliation.
 	// If we're doing a non-rolling update (recreate), then we can take down all the pods without waiting, but we will
 	// wait until all the pods are ready before changing the cluster state back to Running.
-	podsReadyCount, podsNotReadyCount := r.podsReady(foundPodList)
-	if podsReadyCount < nodeCountOrDefault(hc) || podsNotReadyCount > 0 {
-		waitingOnReadyPods = true
-		r.Log.Info(fmt.Sprintf("there are %d/%d humio pods that are ready", podsReadyCount, nodeCountOrDefault(hc)))
-	}
-
-	if (r.getHumioClusterPodRestartPolicy(hc) == PodRestartPolicyRolling && !waitingOnReadyPods) ||
-		r.getHumioClusterPodRestartPolicy(hc) == PodRestartPolicyRecreate {
-		desiredLifecycleState, err := r.getPodDesiredLifecycleState(hc, foundPodList, attachments)
-		if err != nil {
-			r.Log.Error(err, "got error when getting pod desired lifecycle")
-			return reconcile.Result{}, err
-		}
-		// If we are currently deleting pods, then check if the cluster state is Running. If it is, then change to an
-		// appropriate state depending on the restart policy.
-		// If the cluster state is set as per the restart policy:
-		// 	 PodRestartPolicyRecreate == HumioClusterStateUpgrading
-		// 	 PodRestartPolicyRolling == HumioClusterStateRestarting
-		if desiredLifecycleState.delete {
-			if hc.Status.State == humiov1alpha1.HumioClusterStateRunning {
-				if desiredLifecycleState.restartPolicy == PodRestartPolicyRecreate {
-					if err = r.setState(ctx, humiov1alpha1.HumioClusterStateUpgrading, hc); err != nil {
-						r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateUpgrading))
-						return reconcile.Result{}, err
-					}
-					if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRecreate); err != nil {
-						r.Log.Error(err, fmt.Sprintf("failed to increment pod revision to %d", revision))
-						return reconcile.Result{}, err
-					}
-				}
-				if desiredLifecycleState.restartPolicy == PodRestartPolicyRolling {
-					if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRestarting, hc); err != nil {
-						r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRestarting))
-						return reconcile.Result{}, err
-					}
-					if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRolling); err != nil {
-						r.Log.Error(err, fmt.Sprintf("failed to increment pod revision to %d", revision))
-						return reconcile.Result{}, err
-					}
-				}
-			}
-			r.Log.Info(fmt.Sprintf("deleting pod %s", desiredLifecycleState.pod.Name))
-			podBeingDeleted = true
-			err = r.Delete(ctx, &desiredLifecycleState.pod)
-			if err != nil {
-				r.Log.Error(err, fmt.Sprintf("could not delete pod %s", desiredLifecycleState.pod.Name))
-				return reconcile.Result{}, err
-			}
-		}
-	}
-
-	// If we have pods being deleted, requeue as long as we're not doing a rolling update. This will ensure all pods
-	// are removed before creating the replacement pods.
-	if podBeingDeleted && (r.getHumioClusterPodRestartPolicy(hc) == PodRestartPolicyRecreate) {
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	// Set the cluster state back to HumioClusterStateRunning to indicate we are no longer restarting. This can only
-	// happen when we know that all of the pods are in a Ready state and that we are no longer deleting pods.
-	if !waitingOnReadyPods && !podBeingDeleted {
+	// If we are no longer waiting on or deleting pods, and all the revisions are in sync, then we know the upgrade or
+	// restart is complete and we can set the cluster state back to HumioClusterStateRunning.
+	if !podsStatus.waitingOnPods() && !desiredLifecycleState.delete && podsStatus.podRevisionsInSync() {
 		if hc.Status.State == humiov1alpha1.HumioClusterStateRestarting || hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading {
 			r.Log.Info(fmt.Sprintf("no longer deleting pods. changing cluster state from %s to %s", hc.Status.State, humiov1alpha1.HumioClusterStateRunning))
 			if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc); err != nil {
@@ -1550,6 +1546,17 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 				return reconcile.Result{}, err
 			}
 		}
+	}
+
+	r.Log.Info(fmt.Sprintf("cluster state is still %s. waitingOnPods=%v, podBeingDeleted=%v, "+
+		"revisionsInSync=%v, "+"podRevisisons=%v, expectedRunningPods=%v, podsReady=%v, podsNotReady=%v",
+		hc.Status.State, podsStatus.waitingOnPods(), desiredLifecycleState.delete, podsStatus.podRevisionsInSync(),
+		podsStatus.podRevisions, podsStatus.expectedRunningPods, podsStatus.readyCount, podsStatus.notReadyCount))
+
+	// If we have pods being deleted, requeue as long as we're not doing a rolling update. This will ensure all pods
+	// are removed before creating the replacement pods.
+	if hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading && desiredLifecycleState.delete {
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// return empty result and no error indicating that everything was in the state we wanted it to be
@@ -1593,44 +1600,61 @@ func (r *HumioClusterReconciler) ensurePodsBootstrapped(ctx context.Context, hc 
 	}
 	r.Log.Info(fmt.Sprintf("found %d pods", len(foundPodList)))
 
-	podsReadyCount, podsNotReadyCount := r.podsReady(foundPodList)
-	if podsReadyCount == nodeCountOrDefault(hc) {
+	podsStatus, err := r.getPodsStatus(hc, foundPodList)
+	if err != nil {
+		r.Log.Error(err, "failed to get pod status")
+		return reconcile.Result{}, err
+	}
+
+	if podsStatus.allPodsReady() {
 		r.Log.Info("all humio pods are reporting ready")
 		return reconcile.Result{}, nil
 	}
 
-	if podsNotReadyCount > 0 {
-		r.Log.Info(fmt.Sprintf("there are %d humio pods that are not ready. all humio pods must report ready before reconciliation can continue", podsNotReadyCount))
+	r.Log.Info(fmt.Sprintf("pod ready count is %d, while desired node count is %d", podsStatus.readyCount, podsStatus.expectedRunningPods))
+	attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
+	if err != nil {
+		r.Log.Error(err, "failed to get pod attachments")
+		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+	}
+
+	desiredLifecycleState, err := r.getPodDesiredLifecycleState(hc, foundPodList, attachments)
+	if err != nil {
+		r.Log.Error(err, "failed to get desired lifecycle state")
+		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+	}
+
+	if desiredLifecycleState.delete {
+		r.Log.Info(fmt.Sprintf("deleting pod %s", desiredLifecycleState.pod.Name))
+		err = r.Delete(ctx, &desiredLifecycleState.pod)
+		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("could not delete pod %s", desiredLifecycleState.pod.Name))
+			return reconcile.Result{}, err
+		}
+	}
+
+	// if pods match and we're not ready yet, we need to wait for bootstrapping to continue
+	if podsStatus.notReadyCount > 0 {
+		r.Log.Info(fmt.Sprintf("there are %d pods that are ready, %d that are not ready, %d expected. all humio pods must report ready before bootstrapping can continue", podsStatus.readyCount, podsStatus.notReadyCount, podsStatus.expectedRunningPods))
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 
-	r.Log.Info(fmt.Sprintf("pod ready count is %d, while desired node count is %d", podsReadyCount, nodeCountOrDefault(hc)))
-	if podsReadyCount < nodeCountOrDefault(hc) {
-		attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
-		if err != nil {
-			r.Log.Error(err, "failed to get pod attachments")
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
-		}
-		pod, err := r.createPod(ctx, hc, attachments)
-		if err != nil {
-			r.Log.Error(err, "unable to create pod")
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
-		}
-		humioClusterPrometheusMetrics.Counters.PodsCreated.Inc()
+	pod, err := r.createPod(ctx, hc, attachments)
+	if err != nil {
+		r.Log.Error(err, "unable to create pod")
+		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+	}
+	humioClusterPrometheusMetrics.Counters.PodsCreated.Inc()
 
-		// check that we can list the new pod
-		// this is to avoid issues where the requeue is faster than kubernetes
-		if err := r.waitForNewPod(hc, foundPodList, pod); err != nil {
-			r.Log.Error(err, "failed to validate new pod")
-			return reconcile.Result{}, err
-		}
-
-		// We have created a pod. Requeue immediately even if the pod is not ready. We will check the readiness status on the next reconciliation.
-		return reconcile.Result{Requeue: true}, nil
+	// check that we can list the new pod
+	// this is to avoid issues where the requeue is faster than kubernetes
+	if err := r.waitForNewPod(hc, foundPodList, pod); err != nil {
+		r.Log.Error(err, "failed to validate new pod")
+		return reconcile.Result{}, err
 	}
 
-	// TODO: what should happen if we have more pods than are expected?
-	return reconcile.Result{}, nil
+	// We have created a pod. Requeue immediately even if the pod is not ready. We will check the readiness status on the next reconciliation.
+	return reconcile.Result{Requeue: true}, nil
 }
 
 func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
