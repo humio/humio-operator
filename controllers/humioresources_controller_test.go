@@ -36,7 +36,7 @@ import (
 var _ = Describe("Humio Resources Controllers", func() {
 
 	BeforeEach(func() {
-		By("Creating a shared humio cluster if it doesn't already exist")
+		By("Ensuring we have a shared test cluster to use.")
 		clusterKey := types.NamespacedName{
 			Name:      "humiocluster-shared",
 			Namespace: "default",
@@ -59,6 +59,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			return true
 		}, testTimeout, testInterval).Should(BeTrue())
 		if errors.IsNotFound(err) {
+			By("Shared test cluster doesn't exist, creating it now.")
 			cluster := &humiov1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterKey.Name,
@@ -92,6 +93,15 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			createAndBootstrapCluster(cluster)
 		} else {
+			By("confirming existing cluster is in Running state")
+			Eventually(func() string {
+				var cluster humiov1alpha1.HumioCluster
+				err := k8sClient.Get(context.TODO(), clusterKey, &cluster)
+				if err != nil {
+					return err.Error()
+				}
+				return cluster.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 			Expect(err).ToNot(HaveOccurred())
 		}
 	})
