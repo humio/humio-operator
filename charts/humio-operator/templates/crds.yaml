@@ -5,7 +5,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1-0.20201109220827-ede1d01ddc91
+    controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
   name: humioexternalclusters.core.humio.com
   labels:
@@ -96,7 +96,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1-0.20201109220827-ede1d01ddc91
+    controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
   name: humioclusters.core.humio.com
   labels:
@@ -5020,7 +5020,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1-0.20201109220827-ede1d01ddc91
+    controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
   name: humiorepositories.core.humio.com
   labels:
@@ -5115,7 +5115,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1-0.20201109220827-ede1d01ddc91
+    controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
   name: humioingesttokens.core.humio.com
   labels:
@@ -5197,7 +5197,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1-0.20201109220827-ede1d01ddc91
+    controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
   name: humioparsers.core.humio.com
   labels:
@@ -5284,7 +5284,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1-0.20201109220827-ede1d01ddc91
+    controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
   name: humioviews.core.humio.com
   labels:
