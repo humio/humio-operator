@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -63,6 +64,7 @@ var testEnv *envtest.Environment
 var k8sManager ctrl.Manager
 var humioClient humio.Client
 var testTimeout time.Duration
+var testProcessID string
 
 const testInterval = time.Second * 1
 
@@ -83,6 +85,7 @@ var _ = BeforeSuite(func(done Done) {
 
 	By("bootstrapping test environment")
 	useExistingCluster := true
+	testProcessID = kubernetes.RandomString()
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 		testTimeout = time.Second * 300
 		testEnv = &envtest.Environment{
