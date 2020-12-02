@@ -2,6 +2,22 @@ apiVersion: v1
 entries:
   humio-operator:
   - apiVersion: v1
+    appVersion: 0.3.0
+    created: "2020-12-02T22:04:42.403727449Z"
+    description: Kubernetes Operator for running Humio on top of Kubernetes
+    digest: 790fe42f5e1fad33dca595ac1c61bdbf842f74480b46a65681d13751c3346b84
+    home: https://github.com/humio/humio-operator
+    icon: https://www.humio.com/static/3ae40396981ac553b27d76dabefe0caa/9911c/logo--og-humio.png
+    maintainers:
+    - name: SaaldjorMike
+    - name: jswoods
+    name: humio-operator
+    sources:
+    - https://github.com/humio/humio-operator
+    urls:
+    - https://github.com/humio/humio-operator/releases/download/humio-operator-0.3.0/humio-operator-0.3.0.tgz
+    version: 0.3.0
+  - apiVersion: v1
     appVersion: 0.2.0
     created: "2020-11-13T19:30:39.431488344Z"
     description: Kubernetes Operator for running Humio on top of Kubernetes
