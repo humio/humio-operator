@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"reflect"
 
@@ -36,93 +37,45 @@ import (
 var _ = Describe("Humio Resources Controllers", func() {
 
 	BeforeEach(func() {
-		By("Ensuring we have a shared test cluster to use.")
-		clusterKey := types.NamespacedName{
-			Name:      "humiocluster-shared",
-			Namespace: "default",
-		}
-		var existingCluster humiov1alpha1.HumioCluster
-		var err error
-		Eventually(func() bool {
-			err = k8sClient.Get(context.TODO(), clusterKey, &existingCluster)
-			if errors.IsNotFound(err) {
-				// Object has not been created yet
-				return true
-			}
-			if err != nil {
-				// Some other error happened. Typically:
-				//   <*cache.ErrCacheNotStarted | 0x31fc738>: {}
-				//	   the cache is not started, can not read objects occurred
-				return false
-			}
-			// At this point we know the object already exists.
-			return true
-		}, testTimeout, testInterval).Should(BeTrue())
-		if errors.IsNotFound(err) {
-			By("Shared test cluster doesn't exist, creating it now.")
-			cluster := &humiov1alpha1.HumioCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      clusterKey.Name,
-					Namespace: clusterKey.Namespace,
-				},
-				Spec: humiov1alpha1.HumioClusterSpec{
-					Image:                   image,
-					NodeCount:               helpers.IntPtr(1),
-					TargetReplicationFactor: 1,
-					ExtraKafkaConfigs:       "security.protocol=PLAINTEXT",
-					TLS:                     &humiov1alpha1.HumioClusterTLSSpec{Enabled: helpers.BoolPtr(false)},
-					EnvironmentVariables: []corev1.EnvVar{
-						{
-							Name:  "HUMIO_JVM_ARGS",
-							Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelOldGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false",
-						},
-						{
-							Name:  "ZOOKEEPER_URL",
-							Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
-						},
-						{
-							Name:  "KAFKA_SERVERS",
-							Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
-						},
-						{
-							Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
-							Value: clusterKey.Name,
-						},
-					},
-				},
-			}
-			createAndBootstrapCluster(cluster)
-		} else {
-			By("confirming existing cluster is in Running state")
-			Eventually(func() string {
-				var cluster humiov1alpha1.HumioCluster
-				err := k8sClient.Get(context.TODO(), clusterKey, &cluster)
-				if err != nil {
-					return err.Error()
-				}
-				return cluster.Status.State
-			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
-			Expect(err).ToNot(HaveOccurred())
-		}
+		// failed test runs that don't clean up leave resources behind.
+
 	})
 
 	AfterEach(func() {
 		// Add any teardown steps that needs to be executed after each test
-
+		var existingClusters humiov1alpha1.HumioClusterList
+		k8sClient.List(context.Background(), &existingClusters)
+		for _, cluster := range existingClusters.Items {
+			if val, ok := cluster.Annotations[autoCleanupAfterTestAnnotationName]; ok {
+				if val == testProcessID {
+					_ = k8sClient.Delete(context.Background(), &cluster)
+				}
+			}
+		}
 	})
 
 	// Add Tests for OpenAPI validation (or additional CRD features) specified in
 	// your API definition.
 	// Avoid adding tests for vanilla CRUD operations because they would
 	// test Kubernetes API server, which isn't the goal here.
-	Context("Humio Ingest token", func() {
-		It("should handle Humio Ingest Tokens correctly with a token target secret", func() {
+	Context("Humio Resources Controllers", func() {
+		It("should handle resources correctly", func() {
+
+			By("HumioCluster: Creating shared test cluster")
+			clusterKey := types.NamespacedName{
+				Name:      "humiocluster-shared",
+				Namespace: "default",
+			}
+			cluster := constructBasicSingleNodeHumioCluster(clusterKey)
+			createAndBootstrapCluster(cluster)
+
+			By("HumioIngestToken: Creating Humio Ingest token with token target secret")
 			key := types.NamespacedName{
 				Name:      "humioingesttoken-with-token-secret",
 				Namespace: "default",
 			}
 
-			toCreate := &humiov1alpha1.HumioIngestToken{
+			toCreateIngestToken := &humiov1alpha1.HumioIngestToken{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      key.Name,
 					Namespace: key.Namespace,
@@ -136,13 +89,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			By("Creating the ingest token with token secret successfully")
-			Expect(k8sClient.Create(context.Background(), toCreate)).Should(Succeed())
+			By("HumioIngestToken: Creating the ingest token with token secret successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateIngestToken)).Should(Succeed())
 
-			fetched := &humiov1alpha1.HumioIngestToken{}
+			fetchedIngestToken := &humiov1alpha1.HumioIngestToken{}
 			Eventually(func() string {
-				k8sClient.Get(context.Background(), key, fetched)
-				return fetched.Status.State
+				k8sClient.Get(context.Background(), key, fetchedIngestToken)
+				return fetchedIngestToken.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
 
 			ingestTokenSecret := &corev1.Secret{}
@@ -151,7 +104,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					context.Background(),
 					types.NamespacedName{
 						Namespace: key.Namespace,
-						Name:      toCreate.Spec.TokenSecretName,
+						Name:      toCreateIngestToken.Spec.TokenSecretName,
 					},
 					ingestTokenSecret)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -161,14 +114,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			Expect(ingestTokenSecret.OwnerReferences).Should(HaveLen(1))
 
-			By("Deleting ingest token secret successfully adds back secret")
+			By("HumioIngestToken: Deleting ingest token secret successfully adds back secret")
 			Expect(
 				k8sClient.Delete(
 					context.Background(),
 					&corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
 							Namespace: key.Namespace,
-							Name:      toCreate.Spec.TokenSecretName,
+							Name:      toCreateIngestToken.Spec.TokenSecretName,
 						},
 					},
 				),
@@ -179,7 +132,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					context.Background(),
 					types.NamespacedName{
 						Namespace: key.Namespace,
-						Name:      toCreate.Spec.TokenSecretName,
+						Name:      toCreateIngestToken.Spec.TokenSecretName,
 					},
 					ingestTokenSecret)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -188,21 +141,20 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Expect(string(ingestTokenSecret.Data["token"])).To(Equal("mocktoken"))
 			}
 
-			By("Successfully deleting it")
-			Expect(k8sClient.Delete(context.Background(), fetched)).To(Succeed())
+			By("HumioIngestToken: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedIngestToken)).To(Succeed())
 			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), key, fetched)
+				err := k8sClient.Get(context.Background(), key, fetchedIngestToken)
 				return errors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
-		})
 
-		It("Should handle ingest token correctly without token target secret", func() {
-			key := types.NamespacedName{
+			By("HumioIngestToken: Should handle ingest token correctly without token target secret")
+			key = types.NamespacedName{
 				Name:      "humioingesttoken-without-token-secret",
 				Namespace: "default",
 			}
 
-			toCreate := &humiov1alpha1.HumioIngestToken{
+			toCreateIngestToken = &humiov1alpha1.HumioIngestToken{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      key.Name,
 					Namespace: key.Namespace,
@@ -215,37 +167,37 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			By("Creating the ingest token without token secret successfully")
-			Expect(k8sClient.Create(context.Background(), toCreate)).Should(Succeed())
+			By("HumioIngestToken: Creating the ingest token without token secret successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateIngestToken)).Should(Succeed())
 
-			fetched := &humiov1alpha1.HumioIngestToken{}
+			fetchedIngestToken = &humiov1alpha1.HumioIngestToken{}
 			Eventually(func() string {
-				k8sClient.Get(context.Background(), key, fetched)
-				return fetched.Status.State
+				k8sClient.Get(context.Background(), key, fetchedIngestToken)
+				return fetchedIngestToken.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
 
-			By("Checking we do not create a token secret")
+			By("HumioIngestToken: Checking we do not create a token secret")
 			var allSecrets corev1.SecretList
-			k8sClient.List(context.Background(), &allSecrets, client.InNamespace(fetched.Namespace))
+			k8sClient.List(context.Background(), &allSecrets, client.InNamespace(fetchedIngestToken.Namespace))
 			for _, secret := range allSecrets.Items {
 				for _, owner := range secret.OwnerReferences {
-					Expect(owner.Name).ShouldNot(BeIdenticalTo(fetched.Name))
+					Expect(owner.Name).ShouldNot(BeIdenticalTo(fetchedIngestToken.Name))
 				}
 			}
 
-			By("Enabling token secret name successfully creates secret")
+			By("HumioIngestToken: Enabling token secret name successfully creates secret")
 			Eventually(func() error {
-				k8sClient.Get(context.Background(), key, fetched)
-				fetched.Spec.TokenSecretName = "target-secret-2"
-				return k8sClient.Update(context.Background(), fetched)
+				k8sClient.Get(context.Background(), key, fetchedIngestToken)
+				fetchedIngestToken.Spec.TokenSecretName = "target-secret-2"
+				return k8sClient.Update(context.Background(), fetchedIngestToken)
 			}, testTimeout, testInterval).Should(Succeed())
-			ingestTokenSecret := &corev1.Secret{}
+			ingestTokenSecret = &corev1.Secret{}
 			Eventually(func() error {
 				return k8sClient.Get(
 					context.Background(),
 					types.NamespacedName{
-						Namespace: fetched.Namespace,
-						Name:      fetched.Spec.TokenSecretName,
+						Namespace: fetchedIngestToken.Namespace,
+						Name:      fetchedIngestToken.Spec.TokenSecretName,
 					},
 					ingestTokenSecret)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -254,23 +206,20 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Expect(string(ingestTokenSecret.Data["token"])).To(Equal("mocktoken"))
 			}
 
-			By("Successfully deleting it")
-			Expect(k8sClient.Delete(context.Background(), fetched)).To(Succeed())
+			By("HumioIngestToken: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedIngestToken)).To(Succeed())
 			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), key, fetched)
+				err := k8sClient.Get(context.Background(), key, fetchedIngestToken)
 				return errors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
-		})
-	})
 
-	Context("Humio Repository", func() {
-		It("Should handle repository correctly", func() {
-			key := types.NamespacedName{
+			By("HumioRepository: Should handle repository correctly")
+			key = types.NamespacedName{
 				Name:      "humiorepository",
 				Namespace: "default",
 			}
 
-			toCreate := &humiov1alpha1.HumioRepository{
+			toCreateRepository := &humiov1alpha1.HumioRepository{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      key.Name,
 					Namespace: key.Namespace,
@@ -287,28 +236,28 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			By("Creating the repository successfully")
-			Expect(k8sClient.Create(context.Background(), toCreate)).Should(Succeed())
+			By("HumioRepository: Creating the repository successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateRepository)).Should(Succeed())
 
-			fetched := &humiov1alpha1.HumioRepository{}
+			fetchedRepository := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
-				k8sClient.Get(context.Background(), key, fetched)
-				return fetched.Status.State
+				k8sClient.Get(context.Background(), key, fetchedRepository)
+				return fetchedRepository.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
 
-			initialRepository, err := humioClient.GetRepository(toCreate)
+			initialRepository, err := humioClient.GetRepository(toCreateRepository)
 			Expect(err).To(BeNil())
 			Expect(initialRepository).ToNot(BeNil())
 
 			expectedInitialRepository := repositoryExpectation{
-				Name:                   toCreate.Spec.Name,
-				Description:            toCreate.Spec.Description,
-				RetentionDays:          float64(toCreate.Spec.Retention.TimeInDays),
-				IngestRetentionSizeGB:  float64(toCreate.Spec.Retention.IngestSizeInGB),
-				StorageRetentionSizeGB: float64(toCreate.Spec.Retention.StorageSizeInGB),
+				Name:                   toCreateRepository.Spec.Name,
+				Description:            toCreateRepository.Spec.Description,
+				RetentionDays:          float64(toCreateRepository.Spec.Retention.TimeInDays),
+				IngestRetentionSizeGB:  float64(toCreateRepository.Spec.Retention.IngestSizeInGB),
+				StorageRetentionSizeGB: float64(toCreateRepository.Spec.Retention.StorageSizeInGB),
 			}
 			Eventually(func() repositoryExpectation {
-				initialRepository, err := humioClient.GetRepository(fetched)
+				initialRepository, err := humioClient.GetRepository(fetchedRepository)
 				if err != nil {
 					return repositoryExpectation{}
 				}
@@ -322,27 +271,27 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}
 			}, testTimeout, testInterval).Should(Equal(expectedInitialRepository))
 
-			By("Updating the repository successfully")
+			By("HumioRepository: Updating the repository successfully")
 			updatedDescription := "important description - now updated"
 			Eventually(func() error {
-				k8sClient.Get(context.Background(), key, fetched)
-				fetched.Spec.Description = updatedDescription
-				return k8sClient.Update(context.Background(), fetched)
+				k8sClient.Get(context.Background(), key, fetchedRepository)
+				fetchedRepository.Spec.Description = updatedDescription
+				return k8sClient.Update(context.Background(), fetchedRepository)
 			}, testTimeout, testInterval).Should(Succeed())
 
-			updatedRepository, err := humioClient.GetRepository(fetched)
+			updatedRepository, err := humioClient.GetRepository(fetchedRepository)
 			Expect(err).To(BeNil())
 			Expect(updatedRepository).ToNot(BeNil())
 
 			expectedUpdatedRepository := repositoryExpectation{
-				Name:                   toCreate.Spec.Name,
+				Name:                   fetchedRepository.Spec.Name,
 				Description:            updatedDescription,
-				RetentionDays:          float64(toCreate.Spec.Retention.TimeInDays),
-				IngestRetentionSizeGB:  float64(toCreate.Spec.Retention.IngestSizeInGB),
-				StorageRetentionSizeGB: float64(toCreate.Spec.Retention.StorageSizeInGB),
+				RetentionDays:          float64(fetchedRepository.Spec.Retention.TimeInDays),
+				IngestRetentionSizeGB:  float64(fetchedRepository.Spec.Retention.IngestSizeInGB),
+				StorageRetentionSizeGB: float64(fetchedRepository.Spec.Retention.StorageSizeInGB),
 			}
 			Eventually(func() repositoryExpectation {
-				updatedRepository, err := humioClient.GetRepository(fetched)
+				updatedRepository, err := humioClient.GetRepository(fetchedRepository)
 				if err != nil {
 					return repositoryExpectation{}
 				}
@@ -357,17 +306,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}
 			}, testTimeout, testInterval).Should(Equal(expectedUpdatedRepository))
 
-			By("Successfully deleting it")
-			Expect(k8sClient.Delete(context.Background(), fetched)).To(Succeed())
+			By("HumioRepository: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedRepository)).To(Succeed())
 			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), key, fetched)
+				err := k8sClient.Get(context.Background(), key, fetchedRepository)
 				return errors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
-		})
-	})
 
-	Context("Humio View", func() {
-		It("Should handle view correctly", func() {
+			By("HumioView: Should handle view correctly")
 			viewKey := types.NamespacedName{
 				Name:      "humioview",
 				Namespace: "default",
@@ -407,7 +353,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			By("Creating the repository successfully")
+			By("HumioView: Creating the repository successfully")
 			Expect(k8sClient.Create(context.Background(), repositoryToCreate)).Should(Succeed())
 
 			fetchedRepo := &humiov1alpha1.HumioRepository{}
@@ -416,7 +362,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedRepo.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
 
-			By("Creating the view successfully in k8s")
+			By("HumioView: Creating the view successfully in k8s")
 			Expect(k8sClient.Create(context.Background(), viewToCreate)).Should(Succeed())
 
 			fetchedView := &humiov1alpha1.HumioView{}
@@ -425,7 +371,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedView.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioViewStateExists))
 
-			By("Creating the view successfully in Humio")
+			By("HumioView: Creating the view successfully in Humio")
 			initialView, err := humioClient.GetView(viewToCreate)
 			Expect(err).To(BeNil())
 			Expect(initialView).ToNot(BeNil())
@@ -443,7 +389,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return *initialView
 			}, testTimeout, testInterval).Should(Equal(expectedInitialView))
 
-			By("Updating the view successfully in k8s")
+			By("HumioView: Updating the view successfully in k8s")
 			updatedConnections := []humiov1alpha1.HumioViewConnection{
 				{
 					RepositoryName: "humio",
@@ -456,7 +402,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8sClient.Update(context.Background(), fetchedView)
 			}, testTimeout, testInterval).Should(Succeed())
 
-			By("Updating the view successfully in Humio")
+			By("HumioView: Updating the view successfully in Humio")
 			updatedView, err := humioClient.GetView(fetchedView)
 			Expect(err).To(BeNil())
 			Expect(updatedView).ToNot(BeNil())
@@ -473,25 +419,21 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return *updatedView
 			}, testTimeout, testInterval).Should(Equal(expectedUpdatedView))
 
-			By("Successfully deleting the view")
+			By("HumioView: Successfully deleting the view")
 			Expect(k8sClient.Delete(context.Background(), fetchedView)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(context.Background(), viewKey, fetchedView)
 				return errors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
 
-			By("Successfully deleting the repo")
+			By("HumioView: Successfully deleting the repo")
 			Expect(k8sClient.Delete(context.Background(), fetchedRepo)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(context.Background(), viewKey, fetchedRepo)
 				return errors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
 
-		})
-	})
-
-	Context("Humio Parser", func() {
-		It("Should handle parser correctly", func() {
+			By("HumioParser: Should handle parser correctly")
 			spec := humiov1alpha1.HumioParserSpec{
 				ManagedClusterName: "humiocluster-shared",
 				Name:               "example-parser",
@@ -501,12 +443,12 @@ var _ = Describe("Humio Resources Controllers", func() {
 				TestData:           []string{"this is an example of rawstring"},
 			}
 
-			key := types.NamespacedName{
+			key = types.NamespacedName{
 				Name:      "humioparser",
 				Namespace: "default",
 			}
 
-			toCreate := &humiov1alpha1.HumioParser{
+			toCreateParser := &humiov1alpha1.HumioParser{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      key.Name,
 					Namespace: key.Namespace,
@@ -514,16 +456,16 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: spec,
 			}
 
-			By("Creating the parser successfully")
-			Expect(k8sClient.Create(context.Background(), toCreate)).Should(Succeed())
+			By("HumioParser: Creating the parser successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateParser)).Should(Succeed())
 
-			fetched := &humiov1alpha1.HumioParser{}
+			fetchedParser := &humiov1alpha1.HumioParser{}
 			Eventually(func() string {
-				k8sClient.Get(context.Background(), key, fetched)
-				return fetched.Status.State
+				k8sClient.Get(context.Background(), key, fetchedParser)
+				return fetchedParser.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioParserStateExists))
 
-			initialParser, err := humioClient.GetParser(toCreate)
+			initialParser, err := humioClient.GetParser(toCreateParser)
 			Expect(err).To(BeNil())
 			Expect(initialParser).ToNot(BeNil())
 
@@ -535,15 +477,15 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			Expect(reflect.DeepEqual(*initialParser, expectedInitialParser)).To(BeTrue())
 
-			By("Updating the parser successfully")
+			By("HumioParser: Updating the parser successfully")
 			updatedScript := "kvParse() | updated"
 			Eventually(func() error {
-				k8sClient.Get(context.Background(), key, fetched)
-				fetched.Spec.ParserScript = updatedScript
-				return k8sClient.Update(context.Background(), fetched)
+				k8sClient.Get(context.Background(), key, fetchedParser)
+				fetchedParser.Spec.ParserScript = updatedScript
+				return k8sClient.Update(context.Background(), fetchedParser)
 			}, testTimeout, testInterval).Should(Succeed())
 
-			updatedParser, err := humioClient.GetParser(fetched)
+			updatedParser, err := humioClient.GetParser(fetchedParser)
 			Expect(err).To(BeNil())
 			Expect(updatedParser).ToNot(BeNil())
 
@@ -554,55 +496,56 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Tests:     helpers.MapTests(spec.TestData, helpers.ToTestCase),
 			}
 			Eventually(func() humioapi.Parser {
-				updatedParser, err := humioClient.GetParser(fetched)
+				updatedParser, err := humioClient.GetParser(fetchedParser)
 				if err != nil {
 					return humioapi.Parser{}
 				}
 				return *updatedParser
 			}, testTimeout, testInterval).Should(Equal(expectedUpdatedParser))
 
-			By("Successfully deleting it")
-			Expect(k8sClient.Delete(context.Background(), fetched)).To(Succeed())
+			By("HumioParser: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedParser)).To(Succeed())
 			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), key, fetched)
+				err := k8sClient.Get(context.Background(), key, fetchedParser)
 				return errors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
-		})
-	})
 
-	Context("Humio External Cluster", func() {
-		It("Should handle externalcluster correctly with token secret", func() {
-			key := types.NamespacedName{
+			By("HumioExternalCluster: Should handle externalcluster correctly")
+			key = types.NamespacedName{
 				Name:      "humioexternalcluster",
 				Namespace: "default",
 			}
+			protocol := "http"
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				protocol = "https"
+			}
 
-			toCreate := &humiov1alpha1.HumioExternalCluster{
+			toCreateExternalCluster := &humiov1alpha1.HumioExternalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      key.Name,
 					Namespace: key.Namespace,
 				},
 				Spec: humiov1alpha1.HumioExternalClusterSpec{
-					Url:                "http://humiocluster-shared.default:8080/",
+					Url:                fmt.Sprintf("%s://humiocluster-shared.default:8080/", protocol),
 					APITokenSecretName: "humiocluster-shared-admin-token",
 					Insecure:           true,
 				},
 			}
 
-			By("Creating the external cluster successfully")
-			Expect(k8sClient.Create(context.Background(), toCreate)).Should(Succeed())
+			By("HumioExternalCluster: Creating the external cluster successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateExternalCluster)).Should(Succeed())
 
-			By("Confirming external cluster gets marked as ready")
-			fetched := &humiov1alpha1.HumioExternalCluster{}
+			By("HumioExternalCluster: Confirming external cluster gets marked as ready")
+			fetchedExternalCluster := &humiov1alpha1.HumioExternalCluster{}
 			Eventually(func() string {
-				k8sClient.Get(context.Background(), key, fetched)
-				return fetched.Status.State
+				k8sClient.Get(context.Background(), key, fetchedExternalCluster)
+				return fetchedExternalCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioExternalClusterStateReady))
 
-			By("Successfully deleting it")
-			Expect(k8sClient.Delete(context.Background(), fetched)).To(Succeed())
+			By("HumioExternalCluster: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedExternalCluster)).To(Succeed())
 			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), key, fetched)
+				err := k8sClient.Get(context.Background(), key, fetchedExternalCluster)
 				return errors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
 		})
