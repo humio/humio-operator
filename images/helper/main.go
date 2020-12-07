@@ -221,7 +221,7 @@ func validateAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName
 	adminSecretName := fmt.Sprintf("%s-%s", clusterName, adminSecretNameSuffix)
 	secret, err := clientset.CoreV1().Secrets(namespace).Get(context.TODO(), adminSecretName, metav1.GetOptions{})
 	if err != nil {
-		return err
+		return fmt.Errorf("got err while trying to get existing secret from k8s: %s", err)
 	}
 
 	// Check if secret currently holds a valid humio api token
@@ -233,7 +233,7 @@ func validateAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName
 
 		_, err = humioClient.Clusters().Get()
 		if err != nil {
-			return err
+			return fmt.Errorf("got err while trying to use apiToken: %s", err)
 		}
 
 		// We could successfully get information about the cluster, so the token must be valid
@@ -266,8 +266,7 @@ func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, 
 		_, err := clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, metav1.CreateOptions{})
 		return err
 	} else if err != nil {
-		// If we got an error which was not because the secret doesn't exist, return the error
-		return err
+		return fmt.Errorf("got err while getting the current k8s secret for apiToken: %s", err)
 	}
 
 	// If we got no error, we compare current token with desired token and update if needed.
@@ -275,7 +274,7 @@ func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, 
 		secret.StringData = map[string]string{"token": desiredAPIToken}
 		_, err := clientset.CoreV1().Secrets(namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 		if err != nil {
-			return err
+			return fmt.Errorf("got err while updating k8s secret for apiToken: %s", err)
 		}
 	}
 
