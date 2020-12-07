@@ -334,10 +334,13 @@ func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster) {
 			Name:  "EXTERNAL_URL", // URL used by other Humio hosts.
 			Value: fmt.Sprintf("%s://$(POD_NAME).%s.$(POD_NAMESPACE):$(HUMIO_PORT)", strings.ToLower(scheme), hc.Name),
 		},
-		{
+	}
+
+	if envVarHasValue(hc.Spec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") {
+		envDefaults = append(envDefaults, corev1.EnvVar{
 			Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
 			Value: "$(ZOOKEEPER_URL)",
-		},
+		})
 	}
 
 	humioVersion, _ := HumioVersionFromCluster(hc)

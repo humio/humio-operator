@@ -614,20 +614,24 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	Context("Humio Cluster Container Arguments", func() {
-		It("Should correctly configure container arguments", func() {
+		It("Should correctly configure container arguments and ephemeral disks env var", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-container-args",
 				Namespace: "default",
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 
-			By("Creating the cluster successfully")
+			By("Creating the cluster successfully without ephemeral disks")
 			createAndBootstrapCluster(toCreate)
 
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].Args).To(Equal([]string{"-c", "export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"}))
+				Expect(pod.Spec.Containers[humioIdx].Env).ToNot(ContainElement(corev1.EnvVar{
+					Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
+					Value: "$(ZOOKEEPER_URL)",
+				}))
 			}
 
 			By("Updating node uuid prefix which includes ephemeral disks and zone")
@@ -650,6 +654,14 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return false
 			}, testTimeout, testInterval).Should(BeTrue())
+
+			clusterPods, err := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			Expect(err).ToNot(HaveOccurred())
+			humioIdx, _ := kubernetes.GetContainerIndexByName(clusterPods[0], humioContainerName)
+			Expect(clusterPods[0].Spec.Containers[humioIdx].Env).To(ContainElement(corev1.EnvVar{
+				Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
+				Value: "$(ZOOKEEPER_URL)",
+			}))
 		})
 	})
 
