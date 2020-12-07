@@ -909,29 +909,6 @@ func (r *HumioClusterReconciler) getRestartPolicyFromPodInspection(pod, desiredP
 	return PodRestartPolicyRolling, nil
 }
 
-func (r *HumioClusterReconciler) podsReady(foundPodList []corev1.Pod) (int, int) {
-	var podsReadyCount int
-	var podsNotReadyCount int
-	for _, pod := range foundPodList {
-		podsNotReadyCount++
-		// pods that were just deleted may still have a status of Ready, but we should not consider them ready
-		if pod.DeletionTimestamp == nil {
-			for _, condition := range pod.Status.Conditions {
-				if condition.Type == "Ready" {
-					if condition.Status == "True" {
-						r.Log.Info(fmt.Sprintf("pod %s is ready", pod.Name))
-						podsReadyCount++
-						podsNotReadyCount--
-					} else {
-						r.Log.Info(fmt.Sprintf("pod %s is not ready", pod.Name))
-					}
-				}
-			}
-		}
-	}
-	return podsReadyCount, podsNotReadyCount
-}
-
 func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hc *humiov1alpha1.HumioCluster, foundPodList []corev1.Pod, attachments *podAttachments) (podLifecycleState, error) {
 	for _, pod := range foundPodList {
 		// only consider pods not already being deleted
