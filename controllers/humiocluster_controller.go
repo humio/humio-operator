@@ -992,10 +992,10 @@ func (r *HumioClusterReconciler) ensureServiceAccountExists(ctx context.Context,
 			}
 			err = r.Create(ctx, serviceAccount)
 			if err != nil {
-				r.Log.Error(err, fmt.Sprintf("unable to create service account %s", serviceAccountName))
+				r.Log.Error(err, fmt.Sprintf("unable to create service account %s", serviceAccount.Name))
 				return err
 			}
-			r.Log.Info(fmt.Sprintf("successfully created service account %s", serviceAccountName))
+			r.Log.Info(fmt.Sprintf("successfully created service account %s", serviceAccount.Name))
 			humioClusterPrometheusMetrics.Counters.ServiceAccountsCreated.Inc()
 		}
 	}
@@ -1017,10 +1017,10 @@ func (r *HumioClusterReconciler) ensureServiceAccountSecretExists(ctx context.Co
 		}
 		err = r.Create(ctx, secret)
 		if err != nil {
-			r.Log.Error(err, fmt.Sprintf("unable to create service account secret %s", serviceAccountSecretName))
+			r.Log.Error(err, fmt.Sprintf("unable to create service account secret %s", secret.Name))
 			return err
 		}
-		r.Log.Info(fmt.Sprintf("successfully created service account secret %s", serviceAccountSecretName))
+		r.Log.Info(fmt.Sprintf("successfully created service account secret %s", secret.Name))
 		humioClusterPrometheusMetrics.Counters.ServiceAccountSecretsCreated.Inc()
 	}
 
