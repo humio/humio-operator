@@ -110,6 +110,19 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return result, err
 	}
 
+	// Ensure custom service accounts exists, mark cluster as ConfigError if they do not exist.
+	allServiceAccountsExists, err := r.validateUserDefinedServiceAccountsExists(context.TODO(), hc)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if !allServiceAccountsExists {
+		err = r.setState(context.TODO(), humiov1alpha1.HumioClusterStateConfigError, hc)
+		if err != nil {
+			r.Log.Error(err, "unable to set cluster state")
+			return reconcile.Result{}, err
+		}
+	}
+
 	_, err = constructPod(hc, "", &podAttachments{})
 	if err != nil {
 		r.Log.Error(err, "got error while trying to construct pod")
@@ -979,6 +992,40 @@ func (r *HumioClusterReconciler) ensureAuthRoleBinding(ctx context.Context, hc *
 		}
 	}
 	return nil
+}
+
+// validateUserDefinedServiceAccountsExists confirms that the user-defined service accounts all exist as they should.
+// If any of the service account names explicitly set does not exist, or that we get an error, we return false and the error.
+// In case the user does not define any service accounts or that all user-defined service accounts already exists, we return true.
+func (r *HumioClusterReconciler) validateUserDefinedServiceAccountsExists(ctx context.Context, hc *humiov1alpha1.HumioCluster) (bool, error) {
+	if hc.Spec.HumioServiceAccountName != "" {
+		_, err := kubernetes.GetServiceAccount(ctx, r, hc.Spec.HumioServiceAccountName, hc.Namespace)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			return true, err
+		}
+	}
+	if hc.Spec.InitServiceAccountName != "" {
+		_, err := kubernetes.GetServiceAccount(ctx, r, hc.Spec.InitServiceAccountName, hc.Namespace)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			return true, err
+		}
+	}
+	if hc.Spec.AuthServiceAccountName != "" {
+		_, err := kubernetes.GetServiceAccount(ctx, r, hc.Spec.AuthServiceAccountName, hc.Namespace)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			return true, err
+		}
+	}
+	return true, nil
 }
 
 func (r *HumioClusterReconciler) ensureServiceAccountExists(ctx context.Context, hc *humiov1alpha1.HumioCluster, serviceAccountName string, serviceAccountAnnotations map[string]string) error {

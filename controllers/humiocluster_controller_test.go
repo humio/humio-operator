@@ -64,13 +64,13 @@ var _ = Describe("HumioCluster Controller", func() {
 		for _, cluster := range existingClusters.Items {
 			if val, ok := cluster.Annotations[autoCleanupAfterTestAnnotationName]; ok {
 				if val == testProcessID {
+					By("Cleaning up any user-defined service account we've created")
 					if cluster.Spec.HumioServiceAccountName != "" {
 						serviceAccount, err := kubernetes.GetServiceAccount(context.TODO(), k8sClient, cluster.Spec.HumioServiceAccountName, cluster.Namespace)
 						if err == nil {
 							Expect(k8sClient.Delete(context.TODO(), serviceAccount)).To(Succeed())
 						}
 					}
-
 					if cluster.Spec.InitServiceAccountName != "" {
 						clusterRoleBinding, err := kubernetes.GetClusterRoleBinding(context.TODO(), k8sClient, cluster.Spec.InitServiceAccountName)
 						if err == nil {
@@ -87,7 +87,6 @@ var _ = Describe("HumioCluster Controller", func() {
 							Expect(k8sClient.Delete(context.TODO(), serviceAccount)).To(Succeed())
 						}
 					}
-
 					if cluster.Spec.AuthServiceAccountName != "" {
 						roleBinding, err := kubernetes.GetRoleBinding(context.TODO(), k8sClient, cluster.Spec.AuthServiceAccountName, cluster.Namespace)
 						if err == nil {
@@ -1761,6 +1760,54 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 			}
 			Expect(ingressHostnames).ToNot(ContainElement(esHostname))
+		})
+	})
+
+	Context("Humio Cluster with non-existent custom service accounts", func() {
+		It("Should correctly handle non-existent humio service account by marking cluster as ConfigError", func() {
+			By("Creating cluster with non-existent service accounts")
+			key := types.NamespacedName{
+				Name:      "humiocluster-err-humio-service-account",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.HumioServiceAccountName = "non-existent-humio-service-account"
+			Expect(k8sClient.Create(context.TODO(), toCreate)).Should(Succeed())
+			Eventually(func() string {
+				var cluster humiov1alpha1.HumioCluster
+				k8sClient.Get(context.TODO(), key, &cluster)
+				return cluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateConfigError))
+		})
+		It("Should correctly handle non-existent init service account by marking cluster as ConfigError", func() {
+			By("Creating cluster with non-existent service accounts")
+			key := types.NamespacedName{
+				Name:      "humiocluster-err-init-service-account",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.HumioServiceAccountName = "non-existent-init-service-account"
+			Expect(k8sClient.Create(context.TODO(), toCreate)).Should(Succeed())
+			Eventually(func() string {
+				var cluster humiov1alpha1.HumioCluster
+				k8sClient.Get(context.TODO(), key, &cluster)
+				return cluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateConfigError))
+		})
+		It("Should correctly handle non-existent auth service account by marking cluster as ConfigError", func() {
+			By("Creating cluster with non-existent service accounts")
+			key := types.NamespacedName{
+				Name:      "humiocluster-err-auth-service-account",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.HumioServiceAccountName = "non-existent-auth-service-account"
+			Expect(k8sClient.Create(context.TODO(), toCreate)).Should(Succeed())
+			Eventually(func() string {
+				var cluster humiov1alpha1.HumioCluster
+				k8sClient.Get(context.TODO(), key, &cluster)
+				return cluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateConfigError))
 		})
 	})
 
