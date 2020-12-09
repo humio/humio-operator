@@ -64,6 +64,47 @@ var _ = Describe("HumioCluster Controller", func() {
 		for _, cluster := range existingClusters.Items {
 			if val, ok := cluster.Annotations[autoCleanupAfterTestAnnotationName]; ok {
 				if val == testProcessID {
+					if cluster.Spec.HumioServiceAccountName != "" {
+						serviceAccount, err := kubernetes.GetServiceAccount(context.TODO(), k8sClient, cluster.Spec.HumioServiceAccountName, cluster.Namespace)
+						if err == nil {
+							Expect(k8sClient.Delete(context.TODO(), serviceAccount)).To(Succeed())
+						}
+					}
+
+					if cluster.Spec.InitServiceAccountName != "" {
+						clusterRoleBinding, err := kubernetes.GetClusterRoleBinding(context.TODO(), k8sClient, cluster.Spec.InitServiceAccountName)
+						if err == nil {
+							Expect(k8sClient.Delete(context.TODO(), clusterRoleBinding)).To(Succeed())
+						}
+
+						clusterRole, err := kubernetes.GetClusterRole(context.TODO(), k8sClient, cluster.Spec.InitServiceAccountName)
+						if err == nil {
+							Expect(k8sClient.Delete(context.TODO(), clusterRole)).To(Succeed())
+						}
+
+						serviceAccount, err := kubernetes.GetServiceAccount(context.TODO(), k8sClient, cluster.Spec.InitServiceAccountName, cluster.Namespace)
+						if err == nil {
+							Expect(k8sClient.Delete(context.TODO(), serviceAccount)).To(Succeed())
+						}
+					}
+
+					if cluster.Spec.AuthServiceAccountName != "" {
+						roleBinding, err := kubernetes.GetRoleBinding(context.TODO(), k8sClient, cluster.Spec.AuthServiceAccountName, cluster.Namespace)
+						if err == nil {
+							Expect(k8sClient.Delete(context.TODO(), roleBinding)).To(Succeed())
+						}
+
+						role, err := kubernetes.GetRole(context.TODO(), k8sClient, cluster.Spec.AuthServiceAccountName, cluster.Namespace)
+						if err == nil {
+							Expect(k8sClient.Delete(context.TODO(), role)).To(Succeed())
+						}
+
+						serviceAccount, err := kubernetes.GetServiceAccount(context.TODO(), k8sClient, cluster.Spec.AuthServiceAccountName, cluster.Namespace)
+						if err == nil {
+							Expect(k8sClient.Delete(context.TODO(), serviceAccount)).To(Succeed())
+						}
+					}
+
 					_ = k8sClient.Delete(context.Background(), &cluster)
 				}
 			}
