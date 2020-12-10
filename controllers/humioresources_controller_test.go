@@ -19,9 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"os"
-	"reflect"
-
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
@@ -31,7 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"os"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 var _ = Describe("Humio Resources Controllers", func() {
@@ -48,7 +48,27 @@ var _ = Describe("Humio Resources Controllers", func() {
 		for _, cluster := range existingClusters.Items {
 			if val, ok := cluster.Annotations[autoCleanupAfterTestAnnotationName]; ok {
 				if val == testProcessID {
-					_ = k8sClient.Delete(context.Background(), &cluster)
+					By("Cleaning up any secrets with the prefix being the cluster name")
+					// This includes the following objects which do not have an ownerReference pointing to the HumioCluster, so they will not automatically be cleaned up:
+					// - <CLUSTER_NAME>: Holds the CA bundle for the TLS certificates, created by cert-manager because of a Certificate object and uses secret type kubernetes.io/tls.
+					// - <CLUSTER_NAME>-admin-token: Holds the API token for the Humio API, created by the auth sidecar and uses secret type "Opaque".
+					// - <CLUSTER_NAME>-core-XXXXXX: Holds the node-specific TLS certificate in a JKS bundle, created by cert-manager because of a Certificate object and uses secret type kubernetes.io/tls.
+					var allSecrets corev1.SecretList
+					Expect(k8sClient.List(context.TODO(), &allSecrets)).To(Succeed())
+					for _, secret := range allSecrets.Items {
+						if secret.Type == corev1.SecretTypeServiceAccountToken {
+							// Secrets holding service account tokens are automatically GC'ed when the ServiceAccount goes away.
+							continue
+						}
+						if secret.DeletionTimestamp == nil {
+							if strings.HasPrefix(secret.Name, cluster.Name) {
+								Expect(k8sClient.Delete(context.TODO(), &secret)).To(Succeed())
+							}
+						}
+					}
+
+					By("Deleting the cluster")
+					Expect(k8sClient.Delete(context.Background(), &cluster)).To(Succeed())
 				}
 			}
 		}
@@ -64,7 +84,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("HumioCluster: Creating shared test cluster")
 			clusterKey := types.NamespacedName{
 				Name:      "humiocluster-shared",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			cluster := constructBasicSingleNodeHumioCluster(clusterKey)
 			createAndBootstrapCluster(cluster)
@@ -72,7 +92,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("HumioIngestToken: Creating Humio Ingest token with token target secret")
 			key := types.NamespacedName{
 				Name:      "humioingesttoken-with-token-secret",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 
 			toCreateIngestToken := &humiov1alpha1.HumioIngestToken{
@@ -151,7 +171,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("HumioIngestToken: Should handle ingest token correctly without token target secret")
 			key = types.NamespacedName{
 				Name:      "humioingesttoken-without-token-secret",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 
 			toCreateIngestToken = &humiov1alpha1.HumioIngestToken{
@@ -216,7 +236,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("HumioRepository: Should handle repository correctly")
 			key = types.NamespacedName{
 				Name:      "humiorepository",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 
 			toCreateRepository := &humiov1alpha1.HumioRepository{
@@ -316,7 +336,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("HumioView: Should handle view correctly")
 			viewKey := types.NamespacedName{
 				Name:      "humioview",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 
 			repositoryToCreate := &humiov1alpha1.HumioRepository{
@@ -372,8 +392,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioViewStateExists))
 
 			By("HumioView: Creating the view successfully in Humio")
-			initialView, err := humioClient.GetView(viewToCreate)
-			Expect(err).To(BeNil())
+			var initialView *humioapi.View
+			Eventually(func() error {
+				initialView, err = humioClient.GetView(viewToCreate)
+				return err
+			}, testTimeout, testInterval).Should(Succeed())
 			Expect(initialView).ToNot(BeNil())
 
 			expectedInitialView := humioapi.View{
@@ -411,13 +434,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:        viewToCreate.Spec.Name,
 				Connections: fetchedView.GetViewConnections(),
 			}
-			Eventually(func() humioapi.View {
-				updatedView, err := humioClient.GetView(fetchedView)
-				if err != nil {
-					return humioapi.View{}
-				}
-				return *updatedView
-			}, testTimeout, testInterval).Should(Equal(expectedUpdatedView))
+			Eventually(func() (*humioapi.View, error) {
+				return humioClient.GetView(fetchedView)
+			}, testTimeout, testInterval).Should(BeEquivalentTo(&expectedUpdatedView))
 
 			By("HumioView: Successfully deleting the view")
 			Expect(k8sClient.Delete(context.Background(), fetchedView)).To(Succeed())
@@ -445,7 +464,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			key = types.NamespacedName{
 				Name:      "humioparser",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 
 			toCreateParser := &humiov1alpha1.HumioParser{
@@ -513,7 +532,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("HumioExternalCluster: Should handle externalcluster correctly")
 			key = types.NamespacedName{
 				Name:      "humioexternalcluster",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			protocol := "http"
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
@@ -526,10 +545,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Namespace: key.Namespace,
 				},
 				Spec: humiov1alpha1.HumioExternalClusterSpec{
-					Url:                fmt.Sprintf("%s://humiocluster-shared.default:8080/", protocol),
-					APITokenSecretName: "humiocluster-shared-admin-token",
-					Insecure:           true,
+					Url:                fmt.Sprintf("%s://%s.%s:8080/", protocol, clusterKey.Name, clusterKey.Namespace),
+					APITokenSecretName: fmt.Sprintf("%s-admin-token", clusterKey.Name),
 				},
+			}
+
+			if protocol == "http" {
+				toCreateExternalCluster.Spec.Insecure = true
 			}
 
 			By("HumioExternalCluster: Creating the external cluster successfully")

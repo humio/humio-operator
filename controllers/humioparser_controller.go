@@ -43,6 +43,7 @@ type HumioParserReconciler struct {
 	Log         logr.Logger
 	Scheme      *runtime.Scheme
 	HumioClient humio.Client
+	Namespace   string
 }
 
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioparsers,verbs=get;list;watch;create;update;patch;delete
@@ -54,6 +55,12 @@ func (r *HumioParserReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
 	r.Log.Info("Reconciling HumioParser")
+
+	if r.Namespace != "" {
+		if r.Namespace != req.Namespace {
+			return reconcile.Result{}, nil
+		}
+	}
 
 	// Fetch the HumioParser instance
 	hp := &humiov1alpha1.HumioParser{}

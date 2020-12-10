@@ -1005,7 +1005,7 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hc *humi
 	}
 	authSASecretName, err := r.getAuthServiceAccountSecretName(ctx, hc)
 	if err != nil {
-		return &podAttachments{}, fmt.Errorf("unable get auth service account secret for HumioCluster: %s", err)
+		return &podAttachments{}, fmt.Errorf("unable to get auth service account secret for HumioCluster: %s", err)
 
 	}
 	if authSASecretName == "" {
@@ -1020,7 +1020,7 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hc *humi
 
 	initSASecretName, err := r.getInitServiceAccountSecretName(ctx, hc)
 	if err != nil {
-		return &podAttachments{}, fmt.Errorf("unable get init service account secret for HumioCluster: %s", err)
+		return &podAttachments{}, fmt.Errorf("unable to get init service account secret for HumioCluster: %s", err)
 	}
 	if initSASecretName == "" {
 		return &podAttachments{}, errors.New("unable to create Pod for HumioCluster: the init service account secret does not exist")
