@@ -18,9 +18,10 @@ package humio
 
 import (
 	"fmt"
-	"github.com/go-logr/logr"
 	"net/url"
 	"reflect"
+
+	"github.com/go-logr/logr"
 
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -34,6 +35,7 @@ type Client interface {
 	ParsersClient
 	RepositoriesClient
 	ViewsClient
+	LicenseClient
 }
 
 type ClusterClient interface {
@@ -78,6 +80,11 @@ type ViewsClient interface {
 	GetView(view *humiov1alpha1.HumioView) (*humioapi.View, error)
 	UpdateView(view *humiov1alpha1.HumioView) (*humioapi.View, error)
 	DeleteView(view *humiov1alpha1.HumioView) error
+}
+
+type LicenseClient interface {
+	GetLicense() (humioapi.License, error)
+	InstallLicense(string) error
 }
 
 // ClientConfig stores our Humio api client
@@ -403,4 +410,14 @@ func getConnectionMap(viewConnections []humioapi.ViewConnection) map[string]stri
 		connectionMap[connection.RepoName] = connection.Filter
 	}
 	return connectionMap
+}
+
+func (h *ClientConfig) GetLicense() (humioapi.License, error) {
+	licensesClient := h.apiClient.Licenses()
+	return licensesClient.Get()
+}
+
+func (h *ClientConfig) InstallLicense(license string) error {
+	licensesClient := h.apiClient.Licenses()
+	return licensesClient.Install(license)
 }

@@ -55,6 +55,15 @@ func (r *HumioClusterReconciler) setVersion(ctx context.Context, version string,
 	return r.Status().Update(ctx, hc)
 }
 
+func (r *HumioClusterReconciler) setLicense(ctx context.Context, licenseStatus humiov1alpha1.HumioLicenseStatus, hc *humiov1alpha1.HumioCluster) {
+	r.Log.Info(fmt.Sprintf("setting cluster license status to %v", licenseStatus))
+	hc.Status.LicenseStatus = licenseStatus
+	err := r.Status().Update(ctx, hc)
+	if err != nil {
+		r.Log.Error(err, "unable to set license status")
+	}
+}
+
 func (r *HumioClusterReconciler) setNodeCount(ctx context.Context, nodeCount int, hc *humiov1alpha1.HumioCluster) error {
 	if hc.Status.NodeCount == nodeCount {
 		return nil

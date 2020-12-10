@@ -3568,6 +3568,29 @@ spec:
                   Service Account that will be attached to the init container in the
                   humio pod.
                 type: string
+              license:
+                description: License is the kubernetes secret reference which contains
+                  the Humio license
+                properties:
+                  secretKeyRef:
+                    description: SecretKeySelector selects a key of a Secret.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                type: object
               nodeCount:
                 description: NodeCount is the desired number of humio cluster nodes
                 type: integer
@@ -4885,6 +4908,15 @@ spec:
           status:
             description: HumioClusterStatus defines the observed state of HumioCluster
             properties:
+              licenseStatus:
+                description: LicenseStatus shows the status of the Humio license attached
+                  to the cluster
+                properties:
+                  expiration:
+                    type: string
+                  type:
+                    type: string
+                type: object
               nodeCount:
                 description: NodeCount is the number of nodes of humio running
                 type: integer
