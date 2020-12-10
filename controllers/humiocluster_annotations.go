@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -51,6 +52,21 @@ func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Co
 	if err != nil {
 		return -1, fmt.Errorf("unable to set annotation %s on HumioCluster: %s", podRevisionAnnotation, err)
 	}
+
+	var hasNewRevision bool
+	for i := 0; i < 30; i++ {
+		r.getLatestHumioCluster(ctx, hc)
+		if hc.Annotations[podRevisionAnnotation] == strconv.Itoa(newRevision) {
+			hasNewRevision = true
+			break
+		}
+		r.Log.Info("waiting for revision to be updated on the HumioCluster")
+		time.Sleep(time.Second * 1)
+	}
+	if !hasNewRevision {
+		return newRevision, fmt.Errorf("failed to verify the new revision has been added to the HumioCluster")
+	}
+
 	return newRevision, nil
 }
 
