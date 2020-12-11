@@ -1314,11 +1314,12 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
 				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				updatedHumioCluster.Spec.DataVolumeSource = corev1.VolumeSource{}
 				updatedHumioCluster.Spec.DataVolumePersistentVolumeClaimSpecTemplate = corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: resource.MustParse("10Gi"),
+							corev1.ResourceStorage: resource.MustParse("1Gi"),
 						},
 					},
 				}
@@ -2339,6 +2340,11 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName) *humiov1alph
 			ExtraKafkaConfigs:       "security.protocol=PLAINTEXT",
 			NodeCount:               helpers.IntPtr(1),
 			TargetReplicationFactor: 1,
+			DataVolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					SizeLimit: resource.NewQuantity(128*1000*1000, resource.DecimalSI),
+				},
+			},
 			EnvironmentVariables: []corev1.EnvVar{
 				{
 					Name:  "HUMIO_JVM_ARGS",
