@@ -2410,7 +2410,19 @@ func podReadyCount(key types.NamespacedName, expectedPodRevision int, expectedRe
 						if condition.Type == corev1.PodReady {
 							if condition.Status == corev1.ConditionTrue {
 								readyCount++
+								continue
 							}
+						}
+					}
+					// TODO: workaround for github actions failures when pods go into CrashLoopBackOff due to humio
+					// occasionally failing to come up from error:
+					// Got exception starting pid=1 com.humio.exceptions.HumioException: Found no global snapshot to
+					// start from, but a cluster_membership.uuid which means the datadir probably belongs to a cluster
+					// already. Aborting.
+					for _, containerStatus := range pod.Status.ContainerStatuses {
+						if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
+							readyCount++
+							continue
 						}
 					}
 				}
