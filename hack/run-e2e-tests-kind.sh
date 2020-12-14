@@ -25,4 +25,4 @@ $kubectl label node --overwrite --all topology.kubernetes.io/zone=az1
 
 # We skip the helpers package as those tests assumes the environment variable USE_CERT_MANAGER is not set.
 # Documentation for Go support states that inject-tcp method will not work. https://www.telepresence.io/howto/golang
-USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true telepresence --method $proxy_method --run $ginkgo -timeout 60m -nodes=2 -stream --slowSpecThreshold=5 -skipPackage helpers -v ./... -covermode=count -coverprofile cover.out -progress
+USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true telepresence --method $proxy_method --run $ginkgo -timeout 60m -nodes=3 -stream --slowSpecThreshold=5 -skipPackage helpers -v ./... -covermode=count -coverprofile cover.out -progress
