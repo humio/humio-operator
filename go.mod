@@ -9,8 +9,8 @@ require (
 	github.com/google/martian v2.1.0+incompatible
 	github.com/humio/cli v0.28.2-0.20201119135417-f373759fcecb
 	github.com/jetstack/cert-manager v0.16.1
-	github.com/onsi/ginkgo v1.14.1
-	github.com/onsi/gomega v1.10.2
+	github.com/onsi/ginkgo v1.14.2
+	github.com/onsi/gomega v1.10.4
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/prometheus/client_golang v1.0.0
 	github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f
