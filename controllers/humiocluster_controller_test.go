@@ -211,12 +211,17 @@ var _ = Describe("HumioCluster Controller", func() {
 			k8sClient.Get(context.Background(), key, &updatedHumioCluster)
 			Expect(updatedHumioCluster.Annotations[podRevisionAnnotation]).To(Equal("2"))
 
-			clusterPods, _ = kubernetes.ListPods(k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
-			Expect(clusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
-			for _, pod := range clusterPods {
+			updatedClusterPods, _ := kubernetes.ListPods(k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
+			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
 				Expect(pod.Annotations[podRevisionAnnotation]).To(Equal("2"))
+			}
+
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				By("Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
 		})
 	})
@@ -304,12 +309,17 @@ var _ = Describe("HumioCluster Controller", func() {
 			k8sClient.Get(context.Background(), key, &updatedHumioCluster)
 			Expect(updatedHumioCluster.Annotations[podRevisionAnnotation]).To(Equal("3"))
 
-			clusterPods, _ = kubernetes.ListPods(k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
-			Expect(clusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
-			for _, pod := range clusterPods {
+			updatedClusterPods, _ := kubernetes.ListPods(k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
+			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
 				Expect(pod.Annotations[podRevisionAnnotation]).To(Equal("3"))
+			}
+
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				By("Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
 		})
 	})
@@ -337,6 +347,8 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return ""
 			}, testTimeout, testInterval).Should(Equal(helperImage))
+
+			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 
 			By("Validating pod uses default helper image as auth sidecar container")
 			Eventually(func() string {
@@ -385,6 +397,12 @@ var _ = Describe("HumioCluster Controller", func() {
 				return ""
 			}, testTimeout, testInterval).Should(Equal(customHelperImage))
 
+			updatedClusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				By("Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
 		})
 	})
 
@@ -481,6 +499,12 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return true
 			}, testTimeout, testInterval).Should(BeTrue())
+
+			updatedClusterPods, _ := kubernetes.ListPods(k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				By("Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
 		})
 	})
 
@@ -2429,4 +2453,14 @@ func ensurePodsSimultaneousRestart(hc *humiov1alpha1.HumioCluster, key types.Nam
 	Eventually(func() int {
 		return podReadyCount(key, expectedPodRevision, expectedPodRevision)
 	}, testTimeout, testInterval).Should(BeIdenticalTo(*hc.Spec.NodeCount))
+}
+
+func podNames(pods []corev1.Pod) []string {
+	var podNamesList []string
+	for _, pod := range pods {
+		if pod.Name != "" {
+			podNamesList = append(podNamesList, pod.Name)
+		}
+	}
+	return podNamesList
 }
