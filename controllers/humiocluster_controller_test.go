@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -2462,5 +2463,6 @@ func podNames(pods []corev1.Pod) []string {
 			podNamesList = append(podNamesList, pod.Name)
 		}
 	}
+	sort.Strings(podNamesList)
 	return podNamesList
 }
