@@ -291,7 +291,18 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return reconcile.Result{}, err
 	}
 
-	// TODO: wait until all pods are ready before continuing
+	// wait until all pods are ready before continuing
+	foundPodList, err := kubernetes.ListPods(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+	podsStatus, err := r.getPodsStatus(hc, foundPodList)
+	if err != nil {
+		r.Log.Error(err, "failed to get pod status")
+		return reconcile.Result{}, err
+	}
+	if podsStatus.waitingOnPods() {
+		r.Log.Info("waiting on pods, refusing to continue with reconciliation until all pods are ready")
+		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
+	}
+
 	clusterController := humio.NewClusterController(r.Log, r.HumioClient)
 	err = r.ensurePartitionsAreBalanced(*clusterController, hc)
 	if err != nil {
