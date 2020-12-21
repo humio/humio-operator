@@ -13,6 +13,7 @@ spec:
     enabled: false
   image: "humio/humio-core:1.18.0"
   nodeCount: 1
+  targetReplicationFactor: 1
   environmentVariables:
     - name: "HUMIO_JVM_ARGS"
       value:  "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelOldGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false"
