@@ -69,20 +69,6 @@ func (r *HumioParserReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 		return reconcile.Result{}, err
 	}
 
-	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioParser) {
-		curParser, err := humioClient.GetParser(hp)
-		if err != nil {
-			r.setState(ctx, humiov1alpha1.HumioParserStateUnknown, hp)
-			return
-		}
-		emptyParser := humioapi.Parser{}
-		if reflect.DeepEqual(emptyParser, *curParser) {
-			r.setState(ctx, humiov1alpha1.HumioParserStateNotFound, hp)
-			return
-		}
-		r.setState(ctx, humiov1alpha1.HumioParserStateExists, hp)
-	}(context.TODO(), r.HumioClient, hp)
-
 	r.Log.Info("Checking if parser is marked to be deleted")
 	// Check if the HumioParser instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
@@ -121,16 +107,31 @@ func (r *HumioParserReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 	}
 
 	cluster, err := helpers.NewCluster(context.TODO(), r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager())
-	if err != nil || cluster.Config() == nil {
+	if err != nil || cluster == nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
+		err = r.setState(context.TODO(), humiov1alpha1.HumioParserStateConfigError, hp)
+		if err != nil {
+			r.Log.Error(err, "unable to set cluster state")
+			return reconcile.Result{}, err
+		}
 		return reconcile.Result{}, err
 	}
 
-	err = r.HumioClient.Authenticate(cluster.Config())
-	if err != nil {
-		r.Log.Error(err, "unable to authenticate humio client")
-		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
-	}
+	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioParser) {
+		curParser, err := humioClient.GetParser(hp)
+		if err != nil {
+			_ = r.setState(ctx, humiov1alpha1.HumioParserStateUnknown, hp)
+			return
+		}
+		emptyParser := humioapi.Parser{}
+		if reflect.DeepEqual(emptyParser, *curParser) {
+			_ = r.setState(ctx, humiov1alpha1.HumioParserStateNotFound, hp)
+			return
+		}
+		_ = r.setState(ctx, humiov1alpha1.HumioParserStateExists, hp)
+	}(context.TODO(), r.HumioClient, hp)
+
+	r.HumioClient.SetHumioClientConfig(cluster.Config())
 
 	// Get current parser
 	r.Log.Info("get current parser")
@@ -200,6 +201,10 @@ func (r *HumioParserReconciler) addFinalizer(hp *humiov1alpha1.HumioParser) erro
 }
 
 func (r *HumioParserReconciler) setState(ctx context.Context, state string, hp *humiov1alpha1.HumioParser) error {
+	if hp.Status.State == state {
+		return nil
+	}
+	r.Log.Info(fmt.Sprintf("setting parser state to %s", state))
 	hp.Status.State = state
 	return r.Status().Update(ctx, hp)
 }

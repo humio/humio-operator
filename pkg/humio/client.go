@@ -46,7 +46,7 @@ type ClusterClient interface {
 	Unregister(int) error
 	SuggestedStoragePartitions() ([]humioapi.StoragePartitionInput, error)
 	SuggestedIngestPartitions() ([]humioapi.IngestPartitionInput, error)
-	Authenticate(*humioapi.Config) error
+	SetHumioClientConfig(*humioapi.Config)
 	GetBaseURL(*humiov1alpha1.HumioCluster) *url.URL
 	TestAPIToken() error
 	Status() (humioapi.StatusResponse, error)
@@ -95,7 +95,7 @@ func NewClient(logger logr.Logger, config *humioapi.Config) *ClientConfig {
 	}
 }
 
-func (h *ClientConfig) Authenticate(config *humioapi.Config) error {
+func (h *ClientConfig) SetHumioClientConfig(config *humioapi.Config) {
 	if config.Token == "" {
 		config.Token = h.apiClient.Token()
 	}
@@ -105,10 +105,8 @@ func (h *ClientConfig) Authenticate(config *humioapi.Config) error {
 	if config.CACertificatePEM == "" {
 		config.CACertificatePEM = h.apiClient.CACertificate()
 	}
-	newClient := humioapi.NewClient(*config)
-
-	h.apiClient = newClient
-	return nil
+	h.apiClient = humioapi.NewClient(*config)
+	return
 }
 
 // Status returns the status of the humio cluster
