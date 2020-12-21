@@ -27,6 +27,8 @@ const (
 	HumioIngestTokenStateExists = "Exists"
 	// HumioIngestTokenStateNotFound is the NotFound state of the ingest token
 	HumioIngestTokenStateNotFound = "NotFound"
+	// HumioIngestTokenStateConfigError is the state of the ingest token when user-provided specification results in configuration error, such as non-existent humio cluster
+	HumioIngestTokenStateConfigError = "ConfigError"
 )
 
 // HumioIngestTokenSpec defines the desired state of HumioIngestToken

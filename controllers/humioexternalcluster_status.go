@@ -18,15 +18,16 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
 
 func (r *HumioExternalClusterReconciler) setState(ctx context.Context, state string, hec *humiov1alpha1.HumioExternalCluster) error {
-	hec.Status.State = state
-	err := r.Status().Update(ctx, hec)
-	if err != nil {
-		return err
+	if hec.Status.State == state {
+		return nil
 	}
-	return nil
+	r.Log.Info(fmt.Sprintf("setting external cluster state to %s", state))
+	hec.Status.State = state
+	return r.Status().Update(ctx, hec)
 }

@@ -28,6 +28,8 @@ const (
 	HumioViewStateExists = "Exists"
 	// HumioViewStateNotFound is the NotFound state of the view
 	HumioViewStateNotFound = "NotFound"
+	// HumioViewStateConfigError is the state of the repository when user-provided specification results in configuration error, such as non-existent humio cluster
+	HumioViewStateConfigError = "ConfigError"
 )
 
 type HumioViewConnection struct {

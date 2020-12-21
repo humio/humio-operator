@@ -116,6 +116,7 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		return reconcile.Result{}, err
 	}
 	if !allServiceAccountsExists {
+		r.Log.Error(fmt.Errorf("not all referenced service accounts exists"), "marking cluster state as ConfigError")
 		err = r.setState(context.TODO(), humiov1alpha1.HumioClusterStateConfigError, hc)
 		if err != nil {
 			r.Log.Error(err, "unable to set cluster state")
@@ -134,6 +135,7 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	}
 
 	if nodeCountOrDefault(hc) < hc.Spec.TargetReplicationFactor {
+		r.Log.Error(fmt.Errorf("node count lower than target replication factor"), "marking cluster state as ConfigError")
 		err := r.setState(context.TODO(), humiov1alpha1.HumioClusterStateConfigError, hc)
 		if err != nil {
 			r.Log.Error(err, "unable to set cluster state")
@@ -255,18 +257,18 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 
 	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
 		pods, _ := kubernetes.ListPods(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
-		r.setNodeCount(ctx, len(pods), hc)
+		_ = r.setNodeCount(ctx, len(pods), hc)
 	}(context.TODO(), hc)
 
 	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
-		r.getLatestHumioCluster(ctx, hc)
+		_ = r.getLatestHumioCluster(ctx, hc)
 
 		status, err := humioClient.Status()
 		if err != nil {
 			r.Log.Error(err, "unable to get status")
 		}
-		r.setVersion(ctx, status.Version, hc)
-		r.setPod(ctx, hc)
+		_ = r.setVersion(ctx, status.Version, hc)
+		_ = r.setPod(ctx, hc)
 
 	}(context.TODO(), r.HumioClient, hc)
 
@@ -1841,7 +1843,8 @@ func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *h
 	}
 
 	// Either authenticate or re-authenticate with the persistent token
-	return reconcile.Result{}, r.HumioClient.Authenticate(humioAPIConfig)
+	r.HumioClient.SetHumioClientConfig(humioAPIConfig)
+	return reconcile.Result{}, nil
 }
 
 // TODO: there is no need for this. We should instead change this to a get method where we return the list of env vars

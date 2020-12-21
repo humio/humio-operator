@@ -19,20 +19,18 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 	uberzap "go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
-
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
@@ -55,7 +53,8 @@ func (r *HumioViewReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	r.Log.Info("Reconciling HumioView")
 
 	// Fetch the HumioView instance
-	humioViewSpec, err := r.getViewSpec(req)
+	hv := &humiov1alpha1.HumioView{}
+	err := r.Get(context.TODO(), req.NamespacedName, hv)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -67,19 +66,41 @@ func (r *HumioViewReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, err
 	}
 
-	defer r.setLatestState(humioViewSpec)
-
-	result, err := r.authenticate(humioViewSpec)
-	if err != nil {
-		return result, err
+	cluster, err := helpers.NewCluster(context.TODO(), r, hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName, hv.Namespace, helpers.UseCertManager())
+	if err != nil || cluster == nil || cluster.Config() == nil {
+		r.Log.Error(err, "unable to obtain humio client config")
+		err = r.setState(context.TODO(), humiov1alpha1.HumioParserStateConfigError, hv)
+		if err != nil {
+			r.Log.Error(err, "unable to set cluster state")
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, err
 	}
 
-	curView, result, err := r.getView(humioViewSpec)
+	defer func(ctx context.Context, humioClient humio.Client, hv *humiov1alpha1.HumioView) {
+		curView, err := r.HumioClient.GetView(hv)
+		if err != nil {
+			_ = r.setState(ctx, humiov1alpha1.HumioViewStateUnknown, hv)
+			return
+		}
+		emptyView := humioapi.View{}
+		if reflect.DeepEqual(emptyView, *curView) {
+			_ = r.setState(ctx, humiov1alpha1.HumioViewStateNotFound, hv)
+			return
+		}
+		_ = r.setState(ctx, humiov1alpha1.HumioViewStateExists, hv)
+	}(context.TODO(), r.HumioClient, hv)
+
+	r.HumioClient.SetHumioClientConfig(cluster.Config())
+
+	r.Log.Info("get current view")
+	curView, err := r.HumioClient.GetView(hv)
 	if err != nil {
-		return result, err
+		r.Log.Error(err, "could not check if view exists")
+		return reconcile.Result{}, fmt.Errorf("could not check if view exists: %s", err)
 	}
 
-	reconcileHumioViewResult, err := r.reconcileHumioView(curView, humioViewSpec)
+	reconcileHumioViewResult, err := r.reconcileHumioView(curView, hv)
 	if err != nil {
 		return reconcileHumioViewResult, err
 	}
@@ -155,53 +176,6 @@ func (r *HumioViewReconciler) reconcileHumioView(curView *humioapi.View, hv *hum
 	return reconcile.Result{}, nil
 }
 
-func (r *HumioViewReconciler) getView(hv *humiov1alpha1.HumioView) (*humioapi.View, reconcile.Result, error) {
-	r.Log.Info("get current view")
-	curView, err := r.HumioClient.GetView(hv)
-	if err != nil {
-		r.Log.Error(err, "could not check if view exists")
-		return nil, reconcile.Result{}, fmt.Errorf("could not check if view exists: %s", err)
-	}
-	return curView, reconcile.Result{}, nil
-}
-
-func (r *HumioViewReconciler) authenticate(hv *humiov1alpha1.HumioView) (reconcile.Result, error) {
-	cluster, err := helpers.NewCluster(context.TODO(), r, hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName, hv.Namespace, helpers.UseCertManager())
-	if err != nil || cluster.Config() == nil {
-		r.Log.Error(err, "unable to obtain humio client config")
-		return reconcile.Result{}, err
-	}
-
-	err = r.HumioClient.Authenticate(cluster.Config())
-	if err != nil {
-		r.Log.Error(err, "unable to authenticate humio client")
-		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
-	}
-	return reconcile.Result{}, nil
-}
-
-func (r *HumioViewReconciler) getViewSpec(req ctrl.Request) (*humiov1alpha1.HumioView, error) {
-	hv := &humiov1alpha1.HumioView{}
-	err := r.Get(context.TODO(), req.NamespacedName, hv)
-
-	return hv, err
-}
-
-func (r *HumioViewReconciler) setLatestState(hv *humiov1alpha1.HumioView) {
-	ctx := context.TODO()
-	curView, err := r.HumioClient.GetView(hv)
-	if err != nil {
-		r.setState(ctx, humiov1alpha1.HumioViewStateUnknown, hv)
-		return
-	}
-	emptyView := humioapi.View{}
-	if reflect.DeepEqual(emptyView, *curView) {
-		r.setState(ctx, humiov1alpha1.HumioViewStateNotFound, hv)
-		return
-	}
-	r.setState(ctx, humiov1alpha1.HumioViewStateExists, hv)
-}
-
 func (r *HumioViewReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioView{}).
@@ -209,6 +183,10 @@ func (r *HumioViewReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *HumioViewReconciler) setState(ctx context.Context, state string, hr *humiov1alpha1.HumioView) error {
+	if hr.Status.State == state {
+		return nil
+	}
+	r.Log.Info(fmt.Sprintf("setting view state to %s", state))
 	hr.Status.State = state
 	return r.Status().Update(ctx, hr)
 }
