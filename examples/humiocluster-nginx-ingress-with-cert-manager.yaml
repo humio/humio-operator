@@ -3,7 +3,7 @@ kind: HumioCluster
 metadata:
   name: example-humiocluster
 spec:
-  image: "humio/humio-core:1.18.0"
+  image: "humio/humio-core:1.18.1"
   environmentVariables:
     - name: "ZOOKEEPER_URL"
       value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless:2181"
