@@ -65,6 +65,7 @@ var k8sManager ctrl.Manager
 var humioClient humio.Client
 var testTimeout time.Duration
 var testProcessID string
+var testNamespace corev1.Namespace
 
 const testInterval = time.Second * 1
 
@@ -85,7 +86,7 @@ var _ = BeforeSuite(func(done Done) {
 
 	By("bootstrapping test environment")
 	useExistingCluster := true
-	testProcessID = kubernetes.RandomString()
+	testProcessID = fmt.Sprintf("e2e-%s", kubernetes.RandomString())
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 		testTimeout = time.Second * 300
 		testEnv = &envtest.Environment{
@@ -142,6 +143,7 @@ var _ = BeforeSuite(func(done Done) {
 		// configure cluster-scoped with MultiNamespacedCacheBuilder
 		options.Namespace = ""
 		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(watchNamespace, ","))
+		// TODO: Get rid of Namespace property on Reconciler objects and instead use a custom cache implementation as this cache doesn't support watching a subset of namespace while still allowing to watch cluster-scoped resources. https://github.com/kubernetes-sigs/controller-runtime/issues/934
 	}
 
 	k8sManager, err = ctrl.NewManager(cfg, options)
@@ -151,6 +153,7 @@ var _ = BeforeSuite(func(done Done) {
 		Client:      k8sManager.GetClient(),
 		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
+		Namespace:   testProcessID,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -158,6 +161,7 @@ var _ = BeforeSuite(func(done Done) {
 		Client:      k8sManager.GetClient(),
 		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
+		Namespace:   testProcessID,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -165,6 +169,7 @@ var _ = BeforeSuite(func(done Done) {
 		Client:      k8sManager.GetClient(),
 		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
+		Namespace:   testProcessID,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -172,6 +177,7 @@ var _ = BeforeSuite(func(done Done) {
 		Client:      k8sManager.GetClient(),
 		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
+		Namespace:   testProcessID,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -179,6 +185,7 @@ var _ = BeforeSuite(func(done Done) {
 		Client:      k8sManager.GetClient(),
 		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
+		Namespace:   testProcessID,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -186,6 +193,7 @@ var _ = BeforeSuite(func(done Done) {
 		Client:      k8sManager.GetClient(),
 		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
+		Namespace:   testProcessID,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -196,6 +204,15 @@ var _ = BeforeSuite(func(done Done) {
 
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
+
+	By(fmt.Sprintf("creating test namespace: %s", testProcessID))
+	testNamespace = corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testProcessID,
+		},
+	}
+	err = k8sClient.Create(context.TODO(), &testNamespace)
+	Expect(err).ToNot(HaveOccurred())
 
 	if helpers.IsOpenShift() {
 		var err error
@@ -222,7 +239,7 @@ var _ = BeforeSuite(func(done Done) {
 			scc := openshiftsecurityv1.SecurityContextConstraints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      sccName,
-					Namespace: "default",
+					Namespace: testProcessID,
 				},
 				Priority:                 &priority,
 				AllowPrivilegedContainer: true,
@@ -272,13 +289,15 @@ var _ = BeforeSuite(func(done Done) {
 			Expect(k8sClient.Create(context.Background(), &scc)).To(Succeed())
 		}
 	}
-
 	close(done)
 }, 120)
 
 var _ = AfterSuite(func() {
+	By(fmt.Sprintf("removing test namespace: %s", testProcessID))
+	err := k8sClient.Delete(context.TODO(), &testNamespace)
+	Expect(err).ToNot(HaveOccurred())
 	By("tearing down the test environment")
-	err := testEnv.Stop()
+	err = testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
 })
 

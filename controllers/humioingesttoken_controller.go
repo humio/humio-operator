@@ -46,6 +46,7 @@ type HumioIngestTokenReconciler struct {
 	Log         logr.Logger
 	Scheme      *runtime.Scheme
 	HumioClient humio.Client
+	Namespace   string
 }
 
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioingesttokens,verbs=get;list;watch;create;update;patch;delete
@@ -57,6 +58,12 @@ func (r *HumioIngestTokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
 	r.Log.Info("Reconciling HumioIngestToken")
+
+	if r.Namespace != "" {
+		if r.Namespace != req.Namespace {
+			return reconcile.Result{}, nil
+		}
+	}
 
 	// Fetch the HumioIngestToken instance
 	hit := &humiov1alpha1.HumioIngestToken{}

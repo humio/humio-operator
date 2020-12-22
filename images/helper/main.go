@@ -351,9 +351,21 @@ func authMode() {
 	clientset := newKubernetesClientset()
 
 	for {
+		fmt.Printf("file list of /data/humio-data:")
+		files, _ := ioutil.ReadDir("/data/humio-data")
+		for _, f := range files {
+			fmt.Println(f.Name())
+		}
+		fmt.Printf("done listing files")
+
 		// Check required files exist before we continue
+		if !fileExists(localAdminTokenFile) {
+			fmt.Printf("waiting on file %s\n", localAdminTokenFile)
+		}
+		if !fileExists(globalSnapshotFile) {
+			fmt.Printf("waiting on file %s\n", globalSnapshotFile)
+		}
 		if !fileExists(localAdminTokenFile) || !fileExists(globalSnapshotFile) {
-			fmt.Printf("waiting on files %s, %s\n", localAdminTokenFile, globalSnapshotFile)
 			time.Sleep(5 * time.Second)
 			continue
 		}

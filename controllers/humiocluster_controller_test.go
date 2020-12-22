@@ -105,7 +105,27 @@ var _ = Describe("HumioCluster Controller", func() {
 						}
 					}
 
-					_ = k8sClient.Delete(context.Background(), &cluster)
+					By("Cleaning up any secrets with the prefix being the cluster name")
+					// This includes the following objects which do not have an ownerReference pointing to the HumioCluster, so they will not automatically be cleaned up:
+					// - <CLUSTER_NAME>: Holds the CA bundle for the TLS certificates, created by cert-manager because of a Certificate object and uses secret type kubernetes.io/tls.
+					// - <CLUSTER_NAME>-admin-token: Holds the API token for the Humio API, created by the auth sidecar and uses secret type "Opaque".
+					// - <CLUSTER_NAME>-core-XXXXXX: Holds the node-specific TLS certificate in a JKS bundle, created by cert-manager because of a Certificate object and uses secret type kubernetes.io/tls.
+					var allSecrets corev1.SecretList
+					Expect(k8sClient.List(context.TODO(), &allSecrets)).To(Succeed())
+					for _, secret := range allSecrets.Items {
+						if secret.Type == corev1.SecretTypeServiceAccountToken {
+							// Secrets holding service account tokens are automatically GC'ed when the ServiceAccount goes away.
+							continue
+						}
+						if secret.DeletionTimestamp == nil {
+							if strings.HasPrefix(secret.Name, cluster.Name) {
+								Expect(k8sClient.Delete(context.TODO(), &secret)).To(Succeed())
+							}
+						}
+					}
+
+					By("Deleting the cluster")
+					Expect(k8sClient.Delete(context.Background(), &cluster)).To(Succeed())
 				}
 			}
 		}
@@ -119,7 +139,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should bootstrap cluster correctly", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-simple",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
@@ -133,7 +153,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should bootstrap cluster correctly", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-no-init-container",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.DisableInitContainer = true
@@ -147,7 +167,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should bootstrap cluster correctly", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-multi-org",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
@@ -168,7 +188,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Update should correctly replace pods to use new image", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.Image = "humio/humio-core:1.16.4"
@@ -231,7 +251,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Update should correctly replace pods after using wrong image", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-wrong-image",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
@@ -330,7 +350,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Creating a cluster with default helper image")
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-helper-image",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.HelperImage = ""
@@ -411,7 +431,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly replace pods to use new environment variable", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-envvar",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
@@ -513,7 +533,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly update ingresses to use new annotations variable", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-ingress",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.Hostname = "humio.example.com"
@@ -674,7 +694,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should be correctly annotated", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-pods",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.PodAnnotations = map[string]string{"humio.com/new-important-annotation": "true"}
@@ -700,7 +720,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly use default service", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-svc",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 
@@ -777,7 +797,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly configure container arguments and ephemeral disks env var", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-container-args",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 
@@ -829,7 +849,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly configure container arguments", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-container-without-zone-args",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 
@@ -868,7 +888,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly handle service account annotations", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-sa-annotations",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 
@@ -912,7 +932,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly handle pod security context", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-podsecuritycontext",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 
@@ -973,7 +993,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly handle container security context", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-containersecuritycontext",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 
@@ -1058,7 +1078,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly handle extra kafka configs", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-extrakafkaconfigs",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 
@@ -1171,7 +1191,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly handle view group permissions", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-vgp",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.ViewGroupPermissions = `
@@ -1306,7 +1326,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly handle persistent volumes", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-pvc",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
@@ -1319,11 +1339,12 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
 				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				updatedHumioCluster.Spec.DataVolumeSource = corev1.VolumeSource{}
 				updatedHumioCluster.Spec.DataVolumePersistentVolumeClaimSpecTemplate = corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: resource.MustParse("10Gi"),
+							corev1.ResourceStorage: resource.MustParse("1Gi"),
 						},
 					},
 				}
@@ -1363,7 +1384,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly handle extra volumes", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-extra-volumes",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 
@@ -1439,7 +1460,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly handle custom paths with ingress disabled", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-path-ing-disabled",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			protocol := "http"
@@ -1501,7 +1522,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly handle custom paths with ingress enabled", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-path-ing-enabled",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.Hostname = "test-cluster.humio.com"
@@ -1567,7 +1588,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Creating cluster with conflicting volume mount name", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-err-volmnt-name",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			cluster := &humiov1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1595,7 +1616,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Creating cluster with conflicting volume mount mount path", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-err-mount-path",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			cluster := &humiov1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1625,7 +1646,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Creating cluster with conflicting volume name", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-err-vol-name",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			cluster := &humiov1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1654,7 +1675,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Creating cluster with higher replication factor than nodes", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-err-repl-factor",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			cluster := &humiov1alpha1.HumioCluster{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1682,7 +1703,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Creating cluster without TLS for ingress", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-without-tls-ingress",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			tlsDisabled := false
 			toCreate := constructBasicSingleNodeHumioCluster(key)
@@ -1710,7 +1731,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Should correctly handle ingress when toggling ESHostname on/off", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-ingress-hostname",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.Hostname = "test-cluster.humio.com"
@@ -1793,7 +1814,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Creating cluster with non-existent service accounts")
 			key := types.NamespacedName{
 				Name:      "humiocluster-err-humio-service-account",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.HumioServiceAccountName = "non-existent-humio-service-account"
@@ -1808,7 +1829,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Creating cluster with non-existent service accounts")
 			key := types.NamespacedName{
 				Name:      "humiocluster-err-init-service-account",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.HumioServiceAccountName = "non-existent-init-service-account"
@@ -1823,7 +1844,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Creating cluster with non-existent service accounts")
 			key := types.NamespacedName{
 				Name:      "humiocluster-err-auth-service-account",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.HumioServiceAccountName = "non-existent-auth-service-account"
@@ -1840,7 +1861,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Creating cluster with custom service accounts", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-service-accounts",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.InitServiceAccountName = "init-custom-service-account"
@@ -1896,7 +1917,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Creating cluster with custom service accounts sharing the same name", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-sa-same-name",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.InitServiceAccountName = "custom-service-account"
@@ -1954,7 +1975,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Creating cluster with custom service annotations", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-svc-annotations",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.HumioServiceAnnotations = map[string]string{
@@ -1982,7 +2003,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Creating cluster with custom tolerations", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-tolerations",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.Tolerations = []corev1.Toleration{
@@ -2009,7 +2030,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Creating cluster with custom service labels", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-svc-labels",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.HumioServiceLabels = map[string]string{
@@ -2032,7 +2053,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		It("Creating cluster without shared process namespace and sidecar", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-sidecars",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.SidecarContainers = nil
@@ -2124,7 +2145,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Creating Humio cluster without a termination grace period set")
 			key := types.NamespacedName{
 				Name:      "humiocluster-grace-default",
-				Namespace: "default",
+				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
 			toCreate.Spec.TerminationGracePeriodSeconds = nil
@@ -2344,6 +2365,11 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName) *humiov1alph
 			ExtraKafkaConfigs:       "security.protocol=PLAINTEXT",
 			NodeCount:               helpers.IntPtr(1),
 			TargetReplicationFactor: 1,
+			DataVolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					SizeLimit: resource.NewQuantity(128*1000*1000, resource.DecimalSI),
+				},
+			},
 			EnvironmentVariables: []corev1.EnvVar{
 				{
 					Name:  "HUMIO_JVM_ARGS",
@@ -2351,15 +2377,15 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName) *humiov1alph
 				},
 				{
 					Name:  "ZOOKEEPER_URL",
-					Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
+					Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181", // This is started up by the shell scripts before starting the test suite.
 				},
 				{
 					Name:  "KAFKA_SERVERS",
-					Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+					Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092", // This is started up by the shell scripts before starting the test suite.
 				},
 				{
 					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
-					Value: key.Name,
+					Value: fmt.Sprintf("%s-%s", key.Name, testProcessID),
 				},
 			},
 		},

@@ -40,6 +40,7 @@ type HumioExternalClusterReconciler struct {
 	Log         logr.Logger
 	Scheme      *runtime.Scheme
 	HumioClient humio.Client
+	Namespace   string
 }
 
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioexternalclusters,verbs=get;list;watch;create;update;patch;delete
@@ -51,6 +52,12 @@ func (r *HumioExternalClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Resul
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
 	r.Log.Info("Reconciling HumioExternalCluster")
+
+	if r.Namespace != "" {
+		if r.Namespace != req.Namespace {
+			return reconcile.Result{}, nil
+		}
+	}
 
 	// Fetch the HumioExternalCluster instance
 	hec := &humiov1alpha1.HumioExternalCluster{}
