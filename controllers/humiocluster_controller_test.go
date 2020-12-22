@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"reflect"
@@ -106,6 +107,15 @@ var _ = Describe("HumioCluster Controller", func() {
 					}
 
 					_ = k8sClient.Delete(context.Background(), &cluster)
+
+					if cluster.Spec.License.SecretKeyRef != nil {
+						_ = k8sClient.Delete(context.Background(), &corev1.Secret{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      cluster.Spec.License.SecretKeyRef.Name,
+								Namespace: cluster.Namespace,
+							},
+						})
+					}
 				}
 			}
 		}
@@ -2167,6 +2177,96 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return 0
 			}, testTimeout, testInterval).Should(BeEquivalentTo(120))
+		})
+	})
+
+	Context("Humio Cluster install license", func() {
+		It("Should succesfully install a license", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-license",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+
+			secretName := fmt.Sprintf("%s-license", key.Name)
+			secretKey := "license"
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+
+			By("Ensuring the license is trial")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.LicenseStatus.Type
+			}, testTimeout, testInterval).Should(BeIdenticalTo("trial"))
+
+			By("Updating the HumioCluster to add a license")
+			Eventually(func() error {
+				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.License.SecretKeyRef = &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key: secretKey,
+				}
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Should indicate cluster configuration error due to missing license secret")
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			By("Creating the license secret")
+			licenseSecret := corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: key.Namespace,
+				},
+				StringData: map[string]string{secretKey: base64.StdEncoding.EncodeToString([]byte(`eyJhbGciOiJFUzI1NiJ9.
+eyJhdWQiOiJIdW1pby1saWNlbnNlLWNoZWNrIiwic3ViIjoiSHVtaW8gTG9jYWwgVGVzdGluZyIsInVpZCI6IjRGTXFVaFZHYXozcyIsIm1heFVzZXJzIjox
+LCJhbGxvd1NBQVMiOmZhbHNlLCJtYXhDb3JlcyI6MSwidmFsaWRVbnRpbCI6MTYwNjgyNzYwMCwiZXhwIjoxNzAyNTgxMjE2LCJpYXQiOjE2MDc5NzMyMTYs
+Im1heEluZ2VzdEdiUGVyRGF5IjoxfQ.MEUCIA2XsMj61MBxo8ZtCxciqwelUrnucMNy_gAs9eRMqV54AiEA_6UtuN8HFcrmU3tVbe-Aa8QiuKZEVh0gKiSnD
+Jl3pkE`))},
+				Type: corev1.SecretTypeOpaque,
+			}
+			Expect(k8sClient.Create(context.Background(), &licenseSecret)).To(Succeed())
+
+			By("Should indicate cluster is no longer in a configuration error state")
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
+
+			By("Ensuring the license is updated")
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.LicenseStatus.Type
+			}, testTimeout, testInterval).Should(BeIdenticalTo("onprem"))
+
+			By("Updating the license secret to remove the key")
+			Expect(k8sClient.Delete(context.Background(), &licenseSecret)).To(Succeed())
+
+			licenseSecretMissingKey := corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: key.Namespace,
+				},
+				StringData: map[string]string{},
+				Type:       corev1.SecretTypeOpaque,
+			}
+			Expect(k8sClient.Create(context.Background(), &licenseSecretMissingKey)).To(Succeed())
+
+			By("Should indicate cluster configuration error due to missing license secret key")
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 		})
 	})
 })

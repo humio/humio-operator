@@ -18,11 +18,13 @@ package humio
 
 import (
 	"fmt"
+	"math/rand"
+	"net/url"
+	"reflect"
+
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
-	"math/rand"
-	"net/url"
 )
 
 type ClientMock struct {
@@ -34,6 +36,8 @@ type ClientMock struct {
 	Parser                            humioapi.Parser
 	Repository                        humioapi.Repository
 	View                              humioapi.View
+	TrialLicense                      humioapi.TrialLicense
+	OnPremLicense                     humioapi.OnPremLicense
 }
 
 type MockClientConfig struct {
@@ -56,6 +60,8 @@ func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePa
 			Parser:                            humioapi.Parser{Tests: []humioapi.ParserTestCase{}},
 			Repository:                        humioapi.Repository{},
 			View:                              humioapi.View{},
+			TrialLicense:                      humioapi.TrialLicense{},
+			OnPremLicense:                     humioapi.OnPremLicense{},
 		},
 		Version: version,
 	}
@@ -266,5 +272,36 @@ func (h *MockClientConfig) UpdateView(hv *humiov1alpha1.HumioView) (*humioapi.Vi
 func (h *MockClientConfig) DeleteView(hv *humiov1alpha1.HumioView) error {
 	updateApiClient := h.apiClient
 	updateApiClient.View = humioapi.View{}
+	return nil
+}
+
+func (h *MockClientConfig) GetLicense() (humioapi.License, error) {
+	var licenseInterface humioapi.License
+	emptyOnPremLicense := humioapi.OnPremLicense{}
+
+	if !reflect.DeepEqual(h.apiClient.OnPremLicense, emptyOnPremLicense) {
+		licenseInterface = h.apiClient.OnPremLicense
+		return licenseInterface, nil
+	}
+
+	// by default, humio starts with a trial license
+	h.apiClient.TrialLicense = humioapi.TrialLicense{}
+	licenseInterface = h.apiClient.TrialLicense
+	return licenseInterface, nil
+}
+
+func (h *MockClientConfig) InstallLicense(licenseString string) error {
+	trialLicense, onPremLicense, err := ParseLicenseType(licenseString)
+	if err != nil {
+		return fmt.Errorf("failed to parse license type: %s", err)
+	}
+
+	if trialLicense != nil {
+		h.apiClient.TrialLicense = *trialLicense
+	}
+	if onPremLicense != nil {
+		h.apiClient.OnPremLicense = *onPremLicense
+	}
+
 	return nil
 }
