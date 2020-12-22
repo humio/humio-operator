@@ -62,8 +62,6 @@ spec:
       value: "my-cluster-storage"
     - name: GCP_STORAGE_ENCRYPTION_KEY
       value: "my-encryption-key"
-    - name: LOG4J_CONFIGURATION
-      value: "log4j2-stdout-json.xml"
     - name: USING_EPHEMERAL_DISKS
       value: "true"
     - name: HUMIO_JVM_ARGS
