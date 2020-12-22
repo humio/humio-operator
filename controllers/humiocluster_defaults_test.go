@@ -127,7 +127,7 @@ var _ = Describe("HumioCluster Defaults", func() {
 		It("Should contain legacy Log4J Environment Variable", func() {
 			toCreate := &humiov1alpha1.HumioCluster{
 				Spec: humiov1alpha1.HumioClusterSpec{
-					Image: "humio/humio-core:1.18.0",
+					Image: "humio/humio-core:1.18.1",
 				},
 			}
 
