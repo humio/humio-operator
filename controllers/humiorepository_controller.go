@@ -69,20 +69,6 @@ func (r *HumioRepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 		return reconcile.Result{}, err
 	}
 
-	defer func(ctx context.Context, humioClient humio.Client, hr *humiov1alpha1.HumioRepository) {
-		curRepository, err := humioClient.GetRepository(hr)
-		if err != nil {
-			r.setState(ctx, humiov1alpha1.HumioRepositoryStateUnknown, hr)
-			return
-		}
-		emptyRepository := humioapi.Parser{}
-		if reflect.DeepEqual(emptyRepository, *curRepository) {
-			r.setState(ctx, humiov1alpha1.HumioRepositoryStateNotFound, hr)
-			return
-		}
-		r.setState(ctx, humiov1alpha1.HumioRepositoryStateExists, hr)
-	}(context.TODO(), r.HumioClient, hr)
-
 	r.Log.Info("Checking if repository is marked to be deleted")
 	// Check if the HumioRepository instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
@@ -121,16 +107,31 @@ func (r *HumioRepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 	}
 
 	cluster, err := helpers.NewCluster(context.TODO(), r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager())
-	if err != nil || cluster.Config() == nil {
+	if err != nil || cluster == nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
+		err = r.setState(context.TODO(), humiov1alpha1.HumioRepositoryStateConfigError, hr)
+		if err != nil {
+			r.Log.Error(err, "unable to set cluster state")
+			return reconcile.Result{}, err
+		}
 		return reconcile.Result{}, err
 	}
 
-	err = r.HumioClient.Authenticate(cluster.Config())
-	if err != nil {
-		r.Log.Error(err, "unable to authenticate humio client")
-		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
-	}
+	defer func(ctx context.Context, humioClient humio.Client, hr *humiov1alpha1.HumioRepository) {
+		curRepository, err := humioClient.GetRepository(hr)
+		if err != nil {
+			_ = r.setState(ctx, humiov1alpha1.HumioRepositoryStateUnknown, hr)
+			return
+		}
+		emptyRepository := humioapi.Parser{}
+		if reflect.DeepEqual(emptyRepository, *curRepository) {
+			_ = r.setState(ctx, humiov1alpha1.HumioRepositoryStateNotFound, hr)
+			return
+		}
+		_ = r.setState(ctx, humiov1alpha1.HumioRepositoryStateExists, hr)
+	}(context.TODO(), r.HumioClient, hr)
+
+	r.HumioClient.SetHumioClientConfig(cluster.Config())
 
 	// Get current repository
 	r.Log.Info("get current repository")
@@ -211,6 +212,10 @@ func (r *HumioRepositoryReconciler) addFinalizer(hr *humiov1alpha1.HumioReposito
 }
 
 func (r *HumioRepositoryReconciler) setState(ctx context.Context, state string, hr *humiov1alpha1.HumioRepository) error {
+	if hr.Status.State == state {
+		return nil
+	}
+	r.Log.Info(fmt.Sprintf("setting repository state to %s", state))
 	hr.Status.State = state
 	return r.Status().Update(ctx, hr)
 }
