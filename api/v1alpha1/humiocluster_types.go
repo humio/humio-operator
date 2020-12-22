@@ -54,6 +54,8 @@ type HumioClusterSpec struct {
 	DigestPartitionsCount int `json:"digestPartitionsCount,omitempty"`
 	// NodeCount is the desired number of humio cluster nodes
 	NodeCount *int `json:"nodeCount,omitempty"`
+	// License is the kubernetes secret reference which contains the Humio license
+	License HumioClusterLicenseSpec `json:"license,omitempty"`
 	// EnvironmentVariables that will be merged with default environment variables then set on the humio container
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
 	// DataVolumeSource is the volume that is mounted on the humio pods. This conflicts with DataVolumePersistentVolumeClaimSpecTemplate.
@@ -158,11 +160,22 @@ type HumioClusterTLSSpec struct {
 	CASecretName string `json:"caSecretName,omitempty"`
 }
 
+// HumioClusterLicenseSpec points to the optional location of the Humio license
+type HumioClusterLicenseSpec struct {
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
+}
+
 // HumioPodStatus shows the status of individual humio pods
 type HumioPodStatus struct {
 	PodName string `json:"podName,omitempty"`
 	PvcName string `json:"pvcName,omitempty"`
 	NodeId  int    `json:"nodeId,omitempty"`
+}
+
+// HumioLicenseStatus shows the status of Humio license
+type HumioLicenseStatus struct {
+	Type       string `json:"type,omitempty"`
+	Expiration string `json:"expiration,omitempty"`
 }
 
 // HumioClusterStatus defines the observed state of HumioCluster
@@ -176,6 +189,8 @@ type HumioClusterStatus struct {
 	NodeCount int `json:"nodeCount,omitempty"`
 	// PodStatus shows the status of individual humio pods
 	PodStatus []HumioPodStatus `json:"podStatus,omitempty"`
+	// LicenseStatus shows the status of the Humio license attached to the cluster
+	LicenseStatus HumioLicenseStatus `json:"licenseStatus,omitempty"`
 }
 
 // +kubebuilder:object:root=true

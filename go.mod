@@ -15,6 +15,7 @@ require (
 	github.com/prometheus/client_golang v1.0.0
 	github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f
 	go.uber.org/zap v1.10.0
+	gopkg.in/square/go-jose.v2 v2.3.1
 	k8s.io/api v0.18.6
 	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v0.18.6

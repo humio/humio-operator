@@ -489,3 +489,7 @@ func humioPathOrDefault(hc *humiov1alpha1.HumioCluster) string {
 	}
 	return "/"
 }
+
+func licenseSecretKeyRefOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.SecretKeySelector {
+	return hc.Spec.License.SecretKeyRef
+}
