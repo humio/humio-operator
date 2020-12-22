@@ -66,8 +66,8 @@ func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePa
 	return mockClientConfig
 }
 
-func (h *MockClientConfig) Authenticate(config *humioapi.Config) error {
-	return nil
+func (h *MockClientConfig) SetHumioClientConfig(config *humioapi.Config) {
+	return
 }
 
 func (h *MockClientConfig) Status() (humioapi.StatusResponse, error) {

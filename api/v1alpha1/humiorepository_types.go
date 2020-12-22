@@ -27,6 +27,8 @@ const (
 	HumioRepositoryStateExists = "Exists"
 	// HumioRepositoryStateNotFound is the NotFound state of the repository
 	HumioRepositoryStateNotFound = "NotFound"
+	// HumioRepositoryStateConfigError is the state of the repository when user-provided specification results in configuration error, such as non-existent humio cluster
+	HumioRepositoryStateConfigError = "ConfigError"
 )
 
 // HumioRetention defines the retention for the repository

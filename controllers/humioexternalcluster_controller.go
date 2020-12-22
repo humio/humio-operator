@@ -80,11 +80,7 @@ func (r *HumioExternalClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Resul
 		return reconcile.Result{}, err
 	}
 
-	err = r.HumioClient.Authenticate(cluster.Config())
-	if err != nil {
-		r.Log.Error(err, "unable to authenticate humio client")
-		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
-	}
+	r.HumioClient.SetHumioClientConfig(cluster.Config())
 
 	err = r.HumioClient.TestAPIToken()
 	if err != nil {

@@ -49,8 +49,6 @@ spec:
       requests:
         storage: 500Gi
   environmentVariables:
-    - name: LOG4J_CONFIGURATION
-      value: "log4j2-stdout-json.xml"
     - name: HUMIO_JVM_ARGS
       value: -Xss2m -Xms2g -Xmx26g -server -XX:MaxDirectMemorySize=26g -XX:+UseParallelOldGC -XX:+UnlockDiagnosticVMOptions -XX:CompileCommand=dontinline,com/humio/util/HotspotUtilsJ.dontInline -Xlog:gc+jni=debug:stdout -Dakka.log-config-on-start=on -Xlog:gc*:stdout:time,tags
     - name: "ZOOKEEPER_URL"

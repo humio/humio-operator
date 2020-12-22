@@ -72,20 +72,6 @@ func (r *HumioIngestTokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return reconcile.Result{}, err
 	}
 
-	defer func(ctx context.Context, humioClient humio.Client, hit *humiov1alpha1.HumioIngestToken) {
-		curToken, err := humioClient.GetIngestToken(hit)
-		if err != nil {
-			r.setState(ctx, humiov1alpha1.HumioIngestTokenStateUnknown, hit)
-			return
-		}
-		emptyToken := humioapi.IngestToken{}
-		if emptyToken != *curToken {
-			r.setState(ctx, humiov1alpha1.HumioIngestTokenStateExists, hit)
-			return
-		}
-		r.setState(ctx, humiov1alpha1.HumioIngestTokenStateNotFound, hit)
-	}(context.TODO(), r.HumioClient, hit)
-
 	r.Log.Info("Checking if ingest token is marked to be deleted")
 	// Check if the HumioIngestToken instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
@@ -124,16 +110,31 @@ func (r *HumioIngestTokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	}
 
 	cluster, err := helpers.NewCluster(context.TODO(), r, hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName, hit.Namespace, helpers.UseCertManager())
-	if err != nil || cluster.Config() == nil {
+	if err != nil || cluster == nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
-		return reconcile.Result{}, err
+		err = r.setState(context.TODO(), humiov1alpha1.HumioIngestTokenStateConfigError, hit)
+		if err != nil {
+			r.Log.Error(err, "unable to set cluster state")
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 	}
 
-	err = r.HumioClient.Authenticate(cluster.Config())
-	if err != nil {
-		r.Log.Error(err, "unable to authenticate humio client")
-		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
-	}
+	defer func(ctx context.Context, humioClient humio.Client, hit *humiov1alpha1.HumioIngestToken) {
+		curToken, err := humioClient.GetIngestToken(hit)
+		if err != nil {
+			_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateUnknown, hit)
+			return
+		}
+		emptyToken := humioapi.IngestToken{}
+		if emptyToken != *curToken {
+			_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateExists, hit)
+			return
+		}
+		_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateNotFound, hit)
+	}(context.TODO(), r.HumioClient, hit)
+
+	r.HumioClient.SetHumioClientConfig(cluster.Config())
 
 	// Get current ingest token
 	r.Log.Info("get current ingest token")
@@ -248,6 +249,10 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 }
 
 func (r *HumioIngestTokenReconciler) setState(ctx context.Context, state string, hit *humiov1alpha1.HumioIngestToken) error {
+	if hit.Status.State == state {
+		return nil
+	}
+	r.Log.Info(fmt.Sprintf("setting ingest token state to %s", state))
 	hit.Status.State = state
 	return r.Status().Update(ctx, hit)
 }

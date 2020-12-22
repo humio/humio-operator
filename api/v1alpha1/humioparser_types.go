@@ -27,6 +27,8 @@ const (
 	HumioParserStateExists = "Exists"
 	// HumioParserStateNotFound is the NotFound state of the parser
 	HumioParserStateNotFound = "NotFound"
+	// HumioParserStateConfigError is the state of the parser when user-provided specification results in configuration error, such as non-existent humio cluster
+	HumioParserStateConfigError = "ConfigError"
 )
 
 // HumioParserSpec defines the desired state of HumioParser
