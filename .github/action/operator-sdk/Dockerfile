@@ -5,23 +5,13 @@ LABEL "com.github.actions.description"="operator-sdk image builder"
 LABEL "com.github.actions.icon"="layers"
 LABEL "com.github.actions.color"="red"
 
-ENV KUBECTL_VERSION=1.16.4
-ENV KIND_VERSION=0.9.0
-ENV RELEASE_VERSION=v1.0.1
-ENV HELM_VERSION=3.3.4
+ENV RELEASE_VERSION=v1.3.0
 ENV OPERATOR_COURIER_VERSION=2.1.10
 
 RUN apk update \
     && apk upgrade \
     && apk add --no-cache bash curl git openssh make mercurial openrc docker python3 git py-pip gcc \
     && pip3 install --upgrade pip setuptools
-
-RUN curl -Lo ./kind "https://kind.sigs.k8s.io/dl/v${KIND_VERSION}/kind-$(uname)-amd64" && chmod +x ./kind && mv ./kind /usr/bin/kind
-
-RUN curl --max-time 300 -o /usr/local/bin/kubectl -L https://storage.googleapis.com/kubernetes-release/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl \
-  && chmod 755 /usr/local/bin/kubectl
-
-RUN curl -L https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz -o /tmp/helm.tar.gz && tar -zxvf /tmp/helm.tar.gz -C /tmp && mv /tmp/linux-amd64/helm /bin/helm && rm -rf /tmp/*
 
 RUN pip3 install operator-courier==${OPERATOR_COURIER_VERSION}
 
