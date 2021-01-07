@@ -19,12 +19,13 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/humio/humio-operator/pkg/kubernetes"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -51,6 +52,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 
+	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -125,6 +127,12 @@ var _ = BeforeSuite(func(done Done) {
 		Expect(err).NotTo(HaveOccurred())
 	}
 
+	err = corev1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = corev1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
 	// +kubebuilder:scaffold:scheme
 
 	watchNamespace, _ := getWatchNamespace()
@@ -183,6 +191,20 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&HumioViewReconciler{
+		Client:      k8sManager.GetClient(),
+		Scheme:      k8sManager.GetScheme(),
+		HumioClient: humioClient,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&HumioActionReconciler{
+		Client:      k8sManager.GetClient(),
+		Scheme:      k8sManager.GetScheme(),
+		HumioClient: humioClient,
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&HumioAlertReconciler{
 		Client:      k8sManager.GetClient(),
 		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
