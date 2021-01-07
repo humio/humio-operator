@@ -36,6 +36,8 @@ type Client interface {
 	RepositoriesClient
 	ViewsClient
 	LicenseClient
+	NotifiersClient
+	AlertsClient
 }
 
 type ClusterClient interface {
@@ -80,6 +82,21 @@ type ViewsClient interface {
 	GetView(view *humiov1alpha1.HumioView) (*humioapi.View, error)
 	UpdateView(view *humiov1alpha1.HumioView) (*humioapi.View, error)
 	DeleteView(view *humiov1alpha1.HumioView) error
+}
+
+type NotifiersClient interface {
+	AddNotifier(*humiov1alpha1.HumioAction) (*humioapi.Notifier, error)
+	GetNotifier(*humiov1alpha1.HumioAction) (*humioapi.Notifier, error)
+	UpdateNotifier(*humiov1alpha1.HumioAction) (*humioapi.Notifier, error)
+	DeleteNotifier(*humiov1alpha1.HumioAction) error
+}
+
+type AlertsClient interface {
+	AddAlert(alert *humiov1alpha1.HumioAlert) (*humioapi.Alert, error)
+	GetAlert(alert *humiov1alpha1.HumioAlert) (*humioapi.Alert, error)
+	UpdateAlert(alert *humiov1alpha1.HumioAlert) (*humioapi.Alert, error)
+	DeleteAlert(alert *humiov1alpha1.HumioAlert) error
+	GetActionIDsMapForAlerts(*humiov1alpha1.HumioAlert) (map[string]string, error)
 }
 
 type LicenseClient interface {
@@ -404,6 +421,80 @@ func (h *ClientConfig) DeleteView(hv *humiov1alpha1.HumioView) error {
 	return h.apiClient.Views().Delete(hv.Spec.Name, "Deleted by humio-operator")
 }
 
+func (h *ClientConfig) validateView(viewName string) error {
+	view := &humiov1alpha1.HumioView{
+		Spec: humiov1alpha1.HumioViewSpec{
+			Name: viewName,
+		},
+	}
+
+	viewResult, err := h.GetView(view)
+	if err != nil {
+		return fmt.Errorf("failed to verify view %s exists. error: %s", viewName, err)
+	}
+
+	emptyView := &humioapi.View{}
+	if reflect.DeepEqual(emptyView, viewResult) {
+		return fmt.Errorf("view %s does not exist", viewName)
+	}
+
+	return nil
+}
+
+func (h *ClientConfig) GetNotifier(ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+	err := h.validateView(ha.Spec.ViewName)
+	if err != nil {
+		return &humioapi.Notifier{}, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
+	}
+
+	notifier, err := h.apiClient.Notifiers().Get(ha.Spec.ViewName, ha.Spec.Name)
+	if err != nil {
+		return notifier, fmt.Errorf("error when trying to get notifier %+v, name=%s, view=%s: %s", notifier, ha.Spec.Name, ha.Spec.ViewName, err)
+	}
+
+	if notifier == nil || notifier.Name == "" {
+		return nil, nil
+	}
+
+	return notifier, nil
+}
+
+func (h *ClientConfig) AddNotifier(ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+	err := h.validateView(ha.Spec.ViewName)
+	if err != nil {
+		return &humioapi.Notifier{}, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
+	}
+
+	notifier, err := NotifierFromAction(ha)
+	if err != nil {
+		return notifier, err
+	}
+
+	createdNotifier, err := h.apiClient.Notifiers().Add(ha.Spec.ViewName, notifier, false)
+	if err != nil {
+		return createdNotifier, fmt.Errorf("got error when attempting to add notifier: %s", err)
+	}
+	return createdNotifier, nil
+}
+
+func (h *ClientConfig) UpdateNotifier(ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+	err := h.validateView(ha.Spec.ViewName)
+	if err != nil {
+		return &humioapi.Notifier{}, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
+	}
+
+	notifier, err := NotifierFromAction(ha)
+	if err != nil {
+		return notifier, err
+	}
+
+	return h.apiClient.Notifiers().Update(ha.Spec.ViewName, notifier)
+}
+
+func (h *ClientConfig) DeleteNotifier(ha *humiov1alpha1.HumioAction) error {
+	return h.apiClient.Notifiers().Delete(ha.Spec.ViewName, ha.Spec.Name)
+}
+
 func getConnectionMap(viewConnections []humioapi.ViewConnection) map[string]string {
 	connectionMap := make(map[string]string)
 	for _, connection := range viewConnections {
@@ -420,4 +511,100 @@ func (h *ClientConfig) GetLicense() (humioapi.License, error) {
 func (h *ClientConfig) InstallLicense(license string) error {
 	licensesClient := h.apiClient.Licenses()
 	return licensesClient.Install(license)
+}
+
+func (h *ClientConfig) GetAlert(ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
+	err := h.validateView(ha.Spec.ViewName)
+	if err != nil {
+		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
+	}
+
+	alert, err := h.apiClient.Alerts().Get(ha.Spec.ViewName, ha.Spec.Name)
+	if err != nil {
+		return alert, fmt.Errorf("error when trying to get alert %+v, name=%s, view=%s: %s", alert, ha.Spec.Name, ha.Spec.ViewName, err)
+	}
+
+	if alert == nil || alert.Name == "" {
+		return nil, nil
+	}
+
+	return alert, nil
+}
+
+func (h *ClientConfig) AddAlert(ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
+	err := h.validateView(ha.Spec.ViewName)
+	if err != nil {
+		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action: %s", err)
+	}
+
+	actionIdMap, err := h.GetActionIDsMapForAlerts(ha)
+	if err != nil {
+		return &humioapi.Alert{}, fmt.Errorf("could not get action id mapping: %s", err)
+	}
+	alert, err := AlertTransform(ha, actionIdMap)
+	if err != nil {
+		return alert, err
+	}
+
+	createdAlert, err := h.apiClient.Alerts().Add(ha.Spec.ViewName, alert, false)
+	if err != nil {
+		return createdAlert, fmt.Errorf("got error when attempting to add alert: %s, alert: %#v", err, *alert)
+	}
+	return createdAlert, nil
+}
+
+func (h *ClientConfig) UpdateAlert(ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
+	err := h.validateView(ha.Spec.ViewName)
+	if err != nil {
+		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action: %s", err)
+	}
+
+	actionIdMap, err := h.GetActionIDsMapForAlerts(ha)
+	if err != nil {
+		return &humioapi.Alert{}, fmt.Errorf("could not get action id mapping: %s", err)
+	}
+	alert, err := AlertTransform(ha, actionIdMap)
+	if err != nil {
+		return alert, err
+	}
+
+	return h.apiClient.Alerts().Update(ha.Spec.ViewName, alert)
+}
+
+func (h *ClientConfig) DeleteAlert(ha *humiov1alpha1.HumioAlert) error {
+	return h.apiClient.Alerts().Delete(ha.Spec.ViewName, ha.Spec.Name)
+}
+
+func (h *ClientConfig) getAndValidateAction(notifierName string, viewName string) (*humioapi.Notifier, error) {
+	action := &humiov1alpha1.HumioAction{
+		Spec: humiov1alpha1.HumioActionSpec{
+			Name:     notifierName,
+			ViewName: viewName,
+		},
+	}
+
+	notifierResult, err := h.GetNotifier(action)
+	if err != nil {
+		return notifierResult, fmt.Errorf("failed to verify notifier %s exists. error: %s", notifierName, err)
+	}
+
+	emptyNotifier := &humioapi.Notifier{}
+	if reflect.DeepEqual(emptyNotifier, notifierResult) {
+		return notifierResult, fmt.Errorf("notifier %s does not exist", notifierName)
+	}
+
+	return notifierResult, nil
+}
+
+func (h *ClientConfig) GetActionIDsMapForAlerts(ha *humiov1alpha1.HumioAlert) (map[string]string, error) {
+	actionIdMap := make(map[string]string)
+	for _, action := range ha.Spec.Actions {
+		notifier, err := h.getAndValidateAction(action, ha.Spec.ViewName)
+		if err != nil {
+			return actionIdMap, fmt.Errorf("problem getting action for alert %s: %s", ha.Spec.Name, err)
+		}
+		actionIdMap[action] = notifier.ID
+
+	}
+	return actionIdMap, nil
 }

@@ -1,0 +1,18 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioAlert
+metadata:
+  name: humioalert-example
+spec:
+  managedClusterName: example-humiocluster
+  name: example-alert
+  viewName: humio
+  query:
+    queryString: "#repo = humio | error = true | count() | _count > 0"
+    start: 24h
+    end: now
+    isLive: true
+  throttleTimeMillis: 60000
+  silenced: false
+  description: Error counts
+  actions:
+    - example-email-action

@@ -1,0 +1,27 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioAction
+metadata:
+  name: humio-slack-action-managed
+spec:
+  managedClusterName: example-humiocluster
+  name: example-slack-action
+  viewName: humio
+  slackProperties:
+    url: "https://hooks.slack.com/services/T00000000/B00000000/YYYYYYYYYYYYYYYYYYYYYYYY"
+    fields:
+      query: "{query}"
+      time-interval: "{query_time_interval}"
+---
+apiVersion: core.humio.com/v1alpha1
+kind: HumioAction
+metadata:
+  name: humio-slack-action-external
+spec:
+  name: example-slack-action
+  externalClusterName: example-humioexternalcluster
+  viewName: humio
+  slackProperties:
+    url: "https://hooks.slack.com/services/T00000000/B00000000/YYYYYYYYYYYYYYYYYYYYYYYY"
+    fields:
+      query: "{query}"
+      time-interval: "{query_time_interval}"
