@@ -2430,6 +2430,22 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 			}
 		}
 	}
+
+	By("Confirming replication factor environment variables are set correctly")
+	for _, pod := range clusterPods {
+		humioIdx, err = kubernetes.GetContainerIndexByName(pod, "humio")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElements([]corev1.EnvVar{
+			{
+				Name:  "DIGEST_REPLICATION_FACTOR",
+				Value: strconv.Itoa(cluster.Spec.TargetReplicationFactor),
+			},
+			{
+				Name:  "STORAGE_REPLICATION_FACTOR",
+				Value: strconv.Itoa(cluster.Spec.TargetReplicationFactor),
+			},
+		}))
+	}
 }
 
 func constructBasicSingleNodeHumioCluster(key types.NamespacedName) *humiov1alpha1.HumioCluster {
