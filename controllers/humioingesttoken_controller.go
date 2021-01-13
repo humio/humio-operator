@@ -222,7 +222,7 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 	}
 
 	secretData := map[string][]byte{"token": []byte(ingestToken.Token)}
-	desiredSecret := kubernetes.ConstructSecret(cluster.Name(), hit.Namespace, hit.Spec.TokenSecretName, secretData)
+	desiredSecret := kubernetes.ConstructSecret(cluster.Name(), hit.Namespace, hit.Spec.TokenSecretName, secretData, hit.Spec.TokenSecretLabels)
 	if err := controllerutil.SetControllerReference(hit, desiredSecret, r.Scheme); err != nil {
 		return fmt.Errorf("could not set controller reference: %s", err)
 	}
