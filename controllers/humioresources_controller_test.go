@@ -188,6 +188,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() error {
 				k8sClient.Get(context.Background(), key, fetchedIngestToken)
 				fetchedIngestToken.Spec.TokenSecretName = "target-secret-2"
+				fetchedIngestToken.Spec.TokenSecretLabels = map[string]string{
+					"custom-label": "custom-value",
+				}
 				return k8sClient.Update(context.Background(), fetchedIngestToken)
 			}, testTimeout, testInterval).Should(Succeed())
 			ingestTokenSecret = &corev1.Secret{}
@@ -200,6 +203,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					},
 					ingestTokenSecret)
 			}, testTimeout, testInterval).Should(Succeed())
+			Expect(ingestTokenSecret.Labels).Should(HaveKeyWithValue("custom-label", "custom-value"))
 
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
 				Expect(string(ingestTokenSecret.Data["token"])).To(Equal("mocktoken"))

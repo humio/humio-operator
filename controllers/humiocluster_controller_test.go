@@ -2353,7 +2353,7 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 		secretData := map[string][]byte{"token": []byte("")}
 		adminTokenSecretName := fmt.Sprintf("%s-%s", updatedHumioCluster.Name, kubernetes.ServiceTokenSecretNameSuffix)
 		By("Simulating the auth container creating the secret containing the API token")
-		desiredSecret := kubernetes.ConstructSecret(updatedHumioCluster.Name, updatedHumioCluster.Namespace, adminTokenSecretName, secretData)
+		desiredSecret := kubernetes.ConstructSecret(updatedHumioCluster.Name, updatedHumioCluster.Namespace, adminTokenSecretName, secretData, nil)
 		Expect(k8sClient.Create(context.Background(), desiredSecret)).To(Succeed())
 	}
 
