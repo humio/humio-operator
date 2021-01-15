@@ -59,6 +59,10 @@ spec:
                 type: string
               repositoryName:
                 type: string
+              tokenSecretLabels:
+                additionalProperties:
+                  type: string
+                type: object
               tokenSecretName:
                 description: Output
                 type: string

@@ -31,9 +31,20 @@ const (
 	SecretNameLabelName          = "humio.com/secret-identifier"
 )
 
-func LabelsForSecret(clusterName string, secretName string) map[string]string {
+// LabelsForSecret returns a map of labels which contains a common set of labels and additional user-defined secret labels.
+// In case of overlap between the common labels and user-defined labels, the user-defined label will be ignored.
+func LabelsForSecret(clusterName string, secretName string, additionalSecretLabels map[string]string) map[string]string {
 	labels := LabelsForHumio(clusterName)
 	labels[SecretNameLabelName] = secretName
+
+	if additionalSecretLabels != nil {
+		for k, v := range additionalSecretLabels {
+			if _, found := labels[k]; !found {
+				labels[k] = v
+			}
+		}
+	}
+
 	return labels
 }
 
@@ -41,17 +52,17 @@ func LabelsForSecret(clusterName string, secretName string) map[string]string {
 // secrets related to a specific HumioCluster instance
 func MatchingLabelsForSecret(clusterName, secretName string) client.MatchingLabels {
 	var matchingLabels client.MatchingLabels
-	matchingLabels = LabelsForSecret(clusterName, secretName)
+	matchingLabels = LabelsForSecret(clusterName, secretName, nil)
 	return matchingLabels
 }
 
 // ConstructSecret returns an opaque secret which holds the given data
-func ConstructSecret(humioClusterName, humioClusterNamespace, secretName string, data map[string][]byte) *corev1.Secret {
+func ConstructSecret(humioClusterName, humioClusterNamespace, secretName string, data map[string][]byte, additionalSecretLabels map[string]string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: humioClusterNamespace,
-			Labels:    LabelsForSecret(humioClusterName, secretName),
+			Labels:    LabelsForSecret(humioClusterName, secretName, additionalSecretLabels),
 		},
 		Data: data,
 	}
@@ -63,7 +74,7 @@ func ConstructServiceAccountSecret(humioClusterName, humioClusterNamespace, secr
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        fmt.Sprintf("%s-%s", secretName, RandomString()),
 			Namespace:   humioClusterNamespace,
-			Labels:      LabelsForSecret(humioClusterName, secretName),
+			Labels:      LabelsForSecret(humioClusterName, secretName, nil),
 			Annotations: map[string]string{"kubernetes.io/service-account.name": serviceAccountName},
 		},
 		Type: "kubernetes.io/service-account-token",

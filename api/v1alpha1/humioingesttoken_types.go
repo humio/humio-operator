@@ -43,7 +43,8 @@ type HumioIngestTokenSpec struct {
 	RepositoryName string `json:"repositoryName,omitempty"`
 
 	// Output
-	TokenSecretName string `json:"tokenSecretName,omitempty"`
+	TokenSecretName   string            `json:"tokenSecretName,omitempty"`
+	TokenSecretLabels map[string]string `json:"tokenSecretLabels,omitempty"`
 }
 
 // HumioIngestTokenStatus defines the observed state of HumioIngestToken
