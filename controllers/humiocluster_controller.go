@@ -94,9 +94,21 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	setDefaults(hc)
 	emptyResult := reconcile.Result{}
 
-	if result, err := r.ensureValidHumioVersion(context.TODO(), hc); err != nil {
-		return result, err
+	if err := r.ensureValidHumioVersion(hc); err != nil {
+		r.Log.Error(fmt.Errorf("humio version not valid: %s", err), "marking cluster state as ConfigError")
+		err = r.setState(context.TODO(), humiov1alpha1.HumioClusterStateConfigError, hc)
+		return ctrl.Result{}, err
 	}
+
+	if err := r.ensureValidStorageConfiguration(hc); err != nil {
+		r.Log.Error(fmt.Errorf("storage configuration not valid: %s", err), "marking cluster state as ConfigError")
+		err = r.setState(context.TODO(), humiov1alpha1.HumioClusterStateConfigError, hc)
+		if err != nil {
+			r.Log.Error(err, "unable to set cluster state")
+			return reconcile.Result{}, err
+		}
+	}
+
 	// Ensure we have a valid CA certificate to configure intra-cluster communication.
 	// Because generating the CA can take a while, we do this before we start tearing down mismatching pods
 	err = r.ensureValidCASecret(context.TODO(), hc)
@@ -1895,14 +1907,35 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 	return reconcile.Result{}, nil
 }
 
-func (r *HumioClusterReconciler) ensureValidHumioVersion(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
+func (r *HumioClusterReconciler) ensureValidHumioVersion(hc *humiov1alpha1.HumioCluster) error {
 	hv, err := HumioVersionFromCluster(hc)
 	if err == nil {
-		return reconcile.Result{}, nil
+		return nil
 	}
 
 	r.Log.Error(err, fmt.Sprintf("detected invalid Humio version: %s", hv.version))
-	return reconcile.Result{}, err
+	return err
+}
+
+func (r *HumioClusterReconciler) ensureValidStorageConfiguration(hc *humiov1alpha1.HumioCluster) error {
+	errInvalidStorageConfiguration := fmt.Errorf("exactly one of dataVolumeSource and dataVolumePersistentVolumeClaimSpecTemplate must be set")
+
+	emptyVolumeSource := corev1.VolumeSource{}
+	emptyDataVolumePersistentVolumeClaimSpecTemplate := corev1.PersistentVolumeClaimSpec{}
+
+	if reflect.DeepEqual(hc.Spec.DataVolumeSource, emptyVolumeSource) &&
+		reflect.DeepEqual(hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate, emptyDataVolumePersistentVolumeClaimSpecTemplate) {
+		r.Log.Error(errInvalidStorageConfiguration, fmt.Sprintf("no storage configuration provided"))
+		return errInvalidStorageConfiguration
+	}
+
+	if !reflect.DeepEqual(hc.Spec.DataVolumeSource, emptyVolumeSource) &&
+		!reflect.DeepEqual(hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate, emptyDataVolumePersistentVolumeClaimSpecTemplate) {
+		r.Log.Error(errInvalidStorageConfiguration, fmt.Sprintf("conflicting storage configuration provided"))
+		return errInvalidStorageConfiguration
+	}
+
+	return nil
 }
 
 func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *humiov1alpha1.HumioCluster, baseURL *url.URL) (reconcile.Result, error) {
