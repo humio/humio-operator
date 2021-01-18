@@ -114,9 +114,7 @@ func dataVolumePersistentVolumeClaimSpecTemplateOrDefault(hc *humiov1alpha1.Humi
 func dataVolumeSourceOrDefault(hc *humiov1alpha1.HumioCluster) corev1.VolumeSource {
 	emptyDataVolume := corev1.VolumeSource{}
 	if reflect.DeepEqual(hc.Spec.DataVolumeSource, emptyDataVolume) {
-		return corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		}
+		return corev1.VolumeSource{}
 	}
 	return hc.Spec.DataVolumeSource
 }
