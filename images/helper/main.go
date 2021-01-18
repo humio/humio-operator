@@ -57,6 +57,7 @@ const (
 func getFileContent(filePath string) string {
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
+		fmt.Printf("Got an error while trying to read file %s: %s\n", filePath, err)
 		return ""
 	}
 	return string(data)
@@ -77,7 +78,7 @@ func getApiTokenForUserID(client *humio.Client, snapShotFile, userID string) (st
 	token, err := client.Users().RotateUserApiTokenAndGet(userID)
 	if err == nil {
 		// If API works, return the token
-		fmt.Printf("got api token using api\n")
+		fmt.Printf("Successfully rotated and extracted API token using the API.t\n")
 		return token, apiTokenMethodFromAPI, nil
 	}
 
@@ -93,7 +94,7 @@ func getApiTokenForUserID(client *humio.Client, snapShotFile, userID string) (st
 	data, _ := op.Apply([]byte(snapShotFileContent))
 	apiToken := strings.ReplaceAll(string(data), "\"", "")
 	if string(data) != "" {
-		fmt.Printf("got api token using global snapshot file\n")
+		fmt.Printf("Successfully extracted API token using global snapshot file.\n")
 		return apiToken, apiTokenMethodFromFile, nil
 	}
 
@@ -162,7 +163,7 @@ func extractExistingHumioAdminUserID(client *humio.Client, organizationMode stri
 		for _, userResult := range allUserResults {
 			if userResult.OrganizationName == "RecoveryRootOrg" {
 				if userResult.SearchMatch == fmt.Sprintf(" | %s () ()", adminAccountUserName) {
-					fmt.Printf("found user id using multi-organization query\n")
+					fmt.Printf("Found user ID using multi-organization query.\n")
 					return userResult.EntityId, nil
 				}
 			}
@@ -176,7 +177,7 @@ func extractExistingHumioAdminUserID(client *humio.Client, organizationMode stri
 	}
 	for _, user := range allUsers {
 		if user.Username == adminAccountUserName {
-			fmt.Printf("found user id using single-organization query\n")
+			fmt.Printf("Found user ID using single-organization query.\n")
 			return user.Id, nil
 		}
 	}
@@ -239,7 +240,7 @@ func validateAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName
 		// We could successfully get information about the cluster, so the token must be valid
 		return nil
 	}
-	return fmt.Errorf("unable to validate if kubernetes secret %s holds a valid humio api token", adminSecretName)
+	return fmt.Errorf("Unable to validate if kubernetes secret %s holds a valid humio API token", adminSecretName)
 }
 
 // ensureAdminSecretContent ensures the target Kubernetes secret contains the desired API token
@@ -353,7 +354,7 @@ func authMode() {
 	for {
 		// Check required files exist before we continue
 		if !fileExists(localAdminTokenFile) || !fileExists(globalSnapshotFile) {
-			fmt.Printf("waiting on files %s, %s\n", localAdminTokenFile, globalSnapshotFile)
+			fmt.Printf("Waiting on the Humio container to create the files %s and %s. Retrying in 5 seconds.\n", localAdminTokenFile, globalSnapshotFile)
 			time.Sleep(5 * time.Second)
 			continue
 		}
@@ -361,27 +362,27 @@ func authMode() {
 		// Get local admin token and create humio client with it
 		localAdminToken := getFileContent(localAdminTokenFile)
 		if localAdminToken == "" {
-			fmt.Printf("local admin token file is empty\n")
+			fmt.Printf("Local admin token file is empty. This might be due to Humio not being fully started up yet. Retrying in 5 seconds.\n")
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
 		humioNodeURL, err := url.Parse(humioNodeURL)
 		if err != nil {
-			fmt.Printf("unable to parse url: %s\n", err)
+			fmt.Printf("Unable to parse URL %s: %s\n", humioNodeURL, err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
 		err = validateAdminSecretContent(clientset, namespace, clusterName, adminSecretNameSuffix, humioNodeURL)
 		if err == nil {
-			fmt.Printf("validated existing token, no changes required. waiting 30 seconds\n")
+			fmt.Printf("Existing token is still valid, thus no changes required. Will confirm again in 30 seconds.\n")
 			time.Sleep(30 * time.Second)
 			continue
 		}
 
-		fmt.Printf("could not validate existing admin secret: %s\n", err)
-		fmt.Printf("continuing to create/update token\n")
+		fmt.Printf("Could not validate existing admin secret: %s\n", err)
+		fmt.Printf("Continuing to create/update token.\n")
 
 		humioClient := humio.NewClient(humio.Config{
 			Address: humioNodeURL,
@@ -391,7 +392,7 @@ func authMode() {
 		// Get user ID of admin account
 		userID, err := createAndGetAdminAccountUserID(humioClient, organizationMode)
 		if err != nil {
-			fmt.Printf("got err trying to obtain user ID of admin user: %s\n", err)
+			fmt.Printf("Got err trying to obtain user ID of admin user: %s\n", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
@@ -399,7 +400,7 @@ func authMode() {
 		// Get API token for user ID of admin account
 		apiToken, methodUsed, err := getApiTokenForUserID(humioClient, globalSnapshotFile, userID)
 		if err != nil {
-			fmt.Printf("got err trying to obtain api token of admin user: %s\n", err)
+			fmt.Printf("Got err trying to obtain api token of admin user: %s\n", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
@@ -407,13 +408,13 @@ func authMode() {
 		// Update Kubernetes secret if needed
 		err = ensureAdminSecretContent(clientset, namespace, clusterName, adminSecretNameSuffix, apiToken, methodUsed)
 		if err != nil {
-			fmt.Printf("got error ensuring k8s secret contains apiToken: %s\n", err)
+			fmt.Printf("Got error ensuring k8s secret contains apiToken: %s\n", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
 		// All done, wait a bit then run validation again
-		fmt.Printf("created/updated token. waiting 30 seconds\n")
+		fmt.Printf("Successfully created/updated token. Will confirm again in 30 seconds that it is still valid.\n")
 		time.Sleep(30 * time.Second)
 	}
 }
