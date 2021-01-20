@@ -37,6 +37,12 @@ spec:
             values:
             - humio
         topologyKey: kubernetes.io/hostname
+  dataVolumePersistentVolumeClaimSpecTemplate:
+    storageClassName: standard
+    accessModes: [ReadWriteOnce]
+    resources:
+      requests:
+        storage: 10Gi
   tolerations:
     - key: "node.kubernetes.io/unreachable"
       operator: "Exists"
