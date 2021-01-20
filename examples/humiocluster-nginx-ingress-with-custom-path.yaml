@@ -15,3 +15,9 @@ spec:
   ingress:
     enabled: true
     controller: nginx
+  dataVolumePersistentVolumeClaimSpecTemplate:
+    storageClassName: standard
+    accessModes: [ReadWriteOnce]
+    resources:
+      requests:
+        storage: 10Gi

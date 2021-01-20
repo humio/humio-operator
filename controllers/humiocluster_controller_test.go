@@ -1329,6 +1329,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
 				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				updatedHumioCluster.Spec.DataVolumeSource = corev1.VolumeSource{}
 				updatedHumioCluster.Spec.DataVolumePersistentVolumeClaimSpecTemplate = corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 					Resources: corev1.ResourceRequirements{
@@ -1677,6 +1678,66 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), cluster)).Should(Succeed())
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			By("should indicate cluster configuration error")
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			k8sClient.Delete(context.Background(), &updatedHumioCluster)
+		})
+		It("Creating cluster with conflicting storage configuration", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-err-conflict-storage-conf",
+				Namespace: "default",
+			}
+			cluster := &humiov1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioClusterSpec{
+					DataVolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+					DataVolumePersistentVolumeClaimSpecTemplate: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{
+							"ReadWriteOnce",
+						},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: *resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), cluster)).Should(Succeed())
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			By("should indicate cluster configuration error")
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			k8sClient.Delete(context.Background(), &updatedHumioCluster)
+		})
+		It("Creating cluster with conflicting storage configuration", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-err-no-storage-conf",
+				Namespace: "default",
+			}
+			cluster := &humiov1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioClusterSpec{},
+			}
+			Expect(k8sClient.Create(context.Background(), cluster)).Should(Succeed())
+
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			By("should indicate cluster configuration error")
 			Eventually(func() string {
@@ -2477,6 +2538,9 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName) *humiov1alph
 					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
 					Value: key.Name,
 				},
+			},
+			DataVolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
 	}
