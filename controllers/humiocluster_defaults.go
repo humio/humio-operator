@@ -344,7 +344,12 @@ func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster) {
 	}
 
 	humioVersion, _ := HumioVersionFromCluster(hc)
-	if ok, _ := humioVersion.AtLeast(HumioVersionWhichContainsHumioLog4JEnvVar); ok {
+	if ok, _ := humioVersion.AtLeast(HumioVersionWhichContainsNewJSONLogging); ok {
+		envDefaults = append(envDefaults, corev1.EnvVar{
+			Name:  "HUMIO_LOG4J_CONFIGURATION",
+			Value: "log4j2-json-stdout.xml",
+		})
+	} else if ok, _ := humioVersion.AtLeast(HumioVersionWhichContainsHumioLog4JEnvVar); ok {
 		envDefaults = append(envDefaults, corev1.EnvVar{
 			Name:  "HUMIO_LOG4J_CONFIGURATION",
 			Value: "log4j2-stdout-json.xml",
