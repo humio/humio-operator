@@ -13,6 +13,7 @@ const (
 	HumioVersionWhichContainsAPITokenRotationMutation  = "1.17.0"
 	HumioVersionWhichContainsSuggestedPartitionLayouts = "1.17.0"
 	HumioVersionWhichContainsHumioLog4JEnvVar          = "1.19.0"
+	HumioVersionWhichContainsNewJSONLogging            = "1.20.1"
 )
 
 type HumioVersion struct {
