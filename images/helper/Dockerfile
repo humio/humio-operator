@@ -12,6 +12,10 @@ LABEL "description"="Provides cluster and environmental information \
 to the Humio pods in addition to faciliciting authentication bootstrapping \
 for the Humio application."
 
+RUN yum update -y && \
+    yum -y update-minimal --security --sec-severity=Important \
+    --sec-severity=Critical
+
 # copy license
 COPY LICENSE /licenses/LICENSE
 

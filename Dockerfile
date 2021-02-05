@@ -26,6 +26,10 @@ LABEL "summary"="Humio Kubernetes Operator"
 LABEL "description"="A Kubernetes operatator to run and maintain \
 Humio clusters running in a Kubernetes cluster."
 
+RUN yum update -y && \
+    yum -y update-minimal --security --sec-severity=Important \
+    --sec-severity=Critical
+
 RUN mkdir /licenses
 COPY LICENSE /licenses/LICENSE
 
