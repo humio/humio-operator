@@ -437,7 +437,7 @@ spec:
         - apiGroups:
           - networking.k8s.io
           resources:
-          - ingress
+          - ingresses
           verbs:
           - create
           - delete
