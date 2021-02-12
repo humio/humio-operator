@@ -7,97 +7,6 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
-  name: humioexternalclusters.core.humio.com
-  labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
-    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-    helm.sh/chart: '{{ template "humio.chart" . }}'
-spec:
-  group: core.humio.com
-  names:
-    kind: HumioExternalCluster
-    listKind: HumioExternalClusterList
-    plural: humioexternalclusters
-    singular: humioexternalcluster
-  scope: Namespaced
-  versions:
-  - additionalPrinterColumns:
-    - description: The state of the external Humio cluster
-      jsonPath: .status.state
-      name: State
-      type: string
-    name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        description: HumioExternalCluster is the Schema for the humioexternalclusters
-          API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: HumioExternalClusterSpec defines the desired state of HumioExternalCluster
-            properties:
-              apiTokenSecretName:
-                description: APITokenSecretName is used to obtain the API token we
-                  need to use when communicating with the external Humio cluster.
-                  The secret must contain a key "token" which holds the Humio API
-                  token.
-                type: string
-              caSecretName:
-                description: CASecretName is used to point to a Kubernetes secret
-                  that holds the CA that will be used to issue intra-cluster TLS certificates.
-                  The secret must contain a key "ca.crt" which holds the CA certificate
-                  in PEM format.
-                type: string
-              insecure:
-                description: TLSDisabled is used to disable intra-cluster TLS when
-                  cert-manager is being used.
-                type: boolean
-              url:
-                description: Url is used to connect to the Humio cluster we want to
-                  use.
-                type: string
-            type: object
-          status:
-            description: HumioExternalClusterStatus defines the observed state of
-              HumioExternalCluster
-            properties:
-              state:
-                type: string
-              version:
-                type: string
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
-
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
-  creationTimestamp: null
   name: humioclusters.core.humio.com
   labels:
     app: '{{ .Chart.Name }}'
@@ -5054,101 +4963,6 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
-  name: humiorepositories.core.humio.com
-  labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
-    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-    helm.sh/chart: '{{ template "humio.chart" . }}'
-spec:
-  group: core.humio.com
-  names:
-    kind: HumioRepository
-    listKind: HumioRepositoryList
-    plural: humiorepositories
-    singular: humiorepository
-  scope: Namespaced
-  versions:
-  - additionalPrinterColumns:
-    - description: The state of the repository
-      jsonPath: .status.state
-      name: State
-      type: string
-    name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        description: HumioRepository is the Schema for the humiorepositories API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: HumioRepositorySpec defines the desired state of HumioRepository
-            properties:
-              allowDataDeletion:
-                type: boolean
-              description:
-                type: string
-              externalClusterName:
-                type: string
-              managedClusterName:
-                description: Which cluster
-                type: string
-              name:
-                description: Input
-                type: string
-              retention:
-                description: HumioRetention defines the retention for the repository
-                properties:
-                  ingestSizeInGB:
-                    description: 'perhaps we should migrate to resource.Quantity?
-                      the Humio API needs float64, but that is not supported here,
-                      see more here: https://github.com/kubernetes-sigs/controller-tools/issues/245'
-                    format: int32
-                    type: integer
-                  storageSizeInGB:
-                    format: int32
-                    type: integer
-                  timeInDays:
-                    format: int32
-                    type: integer
-                type: object
-            type: object
-          status:
-            description: HumioRepositoryStatus defines the observed state of HumioRepository
-            properties:
-              state:
-                type: string
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
-
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
-  creationTimestamp: null
   name: humioingesttokens.core.humio.com
   labels:
     app: '{{ .Chart.Name }}'
@@ -5322,6 +5136,101 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
+  name: humiorepositories.core.humio.com
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioRepository
+    listKind: HumioRepositoryList
+    plural: humiorepositories
+    singular: humiorepository
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The state of the repository
+      jsonPath: .status.state
+      name: State
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioRepository is the Schema for the humiorepositories API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioRepositorySpec defines the desired state of HumioRepository
+            properties:
+              allowDataDeletion:
+                type: boolean
+              description:
+                type: string
+              externalClusterName:
+                type: string
+              managedClusterName:
+                description: Which cluster
+                type: string
+              name:
+                description: Input
+                type: string
+              retention:
+                description: HumioRetention defines the retention for the repository
+                properties:
+                  ingestSizeInGB:
+                    description: 'perhaps we should migrate to resource.Quantity?
+                      the Humio API needs float64, but that is not supported here,
+                      see more here: https://github.com/kubernetes-sigs/controller-tools/issues/245'
+                    format: int32
+                    type: integer
+                  storageSizeInGB:
+                    format: int32
+                    type: integer
+                  timeInDays:
+                    format: int32
+                    type: integer
+                type: object
+            type: object
+          status:
+            description: HumioRepositoryStatus defines the observed state of HumioRepository
+            properties:
+              state:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
   name: humioviews.core.humio.com
   labels:
     app: '{{ .Chart.Name }}'
@@ -5387,6 +5296,97 @@ spec:
             description: HumioViewStatus defines the observed state of HumioView
             properties:
               state:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
+  name: humioexternalclusters.core.humio.com
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioExternalCluster
+    listKind: HumioExternalClusterList
+    plural: humioexternalclusters
+    singular: humioexternalcluster
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The state of the external Humio cluster
+      jsonPath: .status.state
+      name: State
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioExternalCluster is the Schema for the humioexternalclusters
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioExternalClusterSpec defines the desired state of HumioExternalCluster
+            properties:
+              apiTokenSecretName:
+                description: APITokenSecretName is used to obtain the API token we
+                  need to use when communicating with the external Humio cluster.
+                  The secret must contain a key "token" which holds the Humio API
+                  token.
+                type: string
+              caSecretName:
+                description: CASecretName is used to point to a Kubernetes secret
+                  that holds the CA that will be used to issue intra-cluster TLS certificates.
+                  The secret must contain a key "ca.crt" which holds the CA certificate
+                  in PEM format.
+                type: string
+              insecure:
+                description: TLSDisabled is used to disable intra-cluster TLS when
+                  cert-manager is being used.
+                type: boolean
+              url:
+                description: Url is used to connect to the Humio cluster we want to
+                  use.
+                type: string
+            type: object
+          status:
+            description: HumioExternalClusterStatus defines the observed state of
+              HumioExternalCluster
+            properties:
+              state:
+                type: string
+              version:
                 type: string
             type: object
         type: object

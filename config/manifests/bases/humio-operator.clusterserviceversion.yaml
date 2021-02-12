@@ -1,0 +1,69 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+    operators.operatorframework.io/builder: operator-sdk-v1.0.0
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
+  name: humio-operator.vX.Y.Z
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: HumioRepository is the Schema for the humiorepositories API
+      displayName: Humio Repository
+      kind: HumioRepository
+      name: humiorepositories.core.humio.com
+      version: v1alpha1
+    - description: HumioExternalCluster is the Schema for the humioexternalclusters API
+      displayName: Humio External Cluster
+      kind: HumioExternalCluster
+      name: humioexternalclusters.core.humio.com
+      version: v1alpha1
+    - description: HumioCluster is the Schema for the humioclusters API
+      displayName: Humio Cluster
+      kind: HumioCluster
+      name: humioclusters.core.humio.com
+      version: v1alpha1
+    - description: HumioIngestToken is the Schema for the humioingesttokens API
+      displayName: Humio Ingest Token
+      kind: HumioIngestToken
+      name: humioingesttokens.core.humio.com
+      version: v1alpha1
+    - description: HumioParser is the Schema for the humioparsers API
+      displayName: Humio Parser
+      kind: HumioParser
+      name: humioparsers.core.humio.com
+      version: v1alpha1
+  description: Humio Install Operator
+  displayName: Humio
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - Humio
+  - logs
+  - logging
+  links:
+  - name: Humio Operator
+    url: https://humio-operator.domain
+  maturity: alpha
+  provider:
+    name: Humio
+    url: https://humio.com
+  version: 0.0.0
