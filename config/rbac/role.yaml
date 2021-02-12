@@ -118,6 +118,7 @@ rules:
   - core.humio.com
   resources:
   - humioclusters
+  - humioclusters/finalizers
   verbs:
   - create
   - delete
@@ -138,6 +139,7 @@ rules:
   - core.humio.com
   resources:
   - humioexternalclusters
+  - humioexternalclusters/finalizers
   verbs:
   - create
   - delete
@@ -158,6 +160,7 @@ rules:
   - core.humio.com
   resources:
   - humioingesttokens
+  - humioingesttokens/finalizers
   verbs:
   - create
   - delete
@@ -178,6 +181,7 @@ rules:
   - core.humio.com
   resources:
   - humioparsers
+  - humioparsers/finalizers
   verbs:
   - create
   - delete
@@ -198,6 +202,7 @@ rules:
   - core.humio.com
   resources:
   - humiorepositories
+  - humiorepositories/finalizers
   verbs:
   - create
   - delete
@@ -218,6 +223,7 @@ rules:
   - core.humio.com
   resources:
   - humioviews
+  - humioviews/finalizers
   verbs:
   - create
   - delete

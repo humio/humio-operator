@@ -43,7 +43,7 @@ type HumioViewReconciler struct {
 	HumioClient humio.Client
 }
 
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioviews,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.humio.com,resources=humioviews;humioviews/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioviews/status,verbs=get;update;patch
 
 func (r *HumioViewReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
