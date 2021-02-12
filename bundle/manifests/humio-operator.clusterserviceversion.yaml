@@ -446,7 +446,7 @@ spec:
           - patch
           - update
           - watch
-        serviceAccountName: default
+        serviceAccountname: manager
       deployments:
       - name: humio-operator-controller-manager
         spec:
@@ -516,7 +516,7 @@ spec:
           verbs:
           - create
           - patch
-        serviceAccountName: default
+        serviceAccountname: manager
     strategy: deployment
   installModes:
   - supported: true
