@@ -6,4 +6,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: humio/humio-operator
-  newTag: latest
+  newTag: 0.5.0

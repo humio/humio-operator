@@ -207,6 +207,12 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
+          - '*'
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
           - ""
           resources:
           - configmaps
@@ -485,7 +491,7 @@ spec:
                 - --enable-leader-election
                 command:
                 - /manager
-                image: humio/humio-operator:latest
+                image: humio/humio-operator:0.5.0
                 name: manager
                 resources:
                   limits:
