@@ -446,7 +446,7 @@ spec:
           - patch
           - update
           - watch
-        serviceAccountname: manager
+        serviceAccountName: humio-operator-manager
       deployments:
       - name: humio-operator-controller-manager
         spec:
@@ -486,6 +486,7 @@ spec:
                 - containerPort: 8443
                   name: https
                 resources: {}
+              serviceAccountName: humio-operator-manager
               terminationGracePeriodSeconds: 10
       permissions:
       - rules:
@@ -516,7 +517,7 @@ spec:
           verbs:
           - create
           - patch
-        serviceAccountname: manager
+        serviceAccountName: humio-operator-manager
     strategy: deployment
   installModes:
   - supported: true

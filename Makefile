@@ -153,6 +153,7 @@ bundle: manifests
 	operator-sdk generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	rm -f bundle/manifests/humio-operator-manager_v1_serviceaccount.yaml
 	operator-sdk bundle validate ./bundle
 
 # Build the bundle image.
