@@ -1760,6 +1760,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			toCreate.Spec.Ingress.Enabled = true
 			toCreate.Spec.Ingress.Controller = "nginx"
 			toCreate.Spec.Ingress.TLS = &tlsDisabled
+			toCreate.Spec.Hostname = "example.humio.com"
+			toCreate.Spec.ESHostname = "es-example.humio.com"
 
 			By("Creating the cluster successfully")
 			createAndBootstrapCluster(toCreate)
@@ -1778,24 +1780,43 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	Context("Humio Cluster Ingress", func() {
-		It("Should correctly handle ingress when toggling ESHostname on/off", func() {
+		It("Should correctly handle ingress when toggling both ESHostname and Hostname on/off", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-ingress-hostname",
 				Namespace: "default",
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key)
-			toCreate.Spec.Hostname = "test-cluster.humio.com"
+			toCreate.Spec.Hostname = ""
 			toCreate.Spec.ESHostname = ""
 			toCreate.Spec.Ingress = humiov1alpha1.HumioClusterIngressSpec{
 				Enabled:    true,
 				Controller: "nginx",
 			}
 
-			By("Creating the cluster successfully without ESHostname defined")
+			By("Creating the cluster successfully without any Hostnames defined")
 			createAndBootstrapCluster(toCreate)
 
-			By("Confirming we only created ingresses with expected hostname")
+			By("Confirming we did not create any ingresses")
 			var foundIngressList []v1beta1.Ingress
+			Eventually(func() []v1beta1.Ingress {
+				foundIngressList, _ = kubernetes.ListIngresses(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				return foundIngressList
+			}, testTimeout, testInterval).Should(HaveLen(0))
+
+			By("Setting the Hostname")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			hostname := "test-cluster.humio.com"
+			Eventually(func() error {
+				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Hostname = hostname
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Confirming we only created ingresses with expected hostname")
+			foundIngressList = []v1beta1.Ingress{}
 			Eventually(func() []v1beta1.Ingress {
 				foundIngressList, _ = kubernetes.ListIngresses(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				return foundIngressList
@@ -1803,12 +1824,12 @@ var _ = Describe("HumioCluster Controller", func() {
 			foundIngressList, _ = kubernetes.ListIngresses(k8sClient, toCreate.Namespace, kubernetes.MatchingLabelsForHumio(toCreate.Name))
 			for _, ingress := range foundIngressList {
 				for _, rule := range ingress.Spec.Rules {
-					Expect(rule.Host).To(Equal(toCreate.Spec.Hostname))
+					Expect(rule.Host).To(Equal(updatedHumioCluster.Spec.Hostname))
 				}
 			}
 
 			By("Setting the ESHostname")
-			var updatedHumioCluster humiov1alpha1.HumioCluster
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
 			esHostname := "test-cluster-es.humio.com"
 			Eventually(func() error {
 				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
