@@ -1,7 +1,7 @@
 operator:
   image:
     repository: humio/humio-operator
-    tag: 0.5.0
+    tag: 0.5.1
     pullPolicy: IfNotPresent
     pullSecrets: []
   prometheus:
