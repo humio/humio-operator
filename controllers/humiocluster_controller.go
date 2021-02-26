@@ -489,6 +489,8 @@ func (r *HumioClusterReconciler) ensureIngress(ctx context.Context, hc *humiov1a
 // ensureNginxIngress creates the necessary ingress objects to expose the Humio cluster
 // through NGINX ingress controller (https://kubernetes.github.io/ingress-nginx/).
 func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	r.Log.Info("ensuring ingress")
+
 	// Due to ingress-ngress relying on ingress object annotations to enable/disable/adjust certain features we create multiple ingress objects.
 	ingresses := []*v1beta1.Ingress{
 		constructGeneralIngress(hc),
@@ -497,6 +499,16 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 		constructESIngestIngress(hc),
 	}
 	for _, desiredIngress := range ingresses {
+		// After constructing ingress objects, the rule's host attribute should be set to that which is defined in
+		// the humiocluster spec. If the rule host is not set, then it means the hostname or esHostname was not set in
+		// the spec, so we do not create the ingress resource
+		var createIngress bool
+		for _, rule := range desiredIngress.Spec.Rules {
+			if rule.Host != "" {
+				createIngress = true
+			}
+		}
+
 		existingIngress, err := kubernetes.GetIngress(ctx, r, desiredIngress.Name, hc.Namespace)
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -504,32 +516,31 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 					r.Log.Error(err, "could not set controller reference")
 					return err
 				}
-				for _, rule := range desiredIngress.Spec.Rules {
-					if rule.Host == "" {
-						continue
+				if createIngress {
+					err = r.Create(ctx, desiredIngress)
+					if err != nil {
+						r.Log.Error(err, "unable to create ingress")
+						return err
 					}
+					r.Log.Info(fmt.Sprintf("successfully created ingress with name %s", desiredIngress.Name))
+					humioClusterPrometheusMetrics.Counters.IngressesCreated.Inc()
 				}
-				err = r.Create(ctx, desiredIngress)
-				if err != nil {
-					r.Log.Error(err, "unable to create ingress")
-					return err
-				}
-				r.Log.Info(fmt.Sprintf("successfully created ingress with name %s", desiredIngress.Name))
-				humioClusterPrometheusMetrics.Counters.IngressesCreated.Inc()
 				continue
 			}
 		}
-		if !r.ingressesMatch(existingIngress, desiredIngress) {
-			for _, rule := range desiredIngress.Spec.Rules {
-				if rule.Host == "" {
-					r.Log.Info(fmt.Sprintf("hostname not defined for ingress object, deleting ingress object with name %s", existingIngress.Name))
-					err = r.Delete(ctx, existingIngress)
-					if err != nil {
-						r.Log.Error(err, "unable to delete ingress object")
-						return err
-					}
-				}
+
+		if !createIngress {
+			r.Log.Info(fmt.Sprintf("hostname not defined for ingress object, deleting ingress object with name %s", existingIngress.Name))
+			err = r.Delete(ctx, existingIngress)
+			if err != nil {
+				r.Log.Error(err, "unable to delete ingress object")
+				return err
 			}
+			r.Log.Info(fmt.Sprintf("successfully deleted ingress %+#v", desiredIngress))
+			continue
+		}
+
+		if !r.ingressesMatch(existingIngress, desiredIngress) {
 			r.Log.Info(fmt.Sprintf("ingress object already exists, there is a difference between expected vs existing, updating ingress object with name %s", desiredIngress.Name))
 			existingIngress.Annotations = desiredIngress.Annotations
 			existingIngress.Labels = desiredIngress.Labels
