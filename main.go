@@ -38,7 +38,6 @@ import (
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 
-	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
 	// +kubebuilder:scaffold:imports
