@@ -486,17 +486,80 @@ func (r *HumioClusterReconciler) ensureIngress(ctx context.Context, hc *humiov1a
 	return nil
 }
 
+func (r *HumioClusterReconciler) humioHostnames(ctx context.Context, hc *humiov1alpha1.HumioCluster) (string, string, error) {
+	var hostname string
+	var esHostname string
+
+	if hc.Spec.Hostname != "" {
+		hostname = hc.Spec.Hostname
+	}
+	if hc.Spec.ESHostname != "" {
+		esHostname = hc.Spec.ESHostname
+	}
+
+	if hc.Spec.HostnameSource.SecretKeyRef != nil {
+		if hostname != "" {
+			return "", "", fmt.Errorf("conflicting fields: both hostname and hostnameSource.secretKeyRef are defined")
+		}
+
+		hostnameSecret, err := kubernetes.GetSecret(ctx, r, hc.Spec.HostnameSource.SecretKeyRef.Name, hc.Namespace)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return "", "", fmt.Errorf("hostnameSource.secretKeyRef was set but no secret exists by name %s in namespace %s", hc.Spec.HostnameSource.SecretKeyRef.Name, hc.Namespace)
+
+			}
+			return "", "", fmt.Errorf("unable to get secret with name %s in namespace %s", hc.Spec.HostnameSource.SecretKeyRef.Name, hc.Namespace)
+		}
+		if _, ok := hostnameSecret.Data[hc.Spec.HostnameSource.SecretKeyRef.Key]; !ok {
+			return "", "", fmt.Errorf("hostnameSource.secretKeyRef was found but it does not contain the key %s", hc.Spec.HostnameSource.SecretKeyRef.Key)
+		}
+		hostname = string(hostnameSecret.Data[hc.Spec.HostnameSource.SecretKeyRef.Key])
+
+	}
+	if hc.Spec.ESHostnameSource.SecretKeyRef != nil {
+		if esHostname != "" {
+			return "", "", fmt.Errorf("conflicting fields: both esHostname and esHostnameSource.secretKeyRef are defined")
+		}
+
+		esHostnameSecret, err := kubernetes.GetSecret(ctx, r, hc.Spec.ESHostnameSource.SecretKeyRef.Name, hc.Namespace)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return "", "", fmt.Errorf("esHostnameSource.secretKeyRef was set but no secret exists by name %s in namespace %s", hc.Spec.ESHostnameSource.SecretKeyRef.Name, hc.Namespace)
+
+			}
+			return "", "", fmt.Errorf("unable to get secret with name %s in namespace %s", hc.Spec.ESHostnameSource.SecretKeyRef.Name, hc.Namespace)
+		}
+		if _, ok := esHostnameSecret.Data[hc.Spec.ESHostnameSource.SecretKeyRef.Key]; !ok {
+			return "", "", fmt.Errorf("esHostnameSource.secretKeyRef was found but it does not contain the key %s", hc.Spec.ESHostnameSource.SecretKeyRef.Key)
+		}
+		esHostname = string(esHostnameSecret.Data[hc.Spec.ESHostnameSource.SecretKeyRef.Key])
+	}
+
+	if hostname == "" && esHostname == "" {
+		return "", "", fmt.Errorf("one of the following must be set to enable ingress: hostname, esHostname, " +
+			"hostnameSource, esHostnameSource")
+	}
+
+	return hostname, esHostname, nil
+}
+
 // ensureNginxIngress creates the necessary ingress objects to expose the Humio cluster
 // through NGINX ingress controller (https://kubernetes.github.io/ingress-nginx/).
 func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("ensuring ingress")
 
+	hostname, esHostname, err := r.humioHostnames(ctx, hc)
+	if err != nil {
+		r.Log.Error(err, "could not managed ingress")
+		return err
+	}
+
 	// Due to ingress-ngress relying on ingress object annotations to enable/disable/adjust certain features we create multiple ingress objects.
 	ingresses := []*v1beta1.Ingress{
-		constructGeneralIngress(hc),
-		constructStreamingQueryIngress(hc),
-		constructIngestIngress(hc),
-		constructESIngestIngress(hc),
+		constructGeneralIngress(hc, hostname),
+		constructStreamingQueryIngress(hc, hostname),
+		constructIngestIngress(hc, hostname),
+		constructESIngestIngress(hc, esHostname),
 	}
 	for _, desiredIngress := range ingresses {
 		// After constructing ingress objects, the rule's host attribute should be set to that which is defined in

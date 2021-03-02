@@ -2203,6 +2203,30 @@ spec:
                 description: ESHostname is the public hostname used by log shippers
                   with support for ES bulk API to access Humio
                 type: string
+              esHostnameSource:
+                description: ESHostnameSource is the reference to the public hostname
+                  used by log shippers with support for ES bulk API to access Humio
+                properties:
+                  secretKeyRef:
+                    description: SecretKeyRef contains the secret key reference when
+                      an es hostname is pulled from a secret
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                type: object
               extraHumioVolumeMounts:
                 description: ExtraHumioVolumeMounts is the list of additional volume
                   mounts that will be added to the Humio container
@@ -3464,6 +3488,30 @@ spec:
                 description: Hostname is the public hostname used by clients to access
                   Humio
                 type: string
+              hostnameSource:
+                description: HostnameSource is the reference to the public hostname
+                  used by clients to access Humio
+                properties:
+                  secretKeyRef:
+                    description: SecretKeyRef contains the secret key reference when
+                      a hostname is pulled from a secret
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                type: object
               humioESServicePort:
                 description: HumioESServicePort is the port number of the Humio Service
                   that is used to direct traffic to the ES interface of the Humio
@@ -3546,8 +3594,10 @@ spec:
                       supported.
                     type: string
                   enabled:
-                    description: Enabled enables the logic for the Humio operator
-                      to create ingress-related objects
+                    description: 'Enabled enables the logic for the Humio operator
+                      to create ingress-related objects. Requires one of the following
+                      to be set: spec.hostname, spec.hostnameSource, spec.esHostname
+                      or spec.esHostnameSource'
                     type: boolean
                   esSecretName:
                     description: ESSecretName is used to specify the Kubernetes secret

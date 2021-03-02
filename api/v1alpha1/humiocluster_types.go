@@ -94,6 +94,11 @@ type HumioClusterSpec struct {
 	Hostname string `json:"hostname,omitempty"`
 	// ESHostname is the public hostname used by log shippers with support for ES bulk API to access Humio
 	ESHostname string `json:"esHostname,omitempty"`
+	// HostnameSource is the reference to the public hostname used by clients to access Humio
+	HostnameSource HumioHostnameSource `json:"hostnameSource,omitempty"`
+	// ESHostnameSource is the reference to the public hostname used by log shippers with support for ES bulk API to
+	// access Humio
+	ESHostnameSource HumioESHostnameSource `json:"esHostnameSource,omitempty"`
 	// Path is the root URI path of the Humio cluster
 	Path string `json:"path,omitempty"`
 	// Ingress is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster
@@ -137,9 +142,22 @@ type HumioClusterSpec struct {
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 }
 
+// HumioHostnameSource is the possible references to a hostname value that is stored outside of the HumioCluster resource
+type HumioHostnameSource struct {
+	// SecretKeyRef contains the secret key reference when a hostname is pulled from a secret
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
+}
+
+// HumioESHostnameSource is the possible references to a es hostname value that is stored outside of the HumioCluster resource
+type HumioESHostnameSource struct {
+	// SecretKeyRef contains the secret key reference when an es hostname is pulled from a secret
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
+}
+
 // HumioClusterIngressSpec is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster
 type HumioClusterIngressSpec struct {
-	// Enabled enables the logic for the Humio operator to create ingress-related objects
+	// Enabled enables the logic for the Humio operator to create ingress-related objects. Requires one of the following
+	// to be set: spec.hostname, spec.hostnameSource, spec.esHostname or spec.esHostnameSource
 	Enabled bool `json:"enabled,omitempty"`
 	// Controller is used to specify the controller used for ingress in the Kubernetes cluster. For now, only nginx is supported.
 	Controller string `json:"controller,omitempty"`
