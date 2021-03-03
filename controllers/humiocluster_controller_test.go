@@ -537,10 +537,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			createAndBootstrapCluster(toCreate)
 
 			desiredIngresses := []*v1beta1.Ingress{
-				constructGeneralIngress(toCreate),
-				constructStreamingQueryIngress(toCreate),
-				constructIngestIngress(toCreate),
-				constructESIngestIngress(toCreate),
+				constructGeneralIngress(toCreate, toCreate.Spec.Hostname),
+				constructStreamingQueryIngress(toCreate, toCreate.Spec.Hostname),
+				constructIngestIngress(toCreate, toCreate.Spec.Hostname),
+				constructESIngestIngress(toCreate, toCreate.Spec.ESHostname),
 			}
 
 			var foundIngressList []v1beta1.Ingress
@@ -604,10 +604,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			desiredIngresses = []*v1beta1.Ingress{
-				constructGeneralIngress(&existingHumioCluster),
-				constructStreamingQueryIngress(&existingHumioCluster),
-				constructIngestIngress(&existingHumioCluster),
-				constructESIngestIngress(&existingHumioCluster),
+				constructGeneralIngress(&existingHumioCluster, existingHumioCluster.Spec.Hostname),
+				constructStreamingQueryIngress(&existingHumioCluster, existingHumioCluster.Spec.Hostname),
+				constructIngestIngress(&existingHumioCluster, existingHumioCluster.Spec.Hostname),
+				constructESIngestIngress(&existingHumioCluster, existingHumioCluster.Spec.ESHostname),
 			}
 			Eventually(func() bool {
 				ingresses, _ := kubernetes.ListIngresses(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -1877,6 +1877,134 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 			}
 			Expect(ingressHostnames).ToNot(ContainElement(esHostname))
+
+			By("Creating the hostname secret")
+			secretKeyRef := &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "hostname",
+				},
+				Key: "humio-hostname",
+			}
+			updatedHostname := "test-cluster-hostname-ref.humio.com"
+			hostnameSecret := corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretKeyRef.Name,
+					Namespace: key.Namespace,
+				},
+				StringData: map[string]string{secretKeyRef.Key: updatedHostname},
+				Type:       corev1.SecretTypeOpaque,
+			}
+			Expect(k8sClient.Create(context.Background(), &hostnameSecret)).To(Succeed())
+
+			By("Setting the HostnameSource")
+			Eventually(func() error {
+				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Hostname = ""
+				updatedHumioCluster.Spec.HostnameSource.SecretKeyRef = secretKeyRef
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Confirming we only created ingresses with expected hostname")
+			foundIngressList = []v1beta1.Ingress{}
+			Eventually(func() []v1beta1.Ingress {
+				foundIngressList, _ = kubernetes.ListIngresses(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				return foundIngressList
+			}, testTimeout, testInterval).Should(HaveLen(3))
+			Eventually(func() string {
+				ingressHosts := make(map[string]interface{})
+				foundIngressList, _ = kubernetes.ListIngresses(k8sClient, toCreate.Namespace, kubernetes.MatchingLabelsForHumio(toCreate.Name))
+				for _, ingress := range foundIngressList {
+					for _, rule := range ingress.Spec.Rules {
+						ingressHosts[rule.Host] = nil
+					}
+				}
+				if len(ingressHosts) == 1 {
+					for k := range ingressHosts {
+						return k
+					}
+				}
+				return fmt.Sprintf("%#v", ingressHosts)
+			}, testTimeout, testInterval).Should(Equal(updatedHostname))
+
+			By("Removing the HostnameSource")
+			Eventually(func() error {
+				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.HostnameSource.SecretKeyRef = nil
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Deleting the hostname secret")
+			Expect(k8sClient.Delete(context.Background(), &hostnameSecret)).To(Succeed())
+
+			By("Creating the es hostname secret")
+			secretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "es-hostname",
+				},
+				Key: "humio-es-hostname",
+			}
+			updatedESHostname := "test-cluster-es-hostname-ref.humio.com"
+			esHostnameSecret := corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretKeyRef.Name,
+					Namespace: key.Namespace,
+				},
+				StringData: map[string]string{secretKeyRef.Key: updatedESHostname},
+				Type:       corev1.SecretTypeOpaque,
+			}
+			Expect(k8sClient.Create(context.Background(), &esHostnameSecret)).To(Succeed())
+
+			By("Setting the ESHostnameSource")
+			Eventually(func() error {
+				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.ESHostname = ""
+				updatedHumioCluster.Spec.ESHostnameSource.SecretKeyRef = secretKeyRef
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Confirming we only created ingresses with expected es hostname")
+			foundIngressList = []v1beta1.Ingress{}
+			Eventually(func() []v1beta1.Ingress {
+				foundIngressList, _ = kubernetes.ListIngresses(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				return foundIngressList
+			}, testTimeout, testInterval).Should(HaveLen(1))
+			Eventually(func() string {
+				ingressHosts := make(map[string]interface{})
+				foundIngressList, _ = kubernetes.ListIngresses(k8sClient, toCreate.Namespace, kubernetes.MatchingLabelsForHumio(toCreate.Name))
+				for _, ingress := range foundIngressList {
+					for _, rule := range ingress.Spec.Rules {
+						ingressHosts[rule.Host] = nil
+					}
+				}
+				if len(ingressHosts) == 1 {
+					for k := range ingressHosts {
+						return k
+					}
+				}
+				return fmt.Sprintf("%#v", ingressHosts)
+			}, testTimeout, testInterval).Should(Equal(updatedESHostname))
+
+			By("Removing the ESHostnameSource")
+			Eventually(func() error {
+				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.ESHostnameSource.SecretKeyRef = nil
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Deleting the es hostname secret")
+			Expect(k8sClient.Delete(context.Background(), &esHostnameSecret)).To(Succeed())
 		})
 	})
 
