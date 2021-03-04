@@ -57,7 +57,7 @@ type HumioClusterReconciler struct {
 	HumioClient humio.Client
 }
 
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters;humioclusters/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=services,verbs=create;delete;get;list;patch;update;watch
@@ -68,7 +68,9 @@ type HumioClusterReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingress,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=*,resources=*,verbs=*
 
 func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))

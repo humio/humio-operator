@@ -7,6 +7,12 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
   - ""
   resources:
   - configmaps
@@ -118,6 +124,7 @@ rules:
   - core.humio.com
   resources:
   - humioclusters
+  - humioclusters/finalizers
   verbs:
   - create
   - delete
@@ -138,6 +145,7 @@ rules:
   - core.humio.com
   resources:
   - humioexternalclusters
+  - humioexternalclusters/finalizers
   verbs:
   - create
   - delete
@@ -158,6 +166,7 @@ rules:
   - core.humio.com
   resources:
   - humioingesttokens
+  - humioingesttokens/finalizers
   verbs:
   - create
   - delete
@@ -178,6 +187,7 @@ rules:
   - core.humio.com
   resources:
   - humioparsers
+  - humioparsers/finalizers
   verbs:
   - create
   - delete
@@ -198,6 +208,7 @@ rules:
   - core.humio.com
   resources:
   - humiorepositories
+  - humiorepositories/finalizers
   verbs:
   - create
   - delete
@@ -218,6 +229,7 @@ rules:
   - core.humio.com
   resources:
   - humioviews
+  - humioviews/finalizers
   verbs:
   - create
   - delete
@@ -237,7 +249,20 @@ rules:
 - apiGroups:
   - networking.k8s.io
   resources:
-  - ingress
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
   verbs:
   - create
   - delete

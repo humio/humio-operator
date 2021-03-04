@@ -45,7 +45,7 @@ type HumioRepositoryReconciler struct {
 	HumioClient humio.Client
 }
 
-// +kubebuilder:rbac:groups=core.humio.com,resources=humiorepositories,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.humio.com,resources=humiorepositories;humiorepositories/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.humio.com,resources=humiorepositories/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 
