@@ -19,8 +19,11 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"reflect"
+
+	"github.com/humio/humio-operator/pkg/humio"
 
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -821,6 +824,935 @@ var _ = Describe("Humio Resources Controllers", func() {
 				err := k8sClient.Get(context.Background(), keyErr, fetchedView)
 				return errors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
+
+			// Start email action
+			By("HumioAction: Should handle action correctly")
+			emailActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: "humiocluster-shared",
+				Name:               "example-action",
+				ViewName:           "humio",
+				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
+					Recipients: []string{"example@example.com"},
+				},
+			}
+
+			key = types.NamespacedName{
+				Name:      "humioaction",
+				Namespace: "default",
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: emailActionSpec,
+			}
+
+			By("HumioAction: Creating the action successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			notifier, err := humioClient.GetNotifier(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier).ToNot(BeNil())
+
+			originalNotifier, err := humio.NotifierFromAction(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier.Name).To(Equal(originalNotifier.Name))
+			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
+			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+
+			createdAction, err := humio.ActionFromNotifier(notifier)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.EmailProperties.Recipients).To(Equal(toCreateAction.Spec.EmailProperties.Recipients))
+
+			By("HumioAction: Updating the action successfully")
+			updatedAction := toCreateAction
+			updatedAction.Spec.EmailProperties.Recipients = []string{"updated@example.com"}
+			updatedAction.Spec.EmailProperties.BodyTemplate = "updated body template"
+			updatedAction.Spec.EmailProperties.SubjectTemplate = "updated subject template"
+
+			By("HumioAction: Waiting for the action to be updated")
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				fetchedAction.Spec.EmailProperties = updatedAction.Spec.EmailProperties
+				return k8sClient.Update(context.Background(), fetchedAction)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("HumioAction: Verifying the action update succeeded")
+			expectedUpdatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+			Expect(err).To(BeNil())
+			Expect(expectedUpdatedNotifier).ToNot(BeNil())
+
+			By("HumioAction: Verifying the notifier matches the expected")
+			verifiedNotifier, err := humio.NotifierFromAction(updatedAction)
+			Expect(err).To(BeNil())
+			Eventually(func() map[string]interface{} {
+				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				if err != nil {
+					return map[string]interface{}{}
+				}
+				return updatedNotifier.Properties
+			}, testTimeout, testInterval).Should(Equal(verifiedNotifier.Properties))
+
+			By("HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), key, fetchedAction)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+			// End email action
+
+			// Start humio repo action
+			By("HumioAction: Should handle humio repo action correctly")
+			humioRepoActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: "humiocluster-shared",
+				Name:               "example-humio-repo-action",
+				ViewName:           "humio",
+				HumioRepositoryProperties: &humiov1alpha1.HumioActionRepositoryProperties{
+					IngestToken: "some-token",
+				},
+			}
+
+			key = types.NamespacedName{
+				Name:      "humioaction",
+				Namespace: "default",
+			}
+
+			toCreateAction = &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humioRepoActionSpec,
+			}
+
+			By("HumioAction: Creating the humio repo action successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateAction)).Should(Succeed())
+
+			fetchedAction = &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			notifier, err = humioClient.GetNotifier(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier).ToNot(BeNil())
+
+			originalNotifier, err = humio.NotifierFromAction(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier.Name).To(Equal(originalNotifier.Name))
+			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
+			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+
+			createdAction, err = humio.ActionFromNotifier(notifier)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.HumioRepositoryProperties.IngestToken).To(Equal(toCreateAction.Spec.HumioRepositoryProperties.IngestToken))
+
+			By("HumioAction: Updating the humio repo action successfully")
+			updatedAction = toCreateAction
+			updatedAction.Spec.HumioRepositoryProperties.IngestToken = "updated-token"
+
+			By("HumioAction: Waiting for the humio repo action to be updated")
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				fetchedAction.Spec.HumioRepositoryProperties = updatedAction.Spec.HumioRepositoryProperties
+				return k8sClient.Update(context.Background(), fetchedAction)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("HumioAction: Verifying the humio repo action update succeeded")
+			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
+			Expect(err).To(BeNil())
+			Expect(expectedUpdatedNotifier).ToNot(BeNil())
+
+			By("HumioAction: Verifying the humio repo notifier matches the expected")
+			verifiedNotifier, err = humio.NotifierFromAction(updatedAction)
+			Expect(err).To(BeNil())
+			Eventually(func() map[string]interface{} {
+				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				if err != nil {
+					return map[string]interface{}{}
+				}
+				return updatedNotifier.Properties
+			}, testTimeout, testInterval).Should(Equal(verifiedNotifier.Properties))
+
+			By("HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), key, fetchedAction)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+			// End humio repo action
+
+			// Start ops genie action
+			By("HumioAction: Should handle ops genie action correctly")
+			opsGenieActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: "humiocluster-shared",
+				Name:               "example-ops-genie-action",
+				ViewName:           "humio",
+				OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
+					GenieKey: "somegeniekey",
+				},
+			}
+
+			key = types.NamespacedName{
+				Name:      "humio-ops-genie-action",
+				Namespace: "default",
+			}
+
+			toCreateAction = &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: opsGenieActionSpec,
+			}
+
+			By("HumioAction: Creating the ops genie action successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateAction)).Should(Succeed())
+
+			fetchedAction = &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			notifier, err = humioClient.GetNotifier(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier).ToNot(BeNil())
+
+			originalNotifier, err = humio.NotifierFromAction(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier.Name).To(Equal(originalNotifier.Name))
+			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
+			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+
+			createdAction, err = humio.ActionFromNotifier(notifier)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.OpsGenieProperties.GenieKey).To(Equal(toCreateAction.Spec.OpsGenieProperties.GenieKey))
+
+			By("HumioAction: Updating the ops genie action successfully")
+			updatedAction = toCreateAction
+			updatedAction.Spec.OpsGenieProperties.GenieKey = "updatedgeniekey"
+
+			By("HumioAction: Waiting for the ops genie action to be updated")
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				fetchedAction.Spec.OpsGenieProperties = updatedAction.Spec.OpsGenieProperties
+				return k8sClient.Update(context.Background(), fetchedAction)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("HumioAction: Verifying the ops genie action update succeeded")
+			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
+			Expect(err).To(BeNil())
+			Expect(expectedUpdatedNotifier).ToNot(BeNil())
+
+			By("HumioAction: Verifying the ops genie notifier matches the expected")
+			verifiedNotifier, err = humio.NotifierFromAction(updatedAction)
+			Expect(err).To(BeNil())
+			Eventually(func() map[string]interface{} {
+				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				if err != nil {
+					return map[string]interface{}{}
+				}
+				return updatedNotifier.Properties
+			}, testTimeout, testInterval).Should(Equal(verifiedNotifier.Properties))
+
+			By("HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), key, fetchedAction)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+			// End ops genie action
+
+			// Start pagerduty action
+			By("HumioAction: Should handle pagerduty action correctly")
+			pagerDutyActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: "humiocluster-shared",
+				Name:               "example-pagerduty-action",
+				ViewName:           "humio",
+				PagerDutyProperties: &humiov1alpha1.HumioActionPagerDutyProperties{
+					Severity:   "critical",
+					RoutingKey: "someroutingkey",
+				},
+			}
+
+			key = types.NamespacedName{
+				Name:      "humio-pagerduty-action",
+				Namespace: "default",
+			}
+
+			toCreateAction = &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: pagerDutyActionSpec,
+			}
+
+			By("HumioAction: Creating the pagerduty action successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateAction)).Should(Succeed())
+
+			fetchedAction = &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			notifier, err = humioClient.GetNotifier(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier).ToNot(BeNil())
+
+			originalNotifier, err = humio.NotifierFromAction(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier.Name).To(Equal(originalNotifier.Name))
+			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
+			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+
+			createdAction, err = humio.ActionFromNotifier(notifier)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.PagerDutyProperties.Severity).To(Equal(toCreateAction.Spec.PagerDutyProperties.Severity))
+			Expect(createdAction.Spec.PagerDutyProperties.RoutingKey).To(Equal(toCreateAction.Spec.PagerDutyProperties.RoutingKey))
+
+			By("HumioAction: Updating the pagerduty action successfully")
+			updatedAction = toCreateAction
+			updatedAction.Spec.PagerDutyProperties.Severity = "error"
+			updatedAction.Spec.PagerDutyProperties.RoutingKey = "updatedroutingkey"
+
+			By("HumioAction: Waiting for the pagerduty action to be updated")
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				fetchedAction.Spec.PagerDutyProperties = updatedAction.Spec.PagerDutyProperties
+				return k8sClient.Update(context.Background(), fetchedAction)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("HumioAction: Verifying the pagerduty action update succeeded")
+			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
+			Expect(err).To(BeNil())
+			Expect(expectedUpdatedNotifier).ToNot(BeNil())
+
+			By("HumioAction: Verifying the pagerduty notifier matches the expected")
+			verifiedNotifier, err = humio.NotifierFromAction(updatedAction)
+			Expect(err).To(BeNil())
+			Eventually(func() map[string]interface{} {
+				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				if err != nil {
+					return map[string]interface{}{}
+				}
+				return updatedNotifier.Properties
+			}, testTimeout, testInterval).Should(Equal(verifiedNotifier.Properties))
+
+			By("HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), key, fetchedAction)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+			// End pagerduty action
+
+			// Start slack post message action
+			By("HumioAction: Should handle slack post message action correctly")
+			slackPostMessageActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: "humiocluster-shared",
+				Name:               "example-slack-post-message-action",
+				ViewName:           "humio",
+				SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
+					ApiToken: "some-token",
+					Channels: []string{"#some-channel"},
+					Fields: map[string]string{
+						"some": "key",
+					},
+				},
+			}
+
+			key = types.NamespacedName{
+				Name:      "humio-slack-post-message-action",
+				Namespace: "default",
+			}
+
+			toCreateAction = &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: slackPostMessageActionSpec,
+			}
+
+			By("HumioAction: Creating the slack post message action successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateAction)).Should(Succeed())
+
+			fetchedAction = &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			notifier, err = humioClient.GetNotifier(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier).ToNot(BeNil())
+
+			originalNotifier, err = humio.NotifierFromAction(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier.Name).To(Equal(originalNotifier.Name))
+			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
+			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+
+			createdAction, err = humio.ActionFromNotifier(notifier)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.SlackPostMessageProperties.ApiToken).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.ApiToken))
+			Expect(createdAction.Spec.SlackPostMessageProperties.Channels).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.Channels))
+			Expect(createdAction.Spec.SlackPostMessageProperties.Fields).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.Fields))
+
+			By("HumioAction: Updating the slack action successfully")
+			updatedAction = toCreateAction
+			updatedAction.Spec.SlackPostMessageProperties.ApiToken = "updated-token"
+			updatedAction.Spec.SlackPostMessageProperties.Channels = []string{"#some-channel", "#other-channel"}
+			updatedAction.Spec.SlackPostMessageProperties.Fields = map[string]string{
+				"some": "updatedkey",
+			}
+
+			By("HumioAction: Waiting for the slack post message action to be updated")
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				fetchedAction.Spec.SlackPostMessageProperties = updatedAction.Spec.SlackPostMessageProperties
+				return k8sClient.Update(context.Background(), fetchedAction)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("HumioAction: Verifying the slack post message action update succeeded")
+			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
+			Expect(err).To(BeNil())
+			Expect(expectedUpdatedNotifier).ToNot(BeNil())
+
+			By("HumioAction: Verifying the slack notifier matches the expected")
+			verifiedNotifier, err = humio.NotifierFromAction(updatedAction)
+			Expect(err).To(BeNil())
+			Eventually(func() map[string]interface{} {
+				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				if err != nil {
+					return map[string]interface{}{}
+				}
+				return updatedNotifier.Properties
+			}, testTimeout, testInterval).Should(Equal(verifiedNotifier.Properties))
+
+			By("HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), key, fetchedAction)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+			// End slack post message action
+
+			// Start slack action
+			By("HumioAction: Should handle slack action correctly")
+			slackActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: "humiocluster-shared",
+				Name:               "example-slack-action",
+				ViewName:           "humio",
+				SlackProperties: &humiov1alpha1.HumioActionSlackProperties{
+					Url: "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
+					Fields: map[string]string{
+						"some": "key",
+					},
+				},
+			}
+
+			key = types.NamespacedName{
+				Name:      "humio-slack-action",
+				Namespace: "default",
+			}
+
+			toCreateAction = &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: slackActionSpec,
+			}
+
+			By("HumioAction: Creating the slack action successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateAction)).Should(Succeed())
+
+			fetchedAction = &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			notifier, err = humioClient.GetNotifier(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier).ToNot(BeNil())
+
+			originalNotifier, err = humio.NotifierFromAction(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier.Name).To(Equal(originalNotifier.Name))
+			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
+			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+
+			createdAction, err = humio.ActionFromNotifier(notifier)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.SlackProperties.Url).To(Equal(toCreateAction.Spec.SlackProperties.Url))
+			Expect(createdAction.Spec.SlackProperties.Fields).To(Equal(toCreateAction.Spec.SlackProperties.Fields))
+
+			By("HumioAction: Updating the slack action successfully")
+			updatedAction = toCreateAction
+			updatedAction.Spec.SlackProperties.Url = "https://hooks.slack.com/services/T00000000/B00000000/YYYYYYYYYYYYYYYYYYYYYYYY"
+			updatedAction.Spec.SlackProperties.Fields = map[string]string{
+				"some": "updatedkey",
+			}
+
+			By("HumioAction: Waiting for the slack action to be updated")
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				fetchedAction.Spec.SlackProperties = updatedAction.Spec.SlackProperties
+				return k8sClient.Update(context.Background(), fetchedAction)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("HumioAction: Verifying the slack action update succeeded")
+			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
+			Expect(err).To(BeNil())
+			Expect(expectedUpdatedNotifier).ToNot(BeNil())
+
+			By("HumioAction: Verifying the slack notifier matches the expected")
+			verifiedNotifier, err = humio.NotifierFromAction(updatedAction)
+			Expect(err).To(BeNil())
+			Eventually(func() map[string]interface{} {
+				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				if err != nil {
+					return map[string]interface{}{}
+				}
+				return updatedNotifier.Properties
+			}, testTimeout, testInterval).Should(Equal(verifiedNotifier.Properties))
+
+			By("HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), key, fetchedAction)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+			// End slack action
+
+			// Start victor ops action
+			By("HumioAction: Should handle victor ops action correctly")
+			victorOpsActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: "humiocluster-shared",
+				Name:               "example-victor-ops-action",
+				ViewName:           "humio",
+				VictorOpsProperties: &humiov1alpha1.HumioActionVictorOpsProperties{
+					MessageType: "critical",
+					NotifyUrl:   "https://alert.victorops.com/integrations/0000/alert/0000/routing_key",
+				},
+			}
+
+			key = types.NamespacedName{
+				Name:      "humio-victor-ops-action",
+				Namespace: "default",
+			}
+
+			toCreateAction = &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: victorOpsActionSpec,
+			}
+
+			By("HumioAction: Creating the victor ops action successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateAction)).Should(Succeed())
+
+			fetchedAction = &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			notifier, err = humioClient.GetNotifier(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier).ToNot(BeNil())
+
+			originalNotifier, err = humio.NotifierFromAction(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier.Name).To(Equal(originalNotifier.Name))
+			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
+			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+
+			createdAction, err = humio.ActionFromNotifier(notifier)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.VictorOpsProperties.MessageType).To(Equal(toCreateAction.Spec.VictorOpsProperties.MessageType))
+			Expect(createdAction.Spec.VictorOpsProperties.NotifyUrl).To(Equal(toCreateAction.Spec.VictorOpsProperties.NotifyUrl))
+
+			By("HumioAction: Updating the victor ops action successfully")
+			updatedAction = toCreateAction
+			updatedAction.Spec.VictorOpsProperties.MessageType = "recovery"
+			updatedAction.Spec.VictorOpsProperties.NotifyUrl = "https://alert.victorops.com/integrations/1111/alert/1111/routing_key"
+
+			By("HumioAction: Waiting for the victor ops action to be updated")
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				fetchedAction.Spec.VictorOpsProperties = updatedAction.Spec.VictorOpsProperties
+				return k8sClient.Update(context.Background(), fetchedAction)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("HumioAction: Verifying the victor ops action update succeeded")
+			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
+			Expect(err).To(BeNil())
+			Expect(expectedUpdatedNotifier).ToNot(BeNil())
+
+			By("HumioAction: Verifying the victor ops notifier matches the expected")
+			verifiedNotifier, err = humio.NotifierFromAction(updatedAction)
+			Expect(err).To(BeNil())
+			Eventually(func() map[string]interface{} {
+				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				if err != nil {
+					return map[string]interface{}{}
+				}
+				return updatedNotifier.Properties
+			}, testTimeout, testInterval).Should(Equal(verifiedNotifier.Properties))
+
+			By("HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), key, fetchedAction)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+			// End victor ops action
+
+			// Start web hook action
+			By("HumioAction: Should handle web hook action correctly")
+			webHookActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: "humiocluster-shared",
+				Name:               "example-web-hook-action",
+				ViewName:           "humio",
+				WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
+					Headers:      map[string]string{"some": "header"},
+					BodyTemplate: "body template",
+					Method:       http.MethodPost,
+					Url:          "https://example.com/some/api",
+				},
+			}
+
+			key = types.NamespacedName{
+				Name:      "humio-web-hook-action",
+				Namespace: "default",
+			}
+
+			toCreateAction = &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: webHookActionSpec,
+			}
+
+			By("HumioAction: Creating the web hook action successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateAction)).Should(Succeed())
+
+			fetchedAction = &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			notifier, err = humioClient.GetNotifier(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier).ToNot(BeNil())
+
+			originalNotifier, err = humio.NotifierFromAction(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier.Name).To(Equal(originalNotifier.Name))
+			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
+			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+
+			createdAction, err = humio.ActionFromNotifier(notifier)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.WebhookProperties.Headers).To(Equal(toCreateAction.Spec.WebhookProperties.Headers))
+			Expect(createdAction.Spec.WebhookProperties.BodyTemplate).To(Equal(toCreateAction.Spec.WebhookProperties.BodyTemplate))
+			Expect(createdAction.Spec.WebhookProperties.Method).To(Equal(toCreateAction.Spec.WebhookProperties.Method))
+			Expect(createdAction.Spec.WebhookProperties.Url).To(Equal(toCreateAction.Spec.WebhookProperties.Url))
+
+			By("HumioAction: Updating the web hook action successfully")
+			updatedAction = toCreateAction
+			updatedAction.Spec.WebhookProperties.Headers = map[string]string{"updated": "header"}
+			updatedAction.Spec.WebhookProperties.BodyTemplate = "updated template"
+			updatedAction.Spec.WebhookProperties.Method = http.MethodPut
+			updatedAction.Spec.WebhookProperties.Url = "https://example.com/some/updated/api"
+
+			By("HumioAction: Waiting for the web hook action to be updated")
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				fetchedAction.Spec.WebhookProperties = updatedAction.Spec.WebhookProperties
+				return k8sClient.Update(context.Background(), fetchedAction)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("HumioAction: Verifying the web hook action update succeeded")
+			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
+			Expect(err).To(BeNil())
+			Expect(expectedUpdatedNotifier).ToNot(BeNil())
+
+			By("HumioAction: Verifying the web hook notifier matches the expected")
+			verifiedNotifier, err = humio.NotifierFromAction(updatedAction)
+			Expect(err).To(BeNil())
+			Eventually(func() map[string]interface{} {
+				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				if err != nil {
+					return map[string]interface{}{}
+				}
+				return updatedNotifier.Properties
+			}, testTimeout, testInterval).Should(Equal(verifiedNotifier.Properties))
+
+			By("HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), key, fetchedAction)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+			// End web hook action
+
+			By("HumioAction: Should deny improperly configured action with missing properties")
+			toCreateInvalidAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: "humiocluster-shared",
+					Name:               "example-invalid-action",
+					ViewName:           "humio",
+				},
+			}
+
+			By("HumioAction: Creating the invalid action")
+			Expect(k8sClient.Create(context.Background(), toCreateInvalidAction)).Should(Succeed())
+
+			fetchedAction = &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateConfigError))
+
+			invalidNotifier, err := humioClient.GetNotifier(toCreateInvalidAction)
+			Expect(err).To(Not(BeNil()))
+			Expect(invalidNotifier).To(BeNil())
+
+			By("HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), key, fetchedAction)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("HumioAction: Should deny improperly configured action with extra properties")
+			toCreateInvalidAction = &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: "humiocluster-shared",
+					Name:               "example-invalid-action",
+					ViewName:           "humio",
+					WebhookProperties:  &humiov1alpha1.HumioActionWebhookProperties{},
+					EmailProperties:    &humiov1alpha1.HumioActionEmailProperties{},
+				},
+			}
+
+			By("HumioAction: Creating the invalid action")
+			Expect(k8sClient.Create(context.Background(), toCreateInvalidAction)).Should(Succeed())
+
+			fetchedAction = &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateConfigError))
+
+			invalidNotifier, err = humioClient.GetNotifier(toCreateInvalidAction)
+			Expect(err).To(Not(BeNil()))
+			Expect(invalidNotifier).To(BeNil())
+
+			By("HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), key, fetchedAction)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("HumioAlert: Should handle alert correctly")
+			dependentEmailActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: "humiocluster-shared",
+				Name:               "example-email-action",
+				ViewName:           "humio",
+				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
+					Recipients: []string{"example@example.com"},
+				},
+			}
+
+			actionKey := types.NamespacedName{
+				Name:      "humioaction",
+				Namespace: "default",
+			}
+
+			toCreateDependentAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      actionKey.Name,
+					Namespace: actionKey.Namespace,
+				},
+				Spec: dependentEmailActionSpec,
+			}
+
+			By("HumioAlert: Creating the action required by the alert successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateDependentAction)).Should(Succeed())
+
+			fetchedAction = &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), actionKey, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			alertSpec := humiov1alpha1.HumioAlertSpec{
+				ManagedClusterName: "humiocluster-shared",
+				Name:               "example-alert",
+				ViewName:           "humio",
+				Query: humiov1alpha1.HumioQuery{
+					QueryString: "#repo = test | count()",
+					Start:       "24h",
+					End:         "now",
+					IsLive:      helpers.BoolPtr(true),
+				},
+				ThrottleTimeMillis: 60000,
+				Silenced:           false,
+				Description:        "humio alert",
+				Actions:            []string{toCreateDependentAction.Spec.Name},
+				Labels:             []string{"some-label"},
+			}
+
+			key = types.NamespacedName{
+				Name:      "humio-alert",
+				Namespace: "default",
+			}
+
+			toCreateAlert := &humiov1alpha1.HumioAlert{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: alertSpec,
+			}
+
+			By("HumioAlert: Creating the alert successfully")
+			Expect(k8sClient.Create(context.Background(), toCreateAlert)).Should(Succeed())
+
+			fetchedAlert := &humiov1alpha1.HumioAlert{}
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, fetchedAlert)
+				return fetchedAlert.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
+
+			alert, err := humioClient.GetAlert(toCreateAlert)
+			Expect(err).To(BeNil())
+			Expect(alert).ToNot(BeNil())
+
+			actionIdMap, err := humioClient.GetActionIDsMapForAlerts(toCreateAlert)
+			Expect(err).To(BeNil())
+
+			originalAlert, err := humio.AlertTransform(toCreateAlert, actionIdMap)
+			Expect(err).To(BeNil())
+			Expect(alert.Name).To(Equal(originalAlert.Name))
+			Expect(alert.Description).To(Equal(originalAlert.Description))
+			Expect(alert.Notifiers).To(Equal(originalAlert.Notifiers))
+			Expect(alert.Labels).To(Equal(originalAlert.Labels))
+			Expect(alert.ThrottleTimeMillis).To(Equal(originalAlert.ThrottleTimeMillis))
+			Expect(alert.Silenced).To(Equal(originalAlert.Silenced))
+			Expect(alert.Query.QueryString).To(Equal(originalAlert.Query.QueryString))
+			Expect(alert.Query.Start).To(Equal(originalAlert.Query.Start))
+			Expect(alert.Query.End).To(Equal(originalAlert.Query.End))
+			Expect(alert.Query.IsLive).To(Equal(originalAlert.Query.IsLive))
+
+			createdAlert := toCreateAlert
+			err = humio.AlertHydrate(createdAlert, alert, actionIdMap)
+			Expect(err).To(BeNil())
+			Expect(createdAlert.Spec.Name).To(Equal(toCreateAlert.Spec.Name))
+			Expect(reflect.DeepEqual(createdAlert.Spec, toCreateAlert.Spec)).To(BeTrue())
+
+			By("HumioAlert: Updating the alert successfully")
+			updatedAlert := toCreateAlert
+			updatedAlert.Spec.Query.QueryString = "#repo = test | updated=true | count()"
+			updatedAlert.Spec.ThrottleTimeMillis = 70000
+			updatedAlert.Spec.Silenced = true
+			updatedAlert.Spec.Description = "updated humio alert"
+			updatedAlert.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
+
+			By("HumioAlert: Waiting for the alert to be updated")
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), key, fetchedAlert)
+				fetchedAlert.Spec.Query = updatedAlert.Spec.Query
+				fetchedAlert.Spec.ThrottleTimeMillis = updatedAlert.Spec.ThrottleTimeMillis
+				fetchedAlert.Spec.Silenced = updatedAlert.Spec.Silenced
+				fetchedAlert.Spec.Description = updatedAlert.Spec.Description
+				return k8sClient.Update(context.Background(), fetchedAlert)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("HumioAlert: Verifying the alert update succeeded")
+			expectedUpdatedAlert, err := humioClient.GetAlert(fetchedAlert)
+			Expect(err).To(BeNil())
+			Expect(expectedUpdatedAlert).ToNot(BeNil())
+
+			By("HumioAlert: Verifying the alert matches the expected")
+			verifiedAlert, err := humio.AlertTransform(updatedAlert, actionIdMap)
+			Expect(err).To(BeNil())
+			Eventually(func() humioapi.Alert {
+				updatedAlert, err := humioClient.GetAlert(fetchedAlert)
+				if err != nil {
+					return *updatedAlert
+				}
+				// Ignore the ID
+				updatedAlert.ID = ""
+				return *updatedAlert
+			}, testTimeout, testInterval).Should(Equal(*verifiedAlert))
+
+			By("HumioAlert: Successfully deleting it")
+			Expect(k8sClient.Delete(context.Background(), fetchedAlert)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), key, fetchedAlert)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("HumioAlert: Successfully deleting the action")
+			Expect(k8sClient.Delete(context.Background(), fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), actionKey, fetchedAction)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("HumioAlert: Should deny improperly configured alert with missing required values")
+			toCreateInvalidAlert := &humiov1alpha1.HumioAlert{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioAlertSpec{
+					ManagedClusterName: "humiocluster-shared",
+					Name:               "example-invalid-alert",
+					ViewName:           "humio",
+				},
+			}
+
+			By("HumioAlert: Creating the invalid alert")
+			Expect(k8sClient.Create(context.Background(), toCreateInvalidAlert)).Should(Not(Succeed()))
 		})
 	})
 })

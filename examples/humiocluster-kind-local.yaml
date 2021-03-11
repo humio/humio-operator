@@ -4,9 +4,10 @@ metadata:
   name: example-humiocluster
 spec:
   image: "humio/humio-core:1.18.0"
+  nodeCount: 1
   tls:
     enabled: false
-  targetReplicationFactor: 2
+  targetReplicationFactor: 1
   storagePartitionsCount: 24
   digestPartitionsCount: 24
   resources:
