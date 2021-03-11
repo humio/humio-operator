@@ -1,0 +1,20 @@
+# permissions for end users to view humioactions.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: humioaction-viewer-role
+rules:
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioactions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioactions/status
+  verbs:
+  - get

@@ -1,0 +1,21 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioAction
+metadata:
+  name: example-humioaction-managed
+spec:
+  managedClusterName: example-humiocluster
+  name: example-ops-genie-action
+  viewName: humio
+  opsGenieProperties:
+    genieKey: "some-genie-key"
+---
+apiVersion: core.humio.com/v1alpha1
+kind: HumioAction
+metadata:
+  name: example-humioaction-external
+spec:
+  externalClusterName: example-humioexternalcluster
+  name: example-ops-genie-action
+  viewName: humio
+  opsGenieProperties:
+    genieKey: "some-genie-key"

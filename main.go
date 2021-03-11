@@ -154,6 +154,22 @@ func main() {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioView")
 		os.Exit(1)
 	}
+	if err = (&controllers.HumioActionReconciler{
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		HumioClient: humio.NewClient(log, &humioapi.Config{}),
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioAction")
+		os.Exit(1)
+	}
+	if err = (&controllers.HumioAlertReconciler{
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		HumioClient: humio.NewClient(log, &humioapi.Config{}),
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioAlert")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	ctrl.Log.Info("starting manager")

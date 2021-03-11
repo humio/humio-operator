@@ -17,6 +17,8 @@ limitations under the License.
 package humio
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -38,6 +40,8 @@ type ClientMock struct {
 	View                              humioapi.View
 	TrialLicense                      humioapi.TrialLicense
 	OnPremLicense                     humioapi.OnPremLicense
+	Notifier                          humioapi.Notifier
+	Alert                             humioapi.Alert
 }
 
 type MockClientConfig struct {
@@ -62,6 +66,8 @@ func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePa
 			View:                              humioapi.View{},
 			TrialLicense:                      humioapi.TrialLicense{},
 			OnPremLicense:                     humioapi.OnPremLicense{},
+			Notifier:                          humioapi.Notifier{},
+			Alert:                             humioapi.Alert{},
 		},
 		Version: version,
 	}
@@ -304,4 +310,71 @@ func (h *MockClientConfig) InstallLicense(licenseString string) error {
 	}
 
 	return nil
+}
+
+func (h *MockClientConfig) GetNotifier(ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+	if h.apiClient.Notifier.Name == "" {
+		return nil, fmt.Errorf("could not find notifier in view %s with name: %s", ha.Spec.ViewName, ha.Spec.Name)
+	}
+
+	return &h.apiClient.Notifier, nil
+}
+
+func (h *MockClientConfig) AddNotifier(ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+	updatedApiClient := h.apiClient
+
+	notifier, err := NotifierFromAction(ha)
+	if err != nil {
+		return notifier, err
+	}
+	updatedApiClient.Notifier = *notifier
+	return &h.apiClient.Notifier, nil
+}
+
+func (h *MockClientConfig) UpdateNotifier(ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+	return h.AddNotifier(ha)
+}
+
+func (h *MockClientConfig) DeleteNotifier(ha *humiov1alpha1.HumioAction) error {
+	updateApiClient := h.apiClient
+	updateApiClient.Notifier = humioapi.Notifier{}
+	return nil
+}
+
+func (h *MockClientConfig) GetAlert(ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
+	return &h.apiClient.Alert, nil
+}
+
+func (h *MockClientConfig) AddAlert(ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
+	updatedApiClient := h.apiClient
+
+	actionIdMap, err := h.GetActionIDsMapForAlerts(ha)
+	if err != nil {
+		return &humioapi.Alert{}, fmt.Errorf("could not get action id mapping: %s", err)
+	}
+	alert, err := AlertTransform(ha, actionIdMap)
+	if err != nil {
+		return alert, err
+	}
+	updatedApiClient.Alert = *alert
+	return &h.apiClient.Alert, nil
+}
+
+func (h *MockClientConfig) UpdateAlert(ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
+	return h.AddAlert(ha)
+}
+
+func (h *MockClientConfig) DeleteAlert(ha *humiov1alpha1.HumioAlert) error {
+	updateApiClient := h.apiClient
+	updateApiClient.Alert = humioapi.Alert{}
+	return nil
+}
+
+func (h *MockClientConfig) GetActionIDsMapForAlerts(ha *humiov1alpha1.HumioAlert) (map[string]string, error) {
+	actionIdMap := make(map[string]string)
+	for _, action := range ha.Spec.Actions {
+		hash := md5.Sum([]byte(action))
+		actionIdMap[action] = hex.EncodeToString(hash[:])
+	}
+	return actionIdMap, nil
 }

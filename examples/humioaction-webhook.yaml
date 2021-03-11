@@ -1,0 +1,35 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioAction
+metadata:
+  name: humio-web-hook-action-managed
+spec:
+  managedClusterName: example-humiocluster
+  name: example-web-hook-action
+  viewName: humio
+  webhookProperties:
+    url: "https://example.com/some/api"
+    headers:
+      some: header
+      some-other: header
+    method: POST
+    bodyTemplate: |-
+      {alert_name} has alerted
+      click {url} to see the alert
+---
+apiVersion: core.humio.com/v1alpha1
+kind: HumioAction
+metadata:
+  name: humio-web-hook-action-external
+spec:
+  externalClusterName: example-humioexternalcluster
+  name: example-web-hook-action
+  viewName: humio
+  webhookProperties:
+    url: "https://example.com/some/api"
+    headers:
+      some: header
+      some-other: header
+    method: POST
+    bodyTemplate: |-
+      {alert_name} has alerted
+      click {url} to see the alert
