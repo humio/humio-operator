@@ -519,6 +519,86 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster Update Target Replication Factor", func() {
+		It("Should correctly replace pods to use new target replication factor", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-update-repl-factor",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.NodeCount = helpers.IntPtr(2)
+			toCreate.Spec.TargetReplicationFactor = 1
+
+			initialReplicationFactorEnvVars := []corev1.EnvVar{
+				{
+					Name:  "DIGEST_REPLICATION_FACTOR",
+					Value: "1",
+				},
+				{
+					Name:  "STORAGE_REPLICATION_FACTOR",
+					Value: "1",
+				},
+			}
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Env).Should(ContainElements(initialReplicationFactorEnvVars))
+			}
+
+			By("Updating the target replication factor successfully")
+			updatedReplicationFactorEnvVars := []corev1.EnvVar{
+				{
+					Name:  "DIGEST_REPLICATION_FACTOR",
+					Value: "2",
+				},
+				{
+					Name:  "STORAGE_REPLICATION_FACTOR",
+					Value: "2",
+				},
+			}
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				updatedHumioCluster.Spec.TargetReplicationFactor = 2
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
+
+			By("Restarting the cluster in a rolling fashion")
+			ensurePodsRollingRestart(&updatedHumioCluster, key, 2)
+
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			Eventually(func() bool {
+				clusterPods, _ := kubernetes.ListPods(k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
+				Expect(len(clusterPods)).To(BeIdenticalTo(*toCreate.Spec.NodeCount))
+
+				for _, pod := range clusterPods {
+					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+					Expect(pod.Spec.Containers[humioIndex].Env).Should(ContainElements(updatedReplicationFactorEnvVars))
+				}
+				return true
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			updatedClusterPods, _ := kubernetes.ListPods(k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				By("Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+		})
+	})
+
 	Context("Humio Cluster Ingress", func() {
 		It("Should correctly update ingresses to use new annotations variable", func() {
 			key := types.NamespacedName{
