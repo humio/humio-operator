@@ -53,8 +53,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 
 	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	// +kubebuilder:scaffold:imports
+	//+kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -78,7 +77,7 @@ func TestAPIs(t *testing.T) {
 		[]Reporter{printer.NewlineReporter{}})
 }
 
-var _ = BeforeSuite(func(done Done) {
+var _ = BeforeSuite(func() {
 	var log logr.Logger
 	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
 	defer zapLog.Sync()
@@ -98,7 +97,8 @@ var _ = BeforeSuite(func(done Done) {
 		testTimeout = time.Second * 30
 		testEnv = &envtest.Environment{
 			// TODO: If we want to add support for TLS-functionality, we need to install cert-manager's CRD's
-			CRDDirectoryPaths: []string{filepath.Join("..", "config", "crd", "bases")},
+			CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
+			ErrorIfCRDPathMissing: true,
 		}
 		humioClient = humio.NewMockClient(
 			humioapi.Cluster{},
@@ -109,13 +109,9 @@ var _ = BeforeSuite(func(done Done) {
 		)
 	}
 
-	var err error
-	cfg, err = testEnv.Start()
-	Expect(err).ToNot(HaveOccurred())
-	Expect(cfg).ToNot(BeNil())
-
-	err = humiov1alpha1.AddToScheme(scheme.Scheme)
+	cfg, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg).NotTo(BeNil())
 
 	if helpers.IsOpenShift() {
 		err = openshiftsecurityv1.AddToScheme(scheme.Scheme)
@@ -130,10 +126,7 @@ var _ = BeforeSuite(func(done Done) {
 	err = corev1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = corev1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	// +kubebuilder:scaffold:scheme
+	//+kubebuilder:scaffold:scheme
 
 	watchNamespace, _ := getWatchNamespace()
 
@@ -153,71 +146,63 @@ var _ = BeforeSuite(func(done Done) {
 	}
 
 	k8sManager, err = ctrl.NewManager(cfg, options)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioExternalClusterReconciler{
 		Client:      k8sManager.GetClient(),
-		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
 	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioClusterReconciler{
 		Client:      k8sManager.GetClient(),
-		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
 	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioIngestTokenReconciler{
 		Client:      k8sManager.GetClient(),
-		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
 	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioParserReconciler{
 		Client:      k8sManager.GetClient(),
-		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
 	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioRepositoryReconciler{
 		Client:      k8sManager.GetClient(),
-		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
 	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioViewReconciler{
 		Client:      k8sManager.GetClient(),
-		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
 	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioActionReconciler{
 		Client:      k8sManager.GetClient(),
-		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
 	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioAlertReconciler{
 		Client:      k8sManager.GetClient(),
-		Scheme:      k8sManager.GetScheme(),
 		HumioClient: humioClient,
 	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 	}()
 
 	k8sClient = k8sManager.GetClient()
-	Expect(k8sClient).ToNot(BeNil())
+	Expect(k8sClient).NotTo(BeNil())
 
 	if helpers.IsOpenShift() {
 		var err error
@@ -230,13 +215,12 @@ var _ = BeforeSuite(func(done Done) {
 			if err != nil {
 				// Some other error happened. Typically:
 				//   <*cache.ErrCacheNotStarted | 0x31fc738>: {}
-				//	   the cache is not started, can not read objects occurred
+				//         the cache is not started, can not read objects occurred
 				return false
 			}
 			// At this point we know the object already exists.
 			return true
 		}, testTimeout, testInterval).Should(BeTrue())
-
 		if errors.IsNotFound(err) {
 			By("Simulating helm chart installation of the SecurityContextConstraints object")
 			sccName := os.Getenv("OPENSHIFT_SCC_NAME")
@@ -295,13 +279,12 @@ var _ = BeforeSuite(func(done Done) {
 		}
 	}
 
-	close(done)
 }, 120)
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	err := testEnv.Stop()
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 })
 
 // getWatchNamespace returns the Namespace the operator should be watching for changes

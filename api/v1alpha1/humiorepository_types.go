@@ -58,11 +58,11 @@ type HumioRepositoryStatus struct {
 	State string `json:"state,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:path=humiorepositories,scope=Namespaced
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the repository"
-// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Repository"
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+//+kubebuilder:resource:path=humiorepositories,scope=Namespaced
+//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the repository"
+//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Repository"
 
 // HumioRepository is the Schema for the humiorepositories API
 type HumioRepository struct {
@@ -73,7 +73,7 @@ type HumioRepository struct {
 	Status HumioRepositoryStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
 // HumioRepositoryList contains a list of HumioRepository
 type HumioRepositoryList struct {

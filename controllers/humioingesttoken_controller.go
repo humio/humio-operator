@@ -27,7 +27,6 @@ import (
 	uberzap "go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -44,15 +43,14 @@ const humioFinalizer = "core.humio.com/finalizer" // TODO: Not only used for ing
 type HumioIngestTokenReconciler struct {
 	client.Client
 	Log         logr.Logger
-	Scheme      *runtime.Scheme
 	HumioClient humio.Client
 }
 
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioingesttokens,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioingesttokens/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioingesttokens,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioingesttokens/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioingesttokens/finalizers,verbs=update
 
-func (r *HumioIngestTokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
@@ -182,6 +180,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
 }
 
+// SetupWithManager sets up the controller with the Manager.
 func (r *HumioIngestTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioIngestToken{}).
@@ -223,7 +222,7 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 
 	secretData := map[string][]byte{"token": []byte(ingestToken.Token)}
 	desiredSecret := kubernetes.ConstructSecret(cluster.Name(), hit.Namespace, hit.Spec.TokenSecretName, secretData, hit.Spec.TokenSecretLabels)
-	if err := controllerutil.SetControllerReference(hit, desiredSecret, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(hit, desiredSecret, r.Scheme()); err != nil {
 		return fmt.Errorf("could not set controller reference: %s", err)
 	}
 

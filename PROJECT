@@ -1,39 +1,79 @@
 domain: humio.com
-layout: go.kubebuilder.io/v2
+layout:
+- go.kubebuilder.io/v3
 projectName: humio-operator
 repo: github.com/humio/humio-operator
 resources:
--
+- api:
+    crdVersion: v1
+    namespaced: true
   controller: true
+  domain: humio.com
   group: core
-  kind: HumioExternalCluster
-  path: core.humio.com/v1alpha1
+  kind: HumioAction
+  path: github.com/humio/humio-operator/api/v1alpha1
   version: v1alpha1
--
+- api:
+    crdVersion: v1
+    namespaced: true
   controller: true
+  domain: humio.com
+  group: core
+  kind: HumioAlert
+  path: github.com/humio/humio-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: humio.com
   group: core
   kind: HumioCluster
-  path: core.humio.com/v1alpha1
+  path: github.com/humio/humio-operator/api/v1alpha1
   version: v1alpha1
--
+- api:
+    crdVersion: v1
+    namespaced: true
   controller: true
+  domain: humio.com
+  group: core
+  kind: HumioExternalCluster
+  path: github.com/humio/humio-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: humio.com
   group: core
   kind: HumioIngestToken
-  path: core.humio.com/v1alpha1
+  path: github.com/humio/humio-operator/api/v1alpha1
   version: v1alpha1
--
+- api:
+    crdVersion: v1
+    namespaced: true
   controller: true
+  domain: humio.com
   group: core
   kind: HumioParser
-  path: core.humio.com/v1alpha1
+  path: github.com/humio/humio-operator/api/v1alpha1
   version: v1alpha1
--
+- api:
+    crdVersion: v1
+    namespaced: true
   controller: true
+  domain: humio.com
   group: core
   kind: HumioRepository
-  path: core.humio.com/v1alpha1
+  path: github.com/humio/humio-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: humio.com
+  group: core
+  kind: HumioView
+  path: github.com/humio/humio-operator/api/v1alpha1
   version: v1alpha1
 version: "3"
-plugins:
-  manifests.sdk.operatorframework.io/v2: {}
-  scorecard.sdk.operatorframework.io/v2: {}

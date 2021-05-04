@@ -42,7 +42,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/humio/humio-operator/pkg/humio"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -53,24 +52,24 @@ import (
 type HumioClusterReconciler struct {
 	client.Client
 	Log         logr.Logger
-	Scheme      *runtime.Scheme
 	HumioClient humio.Client
 }
 
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=pods,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=core,resources=services,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=core,resources=services/finalizers,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=core,resources=endpoints,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=core,resources=events,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingress,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/finalizers,verbs=update
+//+kubebuilder:rbac:groups=core,resources=pods,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=services,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=services/finalizers,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=endpoints,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=events,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=secrets,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=networking.k8s.io,resources=ingress,verbs=create;delete;get;list;patch;update;watch
 
-func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
@@ -154,7 +153,6 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 			r.Log.Error(err, "unable to set cluster state")
 		}
 	}
-
 	// Assume we are bootstrapping if no cluster state is set.
 	// TODO: this is a workaround for the issue where humio pods cannot start up at the same time during the first boot
 	if hc.Status.State == "" {
@@ -163,6 +161,7 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 			r.Log.Error(err, "unable to set cluster state")
 			return reconcile.Result{}, err
 		}
+
 		if _, err := r.incrementHumioClusterPodRevision(context.TODO(), hc, PodRestartPolicyRolling); err != nil {
 			r.Log.Error(err, "unable to increment pod revision")
 			return reconcile.Result{}, err
@@ -350,6 +349,7 @@ func (r *HumioClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
 }
 
+// SetupWithManager sets up the controller with the Manager.
 func (r *HumioClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioCluster{}).
@@ -380,7 +380,7 @@ func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Co
 				hc.Name,
 				hc.Namespace,
 			)
-			if err := controllerutil.SetControllerReference(hc, configMap, r.Scheme); err != nil {
+			if err := controllerutil.SetControllerReference(hc, configMap, r.Scheme()); err != nil {
 				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
@@ -420,7 +420,7 @@ func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context
 				hc.Name,
 				hc.Namespace,
 			)
-			if err := controllerutil.SetControllerReference(hc, configMap, r.Scheme); err != nil {
+			if err := controllerutil.SetControllerReference(hc, configMap, r.Scheme()); err != nil {
 				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
@@ -575,7 +575,7 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 		existingIngress, err := kubernetes.GetIngress(ctx, r, desiredIngress.Name, hc.Namespace)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				if err := controllerutil.SetControllerReference(hc, desiredIngress, r.Scheme); err != nil {
+				if err := controllerutil.SetControllerReference(hc, desiredIngress, r.Scheme()); err != nil {
 					r.Log.Error(err, "could not set controller reference")
 					return err
 				}
@@ -838,7 +838,7 @@ func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *hu
 	if err != nil {
 		if errors.IsNotFound(err) {
 			caIssuer := constructCAIssuer(hc)
-			if err := controllerutil.SetControllerReference(hc, &caIssuer, r.Scheme); err != nil {
+			if err := controllerutil.SetControllerReference(hc, &caIssuer, r.Scheme()); err != nil {
 				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
@@ -891,7 +891,7 @@ func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *hu
 		"tls.key": ca.Key,
 	}
 	caSecret := kubernetes.ConstructSecret(hc.Name, hc.Namespace, getCASecretName(hc), caSecretData, nil)
-	if err := controllerutil.SetControllerReference(hc, caSecret, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(hc, caSecret, r.Scheme()); err != nil {
 		r.Log.Error(err, "could not set controller reference")
 		return err
 	}
@@ -922,7 +922,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Co
 			"passphrase": []byte(randomPass), // TODO: do we need separate passwords for different aspects?
 		}
 		secret := kubernetes.ConstructSecret(hc.Name, hc.Namespace, fmt.Sprintf("%s-keystore-passphrase", hc.Name), secretData, nil)
-		if err := controllerutil.SetControllerReference(hc, secret, r.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(hc, secret, r.Scheme()); err != nil {
 			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
@@ -952,7 +952,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterCACertBundle(ctx context.Cont
 	if errors.IsNotFound(err) {
 		r.Log.Info("CA cert bundle doesn't exist, creating it now")
 		cert := constructClusterCACertificateBundle(hc)
-		if err := controllerutil.SetControllerReference(hc, &cert, r.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(hc, &cert, r.Scheme()); err != nil {
 			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
@@ -990,7 +990,7 @@ func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context
 		certificateHash := helpers.AsSHA256(certForHash)
 		certificate.Annotations[certHashAnnotation] = certificateHash
 		r.Log.Info(fmt.Sprintf("creating node TLS certificate with name %s", certificate.Name))
-		if err := controllerutil.SetControllerReference(hc, &certificate, r.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(hc, &certificate, r.Scheme()); err != nil {
 			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
@@ -1029,7 +1029,7 @@ func (r *HumioClusterReconciler) ensureAuthRole(ctx context.Context, hc *humiov1
 	if err != nil {
 		if errors.IsNotFound(err) {
 			role := kubernetes.ConstructAuthRole(roleName, hc.Name, hc.Namespace)
-			if err := controllerutil.SetControllerReference(hc, role, r.Scheme); err != nil {
+			if err := controllerutil.SetControllerReference(hc, role, r.Scheme()); err != nil {
 				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
@@ -1083,7 +1083,7 @@ func (r *HumioClusterReconciler) ensureAuthRoleBinding(ctx context.Context, hc *
 				hc.Namespace,
 				authServiceAccountNameOrDefault(hc),
 			)
-			if err := controllerutil.SetControllerReference(hc, roleBinding, r.Scheme); err != nil {
+			if err := controllerutil.SetControllerReference(hc, roleBinding, r.Scheme()); err != nil {
 				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
@@ -1138,7 +1138,7 @@ func (r *HumioClusterReconciler) ensureServiceAccountExists(ctx context.Context,
 	if err != nil {
 		if errors.IsNotFound(err) {
 			serviceAccount := kubernetes.ConstructServiceAccount(serviceAccountName, hc.Name, hc.Namespace, serviceAccountAnnotations)
-			if err := controllerutil.SetControllerReference(hc, serviceAccount, r.Scheme); err != nil {
+			if err := controllerutil.SetControllerReference(hc, serviceAccount, r.Scheme()); err != nil {
 				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
@@ -1163,7 +1163,7 @@ func (r *HumioClusterReconciler) ensureServiceAccountSecretExists(ctx context.Co
 
 	if len(foundServiceAccountSecretsList) == 0 {
 		secret := kubernetes.ConstructServiceAccountSecret(hc.Name, hc.Namespace, serviceAccountSecretName, serviceAccountName)
-		if err := controllerutil.SetControllerReference(hc, secret, r.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(hc, secret, r.Scheme()); err != nil {
 			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
@@ -1426,7 +1426,7 @@ func (r *HumioClusterReconciler) ensureServiceExists(ctx context.Context, hc *hu
 	_, err := kubernetes.GetService(ctx, r, hc.Name, hc.Namespace)
 	if errors.IsNotFound(err) {
 		service := constructService(hc)
-		if err := controllerutil.SetControllerReference(hc, service, r.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {
 			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
@@ -1957,7 +1957,7 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 		r.Log.Info(fmt.Sprintf("pvc count of %d is less than %d. adding more", len(foundPersistentVolumeClaims), nodeCountOrDefault(hc)))
 		pvc := constructPersistentVolumeClaim(hc)
 		pvc.Annotations[pvcHashAnnotation] = helpers.AsSHA256(pvc.Spec)
-		if err := controllerutil.SetControllerReference(hc, pvc, r.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(hc, pvc, r.Scheme()); err != nil {
 			r.Log.Error(err, "could not set controller reference")
 			return reconcile.Result{}, err
 		}
