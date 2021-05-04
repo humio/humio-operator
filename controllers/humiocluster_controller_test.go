@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -1059,6 +1060,169 @@ var _ = Describe("HumioCluster Controller", func() {
 							"NET_ADMIN",
 						},
 					},
+				}))
+			}
+		})
+	})
+
+	Context("Humio Cluster Container Probes", func() {
+		It("Should correctly handle container probes", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-probes",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			for _, pod := range clusterPods {
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIdx].ReadinessProbe).To(Equal(containerReadinessProbeOrDefault(toCreate)))
+				Expect(pod.Spec.Containers[humioIdx].LivenessProbe).To(Equal(containerLivenessProbeOrDefault(toCreate)))
+			}
+			By("Updating Container probes to be empty")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				updatedHumioCluster.Spec.ContainerReadinessProbe = &corev1.Probe{}
+				updatedHumioCluster.Spec.ContainerLivenessProbe = &corev1.Probe{}
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+			Eventually(func() bool {
+				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				for _, pod := range clusterPods {
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+					if !reflect.DeepEqual(pod.Spec.Containers[humioIdx].ReadinessProbe, &corev1.Probe{}) {
+						return false
+					}
+					if !reflect.DeepEqual(pod.Spec.Containers[humioIdx].LivenessProbe, &corev1.Probe{}) {
+						return false
+					}
+				}
+				return true
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			for _, pod := range clusterPods {
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIdx].ReadinessProbe).To(Equal(&corev1.Probe{}))
+				Expect(pod.Spec.Containers[humioIdx].LivenessProbe).To(Equal(&corev1.Probe{}))
+			}
+
+			By("Updating Container probes to be non-empty")
+			Eventually(func() error {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				updatedHumioCluster.Spec.ContainerReadinessProbe = &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path:   "/api/v1/config",
+							Port:   intstr.IntOrString{IntVal: humioPort},
+							Scheme: getProbeScheme(&updatedHumioCluster),
+						},
+					},
+					InitialDelaySeconds: 60,
+					PeriodSeconds:       10,
+					TimeoutSeconds:      4,
+					SuccessThreshold:    2,
+					FailureThreshold:    20,
+				}
+				updatedHumioCluster.Spec.ContainerLivenessProbe = &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path:   "/api/v1/config",
+							Port:   intstr.IntOrString{IntVal: humioPort},
+							Scheme: getProbeScheme(&updatedHumioCluster),
+						},
+					},
+					InitialDelaySeconds: 60,
+					PeriodSeconds:       10,
+					TimeoutSeconds:      4,
+					SuccessThreshold:    1,
+					FailureThreshold:    20,
+				}
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Restarting the cluster in a rolling fashion")
+			ensurePodsRollingRestart(&updatedHumioCluster, key, 2)
+
+			Eventually(func() corev1.Probe {
+				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+
+				for _, pod := range clusterPods {
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+					return *pod.Spec.Containers[humioIdx].ReadinessProbe
+				}
+				return corev1.Probe{}
+			}, testTimeout, testInterval).Should(Equal(corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path:   "/api/v1/config",
+						Port:   intstr.IntOrString{IntVal: humioPort},
+						Scheme: getProbeScheme(&updatedHumioCluster),
+					},
+				},
+				InitialDelaySeconds: 60,
+				PeriodSeconds:       10,
+				TimeoutSeconds:      4,
+				SuccessThreshold:    2,
+				FailureThreshold:    20,
+			}))
+
+			Eventually(func() corev1.Probe {
+				clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+
+				for _, pod := range clusterPods {
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+					return *pod.Spec.Containers[humioIdx].LivenessProbe
+				}
+				return corev1.Probe{}
+			}, testTimeout, testInterval).Should(Equal(corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path:   "/api/v1/config",
+						Port:   intstr.IntOrString{IntVal: humioPort},
+						Scheme: getProbeScheme(&updatedHumioCluster),
+					},
+				},
+				InitialDelaySeconds: 60,
+				PeriodSeconds:       10,
+				TimeoutSeconds:      4,
+				SuccessThreshold:    1,
+				FailureThreshold:    20,
+			}))
+
+			clusterPods, _ = kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			for _, pod := range clusterPods {
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIdx].ReadinessProbe).To(Equal(&corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path:   "/api/v1/config",
+							Port:   intstr.IntOrString{IntVal: humioPort},
+							Scheme: getProbeScheme(&updatedHumioCluster),
+						},
+					},
+					InitialDelaySeconds: 60,
+					PeriodSeconds:       10,
+					TimeoutSeconds:      4,
+					SuccessThreshold:    2,
+					FailureThreshold:    20,
+				}))
+				Expect(pod.Spec.Containers[humioIdx].LivenessProbe).To(Equal(&corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path:   "/api/v1/config",
+							Port:   intstr.IntOrString{IntVal: humioPort},
+							Scheme: getProbeScheme(&updatedHumioCluster),
+						},
+					},
+					InitialDelaySeconds: 60,
+					PeriodSeconds:       10,
+					TimeoutSeconds:      4,
+					SuccessThreshold:    1,
+					FailureThreshold:    20,
 				}))
 			}
 		})
