@@ -50,11 +50,11 @@ type HumioParserStatus struct {
 	State string `json:"state,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:path=humioparsers,scope=Namespaced
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the parser"
-// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Parser"
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+//+kubebuilder:resource:path=humioparsers,scope=Namespaced
+//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the parser"
+//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Parser"
 
 // HumioParser is the Schema for the humioparsers API
 type HumioParser struct {
@@ -65,7 +65,7 @@ type HumioParser struct {
 	Status HumioParserStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
 // HumioParserList contains a list of HumioParser
 type HumioParserList struct {

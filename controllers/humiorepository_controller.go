@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -41,15 +40,14 @@ import (
 type HumioRepositoryReconciler struct {
 	client.Client
 	Log         logr.Logger
-	Scheme      *runtime.Scheme
 	HumioClient humio.Client
 }
 
-// +kubebuilder:rbac:groups=core.humio.com,resources=humiorepositories,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.humio.com,resources=humiorepositories/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
+//+kubebuilder:rbac:groups=core.humio.com,resources=humiorepositories,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humiorepositories/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=core.humio.com,resources=humiorepositories/finalizers,verbs=update
 
-func (r *HumioRepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
@@ -183,6 +181,7 @@ func (r *HumioRepositoryReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
 }
 
+// SetupWithManager sets up the controller with the Manager.
 func (r *HumioRepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioRepository{}).

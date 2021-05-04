@@ -53,11 +53,11 @@ type HumioViewStatus struct {
 	State string `json:"state,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:path=humioviews,scope=Namespaced
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the view"
-// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio View"
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+//+kubebuilder:resource:path=humioviews,scope=Namespaced
+//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the view"
+//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio View"
 
 // HumioView is the Schema for the humioviews API
 type HumioView struct {
@@ -68,7 +68,7 @@ type HumioView struct {
 	Status HumioViewStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
 // HumioViewList contains a list of HumioView
 type HumioViewList struct {
