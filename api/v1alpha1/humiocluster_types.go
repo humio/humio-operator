@@ -86,6 +86,10 @@ type HumioClusterSpec struct {
 	ViewGroupPermissions string `json:"viewGroupPermissions,omitempty"`
 	// ContainerSecurityContext is the security context applied to the Humio container
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
+	// ContainerReadinessProbe is the readiness probe applied to the Humio container
+	ContainerReadinessProbe *corev1.Probe `json:"containerReadinessProbe,omitempty"`
+	// ContainerLivenessProbe is the liveness probe applied to the Humio container
+	ContainerLivenessProbe *corev1.Probe `json:"containerLivenessProbe,omitempty"`
 	// PodSecurityContext is the security context applied to the Humio pod
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 	// PodAnnotations can be used to specify annotations that will be added to the Humio pods
