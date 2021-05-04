@@ -88,12 +88,12 @@ generate: controller-gen
 
 # Build the operator docker image
 docker-build-operator:
-	docker build . -t ${IMG} ${IMG_BUILD_ARGS}
+	docker build -t ${IMG} ${IMG_BUILD_ARGS} .
 
 # Build the helper docker image
 docker-build-helper:
 	cp LICENSE images/helper/
-	docker build images/helper -t ${IMG} ${IMG_BUILD_ARGS}
+	docker build -t ${IMG} ${IMG_BUILD_ARGS} images/helper
 
 # Push the docker image
 docker-push:
@@ -149,7 +149,7 @@ endif
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: manifests
+bundle: manifests kustomize
 	operator-sdk generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)

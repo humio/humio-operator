@@ -3,7 +3,7 @@
 set -ex
 
 declare -r helm_version=3.4.2
-declare -r operator_sdk_version=1.3.0
+declare -r operator_sdk_version=1.4.0
 declare -r telepresence_version=0.108
 declare -r bin_dir=${BIN_DIR:-/usr/local/bin}
 
