@@ -3,22 +3,37 @@ layout: go.kubebuilder.io/v2
 projectName: humio-operator
 repo: github.com/humio/humio-operator
 resources:
-- group: core
+-
+  controller: true
+  group: core
   kind: HumioExternalCluster
+  path: core.humio.com/v1alpha1
   version: v1alpha1
-- group: core
+-
+  controller: true
+  group: core
   kind: HumioCluster
+  path: core.humio.com/v1alpha1
   version: v1alpha1
-- group: core
+-
+  controller: true
+  group: core
   kind: HumioIngestToken
+  path: core.humio.com/v1alpha1
   version: v1alpha1
-- group: core
+-
+  controller: true
+  group: core
   kind: HumioParser
+  path: core.humio.com/v1alpha1
   version: v1alpha1
-- group: core
+-
+  controller: true
+  group: core
   kind: HumioRepository
+  path: core.humio.com/v1alpha1
   version: v1alpha1
-version: 3-alpha
+version: "3"
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
