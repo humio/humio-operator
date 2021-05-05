@@ -1783,8 +1783,10 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	// wait until all the pods are ready before changing the cluster state back to Running.
 	// If we are no longer waiting on or deleting pods, and all the revisions are in sync, then we know the upgrade or
 	// restart is complete and we can set the cluster state back to HumioClusterStateRunning.
+	// It's possible we entered a ConfigError state during an upgrade or restart, and in this case, we should reset the
+	// state to Running if the the pods are healthy but we're in a ConfigError state.
 	if !podsStatus.waitingOnPods() && !desiredLifecycleState.delete && podsStatus.podRevisionsInSync() {
-		if hc.Status.State == humiov1alpha1.HumioClusterStateRestarting || hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading {
+		if hc.Status.State == humiov1alpha1.HumioClusterStateRestarting || hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
 			r.Log.Info(fmt.Sprintf("no longer deleting pods. changing cluster state from %s to %s", hc.Status.State, humiov1alpha1.HumioClusterStateRunning))
 			if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc); err != nil {
 				r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning))
