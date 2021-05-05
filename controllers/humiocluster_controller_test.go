@@ -2643,6 +2643,42 @@ Jl3pkE`))},
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 		})
 	})
+
+	Context("Humio Cluster state adjustment", func() {
+		It("Should succesfully set proper state", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-state",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+
+			By("Ensuring the state is Running")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
+
+			By("Updating the HumioCluster to ConfigError state")
+			Eventually(func() error {
+				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Status.State = humiov1alpha1.HumioClusterStateConfigError
+				return k8sClient.Status().Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Should indicate healthy cluster resets state to Running")
+			Eventually(func() string {
+				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
+		})
+	})
 })
 
 func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
