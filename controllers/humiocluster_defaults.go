@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"reflect"
 	"strconv"
 	"strings"
@@ -240,6 +241,56 @@ func authRoleName(hc *humiov1alpha1.HumioCluster) string {
 
 func authRoleBindingName(hc *humiov1alpha1.HumioCluster) string {
 	return fmt.Sprintf("%s-%s", hc.Name, authRoleBindingSuffix)
+}
+
+func containerReadinessProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Probe {
+	emptyProbe := corev1.Probe{}
+	if reflect.DeepEqual(hc.Spec.ContainerReadinessProbe, emptyProbe) {
+		return nil
+	}
+
+	if hc.Spec.ContainerReadinessProbe == nil {
+		return &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path:   "/api/v1/status",
+					Port:   intstr.IntOrString{IntVal: humioPort},
+					Scheme: getProbeScheme(hc),
+				},
+			},
+			InitialDelaySeconds: 30,
+			PeriodSeconds:       5,
+			TimeoutSeconds:      2,
+			SuccessThreshold:    1,
+			FailureThreshold:    10,
+		}
+	}
+	return hc.Spec.ContainerReadinessProbe
+}
+
+func containerLivenessProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Probe {
+	emptyProbe := corev1.Probe{}
+	if reflect.DeepEqual(hc.Spec.ContainerLivenessProbe, emptyProbe) {
+		return nil
+	}
+
+	if hc.Spec.ContainerLivenessProbe == nil {
+		return &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path:   "/api/v1/status",
+					Port:   intstr.IntOrString{IntVal: humioPort},
+					Scheme: getProbeScheme(hc),
+				},
+			},
+			InitialDelaySeconds: 30,
+			PeriodSeconds:       5,
+			TimeoutSeconds:      2,
+			SuccessThreshold:    1,
+			FailureThreshold:    10,
+		}
+	}
+	return hc.Spec.ContainerLivenessProbe
 }
 
 func podResourcesOrDefault(hc *humiov1alpha1.HumioCluster) corev1.ResourceRequirements {

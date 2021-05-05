@@ -277,35 +277,8 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 							ReadOnly:  false,
 						},
 					},
-					ReadinessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path:   "/api/v1/status",
-								Port:   intstr.IntOrString{IntVal: humioPort},
-								Scheme: getProbeScheme(hc),
-							},
-						},
-						InitialDelaySeconds: 30,
-						PeriodSeconds:       5,
-						TimeoutSeconds:      2,
-						SuccessThreshold:    1,
-						FailureThreshold:    10,
-					},
-					LivenessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
-							HTTPGet: &corev1.HTTPGetAction{
-
-								Path:   "/api/v1/status",
-								Port:   intstr.IntOrString{IntVal: humioPort},
-								Scheme: getProbeScheme(hc),
-							},
-						},
-						InitialDelaySeconds: 30,
-						PeriodSeconds:       5,
-						TimeoutSeconds:      2,
-						SuccessThreshold:    1,
-						FailureThreshold:    10,
-					},
+					ReadinessProbe:  containerReadinessProbeOrDefault(hc),
+					LivenessProbe:   containerLivenessProbeOrDefault(hc),
 					Resources:       podResourcesOrDefault(hc),
 					SecurityContext: containerSecurityContextOrDefault(hc),
 				},
