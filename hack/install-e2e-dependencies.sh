@@ -2,9 +2,9 @@
 
 set -ex
 
-declare -r helm_version=3.4.2
-declare -r operator_sdk_version=1.4.0
-declare -r telepresence_version=0.108
+declare -r helm_version=3.5.4
+declare -r operator_sdk_version=1.7.1
+declare -r telepresence_version=0.109
 declare -r bin_dir=${BIN_DIR:-/usr/local/bin}
 
 install_helm() {
