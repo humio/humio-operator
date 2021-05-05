@@ -1528,6 +1528,10 @@ func (r *HumioClusterReconciler) cleanupUnusedCAIssuer(ctx context.Context, hc *
 		return reconcile.Result{}, nil
 	}
 
+	if !helpers.UseCertManager() {
+		return reconcile.Result{}, nil
+	}
+
 	var existingCAIssuer cmapi.Issuer
 	err := r.Get(ctx, types.NamespacedName{
 		Namespace: hc.Namespace,
