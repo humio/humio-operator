@@ -52,11 +52,11 @@ type HumioIngestTokenStatus struct {
 	State string `json:"state,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:path=humioingesttokens,scope=Namespaced
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the ingest token"
-// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Ingest Token"
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+//+kubebuilder:resource:path=humioingesttokens,scope=Namespaced
+//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the ingest token"
+//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Ingest Token"
 
 // HumioIngestToken is the Schema for the humioingesttokens API
 type HumioIngestToken struct {
@@ -67,7 +67,7 @@ type HumioIngestToken struct {
 	Status HumioIngestTokenStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
 // HumioIngestTokenList contains a list of HumioIngestToken
 type HumioIngestTokenList struct {

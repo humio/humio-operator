@@ -118,8 +118,8 @@ type HumioActionStatus struct {
 	State string `json:"state,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
 
 // HumioAction is the Schema for the humioactions API
 type HumioAction struct {
@@ -130,7 +130,7 @@ type HumioAction struct {
 	Status HumioActionStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
 // HumioActionList contains a list of HumioAction
 type HumioActionList struct {

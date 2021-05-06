@@ -129,6 +129,12 @@ rules:
 - apiGroups:
   - core.humio.com
   resources:
+  - humioactions/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioactions/status
   verbs:
   - get
@@ -146,6 +152,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioalerts/finalizers
+  verbs:
+  - update
 - apiGroups:
   - core.humio.com
   resources:
@@ -169,6 +181,12 @@ rules:
 - apiGroups:
   - core.humio.com
   resources:
+  - humioclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioclusters/status
   verbs:
   - get
@@ -186,6 +204,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioexternalclusters/finalizers
+  verbs:
+  - update
 - apiGroups:
   - core.humio.com
   resources:
@@ -209,6 +233,12 @@ rules:
 - apiGroups:
   - core.humio.com
   resources:
+  - humioingesttokens/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioingesttokens/status
   verbs:
   - get
@@ -226,6 +256,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioparsers/finalizers
+  verbs:
+  - update
 - apiGroups:
   - core.humio.com
   resources:
@@ -249,6 +285,12 @@ rules:
 - apiGroups:
   - core.humio.com
   resources:
+  - humiorepositories/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humiorepositories/status
   verbs:
   - get
@@ -266,6 +308,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioviews/finalizers
+  verbs:
+  - update
 - apiGroups:
   - core.humio.com
   resources:

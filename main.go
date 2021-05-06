@@ -28,19 +28,24 @@ import (
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 	uberzap "go.uber.org/zap"
+
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// to ensure that exec-entrypoint and run can make use of them.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
-	// +kubebuilder:scaffold:imports
+	//+kubebuilder:scaffold:imports
 )
 
 var (
@@ -51,14 +56,16 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(humiov1alpha1.AddToScheme(scheme))
-	// +kubebuilder:scaffold:scheme
+	//+kubebuilder:scaffold:scheme
 }
 
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
-	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
+	var probeAddr string
+	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.Parse()
@@ -76,12 +83,13 @@ func main() {
 	}
 
 	options := ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
-		Port:               9443,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "d7845218.humio.com",
-		Namespace:          watchNamespace,
+		Scheme:                 scheme,
+		MetricsBindAddress:     metricsAddr,
+		Port:                   9443,
+		HealthProbeBindAddress: probeAddr,
+		LeaderElection:         enableLeaderElection,
+		LeaderElectionID:       "d7845218.humio.com",
+		Namespace:              watchNamespace,
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
@@ -108,7 +116,6 @@ func main() {
 
 	if err = (&controllers.HumioExternalClusterReconciler{
 		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}),
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioExternalCluster")
@@ -116,7 +123,6 @@ func main() {
 	}
 	if err = (&controllers.HumioClusterReconciler{
 		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}),
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioCluster")
@@ -124,7 +130,6 @@ func main() {
 	}
 	if err = (&controllers.HumioIngestTokenReconciler{
 		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}),
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioIngestToken")
@@ -132,7 +137,6 @@ func main() {
 	}
 	if err = (&controllers.HumioParserReconciler{
 		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}),
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioParser")
@@ -140,7 +144,6 @@ func main() {
 	}
 	if err = (&controllers.HumioRepositoryReconciler{
 		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}),
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioRepository")
@@ -148,7 +151,6 @@ func main() {
 	}
 	if err = (&controllers.HumioViewReconciler{
 		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}),
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioView")
@@ -156,7 +158,6 @@ func main() {
 	}
 	if err = (&controllers.HumioActionReconciler{
 		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}),
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioAction")
@@ -164,13 +165,21 @@ func main() {
 	}
 	if err = (&controllers.HumioAlertReconciler{
 		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}),
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioAlert")
 		os.Exit(1)
 	}
-	// +kubebuilder:scaffold:builder
+	//+kubebuilder:scaffold:builder
+
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		ctrl.Log.Error(err, "unable to set up health check")
+		os.Exit(1)
+	}
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		ctrl.Log.Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
 
 	ctrl.Log.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
