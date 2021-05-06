@@ -26,7 +26,6 @@ import (
 	"github.com/humio/humio-operator/pkg/humio"
 	uberzap "go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,14 +38,14 @@ import (
 type HumioViewReconciler struct {
 	client.Client
 	Log         logr.Logger
-	Scheme      *runtime.Scheme
 	HumioClient humio.Client
 }
 
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioviews,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioviews/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioviews,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioviews/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioviews/finalizers,verbs=update
 
-func (r *HumioViewReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
@@ -176,6 +175,7 @@ func (r *HumioViewReconciler) reconcileHumioView(curView *humioapi.View, hv *hum
 	return reconcile.Result{}, nil
 }
 
+// SetupWithManager sets up the controller with the Manager.
 func (r *HumioViewReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioView{}).

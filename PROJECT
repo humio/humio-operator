@@ -1,23 +1,79 @@
 domain: humio.com
-layout: go.kubebuilder.io/v2
+layout:
+- go.kubebuilder.io/v3
 projectName: humio-operator
 repo: github.com/humio/humio-operator
 resources:
-- group: core
-  kind: HumioExternalCluster
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: humio.com
+  group: core
+  kind: HumioAction
+  path: github.com/humio/humio-operator/api/v1alpha1
   version: v1alpha1
-- group: core
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: humio.com
+  group: core
+  kind: HumioAlert
+  path: github.com/humio/humio-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: humio.com
+  group: core
   kind: HumioCluster
+  path: github.com/humio/humio-operator/api/v1alpha1
   version: v1alpha1
-- group: core
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: humio.com
+  group: core
+  kind: HumioExternalCluster
+  path: github.com/humio/humio-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: humio.com
+  group: core
   kind: HumioIngestToken
+  path: github.com/humio/humio-operator/api/v1alpha1
   version: v1alpha1
-- group: core
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: humio.com
+  group: core
   kind: HumioParser
+  path: github.com/humio/humio-operator/api/v1alpha1
   version: v1alpha1
-- group: core
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: humio.com
+  group: core
   kind: HumioRepository
+  path: github.com/humio/humio-operator/api/v1alpha1
   version: v1alpha1
-version: 3-alpha
-plugins:
-  go.sdk.operatorframework.io/v2-alpha: {}
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: humio.com
+  group: core
+  kind: HumioView
+  path: github.com/humio/humio-operator/api/v1alpha1
+  version: v1alpha1
+version: "3"

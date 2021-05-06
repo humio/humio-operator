@@ -72,8 +72,8 @@ type HumioAlertStatus struct {
 	State string `json:"state,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
 
 // HumioAlert is the Schema for the humioalerts API
 type HumioAlert struct {
@@ -84,7 +84,7 @@ type HumioAlert struct {
 	Status HumioAlertStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
 // HumioAlertList contains a list of HumioAlert
 type HumioAlertList struct {

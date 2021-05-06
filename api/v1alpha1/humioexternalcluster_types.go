@@ -47,11 +47,11 @@ type HumioExternalClusterStatus struct {
 	Version string `json:"version,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:path=humioexternalclusters,scope=Namespaced
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the external Humio cluster"
-// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio External Cluster"
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+//+kubebuilder:resource:path=humioexternalclusters,scope=Namespaced
+//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the external Humio cluster"
+//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio External Cluster"
 
 // HumioExternalCluster is the Schema for the humioexternalclusters API
 type HumioExternalCluster struct {
@@ -62,7 +62,7 @@ type HumioExternalCluster struct {
 	Status HumioExternalClusterStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
 // HumioExternalClusterList contains a list of HumioExternalCluster
 type HumioExternalClusterList struct {

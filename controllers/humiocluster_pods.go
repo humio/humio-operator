@@ -761,13 +761,13 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 		return &corev1.Pod{}, err
 	}
 
-	if err := controllerutil.SetControllerReference(hc, pod, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(hc, pod, r.Scheme()); err != nil {
 		r.Log.Error(err, "could not set controller reference")
 		return &corev1.Pod{}, err
 	}
 	r.Log.Info(fmt.Sprintf("pod %s will use attachments %+v", pod.Name, attachments))
 	pod.Annotations[podHashAnnotation] = podSpecAsSHA256(hc, *pod)
-	if err := controllerutil.SetControllerReference(hc, pod, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(hc, pod, r.Scheme()); err != nil {
 		r.Log.Error(err, "could not set controller reference")
 		return &corev1.Pod{}, err
 	}
