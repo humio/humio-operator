@@ -1268,6 +1268,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	existingLicense, err := r.HumioClient.GetLicense()
 	if err != nil {
 		r.Log.Info(fmt.Sprintf("failed to get license: %v", err))
+		return reconcile.Result{}, err
 	}
 
 	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
