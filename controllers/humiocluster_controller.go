@@ -702,25 +702,33 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 }
 
 func (r *HumioClusterReconciler) ensureAuthContainerPermissions(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	// We do not want to attach the auth service account to the humio pod. Instead, only the auth container should use this
-	// service account. To do this, we can attach the service account directly to the auth container as per
-	// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
-	err := r.ensureServiceAccountSecretExists(ctx, hc, authServiceAccountSecretName(hc), authServiceAccountNameOrDefault(hc))
-	if err != nil {
-		r.Log.Error(err, "unable to ensure auth service account secret exists")
-		return err
-	}
-
-	// Do not manage these resources if the authServiceAccountName is supplied. This implies the service account, cluster role and cluster
-	// role binding are managed outside of the operator
+	// Only add the service account secret if the authServiceAccountName is supplied. This implies the service account,
+	// cluster role and cluster role binding are managed outside of the operator, so we skip the remaining tasks.
 	if hc.Spec.AuthServiceAccountName != "" {
+		// We do not want to attach the auth service account to the humio pod. Instead, only the auth container should use this
+		// service account. To do this, we can attach the service account directly to the auth container as per
+		// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
+		err := r.ensureServiceAccountSecretExists(ctx, hc, authServiceAccountSecretName(hc), authServiceAccountNameOrDefault(hc))
+		if err != nil {
+			r.Log.Error(err, "unable to ensure auth service account secret exists")
+			return err
+		}
 		return nil
 	}
 
 	// The service account is used by the auth container attached to the humio pods.
-	err = r.ensureServiceAccountExists(ctx, hc, authServiceAccountNameOrDefault(hc), map[string]string{})
+	err := r.ensureServiceAccountExists(ctx, hc, authServiceAccountNameOrDefault(hc), map[string]string{})
 	if err != nil {
 		r.Log.Error(err, "unable to ensure auth service account exists")
+		return err
+	}
+
+	// We do not want to attach the auth service account to the humio pod. Instead, only the auth container should use this
+	// service account. To do this, we can attach the service account directly to the auth container as per
+	// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
+	err = r.ensureServiceAccountSecretExists(ctx, hc, authServiceAccountSecretName(hc), authServiceAccountNameOrDefault(hc))
+	if err != nil {
+		r.Log.Error(err, "unable to ensure auth service account secret exists")
 		return err
 	}
 
@@ -1134,27 +1142,39 @@ func (r *HumioClusterReconciler) validateUserDefinedServiceAccountsExists(ctx co
 }
 
 func (r *HumioClusterReconciler) ensureServiceAccountExists(ctx context.Context, hc *humiov1alpha1.HumioCluster, serviceAccountName string, serviceAccountAnnotations map[string]string) error {
-	_, err := kubernetes.GetServiceAccount(ctx, r, serviceAccountName, hc.Namespace)
+	serviceAccountExists, err := r.serviceAccountExists(ctx, hc, serviceAccountName)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			serviceAccount := kubernetes.ConstructServiceAccount(serviceAccountName, hc.Name, hc.Namespace, serviceAccountAnnotations)
-			if err := controllerutil.SetControllerReference(hc, serviceAccount, r.Scheme()); err != nil {
-				r.Log.Error(err, "could not set controller reference")
-				return err
-			}
-			err = r.Create(ctx, serviceAccount)
-			if err != nil {
-				r.Log.Error(err, fmt.Sprintf("unable to create service account %s", serviceAccount.Name))
-				return err
-			}
-			r.Log.Info(fmt.Sprintf("successfully created service account %s", serviceAccount.Name))
-			humioClusterPrometheusMetrics.Counters.ServiceAccountsCreated.Inc()
+		r.Log.Error(err, fmt.Sprintf("could not check existence of service account \"%s\"", serviceAccountName))
+		return err
+	}
+	if !serviceAccountExists {
+		serviceAccount := kubernetes.ConstructServiceAccount(serviceAccountName, hc.Name, hc.Namespace, serviceAccountAnnotations)
+		if err := controllerutil.SetControllerReference(hc, serviceAccount, r.Scheme()); err != nil {
+			r.Log.Error(err, "could not set controller reference")
+			return err
 		}
+		err = r.Create(ctx, serviceAccount)
+		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("unable to create service account %s", serviceAccount.Name))
+			return err
+		}
+		r.Log.Info(fmt.Sprintf("successfully created service account %s", serviceAccount.Name))
+		humioClusterPrometheusMetrics.Counters.ServiceAccountsCreated.Inc()
 	}
 	return nil
 }
 
 func (r *HumioClusterReconciler) ensureServiceAccountSecretExists(ctx context.Context, hc *humiov1alpha1.HumioCluster, serviceAccountSecretName, serviceAccountName string) error {
+	serviceAccountExists, err := r.serviceAccountExists(ctx, hc, serviceAccountName)
+	if err != nil {
+		r.Log.Error(err, fmt.Sprintf("could not check existence of service account \"%s\"", serviceAccountName))
+		return err
+	}
+	if !serviceAccountExists {
+		r.Log.Error(err, fmt.Sprintf("service account \"%s\" must exist before the service account secret can be created", serviceAccountName))
+		return err
+	}
+
 	foundServiceAccountSecretsList, err := kubernetes.ListSecrets(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForSecret(hc.Name, serviceAccountSecretName))
 	if err != nil {
 		r.Log.Error(err, "unable list secrets")
@@ -1177,6 +1197,16 @@ func (r *HumioClusterReconciler) ensureServiceAccountSecretExists(ctx context.Co
 	}
 
 	return nil
+}
+
+func (r *HumioClusterReconciler) serviceAccountExists(ctx context.Context, hc *humiov1alpha1.HumioCluster, serviceAccountName string) (bool, error) {
+	if _, err := kubernetes.GetServiceAccount(ctx, r, serviceAccountName, hc.Namespace); err != nil {
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
