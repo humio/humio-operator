@@ -1201,6 +1201,12 @@ func (r *HumioClusterReconciler) ensureServiceAccountSecretExists(ctx context.Co
 			r.Log.Error(err, fmt.Sprintf("unable to create service account secret %s", secret.Name))
 			return err
 		}
+		// check that we can list the new secret
+		// this is to avoid issues where the requeue is faster than kubernetes
+		if err := r.waitForNewSecret(hc, foundServiceAccountSecretsList, serviceAccountSecretName); err != nil {
+			r.Log.Error(err, "failed to validate new secret")
+			return err
+		}
 		r.Log.Info(fmt.Sprintf("successfully created service account secret %s", secret.Name))
 		humioClusterPrometheusMetrics.Counters.ServiceAccountSecretsCreated.Inc()
 	}
