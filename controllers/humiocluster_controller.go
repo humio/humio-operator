@@ -1680,7 +1680,11 @@ func (r *HumioClusterReconciler) getAuthServiceAccountSecretName(ctx context.Con
 		return "", nil
 	}
 	if len(foundAuthServiceAccountNameSecretsList) > 1 {
-		return "", fmt.Errorf("found more than one auth service account secret")
+		var secretNames []string
+		for _, secret := range foundAuthServiceAccountNameSecretsList {
+			secretNames = append(secretNames, secret.Name)
+		}
+		return "", fmt.Errorf("found more than one auth service account secret: %s", strings.Join(secretNames, ", "))
 	}
 	return foundAuthServiceAccountNameSecretsList[0].Name, nil
 }
