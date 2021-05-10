@@ -648,18 +648,18 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 	if hc.Spec.DisableInitContainer == true {
 		return nil
 	}
-	// We do not want to attach the init service account to the humio pod. Instead, only the init container should use this
-	// service account. To do this, we can attach the service account directly to the init container as per
-	// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
-	err := r.ensureServiceAccountSecretExists(ctx, hc, initServiceAccountSecretName(hc), initServiceAccountNameOrDefault(hc))
-	if err != nil {
-		r.Log.Error(err, "unable to ensure init service account secret exists for HumioCluster")
-		return err
-	}
 
-	// Do not manage these resources if the InitServiceAccountName is supplied. This implies the service account, cluster role and cluster
-	// role binding are managed outside of the operator
+	// Only add the service account secret if the initServiceAccountName is supplied. This implies the service account,
+	// cluster role and cluster role binding are managed outside of the operator, so we skip the remaining tasks.
 	if hc.Spec.InitServiceAccountName != "" {
+		// We do not want to attach the init service account to the humio pod. Instead, only the init container should use this
+		// service account. To do this, we can attach the service account directly to the init container as per
+		// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
+		err := r.ensureServiceAccountSecretExists(ctx, hc, initServiceAccountSecretName(hc), initServiceAccountNameOrDefault(hc))
+		if err != nil {
+			r.Log.Error(err, "unable to ensure init service account secret exists for HumioCluster")
+			return err
+		}
 		return nil
 	}
 
@@ -667,9 +667,18 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 	// from the node on which the pod is scheduled. We cannot pre determine the zone from the controller because we cannot
 	// assume that the nodes are running. Additionally, if we pre allocate the zones to the humio pods, we would be required
 	// to have an autoscaling group per zone.
-	err = r.ensureServiceAccountExists(ctx, hc, initServiceAccountNameOrDefault(hc), map[string]string{})
+	err := r.ensureServiceAccountExists(ctx, hc, initServiceAccountNameOrDefault(hc), map[string]string{})
 	if err != nil {
 		r.Log.Error(err, "unable to ensure init service account exists")
+		return err
+	}
+
+	// We do not want to attach the init service account to the humio pod. Instead, only the init container should use this
+	// service account. To do this, we can attach the service account directly to the init container as per
+	// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
+	err = r.ensureServiceAccountSecretExists(ctx, hc, initServiceAccountSecretName(hc), initServiceAccountNameOrDefault(hc))
+	if err != nil {
+		r.Log.Error(err, "unable to ensure init service account secret exists for HumioCluster")
 		return err
 	}
 
@@ -1666,7 +1675,11 @@ func (r *HumioClusterReconciler) getInitServiceAccountSecretName(ctx context.Con
 		return "", nil
 	}
 	if len(foundInitServiceAccountSecretsList) > 1 {
-		return "", fmt.Errorf("found more than one init service account secret")
+		var secretNames []string
+		for _, secret := range foundInitServiceAccountSecretsList {
+			secretNames = append(secretNames, secret.Name)
+		}
+		return "", fmt.Errorf("found more than one init service account secret: %s", strings.Join(secretNames, ", "))
 	}
 	return foundInitServiceAccountSecretsList[0].Name, nil
 }
