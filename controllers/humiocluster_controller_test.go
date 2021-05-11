@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"reflect"
@@ -132,11 +131,11 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-simple",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 		})
 	})
 
@@ -146,11 +145,11 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-no-init-container",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.DisableInitContainer = true
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 		})
 	})
 
@@ -160,7 +159,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-multi-org",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
 				Name:  "ENABLE_ORGANIZATIONS",
 				Value: "true",
@@ -171,7 +170,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			})
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 		})
 	})
 
@@ -181,12 +180,12 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-update-image",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.Image = "humio/humio-core:1.16.4"
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -244,11 +243,11 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-update-wrong-image",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -343,10 +342,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-update-helper-image",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.HelperImage = ""
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			By("Validating pod uses default helper image as init container")
 			Eventually(func() string {
@@ -424,7 +423,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-update-envvar",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 			toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
 				{
@@ -458,7 +457,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -542,7 +541,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-ingress",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.Hostname = "humio.example.com"
 			toCreate.Spec.ESHostname = "humio-es.humio.com"
 			toCreate.Spec.Ingress = humiov1alpha1.HumioClusterIngressSpec{
@@ -551,7 +550,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			desiredIngresses := []*v1beta1.Ingress{
 				constructGeneralIngress(toCreate, toCreate.Spec.Hostname),
@@ -703,11 +702,11 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-pods",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.PodAnnotations = map[string]string{"humio.com/new-important-annotation": "true"}
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			Eventually(func() bool {
 				clusterPods, _ := kubernetes.ListPods(k8sClient, toCreate.Namespace, kubernetes.MatchingLabelsForHumio(toCreate.Name))
@@ -729,10 +728,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-custom-svc",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			svc, _ := kubernetes.GetService(context.Background(), k8sClient, key.Name, key.Namespace)
 			Expect(svc.Spec.Type).To(BeIdenticalTo(corev1.ServiceTypeClusterIP))
@@ -806,10 +805,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-container-args",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 
 			By("Creating the cluster successfully without ephemeral disks")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
@@ -858,10 +857,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-container-without-zone-args",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
@@ -897,10 +896,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-sa-annotations",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 			Eventually(func() error {
 				_, err := kubernetes.GetServiceAccount(context.Background(), k8sClient, humioServiceAccountNameOrDefault(toCreate), key.Namespace)
 				return err
@@ -941,10 +940,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-podsecuritycontext",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.SecurityContext).To(Equal(podSecurityContextOrDefault(toCreate)))
@@ -1002,10 +1001,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-containersecuritycontext",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
@@ -1087,10 +1086,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-probes",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
@@ -1250,10 +1249,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-extrakafkaconfigs",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 
 			By("Creating the cluster successfully with extra kafka configs")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
@@ -1363,7 +1362,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-vgp",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.ViewGroupPermissions = `
 {
   "views": {
@@ -1389,7 +1388,7 @@ var _ = Describe("HumioCluster Controller", func() {
 }
 `
 			By("Creating the cluster successfully with view group permissions")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			By("Confirming config map was created")
 			Eventually(func() error {
@@ -1498,11 +1497,11 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-pvc",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			By("Bootstrapping the cluster successfully without persistent volumes")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 			Expect(kubernetes.ListPersistentVolumeClaims(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))).To(HaveLen(0))
 
 			By("Updating cluster to use persistent volumes")
@@ -1556,10 +1555,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-extra-volumes",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			initialExpectedVolumesCount := 7
 			initialExpectedVolumeMountsCount := 5
@@ -1632,14 +1631,14 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-custom-path-ing-disabled",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			protocol := "http"
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 				protocol = "https"
 			}
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			By("Confirming PUBLIC_URL is set to default value and PROXY_PREFIX_URL is not set")
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -1694,7 +1693,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-custom-path-ing-enabled",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.Hostname = "test-cluster.humio.com"
 			toCreate.Spec.ESHostname = "test-cluster-es.humio.com"
 			toCreate.Spec.Ingress = humiov1alpha1.HumioClusterIngressSpec{
@@ -1703,7 +1702,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			By("Confirming PUBLIC_URL is set to default value and PROXY_PREFIX_URL is not set")
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -1936,7 +1935,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: "default",
 			}
 			tlsDisabled := false
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.Ingress.Enabled = true
 			toCreate.Spec.Ingress.Controller = "nginx"
 			toCreate.Spec.Ingress.TLS = &tlsDisabled
@@ -1944,7 +1943,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			toCreate.Spec.ESHostname = "es-example.humio.com"
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			By("Confirming ingress objects do not have TLS configured")
 			var ingresses []v1beta1.Ingress
@@ -1965,7 +1964,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-ingress-hostname",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.Hostname = ""
 			toCreate.Spec.ESHostname = ""
 			toCreate.Spec.Ingress = humiov1alpha1.HumioClusterIngressSpec{
@@ -1974,7 +1973,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			By("Creating the cluster successfully without any Hostnames defined")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			By("Confirming we did not create any ingresses")
 			var foundIngressList []v1beta1.Ingress
@@ -2195,8 +2194,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-err-humio-service-account",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.HumioServiceAccountName = "non-existent-humio-service-account"
+
 			Expect(k8sClient.Create(context.TODO(), toCreate)).Should(Succeed())
 			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
@@ -2210,8 +2210,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-err-init-service-account",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.HumioServiceAccountName = "non-existent-init-service-account"
+
 			Expect(k8sClient.Create(context.TODO(), toCreate)).Should(Succeed())
 			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
@@ -2225,8 +2226,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-err-auth-service-account",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.HumioServiceAccountName = "non-existent-auth-service-account"
+
 			Expect(k8sClient.Create(context.TODO(), toCreate)).Should(Succeed())
 			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
@@ -2242,13 +2244,13 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-custom-service-accounts",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.InitServiceAccountName = "init-custom-service-account"
 			toCreate.Spec.AuthServiceAccountName = "auth-custom-service-account"
 			toCreate.Spec.HumioServiceAccountName = "humio-custom-service-account"
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			By("Confirming init container is using the correct service account")
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -2298,13 +2300,13 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-custom-sa-same-name",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.InitServiceAccountName = "custom-service-account"
 			toCreate.Spec.AuthServiceAccountName = "custom-service-account"
 			toCreate.Spec.HumioServiceAccountName = "custom-service-account"
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			By("Confirming init container is using the correct service account")
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -2356,7 +2358,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-custom-svc-annotations",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.HumioServiceAnnotations = map[string]string{
 				"service.beta.kubernetes.io/aws-load-balancer-type":                              "nlb",
 				"service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled": "false",
@@ -2367,7 +2369,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			By("Confirming service was created using the correct annotations")
 			svc, err := kubernetes.GetService(context.Background(), k8sClient, toCreate.Name, toCreate.Namespace)
@@ -2384,7 +2386,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-custom-tolerations",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.Tolerations = []corev1.Toleration{
 				{
 					Key:      "key",
@@ -2395,7 +2397,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			By("Confirming the humio pods use the requested tolerations")
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -2411,13 +2413,13 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-custom-svc-labels",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.HumioServiceLabels = map[string]string{
 				"mirror.linkerd.io/exported": "true",
 			}
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			By("Confirming service was created using the correct annotations")
 			svc, err := kubernetes.GetService(context.Background(), k8sClient, toCreate.Name, toCreate.Namespace)
@@ -2434,11 +2436,11 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-custom-sidecars",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.SidecarContainers = nil
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			By("Confirming the humio pods are not using shared process namespace nor additional sidecars")
 			clusterPods, _ := kubernetes.ListPods(k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -2526,12 +2528,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-grace-default",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.TerminationGracePeriodSeconds = nil
-
-			Eventually(func() error {
-				return k8sClient.Create(context.Background(), toCreate)
-			}, testTimeout, testInterval).Should(Succeed())
+			createAndBootstrapCluster(toCreate, true)
 
 			By("Validating pod is created with the default grace period")
 			Eventually(func() int64 {
@@ -2571,27 +2570,61 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	Context("Humio Cluster install license", func() {
+		It("Should fail when no license is present", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-no-license",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key, false)
+			toCreate.Spec.License = humiov1alpha1.HumioClusterLicenseSpec{}
+
+			Expect(k8sClient.Create(context.TODO(), toCreate)).Should(Succeed())
+			Eventually(func() string {
+				var cluster humiov1alpha1.HumioCluster
+				k8sClient.Get(context.TODO(), key, &cluster)
+				return cluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo("")) // TODO: This should probably be `MissingLicense`/`LicenseMissing`/`ConfigError`?
+
+			// TODO: set a valid license
+			// TODO: confirm cluster enters bootstrapping state
+			// TODO: confirm cluster enters running
+		})
 		It("Should succesfully install a license", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-license",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
+
+			By("Creating the cluster successfully with a license secret")
+			createAndBootstrapCluster(toCreate, true)
 
 			secretName := fmt.Sprintf("%s-license", key.Name)
 			secretKey := "license"
-
-			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
-
-			By("Ensuring the license is trial")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
+
+			By("Updating the HumioCluster to add broken reference to license")
+			Eventually(func() error {
+				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.License.SecretKeyRef = &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: fmt.Sprintf("%s-wrong", secretName),
+					},
+					Key: secretKey,
+				}
+				return k8sClient.Update(context.Background(), &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Should indicate cluster configuration error due to missing license secret")
 			Eventually(func() string {
 				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
-				return updatedHumioCluster.Status.LicenseStatus.Type
-			}, testTimeout, testInterval).Should(BeIdenticalTo("trial"))
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 
-			By("Updating the HumioCluster to add a license")
+			By("Updating the HumioCluster to add a valid license")
 			Eventually(func() error {
 				err := k8sClient.Get(context.Background(), key, &updatedHumioCluster)
 				if err != nil {
@@ -2606,27 +2639,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(context.Background(), &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
 
-			By("Should indicate cluster configuration error due to missing license secret")
-			Eventually(func() string {
-				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
-				return updatedHumioCluster.Status.State
-			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
-
-			By("Creating the license secret")
-			licenseSecret := corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      secretName,
-					Namespace: key.Namespace,
-				},
-				StringData: map[string]string{secretKey: base64.StdEncoding.EncodeToString([]byte(`eyJhbGciOiJFUzI1NiJ9.
-eyJhdWQiOiJIdW1pby1saWNlbnNlLWNoZWNrIiwic3ViIjoiSHVtaW8gTG9jYWwgVGVzdGluZyIsInVpZCI6IjRGTXFVaFZHYXozcyIsIm1heFVzZXJzIjox
-LCJhbGxvd1NBQVMiOmZhbHNlLCJtYXhDb3JlcyI6MSwidmFsaWRVbnRpbCI6MTYwNjgyNzYwMCwiZXhwIjoxNzAyNTgxMjE2LCJpYXQiOjE2MDc5NzMyMTYs
-Im1heEluZ2VzdEdiUGVyRGF5IjoxfQ.MEUCIA2XsMj61MBxo8ZtCxciqwelUrnucMNy_gAs9eRMqV54AiEA_6UtuN8HFcrmU3tVbe-Aa8QiuKZEVh0gKiSnD
-Jl3pkE`))},
-				Type: corev1.SecretTypeOpaque,
-			}
-			Expect(k8sClient.Create(context.Background(), &licenseSecret)).To(Succeed())
-
 			By("Should indicate cluster is no longer in a configuration error state")
 			Eventually(func() string {
 				k8sClient.Get(context.Background(), key, &updatedHumioCluster)
@@ -2640,6 +2652,14 @@ Jl3pkE`))},
 			}, testTimeout, testInterval).Should(BeIdenticalTo("onprem"))
 
 			By("Updating the license secret to remove the key")
+			var licenseSecret corev1.Secret
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Namespace: key.Namespace,
+					Name:      secretName,
+				}, &licenseSecret)
+			}, testTimeout, testInterval).Should(Succeed())
+
 			Expect(k8sClient.Delete(context.Background(), &licenseSecret)).To(Succeed())
 
 			licenseSecretMissingKey := corev1.Secret{
@@ -2666,10 +2686,10 @@ Jl3pkE`))},
 				Name:      "humiocluster-state",
 				Namespace: "default",
 			}
-			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
 
 			By("Creating the cluster successfully")
-			createAndBootstrapCluster(toCreate)
+			createAndBootstrapCluster(toCreate, true)
 
 			By("Ensuring the state is Running")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -2697,10 +2717,23 @@ Jl3pkE`))},
 	})
 })
 
-func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
+func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster, autoCreateLicense bool) {
 	key := types.NamespacedName{
 		Namespace: cluster.Namespace,
 		Name:      cluster.Name,
+	}
+
+	if autoCreateLicense {
+		By("Creating the license secret")
+		licenseSecret := corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-license", key.Name),
+				Namespace: key.Namespace,
+			},
+			StringData: map[string]string{"license": os.Getenv("HUMIO_E2E_LICENSE")},
+			Type:       corev1.SecretTypeOpaque,
+		}
+		Expect(k8sClient.Create(context.Background(), &licenseSecret)).To(Succeed())
 	}
 
 	if cluster.Spec.HumioServiceAccountName != "" {
@@ -2874,8 +2907,8 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 	}
 }
 
-func constructBasicSingleNodeHumioCluster(key types.NamespacedName) *humiov1alpha1.HumioCluster {
-	return &humiov1alpha1.HumioCluster{
+func constructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreatedLicense bool) *humiov1alpha1.HumioCluster {
+	humioCluster := &humiov1alpha1.HumioCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        key.Name,
 			Namespace:   key.Namespace,
@@ -2917,6 +2950,18 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName) *humiov1alph
 			},
 		},
 	}
+
+	if useAutoCreatedLicense {
+		humioCluster.Spec.License = humiov1alpha1.HumioClusterLicenseSpec{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-license", key.Name),
+				},
+				Key: "license",
+			},
+		}
+	}
+	return humioCluster
 }
 
 func markPodsAsRunning(client client.Client, pods []corev1.Pod) error {

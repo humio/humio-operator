@@ -68,8 +68,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:      "humiocluster-shared",
 				Namespace: "default",
 			}
-			cluster := constructBasicSingleNodeHumioCluster(clusterKey)
-			createAndBootstrapCluster(cluster)
+			cluster := constructBasicSingleNodeHumioCluster(clusterKey, true)
+			createAndBootstrapCluster(cluster, true)
 
 			By("HumioIngestToken: Creating Humio Ingest token with token target secret")
 			key := types.NamespacedName{

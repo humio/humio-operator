@@ -8,6 +8,8 @@ jobs:
     - uses: actions/checkout@v2
     - shell: bash
       run: make test
+      env:
+        HUMIO_E2E_LICENSE: ${{ secrets.HUMIO_E2E_LICENSE }}
 # Disable olm checks until we have a new bundle we want to validate against
 #  olm-checks:
 #    name: Run OLM Checks
