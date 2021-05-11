@@ -4,7 +4,7 @@ set -ex
 
 declare -r helm_version=3.5.4
 declare -r operator_sdk_version=1.7.1
-declare -r telepresence_version=0.109
+declare -r telepresence_version=2.2.1
 declare -r bin_dir=${BIN_DIR:-/usr/local/bin}
 
 install_helm() {
@@ -21,8 +21,8 @@ install_operator_sdk() {
 }
 
 install_telepresence() {
-  curl -s https://packagecloud.io/install/repositories/datawireio/telepresence/script.deb.sh | sudo bash \
-    && sudo apt install --no-install-recommends telepresence=${telepresence_version}
+  curl -fL https://app.getambassador.io/download/tel2/linux/amd64/${telepresence_version}/telepresence -o ${bin_dir}/telepresence \
+    && chmod a+x ${bin_dir}/telepresence
 }
 
 install_ginkgo() {
