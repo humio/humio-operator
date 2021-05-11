@@ -115,6 +115,7 @@ func (c Cluster) Url(k8sClient client.Client) (*url.URL, error) {
 	return baseURL, nil
 }
 
+// Name returns the name of the Humio cluster
 func (c Cluster) Name() string {
 	if c.managedClusterName != "" {
 		return c.managedClusterName
@@ -122,6 +123,7 @@ func (c Cluster) Name() string {
 	return c.externalClusterName
 }
 
+// Config returns the configuration that is currently set
 func (c Cluster) Config() *humioapi.Config {
 	return c.humioConfig
 }

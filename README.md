@@ -36,6 +36,10 @@ We use [kind](https://kind.sigs.k8s.io/) and [telepresence 2](https://www.getamb
 
 Note that for running zookeeper and kafka locally, we currently rely on the [cp-helm-charts](https://github.com/humio/cp-helm-charts) and that that repository is cloned into a directory `~/git/humio-cp-helm-charts`.
 
+Prerequisites:
+
+- The environment variable `HUMIO_E2E_LICENSE` must be populated with a valid Humio license.
+
 To run a E2E tests locally using `kind`, execute:
 
 ```bash

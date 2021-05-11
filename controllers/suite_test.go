@@ -84,6 +84,8 @@ var _ = BeforeSuite(func() {
 	log = zapr.NewLogger(zapLog)
 	logf.SetLogger(log)
 
+	Expect(os.Getenv("HUMIO_E2E_LICENSE")).NotTo(BeEmpty())
+
 	By("bootstrapping test environment")
 	useExistingCluster := true
 	testProcessID = kubernetes.RandomString()

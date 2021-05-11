@@ -76,7 +76,7 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		return reconcile.Result{}, err
 	}
-	r.HumioClient.SetHumioClientConfig(cluster.Config())
+	r.HumioClient.SetHumioClientConfig(cluster.Config(), false)
 
 	if _, err := humio.NotifierFromAction(ha); err != nil {
 		r.Log.Error(err, "unable to validate action")
@@ -91,10 +91,10 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	curNotifier, err := r.HumioClient.GetNotifier(ha)
 	if curNotifier != nil && err != nil {
 		r.Log.Error(err, "got unexpected error when checking if action exists")
-		err = r.setState(context.TODO(), humiov1alpha1.HumioActionStateUnknown, ha)
-		if err != nil {
-			r.Log.Error(err, "unable to set action state")
-			return reconcile.Result{}, err
+		stateErr := r.setState(context.TODO(), humiov1alpha1.HumioActionStateUnknown, ha)
+		if stateErr != nil {
+			r.Log.Error(stateErr, "unable to set action state")
+			return reconcile.Result{}, stateErr
 		}
 		return reconcile.Result{}, fmt.Errorf("could not check if action exists: %s", err)
 	}

@@ -129,7 +129,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		_ = r.setState(ctx, humiov1alpha1.HumioRepositoryStateExists, hr)
 	}(context.TODO(), r.HumioClient, hr)
 
-	r.HumioClient.SetHumioClientConfig(cluster.Config())
+	r.HumioClient.SetHumioClientConfig(cluster.Config(), false)
 
 	// Get current repository
 	r.Log.Info("get current repository")
