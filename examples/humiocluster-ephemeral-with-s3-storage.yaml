@@ -3,7 +3,7 @@ kind: HumioCluster
 metadata:
   name: example-humiocluster
 spec:
-  image: "humio/humio-core:1.20.1"
+  image: "humio/humio-core:1.24.3"
   targetReplicationFactor: 2
   storagePartitionsCount: 24
   digestPartitionsCount: 24
