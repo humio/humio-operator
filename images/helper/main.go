@@ -78,7 +78,7 @@ func getApiTokenForUserID(client *humio.Client, snapShotFile, userID string) (st
 	token, err := client.Users().RotateUserApiTokenAndGet(userID)
 	if err == nil {
 		// If API works, return the token
-		fmt.Printf("Successfully rotated and extracted API token using the API.t\n")
+		fmt.Printf("Successfully rotated and extracted API token using the API.\n")
 		return token, apiTokenMethodFromAPI, nil
 	}
 
