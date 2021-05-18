@@ -447,6 +447,14 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
 					Value: key.Name,
 				},
+				{
+					Name:  "AUTHENTICATION_METHOD",
+					Value: "single-user",
+				},
+				{
+					Name:  "SINGLE_USER_PASSWORD",
+					Value: "password",
+				},
 			}
 
 			By("Creating the cluster successfully")
@@ -480,6 +488,14 @@ var _ = Describe("HumioCluster Controller", func() {
 				{
 					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
 					Value: key.Name,
+				},
+				{
+					Name:  "AUTHENTICATION_METHOD",
+					Value: "single-user",
+				},
+				{
+					Name:  "SINGLE_USER_PASSWORD",
+					Value: "password",
 				},
 			}
 			Eventually(func() error {
@@ -2886,6 +2902,14 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName) *humiov1alph
 				{
 					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
 					Value: key.Name,
+				},
+				{
+					Name:  "AUTHENTICATION_METHOD",
+					Value: "single-user",
+				},
+				{
+					Name:  "SINGLE_USER_PASSWORD",
+					Value: "password",
 				},
 			},
 			DataVolumeSource: corev1.VolumeSource{
