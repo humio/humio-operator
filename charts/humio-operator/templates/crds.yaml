@@ -875,6 +875,16 @@ spec:
                   zone, you must set DisableInitContainer to true to use auto rebalancing
                   of partitions.
                 type: boolean
+              bootstrap:
+                description: Bootstrap decides how to bootstrap the cluster.
+                properties:
+                  mode:
+                    description: Mode determines the aggressiveness of starting up
+                      Humio pods. Can be either "safe" to start one pod at a time,
+                      or "fast" to start all pods at the same time. Applies to initial
+                      startup of the cluster only. Defaults to "safe"
+                    type: string
+                type: object
               containerLivenessProbe:
                 description: ContainerLivenessProbe is the liveness probe applied
                   to the Humio container

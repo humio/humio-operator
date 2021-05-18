@@ -154,6 +154,23 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster Bootstrap Mode Fast", func() {
+		It("Should bootstrap cluster correctly in fast mode", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-bootstrap-mode-fast",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key)
+			toCreate.Spec.NodeCount = helpers.IntPtr(2)
+			toCreate.Spec.Bootstrap = &humiov1alpha1.HumioBootstrap{
+				Mode: humiov1alpha1.HumioBootstrapModeFast,
+			}
+
+			By("Creating the cluster successfully")
+			createAndBootstrapCluster(toCreate)
+		})
+	})
+
 	Context("Humio Cluster Multi Organizations", func() {
 		It("Should bootstrap cluster correctly", func() {
 			key := types.NamespacedName{
@@ -2730,8 +2747,8 @@ func createAndBootstrapCluster(cluster *humiov1alpha1.HumioCluster) {
 	By("Creating HumioCluster resource")
 	Expect(k8sClient.Create(context.Background(), cluster)).Should(Succeed())
 
-	By("Confirming cluster enters bootstrapping state")
 	var updatedHumioCluster humiov1alpha1.HumioCluster
+	By("Confirming cluster enters bootstrapping state")
 	Eventually(func() string {
 		k8sClient.Get(context.Background(), key, &updatedHumioCluster)
 		return updatedHumioCluster.Status.State

@@ -18,10 +18,11 @@ package controllers
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/humio/humio-operator/pkg/helpers"
 
@@ -548,4 +549,13 @@ func humioPathOrDefault(hc *humiov1alpha1.HumioCluster) string {
 
 func licenseSecretKeyRefOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.SecretKeySelector {
 	return hc.Spec.License.SecretKeyRef
+}
+
+func bootstrapOrDefault(hc *humiov1alpha1.HumioCluster) *humiov1alpha1.HumioBootstrap {
+	if hc.Spec.Bootstrap == nil {
+		return &humiov1alpha1.HumioBootstrap{
+			Mode: humiov1alpha1.HumioBootstrapModeSafe,
+		}
+	}
+	return hc.Spec.Bootstrap
 }

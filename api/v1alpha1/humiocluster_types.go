@@ -32,6 +32,10 @@ const (
 	HumioClusterStateUpgrading = "Upgrading"
 	// HumioClusterStateConfigError is the state of the cluster when user-provided cluster specification results in configuration error
 	HumioClusterStateConfigError = "ConfigError"
+	//  HumioBootstrapModeSafe will bootstrap the HumioCluster by starting one pod at a time
+	HumioBootstrapModeSafe = "Safe"
+	//  HumioBootstrapModeFast will bootstrap the HumioCluster by starting all pods at the same time
+	HumioBootstrapModeFast = "Fast"
 )
 
 // HumioClusterSpec defines the desired state of HumioCluster
@@ -144,6 +148,15 @@ type HumioClusterSpec struct {
 	// before being forcefully restarted. If using bucket storage, this should allow enough time for Humio to finish
 	// uploading data to bucket storage.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
+	// Bootstrap decides how to bootstrap the cluster.
+	Bootstrap *HumioBootstrap `json:"bootstrap,omitempty"`
+}
+
+// HumioBootstrap decides how to bootstrap the HumioCluster
+type HumioBootstrap struct {
+	// Mode determines the aggressiveness of starting up Humio pods. Can be either "safe" to start one pod at a time,
+	// or "fast" to start all pods at the same time. Applies to initial startup of the cluster only. Defaults to "safe"
+	Mode string `json:"mode,omitempty"`
 }
 
 // HumioHostnameSource is the possible references to a hostname value that is stored outside of the HumioCluster resource

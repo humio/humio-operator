@@ -245,8 +245,14 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return result, err
 	}
 
-	// Ensure pods exist. Will requeue if not all pods are created and ready
+	// Ensure pods exist. Requeue if not all pods are created and ready as long as the bootstrap mode is not set to "fast"
 	if hc.Status.State == humiov1alpha1.HumioClusterStateBootstrapping {
+		if bootstrapOrDefault(hc).Mode == humiov1alpha1.HumioBootstrapModeFast {
+			result, err = r.ensurePodsExist(context.TODO(), hc)
+			if result != emptyResult || err != nil {
+				return result, err
+			}
+		}
 		result, err = r.ensurePodsBootstrapped(context.TODO(), hc)
 		if result != emptyResult || err != nil {
 			return result, err
