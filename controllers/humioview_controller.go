@@ -90,7 +90,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		_ = r.setState(ctx, humiov1alpha1.HumioViewStateExists, hv)
 	}(context.TODO(), r.HumioClient, hv)
 
-	r.HumioClient.SetHumioClientConfig(cluster.Config())
+	r.HumioClient.SetHumioClientConfig(cluster.Config(), false)
 
 	r.Log.Info("get current view")
 	curView, err := r.HumioClient.GetView(hv)

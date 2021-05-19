@@ -78,7 +78,7 @@ func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePa
 	return mockClientConfig
 }
 
-func (h *MockClientConfig) SetHumioClientConfig(config *humioapi.Config) {
+func (h *MockClientConfig) SetHumioClientConfig(config *humioapi.Config, overrideExistingConfig bool) {
 	return
 }
 
