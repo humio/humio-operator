@@ -11,8 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - shell: bash
-      run: make test
     - name: Get release version
       id: get_version
       run: echo "RELEASE_VERSION=$(cat VERSION)" >> $GITHUB_ENV
