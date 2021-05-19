@@ -50,7 +50,7 @@ type ClusterClient interface {
 	Unregister(int) error
 	SuggestedStoragePartitions() ([]humioapi.StoragePartitionInput, error)
 	SuggestedIngestPartitions() ([]humioapi.IngestPartitionInput, error)
-	SetHumioClientConfig(*humioapi.Config)
+	SetHumioClientConfig(*humioapi.Config, bool)
 	GetBaseURL(*humiov1alpha1.HumioCluster) *url.URL
 	TestAPIToken() error
 	Status() (humioapi.StatusResponse, error)
@@ -119,15 +119,18 @@ func NewClient(logger logr.Logger, config *humioapi.Config) *ClientConfig {
 	}
 }
 
-func (h *ClientConfig) SetHumioClientConfig(config *humioapi.Config) {
-	if config.Token == "" {
-		config.Token = h.apiClient.Token()
-	}
-	if config.Address == nil {
-		config.Address = h.apiClient.Address()
-	}
-	if config.CACertificatePEM == "" {
-		config.CACertificatePEM = h.apiClient.CACertificate()
+// SetHumioClientConfig takes a Humio API config as input and ensures to create a new API client that uses this config
+func (h *ClientConfig) SetHumioClientConfig(config *humioapi.Config, overrideExistingConfig bool) {
+	if !overrideExistingConfig {
+		if config.Token == "" {
+			config.Token = h.apiClient.Token()
+		}
+		if config.Address == nil {
+			config.Address = h.apiClient.Address()
+		}
+		if config.CACertificatePEM == "" {
+			config.CACertificatePEM = h.apiClient.CACertificate()
+		}
 	}
 	h.apiClient = humioapi.NewClient(*config)
 	return

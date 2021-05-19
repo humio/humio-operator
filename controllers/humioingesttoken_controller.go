@@ -132,7 +132,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateNotFound, hit)
 	}(context.TODO(), r.HumioClient, hit)
 
-	r.HumioClient.SetHumioClientConfig(cluster.Config())
+	r.HumioClient.SetHumioClientConfig(cluster.Config(), false)
 
 	// Get current ingest token
 	r.Log.Info("get current ingest token")
