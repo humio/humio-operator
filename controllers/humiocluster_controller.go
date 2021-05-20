@@ -1458,11 +1458,13 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 		}
 
 		defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
-			licenseStatus := humiov1alpha1.HumioLicenseStatus{
-				Type:       existingLicense.LicenseType(),
-				Expiration: existingLicense.ExpiresAt(),
+			if existingLicense != nil {
+				licenseStatus := humiov1alpha1.HumioLicenseStatus{
+					Type:       existingLicense.LicenseType(),
+					Expiration: existingLicense.ExpiresAt(),
+				}
+				r.setLicense(ctx, licenseStatus, hc)
 			}
-			r.setLicense(ctx, licenseStatus, hc)
 		}(ctx, hc)
 	}
 
