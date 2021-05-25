@@ -259,7 +259,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// Install initial license during bootstrap
-	if hc.Status.State != humiov1alpha1.HumioClusterStateBootstrapping {
+	if hc.Status.State == humiov1alpha1.HumioClusterStateBootstrapping {
 		_, err = r.ensureInitialLicense(context.TODO(), hc, r.HumioClient.GetBaseURL(hc))
 		if err != nil {
 			r.Log.Error(err, fmt.Sprintf("Could not install initial license. This can be safely ignored if license was already installed."))
