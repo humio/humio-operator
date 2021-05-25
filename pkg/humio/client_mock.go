@@ -38,7 +38,6 @@ type ClientMock struct {
 	Parser                            humioapi.Parser
 	Repository                        humioapi.Repository
 	View                              humioapi.View
-	TrialLicense                      humioapi.TrialLicense
 	OnPremLicense                     humioapi.OnPremLicense
 	Notifier                          humioapi.Notifier
 	Alert                             humioapi.Alert
@@ -64,7 +63,6 @@ func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePa
 			Parser:                            humioapi.Parser{Tests: []humioapi.ParserTestCase{}},
 			Repository:                        humioapi.Repository{},
 			View:                              humioapi.View{},
-			TrialLicense:                      humioapi.TrialLicense{},
 			OnPremLicense:                     humioapi.OnPremLicense{},
 			Notifier:                          humioapi.Notifier{},
 			Alert:                             humioapi.Alert{},
@@ -282,21 +280,16 @@ func (h *MockClientConfig) GetLicense() (humioapi.License, error) {
 		return licenseInterface, nil
 	}
 
-	// by default, humio starts with a trial license
-	h.apiClient.TrialLicense = humioapi.TrialLicense{}
-	licenseInterface = h.apiClient.TrialLicense
-	return licenseInterface, nil
+	// by default, humio starts without a license
+	return nil, fmt.Errorf("No license installed. Please contact Humio support.")
 }
 
 func (h *MockClientConfig) InstallLicense(licenseString string) error {
-	trialLicense, onPremLicense, err := ParseLicenseType(licenseString)
+	onPremLicense, err := ParseLicenseType(licenseString)
 	if err != nil {
 		return fmt.Errorf("failed to parse license type: %s", err)
 	}
 
-	if trialLicense != nil {
-		h.apiClient.TrialLicense = *trialLicense
-	}
 	if onPremLicense != nil {
 		h.apiClient.OnPremLicense = *onPremLicense
 	}
