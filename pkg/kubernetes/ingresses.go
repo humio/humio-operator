@@ -36,9 +36,9 @@ func GetIngress(ctx context.Context, c client.Client, ingressName, humioClusterN
 }
 
 // ListIngresses grabs the list of all ingress objects associated to a an instance of HumioCluster
-func ListIngresses(c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]v1beta1.Ingress, error) {
+func ListIngresses(ctx context.Context, c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]v1beta1.Ingress, error) {
 	var foundIngressList v1beta1.IngressList
-	err := c.List(context.TODO(), &foundIngressList, client.InNamespace(humioClusterNamespace), matchingLabels)
+	err := c.List(ctx, &foundIngressList, client.InNamespace(humioClusterNamespace), matchingLabels)
 	if err != nil {
 		return nil, err
 	}

@@ -208,8 +208,9 @@ var _ = BeforeSuite(func() {
 
 	if helpers.IsOpenShift() {
 		var err error
+		ctx := context.Background()
 		Eventually(func() bool {
-			_, err = openshift.GetSecurityContextConstraints(context.Background(), k8sClient)
+			_, err = openshift.GetSecurityContextConstraints(ctx, k8sClient)
 			if errors.IsNotFound(err) {
 				// Object has not been created yet
 				return true
@@ -277,7 +278,7 @@ var _ = BeforeSuite(func() {
 				Groups:                 nil,
 				SeccompProfiles:        nil,
 			}
-			Expect(k8sClient.Create(context.Background(), &scc)).To(Succeed())
+			Expect(k8sClient.Create(ctx, &scc)).To(Succeed())
 		}
 	}
 

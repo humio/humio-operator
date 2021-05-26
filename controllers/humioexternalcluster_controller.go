@@ -52,7 +52,7 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Fetch the HumioExternalCluster instance
 	hec := &humiov1alpha1.HumioExternalCluster{}
-	err := r.Get(context.TODO(), req.NamespacedName, hec)
+	err := r.Get(ctx, req.NamespacedName, hec)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -65,14 +65,14 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	if hec.Status.State == "" {
-		err := r.setState(context.TODO(), humiov1alpha1.HumioExternalClusterStateUnknown, hec)
+		err := r.setState(ctx, humiov1alpha1.HumioExternalClusterStateUnknown, hec)
 		if err != nil {
 			r.Log.Error(err, "unable to set cluster state")
 			return reconcile.Result{}, err
 		}
 	}
 
-	cluster, err := helpers.NewCluster(context.TODO(), r, "", hec.Name, hec.Namespace, helpers.UseCertManager())
+	cluster, err := helpers.NewCluster(ctx, r, "", hec.Name, hec.Namespace, helpers.UseCertManager())
 	if err != nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
 		return reconcile.Result{}, err
@@ -82,12 +82,12 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 
 	err = r.HumioClient.TestAPIToken()
 	if err != nil {
-		err = r.Client.Get(context.TODO(), req.NamespacedName, hec)
+		err = r.Client.Get(ctx, req.NamespacedName, hec)
 		if err != nil {
 			r.Log.Error(err, "unable to get cluster state")
 			return reconcile.Result{}, err
 		}
-		err = r.setState(context.TODO(), humiov1alpha1.HumioExternalClusterStateUnknown, hec)
+		err = r.setState(ctx, humiov1alpha1.HumioExternalClusterStateUnknown, hec)
 		if err != nil {
 			r.Log.Error(err, "unable to set cluster state")
 			return reconcile.Result{}, err
@@ -95,13 +95,13 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
 	}
 
-	err = r.Client.Get(context.TODO(), req.NamespacedName, hec)
+	err = r.Client.Get(ctx, req.NamespacedName, hec)
 	if err != nil {
 		r.Log.Error(err, "unable to get cluster state")
 		return reconcile.Result{}, err
 	}
 	if hec.Status.State != humiov1alpha1.HumioExternalClusterStateReady {
-		err = r.setState(context.TODO(), humiov1alpha1.HumioExternalClusterStateReady, hec)
+		err = r.setState(ctx, humiov1alpha1.HumioExternalClusterStateReady, hec)
 		if err != nil {
 			r.Log.Error(err, "unable to set cluster state")
 			return reconcile.Result{}, err

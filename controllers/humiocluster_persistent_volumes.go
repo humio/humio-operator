@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -88,10 +89,10 @@ func pvcsEnabled(hc *humiov1alpha1.HumioCluster) bool {
 	return !reflect.DeepEqual(hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate, emptyPersistentVolumeClaimSpec)
 }
 
-func (r *HumioClusterReconciler) waitForNewPvc(hc *humiov1alpha1.HumioCluster, expectedPvc *corev1.PersistentVolumeClaim) error {
+func (r *HumioClusterReconciler) waitForNewPvc(ctx context.Context, hc *humiov1alpha1.HumioCluster, expectedPvc *corev1.PersistentVolumeClaim) error {
 	for i := 0; i < waitForPvcTimeoutSeconds; i++ {
 		r.Log.Info(fmt.Sprintf("validating new pvc was created. waiting for pvc with name %s", expectedPvc.Name))
-		latestPvcList, err := kubernetes.ListPersistentVolumeClaims(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+		latestPvcList, err := kubernetes.ListPersistentVolumeClaims(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 		if err != nil {
 			return fmt.Errorf("failed to list pvcs: %s", err)
 		}

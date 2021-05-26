@@ -793,7 +793,7 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 
 // waitForNewPod can be used to wait for a new pod to be created after the create call is issued. It is important that
 // the previousPodList contains the list of pods prior to when the new pod was created
-func (r *HumioClusterReconciler) waitForNewPod(hc *humiov1alpha1.HumioCluster, previousPodList []corev1.Pod, expectedPod *corev1.Pod) error {
+func (r *HumioClusterReconciler) waitForNewPod(ctx context.Context, hc *humiov1alpha1.HumioCluster, previousPodList []corev1.Pod, expectedPod *corev1.Pod) error {
 	// We must check only pods that were running prior to the new pod being created, and we must only include pods that
 	// were running the same revision as the newly created pod. This is because there may be pods under the previous
 	// revision that were still terminating when the new pod was created
@@ -808,7 +808,7 @@ func (r *HumioClusterReconciler) waitForNewPod(hc *humiov1alpha1.HumioCluster, p
 
 	for i := 0; i < waitForPodTimeoutSeconds; i++ {
 		var podsMatchingRevisionCount int
-		latestPodList, err := kubernetes.ListPods(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+		latestPodList, err := kubernetes.ListPods(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 		if err != nil {
 			return err
 		}
@@ -935,7 +935,7 @@ func findHumioNodeName(ctx context.Context, c client.Client, hc *humiov1alpha1.H
 	}
 
 	// if TLS is enabled, use the first available TLS certificate
-	certificates, err := kubernetes.ListCertificates(c, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+	certificates, err := kubernetes.ListCertificates(ctx, c, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
 		return "", err
 	}
@@ -967,7 +967,7 @@ func findHumioNodeName(ctx context.Context, c client.Client, hc *humiov1alpha1.H
 }
 
 func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hc *humiov1alpha1.HumioCluster, foundPodList []corev1.Pod) (*podAttachments, error) {
-	pvcList, err := r.pvcList(hc)
+	pvcList, err := r.pvcList(ctx, hc)
 	if err != nil {
 		return &podAttachments{}, fmt.Errorf("problem getting pvc list: %s", err)
 	}

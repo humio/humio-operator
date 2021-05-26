@@ -217,10 +217,10 @@ func createAndGetAdminAccountUserID(client *humio.Client, organizationMode strin
 }
 
 // validateAdminSecretContent grabs the current token stored in kubernetes and returns nil if it is valid
-func validateAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, adminSecretNameSuffix string, humioNodeURL *url.URL) error {
+func validateAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, namespace, clusterName, adminSecretNameSuffix string, humioNodeURL *url.URL) error {
 	// Get existing Kubernetes secret
 	adminSecretName := fmt.Sprintf("%s-%s", clusterName, adminSecretNameSuffix)
-	secret, err := clientset.CoreV1().Secrets(namespace).Get(context.TODO(), adminSecretName, metav1.GetOptions{})
+	secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, adminSecretName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("got err while trying to get existing secret from k8s: %s", err)
 	}
@@ -244,10 +244,10 @@ func validateAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName
 }
 
 // ensureAdminSecretContent ensures the target Kubernetes secret contains the desired API token
-func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, adminSecretNameSuffix, desiredAPIToken, methodUsedToObtainToken string) error {
+func ensureAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, namespace, clusterName, adminSecretNameSuffix, desiredAPIToken, methodUsedToObtainToken string) error {
 	// Get existing Kubernetes secret
 	adminSecretName := fmt.Sprintf("%s-%s", clusterName, adminSecretNameSuffix)
-	secret, err := clientset.CoreV1().Secrets(namespace).Get(context.TODO(), adminSecretName, metav1.GetOptions{})
+	secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, adminSecretName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		// If the secret doesn't exist, create it
 		secret := corev1.Secret{
@@ -264,7 +264,7 @@ func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, 
 			},
 			Type: corev1.SecretTypeOpaque,
 		}
-		_, err := clientset.CoreV1().Secrets(namespace).Create(context.TODO(), &secret, metav1.CreateOptions{})
+		_, err := clientset.CoreV1().Secrets(namespace).Create(ctx, &secret, metav1.CreateOptions{})
 		return err
 	} else if err != nil {
 		return fmt.Errorf("got err while getting the current k8s secret for apiToken: %s", err)
@@ -273,7 +273,7 @@ func ensureAdminSecretContent(clientset *k8s.Clientset, namespace, clusterName, 
 	// If we got no error, we compare current token with desired token and update if needed.
 	if secret.StringData["token"] != desiredAPIToken {
 		secret.StringData = map[string]string{"token": desiredAPIToken}
-		_, err := clientset.CoreV1().Secrets(namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+		_, err := clientset.CoreV1().Secrets(namespace).Update(ctx, secret, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("got err while updating k8s secret for apiToken: %s", err)
 		}
@@ -340,6 +340,8 @@ func authMode() {
 
 	organizationMode, _ := os.LookupEnv("ORGANIZATION_MODE")
 
+	ctx := context.Background()
+
 	go func() {
 		// Run separate go routine for readiness/liveness endpoint
 		http.HandleFunc("/", httpHandler)
@@ -374,7 +376,7 @@ func authMode() {
 			continue
 		}
 
-		err = validateAdminSecretContent(clientset, namespace, clusterName, adminSecretNameSuffix, humioNodeURL)
+		err = validateAdminSecretContent(ctx, clientset, namespace, clusterName, adminSecretNameSuffix, humioNodeURL)
 		if err == nil {
 			fmt.Printf("Existing token is still valid, thus no changes required. Will confirm again in 30 seconds.\n")
 			time.Sleep(30 * time.Second)
@@ -406,7 +408,7 @@ func authMode() {
 		}
 
 		// Update Kubernetes secret if needed
-		err = ensureAdminSecretContent(clientset, namespace, clusterName, adminSecretNameSuffix, apiToken, methodUsed)
+		err = ensureAdminSecretContent(ctx, clientset, namespace, clusterName, adminSecretNameSuffix, apiToken, methodUsed)
 		if err != nil {
 			fmt.Printf("Got error ensuring k8s secret contains apiToken: %s\n", err)
 			time.Sleep(5 * time.Second)
@@ -432,9 +434,11 @@ func initMode() {
 		panic("environment variable TARGET_FILE not set or empty")
 	}
 
+	ctx := context.Background()
+
 	clientset := newKubernetesClientset()
 
-	node, err := clientset.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	node, err := clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
 		panic(err.Error())
 	} else {
