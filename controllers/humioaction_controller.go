@@ -54,7 +54,7 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	r.Log.Info("Reconciling HumioAction")
 
 	ha := &humiov1alpha1.HumioAction{}
-	err := r.Get(context.TODO(), req.NamespacedName, ha)
+	err := r.Get(ctx, req.NamespacedName, ha)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -66,10 +66,10 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, err
 	}
 
-	cluster, err := helpers.NewCluster(context.TODO(), r, ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName, ha.Namespace, helpers.UseCertManager())
+	cluster, err := helpers.NewCluster(ctx, r, ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName, ha.Namespace, helpers.UseCertManager())
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
-		err = r.setState(context.TODO(), humiov1alpha1.HumioActionStateConfigError, ha)
+		err = r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
 		if err != nil {
 			r.Log.Error(err, "unable to set action state")
 			return reconcile.Result{}, err
@@ -80,7 +80,7 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if _, err := humio.NotifierFromAction(ha); err != nil {
 		r.Log.Error(err, "unable to validate action")
-		err = r.setState(context.TODO(), humiov1alpha1.HumioActionStateConfigError, ha)
+		err = r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
 		if err != nil {
 			r.Log.Error(err, "unable to set action state")
 			return reconcile.Result{}, err
@@ -91,7 +91,7 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	curNotifier, err := r.HumioClient.GetNotifier(ha)
 	if curNotifier != nil && err != nil {
 		r.Log.Error(err, "got unexpected error when checking if action exists")
-		stateErr := r.setState(context.TODO(), humiov1alpha1.HumioActionStateUnknown, ha)
+		stateErr := r.setState(ctx, humiov1alpha1.HumioActionStateUnknown, ha)
 		if stateErr != nil {
 			r.Log.Error(stateErr, "unable to set action state")
 			return reconcile.Result{}, stateErr
@@ -110,12 +110,12 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioActionStateExists, ha)
-	}(context.TODO(), r.HumioClient, ha)
+	}(ctx, r.HumioClient, ha)
 
-	return r.reconcileHumioAction(curNotifier, ha, req)
+	return r.reconcileHumioAction(ctx, curNotifier, ha, req)
 }
 
-func (r *HumioActionReconciler) reconcileHumioAction(curNotifier *humioapi.Notifier, ha *humiov1alpha1.HumioAction, req ctrl.Request) (reconcile.Result, error) {
+func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, curNotifier *humioapi.Notifier, ha *humiov1alpha1.HumioAction, req ctrl.Request) (reconcile.Result, error) {
 	// Delete
 	r.Log.Info("Checking if Action is marked to be deleted")
 	isMarkedForDeletion := ha.GetDeletionTimestamp() != nil
@@ -133,7 +133,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(curNotifier *humioapi.Notif
 
 			r.Log.Info("Action Deleted. Removing finalizer")
 			ha.SetFinalizers(helpers.RemoveElement(ha.GetFinalizers(), humioFinalizer))
-			err := r.Update(context.TODO(), ha)
+			err := r.Update(ctx, ha)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -147,7 +147,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(curNotifier *humioapi.Notif
 	if !helpers.ContainsElement(ha.GetFinalizers(), humioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to Action")
 		ha.SetFinalizers(append(ha.GetFinalizers(), humioFinalizer))
-		err := r.Update(context.TODO(), ha)
+		err := r.Update(ctx, ha)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -166,7 +166,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(curNotifier *humioapi.Notif
 		}
 		r.Log.Info("Created action", "Action", ha.Spec.Name)
 
-		result, err := r.reconcileHumioActionAnnotations(addedNotifier, ha, req)
+		result, err := r.reconcileHumioActionAnnotations(ctx, addedNotifier, ha, req)
 		if err != nil {
 			return result, err
 		}

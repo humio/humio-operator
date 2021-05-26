@@ -58,7 +58,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Fetch the HumioIngestToken instance
 	hit := &humiov1alpha1.HumioIngestToken{}
-	err := r.Get(context.TODO(), req.NamespacedName, hit)
+	err := r.Get(ctx, req.NamespacedName, hit)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -81,7 +81,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Ingest token contains finalizer so run finalizer method")
-			if err := r.finalize(hit); err != nil {
+			if err := r.finalize(ctx, hit); err != nil {
 				r.Log.Error(err, "Finalizer method returned error")
 				return reconcile.Result{}, err
 			}
@@ -90,7 +90,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			// removed, the object will be deleted.
 			r.Log.Info("Finalizer done. Removing finalizer")
 			hit.SetFinalizers(helpers.RemoveElement(hit.GetFinalizers(), humioFinalizer))
-			err := r.Update(context.TODO(), hit)
+			err := r.Update(ctx, hit)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -102,15 +102,15 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Add finalizer for this CR
 	if !helpers.ContainsElement(hit.GetFinalizers(), humioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to ingest token")
-		if err := r.addFinalizer(hit); err != nil {
+		if err := r.addFinalizer(ctx, hit); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	cluster, err := helpers.NewCluster(context.TODO(), r, hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName, hit.Namespace, helpers.UseCertManager())
+	cluster, err := helpers.NewCluster(ctx, r, hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName, hit.Namespace, helpers.UseCertManager())
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
-		err = r.setState(context.TODO(), humiov1alpha1.HumioIngestTokenStateConfigError, hit)
+		err = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateConfigError, hit)
 		if err != nil {
 			r.Log.Error(err, "unable to set cluster state")
 			return reconcile.Result{}, err
@@ -130,7 +130,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateNotFound, hit)
-	}(context.TODO(), r.HumioClient, hit)
+	}(ctx, r.HumioClient, hit)
 
 	r.HumioClient.SetHumioClientConfig(cluster.Config(), false)
 
@@ -166,7 +166,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	err = r.ensureTokenSecretExists(context.TODO(), hit, cluster)
+	err = r.ensureTokenSecretExists(ctx, hit, cluster)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("could not ensure token secret exists: %s", err)
 	}
@@ -188,8 +188,8 @@ func (r *HumioIngestTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *HumioIngestTokenReconciler) finalize(hit *humiov1alpha1.HumioIngestToken) error {
-	_, err := helpers.NewCluster(context.TODO(), r, hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName, hit.Namespace, helpers.UseCertManager())
+func (r *HumioIngestTokenReconciler) finalize(ctx context.Context, hit *humiov1alpha1.HumioIngestToken) error {
+	_, err := helpers.NewCluster(ctx, r, hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName, hit.Namespace, helpers.UseCertManager())
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -197,12 +197,12 @@ func (r *HumioIngestTokenReconciler) finalize(hit *humiov1alpha1.HumioIngestToke
 	return r.HumioClient.DeleteIngestToken(hit)
 }
 
-func (r *HumioIngestTokenReconciler) addFinalizer(hit *humiov1alpha1.HumioIngestToken) error {
+func (r *HumioIngestTokenReconciler) addFinalizer(ctx context.Context, hit *humiov1alpha1.HumioIngestToken) error {
 	r.Log.Info("Adding Finalizer for the HumioIngestToken")
 	hit.SetFinalizers(append(hit.GetFinalizers(), humioFinalizer))
 
 	// Update CR
-	err := r.Update(context.TODO(), hit)
+	err := r.Update(ctx, hit)
 	if err != nil {
 		r.Log.Error(err, "Failed to update HumioIngestToken with finalizer")
 		return err

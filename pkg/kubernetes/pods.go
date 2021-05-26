@@ -25,9 +25,9 @@ import (
 )
 
 // ListPods grabs the list of all pods associated to a an instance of HumioCluster
-func ListPods(c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]corev1.Pod, error) {
+func ListPods(ctx context.Context, c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]corev1.Pod, error) {
 	var foundPodList corev1.PodList
-	err := c.List(context.TODO(), &foundPodList, client.InNamespace(humioClusterNamespace), matchingLabels)
+	err := c.List(ctx, &foundPodList, client.InNamespace(humioClusterNamespace), matchingLabels)
 	if err != nil {
 		return nil, err
 	}

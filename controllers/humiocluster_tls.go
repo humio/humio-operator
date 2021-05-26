@@ -227,7 +227,7 @@ func (r *HumioClusterReconciler) waitForNewNodeCertificate(ctx context.Context, 
 // updateNodeCertificates updates existing node certificates that have been changed. Returns the count of existing node
 // certificates
 func (r *HumioClusterReconciler) updateNodeCertificates(ctx context.Context, hc *humiov1alpha1.HumioCluster) (int, error) {
-	certificates, err := kubernetes.ListCertificates(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+	certificates, err := kubernetes.ListCertificates(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
 		return -1, err
 	}

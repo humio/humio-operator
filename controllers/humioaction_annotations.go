@@ -12,10 +12,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func (r *HumioActionReconciler) reconcileHumioActionAnnotations(addedNotifier *humioapi.Notifier, ha *humiov1alpha1.HumioAction, req ctrl.Request) (reconcile.Result, error) {
+func (r *HumioActionReconciler) reconcileHumioActionAnnotations(ctx context.Context, addedNotifier *humioapi.Notifier, ha *humiov1alpha1.HumioAction, req ctrl.Request) (reconcile.Result, error) {
 	r.Log.Info(fmt.Sprintf("Adding ID %s to action %s", addedNotifier.ID, addedNotifier.Name))
 	currentAction := &humiov1alpha1.HumioAction{}
-	err := r.Get(context.TODO(), req.NamespacedName, currentAction)
+	err := r.Get(ctx, req.NamespacedName, currentAction)
 	if err != nil {
 		r.Log.Error(err, "failed to add ID annotation to action")
 		return reconcile.Result{}, err
@@ -34,7 +34,7 @@ func (r *HumioActionReconciler) reconcileHumioActionAnnotations(addedNotifier *h
 		currentAction.ObjectMeta.Annotations[k] = v
 	}
 
-	err = r.Update(context.TODO(), currentAction)
+	err = r.Update(ctx, currentAction)
 	if err != nil {
 		r.Log.Error(err, "failed to add ID annotation to action")
 		return reconcile.Result{}, err
