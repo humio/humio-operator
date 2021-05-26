@@ -23,9 +23,9 @@ import (
 )
 
 // ListCertificates grabs the list of all certificates associated to a an instance of HumioCluster
-func ListCertificates(c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]cmapi.Certificate, error) {
+func ListCertificates(ctx context.Context, c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]cmapi.Certificate, error) {
 	var foundCertificateList cmapi.CertificateList
-	err := c.List(context.TODO(), &foundCertificateList, client.InNamespace(humioClusterNamespace), matchingLabels)
+	err := c.List(ctx, &foundCertificateList, client.InNamespace(humioClusterNamespace), matchingLabels)
 	if err != nil {
 		return nil, err
 	}

@@ -55,7 +55,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// Fetch the HumioRepository instance
 	hr := &humiov1alpha1.HumioRepository{}
-	err := r.Get(context.TODO(), req.NamespacedName, hr)
+	err := r.Get(ctx, req.NamespacedName, hr)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -78,7 +78,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Repository contains finalizer so run finalizer method")
-			if err := r.finalize(hr); err != nil {
+			if err := r.finalize(ctx, hr); err != nil {
 				r.Log.Error(err, "Finalizer method returned error")
 				return reconcile.Result{}, err
 			}
@@ -87,7 +87,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			// removed, the object will be deleted.
 			r.Log.Info("Finalizer done. Removing finalizer")
 			hr.SetFinalizers(helpers.RemoveElement(hr.GetFinalizers(), humioFinalizer))
-			err := r.Update(context.TODO(), hr)
+			err := r.Update(ctx, hr)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -99,15 +99,15 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	// Add finalizer for this CR
 	if !helpers.ContainsElement(hr.GetFinalizers(), humioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to repository")
-		if err := r.addFinalizer(hr); err != nil {
+		if err := r.addFinalizer(ctx, hr); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	cluster, err := helpers.NewCluster(context.TODO(), r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager())
+	cluster, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager())
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
-		err = r.setState(context.TODO(), humiov1alpha1.HumioRepositoryStateConfigError, hr)
+		err = r.setState(ctx, humiov1alpha1.HumioRepositoryStateConfigError, hr)
 		if err != nil {
 			r.Log.Error(err, "unable to set cluster state")
 			return reconcile.Result{}, err
@@ -127,7 +127,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioRepositoryStateExists, hr)
-	}(context.TODO(), r.HumioClient, hr)
+	}(ctx, r.HumioClient, hr)
 
 	r.HumioClient.SetHumioClientConfig(cluster.Config(), false)
 
@@ -188,8 +188,8 @@ func (r *HumioRepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *HumioRepositoryReconciler) finalize(hr *humiov1alpha1.HumioRepository) error {
-	_, err := helpers.NewCluster(context.TODO(), r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager())
+func (r *HumioRepositoryReconciler) finalize(ctx context.Context, hr *humiov1alpha1.HumioRepository) error {
+	_, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager())
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -197,12 +197,12 @@ func (r *HumioRepositoryReconciler) finalize(hr *humiov1alpha1.HumioRepository) 
 	return r.HumioClient.DeleteRepository(hr)
 }
 
-func (r *HumioRepositoryReconciler) addFinalizer(hr *humiov1alpha1.HumioRepository) error {
+func (r *HumioRepositoryReconciler) addFinalizer(ctx context.Context, hr *humiov1alpha1.HumioRepository) error {
 	r.Log.Info("Adding Finalizer for the HumioRepository")
 	hr.SetFinalizers(append(hr.GetFinalizers(), humioFinalizer))
 
 	// Update CR
-	err := r.Update(context.TODO(), hr)
+	err := r.Update(ctx, hr)
 	if err != nil {
 		r.Log.Error(err, "Failed to update HumioRepository with finalizer")
 		return err
