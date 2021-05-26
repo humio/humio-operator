@@ -53,7 +53,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// Fetch the HumioView instance
 	hv := &humiov1alpha1.HumioView{}
-	err := r.Get(context.TODO(), req.NamespacedName, hv)
+	err := r.Get(ctx, req.NamespacedName, hv)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -65,10 +65,10 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return reconcile.Result{}, err
 	}
 
-	cluster, err := helpers.NewCluster(context.TODO(), r, hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName, hv.Namespace, helpers.UseCertManager())
+	cluster, err := helpers.NewCluster(ctx, r, hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName, hv.Namespace, helpers.UseCertManager())
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
-		err = r.setState(context.TODO(), humiov1alpha1.HumioParserStateConfigError, hv)
+		err = r.setState(ctx, humiov1alpha1.HumioParserStateConfigError, hv)
 		if err != nil {
 			r.Log.Error(err, "unable to set cluster state")
 			return reconcile.Result{}, err
@@ -88,7 +88,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioViewStateExists, hv)
-	}(context.TODO(), r.HumioClient, hv)
+	}(ctx, r.HumioClient, hv)
 
 	r.HumioClient.SetHumioClientConfig(cluster.Config(), false)
 
@@ -99,7 +99,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return reconcile.Result{}, fmt.Errorf("could not check if view exists: %s", err)
 	}
 
-	reconcileHumioViewResult, err := r.reconcileHumioView(curView, hv)
+	reconcileHumioViewResult, err := r.reconcileHumioView(ctx, curView, hv)
 	if err != nil {
 		return reconcileHumioViewResult, err
 	}
@@ -107,7 +107,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return reconcileHumioViewResult, nil
 }
 
-func (r *HumioViewReconciler) reconcileHumioView(curView *humioapi.View, hv *humiov1alpha1.HumioView) (reconcile.Result, error) {
+func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, curView *humioapi.View, hv *humiov1alpha1.HumioView) (reconcile.Result, error) {
 	emptyView := humioapi.View{}
 
 	// Delete
@@ -127,7 +127,7 @@ func (r *HumioViewReconciler) reconcileHumioView(curView *humioapi.View, hv *hum
 
 			r.Log.Info("View Deleted. Removing finalizer")
 			hv.SetFinalizers(helpers.RemoveElement(hv.GetFinalizers(), humioFinalizer))
-			err := r.Update(context.TODO(), hv)
+			err := r.Update(ctx, hv)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -140,7 +140,7 @@ func (r *HumioViewReconciler) reconcileHumioView(curView *humioapi.View, hv *hum
 	if !helpers.ContainsElement(hv.GetFinalizers(), humioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to view")
 		hv.SetFinalizers(append(hv.GetFinalizers(), humioFinalizer))
-		err := r.Update(context.TODO(), hv)
+		err := r.Update(ctx, hv)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

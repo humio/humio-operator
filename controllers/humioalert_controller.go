@@ -56,7 +56,7 @@ func (r *HumioAlertReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	r.Log.Info("Reconciling HumioAlert")
 
 	ha := &humiov1alpha1.HumioAlert{}
-	err := r.Get(context.TODO(), req.NamespacedName, ha)
+	err := r.Get(ctx, req.NamespacedName, ha)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -70,10 +70,10 @@ func (r *HumioAlertReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	setAlertDefaults(ha)
 
-	cluster, err := helpers.NewCluster(context.TODO(), r, ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName, ha.Namespace, helpers.UseCertManager())
+	cluster, err := helpers.NewCluster(ctx, r, ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName, ha.Namespace, helpers.UseCertManager())
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
-		err = r.setState(context.TODO(), humiov1alpha1.HumioAlertStateConfigError, ha)
+		err = r.setState(ctx, humiov1alpha1.HumioAlertStateConfigError, ha)
 		if err != nil {
 			r.Log.Error(err, "unable to set Alert state")
 			return reconcile.Result{}, err
@@ -85,7 +85,7 @@ func (r *HumioAlertReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	curAlert, err := r.HumioClient.GetAlert(ha)
 	if curAlert != nil && err != nil {
 		r.Log.Error(err, "got unexpected error when checking if Alert exists")
-		err = r.setState(context.TODO(), humiov1alpha1.HumioAlertStateUnknown, ha)
+		err = r.setState(ctx, humiov1alpha1.HumioAlertStateUnknown, ha)
 		if err != nil {
 			r.Log.Error(err, "unable to set Alert state")
 			return reconcile.Result{}, err
@@ -104,12 +104,12 @@ func (r *HumioAlertReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioAlertStateExists, ha)
-	}(context.TODO(), r.HumioClient, ha)
+	}(ctx, r.HumioClient, ha)
 
-	return r.reconcileHumioAlert(curAlert, ha, req)
+	return r.reconcileHumioAlert(ctx, curAlert, ha, req)
 }
 
-func (r *HumioAlertReconciler) reconcileHumioAlert(curAlert *humioapi.Alert, ha *humiov1alpha1.HumioAlert, req ctrl.Request) (reconcile.Result, error) {
+func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, curAlert *humioapi.Alert, ha *humiov1alpha1.HumioAlert, req ctrl.Request) (reconcile.Result, error) {
 	// Delete
 	r.Log.Info("Checking if alert is marked to be deleted")
 	isMarkedForDeletion := ha.GetDeletionTimestamp() != nil
@@ -127,7 +127,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(curAlert *humioapi.Alert, ha 
 
 			r.Log.Info("Alert Deleted. Removing finalizer")
 			ha.SetFinalizers(helpers.RemoveElement(ha.GetFinalizers(), humioFinalizer))
-			err := r.Update(context.TODO(), ha)
+			err := r.Update(ctx, ha)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -141,7 +141,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(curAlert *humioapi.Alert, ha 
 	if !helpers.ContainsElement(ha.GetFinalizers(), humioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to alert")
 		ha.SetFinalizers(append(ha.GetFinalizers(), humioFinalizer))
-		err := r.Update(context.TODO(), ha)
+		err := r.Update(ctx, ha)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -160,7 +160,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(curAlert *humioapi.Alert, ha 
 		}
 		r.Log.Info("Created alert", "Alert", ha.Spec.Name)
 
-		result, err := r.reconcileHumioAlertAnnotations(addedAlert, ha, req)
+		result, err := r.reconcileHumioAlertAnnotations(ctx, addedAlert, ha, req)
 		if err != nil {
 			return result, err
 		}
