@@ -11,10 +11,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func (r *HumioAlertReconciler) reconcileHumioAlertAnnotations(addedAlert *humioapi.Alert, ha *humiov1alpha1.HumioAlert, req ctrl.Request) (reconcile.Result, error) {
+func (r *HumioAlertReconciler) reconcileHumioAlertAnnotations(ctx context.Context, addedAlert *humioapi.Alert, ha *humiov1alpha1.HumioAlert, req ctrl.Request) (reconcile.Result, error) {
 	r.Log.Info(fmt.Sprintf("Adding ID \"%s\" to alert \"%s\"", addedAlert.ID, addedAlert.Name))
 	currentAlert := &humiov1alpha1.HumioAlert{}
-	err := r.Get(context.TODO(), req.NamespacedName, currentAlert)
+	err := r.Get(ctx, req.NamespacedName, currentAlert)
 	if err != nil {
 		r.Log.Error(err, "failed to add ID annotation to alert")
 		return reconcile.Result{}, err
@@ -30,7 +30,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlertAnnotations(addedAlert *humioa
 		currentAlert.ObjectMeta.Annotations[k] = v
 	}
 
-	err = r.Update(context.TODO(), currentAlert)
+	err = r.Update(ctx, currentAlert)
 	if err != nil {
 		r.Log.Error(err, "failed to add ID annotation to alert")
 		return reconcile.Result{}, err

@@ -32,7 +32,7 @@ import (
 )
 
 type ClusterInterface interface {
-	Url(client.Client) (*url.URL, error)
+	Url(context.Context, client.Client) (*url.URL, error)
 	Name() string
 	Config() *humioapi.Config
 	constructHumioConfig(context.Context, client.Client) (*humioapi.Config, error)
@@ -73,11 +73,11 @@ func NewCluster(ctx context.Context, k8sClient client.Client, managedClusterName
 	return cluster, nil
 }
 
-func (c Cluster) Url(k8sClient client.Client) (*url.URL, error) {
+func (c Cluster) Url(ctx context.Context, k8sClient client.Client) (*url.URL, error) {
 	if c.managedClusterName != "" {
 		// Lookup ManagedHumioCluster resource to figure out if we expect to use TLS or not
 		var humioManagedCluster humiov1alpha1.HumioCluster
-		err := k8sClient.Get(context.TODO(), types.NamespacedName{
+		err := k8sClient.Get(ctx, types.NamespacedName{
 			Namespace: c.namespace,
 			Name:      c.managedClusterName,
 		}, &humioManagedCluster)
@@ -100,7 +100,7 @@ func (c Cluster) Url(k8sClient client.Client) (*url.URL, error) {
 
 	// Fetch the HumioExternalCluster instance
 	var humioExternalCluster humiov1alpha1.HumioExternalCluster
-	err := k8sClient.Get(context.TODO(), types.NamespacedName{
+	err := k8sClient.Get(ctx, types.NamespacedName{
 		Namespace: c.namespace,
 		Name:      c.externalClusterName,
 	}, &humioExternalCluster)
@@ -133,7 +133,7 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 	if c.managedClusterName != "" {
 		// Lookup ManagedHumioCluster resource to figure out if we expect to use TLS or not
 		var humioManagedCluster humiov1alpha1.HumioCluster
-		err := k8sClient.Get(context.TODO(), types.NamespacedName{
+		err := k8sClient.Get(ctx, types.NamespacedName{
 			Namespace: c.namespace,
 			Name:      c.managedClusterName,
 		}, &humioManagedCluster)
@@ -142,7 +142,7 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 		}
 
 		// Get the URL we want to use
-		clusterURL, err := c.Url(k8sClient)
+		clusterURL, err := c.Url(ctx, k8sClient)
 		if err != nil {
 			return nil, err
 		}
@@ -193,7 +193,7 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 
 	// Fetch the HumioExternalCluster instance
 	var humioExternalCluster humiov1alpha1.HumioExternalCluster
-	err := k8sClient.Get(context.TODO(), types.NamespacedName{
+	err := k8sClient.Get(ctx, types.NamespacedName{
 		Namespace: c.namespace,
 		Name:      c.externalClusterName,
 	}, &humioExternalCluster)

@@ -75,7 +75,7 @@ func (r *HumioClusterReconciler) setNodeCount(ctx context.Context, nodeCount int
 
 func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("setting cluster pod status")
-	pods, err := kubernetes.ListPods(r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+	pods, err := kubernetes.ListPods(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
 		r.Log.Error(err, "unable to set pod status")
 		return err
