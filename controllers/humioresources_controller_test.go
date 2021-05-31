@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"reflect"
 
 	"github.com/humio/humio-operator/pkg/humio"
 
@@ -483,7 +482,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				TagFields: spec.TagFields,
 				Tests:     helpers.MapTests(spec.TestData, helpers.ToTestCase),
 			}
-			Expect(reflect.DeepEqual(*initialParser, expectedInitialParser)).To(BeTrue())
+			Expect(*initialParser).To(Equal(expectedInitialParser))
 
 			By("HumioParser: Updating the parser successfully")
 			updatedScript := "kvParse() | updated"
@@ -868,7 +867,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(notifier.Name).To(Equal(originalNotifier.Name))
 			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
-			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+			Expect(notifier.Properties).To(Equal(originalNotifier.Properties))
 
 			createdAction, err := humio.ActionFromNotifier(notifier)
 			Expect(err).To(BeNil())
@@ -953,7 +952,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(notifier.Name).To(Equal(originalNotifier.Name))
 			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
-			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+			Expect(notifier.Properties).To(Equal(originalNotifier.Properties))
 
 			createdAction, err = humio.ActionFromNotifier(notifier)
 			Expect(err).To(BeNil())
@@ -1036,7 +1035,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(notifier.Name).To(Equal(originalNotifier.Name))
 			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
-			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+			Expect(notifier.Properties).To(Equal(originalNotifier.Properties))
 
 			createdAction, err = humio.ActionFromNotifier(notifier)
 			Expect(err).To(BeNil())
@@ -1120,7 +1119,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(notifier.Name).To(Equal(originalNotifier.Name))
 			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
-			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+			Expect(notifier.Properties).To(Equal(originalNotifier.Properties))
 
 			createdAction, err = humio.ActionFromNotifier(notifier)
 			Expect(err).To(BeNil())
@@ -1209,7 +1208,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(notifier.Name).To(Equal(originalNotifier.Name))
 			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
-			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+			Expect(notifier.Properties).To(Equal(originalNotifier.Properties))
 
 			createdAction, err = humio.ActionFromNotifier(notifier)
 			Expect(err).To(BeNil())
@@ -1301,7 +1300,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(notifier.Name).To(Equal(originalNotifier.Name))
 			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
-			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+			Expect(notifier.Properties).To(Equal(originalNotifier.Properties))
 
 			createdAction, err = humio.ActionFromNotifier(notifier)
 			Expect(err).To(BeNil())
@@ -1389,7 +1388,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(notifier.Name).To(Equal(originalNotifier.Name))
 			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
-			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+			Expect(notifier.Properties).To(Equal(originalNotifier.Properties))
 
 			createdAction, err = humio.ActionFromNotifier(notifier)
 			Expect(err).To(BeNil())
@@ -1477,7 +1476,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(notifier.Name).To(Equal(originalNotifier.Name))
 			Expect(notifier.Entity).To(Equal(originalNotifier.Entity))
-			Expect(reflect.DeepEqual(notifier.Properties, originalNotifier.Properties)).To(BeTrue())
+			Expect(notifier.Properties).To(Equal(originalNotifier.Properties))
 
 			createdAction, err = humio.ActionFromNotifier(notifier)
 			Expect(err).To(BeNil())
@@ -1687,8 +1686,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			createdAlert := toCreateAlert
 			err = humio.AlertHydrate(createdAlert, alert, actionIdMap)
 			Expect(err).To(BeNil())
-			Expect(createdAlert.Spec.Name).To(Equal(toCreateAlert.Spec.Name))
-			Expect(reflect.DeepEqual(createdAlert.Spec, toCreateAlert.Spec)).To(BeTrue())
+			Expect(createdAlert.Spec).To(Equal(toCreateAlert.Spec))
 
 			By("HumioAlert: Updating the alert successfully")
 			updatedAlert := toCreateAlert
