@@ -320,6 +320,10 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// wait until all pods are ready before continuing
 	foundPodList, err := kubernetes.ListPods(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+	if err != nil {
+		r.Log.Error(err, "failed to list pods")
+		return ctrl.Result{}, err
+	}
 	podsStatus, err := r.getPodsStatus(hc, foundPodList)
 	if err != nil {
 		r.Log.Error(err, "failed to get pod status")
