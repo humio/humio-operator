@@ -2627,7 +2627,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			// TODO: confirm cluster enters bootstrapping state
 			// TODO: confirm cluster enters running
 		})
-		It("Should succesfully install a license", func() {
+		It("Should successfully install a license", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-license",
 				Namespace: "default",
@@ -2720,7 +2720,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	Context("Humio Cluster state adjustment", func() {
-		It("Should succesfully set proper state", func() {
+		It("Should successfully set proper state", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-state",
 				Namespace: "default",
