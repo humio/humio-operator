@@ -48,8 +48,6 @@ const (
 	apiTokenMethodAnnotationName = "humio.com/api-token-method"
 	// apiTokenMethodFromAPI is used to indicate that the API token was obtained using an API call
 	apiTokenMethodFromAPI = "api"
-	// apiTokenMethodFromFile is used to indicate that the API token was obtained using the global snapshot file
-	apiTokenMethodFromFile = "file"
 )
 
 var _ = Describe("HumioCluster Controller", func() {
@@ -178,6 +176,34 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster Unsupported Version", func() {
+		It("Creating cluster with unsupported version", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-err-unsupp-vers",
+				Namespace: "default",
+			}
+			cluster := &humiov1alpha1.HumioCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioClusterSpec{
+					Image: "humio/humio-core:1.18.4",
+				},
+			}
+			ctx := context.Background()
+			Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			By("should indicate cluster configuration error")
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			Expect(k8sClient.Delete(ctx, &updatedHumioCluster)).Should(Succeed())
+		})
+	})
+
 	Context("Humio Cluster Update Image", func() {
 		It("Update should correctly replace pods to use new image", func() {
 			key := types.NamespacedName{
@@ -185,7 +211,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: "default",
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.16.4"
+			toCreate.Spec.Image = "humio/humio-core:1.26.0"
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			By("Creating the cluster successfully")
@@ -266,7 +292,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations[podRevisionAnnotation]).To(Equal("1"))
 
 			By("Updating the cluster image unsuccessfully")
-			updatedImage := "humio/humio-operator:1.18.0-missing-image"
+			updatedImage := "humio/humio-operator:1.26.0-missing-image"
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, &updatedHumioCluster)
 				updatedHumioCluster.Spec.Image = updatedImage
@@ -2880,9 +2906,7 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 	}, testTimeout, testInterval).Should(Succeed())
 
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-		By("Validating API token was obtained using the expected method")
-		humioVersion, err := HumioVersionFromCluster(cluster)
-		Expect(err).ToNot(HaveOccurred())
+		By("Validating API token was obtained using the API method")
 		var apiTokenSecret corev1.Secret
 		Eventually(func() error {
 			return k8sClient.Get(ctx, types.NamespacedName{
@@ -2890,43 +2914,28 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 				Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix),
 			}, &apiTokenSecret)
 		}, testTimeout, testInterval).Should(Succeed())
-
-		ok, err := humioVersion.AtLeast(HumioVersionWhichContainsAPITokenRotationMutation)
-		Expect(err).ToNot(HaveOccurred())
-		if ok {
-			By(fmt.Sprintf("Should be using API because of image %s", cluster.Spec.Image))
-			Expect(apiTokenSecret.Annotations).Should(HaveKeyWithValue(apiTokenMethodAnnotationName, apiTokenMethodFromAPI))
-		} else {
-			By(fmt.Sprintf("Should be using File because of image %s", cluster.Spec.Image))
-			Expect(apiTokenSecret.Annotations).Should(HaveKeyWithValue(apiTokenMethodAnnotationName, apiTokenMethodFromFile))
-		}
+		Expect(apiTokenSecret.Annotations).Should(HaveKeyWithValue(apiTokenMethodAnnotationName, apiTokenMethodFromAPI))
 	}
 
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-		// TODO: We can drop this version comparison when we only support 1.16 and newer.
 		By("Validating cluster nodes have ZONE configured correctly")
-		if humioVersion, err := HumioVersionFromCluster(cluster); err != nil {
-			if ok, err := humioVersion.AtLeast(HumioVersionWhichContainsZone); ok && err != nil {
-				By("Validating zone is set on Humio nodes")
-				Eventually(func() []string {
-					cluster, err := humioClient.GetClusters()
-					if err != nil || len(cluster.Nodes) < 1 {
-						return []string{}
-					}
-					keys := make(map[string]bool)
-					var zoneList []string
-					for _, node := range cluster.Nodes {
-						if _, value := keys[node.Zone]; !value {
-							if node.Zone != "" {
-								keys[node.Zone] = true
-								zoneList = append(zoneList, node.Zone)
-							}
-						}
-					}
-					return zoneList
-				}, testTimeout, testInterval).ShouldNot(BeEmpty())
+		Eventually(func() []string {
+			cluster, err := humioClient.GetClusters()
+			if err != nil || len(cluster.Nodes) < 1 {
+				return []string{}
 			}
-		}
+			keys := make(map[string]bool)
+			var zoneList []string
+			for _, node := range cluster.Nodes {
+				if _, value := keys[node.Zone]; !value {
+					if node.Zone != "" {
+						keys[node.Zone] = true
+						zoneList = append(zoneList, node.Zone)
+					}
+				}
+			}
+			return zoneList
+		}, testTimeout, testInterval).ShouldNot(BeEmpty())
 	}
 
 	By("Confirming replication factor environment variables are set correctly")

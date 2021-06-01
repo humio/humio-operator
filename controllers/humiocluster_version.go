@@ -9,11 +9,7 @@ import (
 )
 
 const (
-	HumioVersionWhichContainsZone                      = "1.16.0"
-	HumioVersionWhichContainsAPITokenRotationMutation  = "1.17.0"
-	HumioVersionWhichContainsSuggestedPartitionLayouts = "1.17.0"
-	HumioVersionWhichContainsHumioLog4JEnvVar          = "1.19.0"
-	HumioVersionWhichContainsNewJSONLogging            = "1.20.1"
+	HumioVersionMinimumSupported = "1.26.0"
 )
 
 type HumioVersion struct {
