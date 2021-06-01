@@ -379,6 +379,8 @@ func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster) {
 		{Name: "ELASTIC_PORT", Value: strconv.Itoa(elasticPort)},
 		{Name: "DIGEST_REPLICATION_FACTOR", Value: strconv.Itoa(hc.Spec.TargetReplicationFactor)},
 		{Name: "STORAGE_REPLICATION_FACTOR", Value: strconv.Itoa(hc.Spec.TargetReplicationFactor)},
+		{Name: "DEFAULT_PARTITION_COUNT", Value: strconv.Itoa(hc.Spec.StoragePartitionsCount)},
+		{Name: "INGEST_QUEUE_INITIAL_PARTITIONS", Value: strconv.Itoa(hc.Spec.DigestPartitionsCount)},
 		{Name: "KAFKA_MANAGED_BY_HUMIO", Value: "true"},
 		{Name: "AUTHENTICATION_METHOD", Value: "single-user"},
 		{
