@@ -23,11 +23,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	humio "github.com/humio/cli/api"
-	"github.com/savaki/jq"
 	"github.com/shurcooL/graphql"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -49,8 +47,6 @@ const (
 	apiTokenMethodAnnotationName = "humio.com/api-token-method"
 	// apiTokenMethodFromAPI is used to indicate that the API token was obtained using an API call
 	apiTokenMethodFromAPI = "api"
-	// apiTokenMethodFromFile is used to indicate that the API token was obtained using the global snapshot file
-	apiTokenMethodFromFile = "file"
 )
 
 // getFileContent returns the content of a file as a string
@@ -80,22 +76,6 @@ func getApiTokenForUserID(client *humio.Client, snapShotFile, userID string) (st
 		// If API works, return the token
 		fmt.Printf("Successfully rotated and extracted API token using the API.\n")
 		return token, apiTokenMethodFromAPI, nil
-	}
-
-	// If we had issues using the API for extracting the API token we can grab it from global snapshot file
-	// TODO: When we only support Humio 1.17+, we can clean up the use of global snapshot file.
-	//       When that happens we can also lower resource requests/limits for the auth sidecar container.
-	op, err := jq.Parse(fmt.Sprintf(".users.%s.entity.apiToken", userID))
-	if err != nil {
-		return "", "", err
-	}
-
-	snapShotFileContent := getFileContent(snapShotFile)
-	data, _ := op.Apply([]byte(snapShotFileContent))
-	apiToken := strings.ReplaceAll(string(data), "\"", "")
-	if string(data) != "" {
-		fmt.Printf("Successfully extracted API token using global snapshot file.\n")
-		return apiToken, apiTokenMethodFromFile, nil
 	}
 
 	return "", "", fmt.Errorf("could not find apiToken for userID: %s", userID)

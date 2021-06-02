@@ -124,38 +124,6 @@ var _ = Describe("HumioCluster Defaults", func() {
 	})
 
 	Context("Humio Cluster Log4j Environment Variable", func() {
-		It("Should contain legacy Log4J Environment Variable", func() {
-			toCreate := &humiov1alpha1.HumioCluster{
-				Spec: humiov1alpha1.HumioClusterSpec{
-					Image: "humio/humio-core:1.18.1",
-				},
-			}
-
-			setEnvironmentVariableDefaults(toCreate)
-			Expect(toCreate.Spec.EnvironmentVariables).Should(ContainElements([]corev1.EnvVar{
-				{
-					Name:  "LOG4J_CONFIGURATION",
-					Value: "log4j2-stdout-json.xml",
-				},
-			}))
-		})
-
-		It("Should contain supported Log4J Environment Variable", func() {
-			toCreate := &humiov1alpha1.HumioCluster{
-				Spec: humiov1alpha1.HumioClusterSpec{
-					Image: "humio/humio-core:1.19.0",
-				},
-			}
-
-			setEnvironmentVariableDefaults(toCreate)
-			Expect(toCreate.Spec.EnvironmentVariables).Should(ContainElements([]corev1.EnvVar{
-				{
-					Name:  "HUMIO_LOG4J_CONFIGURATION",
-					Value: "log4j2-stdout-json.xml",
-				},
-			}))
-		})
-
 		It("Should contain supported Log4J Environment Variable", func() {
 			versions := []string{"1.20.1", "master", "latest"}
 			for _, version := range versions {
