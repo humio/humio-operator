@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	image                        = "humio/humio-core:1.24.3"
+	image                        = "humio/humio-core:1.26.1"
 	helperImage                  = "humio/humio-operator-helper:0.2.0"
 	targetReplicationFactor      = 2
 	storagePartitionsCount       = 24
@@ -383,6 +383,7 @@ func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster) {
 		{Name: "INGEST_QUEUE_INITIAL_PARTITIONS", Value: strconv.Itoa(hc.Spec.DigestPartitionsCount)},
 		{Name: "KAFKA_MANAGED_BY_HUMIO", Value: "true"},
 		{Name: "AUTHENTICATION_METHOD", Value: "single-user"},
+		{Name: "HUMIO_LOG4J_CONFIGURATION", Value: "log4j2-json-stdout.xml"},
 		{
 			Name:  "EXTERNAL_URL", // URL used by other Humio hosts.
 			Value: fmt.Sprintf("%s://$(POD_NAME).%s.$(POD_NAMESPACE):$(HUMIO_PORT)", strings.ToLower(scheme), hc.Name),
@@ -393,24 +394,6 @@ func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster) {
 		envDefaults = append(envDefaults, corev1.EnvVar{
 			Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
 			Value: "$(ZOOKEEPER_URL)",
-		})
-	}
-
-	humioVersion, _ := HumioVersionFromCluster(hc)
-	if ok, _ := humioVersion.AtLeast(HumioVersionWhichContainsNewJSONLogging); ok {
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "HUMIO_LOG4J_CONFIGURATION",
-			Value: "log4j2-json-stdout.xml",
-		})
-	} else if ok, _ := humioVersion.AtLeast(HumioVersionWhichContainsHumioLog4JEnvVar); ok {
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "HUMIO_LOG4J_CONFIGURATION",
-			Value: "log4j2-stdout-json.xml",
-		})
-	} else {
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "LOG4J_CONFIGURATION",
-			Value: "log4j2-stdout-json.xml",
 		})
 	}
 
