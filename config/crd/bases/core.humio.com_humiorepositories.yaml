@@ -48,19 +48,30 @@ spec:
             description: HumioRepositorySpec defines the desired state of HumioRepository
             properties:
               allowDataDeletion:
+                description: AllowDataDeletion is used as a blocker in case an operation
+                  of the operator would delete data within the repository. This must
+                  be set to true before the operator will apply retention settings
+                  that will (or might) cause data to be deleted within the repository.
                 type: boolean
               description:
+                description: Description contains the description that will be set
+                  on the repository
                 type: string
               externalClusterName:
+                description: ExternalClusterName refers to an object of type HumioExternalCluster
+                  where the Humio resources should be created. This conflicts with
+                  ManagedClusterName.
                 type: string
               managedClusterName:
-                description: Which cluster
+                description: ManagedClusterName refers to an object of type HumioCluster
+                  that is managed by the operator where the Humio resources should
+                  be created. This conflicts with ExternalClusterName.
                 type: string
               name:
-                description: Input
+                description: Name is the name of the repository inside Humio
                 type: string
               retention:
-                description: HumioRetention defines the retention for the repository
+                description: Retention defines the retention settings for the repository
                 properties:
                   ingestSizeInGB:
                     description: 'perhaps we should migrate to resource.Quantity?
@@ -80,6 +91,7 @@ spec:
             description: HumioRepositoryStatus defines the observed state of HumioRepository
             properties:
               state:
+                description: State reflects the current state of the HumioRepository
                 type: string
             type: object
         type: object

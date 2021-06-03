@@ -45,12 +45,15 @@ type HumioQuery struct {
 
 // HumioAlertSpec defines the desired state of HumioAlert
 type HumioAlertSpec struct {
-	// ManagedClusterName is the reference to the cluster name that is managed by the operator where the Humio resources
-	// should be created
+	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+	// resources should be created.
+	// This conflicts with ExternalClusterName.
 	ManagedClusterName string `json:"managedClusterName,omitempty"`
-	// ExternalClusterName is the reference to the external cluster where the Humio resources should be created
+	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
-	Name                string `json:"name"`
+	// Name is the name of the alert inside Humio
+	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the Alert will be managed. This can also be a Repository
 	ViewName string `json:"viewName"`
 	// Query defines the desired state of the Humio query
@@ -69,6 +72,7 @@ type HumioAlertSpec struct {
 
 // HumioAlertStatus defines the observed state of HumioAlert
 type HumioAlertStatus struct {
+	// State reflects the current state of the HumioAlert
 	State string `json:"state,omitempty"`
 }
 

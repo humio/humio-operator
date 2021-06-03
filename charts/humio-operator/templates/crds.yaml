@@ -53,8 +53,9 @@ spec:
                 description: Description is the description of the Alert
                 type: string
               externalClusterName:
-                description: ExternalClusterName is the reference to the external
-                  cluster where the Humio resources should be created
+                description: ExternalClusterName refers to an object of type HumioExternalCluster
+                  where the Humio resources should be created. This conflicts with
+                  ManagedClusterName.
                 type: string
               labels:
                 description: Labels are a set of labels on the Alert
@@ -62,11 +63,12 @@ spec:
                   type: string
                 type: array
               managedClusterName:
-                description: ManagedClusterName is the reference to the cluster name
+                description: ManagedClusterName refers to an object of type HumioCluster
                   that is managed by the operator where the Humio resources should
-                  be created
+                  be created. This conflicts with ExternalClusterName.
                 type: string
               name:
+                description: Name is the name of the alert inside Humio
                 type: string
               query:
                 description: Query defines the desired state of the Humio query
@@ -110,6 +112,7 @@ spec:
             description: HumioAlertStatus defines the observed state of HumioAlert
             properties:
               state:
+                description: State reflects the current state of the HumioAlert
                 type: string
             type: object
         type: object
@@ -199,8 +202,10 @@ spec:
               HumioExternalCluster
             properties:
               state:
+                description: State reflects the current state of the HumioExternalCluster
                 type: string
               version:
+                description: Version shows the Humio cluster version of the HumioExternalCluster
                 type: string
             type: object
         type: object
@@ -5990,19 +5995,30 @@ spec:
             description: HumioRepositorySpec defines the desired state of HumioRepository
             properties:
               allowDataDeletion:
+                description: AllowDataDeletion is used as a blocker in case an operation
+                  of the operator would delete data within the repository. This must
+                  be set to true before the operator will apply retention settings
+                  that will (or might) cause data to be deleted within the repository.
                 type: boolean
               description:
+                description: Description contains the description that will be set
+                  on the repository
                 type: string
               externalClusterName:
+                description: ExternalClusterName refers to an object of type HumioExternalCluster
+                  where the Humio resources should be created. This conflicts with
+                  ManagedClusterName.
                 type: string
               managedClusterName:
-                description: Which cluster
+                description: ManagedClusterName refers to an object of type HumioCluster
+                  that is managed by the operator where the Humio resources should
+                  be created. This conflicts with ExternalClusterName.
                 type: string
               name:
-                description: Input
+                description: Name is the name of the repository inside Humio
                 type: string
               retention:
-                description: HumioRetention defines the retention for the repository
+                description: Retention defines the retention settings for the repository
                 properties:
                   ingestSizeInGB:
                     description: 'perhaps we should migrate to resource.Quantity?
@@ -6022,6 +6038,7 @@ spec:
             description: HumioRepositoryStatus defines the observed state of HumioRepository
             properties:
               state:
+                description: State reflects the current state of the HumioRepository
                 type: string
             type: object
         type: object
@@ -6085,29 +6102,47 @@ spec:
             description: HumioIngestTokenSpec defines the desired state of HumioIngestToken
             properties:
               externalClusterName:
+                description: ExternalClusterName refers to an object of type HumioExternalCluster
+                  where the Humio resources should be created. This conflicts with
+                  ManagedClusterName.
                 type: string
               managedClusterName:
-                description: Which cluster
+                description: ManagedClusterName refers to an object of type HumioCluster
+                  that is managed by the operator where the Humio resources should
+                  be created. This conflicts with ExternalClusterName.
                 type: string
               name:
-                description: Input
+                description: Name is the name of the ingest token inside Humio
                 type: string
               parserName:
+                description: ParserName is the name of the parser which will be assigned
+                  to the ingest token.
                 type: string
               repositoryName:
+                description: RepositoryName is the name of the Humio repository under
+                  which the ingest token will be created
                 type: string
               tokenSecretLabels:
                 additionalProperties:
                   type: string
+                description: TokenSecretLabels specifies additional key,value pairs
+                  to add as labels on the Kubernetes Secret containing the ingest
+                  token. This field is optional.
                 type: object
               tokenSecretName:
-                description: Output
+                description: TokenSecretName specifies the name of the Kubernetes
+                  secret that will be created and contain the ingest token. The key
+                  in the secret storing the ingest token is "token". This field is
+                  optional.
                 type: string
+            required:
+            - name
             type: object
           status:
             description: HumioIngestTokenStatus defines the observed state of HumioIngestToken
             properties:
               state:
+                description: State reflects the current state of the HumioIngestToken
                 type: string
             type: object
         type: object
@@ -6179,8 +6214,9 @@ spec:
                     type: string
                 type: object
               externalClusterName:
-                description: ExternalClusterName is the reference to the external
-                  cluster where the Humio resources should be created
+                description: ExternalClusterName refers to an object of type HumioExternalCluster
+                  where the Humio resources should be created. This conflicts with
+                  ManagedClusterName.
                 type: string
               humioRepositoryProperties:
                 description: HumioRepositoryProperties indicates this is a Humio Repository
@@ -6190,9 +6226,9 @@ spec:
                     type: string
                 type: object
               managedClusterName:
-                description: ManagedClusterName is the reference to the cluster name
+                description: ManagedClusterName refers to an object of type HumioCluster
                   that is managed by the operator where the Humio resources should
-                  be created
+                  be created. This conflicts with ExternalClusterName.
                 type: string
               name:
                 description: Name is the name of the Action
@@ -6281,6 +6317,7 @@ spec:
             description: HumioActionStatus defines the observed state of HumioAction
             properties:
               state:
+                description: State reflects the current state of the HumioAction
                 type: string
             type: object
         type: object
@@ -6344,22 +6381,34 @@ spec:
             description: HumioParserSpec defines the desired state of HumioParser
             properties:
               externalClusterName:
+                description: ExternalClusterName refers to an object of type HumioExternalCluster
+                  where the Humio resources should be created. This conflicts with
+                  ManagedClusterName.
                 type: string
               managedClusterName:
-                description: Which cluster
+                description: ManagedClusterName refers to an object of type HumioCluster
+                  that is managed by the operator where the Humio resources should
+                  be created. This conflicts with ExternalClusterName.
                 type: string
               name:
-                description: Input
+                description: Name is the name of the parser inside Humio
                 type: string
               parserScript:
+                description: ParserScript contains the code for the Humio parser
                 type: string
               repositoryName:
+                description: RepositoryName defines what repository this parser should
+                  be managed in
                 type: string
               tagFields:
+                description: TagFields is used to define what fields will be used
+                  to define how data will be tagged when being parsed by this parser
                 items:
                   type: string
                 type: array
               testData:
+                description: TestData contains example test data to verify the parser
+                  behavior
                 items:
                   type: string
                 type: array
@@ -6368,6 +6417,7 @@ spec:
             description: HumioParserStatus defines the observed state of HumioParser
             properties:
               state:
+                description: State reflects the current state of the HumioParser
                 type: string
             type: object
         type: object
@@ -6431,29 +6481,41 @@ spec:
             description: HumioViewSpec defines the desired state of HumioView
             properties:
               connections:
+                description: Connections contains the connections to the Humio repositories
+                  which is accessible in this view
                 items:
                   properties:
                     filter:
+                      description: Filter contains the prefix filter that will be
+                        applied for the given RepositoryName
                       type: string
                     repositoryName:
+                      description: RepositoryName contains the name of the target
+                        repository
                       type: string
                   required:
                   - filter
                   type: object
                 type: array
               externalClusterName:
+                description: ExternalClusterName refers to an object of type HumioExternalCluster
+                  where the Humio resources should be created. This conflicts with
+                  ManagedClusterName.
                 type: string
               managedClusterName:
-                description: Which cluster
+                description: ManagedClusterName refers to an object of type HumioCluster
+                  that is managed by the operator where the Humio resources should
+                  be created. This conflicts with ExternalClusterName.
                 type: string
               name:
-                description: Input
+                description: Name is the name of the view inside Humio
                 type: string
             type: object
           status:
             description: HumioViewStatus defines the observed state of HumioView
             properties:
               state:
+                description: State reflects the current state of the HumioView
                 type: string
             type: object
         type: object
