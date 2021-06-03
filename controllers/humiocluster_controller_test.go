@@ -2919,23 +2919,46 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 		By("Validating cluster nodes have ZONE configured correctly")
-		Eventually(func() []string {
-			cluster, err := humioClient.GetClusters()
-			if err != nil || len(cluster.Nodes) < 1 {
-				return []string{}
-			}
-			keys := make(map[string]bool)
-			var zoneList []string
-			for _, node := range cluster.Nodes {
-				if _, value := keys[node.Zone]; !value {
-					if node.Zone != "" {
-						keys[node.Zone] = true
-						zoneList = append(zoneList, node.Zone)
+		if updatedHumioCluster.Spec.DisableInitContainer == true {
+			Eventually(func() []string {
+				cluster, err := humioClient.GetClusters()
+				if err != nil {
+					return []string{"got err"}
+				}
+				if len(cluster.Nodes) < 1 {
+					return []string{}
+				}
+				keys := make(map[string]bool)
+				var zoneList []string
+				for _, node := range cluster.Nodes {
+					if _, value := keys[node.Zone]; !value {
+						if node.Zone != "" {
+							keys[node.Zone] = true
+							zoneList = append(zoneList, node.Zone)
+						}
 					}
 				}
-			}
-			return zoneList
-		}, testTimeout, testInterval).ShouldNot(BeEmpty())
+				return zoneList
+			}, testTimeout, testInterval).Should(BeEmpty())
+		} else {
+			Eventually(func() []string {
+				cluster, err := humioClient.GetClusters()
+				if err != nil || len(cluster.Nodes) < 1 {
+					return []string{}
+				}
+				keys := make(map[string]bool)
+				var zoneList []string
+				for _, node := range cluster.Nodes {
+					if _, value := keys[node.Zone]; !value {
+						if node.Zone != "" {
+							keys[node.Zone] = true
+							zoneList = append(zoneList, node.Zone)
+						}
+					}
+				}
+				return zoneList
+			}, testTimeout, testInterval).ShouldNot(BeEmpty())
+		}
 	}
 
 	By("Confirming replication factor environment variables are set correctly")

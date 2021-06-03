@@ -1508,6 +1508,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	if existingLicense.LicenseType() != desiredLicense.LicenseType() ||
 		existingLicense.IssuedAt() != desiredLicense.IssuedAt() ||
 		existingLicense.ExpiresAt() != desiredLicense.ExpiresAt() {
+		r.Log.Info(fmt.Sprintf("updating license because of: existingLicense.LicenseType(%s) != desiredLicense.LicenseType(%s) || existingLicense.IssuedAt(%s) != desiredLicense.IssuedAt(%s) || existingLicense.ExpiresAt(%s) != desiredLicense.ExpiresAt(%s)", existingLicense.LicenseType(), desiredLicense.LicenseType(), existingLicense.IssuedAt(), desiredLicense.IssuedAt(), existingLicense.ExpiresAt(), desiredLicense.ExpiresAt()))
 		if err := r.HumioClient.InstallLicense(licenseStr); err != nil {
 			r.Log.Error(err, "could not install license")
 			return r.ensureInitialLicense(ctx, hc, r.HumioClient.GetBaseURL(hc))
