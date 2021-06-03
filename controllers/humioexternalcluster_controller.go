@@ -108,6 +108,7 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 	}
 
+	r.Log.Info("done reconciling, will requeue after 15 seconds")
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
 }
 
