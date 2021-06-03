@@ -33,23 +33,30 @@ const (
 )
 
 type HumioViewConnection struct {
+	// RepositoryName contains the name of the target repository
 	RepositoryName string `json:"repositoryName,omitempty"`
-	Filter         string `json:"filter,omitEmpty"`
+	// Filter contains the prefix filter that will be applied for the given RepositoryName
+	Filter string `json:"filter,omitEmpty"`
 }
 
 // HumioViewSpec defines the desired state of HumioView
 type HumioViewSpec struct {
-	// Which cluster
-	ManagedClusterName  string `json:"managedClusterName,omitempty"`
+	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+	// resources should be created.
+	// This conflicts with ExternalClusterName.
+	ManagedClusterName string `json:"managedClusterName,omitempty"`
+	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
-
-	// Input
-	Name        string                `json:"name,omitempty"`
+	// Name is the name of the view inside Humio
+	Name string `json:"name,omitempty"`
+	// Connections contains the connections to the Humio repositories which is accessible in this view
 	Connections []HumioViewConnection `json:"connections,omitempty"`
 }
 
 // HumioViewStatus defines the observed state of HumioView
 type HumioViewStatus struct {
+	// State reflects the current state of the HumioView
 	State string `json:"state,omitempty"`
 }
 

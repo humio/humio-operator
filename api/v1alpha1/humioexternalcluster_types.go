@@ -43,7 +43,9 @@ type HumioExternalClusterSpec struct {
 
 // HumioExternalClusterStatus defines the observed state of HumioExternalCluster
 type HumioExternalClusterStatus struct {
-	State   string `json:"state,omitempty"`
+	// State reflects the current state of the HumioExternalCluster
+	State string `json:"state,omitempty"`
+	// Version shows the Humio cluster version of the HumioExternalCluster
 	Version string `json:"version,omitempty"`
 }
 
