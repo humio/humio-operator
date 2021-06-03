@@ -193,6 +193,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, curAlert
 		}
 	}
 
+	r.Log.Info("done reconciling, will requeue after 15 seconds")
 	return reconcile.Result{}, nil
 }
 
