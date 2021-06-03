@@ -194,6 +194,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, curNot
 		}
 	}
 
+	r.Log.Info("done reconciling, will requeue after 15 seconds")
 	return reconcile.Result{}, nil
 }
 
