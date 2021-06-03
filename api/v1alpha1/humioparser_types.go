@@ -33,20 +33,29 @@ const (
 
 // HumioParserSpec defines the desired state of HumioParser
 type HumioParserSpec struct {
-	// Which cluster
-	ManagedClusterName  string `json:"managedClusterName,omitempty"`
+	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+	// resources should be created.
+	// This conflicts with ExternalClusterName.
+	ManagedClusterName string `json:"managedClusterName,omitempty"`
+	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
-
-	// Input
-	Name           string   `json:"name,omitempty"`
-	ParserScript   string   `json:"parserScript,omitempty"`
-	RepositoryName string   `json:"repositoryName,omitempty"`
-	TagFields      []string `json:"tagFields,omitempty"`
-	TestData       []string `json:"testData,omitempty"`
+	// Name is the name of the parser inside Humio
+	Name string `json:"name,omitempty"`
+	// ParserScript contains the code for the Humio parser
+	ParserScript string `json:"parserScript,omitempty"`
+	// RepositoryName defines what repository this parser should be managed in
+	RepositoryName string `json:"repositoryName,omitempty"`
+	// TagFields is used to define what fields will be used to define how data will be tagged when being parsed by
+	// this parser
+	TagFields []string `json:"tagFields,omitempty"`
+	// TestData contains example test data to verify the parser behavior
+	TestData []string `json:"testData,omitempty"`
 }
 
 // HumioParserStatus defines the observed state of HumioParser
 type HumioParserStatus struct {
+	// State reflects the current state of the HumioParser
 	State string `json:"state,omitempty"`
 }
 
