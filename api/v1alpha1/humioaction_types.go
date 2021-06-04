@@ -86,10 +86,12 @@ type HumioActionVictorOpsProperties struct {
 
 // HumioActionSpec defines the desired state of HumioAction
 type HumioActionSpec struct {
-	// ManagedClusterName is the reference to the cluster name that is managed by the operator where the Humio resources
-	// should be created
+	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+	// resources should be created.
+	// This conflicts with ExternalClusterName.
 	ManagedClusterName string `json:"managedClusterName,omitempty"`
-	// ExternalClusterName is the reference to the external cluster where the Humio resources should be created
+	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the Action
 	Name string `json:"name"`
@@ -115,6 +117,7 @@ type HumioActionSpec struct {
 
 // HumioActionStatus defines the observed state of HumioAction
 type HumioActionStatus struct {
+	// State reflects the current state of the HumioAction
 	State string `json:"state,omitempty"`
 }
 

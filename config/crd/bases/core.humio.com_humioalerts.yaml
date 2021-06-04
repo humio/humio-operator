@@ -52,8 +52,9 @@ spec:
                 description: Description is the description of the Alert
                 type: string
               externalClusterName:
-                description: ExternalClusterName is the reference to the external
-                  cluster where the Humio resources should be created
+                description: ExternalClusterName refers to an object of type HumioExternalCluster
+                  where the Humio resources should be created. This conflicts with
+                  ManagedClusterName.
                 type: string
               labels:
                 description: Labels are a set of labels on the Alert
@@ -61,11 +62,12 @@ spec:
                   type: string
                 type: array
               managedClusterName:
-                description: ManagedClusterName is the reference to the cluster name
+                description: ManagedClusterName refers to an object of type HumioCluster
                   that is managed by the operator where the Humio resources should
-                  be created
+                  be created. This conflicts with ExternalClusterName.
                 type: string
               name:
+                description: Name is the name of the alert inside Humio
                 type: string
               query:
                 description: Query defines the desired state of the Humio query
@@ -109,6 +111,7 @@ spec:
             description: HumioAlertStatus defines the observed state of HumioAlert
             properties:
               state:
+                description: State reflects the current state of the HumioAlert
                 type: string
             type: object
         type: object

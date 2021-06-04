@@ -33,22 +33,32 @@ const (
 
 // HumioIngestTokenSpec defines the desired state of HumioIngestToken
 type HumioIngestTokenSpec struct {
-	// Which cluster
-	ManagedClusterName  string `json:"managedClusterName,omitempty"`
+	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+	// resources should be created.
+	// This conflicts with ExternalClusterName.
+	ManagedClusterName string `json:"managedClusterName,omitempty"`
+	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
-
-	// Input
-	Name           string `json:"name,omitempty"`
-	ParserName     string `json:"parserName,omitempty"`
+	// Name is the name of the ingest token inside Humio
+	Name string `json:"name"`
+	// ParserName is the name of the parser which will be assigned to the ingest token.
+	ParserName string `json:"parserName,omitempty"`
+	// RepositoryName is the name of the Humio repository under which the ingest token will be created
 	RepositoryName string `json:"repositoryName,omitempty"`
-
-	// Output
-	TokenSecretName   string            `json:"tokenSecretName,omitempty"`
+	// TokenSecretName specifies the name of the Kubernetes secret that will be created
+	// and contain the ingest token. The key in the secret storing the ingest token is "token".
+	// This field is optional.
+	TokenSecretName string `json:"tokenSecretName,omitempty"`
+	// TokenSecretLabels specifies additional key,value pairs to add as labels on the Kubernetes Secret containing
+	// the ingest token.
+	// This field is optional.
 	TokenSecretLabels map[string]string `json:"tokenSecretLabels,omitempty"`
 }
 
 // HumioIngestTokenStatus defines the observed state of HumioIngestToken
 type HumioIngestTokenStatus struct {
+	// State reflects the current state of the HumioIngestToken
 	State string `json:"state,omitempty"`
 }
 
