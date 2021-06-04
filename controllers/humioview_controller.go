@@ -30,6 +30,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
@@ -99,12 +100,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return reconcile.Result{}, fmt.Errorf("could not check if view exists: %s", err)
 	}
 
-	reconcileHumioViewResult, err := r.reconcileHumioView(ctx, curView, hv)
-	if err != nil {
-		return reconcileHumioViewResult, err
-	}
-
-	return reconcileHumioViewResult, nil
+	return r.reconcileHumioView(ctx, curView, hv)
 }
 
 func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, curView *humioapi.View, hv *humiov1alpha1.HumioView) (reconcile.Result, error) {
@@ -172,7 +168,8 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, curView *h
 		}
 	}
 
-	return reconcile.Result{}, nil
+	r.Log.Info("done reconciling, will requeue after 15 seconds")
+	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

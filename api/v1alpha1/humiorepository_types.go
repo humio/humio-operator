@@ -42,19 +42,28 @@ type HumioRetention struct {
 
 // HumioRepositorySpec defines the desired state of HumioRepository
 type HumioRepositorySpec struct {
-	// Which cluster
-	ManagedClusterName  string `json:"managedClusterName,omitempty"`
+	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+	// resources should be created.
+	// This conflicts with ExternalClusterName.
+	ManagedClusterName string `json:"managedClusterName,omitempty"`
+	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
-
-	// Input
-	Name              string         `json:"name,omitempty"`
-	Description       string         `json:"description,omitempty"`
-	Retention         HumioRetention `json:"retention,omitempty"`
-	AllowDataDeletion bool           `json:"allowDataDeletion,omitempty"`
+	// Name is the name of the repository inside Humio
+	Name string `json:"name,omitempty"`
+	// Description contains the description that will be set on the repository
+	Description string `json:"description,omitempty"`
+	// Retention defines the retention settings for the repository
+	Retention HumioRetention `json:"retention,omitempty"`
+	// AllowDataDeletion is used as a blocker in case an operation of the operator would delete data within the
+	// repository. This must be set to true before the operator will apply retention settings that will (or might)
+	// cause data to be deleted within the repository.
+	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
 }
 
 // HumioRepositoryStatus defines the observed state of HumioRepository
 type HumioRepositoryStatus struct {
+	// State reflects the current state of the HumioRepository
 	State string `json:"state,omitempty"`
 }
 

@@ -74,8 +74,10 @@ spec:
               HumioExternalCluster
             properties:
               state:
+                description: State reflects the current state of the HumioExternalCluster
                 type: string
               version:
+                description: Version shows the Humio cluster version of the HumioExternalCluster
                 type: string
             type: object
         type: object
