@@ -177,7 +177,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	// A solution could be to add an annotation that includes the "old name" so we can see if it was changed.
 	// A workaround for now is to delete the repository CR and create it again.
 
-	// All done, requeue every 15 seconds even if no changes were made
+	r.Log.Info("done reconciling, will requeue after 15 seconds")
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
 }
 

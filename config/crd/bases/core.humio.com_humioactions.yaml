@@ -56,8 +56,9 @@ spec:
                     type: string
                 type: object
               externalClusterName:
-                description: ExternalClusterName is the reference to the external
-                  cluster where the Humio resources should be created
+                description: ExternalClusterName refers to an object of type HumioExternalCluster
+                  where the Humio resources should be created. This conflicts with
+                  ManagedClusterName.
                 type: string
               humioRepositoryProperties:
                 description: HumioRepositoryProperties indicates this is a Humio Repository
@@ -67,9 +68,9 @@ spec:
                     type: string
                 type: object
               managedClusterName:
-                description: ManagedClusterName is the reference to the cluster name
+                description: ManagedClusterName refers to an object of type HumioCluster
                   that is managed by the operator where the Humio resources should
-                  be created
+                  be created. This conflicts with ExternalClusterName.
                 type: string
               name:
                 description: Name is the name of the Action
@@ -158,6 +159,7 @@ spec:
             description: HumioActionStatus defines the observed state of HumioAction
             properties:
               state:
+                description: State reflects the current state of the HumioAction
                 type: string
             type: object
         type: object

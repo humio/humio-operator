@@ -82,6 +82,7 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 
 	err = r.HumioClient.TestAPIToken()
 	if err != nil {
+		r.Log.Error(err, "unable to test if the API token is works")
 		err = r.Client.Get(ctx, req.NamespacedName, hec)
 		if err != nil {
 			r.Log.Error(err, "unable to get cluster state")
@@ -108,6 +109,7 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 	}
 
+	r.Log.Info("done reconciling, will requeue after 15 seconds")
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
 }
 
