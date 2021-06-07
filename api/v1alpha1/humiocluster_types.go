@@ -84,9 +84,15 @@ type HumioClusterSpec struct {
 	ViewGroupPermissions string `json:"viewGroupPermissions,omitempty"`
 	// ContainerSecurityContext is the security context applied to the Humio container
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
-	// ContainerReadinessProbe is the readiness probe applied to the Humio container
+	// ContainerReadinessProbe is the readiness probe applied to the Humio container.
+	// If specified and non-empty, the user-specified readiness probe will be used.
+	// If specified and empty, the pod will be created without a readiness probe set.
+	// Otherwise, use the built in default readiness probe configuration.
 	ContainerReadinessProbe *corev1.Probe `json:"containerReadinessProbe,omitempty"`
 	// ContainerLivenessProbe is the liveness probe applied to the Humio container
+	// If specified and non-empty, the user-specified liveness probe will be used.
+	// If specified and empty, the pod will be created without a liveness probe set.
+	// Otherwise, use the built in default liveness probe configuration.
 	ContainerLivenessProbe *corev1.Probe `json:"containerLivenessProbe,omitempty"`
 	// PodSecurityContext is the security context applied to the Humio pod
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
