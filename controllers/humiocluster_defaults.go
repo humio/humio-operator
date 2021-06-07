@@ -244,7 +244,7 @@ func authRoleBindingName(hc *humiov1alpha1.HumioCluster) string {
 }
 
 func containerReadinessProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Probe {
-	emptyProbe := corev1.Probe{}
+	emptyProbe := &corev1.Probe{}
 	if reflect.DeepEqual(hc.Spec.ContainerReadinessProbe, emptyProbe) {
 		return nil
 	}
@@ -269,7 +269,7 @@ func containerReadinessProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Pr
 }
 
 func containerLivenessProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Probe {
-	emptyProbe := corev1.Probe{}
+	emptyProbe := &corev1.Probe{}
 	if reflect.DeepEqual(hc.Spec.ContainerLivenessProbe, emptyProbe) {
 		return nil
 	}
