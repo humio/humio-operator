@@ -788,8 +788,16 @@ var _ = Describe("HumioCluster Controller", func() {
 				updatedHumioCluster.Spec.HumioServiceType = corev1.ServiceTypeLoadBalancer
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
+
 			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
+
+			By("Confirming service gets recreated with correct type")
+			Eventually(func() metav1.Time {
+				newSvc, _ := kubernetes.GetService(ctx, k8sClient, key.Name, key.Namespace)
+				return newSvc.CreationTimestamp
+			}, testTimeout, testInterval).ShouldNot(BeEquivalentTo(svc.CreationTimestamp))
+
 			Eventually(func() corev1.ServiceType {
 				svc, _ = kubernetes.GetService(ctx, k8sClient, key.Name, key.Namespace)
 				return svc.Spec.Type
@@ -804,6 +812,13 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
+
+			By("Confirming service gets recreated with correct Humio port")
+			Eventually(func() metav1.Time {
+				newSvc, _ := kubernetes.GetService(ctx, k8sClient, key.Name, key.Namespace)
+				return newSvc.CreationTimestamp
+			}, testTimeout, testInterval).ShouldNot(BeEquivalentTo(svc.CreationTimestamp))
+
 			Eventually(func() int32 {
 				svc, _ = kubernetes.GetService(ctx, k8sClient, key.Name, key.Namespace)
 				for _, port := range svc.Spec.Ports {
@@ -823,6 +838,13 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
+
+			By("Confirming service gets recreated with correct ES port")
+			Eventually(func() metav1.Time {
+				newSvc, _ := kubernetes.GetService(ctx, k8sClient, key.Name, key.Namespace)
+				return newSvc.CreationTimestamp
+			}, testTimeout, testInterval).ShouldNot(BeEquivalentTo(svc.CreationTimestamp))
+
 			Eventually(func() int32 {
 				svc, _ = kubernetes.GetService(ctx, k8sClient, key.Name, key.Namespace)
 				for _, port := range svc.Spec.Ports {
