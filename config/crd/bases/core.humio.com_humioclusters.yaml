@@ -661,7 +661,10 @@ spec:
                 type: boolean
               containerLivenessProbe:
                 description: ContainerLivenessProbe is the liveness probe applied
-                  to the Humio container
+                  to the Humio container If specified and non-empty, the user-specified
+                  liveness probe will be used. If specified and empty, the pod will
+                  be created without a liveness probe set. Otherwise, use the built
+                  in default liveness probe configuration.
                 properties:
                   exec:
                     description: One and only one of the following should be specified.
@@ -772,7 +775,10 @@ spec:
                 type: object
               containerReadinessProbe:
                 description: ContainerReadinessProbe is the readiness probe applied
-                  to the Humio container
+                  to the Humio container. If specified and non-empty, the user-specified
+                  readiness probe will be used. If specified and empty, the pod will
+                  be created without a readiness probe set. Otherwise, use the built
+                  in default readiness probe configuration.
                 properties:
                   exec:
                     description: One and only one of the following should be specified.
