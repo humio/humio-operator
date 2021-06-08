@@ -1147,26 +1147,37 @@ var _ = Describe("HumioCluster Controller", func() {
 				updatedHumioCluster.Spec.ContainerLivenessProbe = &corev1.Probe{}
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
-			Eventually(func() bool {
+
+			By("Confirming pods have the updated revision")
+			ensurePodsRollingRestart(ctx, &updatedHumioCluster, key, 2)
+
+			By("Confirming pods do not have a readiness probe set")
+			Eventually(func() *corev1.Probe {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
-					if !reflect.DeepEqual(pod.Spec.Containers[humioIdx].ReadinessProbe, &corev1.Probe{}) {
-						return false
-					}
-					if !reflect.DeepEqual(pod.Spec.Containers[humioIdx].LivenessProbe, &corev1.Probe{}) {
-						return false
-					}
+					return pod.Spec.Containers[humioIdx].ReadinessProbe
 				}
-				return true
-			}, testTimeout, testInterval).Should(BeTrue())
+				return &corev1.Probe{
+					Handler: corev1.Handler{
+						Exec: &corev1.ExecAction{Command: []string{"no-pods-found"}},
+					},
+				}
+			}, testTimeout, testInterval).Should(BeNil())
 
-			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
-				Expect(pod.Spec.Containers[humioIdx].ReadinessProbe).To(Equal(&corev1.Probe{}))
-				Expect(pod.Spec.Containers[humioIdx].LivenessProbe).To(Equal(&corev1.Probe{}))
-			}
+			By("Confirming pods do not have a liveness probe set")
+			Eventually(func() *corev1.Probe {
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				for _, pod := range clusterPods {
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+					return pod.Spec.Containers[humioIdx].LivenessProbe
+				}
+				return &corev1.Probe{
+					Handler: corev1.Handler{
+						Exec: &corev1.ExecAction{Command: []string{"no-pods-found"}},
+					},
+				}
+			}, testTimeout, testInterval).Should(BeNil())
 
 			By("Updating Container probes to be non-empty")
 			Eventually(func() error {
@@ -1205,15 +1216,15 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Restarting the cluster in a rolling fashion")
 			ensurePodsRollingRestart(ctx, &updatedHumioCluster, key, 2)
 
-			Eventually(func() corev1.Probe {
+			Eventually(func() *corev1.Probe {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
-					return *pod.Spec.Containers[humioIdx].ReadinessProbe
+					return pod.Spec.Containers[humioIdx].ReadinessProbe
 				}
-				return corev1.Probe{}
-			}, testTimeout, testInterval).Should(Equal(corev1.Probe{
+				return &corev1.Probe{}
+			}, testTimeout, testInterval).Should(Equal(&corev1.Probe{
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path:   "/api/v1/config",
@@ -1228,15 +1239,15 @@ var _ = Describe("HumioCluster Controller", func() {
 				FailureThreshold:    20,
 			}))
 
-			Eventually(func() corev1.Probe {
+			Eventually(func() *corev1.Probe {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
-					return *pod.Spec.Containers[humioIdx].LivenessProbe
+					return pod.Spec.Containers[humioIdx].LivenessProbe
 				}
-				return corev1.Probe{}
-			}, testTimeout, testInterval).Should(Equal(corev1.Probe{
+				return &corev1.Probe{}
+			}, testTimeout, testInterval).Should(Equal(&corev1.Probe{
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path:   "/api/v1/config",
