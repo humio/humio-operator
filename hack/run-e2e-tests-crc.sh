@@ -14,6 +14,12 @@ fi
 
 export PATH=$BIN_DIR:$PATH
 
+trap cleanup exit
+
+cleanup() {
+  telepresence uninstall --everything
+}
+
 eval $(crc oc-env)
 eval $(crc console --credentials | grep "To login as an admin, run" | cut -f2 -d"'")
 
@@ -29,4 +35,3 @@ oc adm policy add-scc-to-user anyuid -z default
 echo "NOTE: Running 'telepresence connect' needs root access so it will prompt for the password of the user account to set up rules with iptables (or similar)"
 telepresence connect
 OPENSHIFT_SCC_NAME=default-humio-operator USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo -timeout 60m -skipPackage helpers -v ./... -covermode=count -coverprofile cover.out -progress
-telepresence uninstall --everything
