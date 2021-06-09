@@ -24,7 +24,6 @@ import (
 	humioapi "github.com/humio/cli/api"
 
 	"github.com/humio/humio-operator/pkg/helpers"
-	uberzap "go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
@@ -50,7 +49,7 @@ type HumioAlertReconciler struct {
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioalerts/finalizers,verbs=update
 
 func (r *HumioAlertReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+	zapLog, _ := helpers.NewLogger()
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
 	r.Log.Info("Reconciling HumioAlert")
