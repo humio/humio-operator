@@ -14,6 +14,12 @@ fi
 
 export PATH=$BIN_DIR:$PATH
 
+trap cleanup exit
+
+cleanup() {
+  telepresence uninstall --everything
+}
+
 # Extract humio images and tags from go source
 DEFAULT_IMAGE=$(grep '^\s*image' controllers/humiocluster_defaults.go | cut -d '"' -f 2)
 PRE_UPDATE_IMAGE=$(grep '^\s*toCreate\.Spec\.Image' controllers/humiocluster_controller_test.go | cut -d '"' -f 2)
@@ -35,4 +41,3 @@ $kubectl label node --overwrite --all topology.kubernetes.io/zone=az1
 echo "NOTE: Running 'telepresence connect' needs root access so it will prompt for the password of the user account to set up rules with iptables (or similar)"
 telepresence connect
 USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo -timeout 60m -skipPackage helpers -v ./... -covermode=count -coverprofile cover.out -progress
-telepresence uninstall --everything
