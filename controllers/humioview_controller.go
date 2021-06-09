@@ -24,7 +24,6 @@ import (
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
-	uberzap "go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,7 +46,7 @@ type HumioViewReconciler struct {
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioviews/finalizers,verbs=update
 
 func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+	zapLog, _ := helpers.NewLogger()
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
 	r.Log.Info("Reconciling HumioView")

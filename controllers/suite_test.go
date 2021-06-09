@@ -32,7 +32,6 @@ import (
 	humioapi "github.com/humio/cli/api"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
-	uberzap "go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,7 +78,7 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	var log logr.Logger
-	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+	zapLog, _ := helpers.NewLogger()
 	defer zapLog.Sync()
 	log = zapr.NewLogger(zapLog)
 	logf.SetLogger(log)

@@ -31,7 +31,6 @@ import (
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	"github.com/humio/humio-operator/pkg/openshift"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
-	uberzap "go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -69,7 +68,7 @@ type HumioClusterReconciler struct {
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingress,verbs=create;delete;get;list;patch;update;watch
 
 func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+	zapLog, _ := helpers.NewLogger()
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
 	r.Log.Info("Reconciling HumioCluster")
