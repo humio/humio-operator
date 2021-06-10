@@ -27,8 +27,6 @@ import (
 	humioapi "github.com/humio/cli/api"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
-	uberzap "go.uber.org/zap"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -71,7 +69,7 @@ func main() {
 	flag.Parse()
 
 	var log logr.Logger
-	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+	zapLog, _ := helpers.NewLogger()
 	defer zapLog.Sync()
 	log = zapr.NewLogger(zapLog)
 	ctrl.SetLogger(log)

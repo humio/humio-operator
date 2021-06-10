@@ -20,7 +20,6 @@ import (
 	"context"
 	"github.com/go-logr/zapr"
 	"github.com/humio/humio-operator/pkg/helpers"
-	uberzap "go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
@@ -45,7 +44,7 @@ type HumioExternalClusterReconciler struct {
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioexternalclusters/finalizers,verbs=update
 
 func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	zapLog, _ := uberzap.NewProduction(uberzap.AddCaller(), uberzap.AddCallerSkip(1))
+	zapLog, _ := helpers.NewLogger()
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
 	r.Log.Info("Reconciling HumioExternalCluster")
