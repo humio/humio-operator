@@ -20,6 +20,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"github.com/shurcooL/graphql"
+	uberzap "go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"os"
 	"reflect"
 	"strings"
@@ -174,4 +176,12 @@ func MapToString(m map[string]string) string {
 		a = append(a, fmt.Sprintf("%s=%s", k, v))
 	}
 	return strings.Join(a, ",")
+}
+
+// NewLogger returns a JSON logger with references to the origin of the log entry.
+// All log entries also includes a field "ts" containing the timestamp in RFC3339 format.
+func NewLogger() (*uberzap.Logger, error) {
+	loggerCfg := uberzap.NewProductionConfig()
+	loggerCfg.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
+	return loggerCfg.Build(uberzap.AddCaller())
 }
