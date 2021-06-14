@@ -1343,7 +1343,7 @@ func (r *HumioClusterReconciler) ensureInitialLicense(ctx context.Context, hc *h
 				Type:       existingLicense.LicenseType(),
 				Expiration: existingLicense.ExpiresAt(),
 			}
-			r.setLicense(ctx, licenseStatus, hc)
+			_ = r.setLicense(ctx, licenseStatus, hc)
 		}(ctx, hc)
 		return reconcile.Result{}, nil
 	}
@@ -1453,7 +1453,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 				Type:       existingLicense.LicenseType(),
 				Expiration: existingLicense.ExpiresAt(),
 			}
-			r.setLicense(ctx, licenseStatus, hc)
+			_ = r.setLicense(ctx, licenseStatus, hc)
 		}
 	}(ctx, hc)
 
