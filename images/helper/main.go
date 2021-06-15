@@ -49,6 +49,13 @@ const (
 	apiTokenMethodFromAPI = "api"
 )
 
+var (
+	// We override these using ldflags when running "go build"
+	commit  = "none"
+	date    = "unknown"
+	version = "master"
+)
+
 // getFileContent returns the content of a file as a string
 func getFileContent(filePath string) string {
 	data, err := ioutil.ReadFile(filePath)
@@ -209,7 +216,7 @@ func validateAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, n
 	if adminToken, ok := secret.Data["token"]; ok {
 		humioClient := humio.NewClient(humio.Config{
 			Address:   humioNodeURL,
-			UserAgent: fmt.Sprintf("humio-operator-helper/%s", Version),
+			UserAgent: fmt.Sprintf("humio-operator-helper/%s (%s on %s)", version, commit, date),
 			Token:     string(adminToken),
 		})
 
@@ -369,7 +376,7 @@ func authMode() {
 
 		humioClient := humio.NewClient(humio.Config{
 			Address:   humioNodeURL,
-			UserAgent: fmt.Sprintf("humio-operator-helper/%s", Version),
+			UserAgent: fmt.Sprintf("humio-operator-helper/%s (%s on %s)", version, commit, date),
 			Token:     localAdminToken,
 		})
 
@@ -441,7 +448,7 @@ func httpHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	fmt.Printf("Starting humio-operator-helper version %s\n", Version)
+	fmt.Printf("Starting humio-operator-helper %s (%s on %s)\n", version, commit, date)
 	mode, found := os.LookupEnv("MODE")
 	if !found || mode == "" {
 		panic("environment variable MODE not set or empty")

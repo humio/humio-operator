@@ -108,14 +108,16 @@ type LicenseClient interface {
 type ClientConfig struct {
 	apiClient *humioapi.Client
 	logger    logr.Logger
+	userAgent string
 }
 
 // NewClient returns a ClientConfig
-func NewClient(logger logr.Logger, config *humioapi.Config) *ClientConfig {
+func NewClient(logger logr.Logger, config *humioapi.Config, userAgent string) *ClientConfig {
 	client := humioapi.NewClient(*config)
 	return &ClientConfig{
 		apiClient: client,
 		logger:    logger,
+		userAgent: userAgent,
 	}
 }
 
@@ -132,6 +134,7 @@ func (h *ClientConfig) SetHumioClientConfig(config *humioapi.Config, overrideExi
 			config.CACertificatePEM = h.apiClient.CACertificate()
 		}
 	}
+	config.UserAgent = h.userAgent
 	h.apiClient = humioapi.NewClient(*config)
 	return
 }
