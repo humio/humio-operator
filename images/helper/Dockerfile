@@ -1,7 +1,12 @@
 FROM golang:1.15 as builder
+
+ARG RELEASE_VERSION=master
+ARG RELEASE_COMMIT=none
+ARG RELEASE_DATE=unknown
+
 WORKDIR /src
 COPY . /src
-RUN CGO_ENABLED=0 go build -o /app /src/*.go
+RUN CGO_ENABLED=0 go build -ldflags="-X 'main.version=$RELEASE_VERSION' -X 'main.commit=$RELEASE_COMMIT' -X 'main.date=$RELEASE_DATE'" -o /app /src/*.go
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
