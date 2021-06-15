@@ -512,7 +512,7 @@ func getConnectionMap(viewConnections []humioapi.ViewConnection) map[string]stri
 func (h *ClientConfig) GetLicense() (humioapi.License, error) {
 	licensesClient := h.apiClient.Licenses()
 	emptyConfig := humioapi.Config{}
-	if !reflect.DeepEqual(h.apiClient.Config(), emptyConfig) {
+	if !reflect.DeepEqual(h.apiClient.Config(), emptyConfig) && h.apiClient.Config().Address != nil {
 		return licensesClient.Get()
 	}
 	return nil, fmt.Errorf("no api client configured yet")
