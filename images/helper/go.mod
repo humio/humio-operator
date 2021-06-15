@@ -8,7 +8,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/gophercloud/gophercloud v0.13.0 // indirect
-	github.com/humio/cli v0.28.1
+	github.com/humio/cli v0.28.4-0.20210615074159-36ca7bdbd37e
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/savaki/jq v0.0.0-20161209013833-0e6baecebbf8
 	github.com/shurcooL/graphql v0.0.0-20200928012149-18c5c3165e3a

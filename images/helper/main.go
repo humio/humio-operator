@@ -208,8 +208,9 @@ func validateAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, n
 	// Check if secret currently holds a valid humio api token
 	if adminToken, ok := secret.Data["token"]; ok {
 		humioClient := humio.NewClient(humio.Config{
-			Address: humioNodeURL,
-			Token:   string(adminToken),
+			Address:   humioNodeURL,
+			UserAgent: fmt.Sprintf("humio-operator-helper/%s", Version),
+			Token:     string(adminToken),
 		})
 
 		_, err = humioClient.Clusters().Get()
@@ -367,8 +368,9 @@ func authMode() {
 		fmt.Printf("Continuing to create/update token.\n")
 
 		humioClient := humio.NewClient(humio.Config{
-			Address: humioNodeURL,
-			Token:   localAdminToken,
+			Address:   humioNodeURL,
+			UserAgent: fmt.Sprintf("humio-operator-helper/%s", Version),
+			Token:     localAdminToken,
 		})
 
 		// Get user ID of admin account
