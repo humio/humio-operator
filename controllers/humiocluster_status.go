@@ -36,7 +36,6 @@ func (r *HumioClusterReconciler) getLatestHumioCluster(ctx context.Context, hc *
 }
 
 // setState is used to change the cluster state
-// TODO: we use this to determine if we should have a delay between startup of humio pods during bootstrap vs starting up pods during an image update
 func (r *HumioClusterReconciler) setState(ctx context.Context, state string, hc *humiov1alpha1.HumioCluster) error {
 	if hc.Status.State == state {
 		return nil
