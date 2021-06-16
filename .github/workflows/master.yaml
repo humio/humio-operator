@@ -29,7 +29,7 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
     - name: docker push
-      run: make docker-push IMG=humio/humio-operator:{{ env.RELEASE_VERSION }}
+      run: make docker-push IMG=humio/humio-operator:${{ env.RELEASE_VERSION }}
   build-and-publish-helper:
     name: Build and Publish Helperimage
     runs-on: ubuntu-latest
@@ -48,4 +48,4 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: docker push
-        run: make docker-push IMG=humio/humio-operator-helper:{{ env.RELEASE_VERSION }}
+        run: make docker-push IMG=humio/humio-operator-helper:${{ env.RELEASE_VERSION }}
