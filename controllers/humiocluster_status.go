@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -55,13 +56,13 @@ func (r *HumioClusterReconciler) setVersion(ctx context.Context, version string,
 	return r.Status().Update(ctx, hc)
 }
 
-func (r *HumioClusterReconciler) setLicense(ctx context.Context, licenseStatus humiov1alpha1.HumioLicenseStatus, hc *humiov1alpha1.HumioCluster) {
+func (r *HumioClusterReconciler) setLicense(ctx context.Context, licenseStatus humiov1alpha1.HumioLicenseStatus, hc *humiov1alpha1.HumioCluster) error {
+	if reflect.DeepEqual(hc.Status.LicenseStatus,licenseStatus) {
+		return nil
+	}
 	r.Log.Info(fmt.Sprintf("setting cluster license status to %v", licenseStatus))
 	hc.Status.LicenseStatus = licenseStatus
-	err := r.Status().Update(ctx, hc)
-	if err != nil {
-		r.Log.Error(err, "unable to set license status")
-	}
+	return r.Status().Update(ctx, hc)
 }
 
 func (r *HumioClusterReconciler) setNodeCount(ctx context.Context, nodeCount int, hc *humiov1alpha1.HumioCluster) error {
