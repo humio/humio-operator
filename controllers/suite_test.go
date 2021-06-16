@@ -90,7 +90,7 @@ var _ = BeforeSuite(func() {
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &useExistingCluster,
 		}
-		humioClient = humio.NewClient(log, &humioapi.Config{})
+		humioClient = humio.NewClient(log, &humioapi.Config{}, "")
 	} else {
 		testTimeout = time.Second * 30
 		testEnv = &envtest.Environment{
