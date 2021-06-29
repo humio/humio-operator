@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/go-logr/logr"
 
@@ -50,7 +51,7 @@ type ClusterClient interface {
 	Unregister(int) error
 	SuggestedStoragePartitions() ([]humioapi.StoragePartitionInput, error)
 	SuggestedIngestPartitions() ([]humioapi.IngestPartitionInput, error)
-	SetHumioClientConfig(*humioapi.Config, bool)
+	SetHumioClientConfig(*humioapi.Config, ctrl.Request)
 	GetBaseURL(*humiov1alpha1.HumioCluster) *url.URL
 	TestAPIToken() error
 	Status() (humioapi.StatusResponse, error)
@@ -106,37 +107,52 @@ type LicenseClient interface {
 
 // ClientConfig stores our Humio api client
 type ClientConfig struct {
-	apiClient *humioapi.Client
-	logger    logr.Logger
-	userAgent string
+	apiClient    *humioapi.Client
+	logger       logr.Logger
+	userAgent    string
+	humioClients map[humioClientKey]*humioapi.Client
+}
+
+type humioClientKey struct {
+	namespace, name string
+	authenticated   bool
 }
 
 // NewClient returns a ClientConfig
 func NewClient(logger logr.Logger, config *humioapi.Config, userAgent string) *ClientConfig {
 	client := humioapi.NewClient(*config)
 	return &ClientConfig{
-		apiClient: client,
-		logger:    logger,
-		userAgent: userAgent,
+		apiClient:    client,
+		logger:       logger,
+		userAgent:    userAgent,
+		humioClients: map[humioClientKey]*humioapi.Client{},
 	}
 }
 
 // SetHumioClientConfig takes a Humio API config as input and ensures to create a new API client that uses this config
-func (h *ClientConfig) SetHumioClientConfig(config *humioapi.Config, overrideExistingConfig bool) {
-	if !overrideExistingConfig {
-		if config.Token == "" {
-			config.Token = h.apiClient.Token()
-		}
-		if config.Address == nil {
-			config.Address = h.apiClient.Address()
-		}
-		if config.CACertificatePEM == "" {
-			config.CACertificatePEM = h.apiClient.CACertificate()
+func (h *ClientConfig) SetHumioClientConfig(config *humioapi.Config, req ctrl.Request) {
+	config.UserAgent = h.userAgent
+	key := humioClientKey{
+		namespace:     req.Namespace,
+		name:          req.Name,
+		authenticated: config.Token != "",
+	}
+	c := h.humioClients[key]
+	if c == nil {
+		c = humioapi.NewClient(*config)
+	} else {
+		existingConfig := c.Config()
+		equal := existingConfig.Token == config.Token &&
+			existingConfig.Insecure == config.Insecure &&
+			existingConfig.CACertificatePEM == config.CACertificatePEM &&
+			existingConfig.ProxyOrganization == config.ProxyOrganization &&
+			existingConfig.Address.String() == config.Address.String()
+		if !equal {
+			c = humioapi.NewClient(*config)
 		}
 	}
-	config.UserAgent = h.userAgent
-	h.apiClient = humioapi.NewClient(*config)
-	return
+	h.humioClients[key] = c
+	h.apiClient = c
 }
 
 // Status returns the status of the humio cluster

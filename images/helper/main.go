@@ -54,6 +54,8 @@ var (
 	commit  = "none"
 	date    = "unknown"
 	version = "master"
+
+	humioClient *humio.Client = nil
 )
 
 // getFileContent returns the content of a file as a string
@@ -204,7 +206,7 @@ func createAndGetAdminAccountUserID(client *humio.Client, organizationMode strin
 }
 
 // validateAdminSecretContent grabs the current token stored in kubernetes and returns nil if it is valid
-func validateAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, namespace, clusterName, adminSecretNameSuffix string, humioNodeURL *url.URL) error {
+func validateAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, namespace, clusterName, adminSecretNameSuffix string, nodeURL *url.URL) error {
 	// Get existing Kubernetes secret
 	adminSecretName := fmt.Sprintf("%s-%s", clusterName, adminSecretNameSuffix)
 	secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, adminSecretName, metav1.GetOptions{})
@@ -214,11 +216,16 @@ func validateAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, n
 
 	// Check if secret currently holds a valid humio api token
 	if adminToken, ok := secret.Data["token"]; ok {
-		humioClient := humio.NewClient(humio.Config{
-			Address:   humioNodeURL,
-			UserAgent: fmt.Sprintf("humio-operator-helper/%s (%s on %s)", version, commit, date),
-			Token:     string(adminToken),
-		})
+		clientNotReady := humioClient == nil ||
+			humioClient.Token() != string(secret.Data["token"]) ||
+			humioClient.Address() == nil // Auth container uses pod name for the address, and pod names are immutable.
+		if clientNotReady {
+			humioClient = humio.NewClient(humio.Config{
+				Address:   nodeURL,
+				UserAgent: fmt.Sprintf("humio-operator-helper/%s (%s on %s)", version, commit, date),
+				Token:     string(adminToken),
+			})
+		}
 
 		_, err = humioClient.Clusters().Get()
 		if err != nil {
@@ -238,7 +245,7 @@ func ensureAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, nam
 	secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, adminSecretName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		// If the secret doesn't exist, create it
-		secret := corev1.Secret{
+		desiredSecret := corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      adminSecretName,
 				Namespace: namespace,
@@ -252,7 +259,7 @@ func ensureAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, nam
 			},
 			Type: corev1.SecretTypeOpaque,
 		}
-		_, err := clientset.CoreV1().Secrets(namespace).Create(ctx, &secret, metav1.CreateOptions{})
+		_, err := clientset.CoreV1().Secrets(namespace).Create(ctx, &desiredSecret, metav1.CreateOptions{})
 		return err
 	} else if err != nil {
 		return fmt.Errorf("got err while getting the current k8s secret for apiToken: %s", err)
@@ -339,7 +346,7 @@ func authMode() {
 		}
 	}()
 
-	clientset := newKubernetesClientset()
+	kubernetesClient := newKubernetesClientset()
 
 	for {
 		// Check required files exist before we continue
@@ -357,14 +364,14 @@ func authMode() {
 			continue
 		}
 
-		humioNodeURL, err := url.Parse(humioNodeURL)
+		nodeURL, err := url.Parse(humioNodeURL)
 		if err != nil {
 			fmt.Printf("Unable to parse URL %s: %s\n", humioNodeURL, err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
-		err = validateAdminSecretContent(ctx, clientset, namespace, clusterName, adminSecretNameSuffix, humioNodeURL)
+		err = validateAdminSecretContent(ctx, kubernetesClient, namespace, clusterName, adminSecretNameSuffix, nodeURL)
 		if err == nil {
 			fmt.Printf("Existing token is still valid, thus no changes required. Will confirm again in 30 seconds.\n")
 			time.Sleep(30 * time.Second)
@@ -374,11 +381,16 @@ func authMode() {
 		fmt.Printf("Could not validate existing admin secret: %s\n", err)
 		fmt.Printf("Continuing to create/update token.\n")
 
-		humioClient := humio.NewClient(humio.Config{
-			Address:   humioNodeURL,
-			UserAgent: fmt.Sprintf("humio-operator-helper/%s (%s on %s)", version, commit, date),
-			Token:     localAdminToken,
-		})
+		clientNotReady := humioClient == nil ||
+			humioClient.Token() != localAdminToken ||
+			humioClient.Address() == nil // Auth container uses pod name for the address, and pod names are immutable.
+		if clientNotReady {
+			humioClient = humio.NewClient(humio.Config{
+				Address:   nodeURL,
+				UserAgent: fmt.Sprintf("humio-operator-helper/%s (%s on %s)", version, commit, date),
+				Token:     localAdminToken,
+			})
+		}
 
 		// Get user ID of admin account
 		userID, err := createAndGetAdminAccountUserID(humioClient, organizationMode)
@@ -397,7 +409,7 @@ func authMode() {
 		}
 
 		// Update Kubernetes secret if needed
-		err = ensureAdminSecretContent(ctx, clientset, namespace, clusterName, adminSecretNameSuffix, apiToken, methodUsed)
+		err = ensureAdminSecretContent(ctx, kubernetesClient, namespace, clusterName, adminSecretNameSuffix, apiToken, methodUsed)
 		if err != nil {
 			fmt.Printf("Got error ensuring k8s secret contains apiToken: %s\n", err)
 			time.Sleep(5 * time.Second)

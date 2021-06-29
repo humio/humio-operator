@@ -75,7 +75,7 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		return reconcile.Result{}, err
 	}
-	r.HumioClient.SetHumioClientConfig(cluster.Config(), false)
+	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
 
 	if _, err := humio.NotifierFromAction(ha); err != nil {
 		r.Log.Error(err, "unable to validate action")

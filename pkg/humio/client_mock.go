@@ -23,6 +23,7 @@ import (
 	"math/rand"
 	"net/url"
 	"reflect"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -76,7 +77,7 @@ func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePa
 	return mockClientConfig
 }
 
-func (h *MockClientConfig) SetHumioClientConfig(config *humioapi.Config, overrideExistingConfig bool) {
+func (h *MockClientConfig) SetHumioClientConfig(*humioapi.Config, ctrl.Request) {
 	return
 }
 
