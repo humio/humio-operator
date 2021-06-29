@@ -40,4 +40,4 @@ $kubectl label node --overwrite --all topology.kubernetes.io/zone=az1
 # Documentation for Go support states that inject-tcp method will not work. https://www.telepresence.io/howto/golang
 echo "NOTE: Running 'telepresence connect' needs root access so it will prompt for the password of the user account to set up rules with iptables (or similar)"
 telepresence connect
-USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo -timeout 60m -skipPackage helpers -v ./... -covermode=count -coverprofile cover.out -progress
+USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo -timeout 90m -skipPackage helpers -v ./... -covermode=count -coverprofile cover.out -progress
