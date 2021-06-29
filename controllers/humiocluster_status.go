@@ -56,7 +56,7 @@ func (r *HumioClusterReconciler) setVersion(ctx context.Context, version string,
 }
 
 func (r *HumioClusterReconciler) setLicense(ctx context.Context, licenseStatus humiov1alpha1.HumioLicenseStatus, hc *humiov1alpha1.HumioCluster) error {
-	if reflect.DeepEqual(hc.Status.LicenseStatus,licenseStatus) {
+	if reflect.DeepEqual(hc.Status.LicenseStatus, licenseStatus) {
 		return nil
 	}
 	r.Log.Info(fmt.Sprintf("setting cluster license status to %v", licenseStatus))

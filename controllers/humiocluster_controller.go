@@ -267,13 +267,13 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return result, err
 	}
 
-	result, err = r.ensureLicense(ctx, hc)
+	result, err = r.ensureLicense(ctx, hc, req)
 	if result != emptyResult || err != nil {
 		return result, err
 	}
 
 	// Wait for the sidecar to create the secret which contains the token used to authenticate with humio and then authenticate with it
-	result, err = r.authWithSidecarToken(ctx, hc, r.HumioClient.GetBaseURL(hc))
+	result, err = r.authWithSidecarToken(ctx, hc, r.HumioClient.GetBaseURL(hc), req)
 	if result != emptyResult || err != nil {
 		return result, err
 	}
@@ -1312,7 +1312,7 @@ func (r *HumioClusterReconciler) ensurePvcLabels(ctx context.Context, hc *humiov
 	return nil
 }
 
-func (r *HumioClusterReconciler) ensureInitialLicense(ctx context.Context, hc *humiov1alpha1.HumioCluster, baseURL *url.URL) (reconcile.Result, error) {
+func (r *HumioClusterReconciler) ensureInitialLicense(ctx context.Context, hc *humiov1alpha1.HumioCluster, baseURL *url.URL, req ctrl.Request) (reconcile.Result, error) {
 	r.Log.Info("ensuring initial license")
 
 	humioAPIConfig := &humioapi.Config{
@@ -1332,7 +1332,7 @@ func (r *HumioClusterReconciler) ensureInitialLicense(ctx context.Context, hc *h
 		}
 		humioAPIConfig.CACertificatePEM = string(existingCABundle.Data["ca.crt"])
 	}
-	r.HumioClient.SetHumioClientConfig(humioAPIConfig, true)
+	r.HumioClient.SetHumioClientConfig(humioAPIConfig, req)
 
 	// check current license
 	existingLicense, err := r.HumioClient.GetLicense()
@@ -1436,7 +1436,7 @@ func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *h
 	return nil
 }
 
-func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
+func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1alpha1.HumioCluster, req ctrl.Request) (reconcile.Result, error) {
 	r.Log.Info("ensuring license")
 
 	var existingLicense humioapi.License
@@ -1501,7 +1501,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	}
 
 	if existingLicense == nil {
-		return r.ensureInitialLicense(ctx, hc, r.HumioClient.GetBaseURL(hc))
+		return r.ensureInitialLicense(ctx, hc, r.HumioClient.GetBaseURL(hc), req)
 	}
 
 	if existingLicense.LicenseType() != desiredLicense.LicenseType() ||
@@ -1510,7 +1510,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 		r.Log.Info(fmt.Sprintf("updating license because of: existingLicense.LicenseType(%s) != desiredLicense.LicenseType(%s) || existingLicense.IssuedAt(%s) != desiredLicense.IssuedAt(%s) || existingLicense.ExpiresAt(%s) != desiredLicense.ExpiresAt(%s)", existingLicense.LicenseType(), desiredLicense.LicenseType(), existingLicense.IssuedAt(), desiredLicense.IssuedAt(), existingLicense.ExpiresAt(), desiredLicense.ExpiresAt()))
 		if err := r.HumioClient.InstallLicense(licenseStr); err != nil {
 			r.Log.Error(err, "could not install license")
-			return r.ensureInitialLicense(ctx, hc, r.HumioClient.GetBaseURL(hc))
+			return r.ensureInitialLicense(ctx, hc, r.HumioClient.GetBaseURL(hc), req)
 		}
 
 		r.Log.Info(fmt.Sprintf("successfully installed license: type: %s, issued: %s, expires: %s",
@@ -2106,7 +2106,7 @@ func (r *HumioClusterReconciler) ensureValidStorageConfiguration(hc *humiov1alph
 	return nil
 }
 
-func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *humiov1alpha1.HumioCluster, baseURL *url.URL) (reconcile.Result, error) {
+func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *humiov1alpha1.HumioCluster, baseURL *url.URL, req ctrl.Request) (reconcile.Result, error) {
 	adminTokenSecretName := fmt.Sprintf("%s-%s", hc.Name, kubernetes.ServiceTokenSecretNameSuffix)
 	existingSecret, err := kubernetes.GetSecret(ctx, r, adminTokenSecretName, hc.Namespace)
 	if err != nil {
@@ -2136,7 +2136,7 @@ func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *h
 	}
 
 	// Either authenticate or re-authenticate with the persistent token
-	r.HumioClient.SetHumioClientConfig(humioAPIConfig, false)
+	r.HumioClient.SetHumioClientConfig(humioAPIConfig, req)
 	return reconcile.Result{}, nil
 }
 
