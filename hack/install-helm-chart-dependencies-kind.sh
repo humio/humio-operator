@@ -50,11 +50,15 @@ helm install --kubeconfig=$tmp_kubeconfig humio humio/cp-helm-charts --namespace
 while [[ $(kubectl --kubeconfig=$tmp_kubeconfig get pods humio-cp-zookeeper-0 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
 do
   echo "Waiting for humio-cp-zookeeper-0 pod to become Ready"
+  kubectl --kubeconfig=$tmp_kubeconfig get pods -A
+  kubectl --kubeconfig=$tmp_kubeconfig describe pod humio-cp-zookeeper-0
   sleep 10
 done
 
 while [[ $(kubectl --kubeconfig=$tmp_kubeconfig get pods humio-cp-kafka-0 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
 do
   echo "Waiting for humio-cp-kafka-0 pod to become Ready"
+  kubectl --kubeconfig=$tmp_kubeconfig get pods -A
+  kubectl --kubeconfig=$tmp_kubeconfig describe pod humio-cp-kafka-0
   sleep 10
 done
