@@ -128,7 +128,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		_ = r.setState(ctx, humiov1alpha1.HumioParserStateExists, hp)
 	}(ctx, r.HumioClient, hp)
 
-	r.HumioClient.SetHumioClientConfig(cluster.Config(), false)
+	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
 
 	// Get current parser
 	r.Log.Info("get current parser")
