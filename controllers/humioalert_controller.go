@@ -79,7 +79,7 @@ func (r *HumioAlertReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 		return reconcile.Result{}, err
 	}
-	r.HumioClient.SetHumioClientConfig(cluster.Config(), false)
+	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
 
 	curAlert, err := r.HumioClient.GetAlert(ha)
 	if curAlert != nil && err != nil {
