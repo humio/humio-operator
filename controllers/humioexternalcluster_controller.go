@@ -77,7 +77,7 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, err
 	}
 
-	r.HumioClient.SetHumioClientConfig(cluster.Config(), false)
+	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
 
 	err = r.HumioClient.TestAPIToken()
 	if err != nil {
