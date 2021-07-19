@@ -17,7 +17,7 @@ export PATH=$BIN_DIR:$PATH
 trap cleanup exit
 
 cleanup() {
-  telepresence uninstall --everything
+  telepresence uninstall --kubeconfig $tmp_kubeconfig --everything
 }
 
 # Extract humio images and tags from go source
@@ -39,5 +39,5 @@ $kubectl label node --overwrite --all topology.kubernetes.io/zone=az1
 # We skip the helpers package as those tests assumes the environment variable USE_CERT_MANAGER is not set.
 # Documentation for Go support states that inject-tcp method will not work. https://www.telepresence.io/howto/golang
 echo "NOTE: Running 'telepresence connect' needs root access so it will prompt for the password of the user account to set up rules with iptables (or similar)"
-telepresence connect
-USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo -timeout 90m -skipPackage helpers -v ./... -covermode=count -coverprofile cover.out -progress
+telepresence connect --kubeconfig $tmp_kubeconfig
+KUBECONFIG=$tmp_kubeconfig USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo -timeout 90m -skipPackage helpers -v ./... -covermode=count -coverprofile cover.out -progress
