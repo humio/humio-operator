@@ -21,4 +21,5 @@ jobs:
         E2E_LOGS_HUMIO_INGEST_TOKEN: ${{ secrets.E2E_LOGS_HUMIO_INGEST_TOKEN }}
         E2E_RUN_ID: ${{ github.run_id }}
       run: |
-        make run-e2e-tests-ci-kind
+        docker build -t operatortestcontainerimage -f test.Dockerfile .
+        docker run --network=host --privileged --device /dev/net/tun:/dev/net/tun --cap-add=NET_ADMIN --env E2E_LOGS_HUMIO_HOSTNAME=ops.us.humio.com --env E2E_LOGS_HUMIO_INGEST_TOKEN=$E2E_LOGS_HUMIO_INGEST_TOKEN --env HUMIO_E2E_LICENSE=$HUMIO_E2E_LICENSE --rm --volume /var/run/docker.sock:/var/run/docker.sock --entrypoint /bin/bash operatortestcontainerimage -c "make run-e2e-tests-ci-kind"

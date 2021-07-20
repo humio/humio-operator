@@ -32,7 +32,7 @@ make test
 
 ### E2E Testing (Kubernetes)
 
-We use [kind](https://kind.sigs.k8s.io/) and [telepresence 2](https://www.getambassador.io/docs/telepresence/latest/quick-start/) for local testing.
+We use [kind](https://kind.sigs.k8s.io/) and [telepresence v1](https://www.telepresence.io/docs/v1/reference/install/) for local testing.
 
 Note that for running zookeeper and kafka locally, we currently rely on the [cp-helm-charts](https://github.com/humio/cp-helm-charts) and that that repository is cloned into a directory `~/git/humio-cp-helm-charts`.
 
@@ -60,7 +60,7 @@ hack/stop-kind-cluster.sh
 
 ### E2E Testing (OpenShift)
 
-We use [crc](https://developers.redhat.com/products/codeready-containers/overview) and [telepresence 2](https://www.getambassador.io/docs/telepresence/latest/quick-start/) for local testing.
+We use [crc](https://developers.redhat.com/products/codeready-containers/overview) and [telepresence v1](https://www.telepresence.io/docs/v1/reference/install/) for local testing.
 
 Note that for running zookeeper and kafka locally, we currently rely on the [cp-helm-charts](https://github.com/humio/cp-helm-charts) and that that repository is cloned into a directory `~/git/humio-cp-helm-charts`.
 

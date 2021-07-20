@@ -214,7 +214,7 @@ install-e2e-dependencies:
 
 run-e2e-tests-ci-kind: install-e2e-dependencies ginkgo
 	hack/install-helm-chart-dependencies-kind.sh
-	hack/run-e2e-tests-kind.sh
+	PROXY_METHOD=vpn-tcp hack/run-e2e-tests-kind.sh
 
 run-e2e-tests-local-kind:
 	hack/start-kind-cluster.sh

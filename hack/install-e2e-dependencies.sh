@@ -5,7 +5,6 @@ set -ex
 declare -r helm_version=3.5.4
 declare -r kubectl_version=1.19.11
 declare -r operator_sdk_version=1.7.1
-declare -r telepresence_version=2.2.1
 declare -r bin_dir=${BIN_DIR:-/usr/local/bin}
 
 install_helm() {
@@ -26,11 +25,6 @@ install_operator_sdk() {
     && rm operator-sdk-v${operator_sdk_version}-x86_64-linux-gnu
 }
 
-install_telepresence() {
-  curl -fL https://app.getambassador.io/download/tel2/linux/amd64/${telepresence_version}/telepresence -o ${bin_dir}/telepresence \
-    && chmod a+x ${bin_dir}/telepresence
-}
-
 install_ginkgo() {
   go get github.com/onsi/ginkgo/ginkgo
   go get github.com/onsi/gomega/...
@@ -39,5 +33,4 @@ install_ginkgo() {
 install_helm
 install_kubectl
 install_operator_sdk
-install_telepresence
 install_ginkgo

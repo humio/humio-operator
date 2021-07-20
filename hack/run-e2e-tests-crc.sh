@@ -6,6 +6,7 @@ declare -r tmp_kubeconfig=$HOME/.crc/machines/crc/kubeconfig
 declare -r kubectl="oc --kubeconfig $tmp_kubeconfig"
 declare -r git_rev=$(git rev-parse --short HEAD)
 declare -r ginkgo=$(go env GOPATH)/bin/ginkgo
+declare -r proxy_method=${PROXY_METHOD:-inject-tcp}
 
 if [[ -z "${HUMIO_E2E_LICENSE}" ]]; then
   echo "Environment variable HUMIO_E2E_LICENSE not set. Aborting."
@@ -13,12 +14,6 @@ if [[ -z "${HUMIO_E2E_LICENSE}" ]]; then
 fi
 
 export PATH=$BIN_DIR:$PATH
-
-trap cleanup exit
-
-cleanup() {
-  telepresence uninstall --kubeconfig $tmp_kubeconfig --everything
-}
 
 eval $(crc oc-env)
 eval $(crc console --credentials | grep "To login as an admin, run" | cut -f2 -d"'")
@@ -33,17 +28,4 @@ oc adm policy add-scc-to-user anyuid -z default
 # We skip the helpers package as those tests assumes the environment variable USE_CERT_MANAGER is not set.
 # Documentation for Go support states that inject-tcp method will not work. https://www.telepresence.io/howto/golang
 echo "NOTE: Running 'telepresence connect' needs root access so it will prompt for the password of the user account to set up rules with iptables (or similar)"
-telepresence connect --kubeconfig $tmp_kubeconfig
-
-iterations=0
-while ! curl -k https://kubernetes.default
-do
-  let "iterations+=1"
-  echo curl failed $iterations times
-  if [ $iterations -ge 30 ]; then
-    exit 1
-  fi
-  sleep 2
-done
-
-OPENSHIFT_SCC_NAME=default-humio-operator KUBECONFIG=$tmp_kubeconfig USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo -timeout 90m -skipPackage helpers -v ./... -covermode=count -coverprofile cover.out -progress
+KUBECONFIG=$tmp_kubeconfig TELEPRESENCE_USE_OCP_IMAGE=NO OPENSHIFT_SCC_NAME=default-humio-operator USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true telepresence --method $proxy_method --run $ginkgo -timeout 90m -skipPackage helpers -v ./... -covermode=count -coverprofile cover.out -progress
