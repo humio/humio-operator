@@ -3,6 +3,7 @@
 set -ex
 
 declare -r helm_version=3.5.4
+declare -r kubectl_version=1.19.11
 declare -r operator_sdk_version=1.7.1
 declare -r telepresence_version=2.2.1
 declare -r bin_dir=${BIN_DIR:-/usr/local/bin}
@@ -11,6 +12,11 @@ install_helm() {
   curl -L https://get.helm.sh/helm-v${helm_version}-linux-amd64.tar.gz -o /tmp/helm.tar.gz \
     && tar -zxvf /tmp/helm.tar.gz -C /tmp \
     && mv /tmp/linux-amd64/helm ${bin_dir}/helm
+}
+
+install_kubectl() {
+  curl -L https://dl.k8s.io/release/v${kubectl_version}/bin/linux/amd64/kubectl -o ${bin_dir}/kubectl \
+    && chmod +x ${bin_dir}/kubectl
 }
 
 install_operator_sdk() {
@@ -31,6 +37,7 @@ install_ginkgo() {
 }
 
 install_helm
+install_kubectl
 install_operator_sdk
 install_telepresence
 install_ginkgo
