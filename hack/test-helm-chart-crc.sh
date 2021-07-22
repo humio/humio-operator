@@ -28,6 +28,9 @@ declare -r helm_chart_dir=./charts/humio-operator
 declare -r helm_chart_values_file=values.yaml
 declare -r hack_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+echo "Script needs rework after we're no longer using Telepresence. Aborting..."
+exit 1
+
 # Ensure we start from scratch
 source ${hack_dir}/delete-crc-cluster.sh
 
