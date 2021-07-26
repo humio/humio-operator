@@ -212,16 +212,23 @@ docker-build-helper:
 install-e2e-dependencies:
 	hack/install-e2e-dependencies.sh
 
-run-e2e-tests-ci-kind: install-e2e-dependencies ginkgo
+preload-images-kind:
+	hack/preload-images-kind.sh
+
+run-e2e-tests-ci-kind: install-e2e-dependencies
 	hack/install-helm-chart-dependencies-kind.sh
-	hack/run-e2e-tests-kind.sh
+	make preload-images-kind
+	hack/run-e2e-tests-using-kubectl-kind.sh
 
 run-e2e-tests-local-kind:
 	hack/start-kind-cluster.sh
 	hack/install-helm-chart-dependencies-kind.sh
-	hack/run-e2e-tests-kind.sh
+	make preload-images-kind
+	hack/run-e2e-tests-using-kubectl-kind.sh
 
 run-e2e-tests-local-crc:
+	echo "Needs rework since removing Telepresence. Aborting..."
+	exit 1
 	hack/start-crc-cluster.sh
 	hack/install-helm-chart-dependencies-crc.sh
 	hack/run-e2e-tests-crc.sh
