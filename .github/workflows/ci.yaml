@@ -7,7 +7,19 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - shell: bash
-      run: make test
+      run: |
+        make manifests
+        if [[ -n $(git status -s) ]] ; then
+          echo "Generating manifests leaves tracked fiels in a modified state."
+          echo "Ensure to include updated manifests in this PR."
+          echo "This is usually done by running 'make manifests' and running 'git add ...' for the files that was modified by generating manifests."
+          git status -s
+          git diff
+          exit 1
+        fi
+    - shell: bash
+      run: |
+        make test
       env:
         HUMIO_E2E_LICENSE: ${{ secrets.HUMIO_E2E_LICENSE }}
 # Disable olm checks until we have a new bundle we want to validate against
