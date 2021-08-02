@@ -18,16 +18,15 @@ package kubernetes
 
 import (
 	"context"
-
 	"k8s.io/apimachinery/pkg/types"
 
-	v1beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // GetIngress returns the ingress for the given ingress name if it exists
-func GetIngress(ctx context.Context, c client.Client, ingressName, humioClusterNamespace string) (*v1beta1.Ingress, error) {
-	var existingIngress v1beta1.Ingress
+func GetIngress(ctx context.Context, c client.Client, ingressName, humioClusterNamespace string) (*networkingv1.Ingress, error) {
+	var existingIngress networkingv1.Ingress
 	err := c.Get(ctx, types.NamespacedName{
 		Namespace: humioClusterNamespace,
 		Name:      ingressName,
@@ -36,8 +35,8 @@ func GetIngress(ctx context.Context, c client.Client, ingressName, humioClusterN
 }
 
 // ListIngresses grabs the list of all ingress objects associated to a an instance of HumioCluster
-func ListIngresses(ctx context.Context, c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]v1beta1.Ingress, error) {
-	var foundIngressList v1beta1.IngressList
+func ListIngresses(ctx context.Context, c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]networkingv1.Ingress, error) {
+	var foundIngressList networkingv1.IngressList
 	err := c.List(ctx, &foundIngressList, client.InNamespace(humioClusterNamespace), matchingLabels)
 	if err != nil {
 		return nil, err
