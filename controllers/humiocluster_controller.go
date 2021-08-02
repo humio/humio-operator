@@ -32,7 +32,7 @@ import (
 	"github.com/humio/humio-operator/pkg/openshift"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -364,7 +364,7 @@ func (r *HumioClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&corev1.ConfigMap{}).
-		Owns(&v1beta1.Ingress{}).
+		Owns(&networkingv1.Ingress{}).
 		Complete(r)
 }
 
@@ -560,7 +560,7 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 	}
 
 	// Due to ingress-ngress relying on ingress object annotations to enable/disable/adjust certain features we create multiple ingress objects.
-	ingresses := []*v1beta1.Ingress{
+	ingresses := []*networkingv1.Ingress{
 		constructGeneralIngress(hc, hostname),
 		constructStreamingQueryIngress(hc, hostname),
 		constructIngestIngress(hc, hostname),
@@ -1968,11 +1968,11 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	return reconcile.Result{}, nil
 }
 
-func (r *HumioClusterReconciler) ingressesMatch(ingress *v1beta1.Ingress, desiredIngress *v1beta1.Ingress) bool {
+func (r *HumioClusterReconciler) ingressesMatch(ingress *networkingv1.Ingress, desiredIngress *networkingv1.Ingress) bool {
 	// Kubernetes 1.18 introduced a new field, PathType. For older versions PathType is returned as nil,
 	// so we explicitly set the value before comparing ingress objects.
 	// When minimum supported Kubernetes version is 1.18, we can drop this.
-	pathTypeImplementationSpecific := v1beta1.PathTypeImplementationSpecific
+	pathTypeImplementationSpecific := networkingv1.PathTypeImplementationSpecific
 	for ruleIdx, rule := range ingress.Spec.Rules {
 		for pathIdx := range rule.HTTP.Paths {
 			if ingress.Spec.Rules[ruleIdx].HTTP.Paths[pathIdx].PathType == nil {
