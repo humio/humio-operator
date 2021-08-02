@@ -7,6 +7,181 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
+  name: humioactions.core.humio.com
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioAction
+    listKind: HumioActionList
+    plural: humioactions
+    singular: humioaction
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioAction is the Schema for the humioactions API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioActionSpec defines the desired state of HumioAction
+            properties:
+              emailProperties:
+                description: EmailProperties indicates this is an Email Action, and
+                  contains the corresponding properties
+                properties:
+                  bodyTemplate:
+                    type: string
+                  recipients:
+                    items:
+                      type: string
+                    type: array
+                  subjectTemplate:
+                    type: string
+                type: object
+              externalClusterName:
+                description: ExternalClusterName refers to an object of type HumioExternalCluster
+                  where the Humio resources should be created. This conflicts with
+                  ManagedClusterName.
+                type: string
+              humioRepositoryProperties:
+                description: HumioRepositoryProperties indicates this is a Humio Repository
+                  Action, and contains the corresponding properties
+                properties:
+                  ingestToken:
+                    type: string
+                type: object
+              managedClusterName:
+                description: ManagedClusterName refers to an object of type HumioCluster
+                  that is managed by the operator where the Humio resources should
+                  be created. This conflicts with ExternalClusterName.
+                type: string
+              name:
+                description: Name is the name of the Action
+                type: string
+              opsGenieProperties:
+                description: OpsGenieProperties indicates this is a Ops Genie Action,
+                  and contains the corresponding properties
+                properties:
+                  apiUrl:
+                    type: string
+                  genieKey:
+                    type: string
+                  useProxy:
+                    type: boolean
+                type: object
+              pagerDutyProperties:
+                description: PagerDutyProperties indicates this is a PagerDuty Action,
+                  and contains the corresponding properties
+                properties:
+                  routingKey:
+                    type: string
+                  severity:
+                    type: string
+                type: object
+              slackPostMessageProperties:
+                description: SlackPostMessageProperties indicates this is a Slack
+                  Post Message Action, and contains the corresponding properties
+                properties:
+                  apiToken:
+                    type: string
+                  channels:
+                    items:
+                      type: string
+                    type: array
+                  fields:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  useProxy:
+                    type: boolean
+                type: object
+              slackProperties:
+                description: SlackProperties indicates this is a Slack Action, and
+                  contains the corresponding properties
+                properties:
+                  fields:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  url:
+                    type: string
+                type: object
+              victorOpsProperties:
+                description: VictorOpsProperties indicates this is a VictorOps Action,
+                  and contains the corresponding properties
+                properties:
+                  messageType:
+                    type: string
+                  notifyUrl:
+                    type: string
+                type: object
+              viewName:
+                description: ViewName is the name of the Humio View under which the
+                  Action will be managed. This can also be a Repository
+                type: string
+              webhookProperties:
+                description: WebhookProperties indicates this is a Webhook Action,
+                  and contains the corresponding properties
+                properties:
+                  bodyTemplate:
+                    type: string
+                  headers:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  method:
+                    type: string
+                  url:
+                    type: string
+                type: object
+            required:
+            - name
+            - viewName
+            type: object
+          status:
+            description: HumioActionStatus defines the observed state of HumioAction
+            properties:
+              state:
+                description: State reflects the current state of the HumioAction
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
   name: humioalerts.core.humio.com
   labels:
     app: '{{ .Chart.Name }}'
@@ -113,99 +288,6 @@ spec:
             properties:
               state:
                 description: State reflects the current state of the HumioAlert
-                type: string
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
-
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
-  creationTimestamp: null
-  name: humioexternalclusters.core.humio.com
-  labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
-    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-    helm.sh/chart: '{{ template "humio.chart" . }}'
-spec:
-  group: core.humio.com
-  names:
-    kind: HumioExternalCluster
-    listKind: HumioExternalClusterList
-    plural: humioexternalclusters
-    singular: humioexternalcluster
-  scope: Namespaced
-  versions:
-  - additionalPrinterColumns:
-    - description: The state of the external Humio cluster
-      jsonPath: .status.state
-      name: State
-      type: string
-    name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        description: HumioExternalCluster is the Schema for the humioexternalclusters
-          API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: HumioExternalClusterSpec defines the desired state of HumioExternalCluster
-            properties:
-              apiTokenSecretName:
-                description: APITokenSecretName is used to obtain the API token we
-                  need to use when communicating with the external Humio cluster.
-                  The secret must contain a key "token" which holds the Humio API
-                  token.
-                type: string
-              caSecretName:
-                description: CASecretName is used to point to a Kubernetes secret
-                  that holds the CA that will be used to issue intra-cluster TLS certificates.
-                  The secret must contain a key "ca.crt" which holds the CA certificate
-                  in PEM format.
-                type: string
-              insecure:
-                description: TLSDisabled is used to disable intra-cluster TLS when
-                  cert-manager is being used.
-                type: boolean
-              url:
-                description: Url is used to connect to the Humio cluster we want to
-                  use.
-                type: string
-            type: object
-          status:
-            description: HumioExternalClusterStatus defines the observed state of
-              HumioExternalCluster
-            properties:
-              state:
-                description: State reflects the current state of the HumioExternalCluster
-                type: string
-              version:
-                description: Version shows the Humio cluster version of the HumioExternalCluster
                 type: string
             type: object
         type: object
@@ -5959,7 +6041,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
-  name: humiorepositories.core.humio.com
+  name: humioexternalclusters.core.humio.com
   labels:
     app: '{{ .Chart.Name }}'
     app.kubernetes.io/name: '{{ .Chart.Name }}'
@@ -5969,21 +6051,22 @@ metadata:
 spec:
   group: core.humio.com
   names:
-    kind: HumioRepository
-    listKind: HumioRepositoryList
-    plural: humiorepositories
-    singular: humiorepository
+    kind: HumioExternalCluster
+    listKind: HumioExternalClusterList
+    plural: humioexternalclusters
+    singular: humioexternalcluster
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: The state of the repository
+    - description: The state of the external Humio cluster
       jsonPath: .status.state
       name: State
       type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HumioRepository is the Schema for the humiorepositories API
+        description: HumioExternalCluster is the Schema for the humioexternalclusters
+          API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -5998,53 +6081,38 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioRepositorySpec defines the desired state of HumioRepository
+            description: HumioExternalClusterSpec defines the desired state of HumioExternalCluster
             properties:
-              allowDataDeletion:
-                description: AllowDataDeletion is used as a blocker in case an operation
-                  of the operator would delete data within the repository. This must
-                  be set to true before the operator will apply retention settings
-                  that will (or might) cause data to be deleted within the repository.
+              apiTokenSecretName:
+                description: APITokenSecretName is used to obtain the API token we
+                  need to use when communicating with the external Humio cluster.
+                  The secret must contain a key "token" which holds the Humio API
+                  token.
+                type: string
+              caSecretName:
+                description: CASecretName is used to point to a Kubernetes secret
+                  that holds the CA that will be used to issue intra-cluster TLS certificates.
+                  The secret must contain a key "ca.crt" which holds the CA certificate
+                  in PEM format.
+                type: string
+              insecure:
+                description: TLSDisabled is used to disable intra-cluster TLS when
+                  cert-manager is being used.
                 type: boolean
-              description:
-                description: Description contains the description that will be set
-                  on the repository
+              url:
+                description: Url is used to connect to the Humio cluster we want to
+                  use.
                 type: string
-              externalClusterName:
-                description: ExternalClusterName refers to an object of type HumioExternalCluster
-                  where the Humio resources should be created. This conflicts with
-                  ManagedClusterName.
-                type: string
-              managedClusterName:
-                description: ManagedClusterName refers to an object of type HumioCluster
-                  that is managed by the operator where the Humio resources should
-                  be created. This conflicts with ExternalClusterName.
-                type: string
-              name:
-                description: Name is the name of the repository inside Humio
-                type: string
-              retention:
-                description: Retention defines the retention settings for the repository
-                properties:
-                  ingestSizeInGB:
-                    description: 'perhaps we should migrate to resource.Quantity?
-                      the Humio API needs float64, but that is not supported here,
-                      see more here: https://github.com/kubernetes-sigs/controller-tools/issues/245'
-                    format: int32
-                    type: integer
-                  storageSizeInGB:
-                    format: int32
-                    type: integer
-                  timeInDays:
-                    format: int32
-                    type: integer
-                type: object
             type: object
           status:
-            description: HumioRepositoryStatus defines the observed state of HumioRepository
+            description: HumioExternalClusterStatus defines the observed state of
+              HumioExternalCluster
             properties:
               state:
-                description: State reflects the current state of the HumioRepository
+                description: State reflects the current state of the HumioExternalCluster
+                type: string
+              version:
+                description: Version shows the Humio cluster version of the HumioExternalCluster
                 type: string
             type: object
         type: object
@@ -6170,181 +6238,6 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
-  name: humioactions.core.humio.com
-  labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
-    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-    helm.sh/chart: '{{ template "humio.chart" . }}'
-spec:
-  group: core.humio.com
-  names:
-    kind: HumioAction
-    listKind: HumioActionList
-    plural: humioactions
-    singular: humioaction
-  scope: Namespaced
-  versions:
-  - name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        description: HumioAction is the Schema for the humioactions API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: HumioActionSpec defines the desired state of HumioAction
-            properties:
-              emailProperties:
-                description: EmailProperties indicates this is an Email Action, and
-                  contains the corresponding properties
-                properties:
-                  bodyTemplate:
-                    type: string
-                  recipients:
-                    items:
-                      type: string
-                    type: array
-                  subjectTemplate:
-                    type: string
-                type: object
-              externalClusterName:
-                description: ExternalClusterName refers to an object of type HumioExternalCluster
-                  where the Humio resources should be created. This conflicts with
-                  ManagedClusterName.
-                type: string
-              humioRepositoryProperties:
-                description: HumioRepositoryProperties indicates this is a Humio Repository
-                  Action, and contains the corresponding properties
-                properties:
-                  ingestToken:
-                    type: string
-                type: object
-              managedClusterName:
-                description: ManagedClusterName refers to an object of type HumioCluster
-                  that is managed by the operator where the Humio resources should
-                  be created. This conflicts with ExternalClusterName.
-                type: string
-              name:
-                description: Name is the name of the Action
-                type: string
-              opsGenieProperties:
-                description: OpsGenieProperties indicates this is a Ops Genie Action,
-                  and contains the corresponding properties
-                properties:
-                  apiUrl:
-                    type: string
-                  genieKey:
-                    type: string
-                  useProxy:
-                    type: boolean
-                type: object
-              pagerDutyProperties:
-                description: PagerDutyProperties indicates this is a PagerDuty Action,
-                  and contains the corresponding properties
-                properties:
-                  routingKey:
-                    type: string
-                  severity:
-                    type: string
-                type: object
-              slackPostMessageProperties:
-                description: SlackPostMessageProperties indicates this is a Slack
-                  Post Message Action, and contains the corresponding properties
-                properties:
-                  apiToken:
-                    type: string
-                  channels:
-                    items:
-                      type: string
-                    type: array
-                  fields:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  useProxy:
-                    type: boolean
-                type: object
-              slackProperties:
-                description: SlackProperties indicates this is a Slack Action, and
-                  contains the corresponding properties
-                properties:
-                  fields:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  url:
-                    type: string
-                type: object
-              victorOpsProperties:
-                description: VictorOpsProperties indicates this is a VictorOps Action,
-                  and contains the corresponding properties
-                properties:
-                  messageType:
-                    type: string
-                  notifyUrl:
-                    type: string
-                type: object
-              viewName:
-                description: ViewName is the name of the Humio View under which the
-                  Action will be managed. This can also be a Repository
-                type: string
-              webhookProperties:
-                description: WebhookProperties indicates this is a Webhook Action,
-                  and contains the corresponding properties
-                properties:
-                  bodyTemplate:
-                    type: string
-                  headers:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  method:
-                    type: string
-                  url:
-                    type: string
-                type: object
-            required:
-            - name
-            - viewName
-            type: object
-          status:
-            description: HumioActionStatus defines the observed state of HumioAction
-            properties:
-              state:
-                description: State reflects the current state of the HumioAction
-                type: string
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
-
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
-  creationTimestamp: null
   name: humioparsers.core.humio.com
   labels:
     app: '{{ .Chart.Name }}'
@@ -6424,6 +6317,113 @@ spec:
             properties:
               state:
                 description: State reflects the current state of the HumioParser
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
+  name: humiorepositories.core.humio.com
+  labels:
+    app: '{{ .Chart.Name }}'
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+    helm.sh/chart: '{{ template "humio.chart" . }}'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioRepository
+    listKind: HumioRepositoryList
+    plural: humiorepositories
+    singular: humiorepository
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The state of the repository
+      jsonPath: .status.state
+      name: State
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioRepository is the Schema for the humiorepositories API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioRepositorySpec defines the desired state of HumioRepository
+            properties:
+              allowDataDeletion:
+                description: AllowDataDeletion is used as a blocker in case an operation
+                  of the operator would delete data within the repository. This must
+                  be set to true before the operator will apply retention settings
+                  that will (or might) cause data to be deleted within the repository.
+                type: boolean
+              description:
+                description: Description contains the description that will be set
+                  on the repository
+                type: string
+              externalClusterName:
+                description: ExternalClusterName refers to an object of type HumioExternalCluster
+                  where the Humio resources should be created. This conflicts with
+                  ManagedClusterName.
+                type: string
+              managedClusterName:
+                description: ManagedClusterName refers to an object of type HumioCluster
+                  that is managed by the operator where the Humio resources should
+                  be created. This conflicts with ExternalClusterName.
+                type: string
+              name:
+                description: Name is the name of the repository inside Humio
+                type: string
+              retention:
+                description: Retention defines the retention settings for the repository
+                properties:
+                  ingestSizeInGB:
+                    description: 'perhaps we should migrate to resource.Quantity?
+                      the Humio API needs float64, but that is not supported here,
+                      see more here: https://github.com/kubernetes-sigs/controller-tools/issues/245'
+                    format: int32
+                    type: integer
+                  storageSizeInGB:
+                    format: int32
+                    type: integer
+                  timeInDays:
+                    format: int32
+                    type: integer
+                type: object
+            type: object
+          status:
+            description: HumioRepositoryStatus defines the observed state of HumioRepository
+            properties:
+              state:
+                description: State reflects the current state of the HumioRepository
                 type: string
             type: object
         type: object
