@@ -31,7 +31,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -587,15 +587,15 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			createAndBootstrapCluster(ctx, toCreate, true)
 
-			desiredIngresses := []*v1beta1.Ingress{
+			desiredIngresses := []*networkingv1.Ingress{
 				constructGeneralIngress(toCreate, toCreate.Spec.Hostname),
 				constructStreamingQueryIngress(toCreate, toCreate.Spec.Hostname),
 				constructIngestIngress(toCreate, toCreate.Spec.Hostname),
 				constructESIngestIngress(toCreate, toCreate.Spec.ESHostname),
 			}
 
-			var foundIngressList []v1beta1.Ingress
-			Eventually(func() []v1beta1.Ingress {
+			var foundIngressList []networkingv1.Ingress
+			Eventually(func() []networkingv1.Ingress {
 				foundIngressList, _ = kubernetes.ListIngresses(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				return foundIngressList
 			}, testTimeout, testInterval).Should(HaveLen(4))
@@ -603,7 +603,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			// Kubernetes 1.18 introduced a new field, PathType. For older versions PathType is returned as nil,
 			// so we explicitly set the value before comparing ingress objects.
 			// When minimum supported Kubernetes version is 1.18, we can drop this.
-			pathTypeImplementationSpecific := v1beta1.PathTypeImplementationSpecific
+			pathTypeImplementationSpecific := networkingv1.PathTypeImplementationSpecific
 			for ingressIdx, ingress := range foundIngressList {
 				for ruleIdx, rule := range ingress.Spec.Rules {
 					for pathIdx := range rule.HTTP.Paths {
@@ -642,7 +642,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return true
 			}, testTimeout, testInterval).Should(BeTrue())
 
-			Eventually(func() ([]v1beta1.Ingress, error) {
+			Eventually(func() ([]networkingv1.Ingress, error) {
 				return kubernetes.ListIngresses(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			}, testTimeout, testInterval).Should(HaveLen(4))
 
@@ -654,7 +654,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &existingHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
 
-			desiredIngresses = []*v1beta1.Ingress{
+			desiredIngresses = []*networkingv1.Ingress{
 				constructGeneralIngress(&existingHumioCluster, existingHumioCluster.Spec.Hostname),
 				constructStreamingQueryIngress(&existingHumioCluster, existingHumioCluster.Spec.Hostname),
 				constructIngestIngress(&existingHumioCluster, existingHumioCluster.Spec.Hostname),
@@ -725,7 +725,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &existingHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
 
-			Eventually(func() ([]v1beta1.Ingress, error) {
+			Eventually(func() ([]networkingv1.Ingress, error) {
 				return kubernetes.ListIngresses(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			}, testTimeout, testInterval).Should(HaveLen(0))
 		})
@@ -2035,8 +2035,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			createAndBootstrapCluster(ctx, toCreate, true)
 
 			By("Confirming ingress objects do not have TLS configured")
-			var ingresses []v1beta1.Ingress
-			Eventually(func() ([]v1beta1.Ingress, error) {
+			var ingresses []networkingv1.Ingress
+			Eventually(func() ([]networkingv1.Ingress, error) {
 				return kubernetes.ListIngresses(ctx, k8sClient, toCreate.Namespace, kubernetes.MatchingLabelsForHumio(toCreate.Name))
 			}, testTimeout, testInterval).Should(HaveLen(4))
 
@@ -2066,8 +2066,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			createAndBootstrapCluster(ctx, toCreate, true)
 
 			By("Confirming we did not create any ingresses")
-			var foundIngressList []v1beta1.Ingress
-			Eventually(func() []v1beta1.Ingress {
+			var foundIngressList []networkingv1.Ingress
+			Eventually(func() []networkingv1.Ingress {
 				foundIngressList, _ = kubernetes.ListIngresses(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				return foundIngressList
 			}, testTimeout, testInterval).Should(HaveLen(0))
@@ -2085,8 +2085,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("Confirming we only created ingresses with expected hostname")
-			foundIngressList = []v1beta1.Ingress{}
-			Eventually(func() []v1beta1.Ingress {
+			foundIngressList = []networkingv1.Ingress{}
+			Eventually(func() []networkingv1.Ingress {
 				foundIngressList, _ = kubernetes.ListIngresses(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				return foundIngressList
 			}, testTimeout, testInterval).Should(HaveLen(3))
@@ -2110,7 +2110,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("Confirming ingresses for ES Hostname gets created")
-			Eventually(func() []v1beta1.Ingress {
+			Eventually(func() []networkingv1.Ingress {
 				foundIngressList, _ = kubernetes.ListIngresses(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				return foundIngressList
 			}, testTimeout, testInterval).Should(HaveLen(4))
@@ -2134,7 +2134,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("Confirming ingresses for ES Hostname gets removed")
-			Eventually(func() []v1beta1.Ingress {
+			Eventually(func() []networkingv1.Ingress {
 				foundIngressList, _ = kubernetes.ListIngresses(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				return foundIngressList
 			}, testTimeout, testInterval).Should(HaveLen(3))
@@ -2177,8 +2177,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("Confirming we only created ingresses with expected hostname")
-			foundIngressList = []v1beta1.Ingress{}
-			Eventually(func() []v1beta1.Ingress {
+			foundIngressList = []networkingv1.Ingress{}
+			Eventually(func() []networkingv1.Ingress {
 				foundIngressList, _ = kubernetes.ListIngresses(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				return foundIngressList
 			}, testTimeout, testInterval).Should(HaveLen(3))
@@ -2241,8 +2241,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("Confirming we only created ingresses with expected es hostname")
-			foundIngressList = []v1beta1.Ingress{}
-			Eventually(func() []v1beta1.Ingress {
+			foundIngressList = []networkingv1.Ingress{}
+			Eventually(func() []networkingv1.Ingress {
 				foundIngressList, _ = kubernetes.ListIngresses(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				return foundIngressList
 			}, testTimeout, testInterval).Should(HaveLen(1))
