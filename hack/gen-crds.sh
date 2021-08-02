@@ -7,7 +7,7 @@ echo "detected OSTYPE = $OSTYPE"
 export RELEASE_VERSION=$(cat VERSION)
 
 echo "{{- if .Values.installCRDs -}}" > charts/humio-operator/templates/crds.yaml
-for c in $(find config/crd/bases/ -iname '*.yaml'); do
+for c in $(find config/crd/bases/ -iname '*.yaml' | sort); do
   # Write base CRD to helm chart file
   cat $c >> charts/humio-operator/templates/crds.yaml
 
