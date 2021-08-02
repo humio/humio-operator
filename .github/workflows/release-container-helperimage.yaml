@@ -39,17 +39,3 @@ jobs:
         FALCON_CLIENT_SECRET: "${{ secrets.FALCON_CLIENT_SECRET }}"
     - name: docker push
       run: make docker-push IMG=humio/humio-operator-helper:${{ env.RELEASE_VERSION }}
-    - name: redhat scan login
-      uses: docker/login-action@v1
-      with:
-        registry: scan.connect.redhat.com
-        username: unused
-        password: ${{ secrets.RH_SCAN_HUMIO_OPERATOR_HELPER_KEY }}
-    - name: redhat scan tag
-      env:
-        RH_SCAN_OSPID: ${{ secrets.RH_SCAN_HUMIO_OPERATOR_HELPER_OSPID }}
-      run: docker tag humio/humio-operator-helper:${{ env.RELEASE_VERSION }} scan.connect.redhat.com/$RH_SCAN_OSPID/humio-operator-helper:${{ env.RELEASE_VERSION }}
-    - name: redhat scan push
-      env:
-        RH_SCAN_OSPID: ${{ secrets.RH_SCAN_HUMIO_OPERATOR_HELPER_OSPID }}
-      run: make docker-push IMG=scan.connect.redhat.com/$RH_SCAN_OSPID/humio-operator-helper:${{ env.RELEASE_VERSION }}
