@@ -7,7 +7,7 @@ require (
 	github.com/go-logr/logr v0.3.0
 	github.com/go-logr/zapr v0.3.0
 	github.com/google/martian v2.1.0+incompatible
-	github.com/humio/cli v0.28.5
+	github.com/humio/cli v0.28.6
 	github.com/jetstack/cert-manager v1.3.1
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2

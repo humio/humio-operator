@@ -100,26 +100,6 @@ func ToIngestPartitionInput(line humioapi.IngestPartition) humioapi.IngestPartit
 	return input
 }
 
-// TODO: refactor, this is copied from the humio/cli/api/parsers.go
-// MapTests returns a matching slice of ParserTestCase, which is generated using the slice of strings and a function
-// for obtaining the ParserTestCase elements from each string.
-func MapTests(vs []string, f func(string) humioapi.ParserTestCase) []humioapi.ParserTestCase {
-	vsm := make([]humioapi.ParserTestCase, len(vs))
-	for i, v := range vs {
-		vsm[i] = f(v)
-	}
-	return vsm
-}
-
-// TODO: refactor, this is copied from the humio/cli/api/parsers.go
-// ToTestCase takes the input string of a ParserTestCase and returns a ParserTestCase object using the input string
-func ToTestCase(line string) humioapi.ParserTestCase {
-	return humioapi.ParserTestCase{
-		Input:  line,
-		Output: map[string]string{},
-	}
-}
-
 // IsOpenShift returns whether the operator is running in OpenShift-mode
 func IsOpenShift() bool {
 	sccName, found := os.LookupEnv("OPENSHIFT_SCC_NAME")

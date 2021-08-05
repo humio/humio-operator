@@ -272,7 +272,7 @@ func (h *ClientConfig) AddParser(hp *humiov1alpha1.HumioParser) (*humioapi.Parse
 		Name:      hp.Spec.Name,
 		Script:    hp.Spec.ParserScript,
 		TagFields: hp.Spec.TagFields,
-		Tests:     helpers.MapTests(hp.Spec.TestData, helpers.ToTestCase),
+		Tests:     hp.Spec.TestData,
 	}
 	err := h.apiClient.Parsers().Add(
 		hp.Spec.RepositoryName,
@@ -291,7 +291,7 @@ func (h *ClientConfig) UpdateParser(hp *humiov1alpha1.HumioParser) (*humioapi.Pa
 		Name:      hp.Spec.Name,
 		Script:    hp.Spec.ParserScript,
 		TagFields: hp.Spec.TagFields,
-		Tests:     helpers.MapTests(hp.Spec.TestData, helpers.ToTestCase),
+		Tests:     hp.Spec.TestData,
 	}
 	err := h.apiClient.Parsers().Add(
 		hp.Spec.RepositoryName,

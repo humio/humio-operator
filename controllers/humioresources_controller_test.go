@@ -480,7 +480,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:      spec.Name,
 				Script:    spec.ParserScript,
 				TagFields: spec.TagFields,
-				Tests:     helpers.MapTests(spec.TestData, helpers.ToTestCase),
+				Tests:     spec.TestData,
 			}
 			Expect(*initialParser).To(Equal(expectedInitialParser))
 
@@ -500,7 +500,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:      spec.Name,
 				Script:    updatedScript,
 				TagFields: spec.TagFields,
-				Tests:     helpers.MapTests(spec.TestData, helpers.ToTestCase),
+				Tests:     spec.TestData,
 			}
 			Eventually(func() humioapi.Parser {
 				updatedParser, err := humioClient.GetParser(fetchedParser)
