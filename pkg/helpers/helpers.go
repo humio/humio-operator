@@ -147,7 +147,7 @@ func TLSEnabled(hc *humiov1alpha1.HumioCluster) bool {
 // AsSHA256 does a sha 256 hash on an object and returns the result
 func AsSHA256(o interface{}) string {
 	h := sha256.New()
-	h.Write([]byte(fmt.Sprintf("%v", o)))
+	_, _ = h.Write([]byte(fmt.Sprintf("%v", o)))
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 

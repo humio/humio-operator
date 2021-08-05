@@ -38,13 +38,13 @@ import (
 )
 
 // perhaps we move these somewhere else?
-const localAdminTokenFile = "/data/humio-data/local-admin-token.txt"
+const localAdminTokenFile = "/data/humio-data/local-admin-token.txt" // #nosec G101
 const globalSnapshotFile = "/data/humio-data/global-data-snapshot.json"
 const adminAccountUserName = "admin" // TODO: Pull this from an environment variable
 
 const (
 	// apiTokenMethodAnnotationName is used to signal what mechanism was used to obtain the API token
-	apiTokenMethodAnnotationName = "humio.com/api-token-method"
+	apiTokenMethodAnnotationName = "humio.com/api-token-method" // #nosec G101
 	// apiTokenMethodFromAPI is used to indicate that the API token was obtained using an API call
 	apiTokenMethodFromAPI = "api"
 )
@@ -60,7 +60,7 @@ var (
 
 // getFileContent returns the content of a file as a string
 func getFileContent(filePath string) string {
-	data, err := ioutil.ReadFile(filePath)
+	data, err := ioutil.ReadFile(filePath) // #nosec G304
 	if err != nil {
 		fmt.Printf("Got an error while trying to read file %s: %s\n", filePath, err)
 		return ""
@@ -447,7 +447,7 @@ func initMode() {
 		if !found {
 			zone, _ = node.Labels[corev1.LabelZoneFailureDomain]
 		}
-		err := ioutil.WriteFile(targetFile, []byte(zone), 0644)
+		err := ioutil.WriteFile(targetFile, []byte(zone), 0644) // #nosec G306
 		if err != nil {
 			panic(fmt.Sprintf("unable to write file with availability zone information: %s", err))
 		}
