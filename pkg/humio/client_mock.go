@@ -17,10 +17,10 @@ limitations under the License.
 package humio
 
 import (
-	"crypto/md5"
+	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 	"net/url"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -216,7 +216,7 @@ func (h *MockClientConfig) DeleteParser(hp *humiov1alpha1.HumioParser) error {
 func (h *MockClientConfig) AddRepository(hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
 	updatedApiClient := h.apiClient
 	updatedApiClient.Repository = humioapi.Repository{
-		ID:                     fmt.Sprintf("%d", rand.Int()),
+		ID:                     kubernetes.RandomString(),
 		Name:                   hr.Spec.Name,
 		Description:            hr.Spec.Description,
 		RetentionDays:          float64(hr.Spec.Retention.TimeInDays),
@@ -359,7 +359,7 @@ func (h *MockClientConfig) DeleteAlert(ha *humiov1alpha1.HumioAlert) error {
 func (h *MockClientConfig) GetActionIDsMapForAlerts(ha *humiov1alpha1.HumioAlert) (map[string]string, error) {
 	actionIdMap := make(map[string]string)
 	for _, action := range ha.Spec.Actions {
-		hash := md5.Sum([]byte(action))
+		hash := sha512.Sum512([]byte(action))
 		actionIdMap[action] = hex.EncodeToString(hash[:])
 	}
 	return actionIdMap, nil

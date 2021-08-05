@@ -455,11 +455,11 @@ func (r *HumioClusterReconciler) ensureNoIngressesIfIngressNotEnabled(ctx contex
 		return reconcile.Result{}, nil
 	}
 
-	for _, ingress := range foundIngressList {
+	for idx, ingress := range foundIngressList {
 		// only consider ingresses not already being deleted
 		if ingress.DeletionTimestamp == nil {
 			r.Log.Info(fmt.Sprintf("deleting ingress with name %s", ingress.Name))
-			err = r.Delete(ctx, &ingress)
+			err = r.Delete(ctx, &foundIngressList[idx])
 			if err != nil {
 				r.Log.Error(err, "could not delete ingress")
 				return reconcile.Result{}, err
@@ -1012,15 +1012,18 @@ func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context
 		certificateHash := helpers.AsSHA256(certForHash)
 		certificate.Annotations[certHashAnnotation] = certificateHash
 		r.Log.Info(fmt.Sprintf("creating node TLS certificate with name %s", certificate.Name))
-		if err := controllerutil.SetControllerReference(hc, &certificate, r.Scheme()); err != nil {
+		if err = controllerutil.SetControllerReference(hc, &certificate, r.Scheme()); err != nil {
 			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
-		err := r.Create(ctx, &certificate)
-		if err != nil {
+		if err = r.Create(ctx, &certificate); err != nil {
+			r.Log.Error(err, "could create node certificate")
 			return err
 		}
-		r.waitForNewNodeCertificate(ctx, hc, existingNodeCertCount+1)
+		if err = r.waitForNewNodeCertificate(ctx, hc, existingNodeCertCount+1); err != nil {
+			r.Log.Error(err, "new node certificate not ready as expected")
+			return err
+		}
 	}
 	return nil
 }
@@ -1249,7 +1252,7 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1al
 		return err
 	}
 
-	for _, pod := range foundPodList {
+	for idx, pod := range foundPodList {
 		// Skip pods that already have a label. Check that the pvc also has the label if applicable
 		if kubernetes.LabelListContainsLabel(pod.GetLabels(), kubernetes.NodeIdLabelName) {
 			if pvcsEnabled(hc) {
@@ -1272,7 +1275,7 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1al
 				labels := kubernetes.LabelsForHumioNodeID(hc.Name, node.Id)
 				r.Log.Info(fmt.Sprintf("setting labels for pod %s, labels=%v", pod.Name, labels))
 				pod.SetLabels(labels)
-				if err := r.Update(ctx, &pod); err != nil {
+				if err := r.Update(ctx, &foundPodList[idx]); err != nil {
 					r.Log.Error(err, fmt.Sprintf("failed to update labels on pod %s", pod.Name))
 					return err
 				}
@@ -1603,13 +1606,13 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc
 		return reconcile.Result{}, nil
 	}
 
-	for _, secret := range foundSecretList {
+	for idx, secret := range foundSecretList {
 		if !helpers.TLSEnabled(hc) {
 			if secret.Type == corev1.SecretTypeOpaque {
 				if secret.Name == fmt.Sprintf("%s-%s", hc.Name, "ca-keypair") ||
 					secret.Name == fmt.Sprintf("%s-%s", hc.Name, "keystore-passphrase") {
 					r.Log.Info(fmt.Sprintf("TLS is not enabled for cluster, removing unused secret: %s", secret.Name))
-					err := r.Delete(ctx, &secret)
+					err := r.Delete(ctx, &foundSecretList[idx])
 					if err != nil {
 						return reconcile.Result{}, err
 					}
@@ -1654,7 +1657,7 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc
 			}
 			if !inUse {
 				r.Log.Info(fmt.Sprintf("deleting secret %s", secret.Name))
-				err = r.Delete(ctx, &secret)
+				err = r.Delete(ctx, &foundSecretList[idx])
 				if err != nil {
 					r.Log.Error(err, fmt.Sprintf("could not delete secret %s", secret.Name))
 					return reconcile.Result{}, err
@@ -1716,7 +1719,7 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSCertificates(ctx context.Contex
 		return reconcile.Result{}, nil
 	}
 
-	for _, certificate := range foundCertificateList {
+	for idx, certificate := range foundCertificateList {
 		// only consider secrets not already being deleted
 		if certificate.DeletionTimestamp == nil {
 			if len(certificate.OwnerReferences) == 0 {
@@ -1745,7 +1748,7 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSCertificates(ctx context.Contex
 			}
 			if !inUse {
 				r.Log.Info(fmt.Sprintf("deleting certificate %s", certificate.Name))
-				err = r.Delete(ctx, &certificate)
+				err = r.Delete(ctx, &foundCertificateList[idx])
 				if err != nil {
 					r.Log.Error(err, fmt.Sprintf("could not delete certificate %s", certificate.Name))
 					return reconcile.Result{}, err
@@ -1838,7 +1841,9 @@ func (r *HumioClusterReconciler) ensureHumioServiceAccountAnnotations(ctx contex
 		}
 
 		// Trigger restart of humio to pick up the updated service account
-		r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRolling)
+		if _, err = r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRolling); err != nil {
+			return reconcile.Result{}, err
+		}
 
 		return reconcile.Result{Requeue: true}, nil
 	}
@@ -2060,7 +2065,7 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 		r.Log.Info(fmt.Sprintf("successfully created pvc %s for HumioCluster %s", pvc.Name, hc.Name))
 		humioClusterPrometheusMetrics.Counters.PvcsCreated.Inc()
 
-		if r.waitForNewPvc(ctx, hc, pvc); err != nil {
+		if err = r.waitForNewPvc(ctx, hc, pvc); err != nil {
 			r.Log.Error(err, "unable to create pvc: %s", err)
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}

@@ -66,3 +66,7 @@ jobs:
         container_tag: ${{ github.sha }}
       env:
         FALCON_CLIENT_SECRET: "${{ secrets.FALCON_CLIENT_SECRET }}"
+    - name: Run Gosec Security Scanner
+      uses: securego/gosec@master
+      with:
+        args: ./...
