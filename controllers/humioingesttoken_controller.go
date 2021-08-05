@@ -240,7 +240,10 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 		r.Log.Info("ingest token secret already exists", "TokenSecretName", hit.Spec.TokenSecretName)
 		if string(existingSecret.Data["token"]) != string(desiredSecret.Data["token"]) {
 			r.Log.Info("secret does not match the token in Humio. Updating token", "TokenSecretName", hit.Spec.TokenSecretName)
-			r.Update(ctx, desiredSecret)
+			if err = r.Update(ctx, desiredSecret); err != nil {
+				r.Log.Error(err, "unable to update alert")
+				return err
+			}
 		}
 	}
 	return nil

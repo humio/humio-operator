@@ -72,7 +72,7 @@ func RandomString() string {
 	length := 6
 	var b strings.Builder
 	for i := 0; i < length; i++ {
-		b.WriteRune(chars[rand.Intn(len(chars))])
+		b.WriteRune(chars[rand.Intn(len(chars))]) // #nosec G404
 	}
 	return b.String()
 }

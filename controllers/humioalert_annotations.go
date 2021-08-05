@@ -22,7 +22,11 @@ func (r *HumioAlertReconciler) reconcileHumioAlertAnnotations(ctx context.Contex
 
 	// Copy annotations from the alerts transformer to get the current alert ID
 	hydratedHumioAlert := &humiov1alpha1.HumioAlert{}
-	humio.AlertHydrate(hydratedHumioAlert, addedAlert, map[string]string{})
+	if err = humio.AlertHydrate(hydratedHumioAlert, addedAlert, map[string]string{}); err != nil {
+		r.Log.Error(err, "failed to hydrate alert")
+		return reconcile.Result{}, err
+	}
+
 	if len(currentAlert.ObjectMeta.Annotations) < 1 {
 		currentAlert.ObjectMeta.Annotations = make(map[string]string)
 	}
