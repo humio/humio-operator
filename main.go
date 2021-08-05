@@ -112,11 +112,17 @@ func main() {
 	}
 
 	if helpers.IsOpenShift() {
-		openshiftsecurityv1.AddToScheme(mgr.GetScheme())
+		if err = openshiftsecurityv1.AddToScheme(mgr.GetScheme()); err != nil {
+			ctrl.Log.Error(err, "unable to add cert-manager to scheme")
+			os.Exit(2)
+		}
 	}
 
 	if helpers.UseCertManager() {
-		cmapi.AddToScheme(mgr.GetScheme())
+		if err = cmapi.AddToScheme(mgr.GetScheme()); err != nil {
+			ctrl.Log.Error(err, "unable to add cert-manager to scheme")
+			os.Exit(2)
+		}
 	}
 
 	userAgent := fmt.Sprintf("humio-operator/%s (%s on %s)", version, commit, date)

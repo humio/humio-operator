@@ -123,16 +123,20 @@ func generateCACertificate() (CACert, error) {
 	}
 
 	caCertificatePEM := new(bytes.Buffer)
-	pem.Encode(caCertificatePEM, &pem.Block{
+	if err = pem.Encode(caCertificatePEM, &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: caBytes,
-	})
+	}); err != nil {
+		return CACert{}, fmt.Errorf("could not encode CA certificate as PEM")
+	}
 
 	caPrivateKeyPEM := new(bytes.Buffer)
-	pem.Encode(caPrivateKeyPEM, &pem.Block{
+	if err = pem.Encode(caPrivateKeyPEM, &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(caPrivateKey),
-	})
+	}); err != nil {
+		return CACert{}, fmt.Errorf("could not encode CA private key as PEM")
+	}
 
 	return CACert{
 		Certificate: caCertificatePEM.Bytes(),
