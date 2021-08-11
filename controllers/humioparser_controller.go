@@ -132,13 +132,13 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Get current parser
 	r.Log.Info("get current parser")
-	curParser, err := r.HumioClient.GetParser(hp) // This returns 401 instead of 200
+	curParser, err := r.HumioClient.GetParser(hp)
 	if err != nil {
 		r.Log.Error(err, "could not check if parser exists", "Repository.Name", hp.Spec.RepositoryName)
 		return reconcile.Result{}, fmt.Errorf("could not check if parser exists: %s", err)
 	}
 
-	emptyParser := humioapi.Parser{Tests: []humioapi.ParserTestCase{}, TagFields: nil} // when using a real humio, we need to do this, ensure tests work the same way. tests currently set this to nil whereas it should be the empty list
+	emptyParser := humioapi.Parser{Tests: nil, TagFields: nil}
 	if reflect.DeepEqual(emptyParser, *curParser) {
 		r.Log.Info("parser doesn't exist. Now adding parser")
 		// create parser
@@ -151,7 +151,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	if (curParser.Script != hp.Spec.ParserScript) || !reflect.DeepEqual(curParser.TagFields, hp.Spec.TagFields) || !reflect.DeepEqual(curParser.Tests, helpers.MapTests(hp.Spec.TestData, helpers.ToTestCase)) {
+	if (curParser.Script != hp.Spec.ParserScript) || !reflect.DeepEqual(curParser.TagFields, hp.Spec.TagFields) || !reflect.DeepEqual(curParser.Tests, hp.Spec.TestData) {
 		r.Log.Info("parser information differs, triggering update")
 		_, err = r.HumioClient.UpdateParser(hp)
 		if err != nil {
