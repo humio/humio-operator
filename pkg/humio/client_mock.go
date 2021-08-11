@@ -27,7 +27,6 @@ import (
 
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/pkg/helpers"
 )
 
 type ClientMock struct {
@@ -61,7 +60,7 @@ func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePa
 			UpdateStoragePartitionSchemeError: updateStoragePartitionSchemeError,
 			UpdateIngestPartitionSchemeError:  updateIngestPartitionSchemeError,
 			IngestToken:                       humioapi.IngestToken{},
-			Parser:                            humioapi.Parser{Tests: []humioapi.ParserTestCase{}},
+			Parser:                            humioapi.Parser{},
 			Repository:                        humioapi.Repository{},
 			View:                              humioapi.View{},
 			OnPremLicense:                     humioapi.OnPremLicense{},
@@ -194,7 +193,7 @@ func (h *MockClientConfig) AddParser(hp *humiov1alpha1.HumioParser) (*humioapi.P
 		Name:      hp.Spec.Name,
 		Script:    hp.Spec.ParserScript,
 		TagFields: hp.Spec.TagFields,
-		Tests:     helpers.MapTests(hp.Spec.TestData, helpers.ToTestCase),
+		Tests:     hp.Spec.TestData,
 	}
 	return &h.apiClient.Parser, nil
 }
@@ -209,7 +208,7 @@ func (h *MockClientConfig) UpdateParser(hp *humiov1alpha1.HumioParser) (*humioap
 
 func (h *MockClientConfig) DeleteParser(hp *humiov1alpha1.HumioParser) error {
 	updatedApiClient := h.apiClient
-	updatedApiClient.Parser = humioapi.Parser{Tests: []humioapi.ParserTestCase{}}
+	updatedApiClient.Parser = humioapi.Parser{}
 	return nil
 }
 
