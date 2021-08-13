@@ -1442,9 +1442,13 @@ func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *h
 func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1alpha1.HumioCluster, req ctrl.Request) (reconcile.Result, error) {
 	r.Log.Info("ensuring license")
 
-	var existingLicense humioapi.License
-	var err error
+	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager())
+	if err != nil {
+		return r.ensureInitialLicense(ctx, hc, r.HumioClient.GetBaseURL(hc), req)
+	}
+	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
 
+	var existingLicense humioapi.License
 	existingLicense, err = r.HumioClient.GetLicense()
 	if err != nil {
 		r.Log.Info(fmt.Sprintf("failed to get license: %v", err))
