@@ -2961,6 +2961,40 @@ spec:
                   - name
                   type: object
                 type: array
+              environmentVariablesSource:
+                description: EnvironmentVariablesSource is the reference to an external
+                  source of environment variables that will be merged with environmentVariables
+                items:
+                  description: EnvFromSource represents the source of a set of ConfigMaps
+                  properties:
+                    configMapRef:
+                      description: The ConfigMap to select from
+                      properties:
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            TODO: Add other useful fields. apiVersion, kind, uid?'
+                          type: string
+                        optional:
+                          description: Specify whether the ConfigMap must be defined
+                          type: boolean
+                      type: object
+                    prefix:
+                      description: An optional identifier to prepend to each key in
+                        the ConfigMap. Must be a C_IDENTIFIER.
+                      type: string
+                    secretRef:
+                      description: The Secret to select from
+                      properties:
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            TODO: Add other useful fields. apiVersion, kind, uid?'
+                          type: string
+                        optional:
+                          description: Specify whether the Secret must be defined
+                          type: boolean
+                      type: object
+                  type: object
+                type: array
               esHostname:
                 description: ESHostname is the public hostname used by log shippers
                   with support for ES bulk API to access Humio

@@ -527,6 +527,13 @@ func (in *HumioClusterSpec) DeepCopyInto(out *HumioClusterSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.EnvironmentVariablesSource != nil {
+		in, out := &in.EnvironmentVariablesSource, &out.EnvironmentVariablesSource
+		*out = make([]v1.EnvFromSource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	in.DataVolumeSource.DeepCopyInto(&out.DataVolumeSource)
 	in.DataVolumePersistentVolumeClaimSpecTemplate.DeepCopyInto(&out.DataVolumePersistentVolumeClaimSpecTemplate)
 	if in.ImagePullSecrets != nil {
