@@ -262,6 +262,11 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return result, err
 	}
 
+	err = r.ensureEnvConfigMap(ctx, hc)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	result, err = r.ensurePodsExist(ctx, hc)
 	if result != emptyResult || err != nil {
 		return result, err
@@ -369,6 +374,39 @@ func (r *HumioClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // ensureExtraKafkaConfigsConfigMap creates a configmap containing configs specified in extraKafkaConfigs which will be mounted
+// into the Humio container and pointed to by Humio's configuration option EXTRA_KAFKA_CONFIGS_FILE
+func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	extraKafkaConfigsConfigMapData := extraKafkaConfigsOrDefault(hc)
+	if extraKafkaConfigsConfigMapData == "" {
+		return nil
+	}
+	_, err := kubernetes.GetConfigMap(ctx, r, extraKafkaConfigsConfigMapName(hc), hc.Namespace)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			configMap := kubernetes.ConstructExtraKafkaConfigsConfigMap(
+				extraKafkaConfigsConfigMapName(hc),
+				extraKafkaPropertiesFilename,
+				extraKafkaConfigsConfigMapData,
+				hc.Name,
+				hc.Namespace,
+			)
+			if err := controllerutil.SetControllerReference(hc, configMap, r.Scheme()); err != nil {
+				r.Log.Error(err, "could not set controller reference")
+				return err
+			}
+			err = r.Create(ctx, configMap)
+			if err != nil {
+				r.Log.Error(err, "unable to create extra kafka configs configmap")
+				return err
+			}
+			r.Log.Info(fmt.Sprintf("successfully created extra kafka configs configmap name %s", configMap.Name))
+			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
+		}
+	}
+	return nil
+}
+
+// validateEnvConfigMap validates that a configmap exists if the
 // into the Humio container and pointed to by Humio's configuration option EXTRA_KAFKA_CONFIGS_FILE
 func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	extraKafkaConfigsConfigMapData := extraKafkaConfigsOrDefault(hc)
