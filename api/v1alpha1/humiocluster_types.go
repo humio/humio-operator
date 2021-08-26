@@ -56,6 +56,8 @@ type HumioClusterSpec struct {
 	License HumioClusterLicenseSpec `json:"license,omitempty"`
 	// EnvironmentVariables that will be merged with default environment variables then set on the humio container
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
+	// EnvironmentVariablesSource is the reference to an external source of environment variables that will be merged with environmentVariables
+	EnvironmentVariablesSource []corev1.EnvFromSource `json:"environmentVariablesSource,omitempty"`
 	// DataVolumeSource is the volume that is mounted on the humio pods. This conflicts with DataVolumePersistentVolumeClaimSpecTemplate.
 	DataVolumeSource corev1.VolumeSource `json:"dataVolumeSource,omitempty"`
 	// DataVolumePersistentVolumeClaimSpecTemplate is the PersistentVolumeClaimSpec that will be used with for the humio data volume. This conflicts with DataVolumeSource.
