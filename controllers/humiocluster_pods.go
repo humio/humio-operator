@@ -323,6 +323,10 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 		return &corev1.Pod{}, err
 	}
 
+	if len(hc.Spec.EnvironmentVariablesSource) > 0 {
+		pod.Spec.Containers[humioIdx].EnvFrom = hc.Spec.EnvironmentVariablesSource
+	}
+
 	if envVarHasValue(pod.Spec.Containers[humioIdx].Env, "AUTHENTICATION_METHOD", "saml") {
 		pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
 			Name:  "SAML_IDP_CERTIFICATE",

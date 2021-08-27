@@ -4293,6 +4293,29 @@ spec:
                       type: string
                   type: object
                 type: array
+              imageSource:
+                description: ImageSource is the reference to an external source identifying
+                  the image
+                properties:
+                  configMapRef:
+                    description: ConfigMapRef contains the reference to the configmap
+                      name and key containing the image value
+                    properties:
+                      key:
+                        description: The key to select.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                      optional:
+                        description: Specify whether the ConfigMap or its key must
+                          be defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                type: object
               ingress:
                 description: Ingress is used to set up ingress-related objects in
                   order to reach Humio externally from the kubernetes cluster
