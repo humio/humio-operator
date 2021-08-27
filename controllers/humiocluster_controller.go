@@ -268,11 +268,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return result, err
 	}
 
-	err = r.validateEnvVarSource(ctx, hc)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	result, err = r.ensurePodsExist(ctx, hc)
 	if result != emptyResult || err != nil {
 		return result, err
@@ -413,33 +408,38 @@ func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Co
 }
 
 // validateEnvVarSource validates that a envVarSource exists if the environmentVariablesSource is specified
-func (r *HumioClusterReconciler) validateEnvVarSource(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+func (r *HumioClusterReconciler) getEnvVarSource(ctx context.Context, hc *humiov1alpha1.HumioCluster) (*map[string]string, error) {
 	var envVarConfigMapName string
 	var envVarSecretName string
 	for _, envVarSource := range hc.Spec.EnvironmentVariablesSource {
 		if envVarSource.ConfigMapRef != nil {
 			envVarConfigMapName = envVarSource.ConfigMapRef.Name
-			_, err := kubernetes.GetConfigMap(ctx, r, envVarConfigMapName, hc.Namespace)
+			configMap, err := kubernetes.GetConfigMap(ctx, r, envVarConfigMapName, hc.Namespace)
 			if err != nil {
 				if errors.IsNotFound(err) {
-					return fmt.Errorf("environmentVariablesSource was set but no configMap exists by name %s in namespace %s", envVarConfigMapName, hc.Namespace)
+					return nil, fmt.Errorf("environmentVariablesSource was set but no configMap exists by name %s in namespace %s", envVarConfigMapName, hc.Namespace)
 				}
-				return fmt.Errorf("unable to get configMap with name %s in namespace %s", envVarConfigMapName, hc.Namespace)
-
+				return nil, fmt.Errorf("unable to get configMap with name %s in namespace %s", envVarConfigMapName, hc.Namespace)
 			}
+			return &configMap.Data, nil
 		}
 		if envVarSource.SecretRef != nil {
 			envVarSecretName = envVarSource.SecretRef.Name
-			_, err := kubernetes.GetSecret(ctx, r, envVarSecretName, hc.Namespace)
+			var secretData map[string]string
+			secret, err := kubernetes.GetSecret(ctx, r, envVarSecretName, hc.Namespace)
 			if err != nil {
 				if errors.IsNotFound(err) {
-					return fmt.Errorf("environmentVariablesSource was set but no secret exists by name %s in namespace %s", envVarSecretName, hc.Namespace)
+					return nil, fmt.Errorf("environmentVariablesSource was set but no secret exists by name %s in namespace %s", envVarSecretName, hc.Namespace)
 				}
-				return fmt.Errorf("unable to get secret with name %s in namespace %s", envVarSecretName, hc.Namespace)
+				return nil, fmt.Errorf("unable to get secret with name %s in namespace %s", envVarSecretName, hc.Namespace)
 			}
+			for k, v := range secret.Data {
+				secretData[k] = string(v)
+			}
+			return &secretData, nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // setImageFromSource will check if imageSource is defined and if it is, it will update spec.Image with the image value
@@ -1945,6 +1945,15 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	if err != nil {
 		r.Log.Error(err, "failed to get pod status")
 		return reconcile.Result{}, err
+	}
+
+	envVarSourceData, err := r.getEnvVarSource(ctx, hc)
+	if err != nil {
+		r.Log.Error(err, "got error when getting pod envVarSource")
+		return reconcile.Result{}, err
+	}
+	if envVarSourceData != nil {
+		attachments.envVarSourceData = envVarSourceData
 	}
 
 	// prioritize deleting the pods with errors
