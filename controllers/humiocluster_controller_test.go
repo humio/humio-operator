@@ -2813,6 +2813,75 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 		})
 	})
+
+	Context("Humio Cluster with envSource configmap", func() {
+		It("Creating cluster with envSource configmap", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-env-source-configmap",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
+
+			By("Creating the cluster successfully")
+			ctx := context.Background()
+			createAndBootstrapCluster(ctx, toCreate, true)
+
+			By("Confirming the humio pods are not using env var source")
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			humioIdx, err := kubernetes.GetContainerIndexByName(clusterPods[0], humioContainerName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(clusterPods[0].Spec.Containers[humioIdx].EnvFrom).To(BeNil())
+
+			By("Adding envVarSource to pod spec")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+
+				updatedHumioCluster.Spec.EnvironmentVariablesSource = []corev1.EnvFromSource{
+					{
+						ConfigMapRef: &corev1.ConfigMapEnvSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "env-var-source",
+							},
+						},
+					},
+				}
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Confirming the HumioCluster goes into ConfigError state since the configmap does not exist")
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			By("Creating the envVarSource configmap")
+			envVarSourceConfigMap := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "env-var-source",
+					Namespace: key.Namespace,
+				},
+				Data: map[string]string{"SOME_ENV_VAR": "SOME_ENV_VALUE"},
+			}
+			Expect(k8sClient.Create(ctx, &envVarSourceConfigMap)).To(Succeed())
+
+			By("Confirming pods contain the new env vars")
+			Eventually(func() *corev1.ConfigMapEnvSource {
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				humioIdx, err := kubernetes.GetContainerIndexByName(clusterPods[0], humioContainerName)
+				Expect(err).ToNot(HaveOccurred())
+				if clusterPods[0].Spec.Containers[humioIdx].EnvFrom != nil {
+					if len(clusterPods[0].Spec.Containers[humioIdx].EnvFrom) > 0 {
+						return clusterPods[0].Spec.Containers[humioIdx].EnvFrom[0].ConfigMapRef
+					}
+				}
+				return nil
+			}, testTimeout, testInterval).Should(Not(BeNil()))
+		})
+	})
 })
 
 func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.HumioCluster, autoCreateLicense bool) {

@@ -71,6 +71,7 @@ type podAttachments struct {
 	dataVolumeSource             corev1.VolumeSource
 	initServiceAccountSecretName string
 	authServiceAccountSecretName string
+	envVarSourceData             *map[string]string
 }
 
 // nodeUUIDTemplateVars contains the variables that are allowed to be rendered for the nodeUUID string
@@ -323,8 +324,17 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 		return &corev1.Pod{}, err
 	}
 
+	// If envFrom is set on the HumioCluster spec, add it to the pod spec. Add a new env var with the hash of the env
+	// var values from the secret or configmap to trigger pod restarts when they change
 	if len(hc.Spec.EnvironmentVariablesSource) > 0 {
 		pod.Spec.Containers[humioIdx].EnvFrom = hc.Spec.EnvironmentVariablesSource
+		if attachments.envVarSourceData != nil {
+			b, _ := json.Marshal(attachments.envVarSourceData)
+			pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
+				Name:  "ENV_VAR_SOURCE_HASH",
+				Value: helpers.AsSHA256(string(b)),
+			})
+		}
 	}
 
 	if envVarHasValue(pod.Spec.Containers[humioIdx].Env, "AUTHENTICATION_METHOD", "saml") {
@@ -1003,9 +1013,15 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hc *humi
 		return &podAttachments{}, errors.New("unable to create Pod for HumioCluster: the init service account secret does not exist")
 	}
 
+	envVarSourceData, err := r.getEnvVarSource(ctx, hc)
+	if err != nil {
+		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster: %s", err)
+	}
+
 	return &podAttachments{
 		dataVolumeSource:             volumeSource,
 		initServiceAccountSecretName: initSASecretName,
 		authServiceAccountSecretName: authSASecretName,
+		envVarSourceData:             envVarSourceData,
 	}, nil
 }
