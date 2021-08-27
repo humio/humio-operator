@@ -36,6 +36,8 @@ const (
 type HumioClusterSpec struct {
 	// Image is the desired humio container image, including the image tag
 	Image string `json:"image,omitempty"`
+	// ImageSource is the reference to an external source identifying the image
+	ImageSource *HumioImageSource `json:"imageSource,omitempty"`
 	// HelperImage is the desired helper container image, including image tag
 	HelperImage string `json:"helperImage,omitempty"`
 	// DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
@@ -191,6 +193,12 @@ type HumioClusterTLSSpec struct {
 // HumioClusterLicenseSpec points to the optional location of the Humio license
 type HumioClusterLicenseSpec struct {
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
+}
+
+// HumioImageSource points to the external source identifying the image
+type HumioImageSource struct {
+	// ConfigMapRef contains the reference to the configmap name and key containing the image value
+	ConfigMapRef *corev1.ConfigMapKeySelector `json:"configMapRef,omitempty"`
 }
 
 // HumioPodStatus shows the status of individual humio pods
