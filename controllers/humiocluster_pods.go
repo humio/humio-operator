@@ -324,16 +324,13 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 		return &corev1.Pod{}, err
 	}
 
-	// If envFrom is set on the HumioCluster spec, add it to the pod spec. Add a new env var with the hash of the env
+	// If envFrom is set on the HumioCluster spec, add it to the pod spec. Add an annotation with the hash of the env
 	// var values from the secret or configmap to trigger pod restarts when they change
 	if len(hc.Spec.EnvironmentVariablesSource) > 0 {
 		pod.Spec.Containers[humioIdx].EnvFrom = hc.Spec.EnvironmentVariablesSource
 		if attachments.envVarSourceData != nil {
 			b, _ := json.Marshal(attachments.envVarSourceData)
-			pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
-				Name:  "ENV_VAR_SOURCE_HASH",
-				Value: helpers.AsSHA256(string(b)),
-			})
+			pod.Annotations[envVarSourceHashAnnotation] = helpers.AsSHA256(string(b))
 		}
 	}
 
@@ -786,6 +783,15 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 		return &corev1.Pod{}, err
 	}
 
+	if attachments.envVarSourceData != nil {
+		b, err := json.Marshal(attachments.envVarSourceData)
+		if err != nil {
+			r.Log.Error(err, "unable to load envVarSource")
+			return &corev1.Pod{}, err
+		}
+		pod.Annotations[envVarSourceHashAnnotation] = helpers.AsSHA256(string(b))
+	}
+
 	podRevision, err := r.getHumioClusterPodRevision(hc)
 	if err != nil {
 		return &corev1.Pod{}, err
@@ -849,6 +855,7 @@ func (r *HumioClusterReconciler) podsMatch(hc *humiov1alpha1.HumioCluster, pod c
 	}
 	var specMatches bool
 	var revisionMatches bool
+	var envVarSourceMatches bool
 
 	desiredPodHash := podSpecAsSHA256(hc, desiredPod)
 	existingPodRevision, err := r.getHumioClusterPodRevision(hc)
@@ -865,12 +872,21 @@ func (r *HumioClusterReconciler) podsMatch(hc *humiov1alpha1.HumioCluster, pod c
 	if pod.Annotations[podRevisionAnnotation] == desiredPod.Annotations[podRevisionAnnotation] {
 		revisionMatches = true
 	}
+	if _, ok := pod.Annotations[envVarSourceHashAnnotation]; ok {
+		if pod.Annotations[envVarSourceHashAnnotation] == desiredPod.Annotations[envVarSourceHashAnnotation] {
+			envVarSourceMatches = true
+		}
+	}
 	if !specMatches {
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", podHashAnnotation, pod.Annotations[podHashAnnotation], desiredPodHash))
 		return false, nil
 	}
 	if !revisionMatches {
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", podRevisionAnnotation, pod.Annotations[podRevisionAnnotation], desiredPod.Annotations[podRevisionAnnotation]))
+		return false, nil
+	}
+	if !envVarSourceMatches {
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", envVarSourceHashAnnotation, pod.Annotations[envVarSourceHashAnnotation], desiredPod.Annotations[envVarSourceHashAnnotation]))
 		return false, nil
 	}
 	return true, nil
