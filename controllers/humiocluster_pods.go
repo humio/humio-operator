@@ -876,6 +876,11 @@ func (r *HumioClusterReconciler) podsMatch(hc *humiov1alpha1.HumioCluster, pod c
 		if pod.Annotations[envVarSourceHashAnnotation] == desiredPod.Annotations[envVarSourceHashAnnotation] {
 			envVarSourceMatches = true
 		}
+	} else {
+		// Ignore envVarSource hash if it's not in either the current pod or the desired pod
+		if _, ok := desiredPod.Annotations[envVarSourceHashAnnotation]; !ok {
+			envVarSourceMatches = true
+		}
 	}
 	if !specMatches {
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", podHashAnnotation, pod.Annotations[podHashAnnotation], desiredPodHash))
