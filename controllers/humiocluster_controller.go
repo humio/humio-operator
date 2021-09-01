@@ -425,7 +425,7 @@ func (r *HumioClusterReconciler) getEnvVarSource(ctx context.Context, hc *humiov
 		}
 		if envVarSource.SecretRef != nil {
 			envVarSecretName = envVarSource.SecretRef.Name
-			var secretData map[string]string
+			secretData := map[string]string{}
 			secret, err := kubernetes.GetSecret(ctx, r, envVarSecretName, hc.Namespace)
 			if err != nil {
 				if errors.IsNotFound(err) {
@@ -1950,6 +1950,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	envVarSourceData, err := r.getEnvVarSource(ctx, hc)
 	if err != nil {
 		r.Log.Error(err, "got error when getting pod envVarSource")
+		_ = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
 		return reconcile.Result{}, err
 	}
 	if envVarSourceData != nil {

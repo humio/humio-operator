@@ -268,6 +268,89 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster Update Image Source", func() {
+		It("Update should correctly replace pods to use new image", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-update-image-source",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = "humio/humio-core:1.26.0"
+			toCreate.Spec.NodeCount = helpers.IntPtr(2)
+
+			By("Creating the cluster successfully")
+			ctx := context.Background()
+			createAndBootstrapCluster(ctx, toCreate, true)
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+
+			By("Adding imageSource to pod spec")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.ImageSource = &humiov1alpha1.HumioImageSource{
+					ConfigMapRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "image-source",
+						},
+						Key: "tag",
+					},
+				}
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Confirming the HumioCluster goes into ConfigError state since the configmap does not exist")
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			By("Creating the imageSource configmap")
+			updatedImage := image
+			envVarSourceConfigMap := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "image-source",
+					Namespace: key.Namespace,
+				},
+				Data: map[string]string{"tag": updatedImage},
+			}
+			Expect(k8sClient.Create(ctx, &envVarSourceConfigMap)).To(Succeed())
+
+			By("Waiting for the reconciliation to register the configmap and proceed with the upgrade")
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			By("Ensuring all existing pods are terminated at the same time")
+			ensurePodsSimultaneousRestart(ctx, &updatedHumioCluster, key, 2)
+
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			By("Confirming pod revision is the same for all pods and the cluster itself")
+			k8sClient.Get(ctx, key, &updatedHumioCluster)
+			Expect(updatedHumioCluster.Annotations[podRevisionAnnotation]).To(Equal("2"))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
+			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations[podRevisionAnnotation]).To(Equal("2"))
+			}
+
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				By("Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+		})
+	})
+
 	Context("Humio Cluster Update Using Wrong Image", func() {
 		It("Update should correctly replace pods after using wrong image", func() {
 			key := types.NamespacedName{
@@ -2869,17 +2952,96 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(k8sClient.Create(ctx, &envVarSourceConfigMap)).To(Succeed())
 
 			By("Confirming pods contain the new env vars")
-			Eventually(func() *corev1.ConfigMapEnvSource {
+			Eventually(func() int {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-				humioIdx, err := kubernetes.GetContainerIndexByName(clusterPods[0], humioContainerName)
-				Expect(err).ToNot(HaveOccurred())
-				if clusterPods[0].Spec.Containers[humioIdx].EnvFrom != nil {
-					if len(clusterPods[0].Spec.Containers[humioIdx].EnvFrom) > 0 {
-						return clusterPods[0].Spec.Containers[humioIdx].EnvFrom[0].ConfigMapRef
+				var podsContainingEnvFrom int
+				for _, pod := range clusterPods {
+					humioIdx, err := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+					Expect(err).ToNot(HaveOccurred())
+					if pod.Spec.Containers[humioIdx].EnvFrom != nil {
+						if len(pod.Spec.Containers[humioIdx].EnvFrom) > 0 {
+							if pod.Spec.Containers[humioIdx].EnvFrom[0].ConfigMapRef != nil {
+								podsContainingEnvFrom++
+							}
+						}
 					}
 				}
-				return nil
-			}, testTimeout, testInterval).Should(Not(BeNil()))
+				return podsContainingEnvFrom
+			}, testTimeout, testInterval).Should(Equal(*toCreate.Spec.NodeCount))
+		})
+	})
+
+	Context("Humio Cluster with envSource secret", func() {
+		It("Creating cluster with envSource secret", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-env-source-secret",
+				Namespace: "default",
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
+
+			By("Creating the cluster successfully")
+			ctx := context.Background()
+			createAndBootstrapCluster(ctx, toCreate, true)
+
+			By("Confirming the humio pods are not using env var source")
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			humioIdx, err := kubernetes.GetContainerIndexByName(clusterPods[0], humioContainerName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(clusterPods[0].Spec.Containers[humioIdx].EnvFrom).To(BeNil())
+
+			By("Adding envVarSource to pod spec")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+
+				updatedHumioCluster.Spec.EnvironmentVariablesSource = []corev1.EnvFromSource{
+					{
+						SecretRef: &corev1.SecretEnvSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "env-var-source",
+							},
+						},
+					},
+				}
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			By("Confirming the HumioCluster goes into ConfigError state since the secret does not exist")
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			By("Creating the envVarSource secret")
+			envVarSourceSecret := corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "env-var-source",
+					Namespace: key.Namespace,
+				},
+				StringData: map[string]string{"SOME_ENV_VAR": "SOME_ENV_VALUE"},
+			}
+			Expect(k8sClient.Create(ctx, &envVarSourceSecret)).To(Succeed())
+
+			By("Confirming pods contain the new env vars")
+			Eventually(func() int {
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				var podsContainingEnvFrom int
+				for _, pod := range clusterPods {
+					humioIdx, err := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+					Expect(err).ToNot(HaveOccurred())
+					if pod.Spec.Containers[humioIdx].EnvFrom != nil {
+						if len(pod.Spec.Containers[humioIdx].EnvFrom) > 0 {
+							if pod.Spec.Containers[humioIdx].EnvFrom[0].SecretRef != nil {
+								podsContainingEnvFrom++
+							}
+						}
+					}
+				}
+				return podsContainingEnvFrom
+			}, testTimeout, testInterval).Should(Equal(*toCreate.Spec.NodeCount))
 		})
 	})
 })
