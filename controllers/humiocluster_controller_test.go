@@ -2877,21 +2877,21 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 	By("Creating HumioCluster resource")
 	Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
 
-	By("Confirming cluster enters running state")
+	if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
+		// Simulate sidecar creating the secret which contains the admin token use to authenticate with humio
+		secretData := map[string][]byte{"token": []byte("")}
+		adminTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
+		By("Simulating the auth container creating the secret containing the API token")
+		desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, adminTokenSecretName, secretData, nil)
+		Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
+	}
+
 	var updatedHumioCluster humiov1alpha1.HumioCluster
+	By("Confirming cluster enters running state")
 	Eventually(func() string {
 		k8sClient.Get(ctx, key, &updatedHumioCluster)
 		return updatedHumioCluster.Status.State
 	}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
-
-	if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
-		// Simulate sidecar creating the secret which contains the admin token use to authenticate with humio
-		secretData := map[string][]byte{"token": []byte("")}
-		adminTokenSecretName := fmt.Sprintf("%s-%s", updatedHumioCluster.Name, kubernetes.ServiceTokenSecretNameSuffix)
-		By("Simulating the auth container creating the secret containing the API token")
-		desiredSecret := kubernetes.ConstructSecret(updatedHumioCluster.Name, updatedHumioCluster.Namespace, adminTokenSecretName, secretData, nil)
-		Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
-	}
 
 	By("Waiting to have the correct number of pods")
 	var clusterPods []corev1.Pod
