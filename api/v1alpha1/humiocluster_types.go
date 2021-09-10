@@ -94,6 +94,11 @@ type HumioClusterSpec struct {
 	// If specified and empty, the pod will be created without a liveness probe set.
 	// Otherwise, use the built in default liveness probe configuration.
 	ContainerLivenessProbe *corev1.Probe `json:"containerLivenessProbe,omitempty"`
+	// ContainerStartupProbe is the startup probe applied to the Humio container
+	// If specified and non-empty, the user-specified startup probe will be used.
+	// If specified and empty, the pod will be created without a startup probe set.
+	// Otherwise, use the built in default startup probe configuration.
+	ContainerStartupProbe *corev1.Probe `json:"containerStartupProbe,omitempty"`
 	// PodSecurityContext is the security context applied to the Humio pod
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 	// PodAnnotations can be used to specify annotations that will be added to the Humio pods

@@ -293,6 +293,30 @@ func containerLivenessProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Pro
 	return hc.Spec.ContainerLivenessProbe
 }
 
+func containerStartupProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Probe {
+	emptyProbe := &corev1.Probe{}
+	if reflect.DeepEqual(hc.Spec.ContainerStartupProbe, emptyProbe) {
+		return nil
+	}
+
+	if hc.Spec.ContainerStartupProbe == nil {
+		return &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path:   "/api/v1/config",
+					Port:   intstr.IntOrString{IntVal: humioPort},
+					Scheme: getProbeScheme(hc),
+				},
+			},
+			PeriodSeconds:    10,
+			TimeoutSeconds:   2,
+			SuccessThreshold: 1,
+			FailureThreshold: 30,
+		}
+	}
+	return hc.Spec.ContainerStartupProbe
+}
+
 func podResourcesOrDefault(hc *humiov1alpha1.HumioCluster) corev1.ResourceRequirements {
 	emptyResources := corev1.ResourceRequirements{}
 	if reflect.DeepEqual(hc.Spec.Resources, emptyResources) {

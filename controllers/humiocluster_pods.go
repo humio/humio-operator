@@ -279,6 +279,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 					},
 					ReadinessProbe:  containerReadinessProbeOrDefault(hc),
 					LivenessProbe:   containerLivenessProbeOrDefault(hc),
+					StartupProbe:    containerStartupProbeOrDefault(hc),
 					Resources:       podResourcesOrDefault(hc),
 					SecurityContext: containerSecurityContextOrDefault(hc),
 				},
