@@ -329,7 +329,10 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 	if len(hc.Spec.EnvironmentVariablesSource) > 0 {
 		pod.Spec.Containers[humioIdx].EnvFrom = hc.Spec.EnvironmentVariablesSource
 		if attachments.envVarSourceData != nil {
-			b, _ := json.Marshal(attachments.envVarSourceData)
+			b, err := json.Marshal(attachments.envVarSourceData)
+			if err != nil {
+				return &corev1.Pod{}, fmt.Errorf("error trying to JSON encode envVarSourceData: %s", err)
+			}
 			pod.Annotations[envVarSourceHashAnnotation] = helpers.AsSHA256(string(b))
 		}
 	}
@@ -786,8 +789,7 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 	if attachments.envVarSourceData != nil {
 		b, err := json.Marshal(attachments.envVarSourceData)
 		if err != nil {
-			r.Log.Error(err, "unable to load envVarSource")
-			return &corev1.Pod{}, err
+			return &corev1.Pod{}, fmt.Errorf("error trying to JSON encode envVarSourceData: %s", err)
 		}
 		pod.Annotations[envVarSourceHashAnnotation] = helpers.AsSHA256(string(b))
 	}
