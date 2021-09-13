@@ -19,9 +19,9 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -38,6 +38,7 @@ import (
 // HumioParserReconciler reconciles a HumioParser object
 type HumioParserReconciler struct {
 	client.Client
+	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
 }
@@ -47,9 +48,7 @@ type HumioParserReconciler struct {
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioparsers/finalizers,verbs=update
 
 func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	zapLog, _ := helpers.NewLogger()
-	defer zapLog.Sync()
-	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
+	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
 	r.Log.Info("Reconciling HumioParser")
 
 	// Fetch the HumioParser instance
