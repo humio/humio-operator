@@ -25,7 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
@@ -49,6 +48,7 @@ import (
 // HumioClusterReconciler reconciles a HumioCluster object
 type HumioClusterReconciler struct {
 	client.Client
+	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
 }
@@ -68,9 +68,7 @@ type HumioClusterReconciler struct {
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingress,verbs=create;delete;get;list;patch;update;watch
 
 func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	zapLog, _ := helpers.NewLogger()
-	defer zapLog.Sync()
-	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
+	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
 	r.Log.Info("Reconciling HumioCluster")
 
 	// Fetch the HumioCluster
