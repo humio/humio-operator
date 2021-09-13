@@ -1898,12 +1898,6 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		return reconcile.Result{}, err
 	}
 
-	if podsStatus.waitingOnPods() && hc.Status.State == humiov1alpha1.HumioClusterStateRestarting {
-		r.Log.Info(fmt.Sprintf("waiting to delete pod %s. waitingOnPods=%v, clusterState=%s",
-			desiredLifecycleState.pod.Name, podsStatus.waitingOnPods(), hc.Status.State))
-		desiredLifecycleState.delete = false
-	}
-
 	// If we are currently deleting pods, then check if the cluster state is Running or in a ConfigError state. If it
 	// is, then change to an appropriate state depending on the restart policy.
 	// If the cluster state is set as per the restart policy:
@@ -1931,6 +1925,12 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 					return reconcile.Result{}, err
 				}
 			}
+		}
+		if hc.Status.State == humiov1alpha1.HumioClusterStateRestarting && podsStatus.waitingOnPods() {
+			r.Log.Info(fmt.Sprintf("pod %s should be deleted, but waiting because not all other pods are "+
+				"ready. waitingOnPods=%v, clusterState=%s", desiredLifecycleState.pod.Name,
+				podsStatus.waitingOnPods(), hc.Status.State))
+			return reconcile.Result{}, err
 		}
 
 		r.Log.Info(fmt.Sprintf("deleting pod %s", desiredLifecycleState.pod.Name))
