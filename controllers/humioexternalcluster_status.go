@@ -21,13 +21,14 @@ import (
 	"fmt"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
 )
 
 func (r *HumioExternalClusterReconciler) setState(ctx context.Context, state string, hec *humiov1alpha1.HumioExternalCluster) error {
 	if hec.Status.State == state {
 		return nil
 	}
-	r.Log.Info(fmt.Sprintf("setting external cluster state to %s", state))
+	r.Log.Info(fmt.Sprintf("setting external cluster state to %s", state), logFieldFunctionName, helpers.GetCurrentFuncName())
 	hec.Status.State = state
 	return r.Status().Update(ctx, hec)
 }

@@ -24,6 +24,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"os"
 	"reflect"
+	"runtime"
 	"strings"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -164,4 +165,10 @@ func NewLogger() (*uberzap.Logger, error) {
 	loggerCfg := uberzap.NewProductionConfig()
 	loggerCfg.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
 	return loggerCfg.Build(uberzap.AddCaller())
+}
+
+// GetCurrentFuncName returns the name of the function calling this function
+func GetCurrentFuncName() string {
+	pc, _, _, _ := runtime.Caller(1)
+	return runtime.FuncForPC(pc).Name()
 }

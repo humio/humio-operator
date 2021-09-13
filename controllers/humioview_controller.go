@@ -19,19 +19,20 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
-	humioapi "github.com/humio/cli/api"
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/humio"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 
+	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
+	"github.com/humio/humio-operator/pkg/humio"
 )
 
 // HumioViewReconciler reconciles a HumioView object
@@ -49,7 +50,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	zapLog, _ := helpers.NewLogger()
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
-	r.Log.Info("Reconciling HumioView")
+	r.Log.Info("Reconciling HumioView", logFieldFunctionName, helpers.GetCurrentFuncName())
 
 	// Fetch the HumioView instance
 	hv := &humiov1alpha1.HumioView{}
@@ -67,10 +68,10 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	cluster, err := helpers.NewCluster(ctx, r, hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName, hv.Namespace, helpers.UseCertManager())
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		r.Log.Error(err, "unable to obtain humio client config")
+		r.Log.Error(err, "unable to obtain humio client config", logFieldFunctionName, helpers.GetCurrentFuncName())
 		err = r.setState(ctx, humiov1alpha1.HumioParserStateConfigError, hv)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
+			r.Log.Error(err, "unable to set cluster state", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{}, err
@@ -92,10 +93,10 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
 
-	r.Log.Info("get current view")
+	r.Log.Info("get current view", logFieldFunctionName, helpers.GetCurrentFuncName())
 	curView, err := r.HumioClient.GetView(hv)
 	if err != nil {
-		r.Log.Error(err, "could not check if view exists")
+		r.Log.Error(err, "could not check if view exists", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, fmt.Errorf("could not check if view exists: %s", err)
 	}
 
@@ -106,34 +107,34 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, curView *h
 	emptyView := humioapi.View{}
 
 	// Delete
-	r.Log.Info("Checking if view is marked to be deleted")
+	r.Log.Info("Checking if view is marked to be deleted", logFieldFunctionName, helpers.GetCurrentFuncName())
 	isMarkedForDeletion := hv.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
-		r.Log.Info("View marked to be deleted")
+		r.Log.Info("View marked to be deleted", logFieldFunctionName, helpers.GetCurrentFuncName())
 		if helpers.ContainsElement(hv.GetFinalizers(), humioFinalizer) {
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
-			r.Log.Info("Deleting View")
+			r.Log.Info("Deleting View", logFieldFunctionName, helpers.GetCurrentFuncName())
 			if err := r.HumioClient.DeleteView(hv); err != nil {
-				r.Log.Error(err, "Delete view returned error")
+				r.Log.Error(err, "Delete view returned error", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return reconcile.Result{}, err
 			}
 
-			r.Log.Info("View Deleted. Removing finalizer")
+			r.Log.Info("View Deleted. Removing finalizer", logFieldFunctionName, helpers.GetCurrentFuncName())
 			hv.SetFinalizers(helpers.RemoveElement(hv.GetFinalizers(), humioFinalizer))
 			err := r.Update(ctx, hv)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			r.Log.Info("Finalizer removed successfully")
+			r.Log.Info("Finalizer removed successfully", logFieldFunctionName, helpers.GetCurrentFuncName())
 		}
 		return reconcile.Result{}, nil
 	}
 
 	// Add finalizer for this CR
 	if !helpers.ContainsElement(hv.GetFinalizers(), humioFinalizer) {
-		r.Log.Info("Finalizer not present, adding finalizer to view")
+		r.Log.Info("Finalizer not present, adding finalizer to view", logFieldFunctionName, helpers.GetCurrentFuncName())
 		hv.SetFinalizers(append(hv.GetFinalizers(), humioFinalizer))
 		err := r.Update(ctx, hv)
 		if err != nil {
@@ -145,13 +146,13 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, curView *h
 
 	// Add View
 	if reflect.DeepEqual(emptyView, *curView) {
-		r.Log.Info("View doesn't exist. Now adding view")
+		r.Log.Info("View doesn't exist. Now adding view", logFieldFunctionName, helpers.GetCurrentFuncName())
 		_, err := r.HumioClient.AddView(hv)
 		if err != nil {
-			r.Log.Error(err, "could not create view")
+			r.Log.Error(err, "could not create view", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, fmt.Errorf("could not create view: %s", err)
 		}
-		r.Log.Info("created view", "ViewName", hv.Spec.Name)
+		r.Log.Info("created view", "View.Name", hv.Spec.Name, logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -159,15 +160,15 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, curView *h
 	if reflect.DeepEqual(curView.Connections, hv.GetViewConnections()) == false {
 		r.Log.Info(fmt.Sprintf("view information differs, triggering update, expected %v, got: %v",
 			hv.Spec.Connections,
-			curView.Connections))
+			curView.Connections), logFieldFunctionName, helpers.GetCurrentFuncName())
 		_, err := r.HumioClient.UpdateView(hv)
 		if err != nil {
-			r.Log.Error(err, "could not update view")
+			r.Log.Error(err, "could not update view", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, fmt.Errorf("could not update view: %s", err)
 		}
 	}
 
-	r.Log.Info("done reconciling, will requeue after 15 seconds")
+	r.Log.Info("done reconciling, will requeue after 15 seconds", logFieldFunctionName, helpers.GetCurrentFuncName())
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
 }
 
@@ -182,7 +183,7 @@ func (r *HumioViewReconciler) setState(ctx context.Context, state string, hr *hu
 	if hr.Status.State == state {
 		return nil
 	}
-	r.Log.Info(fmt.Sprintf("setting view state to %s", state))
+	r.Log.Info(fmt.Sprintf("setting view state to %s", state), logFieldFunctionName, helpers.GetCurrentFuncName())
 	hr.Status.State = state
 	return r.Status().Update(ctx, hr)
 }

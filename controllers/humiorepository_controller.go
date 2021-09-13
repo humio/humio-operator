@@ -19,19 +19,19 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/zapr"
-	humioapi "github.com/humio/cli/api"
-	"github.com/humio/humio-operator/pkg/helpers"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
+	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 )
 
@@ -50,7 +50,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	zapLog, _ := helpers.NewLogger()
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
-	r.Log.Info("Reconciling HumioRepository")
+	r.Log.Info("Reconciling HumioRepository", logFieldFunctionName, helpers.GetCurrentFuncName())
 
 	// Fetch the HumioRepository instance
 	hr := &humiov1alpha1.HumioRepository{}
@@ -66,38 +66,38 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 
-	r.Log.Info("Checking if repository is marked to be deleted")
+	r.Log.Info("Checking if repository is marked to be deleted", logFieldFunctionName, helpers.GetCurrentFuncName())
 	// Check if the HumioRepository instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
 	isHumioRepositoryMarkedToBeDeleted := hr.GetDeletionTimestamp() != nil
 	if isHumioRepositoryMarkedToBeDeleted {
-		r.Log.Info("Repository marked to be deleted")
+		r.Log.Info("Repository marked to be deleted", logFieldFunctionName, helpers.GetCurrentFuncName())
 		if helpers.ContainsElement(hr.GetFinalizers(), humioFinalizer) {
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
-			r.Log.Info("Repository contains finalizer so run finalizer method")
+			r.Log.Info("Repository contains finalizer so run finalizer method", logFieldFunctionName, helpers.GetCurrentFuncName())
 			if err := r.finalize(ctx, hr); err != nil {
-				r.Log.Error(err, "Finalizer method returned error")
+				r.Log.Error(err, "Finalizer method returned error", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return reconcile.Result{}, err
 			}
 
 			// Remove humioFinalizer. Once all finalizers have been
 			// removed, the object will be deleted.
-			r.Log.Info("Finalizer done. Removing finalizer")
+			r.Log.Info("Finalizer done. Removing finalizer", logFieldFunctionName, helpers.GetCurrentFuncName())
 			hr.SetFinalizers(helpers.RemoveElement(hr.GetFinalizers(), humioFinalizer))
 			err := r.Update(ctx, hr)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			r.Log.Info("Finalizer removed successfully")
+			r.Log.Info("Finalizer removed successfully", logFieldFunctionName, helpers.GetCurrentFuncName())
 		}
 		return reconcile.Result{}, nil
 	}
 
 	// Add finalizer for this CR
 	if !helpers.ContainsElement(hr.GetFinalizers(), humioFinalizer) {
-		r.Log.Info("Finalizer not present, adding finalizer to repository")
+		r.Log.Info("Finalizer not present, adding finalizer to repository", logFieldFunctionName, helpers.GetCurrentFuncName())
 		if err := r.addFinalizer(ctx, hr); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -105,10 +105,10 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	cluster, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager())
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		r.Log.Error(err, "unable to obtain humio client config")
+		r.Log.Error(err, "unable to obtain humio client config", logFieldFunctionName, helpers.GetCurrentFuncName())
 		err = r.setState(ctx, humiov1alpha1.HumioRepositoryStateConfigError, hr)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
+			r.Log.Error(err, "unable to set cluster state", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{}, err
@@ -131,23 +131,23 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
 
 	// Get current repository
-	r.Log.Info("get current repository")
+	r.Log.Info("get current repository", logFieldFunctionName, helpers.GetCurrentFuncName())
 	curRepository, err := r.HumioClient.GetRepository(hr)
 	if err != nil {
-		r.Log.Error(err, "could not check if repository exists")
+		r.Log.Error(err, "could not check if repository exists", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, fmt.Errorf("could not check if repository exists: %s", err)
 	}
 
 	emptyRepository := humioapi.Repository{}
 	if reflect.DeepEqual(emptyRepository, *curRepository) {
-		r.Log.Info("repository doesn't exist. Now adding repository")
+		r.Log.Info("repository doesn't exist. Now adding repository", logFieldFunctionName, helpers.GetCurrentFuncName())
 		// create repository
 		_, err := r.HumioClient.AddRepository(hr)
 		if err != nil {
-			r.Log.Error(err, "could not create repository")
+			r.Log.Error(err, "could not create repository", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, fmt.Errorf("could not create repository: %s", err)
 		}
-		r.Log.Info("created repository", "RepositoryName", hr.Spec.Name)
+		r.Log.Info("created repository", "Repository.Name", hr.Spec.Name, logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -163,10 +163,10 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			curRepository.Description,
 			curRepository.RetentionDays,
 			curRepository.IngestRetentionSizeGB,
-			curRepository.StorageRetentionSizeGB))
+			curRepository.StorageRetentionSizeGB), logFieldFunctionName, helpers.GetCurrentFuncName())
 		_, err = r.HumioClient.UpdateRepository(hr)
 		if err != nil {
-			r.Log.Error(err, "could not update repository")
+			r.Log.Error(err, "could not update repository", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, fmt.Errorf("could not update repository: %s", err)
 		}
 	}
@@ -176,7 +176,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	// A solution could be to add an annotation that includes the "old name" so we can see if it was changed.
 	// A workaround for now is to delete the repository CR and create it again.
 
-	r.Log.Info("done reconciling, will requeue after 15 seconds")
+	r.Log.Info("done reconciling, will requeue after 15 seconds", logFieldFunctionName, helpers.GetCurrentFuncName())
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
 }
 
@@ -197,13 +197,13 @@ func (r *HumioRepositoryReconciler) finalize(ctx context.Context, hr *humiov1alp
 }
 
 func (r *HumioRepositoryReconciler) addFinalizer(ctx context.Context, hr *humiov1alpha1.HumioRepository) error {
-	r.Log.Info("Adding Finalizer for the HumioRepository")
+	r.Log.Info("Adding Finalizer for the HumioRepository", logFieldFunctionName, helpers.GetCurrentFuncName())
 	hr.SetFinalizers(append(hr.GetFinalizers(), humioFinalizer))
 
 	// Update CR
 	err := r.Update(ctx, hr)
 	if err != nil {
-		r.Log.Error(err, "Failed to update HumioRepository with finalizer")
+		r.Log.Error(err, "Failed to update HumioRepository with finalizer", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 	return nil
@@ -213,7 +213,7 @@ func (r *HumioRepositoryReconciler) setState(ctx context.Context, state string, 
 	if hr.Status.State == state {
 		return nil
 	}
-	r.Log.Info(fmt.Sprintf("setting repository state to %s", state))
+	r.Log.Info(fmt.Sprintf("setting repository state to %s", state), logFieldFunctionName, helpers.GetCurrentFuncName())
 	hr.Status.State = state
 	return r.Status().Update(ctx, hr)
 }

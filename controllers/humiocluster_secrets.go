@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	corev1 "k8s.io/api/core/v1"
+
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 )
 
 const (
@@ -23,10 +25,10 @@ func (r *HumioClusterReconciler) waitForNewSecret(ctx context.Context, hc *humio
 	for i := 0; i < waitForSecretTimeoutSeconds; i++ {
 		foundSecretsList, err := kubernetes.ListSecrets(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForSecret(hc.Name, expectedSecretName))
 		if err != nil {
-			r.Log.Error(err, "unable list secrets")
+			r.Log.Error(err, "unable list secrets", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
-		r.Log.Info(fmt.Sprintf("validating new secret was created. expected secret count %d, current secret count %d", expectedSecretCount, len(foundSecretsList)))
+		r.Log.Info(fmt.Sprintf("validating new secret was created. expected secret count %d, current secret count %d", expectedSecretCount, len(foundSecretsList)), logFieldFunctionName, helpers.GetCurrentFuncName())
 		if len(foundSecretsList) >= expectedSecretCount {
 			return nil
 		}

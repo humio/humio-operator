@@ -25,33 +25,30 @@ import (
 	"testing"
 	"time"
 
-	"github.com/humio/humio-operator/pkg/kubernetes"
-
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
-	humioapi "github.com/humio/cli/api"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/humio"
-	"github.com/humio/humio-operator/pkg/openshift"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	humioapi "github.com/humio/cli/api"
 	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
+	"github.com/humio/humio-operator/pkg/helpers"
+	"github.com/humio/humio-operator/pkg/humio"
+	"github.com/humio/humio-operator/pkg/kubernetes"
+	"github.com/humio/humio-operator/pkg/openshift"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to

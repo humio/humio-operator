@@ -18,15 +18,15 @@ package controllers
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"reflect"
 	"strconv"
 	"strings"
 
-	"github.com/humio/humio-operator/pkg/helpers"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/humio/humio-operator/pkg/helpers"
 )
 
 const (

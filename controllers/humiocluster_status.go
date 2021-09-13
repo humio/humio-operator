@@ -22,9 +22,11 @@ import (
 	"reflect"
 	"strconv"
 
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	"k8s.io/apimachinery/pkg/types"
+
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 )
 
 // getLatestHumioCluster ensures we have the latest HumioCluster resource. It may have been changed during the
@@ -41,7 +43,7 @@ func (r *HumioClusterReconciler) setState(ctx context.Context, state string, hc 
 	if hc.Status.State == state {
 		return nil
 	}
-	r.Log.Info(fmt.Sprintf("setting cluster state to %s", state))
+	r.Log.Info(fmt.Sprintf("setting cluster state to %s", state), logFieldFunctionName, helpers.GetCurrentFuncName())
 	hc.Status.State = state
 	return r.Status().Update(ctx, hc)
 }
@@ -50,7 +52,7 @@ func (r *HumioClusterReconciler) setVersion(ctx context.Context, version string,
 	if hc.Status.State == version {
 		return nil
 	}
-	r.Log.Info(fmt.Sprintf("setting cluster version to %s", version))
+	r.Log.Info(fmt.Sprintf("setting cluster version to %s", version), logFieldFunctionName, helpers.GetCurrentFuncName())
 	hc.Status.Version = version
 	return r.Status().Update(ctx, hc)
 }
@@ -59,7 +61,7 @@ func (r *HumioClusterReconciler) setLicense(ctx context.Context, licenseStatus h
 	if reflect.DeepEqual(hc.Status.LicenseStatus, licenseStatus) {
 		return nil
 	}
-	r.Log.Info(fmt.Sprintf("setting cluster license status to %v", licenseStatus))
+	r.Log.Info(fmt.Sprintf("setting cluster license status to %v", licenseStatus), logFieldFunctionName, helpers.GetCurrentFuncName())
 	hc.Status.LicenseStatus = licenseStatus
 	return r.Status().Update(ctx, hc)
 }
@@ -68,16 +70,16 @@ func (r *HumioClusterReconciler) setNodeCount(ctx context.Context, nodeCount int
 	if hc.Status.NodeCount == nodeCount {
 		return nil
 	}
-	r.Log.Info(fmt.Sprintf("setting cluster node count to %d", nodeCount))
+	r.Log.Info(fmt.Sprintf("setting cluster node count to %d", nodeCount), logFieldFunctionName, helpers.GetCurrentFuncName())
 	hc.Status.NodeCount = nodeCount
 	return r.Status().Update(ctx, hc)
 }
 
 func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	r.Log.Info("setting cluster pod status")
+	r.Log.Info("setting cluster pod status", logFieldFunctionName, helpers.GetCurrentFuncName())
 	pods, err := kubernetes.ListPods(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
-		r.Log.Error(err, "unable to set pod status")
+		r.Log.Error(err, "unable to set pod status", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
@@ -89,7 +91,7 @@ func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.H
 		if nodeIdStr, ok := pod.Labels[kubernetes.NodeIdLabelName]; ok {
 			nodeId, err := strconv.Atoi(nodeIdStr)
 			if err != nil {
-				r.Log.Error(err, fmt.Sprintf("unable to set pod status, node id %s is invalid", nodeIdStr))
+				r.Log.Error(err, fmt.Sprintf("unable to set pod status, node id %s is invalid", nodeIdStr), logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
 			podStatus.NodeId = nodeId
@@ -103,7 +105,7 @@ func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.H
 						// This is not actually an error in every case. If the HumioCluster resource is migrating to
 						// PVCs then this will happen in a rolling fashion thus some pods will not have PVCs for a
 						// short time.
-						r.Log.Info(fmt.Sprintf("unable to set pod pvc status for pod %s because there is no pvc attached to the pod", pod.Name))
+						r.Log.Info(fmt.Sprintf("unable to set pod pvc status for pod %s because there is no pvc attached to the pod", pod.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 					}
 				}
 			}

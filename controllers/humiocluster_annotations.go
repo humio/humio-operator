@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
 )
 
 const (
@@ -42,7 +43,7 @@ func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Co
 		return -1, err
 	}
 	newRevision++
-	r.Log.Info(fmt.Sprintf("setting cluster pod revision to %d", newRevision))
+	r.Log.Info(fmt.Sprintf("setting cluster pod revision to %d", newRevision), logFieldFunctionName, helpers.GetCurrentFuncName())
 	hc.Annotations[podRevisionAnnotation] = strconv.Itoa(newRevision)
 
 	r.setRestartPolicy(hc, restartPolicy)
@@ -86,6 +87,6 @@ func (r *HumioClusterReconciler) setPodRevision(pod *corev1.Pod, newRevision int
 }
 
 func (r *HumioClusterReconciler) setRestartPolicy(hc *humiov1alpha1.HumioCluster, policy string) {
-	r.Log.Info(fmt.Sprintf("setting HumioCluster annotation %s to %s", podRestartPolicyAnnotation, policy))
+	r.Log.Info(fmt.Sprintf("setting HumioCluster annotation %s to %s", podRestartPolicyAnnotation, policy), logFieldFunctionName, helpers.GetCurrentFuncName())
 	hc.Annotations[podRestartPolicyAnnotation] = policy
 }

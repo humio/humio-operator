@@ -17,10 +17,11 @@ limitations under the License.
 package controllers
 
 import (
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 )
 
 // humioServiceLabels generates the set of labels to attach to the humio kubernetes service

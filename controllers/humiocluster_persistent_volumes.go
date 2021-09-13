@@ -22,11 +22,12 @@ import (
 	"reflect"
 	"time"
 
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	corev1 "k8s.io/api/core/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 )
 
 const (
@@ -91,7 +92,7 @@ func pvcsEnabled(hc *humiov1alpha1.HumioCluster) bool {
 
 func (r *HumioClusterReconciler) waitForNewPvc(ctx context.Context, hc *humiov1alpha1.HumioCluster, expectedPvc *corev1.PersistentVolumeClaim) error {
 	for i := 0; i < waitForPvcTimeoutSeconds; i++ {
-		r.Log.Info(fmt.Sprintf("validating new pvc was created. waiting for pvc with name %s", expectedPvc.Name))
+		r.Log.Info(fmt.Sprintf("validating new pvc was created. waiting for pvc with name %s", expectedPvc.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 		latestPvcList, err := kubernetes.ListPersistentVolumeClaims(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 		if err != nil {
 			return fmt.Errorf("failed to list pvcs: %s", err)

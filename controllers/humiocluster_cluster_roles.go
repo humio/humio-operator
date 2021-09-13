@@ -19,12 +19,12 @@ package controllers
 import (
 	"context"
 
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/kubernetes"
-	rbacv1 "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (r *HumioClusterReconciler) constructInitClusterRole(clusterRoleName string, hc *humiov1alpha1.HumioCluster) *rbacv1.ClusterRole {

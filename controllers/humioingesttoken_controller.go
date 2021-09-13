@@ -19,24 +19,26 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
-	humioapi "github.com/humio/cli/api"
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 
+	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 )
 
 const humioFinalizer = "core.humio.com/finalizer" // TODO: Not only used for ingest tokens, but also parsers, repositories and views.
+const logFieldFunctionName = "Function.Name"
 
 // HumioIngestTokenReconciler reconciles a HumioIngestToken object
 type HumioIngestTokenReconciler struct {
@@ -53,7 +55,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	zapLog, _ := helpers.NewLogger()
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
-	r.Log.Info("Reconciling HumioIngestToken")
+	r.Log.Info("Reconciling HumioIngestToken", logFieldFunctionName, helpers.GetCurrentFuncName())
 
 	// Fetch the HumioIngestToken instance
 	hit := &humiov1alpha1.HumioIngestToken{}
@@ -69,38 +71,38 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, err
 	}
 
-	r.Log.Info("Checking if ingest token is marked to be deleted")
+	r.Log.Info("Checking if ingest token is marked to be deleted", logFieldFunctionName, helpers.GetCurrentFuncName())
 	// Check if the HumioIngestToken instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
 	isHumioIngestTokenMarkedToBeDeleted := hit.GetDeletionTimestamp() != nil
 	if isHumioIngestTokenMarkedToBeDeleted {
-		r.Log.Info("Ingest token marked to be deleted")
+		r.Log.Info("Ingest token marked to be deleted", logFieldFunctionName, helpers.GetCurrentFuncName())
 		if helpers.ContainsElement(hit.GetFinalizers(), humioFinalizer) {
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
-			r.Log.Info("Ingest token contains finalizer so run finalizer method")
+			r.Log.Info("Ingest token contains finalizer so run finalizer method", logFieldFunctionName, helpers.GetCurrentFuncName())
 			if err := r.finalize(ctx, hit); err != nil {
-				r.Log.Error(err, "Finalizer method returned error")
+				r.Log.Error(err, "Finalizer method returned error", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return reconcile.Result{}, err
 			}
 
 			// Remove humioFinalizer. Once all finalizers have been
 			// removed, the object will be deleted.
-			r.Log.Info("Finalizer done. Removing finalizer")
+			r.Log.Info("Finalizer done. Removing finalizer", logFieldFunctionName, helpers.GetCurrentFuncName())
 			hit.SetFinalizers(helpers.RemoveElement(hit.GetFinalizers(), humioFinalizer))
 			err := r.Update(ctx, hit)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			r.Log.Info("Finalizer removed successfully")
+			r.Log.Info("Finalizer removed successfully", logFieldFunctionName, helpers.GetCurrentFuncName())
 		}
 		return reconcile.Result{}, nil
 	}
 
 	// Add finalizer for this CR
 	if !helpers.ContainsElement(hit.GetFinalizers(), humioFinalizer) {
-		r.Log.Info("Finalizer not present, adding finalizer to ingest token")
+		r.Log.Info("Finalizer not present, adding finalizer to ingest token", logFieldFunctionName, helpers.GetCurrentFuncName())
 		if err := r.addFinalizer(ctx, hit); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -108,10 +110,10 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	cluster, err := helpers.NewCluster(ctx, r, hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName, hit.Namespace, helpers.UseCertManager())
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		r.Log.Error(err, "unable to obtain humio client config")
+		r.Log.Error(err, "unable to obtain humio client config", logFieldFunctionName, helpers.GetCurrentFuncName())
 		err = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateConfigError, hit)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
+			r.Log.Error(err, "unable to set cluster state", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
@@ -134,10 +136,10 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
 
 	// Get current ingest token
-	r.Log.Info("get current ingest token")
+	r.Log.Info("get current ingest token", logFieldFunctionName, helpers.GetCurrentFuncName())
 	curToken, err := r.HumioClient.GetIngestToken(hit)
 	if err != nil {
-		r.Log.Error(err, "could not check if ingest token exists", "Repository.Name", hit.Spec.RepositoryName)
+		r.Log.Error(err, "could not check if ingest token exists", "Repository.Name", hit.Spec.RepositoryName, logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, fmt.Errorf("could not check if ingest token exists: %s", err)
 	}
 	// If token doesn't exist, the Get returns: nil, err.
@@ -145,20 +147,20 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// TODO: change the way we do errors from the API so we can get rid of this hack
 	emptyToken := humioapi.IngestToken{}
 	if emptyToken == *curToken {
-		r.Log.Info("ingest token doesn't exist. Now adding ingest token")
+		r.Log.Info("ingest token doesn't exist. Now adding ingest token", logFieldFunctionName, helpers.GetCurrentFuncName())
 		// create token
 		_, err := r.HumioClient.AddIngestToken(hit)
 		if err != nil {
-			r.Log.Error(err, "could not create ingest token")
+			r.Log.Error(err, "could not create ingest token", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, fmt.Errorf("could not create ingest token: %s", err)
 		}
-		r.Log.Info("created ingest token")
+		r.Log.Info("created ingest token", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Trigger update if parser name changed
 	if curToken.AssignedParser != hit.Spec.ParserName {
-		r.Log.Info("parser name differs, triggering update", "Expected", hit.Spec.ParserName, "Got", curToken.AssignedParser)
+		r.Log.Info("parser name differs, triggering update", "Expected", hit.Spec.ParserName, "Got", curToken.AssignedParser, logFieldFunctionName, helpers.GetCurrentFuncName())
 		_, updateErr := r.HumioClient.UpdateIngestToken(hit)
 		if updateErr != nil {
 			return reconcile.Result{}, fmt.Errorf("could not update ingest token: %s", updateErr)
@@ -175,7 +177,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// A solution could be to add an annotation that includes the "old name" so we can see if it was changed.
 	// A workaround for now is to delete the ingest token CR and create it again.
 
-	r.Log.Info("done reconciling, will requeue after 15 seconds")
+	r.Log.Info("done reconciling, will requeue after 15 seconds", logFieldFunctionName, helpers.GetCurrentFuncName())
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
 }
 
@@ -197,13 +199,13 @@ func (r *HumioIngestTokenReconciler) finalize(ctx context.Context, hit *humiov1a
 }
 
 func (r *HumioIngestTokenReconciler) addFinalizer(ctx context.Context, hit *humiov1alpha1.HumioIngestToken) error {
-	r.Log.Info("Adding Finalizer for the HumioIngestToken")
+	r.Log.Info("Adding Finalizer for the HumioIngestToken", logFieldFunctionName, helpers.GetCurrentFuncName())
 	hit.SetFinalizers(append(hit.GetFinalizers(), humioFinalizer))
 
 	// Update CR
 	err := r.Update(ctx, hit)
 	if err != nil {
-		r.Log.Error(err, "Failed to update HumioIngestToken with finalizer")
+		r.Log.Error(err, "Failed to update HumioIngestToken with finalizer", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 	return nil
@@ -232,16 +234,16 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 			if err != nil {
 				return fmt.Errorf("unable to create ingest token secret for HumioIngestToken: %s", err)
 			}
-			r.Log.Info("successfully created ingest token secret", "TokenSecretName", hit.Spec.TokenSecretName)
+			r.Log.Info("successfully created ingest token secret", "TokenSecretName", hit.Spec.TokenSecretName, logFieldFunctionName, helpers.GetCurrentFuncName())
 			humioIngestTokenPrometheusMetrics.Counters.ServiceAccountSecretsCreated.Inc()
 		}
 	} else {
 		// kubernetes secret exists, check if we need to update it
-		r.Log.Info("ingest token secret already exists", "TokenSecretName", hit.Spec.TokenSecretName)
+		r.Log.Info("ingest token secret already exists", "TokenSecretName", hit.Spec.TokenSecretName, logFieldFunctionName, helpers.GetCurrentFuncName())
 		if string(existingSecret.Data["token"]) != string(desiredSecret.Data["token"]) {
-			r.Log.Info("secret does not match the token in Humio. Updating token", "TokenSecretName", hit.Spec.TokenSecretName)
+			r.Log.Info("secret does not match the token in Humio. Updating token", "TokenSecretName", hit.Spec.TokenSecretName, logFieldFunctionName, helpers.GetCurrentFuncName())
 			if err = r.Update(ctx, desiredSecret); err != nil {
-				r.Log.Error(err, "unable to update alert")
+				r.Log.Error(err, "unable to update alert", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
 		}
@@ -253,7 +255,7 @@ func (r *HumioIngestTokenReconciler) setState(ctx context.Context, state string,
 	if hit.Status.State == state {
 		return nil
 	}
-	r.Log.Info(fmt.Sprintf("setting ingest token state to %s", state))
+	r.Log.Info(fmt.Sprintf("setting ingest token state to %s", state), logFieldFunctionName, helpers.GetCurrentFuncName())
 	hit.Status.State = state
 	return r.Status().Update(ctx, hit)
 }

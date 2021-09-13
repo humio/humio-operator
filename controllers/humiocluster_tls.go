@@ -30,8 +30,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,6 +38,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 )
 
 const (
@@ -219,7 +219,7 @@ func (r *HumioClusterReconciler) waitForNewNodeCertificate(ctx context.Context, 
 		if err != nil {
 			return err
 		}
-		r.Log.Info(fmt.Sprintf("validating new pod certificate was created. expected pod certificate count %d, current pod certificate count %d", expectedCertCount, existingNodeCertCount))
+		r.Log.Info(fmt.Sprintf("validating new pod certificate was created. expected pod certificate count %d, current pod certificate count %d", expectedCertCount, existingNodeCertCount), logFieldFunctionName, helpers.GetCurrentFuncName())
 		if existingNodeCertCount >= expectedCertCount {
 			return nil
 		}
@@ -254,16 +254,16 @@ func (r *HumioClusterReconciler) updateNodeCertificates(ctx context.Context, hc 
 			currentCertificateHash, _ := cert.Annotations[certHashAnnotation]
 			if currentCertificateHash != desiredCertificateHash {
 				r.Log.Info(fmt.Sprintf("node certificate %s doesn't have expected hash, got: %s, expected: %s",
-					cert.Name, currentCertificateHash, desiredCertificateHash))
+					cert.Name, currentCertificateHash, desiredCertificateHash), logFieldFunctionName, helpers.GetCurrentFuncName())
 				currentCertificateNameSubstrings := strings.Split(cert.Name, "-")
 				currentCertificateSuffix := currentCertificateNameSubstrings[len(currentCertificateNameSubstrings)-1]
 
 				desiredCertificate := constructNodeCertificate(hc, currentCertificateSuffix)
 				desiredCertificate.ResourceVersion = cert.ResourceVersion
 				desiredCertificate.Annotations[certHashAnnotation] = desiredCertificateHash
-				r.Log.Info(fmt.Sprintf("updating node TLS certificate with name %s", desiredCertificate.Name))
+				r.Log.Info(fmt.Sprintf("updating node TLS certificate with name %s", desiredCertificate.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 				if err := controllerutil.SetControllerReference(hc, &desiredCertificate, r.Scheme()); err != nil {
-					r.Log.Error(err, "could not set controller reference")
+					r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 					return existingNodeCertCount, err
 				}
 				err = r.Update(ctx, &desiredCertificate)

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver"
+
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
 

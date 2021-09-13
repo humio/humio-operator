@@ -25,25 +25,24 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
-	humioapi "github.com/humio/cli/api"
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/kubernetes"
-	"github.com/humio/humio-operator/pkg/openshift"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/go-logr/logr"
-	"github.com/humio/humio-operator/pkg/humio"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
+	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
+	"github.com/humio/humio-operator/pkg/humio"
+	"github.com/humio/humio-operator/pkg/kubernetes"
+	"github.com/humio/humio-operator/pkg/openshift"
 )
 
 // HumioClusterReconciler reconciles a HumioCluster object
@@ -71,7 +70,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	zapLog, _ := helpers.NewLogger()
 	defer zapLog.Sync()
 	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
-	r.Log.Info("Reconciling HumioCluster")
+	r.Log.Info("Reconciling HumioCluster", logFieldFunctionName, helpers.GetCurrentFuncName())
 
 	// Fetch the HumioCluster
 	hc := &humiov1alpha1.HumioCluster{}
@@ -92,16 +91,16 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	emptyResult := reconcile.Result{}
 
 	if err := r.ensureValidHumioVersion(hc); err != nil {
-		r.Log.Error(fmt.Errorf("humio version not valid: %s", err), "marking cluster state as ConfigError")
+		r.Log.Error(fmt.Errorf("humio version not valid: %s", err), "marking cluster state as ConfigError", logFieldFunctionName, helpers.GetCurrentFuncName())
 		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
 		return ctrl.Result{}, err
 	}
 
 	if err := r.ensureValidStorageConfiguration(hc); err != nil {
-		r.Log.Error(fmt.Errorf("storage configuration not valid: %s", err), "marking cluster state as ConfigError")
+		r.Log.Error(fmt.Errorf("storage configuration not valid: %s", err), "marking cluster state as ConfigError", logFieldFunctionName, helpers.GetCurrentFuncName())
 		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
+			r.Log.Error(err, "unable to set cluster state", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, err
 		}
 	}
@@ -110,7 +109,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Because generating the CA can take a while, we do this before we start tearing down mismatching pods
 	err = r.ensureValidCASecret(ctx, hc)
 	if err != nil {
-		r.Log.Error(err, "could not ensure we have a valid CA secret")
+		r.Log.Error(err, "could not ensure we have a valid CA secret", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 
@@ -126,37 +125,37 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconcile.Result{}, err
 	}
 	if !allServiceAccountsExists {
-		r.Log.Error(fmt.Errorf("not all referenced service accounts exists"), "marking cluster state as ConfigError")
+		r.Log.Error(fmt.Errorf("not all referenced service accounts exists"), "marking cluster state as ConfigError", logFieldFunctionName, helpers.GetCurrentFuncName())
 		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
+			r.Log.Error(err, "unable to set cluster state", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, err
 		}
 	}
 
 	_, err = constructPod(hc, "", &podAttachments{})
 	if err != nil {
-		r.Log.Error(err, "got error while trying to construct pod")
+		r.Log.Error(err, "got error while trying to construct pod", logFieldFunctionName, helpers.GetCurrentFuncName())
 		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
+			r.Log.Error(err, "unable to set cluster state", logFieldFunctionName, helpers.GetCurrentFuncName())
 		}
 		return reconcile.Result{}, err
 	}
 
 	if nodeCountOrDefault(hc) < hc.Spec.TargetReplicationFactor {
-		r.Log.Error(fmt.Errorf("node count lower than target replication factor"), "marking cluster state as ConfigError")
+		r.Log.Error(fmt.Errorf("node count lower than target replication factor"), "marking cluster state as ConfigError", logFieldFunctionName, helpers.GetCurrentFuncName())
 		err := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
+			r.Log.Error(err, "unable to set cluster state", logFieldFunctionName, helpers.GetCurrentFuncName())
 		}
 	}
 
 	if err := r.ensureLicenseIsValid(ctx, hc); err != nil {
-		r.Log.Error(err, "no valid license provided")
+		r.Log.Error(err, "no valid license provided", logFieldFunctionName, helpers.GetCurrentFuncName())
 		stateErr := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
 		if stateErr != nil {
-			r.Log.Error(stateErr, "unable to set cluster state")
+			r.Log.Error(stateErr, "unable to set cluster state", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, stateErr
 		}
 		return reconcile.Result{}, err
@@ -165,7 +164,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if hc.Status.State == "" {
 		err := r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
+			r.Log.Error(err, "unable to set cluster state", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, err
 		}
 	}
@@ -173,14 +172,14 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	currentRevision, err := r.getHumioClusterPodRevision(hc)
 	if err == nil && currentRevision == 0 {
 		currentRevision = 1
-		r.Log.Info(fmt.Sprintf("setting cluster pod revision to %d", currentRevision))
+		r.Log.Info(fmt.Sprintf("setting cluster pod revision to %d", currentRevision), logFieldFunctionName, helpers.GetCurrentFuncName())
 		hc.Annotations[podRevisionAnnotation] = strconv.Itoa(currentRevision)
 
 		r.setRestartPolicy(hc, PodRestartPolicyRolling)
 
 		err = r.Update(ctx, hc)
 		if err != nil {
-			r.Log.Error(err, fmt.Sprintf("unable to set annotation %s", podHashAnnotation))
+			r.Log.Error(err, fmt.Sprintf("unable to set annotation %s", podHashAnnotation), logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, fmt.Errorf("unable to set annotation %s on HumioCluster: %s", podRevisionAnnotation, err)
 		}
 	}
@@ -217,33 +216,33 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// TODO: Determine if we should move this to a finalizer to fix the situation described above.
 	err = r.ensureCleanupUsersInSecurityContextConstraints(ctx, hc)
 	if err != nil {
-		r.Log.Error(err, "could not ensure we clean up users in SecurityContextConstraints")
+		r.Log.Error(err, "could not ensure we clean up users in SecurityContextConstraints", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 
 	// Ensure the CA Issuer is valid/ready
 	err = r.ensureValidCAIssuer(ctx, hc)
 	if err != nil {
-		r.Log.Error(err, "could not ensure we have a valid CA issuer")
+		r.Log.Error(err, "could not ensure we have a valid CA issuer", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 	// Ensure we have a k8s secret holding the ca.crt
 	// This can be used in reverse proxies talking to Humio.
 	err = r.ensureHumioClusterCACertBundle(ctx, hc)
 	if err != nil {
-		r.Log.Error(err, "could not ensure we have a CA cert bundle")
+		r.Log.Error(err, "could not ensure we have a CA cert bundle", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 
 	err = r.ensureHumioClusterKeystoreSecret(ctx, hc)
 	if err != nil {
-		r.Log.Error(err, "could not ensure we have a secret holding keystore encryption key")
+		r.Log.Error(err, "could not ensure we have a secret holding keystore encryption key", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 
 	err = r.ensureHumioNodeCertificates(ctx, hc)
 	if err != nil {
-		r.Log.Error(err, "could not ensure we have certificates ready for Humio nodes")
+		r.Log.Error(err, "could not ensure we have certificates ready for Humio nodes", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 
@@ -288,7 +287,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 		status, err := humioClient.Status()
 		if err != nil {
-			r.Log.Error(err, "unable to get cluster status")
+			r.Log.Error(err, "unable to get cluster status", logFieldFunctionName, helpers.GetCurrentFuncName())
 		}
 		_ = r.setVersion(ctx, status.Version, hc)
 		_ = r.setPod(ctx, hc)
@@ -314,16 +313,16 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// wait until all pods are ready before continuing
 	foundPodList, err := kubernetes.ListPods(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
-		r.Log.Error(err, "failed to list pods")
+		r.Log.Error(err, "failed to list pods", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return ctrl.Result{}, err
 	}
 	podsStatus, err := r.getPodsStatus(hc, foundPodList)
 	if err != nil {
-		r.Log.Error(err, "failed to get pod status")
+		r.Log.Error(err, "failed to get pod status", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 	if podsStatus.waitingOnPods() {
-		r.Log.Info("waiting on pods, refusing to continue with reconciliation until all pods are ready")
+		r.Log.Info("waiting on pods, refusing to continue with reconciliation until all pods are ready", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 
@@ -350,7 +349,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return result, err
 	}
 
-	r.Log.Info("done reconciling, will requeue after 15 seconds")
+	r.Log.Info("done reconciling, will requeue after 15 seconds", logFieldFunctionName, helpers.GetCurrentFuncName())
 	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
 }
 
@@ -386,15 +385,15 @@ func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Co
 				hc.Namespace,
 			)
 			if err := controllerutil.SetControllerReference(hc, configMap, r.Scheme()); err != nil {
-				r.Log.Error(err, "could not set controller reference")
+				r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
 			err = r.Create(ctx, configMap)
 			if err != nil {
-				r.Log.Error(err, "unable to create extra kafka configs configmap")
+				r.Log.Error(err, "unable to create extra kafka configs configmap", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
-			r.Log.Info(fmt.Sprintf("successfully created extra kafka configs configmap name %s", configMap.Name))
+			r.Log.Info(fmt.Sprintf("successfully created extra kafka configs configmap name %s", configMap.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
 		}
 	}
@@ -410,7 +409,7 @@ func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context
 		if err == nil {
 			err = r.Delete(ctx, viewGroupPermissionsConfigMap)
 			if err != nil {
-				r.Log.Error(err, "unable to delete view group permissions config map")
+				r.Log.Error(err, "unable to delete view group permissions config map", logFieldFunctionName, helpers.GetCurrentFuncName())
 			}
 		}
 		return nil
@@ -426,15 +425,15 @@ func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context
 				hc.Namespace,
 			)
 			if err := controllerutil.SetControllerReference(hc, configMap, r.Scheme()); err != nil {
-				r.Log.Error(err, "could not set controller reference")
+				r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
 			err = r.Create(ctx, configMap)
 			if err != nil {
-				r.Log.Error(err, "unable to create view group permissions configmap")
+				r.Log.Error(err, "unable to create view group permissions configmap", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
-			r.Log.Info(fmt.Sprintf("successfully created view group permissions configmap name %s", configMap.Name))
+			r.Log.Info(fmt.Sprintf("successfully created view group permissions configmap name %s", configMap.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
 		}
 	}
@@ -458,10 +457,10 @@ func (r *HumioClusterReconciler) ensureNoIngressesIfIngressNotEnabled(ctx contex
 	for idx, ingress := range foundIngressList {
 		// only consider ingresses not already being deleted
 		if ingress.DeletionTimestamp == nil {
-			r.Log.Info(fmt.Sprintf("deleting ingress with name %s", ingress.Name))
+			r.Log.Info(fmt.Sprintf("deleting ingress with name %s", ingress.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 			err = r.Delete(ctx, &foundIngressList[idx])
 			if err != nil {
-				r.Log.Error(err, "could not delete ingress")
+				r.Log.Error(err, "could not delete ingress", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return reconcile.Result{}, err
 			}
 		}
@@ -481,7 +480,7 @@ func (r *HumioClusterReconciler) ensureIngress(ctx context.Context, hc *humiov1a
 	case "nginx":
 		err := r.ensureNginxIngress(ctx, hc)
 		if err != nil {
-			r.Log.Error(err, "could not ensure nginx ingress")
+			r.Log.Error(err, "could not ensure nginx ingress", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 	default:
@@ -551,11 +550,11 @@ func (r *HumioClusterReconciler) humioHostnames(ctx context.Context, hc *humiov1
 // ensureNginxIngress creates the necessary ingress objects to expose the Humio cluster
 // through NGINX ingress controller (https://kubernetes.github.io/ingress-nginx/).
 func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	r.Log.Info("ensuring ingress")
+	r.Log.Info("ensuring ingress", logFieldFunctionName, helpers.GetCurrentFuncName())
 
 	hostname, esHostname, err := r.humioHostnames(ctx, hc)
 	if err != nil {
-		r.Log.Error(err, "could not managed ingress")
+		r.Log.Error(err, "could not managed ingress", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
@@ -581,16 +580,16 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 		if err != nil {
 			if errors.IsNotFound(err) {
 				if err := controllerutil.SetControllerReference(hc, desiredIngress, r.Scheme()); err != nil {
-					r.Log.Error(err, "could not set controller reference")
+					r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 					return err
 				}
 				if createIngress {
 					err = r.Create(ctx, desiredIngress)
 					if err != nil {
-						r.Log.Error(err, "unable to create ingress")
+						r.Log.Error(err, "unable to create ingress", logFieldFunctionName, helpers.GetCurrentFuncName())
 						return err
 					}
-					r.Log.Info(fmt.Sprintf("successfully created ingress with name %s", desiredIngress.Name))
+					r.Log.Info(fmt.Sprintf("successfully created ingress with name %s", desiredIngress.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 					humioClusterPrometheusMetrics.Counters.IngressesCreated.Inc()
 				}
 				continue
@@ -598,24 +597,24 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 		}
 
 		if !createIngress {
-			r.Log.Info(fmt.Sprintf("hostname not defined for ingress object, deleting ingress object with name %s", existingIngress.Name))
+			r.Log.Info(fmt.Sprintf("hostname not defined for ingress object, deleting ingress object with name %s", existingIngress.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 			err = r.Delete(ctx, existingIngress)
 			if err != nil {
-				r.Log.Error(err, "unable to delete ingress object")
+				r.Log.Error(err, "unable to delete ingress object", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
-			r.Log.Info(fmt.Sprintf("successfully deleted ingress %+#v", desiredIngress))
+			r.Log.Info(fmt.Sprintf("successfully deleted ingress %+#v", desiredIngress), logFieldFunctionName, helpers.GetCurrentFuncName())
 			continue
 		}
 
 		if !r.ingressesMatch(existingIngress, desiredIngress) {
-			r.Log.Info(fmt.Sprintf("ingress object already exists, there is a difference between expected vs existing, updating ingress object with name %s", desiredIngress.Name))
+			r.Log.Info(fmt.Sprintf("ingress object already exists, there is a difference between expected vs existing, updating ingress object with name %s", desiredIngress.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 			existingIngress.Annotations = desiredIngress.Annotations
 			existingIngress.Labels = desiredIngress.Labels
 			existingIngress.Spec = desiredIngress.Spec
 			err = r.Update(ctx, existingIngress)
 			if err != nil {
-				r.Log.Error(err, "could not update ingress")
+				r.Log.Error(err, "could not update ingress", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
 		}
@@ -630,10 +629,10 @@ func (r *HumioClusterReconciler) ensureHumioPodPermissions(ctx context.Context, 
 		return nil
 	}
 
-	r.Log.Info("ensuring pod permissions")
+	r.Log.Info("ensuring pod permissions", logFieldFunctionName, helpers.GetCurrentFuncName())
 	err := r.ensureServiceAccountExists(ctx, hc, humioServiceAccountNameOrDefault(hc), humioServiceAccountAnnotationsOrDefault(hc))
 	if err != nil {
-		r.Log.Error(err, "unable to ensure humio service account exists")
+		r.Log.Error(err, "unable to ensure humio service account exists", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
@@ -641,7 +640,7 @@ func (r *HumioClusterReconciler) ensureHumioPodPermissions(ctx context.Context, 
 	if helpers.IsOpenShift() {
 		err = r.ensureSecurityContextConstraintsContainsServiceAccount(ctx, hc, humioServiceAccountNameOrDefault(hc))
 		if err != nil {
-			r.Log.Error(err, "could not ensure SecurityContextConstraints contains ServiceAccount")
+			r.Log.Error(err, "could not ensure SecurityContextConstraints contains ServiceAccount", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 	}
@@ -662,7 +661,7 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 		// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
 		err := r.ensureServiceAccountSecretExists(ctx, hc, initServiceAccountSecretName(hc), initServiceAccountNameOrDefault(hc))
 		if err != nil {
-			r.Log.Error(err, "unable to ensure init service account secret exists for HumioCluster")
+			r.Log.Error(err, "unable to ensure init service account secret exists for HumioCluster", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 		return nil
@@ -674,7 +673,7 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 	// to have an autoscaling group per zone.
 	err := r.ensureServiceAccountExists(ctx, hc, initServiceAccountNameOrDefault(hc), map[string]string{})
 	if err != nil {
-		r.Log.Error(err, "unable to ensure init service account exists")
+		r.Log.Error(err, "unable to ensure init service account exists", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
@@ -683,7 +682,7 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 	// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
 	err = r.ensureServiceAccountSecretExists(ctx, hc, initServiceAccountSecretName(hc), initServiceAccountNameOrDefault(hc))
 	if err != nil {
-		r.Log.Error(err, "unable to ensure init service account secret exists for HumioCluster")
+		r.Log.Error(err, "unable to ensure init service account secret exists for HumioCluster", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
@@ -691,7 +690,7 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 	// Required until https://github.com/kubernetes/kubernetes/issues/40610 is fixed
 	err = r.ensureInitClusterRole(ctx, hc)
 	if err != nil {
-		r.Log.Error(err, "unable to ensure init cluster role exists")
+		r.Log.Error(err, "unable to ensure init cluster role exists", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
@@ -699,7 +698,7 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 	// Required until https://github.com/kubernetes/kubernetes/issues/40610 is fixed
 	err = r.ensureInitClusterRoleBinding(ctx, hc)
 	if err != nil {
-		r.Log.Error(err, "unable to ensure init cluster role binding exists")
+		r.Log.Error(err, "unable to ensure init cluster role binding exists", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
@@ -707,7 +706,7 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 	if helpers.IsOpenShift() {
 		err = r.ensureSecurityContextConstraintsContainsServiceAccount(ctx, hc, initServiceAccountNameOrDefault(hc))
 		if err != nil {
-			r.Log.Error(err, "could not ensure SecurityContextConstraints contains ServiceAccount")
+			r.Log.Error(err, "could not ensure SecurityContextConstraints contains ServiceAccount", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 	}
@@ -724,7 +723,7 @@ func (r *HumioClusterReconciler) ensureAuthContainerPermissions(ctx context.Cont
 		// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
 		err := r.ensureServiceAccountSecretExists(ctx, hc, authServiceAccountSecretName(hc), authServiceAccountNameOrDefault(hc))
 		if err != nil {
-			r.Log.Error(err, "unable to ensure auth service account secret exists")
+			r.Log.Error(err, "unable to ensure auth service account secret exists", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 		return nil
@@ -733,7 +732,7 @@ func (r *HumioClusterReconciler) ensureAuthContainerPermissions(ctx context.Cont
 	// The service account is used by the auth container attached to the humio pods.
 	err := r.ensureServiceAccountExists(ctx, hc, authServiceAccountNameOrDefault(hc), map[string]string{})
 	if err != nil {
-		r.Log.Error(err, "unable to ensure auth service account exists")
+		r.Log.Error(err, "unable to ensure auth service account exists", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
@@ -742,19 +741,19 @@ func (r *HumioClusterReconciler) ensureAuthContainerPermissions(ctx context.Cont
 	// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
 	err = r.ensureServiceAccountSecretExists(ctx, hc, authServiceAccountSecretName(hc), authServiceAccountNameOrDefault(hc))
 	if err != nil {
-		r.Log.Error(err, "unable to ensure auth service account secret exists")
+		r.Log.Error(err, "unable to ensure auth service account secret exists", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
 	err = r.ensureAuthRole(ctx, hc)
 	if err != nil {
-		r.Log.Error(err, "unable to ensure auth role exists")
+		r.Log.Error(err, "unable to ensure auth role exists", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
 	err = r.ensureAuthRoleBinding(ctx, hc)
 	if err != nil {
-		r.Log.Error(err, "unable to ensure auth role binding exists")
+		r.Log.Error(err, "unable to ensure auth role binding exists", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
@@ -762,7 +761,7 @@ func (r *HumioClusterReconciler) ensureAuthContainerPermissions(ctx context.Cont
 	if helpers.IsOpenShift() {
 		err = r.ensureSecurityContextConstraintsContainsServiceAccount(ctx, hc, authServiceAccountNameOrDefault(hc))
 		if err != nil {
-			r.Log.Error(err, "could not ensure SecurityContextConstraints contains ServiceAccount")
+			r.Log.Error(err, "could not ensure SecurityContextConstraints contains ServiceAccount", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 	}
@@ -780,7 +779,7 @@ func (r *HumioClusterReconciler) ensureSecurityContextConstraintsContainsService
 	// Get current SCC
 	scc, err := openshift.GetSecurityContextConstraints(ctx, r)
 	if err != nil {
-		r.Log.Error(err, "unable to get details about SecurityContextConstraints")
+		r.Log.Error(err, "unable to get details about SecurityContextConstraints", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
@@ -790,7 +789,7 @@ func (r *HumioClusterReconciler) ensureSecurityContextConstraintsContainsService
 		scc.Users = append(scc.Users, usersEntry)
 		err = r.Update(ctx, scc)
 		if err != nil {
-			r.Log.Error(err, fmt.Sprintf("could not update SecurityContextConstraints %s to add ServiceAccount %s", scc.Name, serviceAccountName))
+			r.Log.Error(err, fmt.Sprintf("could not update SecurityContextConstraints %s to add ServiceAccount %s", scc.Name, serviceAccountName), logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 	}
@@ -804,7 +803,7 @@ func (r *HumioClusterReconciler) ensureCleanupUsersInSecurityContextConstraints(
 
 	scc, err := openshift.GetSecurityContextConstraints(ctx, r)
 	if err != nil {
-		r.Log.Error(err, "unable to get details about SecurityContextConstraints")
+		r.Log.Error(err, "unable to get details about SecurityContextConstraints", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
@@ -823,11 +822,11 @@ func (r *HumioClusterReconciler) ensureCleanupUsersInSecurityContextConstraints(
 			scc.Users = helpers.RemoveElement(scc.Users, fmt.Sprintf("system:serviceaccount:%s:%s", sccUserNamespace, sccUserName))
 			err = r.Update(ctx, scc)
 			if err != nil {
-				r.Log.Error(err, "unable to update SecurityContextConstraints")
+				r.Log.Error(err, "unable to update SecurityContextConstraints", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
 		} else {
-			r.Log.Error(err, "unable to get existing service account")
+			r.Log.Error(err, "unable to get existing service account", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 	}
@@ -837,18 +836,18 @@ func (r *HumioClusterReconciler) ensureCleanupUsersInSecurityContextConstraints(
 
 func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.Log.Info("cluster not configured to run with TLS, skipping")
+		r.Log.Info("cluster not configured to run with TLS, skipping", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return nil
 	}
 
-	r.Log.Info("checking for an existing valid CA Issuer")
+	r.Log.Info("checking for an existing valid CA Issuer", logFieldFunctionName, helpers.GetCurrentFuncName())
 	validCAIssuer, err := validCAIssuer(ctx, r, hc.Namespace, hc.Name)
 	if err != nil && !errors.IsNotFound(err) {
-		r.Log.Error(err, "could not validate CA Issuer")
+		r.Log.Error(err, "could not validate CA Issuer", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 	if validCAIssuer {
-		r.Log.Info("found valid CA Issuer")
+		r.Log.Info("found valid CA Issuer", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return nil
 	}
 
@@ -861,13 +860,13 @@ func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *hu
 		if errors.IsNotFound(err) {
 			caIssuer := constructCAIssuer(hc)
 			if err := controllerutil.SetControllerReference(hc, &caIssuer, r.Scheme()); err != nil {
-				r.Log.Error(err, "could not set controller reference")
+				r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
 			// should only create it if it doesn't exist
 			err = r.Create(ctx, &caIssuer)
 			if err != nil {
-				r.Log.Error(err, "could not create CA Issuer")
+				r.Log.Error(err, "could not create CA Issuer", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
 			return nil
@@ -880,46 +879,46 @@ func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *hu
 
 func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.Log.Info("cluster not configured to run with TLS, skipping")
+		r.Log.Info("cluster not configured to run with TLS, skipping", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return nil
 	}
 
-	r.Log.Info("checking for an existing CA secret")
+	r.Log.Info("checking for an existing CA secret", logFieldFunctionName, helpers.GetCurrentFuncName())
 	validCASecret, err := validCASecret(ctx, r, hc.Namespace, getCASecretName(hc))
 	if validCASecret {
-		r.Log.Info("found valid CA secret")
+		r.Log.Info("found valid CA secret", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return nil
 	}
 	if err != nil && !errors.IsNotFound(err) {
-		r.Log.Error(err, "could not validate CA secret")
+		r.Log.Error(err, "could not validate CA secret", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
 	if useExistingCA(hc) {
-		r.Log.Info("specified CA secret invalid")
+		r.Log.Info("specified CA secret invalid", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return fmt.Errorf("configured to use existing CA secret, but the CA secret invalid")
 	}
 
-	r.Log.Info("generating new CA certificate")
+	r.Log.Info("generating new CA certificate", logFieldFunctionName, helpers.GetCurrentFuncName())
 	ca, err := generateCACertificate()
 	if err != nil {
-		r.Log.Error(err, "could not generate new CA certificate")
+		r.Log.Error(err, "could not generate new CA certificate", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
-	r.Log.Info("persisting new CA certificate")
+	r.Log.Info("persisting new CA certificate", logFieldFunctionName, helpers.GetCurrentFuncName())
 	caSecretData := map[string][]byte{
 		"tls.crt": ca.Certificate,
 		"tls.key": ca.Key,
 	}
 	caSecret := kubernetes.ConstructSecret(hc.Name, hc.Namespace, getCASecretName(hc), caSecretData, nil)
 	if err := controllerutil.SetControllerReference(hc, caSecret, r.Scheme()); err != nil {
-		r.Log.Error(err, "could not set controller reference")
+		r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 	err = r.Create(ctx, caSecret)
 	if err != nil {
-		r.Log.Error(err, "could not create secret with CA")
+		r.Log.Error(err, "could not create secret with CA", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
@@ -928,7 +927,7 @@ func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *hu
 
 func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.Log.Info("cluster not configured to run with TLS, skipping")
+		r.Log.Info("cluster not configured to run with TLS, skipping", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return nil
 	}
 
@@ -945,12 +944,12 @@ func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Co
 		}
 		secret := kubernetes.ConstructSecret(hc.Name, hc.Namespace, fmt.Sprintf("%s-keystore-passphrase", hc.Name), secretData, nil)
 		if err := controllerutil.SetControllerReference(hc, secret, r.Scheme()); err != nil {
-			r.Log.Error(err, "could not set controller reference")
+			r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 		err := r.Create(ctx, secret)
 		if err != nil {
-			r.Log.Error(err, "could not create secret")
+			r.Log.Error(err, "could not create secret", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 		return nil
@@ -961,26 +960,26 @@ func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Co
 
 func (r *HumioClusterReconciler) ensureHumioClusterCACertBundle(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.Log.Info("cluster not configured to run with TLS, skipping")
+		r.Log.Info("cluster not configured to run with TLS, skipping", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return nil
 	}
 
-	r.Log.Info("ensuring we have a CA cert bundle")
+	r.Log.Info("ensuring we have a CA cert bundle", logFieldFunctionName, helpers.GetCurrentFuncName())
 	existingCertificate := &cmapi.Certificate{}
 	err := r.Get(ctx, types.NamespacedName{
 		Namespace: hc.Namespace,
 		Name:      hc.Name,
 	}, existingCertificate)
 	if errors.IsNotFound(err) {
-		r.Log.Info("CA cert bundle doesn't exist, creating it now")
+		r.Log.Info("CA cert bundle doesn't exist, creating it now", logFieldFunctionName, helpers.GetCurrentFuncName())
 		cert := constructClusterCACertificateBundle(hc)
 		if err := controllerutil.SetControllerReference(hc, &cert, r.Scheme()); err != nil {
-			r.Log.Error(err, "could not set controller reference")
+			r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 		err := r.Create(ctx, &cert)
 		if err != nil {
-			r.Log.Error(err, "could not create certificate")
+			r.Log.Error(err, "could not create certificate", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 		return nil
@@ -992,7 +991,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterCACertBundle(ctx context.Cont
 
 func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.Log.Info("cluster not configured to run with TLS, skipping")
+		r.Log.Info("cluster not configured to run with TLS, skipping", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return nil
 	}
 
@@ -1011,17 +1010,17 @@ func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context
 
 		certificateHash := helpers.AsSHA256(certForHash)
 		certificate.Annotations[certHashAnnotation] = certificateHash
-		r.Log.Info(fmt.Sprintf("creating node TLS certificate with name %s", certificate.Name))
+		r.Log.Info(fmt.Sprintf("creating node TLS certificate with name %s", certificate.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 		if err = controllerutil.SetControllerReference(hc, &certificate, r.Scheme()); err != nil {
-			r.Log.Error(err, "could not set controller reference")
+			r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 		if err = r.Create(ctx, &certificate); err != nil {
-			r.Log.Error(err, "could create node certificate")
+			r.Log.Error(err, "could create node certificate", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 		if err = r.waitForNewNodeCertificate(ctx, hc, existingNodeCertCount+1); err != nil {
-			r.Log.Error(err, "new node certificate not ready as expected")
+			r.Log.Error(err, "new node certificate not ready as expected", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 	}
@@ -1038,10 +1037,10 @@ func (r *HumioClusterReconciler) ensureInitClusterRole(ctx context.Context, hc *
 			// We probably need another way to ensure we clean them up. Perhaps we can use finalizers?
 			err = r.Create(ctx, clusterRole)
 			if err != nil {
-				r.Log.Error(err, "unable to create init cluster role")
+				r.Log.Error(err, "unable to create init cluster role", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
-			r.Log.Info(fmt.Sprintf("successfully created init cluster role %s", clusterRoleName))
+			r.Log.Info(fmt.Sprintf("successfully created init cluster role %s", clusterRoleName), logFieldFunctionName, helpers.GetCurrentFuncName())
 			humioClusterPrometheusMetrics.Counters.ClusterRolesCreated.Inc()
 		}
 	}
@@ -1055,15 +1054,15 @@ func (r *HumioClusterReconciler) ensureAuthRole(ctx context.Context, hc *humiov1
 		if errors.IsNotFound(err) {
 			role := kubernetes.ConstructAuthRole(roleName, hc.Name, hc.Namespace)
 			if err := controllerutil.SetControllerReference(hc, role, r.Scheme()); err != nil {
-				r.Log.Error(err, "could not set controller reference")
+				r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
 			err = r.Create(ctx, role)
 			if err != nil {
-				r.Log.Error(err, "unable to create auth role")
+				r.Log.Error(err, "unable to create auth role", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
-			r.Log.Info(fmt.Sprintf("successfully created auth role %s", roleName))
+			r.Log.Info(fmt.Sprintf("successfully created auth role %s", roleName), logFieldFunctionName, helpers.GetCurrentFuncName())
 			humioClusterPrometheusMetrics.Counters.RolesCreated.Inc()
 		}
 	}
@@ -1086,10 +1085,10 @@ func (r *HumioClusterReconciler) ensureInitClusterRoleBinding(ctx context.Contex
 			// We probably need another way to ensure we clean them up. Perhaps we can use finalizers?
 			err = r.Create(ctx, clusterRole)
 			if err != nil {
-				r.Log.Error(err, "unable to create init cluster role binding")
+				r.Log.Error(err, "unable to create init cluster role binding", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
-			r.Log.Info(fmt.Sprintf("successfully created init cluster role binding %s", clusterRoleBindingName))
+			r.Log.Info(fmt.Sprintf("successfully created init cluster role binding %s", clusterRoleBindingName), logFieldFunctionName, helpers.GetCurrentFuncName())
 			humioClusterPrometheusMetrics.Counters.ClusterRoleBindingsCreated.Inc()
 		}
 	}
@@ -1109,15 +1108,15 @@ func (r *HumioClusterReconciler) ensureAuthRoleBinding(ctx context.Context, hc *
 				authServiceAccountNameOrDefault(hc),
 			)
 			if err := controllerutil.SetControllerReference(hc, roleBinding, r.Scheme()); err != nil {
-				r.Log.Error(err, "could not set controller reference")
+				r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
 			err = r.Create(ctx, roleBinding)
 			if err != nil {
-				r.Log.Error(err, "unable to create auth role binding")
+				r.Log.Error(err, "unable to create auth role binding", logFieldFunctionName, helpers.GetCurrentFuncName())
 				return err
 			}
-			r.Log.Info(fmt.Sprintf("successfully created auth role binding %s", roleBindingName))
+			r.Log.Info(fmt.Sprintf("successfully created auth role binding %s", roleBindingName), logFieldFunctionName, helpers.GetCurrentFuncName())
 			humioClusterPrometheusMetrics.Counters.RoleBindingsCreated.Inc()
 		}
 	}
@@ -1161,21 +1160,21 @@ func (r *HumioClusterReconciler) validateUserDefinedServiceAccountsExists(ctx co
 func (r *HumioClusterReconciler) ensureServiceAccountExists(ctx context.Context, hc *humiov1alpha1.HumioCluster, serviceAccountName string, serviceAccountAnnotations map[string]string) error {
 	serviceAccountExists, err := r.serviceAccountExists(ctx, hc, serviceAccountName)
 	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("could not check existence of service account \"%s\"", serviceAccountName))
+		r.Log.Error(err, fmt.Sprintf("could not check existence of service account \"%s\"", serviceAccountName), logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 	if !serviceAccountExists {
 		serviceAccount := kubernetes.ConstructServiceAccount(serviceAccountName, hc.Name, hc.Namespace, serviceAccountAnnotations)
 		if err := controllerutil.SetControllerReference(hc, serviceAccount, r.Scheme()); err != nil {
-			r.Log.Error(err, "could not set controller reference")
+			r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 		err = r.Create(ctx, serviceAccount)
 		if err != nil {
-			r.Log.Error(err, fmt.Sprintf("unable to create service account %s", serviceAccount.Name))
+			r.Log.Error(err, fmt.Sprintf("unable to create service account %s", serviceAccount.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
-		r.Log.Info(fmt.Sprintf("successfully created service account %s", serviceAccount.Name))
+		r.Log.Info(fmt.Sprintf("successfully created service account %s", serviceAccount.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 		humioClusterPrometheusMetrics.Counters.ServiceAccountsCreated.Inc()
 	}
 	return nil
@@ -1184,38 +1183,38 @@ func (r *HumioClusterReconciler) ensureServiceAccountExists(ctx context.Context,
 func (r *HumioClusterReconciler) ensureServiceAccountSecretExists(ctx context.Context, hc *humiov1alpha1.HumioCluster, serviceAccountSecretName, serviceAccountName string) error {
 	serviceAccountExists, err := r.serviceAccountExists(ctx, hc, serviceAccountName)
 	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("could not check existence of service account \"%s\"", serviceAccountName))
+		r.Log.Error(err, fmt.Sprintf("could not check existence of service account \"%s\"", serviceAccountName), logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 	if !serviceAccountExists {
-		r.Log.Error(err, fmt.Sprintf("service account \"%s\" must exist before the service account secret can be created", serviceAccountName))
+		r.Log.Error(err, fmt.Sprintf("service account \"%s\" must exist before the service account secret can be created", serviceAccountName), logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
 	foundServiceAccountSecretsList, err := kubernetes.ListSecrets(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForSecret(hc.Name, serviceAccountSecretName))
 	if err != nil {
-		r.Log.Error(err, "unable list secrets")
+		r.Log.Error(err, "unable list secrets", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
 	if len(foundServiceAccountSecretsList) == 0 {
 		secret := kubernetes.ConstructServiceAccountSecret(hc.Name, hc.Namespace, serviceAccountSecretName, serviceAccountName)
 		if err := controllerutil.SetControllerReference(hc, secret, r.Scheme()); err != nil {
-			r.Log.Error(err, "could not set controller reference")
+			r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 		err = r.Create(ctx, secret)
 		if err != nil {
-			r.Log.Error(err, fmt.Sprintf("unable to create service account secret %s", secret.Name))
+			r.Log.Error(err, fmt.Sprintf("unable to create service account secret %s", secret.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 		// check that we can list the new secret
 		// this is to avoid issues where the requeue is faster than kubernetes
 		if err := r.waitForNewSecret(ctx, hc, foundServiceAccountSecretsList, serviceAccountSecretName); err != nil {
-			r.Log.Error(err, "failed to validate new secret")
+			r.Log.Error(err, "failed to validate new secret", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
-		r.Log.Info(fmt.Sprintf("successfully created service account secret %s", secret.Name))
+		r.Log.Info(fmt.Sprintf("successfully created service account secret %s", secret.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 		humioClusterPrometheusMetrics.Counters.ServiceAccountSecretsCreated.Inc()
 	}
 
@@ -1233,22 +1232,22 @@ func (r *HumioClusterReconciler) serviceAccountExists(ctx context.Context, hc *h
 }
 
 func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	r.Log.Info("ensuring labels")
+	r.Log.Info("ensuring labels", logFieldFunctionName, helpers.GetCurrentFuncName())
 	cluster, err := r.HumioClient.GetClusters()
 	if err != nil {
-		r.Log.Error(err, "failed to get clusters")
+		r.Log.Error(err, "failed to get clusters", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
 	foundPodList, err := kubernetes.ListPods(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
-		r.Log.Error(err, "failed to list pods")
+		r.Log.Error(err, "failed to list pods", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
 	pvcList, err := r.pvcList(ctx, hc)
 	if err != nil {
-		r.Log.Error(err, "failed to list pvcs to assign labels")
+		r.Log.Error(err, "failed to list pvcs to assign labels", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 
@@ -1258,7 +1257,7 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1al
 			if pvcsEnabled(hc) {
 				err := r.ensurePvcLabels(ctx, hc, pod, pvcList)
 				if err != nil {
-					r.Log.Error(err, "could not ensure pvc labels")
+					r.Log.Error(err, "could not ensure pvc labels", logFieldFunctionName, helpers.GetCurrentFuncName())
 					return err
 				}
 			}
@@ -1266,23 +1265,23 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1al
 		}
 		// If pod does not have an IP yet it is probably pending
 		if pod.Status.PodIP == "" {
-			r.Log.Info(fmt.Sprintf("not setting labels for pod %s because it is in state %s", pod.Name, pod.Status.Phase))
+			r.Log.Info(fmt.Sprintf("not setting labels for pod %s because it is in state %s", pod.Name, pod.Status.Phase), logFieldFunctionName, helpers.GetCurrentFuncName())
 			continue
 		}
-		r.Log.Info(fmt.Sprintf("setting labels for nodes: %#+v", cluster.Nodes))
+		r.Log.Info(fmt.Sprintf("setting labels for nodes: %#+v", cluster.Nodes), logFieldFunctionName, helpers.GetCurrentFuncName())
 		for _, node := range cluster.Nodes {
 			if node.Uri == fmt.Sprintf("http://%s:%d", pod.Status.PodIP, humioPort) {
 				labels := kubernetes.LabelsForHumioNodeID(hc.Name, node.Id)
-				r.Log.Info(fmt.Sprintf("setting labels for pod %s, labels=%v", pod.Name, labels))
+				r.Log.Info(fmt.Sprintf("setting labels for pod %s, labels=%v", pod.Name, labels), logFieldFunctionName, helpers.GetCurrentFuncName())
 				pod.SetLabels(labels)
 				if err := r.Update(ctx, &foundPodList[idx]); err != nil {
-					r.Log.Error(err, fmt.Sprintf("failed to update labels on pod %s", pod.Name))
+					r.Log.Error(err, fmt.Sprintf("failed to update labels on pod %s", pod.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 					return err
 				}
 				if pvcsEnabled(hc) {
 					err = r.ensurePvcLabels(ctx, hc, pod, pvcList)
 					if err != nil {
-						r.Log.Error(err, "could not ensure pvc labels")
+						r.Log.Error(err, "could not ensure pvc labels", logFieldFunctionName, helpers.GetCurrentFuncName())
 						return err
 					}
 				}
@@ -1295,7 +1294,7 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1al
 func (r *HumioClusterReconciler) ensurePvcLabels(ctx context.Context, hc *humiov1alpha1.HumioCluster, pod corev1.Pod, pvcList []corev1.PersistentVolumeClaim) error {
 	pvc, err := findPvcForPod(pvcList, pod)
 	if err != nil {
-		r.Log.Error(err, "failed to get pvc for pod to assign labels")
+		r.Log.Error(err, "failed to get pvc for pod to assign labels", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 	if kubernetes.LabelListContainsLabel(pvc.GetLabels(), kubernetes.NodeIdLabelName) {
@@ -1306,17 +1305,17 @@ func (r *HumioClusterReconciler) ensurePvcLabels(ctx context.Context, hc *humiov
 		return fmt.Errorf("unable to set label on pvc, nodeid %v is invalid: %s", pod.Labels[kubernetes.NodeIdLabelName], err)
 	}
 	labels := kubernetes.LabelsForHumioNodeID(hc.Name, nodeId)
-	r.Log.Info(fmt.Sprintf("setting labels for pvc %s, labels=%v", pvc.Name, labels))
+	r.Log.Info(fmt.Sprintf("setting labels for pvc %s, labels=%v", pvc.Name, labels), logFieldFunctionName, helpers.GetCurrentFuncName())
 	pvc.SetLabels(labels)
 	if err := r.Update(ctx, &pvc); err != nil {
-		r.Log.Error(err, fmt.Sprintf("failed to update labels on pvc %s", pod.Name))
+		r.Log.Error(err, fmt.Sprintf("failed to update labels on pvc %s", pod.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 		return err
 	}
 	return nil
 }
 
 func (r *HumioClusterReconciler) ensureInitialLicense(ctx context.Context, hc *humiov1alpha1.HumioCluster, baseURL *url.URL, req ctrl.Request) (reconcile.Result, error) {
-	r.Log.Info("ensuring initial license")
+	r.Log.Info("ensuring initial license", logFieldFunctionName, helpers.GetCurrentFuncName())
 
 	humioAPIConfig := &humioapi.Config{
 		Address: baseURL,
@@ -1326,11 +1325,11 @@ func (r *HumioClusterReconciler) ensureInitialLicense(ctx context.Context, hc *h
 	if helpers.TLSEnabled(hc) {
 		existingCABundle, err := kubernetes.GetSecret(ctx, r, constructClusterCACertificateBundle(hc).Spec.SecretName, hc.Namespace)
 		if errors.IsNotFound(err) {
-			r.Log.Info("waiting for secret with CA bundle")
+			r.Log.Info("waiting for secret with CA bundle", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
 		}
 		if err != nil {
-			r.Log.Error(err, "unable to obtain CA certificate")
+			r.Log.Error(err, "unable to obtain CA certificate", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
 		}
 		humioAPIConfig.CACertificatePEM = string(existingCABundle.Data["ca.crt"])
@@ -1340,7 +1339,7 @@ func (r *HumioClusterReconciler) ensureInitialLicense(ctx context.Context, hc *h
 	// check current license
 	existingLicense, err := r.HumioClient.GetLicense()
 	if existingLicense != nil {
-		r.Log.Info(fmt.Sprintf("initial license already installed: %s, err: %s", existingLicense, err))
+		r.Log.Info(fmt.Sprintf("initial license already installed: %s, err: %s", existingLicense, err), logFieldFunctionName, helpers.GetCurrentFuncName())
 		defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
 			licenseStatus := humiov1alpha1.HumioLicenseStatus{
 				Type:       existingLicense.LicenseType(),
@@ -1352,7 +1351,7 @@ func (r *HumioClusterReconciler) ensureInitialLicense(ctx context.Context, hc *h
 	}
 	if err != nil {
 		if !strings.Contains(err.Error(), "No license installed. Please contact Humio support.") {
-			r.Log.Error(err, "unable to check if initial license is already installed")
+			r.Log.Error(err, "unable to check if initial license is already installed", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
 		}
 	}
@@ -1367,27 +1366,27 @@ func (r *HumioClusterReconciler) ensureInitialLicense(ctx context.Context, hc *h
 	licenseSecret, err := kubernetes.GetSecret(ctx, r, licenseSecretKeySelector.Name, hc.Namespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			r.Log.Error(err, fmt.Sprintf("license was requested but no secret exists by name %s in namespace %s", licenseSecretKeySelector.Name, hc.Namespace))
+			r.Log.Error(err, fmt.Sprintf("license was requested but no secret exists by name %s in namespace %s", licenseSecretKeySelector.Name, hc.Namespace), logFieldFunctionName, helpers.GetCurrentFuncName())
 			licenseErrorCount++
 		}
-		r.Log.Error(err, fmt.Sprintf("unable to get secret with name %s in namespace %s", licenseSecretKeySelector.Name, hc.Namespace))
+		r.Log.Error(err, fmt.Sprintf("unable to get secret with name %s in namespace %s", licenseSecretKeySelector.Name, hc.Namespace), logFieldFunctionName, helpers.GetCurrentFuncName())
 		licenseErrorCount++
 	}
 	if _, ok := licenseSecret.Data[licenseSecretKeySelector.Key]; !ok {
-		r.Log.Error(err, fmt.Sprintf("license secret was found but it does not contain the key %s", licenseSecretKeySelector.Key))
+		r.Log.Error(err, fmt.Sprintf("license secret was found but it does not contain the key %s", licenseSecretKeySelector.Key), logFieldFunctionName, helpers.GetCurrentFuncName())
 		licenseErrorCount++
 	}
 
 	if licenseErrorCount > 0 {
 		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
+			r.Log.Error(err, "unable to set cluster state", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, err
 		}
 	} else {
 		if hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
 			if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc); err != nil {
-				r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning))
+				r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning), logFieldFunctionName, helpers.GetCurrentFuncName())
 				return reconcile.Result{}, err
 			}
 		}
@@ -1397,23 +1396,23 @@ func (r *HumioClusterReconciler) ensureInitialLicense(ctx context.Context, hc *h
 
 	desiredLicense, err := humio.ParseLicense(licenseStr)
 	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("license was supplied but could not be parsed %s", err))
+		r.Log.Error(err, fmt.Sprintf("license was supplied but could not be parsed %s", err), logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 
 	if err := r.HumioClient.InstallLicense(licenseStr); err != nil {
-		r.Log.Error(err, "could not install initial license")
+		r.Log.Error(err, "could not install initial license", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 
 	r.Log.Info(fmt.Sprintf("successfully installed initial license: type: %s, issued: %s, expires: %s",
-		desiredLicense.LicenseType(), desiredLicense.IssuedAt(), desiredLicense.ExpiresAt()))
+		desiredLicense.LicenseType(), desiredLicense.IssuedAt(), desiredLicense.ExpiresAt()), logFieldFunctionName, helpers.GetCurrentFuncName())
 
 	return reconcile.Result{}, nil
 }
 
 func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	r.Log.Info("ensuring license is valid")
+	r.Log.Info("ensuring license is valid", logFieldFunctionName, helpers.GetCurrentFuncName())
 
 	var err error
 	licenseSecretKeySelector := licenseSecretKeyRefOrDefault(hc)
@@ -1440,7 +1439,7 @@ func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *h
 }
 
 func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1alpha1.HumioCluster, req ctrl.Request) (reconcile.Result, error) {
-	r.Log.Info("ensuring license")
+	r.Log.Info("ensuring license", logFieldFunctionName, helpers.GetCurrentFuncName())
 
 	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager())
 	if err != nil {
@@ -1451,7 +1450,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	var existingLicense humioapi.License
 	existingLicense, err = r.HumioClient.GetLicense()
 	if err != nil {
-		r.Log.Info(fmt.Sprintf("failed to get license: %v", err))
+		r.Log.Info(fmt.Sprintf("failed to get license: %v", err), logFieldFunctionName, helpers.GetCurrentFuncName())
 	}
 
 	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
@@ -1473,27 +1472,27 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	licenseSecret, err := kubernetes.GetSecret(ctx, r, licenseSecretKeySelector.Name, hc.Namespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			r.Log.Error(err, fmt.Sprintf("license was requested but no secret exists by name %s in namespace %s", licenseSecretKeySelector.Name, hc.Namespace))
+			r.Log.Error(err, fmt.Sprintf("license was requested but no secret exists by name %s in namespace %s", licenseSecretKeySelector.Name, hc.Namespace), logFieldFunctionName, helpers.GetCurrentFuncName())
 			licenseErrorCount++
 		}
-		r.Log.Error(err, fmt.Sprintf("unable to get secret with name %s in namespace %s", licenseSecretKeySelector.Name, hc.Namespace))
+		r.Log.Error(err, fmt.Sprintf("unable to get secret with name %s in namespace %s", licenseSecretKeySelector.Name, hc.Namespace), logFieldFunctionName, helpers.GetCurrentFuncName())
 		licenseErrorCount++
 	}
 	if _, ok := licenseSecret.Data[licenseSecretKeySelector.Key]; !ok {
-		r.Log.Error(err, fmt.Sprintf("license secret was found but it does not contain the key %s", licenseSecretKeySelector.Key))
+		r.Log.Error(err, fmt.Sprintf("license secret was found but it does not contain the key %s", licenseSecretKeySelector.Key), logFieldFunctionName, helpers.GetCurrentFuncName())
 		licenseErrorCount++
 	}
 
 	if licenseErrorCount > 0 {
 		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
+			r.Log.Error(err, "unable to set cluster state", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, err
 		}
 	} else {
 		if hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
 			if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc); err != nil {
-				r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning))
+				r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning), logFieldFunctionName, helpers.GetCurrentFuncName())
 				return reconcile.Result{}, err
 			}
 		}
@@ -1503,7 +1502,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 
 	desiredLicense, err := humio.ParseLicense(licenseStr)
 	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("license was supplied but could not be parsed %s", err))
+		r.Log.Error(err, fmt.Sprintf("license was supplied but could not be parsed %s", err), logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 
@@ -1514,19 +1513,19 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	if existingLicense.LicenseType() != desiredLicense.LicenseType() ||
 		existingLicense.IssuedAt() != desiredLicense.IssuedAt() ||
 		existingLicense.ExpiresAt() != desiredLicense.ExpiresAt() {
-		r.Log.Info(fmt.Sprintf("updating license because of: existingLicense.LicenseType(%s) != desiredLicense.LicenseType(%s) || existingLicense.IssuedAt(%s) != desiredLicense.IssuedAt(%s) || existingLicense.ExpiresAt(%s) != desiredLicense.ExpiresAt(%s)", existingLicense.LicenseType(), desiredLicense.LicenseType(), existingLicense.IssuedAt(), desiredLicense.IssuedAt(), existingLicense.ExpiresAt(), desiredLicense.ExpiresAt()))
+		r.Log.Info(fmt.Sprintf("updating license because of: existingLicense.LicenseType(%s) != desiredLicense.LicenseType(%s) || existingLicense.IssuedAt(%s) != desiredLicense.IssuedAt(%s) || existingLicense.ExpiresAt(%s) != desiredLicense.ExpiresAt(%s)", existingLicense.LicenseType(), desiredLicense.LicenseType(), existingLicense.IssuedAt(), desiredLicense.IssuedAt(), existingLicense.ExpiresAt(), desiredLicense.ExpiresAt()), logFieldFunctionName, helpers.GetCurrentFuncName())
 		if err := r.HumioClient.InstallLicense(licenseStr); err != nil {
-			r.Log.Error(err, "could not install license")
+			r.Log.Error(err, "could not install license", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return r.ensureInitialLicense(ctx, hc, r.HumioClient.GetBaseURL(hc), req)
 		}
 
 		r.Log.Info(fmt.Sprintf("successfully installed license: type: %s, issued: %s, expires: %s",
-			desiredLicense.LicenseType(), desiredLicense.IssuedAt(), desiredLicense.ExpiresAt()))
+			desiredLicense.LicenseType(), desiredLicense.IssuedAt(), desiredLicense.ExpiresAt()), logFieldFunctionName, helpers.GetCurrentFuncName())
 
 		// refresh the existing license for the status update
 		existingLicense, err = r.HumioClient.GetLicense()
 		if err != nil {
-			r.Log.Error(err, "failed to get updated license: %v", err)
+			r.Log.Error(err, fmt.Sprintf("failed to get updated license: %v", err), logFieldFunctionName, helpers.GetCurrentFuncName())
 		}
 		return reconcile.Result{}, nil
 	}
@@ -1536,7 +1535,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 
 func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(humioClusterController humio.ClusterController, hc *humiov1alpha1.HumioCluster) error {
 	if !hc.Spec.AutoRebalancePartitions {
-		r.Log.Info("partition auto-rebalancing not enabled, skipping")
+		r.Log.Info("partition auto-rebalancing not enabled, skipping", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return nil
 	}
 
@@ -1551,7 +1550,7 @@ func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(humioClusterControl
 	}
 	currentStorageLayoutInput := helpers.MapStoragePartition(currentClusterInfo.StoragePartitions, helpers.ToStoragePartitionInput)
 	if !reflect.DeepEqual(currentStorageLayoutInput, suggestedStorageLayout) {
-		r.Log.Info(fmt.Sprintf("triggering update of storage partitions to use suggested layout, current: %#+v, suggested: %#+v", currentClusterInfo.StoragePartitions, suggestedStorageLayout))
+		r.Log.Info(fmt.Sprintf("triggering update of storage partitions to use suggested layout, current: %#+v, suggested: %#+v", currentClusterInfo.StoragePartitions, suggestedStorageLayout), logFieldFunctionName, helpers.GetCurrentFuncName())
 		err = r.HumioClient.UpdateStoragePartitionScheme(suggestedStorageLayout)
 		if err != nil {
 			return err
@@ -1564,7 +1563,7 @@ func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(humioClusterControl
 	}
 	currentIngestLayoutInput := helpers.MapIngestPartition(currentClusterInfo.IngestPartitions, helpers.ToIngestPartitionInput)
 	if !reflect.DeepEqual(currentIngestLayoutInput, suggestedIngestLayout) {
-		r.Log.Info(fmt.Sprintf("triggering update of ingest partitions to use suggested layout, current: %#+v, suggested: %#+v", currentClusterInfo.IngestPartitions, suggestedIngestLayout))
+		r.Log.Info(fmt.Sprintf("triggering update of ingest partitions to use suggested layout, current: %#+v, suggested: %#+v", currentClusterInfo.IngestPartitions, suggestedIngestLayout), logFieldFunctionName, helpers.GetCurrentFuncName())
 		err = r.HumioClient.UpdateIngestPartitionScheme(suggestedIngestLayout)
 		if err != nil {
 			return err
@@ -1575,17 +1574,17 @@ func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(humioClusterControl
 }
 
 func (r *HumioClusterReconciler) ensureServiceExists(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	r.Log.Info("ensuring service")
+	r.Log.Info("ensuring service", logFieldFunctionName, helpers.GetCurrentFuncName())
 	_, err := kubernetes.GetService(ctx, r, hc.Name, hc.Namespace)
 	if errors.IsNotFound(err) {
 		service := constructService(hc)
 		if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {
-			r.Log.Error(err, "could not set controller reference")
+			r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 		err = r.Create(ctx, service)
 		if err != nil {
-			r.Log.Error(err, "unable to create service for HumioCluster")
+			r.Log.Error(err, "unable to create service for HumioCluster", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return err
 		}
 	}
@@ -1596,14 +1595,14 @@ func (r *HumioClusterReconciler) ensureServiceExists(ctx context.Context, hc *hu
 // and cleans them up if we have no use for them anymore.
 func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
 	if !helpers.UseCertManager() {
-		r.Log.Info("cert-manager not available, skipping")
+		r.Log.Info("cert-manager not available, skipping", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, nil
 	}
 
 	// because these secrets are created by cert-manager we cannot use our typical label selector
 	foundSecretList, err := kubernetes.ListSecrets(ctx, r, hc.Namespace, client.MatchingLabels{})
 	if err != nil {
-		r.Log.Error(err, "unable to list secrets")
+		r.Log.Error(err, "unable to list secrets", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 	if len(foundSecretList) == 0 {
@@ -1615,7 +1614,7 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc
 			if secret.Type == corev1.SecretTypeOpaque {
 				if secret.Name == fmt.Sprintf("%s-%s", hc.Name, "ca-keypair") ||
 					secret.Name == fmt.Sprintf("%s-%s", hc.Name, "keystore-passphrase") {
-					r.Log.Info(fmt.Sprintf("TLS is not enabled for cluster, removing unused secret: %s", secret.Name))
+					r.Log.Info(fmt.Sprintf("TLS is not enabled for cluster, removing unused secret: %s", secret.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 					err := r.Delete(ctx, &foundSecretList[idx])
 					if err != nil {
 						return reconcile.Result{}, err
@@ -1655,15 +1654,15 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc
 				// this is the per-node secret
 				inUse, err = r.tlsCertSecretInUse(ctx, secret.Namespace, secret.Name)
 				if err != nil {
-					r.Log.Error(err, "unable to determine if secret is in use")
+					r.Log.Error(err, "unable to determine if secret is in use", logFieldFunctionName, helpers.GetCurrentFuncName())
 					return reconcile.Result{}, err
 				}
 			}
 			if !inUse {
-				r.Log.Info(fmt.Sprintf("deleting secret %s", secret.Name))
+				r.Log.Info(fmt.Sprintf("deleting secret %s", secret.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 				err = r.Delete(ctx, &foundSecretList[idx])
 				if err != nil {
-					r.Log.Error(err, fmt.Sprintf("could not delete secret %s", secret.Name))
+					r.Log.Error(err, fmt.Sprintf("could not delete secret %s", secret.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 					return reconcile.Result{}, err
 				}
 				return reconcile.Result{Requeue: true}, nil
@@ -1697,10 +1696,10 @@ func (r *HumioClusterReconciler) cleanupUnusedCAIssuer(ctx context.Context, hc *
 		return reconcile.Result{Requeue: true}, err
 	}
 
-	r.Log.Info("found existing CA Issuer but cluster is configured without TLS, deleting CA Issuer")
+	r.Log.Info("found existing CA Issuer but cluster is configured without TLS, deleting CA Issuer", logFieldFunctionName, helpers.GetCurrentFuncName())
 	err = r.Delete(ctx, &existingCAIssuer)
 	if err != nil {
-		r.Log.Error(err, "unable to delete CA Issuer")
+		r.Log.Error(err, "unable to delete CA Issuer", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{Requeue: true}, err
 	}
 
@@ -1710,13 +1709,13 @@ func (r *HumioClusterReconciler) cleanupUnusedCAIssuer(ctx context.Context, hc *
 // cleanupUnusedTLSCertificates finds all existing per-node certificates and cleans them up if we have no matching pod for them
 func (r *HumioClusterReconciler) cleanupUnusedTLSCertificates(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
 	if !helpers.UseCertManager() {
-		r.Log.Info("cert-manager not available, skipping")
+		r.Log.Info("cert-manager not available, skipping", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, nil
 	}
 
 	foundCertificateList, err := kubernetes.ListCertificates(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
-		r.Log.Error(err, "unable to list certificates")
+		r.Log.Error(err, "unable to list certificates", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 	if len(foundCertificateList) == 0 {
@@ -1746,15 +1745,15 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSCertificates(ctx context.Contex
 				// this is the per-node secret
 				inUse, err = r.tlsCertSecretInUse(ctx, certificate.Namespace, certificate.Name)
 				if err != nil {
-					r.Log.Error(err, "unable to determine if certificate is in use")
+					r.Log.Error(err, "unable to determine if certificate is in use", logFieldFunctionName, helpers.GetCurrentFuncName())
 					return reconcile.Result{}, err
 				}
 			}
 			if !inUse {
-				r.Log.Info(fmt.Sprintf("deleting certificate %s", certificate.Name))
+				r.Log.Info(fmt.Sprintf("deleting certificate %s", certificate.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 				err = r.Delete(ctx, &foundCertificateList[idx])
 				if err != nil {
-					r.Log.Error(err, fmt.Sprintf("could not delete certificate %s", certificate.Name))
+					r.Log.Error(err, fmt.Sprintf("could not delete certificate %s", certificate.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 					return reconcile.Result{}, err
 				}
 				return reconcile.Result{Requeue: true}, nil
@@ -1823,24 +1822,24 @@ func (r *HumioClusterReconciler) ensureHumioServiceAccountAnnotations(ctx contex
 	serviceAccountName := humioServiceAccountNameOrDefault(hc)
 	serviceAccountAnnotations := humioServiceAccountAnnotationsOrDefault(hc)
 
-	r.Log.Info(fmt.Sprintf("ensuring service account %s annotations", serviceAccountName))
+	r.Log.Info(fmt.Sprintf("ensuring service account %s annotations", serviceAccountName), logFieldFunctionName, helpers.GetCurrentFuncName())
 	existingServiceAccount, err := kubernetes.GetServiceAccount(ctx, r, serviceAccountName, hc.Namespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
-		r.Log.Error(err, fmt.Sprintf("failed to get service account %s", serviceAccountName))
+		r.Log.Error(err, fmt.Sprintf("failed to get service account %s", serviceAccountName), logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 
 	serviceAccount := kubernetes.ConstructServiceAccount(serviceAccountName, hc.Name, hc.Namespace, serviceAccountAnnotations)
 	if !reflect.DeepEqual(existingServiceAccount.Annotations, serviceAccount.Annotations) {
 		r.Log.Info(fmt.Sprintf("service account annotations do not match: annotations %s, got %s. updating service account %s",
-			helpers.MapToString(serviceAccount.Annotations), helpers.MapToString(existingServiceAccount.Annotations), existingServiceAccount.Name))
+			helpers.MapToString(serviceAccount.Annotations), helpers.MapToString(existingServiceAccount.Annotations), existingServiceAccount.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 		existingServiceAccount.Annotations = serviceAccount.Annotations
 		err = r.Update(ctx, existingServiceAccount)
 		if err != nil {
-			r.Log.Error(err, fmt.Sprintf("could not update service account %s", existingServiceAccount.Name))
+			r.Log.Error(err, fmt.Sprintf("could not update service account %s", existingServiceAccount.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, err
 		}
 
@@ -1872,7 +1871,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		return reconcile.Result{}, nil
 	}
 
-	r.Log.Info("ensuring mismatching pods are deleted")
+	r.Log.Info("ensuring mismatching pods are deleted", logFieldFunctionName, helpers.GetCurrentFuncName())
 
 	attachments := &podAttachments{}
 	// In the case we are using PVCs, we cannot lookup the available PVCs since they may already be in use
@@ -1883,26 +1882,26 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 
 	podsStatus, err := r.getPodsStatus(hc, foundPodList)
 	if err != nil {
-		r.Log.Error(err, "failed to get pod status")
+		r.Log.Error(err, "failed to get pod status", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 
 	// prioritize deleting the pods with errors
 	desiredLifecycleState := podLifecycleState{}
 	if podsStatus.havePodsWithContainerStateWaitingErrors() {
-		r.Log.Info(fmt.Sprintf("found %d humio pods with errors", len(podsStatus.podErrors)))
+		r.Log.Info(fmt.Sprintf("found %d humio pods with errors", len(podsStatus.podErrors)), logFieldFunctionName, helpers.GetCurrentFuncName())
 		desiredLifecycleState, err = r.getPodDesiredLifecycleState(hc, podsStatus.podErrors, attachments)
 	} else {
 		desiredLifecycleState, err = r.getPodDesiredLifecycleState(hc, foundPodList, attachments)
 	}
 	if err != nil {
-		r.Log.Error(err, "got error when getting pod desired lifecycle")
+		r.Log.Error(err, "got error when getting pod desired lifecycle", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 
 	if podsStatus.waitingOnPods() && hc.Status.State == humiov1alpha1.HumioClusterStateRestarting {
 		r.Log.Info(fmt.Sprintf("waiting to delete pod %s. waitingOnPods=%v, clusterState=%s",
-			desiredLifecycleState.pod.Name, podsStatus.waitingOnPods(), hc.Status.State))
+			desiredLifecycleState.pod.Name, podsStatus.waitingOnPods(), hc.Status.State), logFieldFunctionName, helpers.GetCurrentFuncName()) // TODO: Why can desiredLifecycleState.pod.Name be empty string?
 		desiredLifecycleState.delete = false
 	}
 
@@ -1915,30 +1914,30 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		if hc.Status.State == humiov1alpha1.HumioClusterStateRunning || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
 			if desiredLifecycleState.restartPolicy == PodRestartPolicyRecreate {
 				if err = r.setState(ctx, humiov1alpha1.HumioClusterStateUpgrading, hc); err != nil {
-					r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateUpgrading))
+					r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateUpgrading), logFieldFunctionName, helpers.GetCurrentFuncName())
 					return reconcile.Result{}, err
 				}
 				if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRecreate); err != nil {
-					r.Log.Error(err, fmt.Sprintf("failed to increment pod revision to %d", revision))
+					r.Log.Error(err, fmt.Sprintf("failed to increment pod revision to %d", revision), logFieldFunctionName, helpers.GetCurrentFuncName())
 					return reconcile.Result{}, err
 				}
 			}
 			if desiredLifecycleState.restartPolicy == PodRestartPolicyRolling {
 				if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRestarting, hc); err != nil {
-					r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRestarting))
+					r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRestarting), logFieldFunctionName, helpers.GetCurrentFuncName())
 					return reconcile.Result{}, err
 				}
 				if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, PodRestartPolicyRolling); err != nil {
-					r.Log.Error(err, fmt.Sprintf("failed to increment pod revision to %d", revision))
+					r.Log.Error(err, fmt.Sprintf("failed to increment pod revision to %d", revision), logFieldFunctionName, helpers.GetCurrentFuncName())
 					return reconcile.Result{}, err
 				}
 			}
 		}
 
-		r.Log.Info(fmt.Sprintf("deleting pod %s", desiredLifecycleState.pod.Name))
+		r.Log.Info(fmt.Sprintf("deleting pod %s", desiredLifecycleState.pod.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 		err = r.Delete(ctx, &desiredLifecycleState.pod)
 		if err != nil {
-			r.Log.Error(err, fmt.Sprintf("could not delete pod %s", desiredLifecycleState.pod.Name))
+			r.Log.Error(err, fmt.Sprintf("could not delete pod %s", desiredLifecycleState.pod.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, err
 		}
 	}
@@ -1954,9 +1953,9 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	// state to Running if the the pods are healthy but we're in a ConfigError state.
 	if !podsStatus.waitingOnPods() && !desiredLifecycleState.delete && podsStatus.podRevisionsInSync() {
 		if hc.Status.State == humiov1alpha1.HumioClusterStateRestarting || hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
-			r.Log.Info(fmt.Sprintf("no longer deleting pods. changing cluster state from %s to %s", hc.Status.State, humiov1alpha1.HumioClusterStateRunning))
+			r.Log.Info(fmt.Sprintf("no longer deleting pods. changing cluster state from %s to %s", hc.Status.State, humiov1alpha1.HumioClusterStateRunning), logFieldFunctionName, helpers.GetCurrentFuncName())
 			if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc); err != nil {
-				r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning))
+				r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning), logFieldFunctionName, helpers.GetCurrentFuncName())
 				return reconcile.Result{}, err
 			}
 		}
@@ -1965,7 +1964,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	r.Log.Info(fmt.Sprintf("cluster state is still %s. waitingOnPods=%v, podBeingDeleted=%v, "+
 		"revisionsInSync=%v, "+"podRevisisons=%v, expectedRunningPods=%v, podsReady=%v, podsNotReady=%v",
 		hc.Status.State, podsStatus.waitingOnPods(), desiredLifecycleState.delete, podsStatus.podRevisionsInSync(),
-		podsStatus.podRevisions, podsStatus.expectedRunningPods, podsStatus.readyCount, podsStatus.notReadyCount))
+		podsStatus.podRevisions, podsStatus.expectedRunningPods, podsStatus.readyCount, podsStatus.notReadyCount), logFieldFunctionName, helpers.GetCurrentFuncName())
 
 	// If we have pods being deleted, requeue as long as we're not doing a rolling update. This will ensure all pods
 	// are removed before creating the replacement pods.
@@ -1991,12 +1990,12 @@ func (r *HumioClusterReconciler) ingressesMatch(ingress *networkingv1.Ingress, d
 	}
 
 	if !reflect.DeepEqual(ingress.Spec, desiredIngress.Spec) {
-		r.Log.Info(fmt.Sprintf("ingress specs do not match: got %+v, wanted %+v", ingress.Spec, desiredIngress.Spec))
+		r.Log.Info(fmt.Sprintf("ingress specs do not match: got %+v, wanted %+v", ingress.Spec, desiredIngress.Spec), logFieldFunctionName, helpers.GetCurrentFuncName())
 		return false
 	}
 
 	if !reflect.DeepEqual(ingress.Annotations, desiredIngress.Annotations) {
-		r.Log.Info(fmt.Sprintf("ingress annotations do not match: got %+v, wanted %+v", ingress.Annotations, desiredIngress.Annotations))
+		r.Log.Info(fmt.Sprintf("ingress annotations do not match: got %+v, wanted %+v", ingress.Annotations, desiredIngress.Annotations), logFieldFunctionName, helpers.GetCurrentFuncName())
 		return false
 	}
 	return true
@@ -2007,19 +2006,19 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 	// If scaling down, we will handle the extra/obsolete pods later.
 	foundPodList, err := kubernetes.ListPods(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
-		r.Log.Error(err, "failed to list pods")
+		r.Log.Error(err, "failed to list pods", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
 
 	if len(foundPodList) < nodeCountOrDefault(hc) {
 		attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
 		if err != nil {
-			r.Log.Error(err, "failed to get pod attachments")
+			r.Log.Error(err, "failed to get pod attachments", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}
 		pod, err := r.createPod(ctx, hc, attachments)
 		if err != nil {
-			r.Log.Error(err, "unable to create pod")
+			r.Log.Error(err, "unable to create pod", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}
 		humioClusterPrometheusMetrics.Counters.PodsCreated.Inc()
@@ -2027,7 +2026,7 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 		// check that we can list the new pod
 		// this is to avoid issues where the requeue is faster than kubernetes
 		if err := r.waitForNewPod(ctx, hc, foundPodList, pod); err != nil {
-			r.Log.Error(err, "failed to validate new pod")
+			r.Log.Error(err, "failed to validate new pod", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, err
 		}
 
@@ -2041,36 +2040,36 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 
 func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
 	if !pvcsEnabled(hc) {
-		r.Log.Info("pvcs are disabled. skipping")
+		r.Log.Info("pvcs are disabled. skipping", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, nil
 	}
 
-	r.Log.Info("ensuring pvcs")
+	r.Log.Info("ensuring pvcs", logFieldFunctionName, helpers.GetCurrentFuncName())
 	foundPersistentVolumeClaims, err := kubernetes.ListPersistentVolumeClaims(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
-		r.Log.Error(err, "failed to list pvcs")
+		r.Log.Error(err, "failed to list pvcs", logFieldFunctionName, helpers.GetCurrentFuncName())
 		return reconcile.Result{}, err
 	}
-	r.Log.Info(fmt.Sprintf("found %d pvcs", len(foundPersistentVolumeClaims)))
+	r.Log.Info(fmt.Sprintf("found %d pvcs", len(foundPersistentVolumeClaims)), logFieldFunctionName, helpers.GetCurrentFuncName())
 
 	if len(foundPersistentVolumeClaims) < nodeCountOrDefault(hc) {
-		r.Log.Info(fmt.Sprintf("pvc count of %d is less than %d. adding more", len(foundPersistentVolumeClaims), nodeCountOrDefault(hc)))
+		r.Log.Info(fmt.Sprintf("pvc count of %d is less than %d. adding more", len(foundPersistentVolumeClaims), nodeCountOrDefault(hc)), logFieldFunctionName, helpers.GetCurrentFuncName())
 		pvc := constructPersistentVolumeClaim(hc)
 		pvc.Annotations[pvcHashAnnotation] = helpers.AsSHA256(pvc.Spec)
 		if err := controllerutil.SetControllerReference(hc, pvc, r.Scheme()); err != nil {
-			r.Log.Error(err, "could not set controller reference")
+			r.Log.Error(err, "could not set controller reference", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{}, err
 		}
 		err = r.Create(ctx, pvc)
 		if err != nil {
-			r.Log.Error(err, "unable to create pvc")
+			r.Log.Error(err, "unable to create pvc", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}
-		r.Log.Info(fmt.Sprintf("successfully created pvc %s for HumioCluster %s", pvc.Name, hc.Name))
+		r.Log.Info(fmt.Sprintf("successfully created pvc %s for HumioCluster %s", pvc.Name, hc.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 		humioClusterPrometheusMetrics.Counters.PvcsCreated.Inc()
 
 		if err = r.waitForNewPvc(ctx, hc, pvc); err != nil {
-			r.Log.Error(err, "unable to create pvc: %s", err)
+			r.Log.Error(err, fmt.Sprintf("unable to create pvc: %s", err), logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
 		}
 
@@ -2090,7 +2089,7 @@ func (r *HumioClusterReconciler) ensureValidHumioVersion(hc *humiov1alpha1.Humio
 		return nil
 	}
 
-	r.Log.Error(err, fmt.Sprintf("detected invalid Humio version: %s", hv.version))
+	r.Log.Error(err, fmt.Sprintf("detected invalid Humio version: %s", hv.version), logFieldFunctionName, helpers.GetCurrentFuncName())
 	return err
 }
 
@@ -2102,13 +2101,13 @@ func (r *HumioClusterReconciler) ensureValidStorageConfiguration(hc *humiov1alph
 
 	if reflect.DeepEqual(hc.Spec.DataVolumeSource, emptyVolumeSource) &&
 		reflect.DeepEqual(hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate, emptyDataVolumePersistentVolumeClaimSpecTemplate) {
-		r.Log.Error(errInvalidStorageConfiguration, fmt.Sprintf("no storage configuration provided"))
+		r.Log.Error(errInvalidStorageConfiguration, fmt.Sprintf("no storage configuration provided"), logFieldFunctionName, helpers.GetCurrentFuncName())
 		return errInvalidStorageConfiguration
 	}
 
 	if !reflect.DeepEqual(hc.Spec.DataVolumeSource, emptyVolumeSource) &&
 		!reflect.DeepEqual(hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate, emptyDataVolumePersistentVolumeClaimSpecTemplate) {
-		r.Log.Error(errInvalidStorageConfiguration, fmt.Sprintf("conflicting storage configuration provided"))
+		r.Log.Error(errInvalidStorageConfiguration, fmt.Sprintf("conflicting storage configuration provided"), logFieldFunctionName, helpers.GetCurrentFuncName())
 		return errInvalidStorageConfiguration
 	}
 
@@ -2120,7 +2119,7 @@ func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *h
 	existingSecret, err := kubernetes.GetSecret(ctx, r, adminTokenSecretName, hc.Namespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			r.Log.Info(fmt.Sprintf("waiting for sidecar to populate secret %s", adminTokenSecretName))
+			r.Log.Info(fmt.Sprintf("waiting for sidecar to populate secret %s", adminTokenSecretName), logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
 		}
 	}
@@ -2134,11 +2133,11 @@ func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *h
 	if helpers.TLSEnabled(hc) {
 		existingCABundle, err := kubernetes.GetSecret(ctx, r, constructClusterCACertificateBundle(hc).Spec.SecretName, hc.Namespace)
 		if errors.IsNotFound(err) {
-			r.Log.Info("waiting for secret with CA bundle")
+			r.Log.Info("waiting for secret with CA bundle", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
 		}
 		if err != nil {
-			r.Log.Error(err, "unable to obtain CA certificate")
+			r.Log.Error(err, "unable to obtain CA certificate", logFieldFunctionName, helpers.GetCurrentFuncName())
 			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
 		}
 		humioAPIConfig.CACertificatePEM = string(existingCABundle.Data["ca.crt"])

@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strconv"
 
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-
 	corev1 "k8s.io/api/core/v1"
+
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
 )
 
 const (
@@ -34,7 +35,7 @@ func (r *HumioClusterReconciler) getPodsStatus(hc *humiov1alpha1.HumioCluster, f
 		if podRevision, err := strconv.Atoi(podRevisionStr); err == nil {
 			status.podRevisions = append(status.podRevisions, podRevision)
 		} else {
-			r.Log.Error(err, fmt.Sprintf("unable to identify pod revision for pod %s", pod.Name))
+			r.Log.Error(err, fmt.Sprintf("unable to identify pod revision for pod %s", pod.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 			return &status, err
 		}
 		// pods that were just deleted may still have a status of Ready, but we should not consider them ready
@@ -42,18 +43,18 @@ func (r *HumioClusterReconciler) getPodsStatus(hc *humiov1alpha1.HumioCluster, f
 			for _, condition := range pod.Status.Conditions {
 				if condition.Type == corev1.PodReady {
 					if condition.Status == corev1.ConditionTrue {
-						r.Log.Info(fmt.Sprintf("pod %s is ready", pod.Name))
+						r.Log.Info(fmt.Sprintf("pod %s is ready", pod.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 						status.readyCount++
 						status.notReadyCount--
 					} else {
-						r.Log.Info(fmt.Sprintf("pod %s is not ready", pod.Name))
+						r.Log.Info(fmt.Sprintf("pod %s is not ready", pod.Name), logFieldFunctionName, helpers.GetCurrentFuncName())
 						for _, containerStatus := range pod.Status.ContainerStatuses {
 							if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason != containerStateCreating && containerStatus.State.Waiting.Reason != podInitializing {
-								r.Log.Info(fmt.Sprintf("pod %s has errors, container state: Waiting, reason: %s", pod.Name, containerStatus.State.Waiting.Reason))
+								r.Log.Info(fmt.Sprintf("pod %s has errors, container state: Waiting, reason: %s", pod.Name, containerStatus.State.Waiting.Reason), logFieldFunctionName, helpers.GetCurrentFuncName())
 								status.podErrors = append(status.podErrors, pod)
 							}
 							if containerStatus.State.Terminated != nil && containerStatus.State.Terminated.Reason != containerStateCompleted {
-								r.Log.Info(fmt.Sprintf("pod %s has errors, container state: Terminated, reason: %s", pod.Name, containerStatus.State.Terminated.Reason))
+								r.Log.Info(fmt.Sprintf("pod %s has errors, container state: Terminated, reason: %s", pod.Name, containerStatus.State.Terminated.Reason), logFieldFunctionName, helpers.GetCurrentFuncName())
 								status.podErrors = append(status.podErrors, pod)
 							}
 						}
