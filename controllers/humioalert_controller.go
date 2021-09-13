@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 	"reflect"
 
 	humioapi "github.com/humio/cli/api"
@@ -27,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,6 +40,7 @@ import (
 // HumioAlertReconciler reconciles a HumioAlert object
 type HumioAlertReconciler struct {
 	client.Client
+	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
 }
@@ -49,9 +50,7 @@ type HumioAlertReconciler struct {
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioalerts/finalizers,verbs=update
 
 func (r *HumioAlertReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	zapLog, _ := helpers.NewLogger()
-	defer zapLog.Sync()
-	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
+	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
 	r.Log.Info("Reconciling HumioAlert")
 
 	ha := &humiov1alpha1.HumioAlert{}

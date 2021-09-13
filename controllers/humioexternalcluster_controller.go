@@ -18,8 +18,8 @@ package controllers
 
 import (
 	"context"
-	"github.com/go-logr/zapr"
 	"github.com/humio/humio-operator/pkg/helpers"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
@@ -35,6 +35,7 @@ import (
 // HumioExternalClusterReconciler reconciles a HumioExternalCluster object
 type HumioExternalClusterReconciler struct {
 	client.Client
+	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
 }
@@ -44,9 +45,7 @@ type HumioExternalClusterReconciler struct {
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioexternalclusters/finalizers,verbs=update
 
 func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	zapLog, _ := helpers.NewLogger()
-	defer zapLog.Sync()
-	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
+	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
 	r.Log.Info("Reconciling HumioExternalCluster")
 
 	// Fetch the HumioExternalCluster instance
