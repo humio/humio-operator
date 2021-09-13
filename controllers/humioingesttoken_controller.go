@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
@@ -41,6 +40,7 @@ const humioFinalizer = "core.humio.com/finalizer" // TODO: Not only used for ing
 // HumioIngestTokenReconciler reconciles a HumioIngestToken object
 type HumioIngestTokenReconciler struct {
 	client.Client
+	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
 }
@@ -50,9 +50,7 @@ type HumioIngestTokenReconciler struct {
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioingesttokens/finalizers,verbs=update
 
 func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	zapLog, _ := helpers.NewLogger()
-	defer zapLog.Sync()
-	r.Log = zapr.NewLogger(zapLog).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r))
+	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
 	r.Log.Info("Reconciling HumioIngestToken")
 
 	// Fetch the HumioIngestToken instance

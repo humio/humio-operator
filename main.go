@@ -76,10 +76,10 @@ func main() {
 	var log logr.Logger
 	zapLog, _ := helpers.NewLogger()
 	defer zapLog.Sync()
-	log = zapr.NewLogger(zapLog)
+	log = zapr.NewLogger(zapLog).WithValues("Operator.Commit", commit, "Operator.Date", date, "Operator.Version", version)
 	ctrl.SetLogger(log)
 
-	ctrl.Log.Info(fmt.Sprintf("starting humio-operator %s (%s on %s)", version, commit, date))
+	ctrl.Log.Info("starting humio-operator")
 
 	watchNamespace, err := getWatchNamespace()
 	if err != nil {
@@ -130,6 +130,7 @@ func main() {
 	if err = (&controllers.HumioExternalClusterReconciler{
 		Client:      mgr.GetClient(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),
+		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioExternalCluster")
 		os.Exit(1)
@@ -137,6 +138,7 @@ func main() {
 	if err = (&controllers.HumioClusterReconciler{
 		Client:      mgr.GetClient(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),
+		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioCluster")
 		os.Exit(1)
@@ -144,6 +146,7 @@ func main() {
 	if err = (&controllers.HumioIngestTokenReconciler{
 		Client:      mgr.GetClient(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),
+		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioIngestToken")
 		os.Exit(1)
@@ -151,6 +154,7 @@ func main() {
 	if err = (&controllers.HumioParserReconciler{
 		Client:      mgr.GetClient(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),
+		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioParser")
 		os.Exit(1)
@@ -158,6 +162,7 @@ func main() {
 	if err = (&controllers.HumioRepositoryReconciler{
 		Client:      mgr.GetClient(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),
+		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioRepository")
 		os.Exit(1)
@@ -165,6 +170,7 @@ func main() {
 	if err = (&controllers.HumioViewReconciler{
 		Client:      mgr.GetClient(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),
+		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioView")
 		os.Exit(1)
@@ -172,6 +178,7 @@ func main() {
 	if err = (&controllers.HumioActionReconciler{
 		Client:      mgr.GetClient(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),
+		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioAction")
 		os.Exit(1)
@@ -179,6 +186,7 @@ func main() {
 	if err = (&controllers.HumioAlertReconciler{
 		Client:      mgr.GetClient(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),
+		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioAlert")
 		os.Exit(1)

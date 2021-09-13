@@ -149,48 +149,56 @@ var _ = BeforeSuite(func() {
 	err = (&HumioExternalClusterReconciler{
 		Client:      k8sManager.GetClient(),
 		HumioClient: humioClient,
+		BaseLogger:  log,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioClusterReconciler{
 		Client:      k8sManager.GetClient(),
 		HumioClient: humioClient,
+		BaseLogger:  log,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioIngestTokenReconciler{
 		Client:      k8sManager.GetClient(),
 		HumioClient: humioClient,
+		BaseLogger:  log,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioParserReconciler{
 		Client:      k8sManager.GetClient(),
 		HumioClient: humioClient,
+		BaseLogger:  log,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioRepositoryReconciler{
 		Client:      k8sManager.GetClient(),
 		HumioClient: humioClient,
+		BaseLogger:  log,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioViewReconciler{
 		Client:      k8sManager.GetClient(),
 		HumioClient: humioClient,
+		BaseLogger:  log,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioActionReconciler{
 		Client:      k8sManager.GetClient(),
 		HumioClient: humioClient,
+		BaseLogger:  log,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&HumioAlertReconciler{
 		Client:      k8sManager.GetClient(),
 		HumioClient: humioClient,
+		BaseLogger:  log,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
