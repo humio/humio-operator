@@ -30,7 +30,6 @@ const (
 	certHashAnnotation         = "humio.com/certificate-hash"
 	podHashAnnotation          = "humio.com/pod-hash"
 	podRevisionAnnotation      = "humio.com/pod-revision"
-	envVarSourceHashAnnotation = "humio.com/env-var-source-hash"
 	podRestartPolicyAnnotation = "humio.com/pod-restart-policy"
 	PodRestartPolicyRolling    = "rolling"
 	PodRestartPolicyRecreate   = "recreate"

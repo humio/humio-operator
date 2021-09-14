@@ -71,7 +71,6 @@ type podAttachments struct {
 	dataVolumeSource             corev1.VolumeSource
 	initServiceAccountSecretName string
 	authServiceAccountSecretName string
-	envVarSourceData             *map[string]string
 }
 
 // nodeUUIDTemplateVars contains the variables that are allowed to be rendered for the nodeUUID string
@@ -322,19 +321,6 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 	humioIdx, err := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 	if err != nil {
 		return &corev1.Pod{}, err
-	}
-
-	// If envFrom is set on the HumioCluster spec, add it to the pod spec. Add an annotation with the hash of the env
-	// var values from the secret or configmap to trigger pod restarts when they change
-	if len(hc.Spec.EnvironmentVariablesSource) > 0 {
-		pod.Spec.Containers[humioIdx].EnvFrom = hc.Spec.EnvironmentVariablesSource
-		if attachments.envVarSourceData != nil {
-			b, err := json.Marshal(attachments.envVarSourceData)
-			if err != nil {
-				return &corev1.Pod{}, fmt.Errorf("error trying to JSON encode envVarSourceData: %s", err)
-			}
-			pod.Annotations[envVarSourceHashAnnotation] = helpers.AsSHA256(string(b))
-		}
 	}
 
 	if envVarHasValue(pod.Spec.Containers[humioIdx].Env, "AUTHENTICATION_METHOD", "saml") {
@@ -786,14 +772,6 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 		return &corev1.Pod{}, err
 	}
 
-	if attachments.envVarSourceData != nil {
-		b, err := json.Marshal(attachments.envVarSourceData)
-		if err != nil {
-			return &corev1.Pod{}, fmt.Errorf("error trying to JSON encode envVarSourceData: %s", err)
-		}
-		pod.Annotations[envVarSourceHashAnnotation] = helpers.AsSHA256(string(b))
-	}
-
 	podRevision, err := r.getHumioClusterPodRevision(hc)
 	if err != nil {
 		return &corev1.Pod{}, err
@@ -857,7 +835,6 @@ func (r *HumioClusterReconciler) podsMatch(hc *humiov1alpha1.HumioCluster, pod c
 	}
 	var specMatches bool
 	var revisionMatches bool
-	var envVarSourceMatches bool
 
 	desiredPodHash := podSpecAsSHA256(hc, desiredPod)
 	existingPodRevision, err := r.getHumioClusterPodRevision(hc)
@@ -874,26 +851,12 @@ func (r *HumioClusterReconciler) podsMatch(hc *humiov1alpha1.HumioCluster, pod c
 	if pod.Annotations[podRevisionAnnotation] == desiredPod.Annotations[podRevisionAnnotation] {
 		revisionMatches = true
 	}
-	if _, ok := pod.Annotations[envVarSourceHashAnnotation]; ok {
-		if pod.Annotations[envVarSourceHashAnnotation] == desiredPod.Annotations[envVarSourceHashAnnotation] {
-			envVarSourceMatches = true
-		}
-	} else {
-		// Ignore envVarSource hash if it's not in either the current pod or the desired pod
-		if _, ok := desiredPod.Annotations[envVarSourceHashAnnotation]; !ok {
-			envVarSourceMatches = true
-		}
-	}
 	if !specMatches {
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", podHashAnnotation, pod.Annotations[podHashAnnotation], desiredPodHash))
 		return false, nil
 	}
 	if !revisionMatches {
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", podRevisionAnnotation, pod.Annotations[podRevisionAnnotation], desiredPod.Annotations[podRevisionAnnotation]))
-		return false, nil
-	}
-	if !envVarSourceMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", envVarSourceHashAnnotation, pod.Annotations[envVarSourceHashAnnotation], desiredPod.Annotations[envVarSourceHashAnnotation]))
 		return false, nil
 	}
 	return true, nil
@@ -1034,15 +997,9 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hc *humi
 		return &podAttachments{}, errors.New("unable to create Pod for HumioCluster: the init service account secret does not exist")
 	}
 
-	envVarSourceData, err := r.getEnvVarSource(ctx, hc)
-	if err != nil {
-		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster: %s", err)
-	}
-
 	return &podAttachments{
 		dataVolumeSource:             volumeSource,
 		initServiceAccountSecretName: initSASecretName,
 		authServiceAccountSecretName: authSASecretName,
-		envVarSourceData:             envVarSourceData,
 	}, nil
 }
