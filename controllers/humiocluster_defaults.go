@@ -18,10 +18,11 @@ package controllers
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/humio/humio-operator/pkg/helpers"
 
@@ -64,7 +65,7 @@ const (
 )
 
 func setDefaults(hc *humiov1alpha1.HumioCluster) {
-	if hc.Spec.Image == "" {
+	if hc.Spec.Image == "" && hc.Spec.ImageSource == nil {
 		hc.Spec.Image = image
 	}
 	if hc.Spec.TargetReplicationFactor == 0 {
