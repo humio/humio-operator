@@ -789,6 +789,12 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
 
+			By("Confirming we can see the updated HumioCluster object")
+			Eventually(func() corev1.ServiceType {
+				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				return updatedHumioCluster.Spec.HumioServiceType
+			}, testTimeout, testInterval).Should(BeIdenticalTo(corev1.ServiceTypeLoadBalancer))
+
 			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
 
