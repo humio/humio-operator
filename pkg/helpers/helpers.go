@@ -19,12 +19,13 @@ package helpers
 import (
 	"crypto/sha256"
 	"fmt"
-	"github.com/shurcooL/graphql"
-	uberzap "go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"os"
 	"reflect"
 	"strings"
+
+	"github.com/shurcooL/graphql"
+	uberzap "go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 
@@ -163,5 +164,6 @@ func MapToString(m map[string]string) string {
 func NewLogger() (*uberzap.Logger, error) {
 	loggerCfg := uberzap.NewProductionConfig()
 	loggerCfg.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
+	loggerCfg.EncoderConfig.FunctionKey = "func"
 	return loggerCfg.Build(uberzap.AddCaller())
 }

@@ -14,7 +14,7 @@ require (
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/prometheus/client_golang v1.7.1
 	github.com/shurcooL/graphql v0.0.0-20200928012149-18c5c3165e3a
-	go.uber.org/zap v1.15.0
+	go.uber.org/zap v1.19.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	k8s.io/api v0.20.1
 	k8s.io/apimachinery v0.20.1
