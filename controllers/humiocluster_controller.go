@@ -1961,9 +1961,9 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	}
 
 	r.Log.Info(fmt.Sprintf("cluster state is still %s. waitingOnPods=%v, podBeingDeleted=%v, "+
-		"revisionsInSync=%v, "+"podRevisisons=%v, expectedRunningPods=%v, podsReady=%v, podsNotReady=%v",
+		"revisionsInSync=%v, podRevisisons=%v, podDeletionTimestampSet=%v, podNames=%v, expectedRunningPods=%v, podsReady=%v, podsNotReady=%v",
 		hc.Status.State, podsStatus.waitingOnPods(), desiredLifecycleState.delete, podsStatus.podRevisionsInSync(),
-		podsStatus.podRevisions, podsStatus.expectedRunningPods, podsStatus.readyCount, podsStatus.notReadyCount))
+		podsStatus.podRevisions, podsStatus.podDeletionTimestampSet, podsStatus.podNames, podsStatus.expectedRunningPods, podsStatus.readyCount, podsStatus.notReadyCount))
 
 	// If we have pods being deleted, requeue as long as we're not doing a rolling update. This will ensure all pods
 	// are removed before creating the replacement pods.

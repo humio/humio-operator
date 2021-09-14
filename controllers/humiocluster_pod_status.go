@@ -16,11 +16,13 @@ const (
 )
 
 type podsStatusState struct {
-	expectedRunningPods int
-	readyCount          int
-	notReadyCount       int
-	podRevisions        []int
-	podErrors           []corev1.Pod
+	expectedRunningPods     int
+	readyCount              int
+	notReadyCount           int
+	podRevisions            []int
+	podDeletionTimestampSet []bool
+	podNames                []string
+	podErrors               []corev1.Pod
 }
 
 func (r *HumioClusterReconciler) getPodsStatus(hc *humiov1alpha1.HumioCluster, foundPodList []corev1.Pod) (*podsStatusState, error) {
@@ -37,6 +39,9 @@ func (r *HumioClusterReconciler) getPodsStatus(hc *humiov1alpha1.HumioCluster, f
 			r.Log.Error(err, fmt.Sprintf("unable to identify pod revision for pod %s", pod.Name))
 			return &status, err
 		}
+		status.podDeletionTimestampSet = append(status.podDeletionTimestampSet, pod.DeletionTimestamp != nil)
+		status.podNames = append(status.podNames, pod.Name)
+
 		// pods that were just deleted may still have a status of Ready, but we should not consider them ready
 		if pod.DeletionTimestamp == nil {
 			for _, condition := range pod.Status.Conditions {
