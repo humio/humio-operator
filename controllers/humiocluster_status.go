@@ -50,6 +50,9 @@ func (r *HumioClusterReconciler) setVersion(ctx context.Context, version string,
 	if hc.Status.State == version {
 		return nil
 	}
+	if version == "" {
+		version = "Unknown"
+	}
 	r.Log.Info(fmt.Sprintf("setting cluster version to %s", version))
 	hc.Status.Version = version
 	return r.Status().Update(ctx, hc)
