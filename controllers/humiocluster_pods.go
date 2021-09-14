@@ -910,8 +910,6 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hc *humiov1alpha1.H
 					delete:        true,
 				}, err
 			}
-		} else {
-			return podLifecycleState{}, nil
 		}
 	}
 	return podLifecycleState{}, nil
