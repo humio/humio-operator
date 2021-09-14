@@ -89,6 +89,12 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	setDefaults(hc)
 	emptyResult := reconcile.Result{}
 
+	if err := r.setImageFromSource(context.TODO(), hc); err != nil {
+		r.Log.Error(fmt.Errorf("could not get image: %s", err), "marking cluster state as ConfigError")
+		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		return ctrl.Result{}, err
+	}
+
 	if err := r.ensureValidHumioVersion(hc); err != nil {
 		r.Log.Error(fmt.Errorf("humio version not valid: %s", err), "marking cluster state as ConfigError")
 		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
@@ -394,6 +400,60 @@ func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Co
 			}
 			r.Log.Info(fmt.Sprintf("successfully created extra kafka configs configmap name %s", configMap.Name))
 			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
+		}
+	}
+	return nil
+}
+
+// validateEnvVarSource validates that a envVarSource exists if the environmentVariablesSource is specified
+func (r *HumioClusterReconciler) getEnvVarSource(ctx context.Context, hc *humiov1alpha1.HumioCluster) (*map[string]string, error) {
+	var envVarConfigMapName string
+	var envVarSecretName string
+	for _, envVarSource := range hc.Spec.EnvironmentVariablesSource {
+		if envVarSource.ConfigMapRef != nil {
+			envVarConfigMapName = envVarSource.ConfigMapRef.Name
+			configMap, err := kubernetes.GetConfigMap(ctx, r, envVarConfigMapName, hc.Namespace)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					return nil, fmt.Errorf("environmentVariablesSource was set but no configMap exists by name %s in namespace %s", envVarConfigMapName, hc.Namespace)
+				}
+				return nil, fmt.Errorf("unable to get configMap with name %s in namespace %s", envVarConfigMapName, hc.Namespace)
+			}
+			return &configMap.Data, nil
+		}
+		if envVarSource.SecretRef != nil {
+			envVarSecretName = envVarSource.SecretRef.Name
+			secretData := map[string]string{}
+			secret, err := kubernetes.GetSecret(ctx, r, envVarSecretName, hc.Namespace)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					return nil, fmt.Errorf("environmentVariablesSource was set but no secret exists by name %s in namespace %s", envVarSecretName, hc.Namespace)
+				}
+				return nil, fmt.Errorf("unable to get secret with name %s in namespace %s", envVarSecretName, hc.Namespace)
+			}
+			for k, v := range secret.Data {
+				secretData[k] = string(v)
+			}
+			return &secretData, nil
+		}
+	}
+	return nil, nil
+}
+
+// setImageFromSource will check if imageSource is defined and if it is, it will update spec.Image with the image value
+func (r *HumioClusterReconciler) setImageFromSource(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	if hc.Spec.ImageSource != nil {
+		configMap, err := kubernetes.GetConfigMap(ctx, r, hc.Spec.ImageSource.ConfigMapRef.Name, hc.Namespace)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return fmt.Errorf("imageSource was set but no configMap exists by name %s in namespace %s", hc.Spec.ImageSource.ConfigMapRef.Name, hc.Namespace)
+			}
+			return fmt.Errorf("unable to get configMap with name %s in namespace %s", hc.Spec.ImageSource.ConfigMapRef.Name, hc.Namespace)
+		}
+		if imageValue, ok := configMap.Data[hc.Spec.ImageSource.ConfigMapRef.Key]; ok {
+			hc.Spec.Image = imageValue
+		} else {
+			return fmt.Errorf("imageSource was set but key %s was not found for configmap %s in namespace %s", hc.Spec.ImageSource.ConfigMapRef.Key, hc.Spec.ImageSource.ConfigMapRef.Name, hc.Namespace)
 		}
 	}
 	return nil
@@ -1883,6 +1943,16 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	if err != nil {
 		r.Log.Error(err, "failed to get pod status")
 		return reconcile.Result{}, err
+	}
+
+	envVarSourceData, err := r.getEnvVarSource(ctx, hc)
+	if err != nil {
+		r.Log.Error(err, "got error when getting pod envVarSource")
+		_ = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		return reconcile.Result{}, err
+	}
+	if envVarSourceData != nil {
+		attachments.envVarSourceData = envVarSourceData
 	}
 
 	// prioritize deleting the pods with errors
