@@ -126,7 +126,7 @@ type HumioClusterSpec struct {
 	// HumioServiceType is the ServiceType of the Humio Service that is used to direct traffic to the Humio pods
 	HumioServiceType corev1.ServiceType `json:"humioServiceType,omitempty"`
 	// HumioServicePort is the port number of the Humio Service that is used to direct traffic to the http interface of
-	//the Humio pods.
+	// the Humio pods.
 	HumioServicePort int32 `json:"humioServicePort,omitempty"`
 	// HumioESServicePort is the port number of the Humio Service that is used to direct traffic to the ES interface of
 	// the Humio pods.
