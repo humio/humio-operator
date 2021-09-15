@@ -36,6 +36,8 @@ const (
 type HumioClusterSpec struct {
 	// Image is the desired humio container image, including the image tag
 	Image string `json:"image,omitempty"`
+	// ImageSource is the reference to an external source identifying the image
+	ImageSource *HumioImageSource `json:"imageSource,omitempty"`
 	// HelperImage is the desired helper container image, including image tag
 	HelperImage string `json:"helperImage,omitempty"`
 	// DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
@@ -56,6 +58,8 @@ type HumioClusterSpec struct {
 	License HumioClusterLicenseSpec `json:"license,omitempty"`
 	// EnvironmentVariables that will be merged with default environment variables then set on the humio container
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
+	// EnvironmentVariablesSource is the reference to an external source of environment variables that will be merged with environmentVariables
+	EnvironmentVariablesSource []corev1.EnvFromSource `json:"environmentVariablesSource,omitempty"`
 	// DataVolumeSource is the volume that is mounted on the humio pods. This conflicts with DataVolumePersistentVolumeClaimSpecTemplate.
 	DataVolumeSource corev1.VolumeSource `json:"dataVolumeSource,omitempty"`
 	// DataVolumePersistentVolumeClaimSpecTemplate is the PersistentVolumeClaimSpec that will be used with for the humio data volume. This conflicts with DataVolumeSource.
@@ -189,6 +193,12 @@ type HumioClusterTLSSpec struct {
 // HumioClusterLicenseSpec points to the optional location of the Humio license
 type HumioClusterLicenseSpec struct {
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
+}
+
+// HumioImageSource points to the external source identifying the image
+type HumioImageSource struct {
+	// ConfigMapRef contains the reference to the configmap name and key containing the image value
+	ConfigMapRef *corev1.ConfigMapKeySelector `json:"configMapRef,omitempty"`
 }
 
 // HumioPodStatus shows the status of individual humio pods
