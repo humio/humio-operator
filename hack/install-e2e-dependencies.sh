@@ -2,9 +2,9 @@
 
 set -ex
 
-declare -r helm_version=3.5.4
+declare -r helm_version=3.6.3
 declare -r kubectl_version=1.19.11
-declare -r operator_sdk_version=1.7.1
+declare -r operator_sdk_version=1.10.1
 declare -r bin_dir=${BIN_DIR:-/usr/local/bin}
 
 install_helm() {
