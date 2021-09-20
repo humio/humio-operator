@@ -577,6 +577,11 @@ func (in *HumioClusterSpec) DeepCopyInto(out *HumioClusterSpec) {
 		*out = new(v1.Probe)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.ContainerStartupProbe != nil {
+		in, out := &in.ContainerStartupProbe, &out.ContainerStartupProbe
+		*out = new(v1.Probe)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.PodSecurityContext != nil {
 		in, out := &in.PodSecurityContext, &out.PodSecurityContext
 		*out = new(v1.PodSecurityContext)
