@@ -406,7 +406,7 @@ func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Co
 	return nil
 }
 
-// validateEnvVarSource validates that a envVarSource exists if the environmentVariablesSource is specified
+// getEnvVarSource returns the environment variables from either the configMap or secret that is referenced by envVarSource
 func (r *HumioClusterReconciler) getEnvVarSource(ctx context.Context, hc *humiov1alpha1.HumioCluster) (*map[string]string, error) {
 	var envVarConfigMapName string
 	var envVarSecretName string
