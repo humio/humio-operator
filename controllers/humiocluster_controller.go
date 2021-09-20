@@ -89,6 +89,12 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	setDefaults(hc)
 	emptyResult := reconcile.Result{}
 
+	if err := r.setImageFromSource(context.TODO(), hc); err != nil {
+		r.Log.Error(fmt.Errorf("could not get image: %s", err), "marking cluster state as ConfigError")
+		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		return ctrl.Result{}, err
+	}
+
 	if err := r.ensureValidHumioVersion(hc); err != nil {
 		r.Log.Error(fmt.Errorf("humio version not valid: %s", err), "marking cluster state as ConfigError")
 		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
@@ -387,6 +393,7 @@ func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Co
 				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
+			r.Log.Info(fmt.Sprintf("creating configMap: %s", configMap.Name))
 			err = r.Create(ctx, configMap)
 			if err != nil {
 				r.Log.Error(err, "unable to create extra kafka configs configmap")
@@ -394,6 +401,60 @@ func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Co
 			}
 			r.Log.Info(fmt.Sprintf("successfully created extra kafka configs configmap name %s", configMap.Name))
 			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
+		}
+	}
+	return nil
+}
+
+// getEnvVarSource returns the environment variables from either the configMap or secret that is referenced by envVarSource
+func (r *HumioClusterReconciler) getEnvVarSource(ctx context.Context, hc *humiov1alpha1.HumioCluster) (*map[string]string, error) {
+	var envVarConfigMapName string
+	var envVarSecretName string
+	for _, envVarSource := range hc.Spec.EnvironmentVariablesSource {
+		if envVarSource.ConfigMapRef != nil {
+			envVarConfigMapName = envVarSource.ConfigMapRef.Name
+			configMap, err := kubernetes.GetConfigMap(ctx, r, envVarConfigMapName, hc.Namespace)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					return nil, fmt.Errorf("environmentVariablesSource was set but no configMap exists by name %s in namespace %s", envVarConfigMapName, hc.Namespace)
+				}
+				return nil, fmt.Errorf("unable to get configMap with name %s in namespace %s", envVarConfigMapName, hc.Namespace)
+			}
+			return &configMap.Data, nil
+		}
+		if envVarSource.SecretRef != nil {
+			envVarSecretName = envVarSource.SecretRef.Name
+			secretData := map[string]string{}
+			secret, err := kubernetes.GetSecret(ctx, r, envVarSecretName, hc.Namespace)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					return nil, fmt.Errorf("environmentVariablesSource was set but no secret exists by name %s in namespace %s", envVarSecretName, hc.Namespace)
+				}
+				return nil, fmt.Errorf("unable to get secret with name %s in namespace %s", envVarSecretName, hc.Namespace)
+			}
+			for k, v := range secret.Data {
+				secretData[k] = string(v)
+			}
+			return &secretData, nil
+		}
+	}
+	return nil, nil
+}
+
+// setImageFromSource will check if imageSource is defined and if it is, it will update spec.Image with the image value
+func (r *HumioClusterReconciler) setImageFromSource(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	if hc.Spec.ImageSource != nil {
+		configMap, err := kubernetes.GetConfigMap(ctx, r, hc.Spec.ImageSource.ConfigMapRef.Name, hc.Namespace)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return fmt.Errorf("imageSource was set but no configMap exists by name %s in namespace %s", hc.Spec.ImageSource.ConfigMapRef.Name, hc.Namespace)
+			}
+			return fmt.Errorf("unable to get configMap with name %s in namespace %s", hc.Spec.ImageSource.ConfigMapRef.Name, hc.Namespace)
+		}
+		if imageValue, ok := configMap.Data[hc.Spec.ImageSource.ConfigMapRef.Key]; ok {
+			hc.Spec.Image = imageValue
+		} else {
+			return fmt.Errorf("imageSource was set but key %s was not found for configmap %s in namespace %s", hc.Spec.ImageSource.ConfigMapRef.Key, hc.Spec.ImageSource.ConfigMapRef.Name, hc.Namespace)
 		}
 	}
 	return nil
@@ -427,6 +488,8 @@ func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context
 				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
+
+			r.Log.Info(fmt.Sprintf("creating configMap: %s", configMap.Name))
 			err = r.Create(ctx, configMap)
 			if err != nil {
 				r.Log.Error(err, "unable to create view group permissions configmap")
@@ -583,6 +646,7 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 					return err
 				}
 				if createIngress {
+					r.Log.Info(fmt.Sprintf("creating ingress: %s", desiredIngress.Name))
 					err = r.Create(ctx, desiredIngress)
 					if err != nil {
 						r.Log.Error(err, "unable to create ingress")
@@ -863,6 +927,7 @@ func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *hu
 				return err
 			}
 			// should only create it if it doesn't exist
+			r.Log.Info(fmt.Sprintf("creating CA Issuer: %s", caIssuer.Name))
 			err = r.Create(ctx, &caIssuer)
 			if err != nil {
 				r.Log.Error(err, "could not create CA Issuer")
@@ -915,6 +980,7 @@ func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *hu
 		r.Log.Error(err, "could not set controller reference")
 		return err
 	}
+	r.Log.Info(fmt.Sprintf("creating CA secret: %s", caSecret.Name))
 	err = r.Create(ctx, caSecret)
 	if err != nil {
 		r.Log.Error(err, "could not create secret with CA")
@@ -946,6 +1012,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Co
 			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
+		r.Log.Info(fmt.Sprintf("creating secret: %s", secret.Name))
 		err := r.Create(ctx, secret)
 		if err != nil {
 			r.Log.Error(err, "could not create secret")
@@ -976,6 +1043,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterCACertBundle(ctx context.Cont
 			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
+		r.Log.Info(fmt.Sprintf("creating certificate: %s", cert.Name))
 		err := r.Create(ctx, &cert)
 		if err != nil {
 			r.Log.Error(err, "could not create certificate")
@@ -1014,6 +1082,7 @@ func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context
 			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
+		r.Log.Info(fmt.Sprintf("creating node certificate: %s", certificate.Name))
 		if err = r.Create(ctx, &certificate); err != nil {
 			r.Log.Error(err, "could create node certificate")
 			return err
@@ -1034,6 +1103,7 @@ func (r *HumioClusterReconciler) ensureInitClusterRole(ctx context.Context, hc *
 			clusterRole := kubernetes.ConstructInitClusterRole(clusterRoleName, hc.Name)
 			// TODO: We cannot use controllerutil.SetControllerReference() as ClusterRole is cluster-wide and owner is namespaced.
 			// We probably need another way to ensure we clean them up. Perhaps we can use finalizers?
+			r.Log.Info(fmt.Sprintf("creating cluster role: %s", clusterRole.Name))
 			err = r.Create(ctx, clusterRole)
 			if err != nil {
 				r.Log.Error(err, "unable to create init cluster role")
@@ -1056,6 +1126,7 @@ func (r *HumioClusterReconciler) ensureAuthRole(ctx context.Context, hc *humiov1
 				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
+			r.Log.Info(fmt.Sprintf("creating role: %s", role.Name))
 			err = r.Create(ctx, role)
 			if err != nil {
 				r.Log.Error(err, "unable to create auth role")
@@ -1082,6 +1153,7 @@ func (r *HumioClusterReconciler) ensureInitClusterRoleBinding(ctx context.Contex
 			)
 			// TODO: We cannot use controllerutil.SetControllerReference() as ClusterRoleBinding is cluster-wide and owner is namespaced.
 			// We probably need another way to ensure we clean them up. Perhaps we can use finalizers?
+			r.Log.Info(fmt.Sprintf("creating cluster role: %s", clusterRole.Name))
 			err = r.Create(ctx, clusterRole)
 			if err != nil {
 				r.Log.Error(err, "unable to create init cluster role binding")
@@ -1110,6 +1182,7 @@ func (r *HumioClusterReconciler) ensureAuthRoleBinding(ctx context.Context, hc *
 				r.Log.Error(err, "could not set controller reference")
 				return err
 			}
+			r.Log.Info(fmt.Sprintf("creating role binding: %s", roleBinding.Name))
 			err = r.Create(ctx, roleBinding)
 			if err != nil {
 				r.Log.Error(err, "unable to create auth role binding")
@@ -1168,6 +1241,7 @@ func (r *HumioClusterReconciler) ensureServiceAccountExists(ctx context.Context,
 			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
+		r.Log.Info(fmt.Sprintf("creating service account: %s", serviceAccount.Name))
 		err = r.Create(ctx, serviceAccount)
 		if err != nil {
 			r.Log.Error(err, fmt.Sprintf("unable to create service account %s", serviceAccount.Name))
@@ -1202,6 +1276,7 @@ func (r *HumioClusterReconciler) ensureServiceAccountSecretExists(ctx context.Co
 			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
+		r.Log.Info(fmt.Sprintf("creating secret: %s", secret.Name))
 		err = r.Create(ctx, secret)
 		if err != nil {
 			r.Log.Error(err, fmt.Sprintf("unable to create service account secret %s", secret.Name))
@@ -1581,6 +1656,7 @@ func (r *HumioClusterReconciler) ensureServiceExists(ctx context.Context, hc *hu
 			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
+		r.Log.Info(fmt.Sprintf("creating service: %s", service.Name))
 		err = r.Create(ctx, service)
 		if err != nil {
 			r.Log.Error(err, "unable to create service for HumioCluster")
@@ -1885,6 +1961,16 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		return reconcile.Result{}, err
 	}
 
+	envVarSourceData, err := r.getEnvVarSource(ctx, hc)
+	if err != nil {
+		r.Log.Error(err, "got error when getting pod envVarSource")
+		_ = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		return reconcile.Result{}, err
+	}
+	if envVarSourceData != nil {
+		attachments.envVarSourceData = envVarSourceData
+	}
+
 	// prioritize deleting the pods with errors
 	desiredLifecycleState := podLifecycleState{}
 	if podsStatus.havePodsWithContainerStateWaitingErrors() {
@@ -2059,6 +2145,7 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 			r.Log.Error(err, "could not set controller reference")
 			return reconcile.Result{}, err
 		}
+		r.Log.Info(fmt.Sprintf("creating pvc: %s", pvc.Name))
 		err = r.Create(ctx, pvc)
 		if err != nil {
 			r.Log.Error(err, "unable to create pvc")
