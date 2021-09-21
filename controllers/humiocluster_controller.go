@@ -134,6 +134,11 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconcile.Result{}, err
 	}
 
+	err = r.ensureHeadlessServiceExists(ctx, hc)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Ensure pods that does not run the desired version are deleted.
 	result, err := r.ensureMismatchedPodsAreDeleted(ctx, hc)
 	if result != emptyResult || err != nil {
@@ -1562,6 +1567,24 @@ func (r *HumioClusterReconciler) ensureServiceExists(ctx context.Context, hc *hu
 		err = r.Create(ctx, service)
 		if err != nil {
 			r.Log.Error(err, "unable to create service for HumioCluster")
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *HumioClusterReconciler) ensureHeadlessServiceExists(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	r.Log.Info("ensuring headless service")
+	_, err := kubernetes.GetService(ctx, r, fmt.Sprintf("%s-headless", hc.Name), hc.Namespace)
+	if errors.IsNotFound(err) {
+		service := constructHeadlessService(hc)
+		if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {
+			r.Log.Error(err, "could not set controller reference")
+			return err
+		}
+		err = r.Create(ctx, service)
+		if err != nil {
+			r.Log.Error(err, "unable to create headless service for HumioCluster")
 			return err
 		}
 	}

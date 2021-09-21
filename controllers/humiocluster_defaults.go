@@ -416,7 +416,7 @@ func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster) {
 		{Name: "HUMIO_LOG4J_CONFIGURATION", Value: "log4j2-json-stdout.xml"},
 		{
 			Name:  "EXTERNAL_URL", // URL used by other Humio hosts.
-			Value: fmt.Sprintf("%s://$(POD_NAME).%s.$(POD_NAMESPACE):$(HUMIO_PORT)", strings.ToLower(scheme), hc.Name),
+			Value: fmt.Sprintf("%s://$(POD_NAME).%s-headless.$(POD_NAMESPACE):$(HUMIO_PORT)", strings.ToLower(scheme), hc.Name),
 		},
 	}
 
