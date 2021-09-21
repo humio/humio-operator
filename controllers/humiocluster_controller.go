@@ -1515,17 +1515,32 @@ func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *h
 func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1alpha1.HumioCluster, req ctrl.Request) (reconcile.Result, error) {
 	r.Log.Info("ensuring license")
 
-	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager())
-	if err != nil {
-		return r.ensureInitialLicense(ctx, hc, r.HumioClient.GetBaseURL(hc), req)
+	humioAPIConfig := &humioapi.Config{
+		Address: r.HumioClient.GetBaseURL(hc),
 	}
-	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
 
+	// Get CA
+	if helpers.TLSEnabled(hc) {
+		existingCABundle, err := kubernetes.GetSecret(ctx, r, constructClusterCACertificateBundle(hc).Spec.SecretName, hc.Namespace)
+		if errors.IsNotFound(err) {
+			r.Log.Info("waiting for secret with CA bundle")
+			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
+		}
+		if err != nil {
+			r.Log.Error(err, "unable to obtain CA certificate")
+			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
+		}
+		humioAPIConfig.CACertificatePEM = string(existingCABundle.Data["ca.crt"])
+	}
+	r.HumioClient.SetHumioClientConfig(humioAPIConfig, req)
+
+	r.Log.Info("checking for existing license")
 	var existingLicense humioapi.License
-	existingLicense, err = r.HumioClient.GetLicense()
+	existingLicense, err := r.HumioClient.GetLicense()
 	if err != nil {
 		r.Log.Info(fmt.Sprintf("failed to get license: %v", err))
 	}
+	r.Log.Info("successfully retrieved existing license")
 
 	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
 		if existingLicense != nil {
@@ -1564,7 +1579,9 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 			return reconcile.Result{}, err
 		}
 	} else {
+		r.Log.Info("successfully retrieved the license from the secret")
 		if hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
+			r.Log.Info("setting cluster state to Running")
 			if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc); err != nil {
 				r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning))
 				return reconcile.Result{}, err
@@ -1581,6 +1598,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	}
 
 	if existingLicense == nil {
+		r.Log.Info("there is no existing license installed. installing the new license now")
 		return r.ensureInitialLicense(ctx, hc, r.HumioClient.GetBaseURL(hc), req)
 	}
 
@@ -1603,7 +1621,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 		}
 		return reconcile.Result{}, nil
 	}
-
+	r.Log.Info("the existing license is up to date")
 	return reconcile.Result{}, nil
 }
 
