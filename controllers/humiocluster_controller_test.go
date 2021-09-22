@@ -1804,8 +1804,14 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			createAndBootstrapCluster(ctx, toCreate, true)
 
-			initialExpectedVolumesCount := 7
-			initialExpectedVolumeMountsCount := 5
+			initialExpectedVolumesCount := 6
+			initialExpectedVolumeMountsCount := 4
+
+			humioVersion, _ := HumioVersionFromCluster(toCreate)
+			if ok, _ := humioVersion.AtLeast(HumioVersionWithNewTmpDir); !ok {
+				initialExpectedVolumesCount += 1
+				initialExpectedVolumeMountsCount += 1
+			}
 
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 				// if we run on a real cluster we have TLS enabled (using 2 volumes),
