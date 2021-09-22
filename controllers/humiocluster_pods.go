@@ -278,11 +278,6 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 							MountPath: humioDataPath,
 						},
 						{
-							Name:      "humio-tmp",
-							MountPath: humioDataTmpPath,
-							ReadOnly:  false,
-						},
-						{
 							Name:      "shared",
 							MountPath: sharedPath,
 							ReadOnly:  true,
@@ -307,10 +302,6 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 				},
 				{
 					Name:         "tmp",
-					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
-				},
-				{
-					Name:         "humio-tmp",
 					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 				},
 				{
@@ -628,6 +619,19 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 	}
 	pod.Spec.Containers[humioIdx].Args = containerArgs
 
+	humioVersion, _ := HumioVersionFromCluster(hc)
+	if ok, _ := humioVersion.AtLeast(HumioVersionWithNewTmpDir); !ok {
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name:         "humio-tmp",
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		})
+		pod.Spec.Containers[humioIdx].VolumeMounts = append(pod.Spec.Containers[humioIdx].VolumeMounts, corev1.VolumeMount{
+			Name:      "humio-tmp",
+			MountPath: humioDataTmpPath,
+			ReadOnly:  false,
+		})
+	}
+
 	return &pod, nil
 }
 
@@ -779,12 +783,12 @@ func sanitizePod(hc *humiov1alpha1.HumioCluster, pod *corev1.Pod) *corev1.Pod {
 	pod.Spec.PreemptionPolicy = nil
 	pod.Spec.DeprecatedServiceAccount = ""
 	pod.Spec.Tolerations = tolerationsOrDefault(hc)
-	for i, _ := range pod.Spec.InitContainers {
+	for i := range pod.Spec.InitContainers {
 		pod.Spec.InitContainers[i].ImagePullPolicy = imagePullPolicyOrDefault(hc)
 		pod.Spec.InitContainers[i].TerminationMessagePath = ""
 		pod.Spec.InitContainers[i].TerminationMessagePolicy = ""
 	}
-	for i, _ := range pod.Spec.Containers {
+	for i := range pod.Spec.Containers {
 		pod.Spec.Containers[i].ImagePullPolicy = imagePullPolicyOrDefault(hc)
 		pod.Spec.Containers[i].TerminationMessagePath = ""
 		pod.Spec.Containers[i].TerminationMessagePolicy = ""
