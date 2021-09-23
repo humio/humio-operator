@@ -18,8 +18,10 @@ package humio
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"reflect"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -104,25 +106,36 @@ type LicenseClient interface {
 
 // ClientConfig stores our Humio api client
 type ClientConfig struct {
-	//apiClient    *humioapi.Client
+	humioClients map[humioClientKey]*humioClientConnection
 	logger       logr.Logger
 	userAgent    string
-	humioClients map[humioClientKey]*humioapi.Client
 }
 
 type humioClientKey struct {
 	namespace, name string
 	authenticated   bool
+	transport       *http.Transport
+}
+
+type humioClientConnection struct {
+	client    *humioapi.Client
+	transport *http.Transport
 }
 
 // NewClient returns a ClientConfig
 func NewClient(logger logr.Logger, config *humioapi.Config, userAgent string) *ClientConfig {
 	//client := humioapi.NewClient(*config)
+	transport := humioapi.NewHttpTransport(*config)
+	return NewClientWithTransport(logger, config, userAgent, transport)
+}
+
+// NewClient returns a ClientConfig using an existing http.Transport
+func NewClientWithTransport(logger logr.Logger, config *humioapi.Config, userAgent string, transport *http.Transport) *ClientConfig {
 	return &ClientConfig{
 		//apiClient:    client,
 		logger:       logger,
 		userAgent:    userAgent,
-		humioClients: map[humioClientKey]*humioapi.Client{},
+		humioClients: map[humioClientKey]*humioClientConnection{},
 	}
 }
 
@@ -136,24 +149,43 @@ func (h *ClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request)
 	}
 	c := h.humioClients[key]
 	if c == nil {
-		c = humioapi.NewClient(*config)
 		h.logger.Info(fmt.Sprintf("GetHumioClient, key not found, created new logger for cluster %s/%s where auth=%t", key.name, key.namespace, key.authenticated))
+		transport := humioapi.NewHttpTransport(*config)
+		c = &humioClientConnection{
+			client:    humioapi.NewClientWithTransport(*config, transport),
+			transport: transport,
+		}
 	} else {
-		existingConfig := c.Config()
+		existingConfig := c.client.Config()
 		equal := existingConfig.Token == config.Token &&
 			existingConfig.Insecure == config.Insecure &&
 			existingConfig.CACertificatePEM == config.CACertificatePEM &&
 			existingConfig.ProxyOrganization == config.ProxyOrganization &&
 			existingConfig.Address.String() == config.Address.String()
+
+		// If the cluster address or SSL configuration has changed, we must create a new transport
 		if !equal {
-			c = humioapi.NewClient(*config)
 			h.logger.Info(fmt.Sprintf("GetHumioClient, key found, created new logger for cluster %s/%s where auth=%t", key.name, key.namespace, key.authenticated))
+			transport := humioapi.NewHttpTransport(*config)
+			c = &humioClientConnection{
+				client:    humioapi.NewClientWithTransport(*config, transport),
+				transport: transport,
+			}
+
 		}
+		if c.transport == nil {
+			c.transport = humioapi.NewHttpTransport(*config)
+		}
+		// Always create a new client and use the existing transport. Since we're using the same transport, connections
+		// will be cached.
+		c.client = humioapi.NewClientWithTransport(*config, c.transport)
 	}
+
 	h.humioClients[key] = c
+
 	//h.apiClient = c // How can we get rid of this?
 	h.logger.Info(fmt.Sprintf("GetHumioClient, we now have %d entries in the humioClients map", len(h.humioClients)))
-	return c
+	return c.client
 }
 
 // Status returns the status of the humio cluster
