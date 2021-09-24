@@ -961,6 +961,10 @@ func (r *HumioClusterReconciler) getRestartPolicyFromPodInspection(pod, desiredP
 		return PodRestartPolicyRecreate, nil
 	}
 
+	if envVarValue(pod.Spec.Containers[humioContainerIdx].Env, "EXTERNAL_URL") != envVarValue(desiredPod.Spec.Containers[desiredHumioContainerIdx].Env, "EXTERNAL_URL") {
+		return PodRestartPolicyRecreate, nil
+	}
+
 	return PodRestartPolicyRolling, nil
 }
 
