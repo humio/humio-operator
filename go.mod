@@ -6,6 +6,7 @@ require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/go-logr/logr v0.4.0
 	github.com/go-logr/zapr v0.4.0
+	github.com/google/go-cmp v0.5.5
 	github.com/google/martian v2.1.0+incompatible
 	github.com/humio/cli v0.28.6
 	github.com/jetstack/cert-manager v1.4.4
