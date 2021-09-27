@@ -103,6 +103,7 @@ func main() {
 		// configure cluster-scoped with MultiNamespacedCacheBuilder
 		options.Namespace = ""
 		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(watchNamespace, ","))
+		// TODO: Get rid of Namespace property on Reconciler objects and instead use a custom cache implementation as this cache doesn't support watching a subset of namespace while still allowing to watch cluster-scoped resources. https://github.com/kubernetes-sigs/controller-runtime/issues/934
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
