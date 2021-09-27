@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -164,14 +165,16 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 			Hostname:              humioNodeName,
 			Containers: []corev1.Container{
 				{
-					Name:  authContainerName,
-					Image: helperImageOrDefault(hc),
+					Name:            authContainerName,
+					Image:           helperImageOrDefault(hc),
+					ImagePullPolicy: imagePullPolicyOrDefault(hc),
 					Env: []corev1.EnvVar{
 						{
 							Name: "NAMESPACE",
 							ValueFrom: &corev1.EnvVarSource{
 								FieldRef: &corev1.ObjectFieldSelector{
-									FieldPath: "metadata.namespace",
+									APIVersion: "v1",
+									FieldPath:  "metadata.namespace",
 								},
 							},
 						},
@@ -179,7 +182,8 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 							Name: "POD_NAME",
 							ValueFrom: &corev1.EnvVarSource{
 								FieldRef: &corev1.ObjectFieldSelector{
-									FieldPath: "metadata.name",
+									APIVersion: "v1",
+									FieldPath:  "metadata.name",
 								},
 							},
 						},
@@ -213,20 +217,30 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 						},
 					},
 					ReadinessProbe: &corev1.Probe{
+						FailureThreshold: 3,
 						Handler: corev1.Handler{
 							HTTPGet: &corev1.HTTPGetAction{
-								Path: "/",
-								Port: intstr.IntOrString{IntVal: 8180},
+								Path:   "/",
+								Port:   intstr.IntOrString{IntVal: 8180},
+								Scheme: corev1.URISchemeHTTP,
 							},
 						},
+						PeriodSeconds:    10,
+						SuccessThreshold: 1,
+						TimeoutSeconds:   1,
 					},
 					LivenessProbe: &corev1.Probe{
+						FailureThreshold: 3,
 						Handler: corev1.Handler{
 							HTTPGet: &corev1.HTTPGetAction{
-								Path: "/",
-								Port: intstr.IntOrString{IntVal: 8180},
+								Path:   "/",
+								Port:   intstr.IntOrString{IntVal: 8180},
+								Scheme: corev1.URISchemeHTTP,
 							},
 						},
+						PeriodSeconds:    10,
+						SuccessThreshold: 1,
+						TimeoutSeconds:   1,
 					},
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
@@ -241,9 +255,10 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 					SecurityContext: containerSecurityContextOrDefault(hc),
 				},
 				{
-					Name:    humioContainerName,
-					Image:   hc.Spec.Image,
-					Command: []string{"/bin/sh"},
+					Name:            humioContainerName,
+					Image:           hc.Spec.Image,
+					ImagePullPolicy: imagePullPolicyOrDefault(hc),
+					Command:         []string{"/bin/sh"},
 					Ports: []corev1.ContainerPort{
 						{
 							Name:          "http",
@@ -362,8 +377,9 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 	if !hc.Spec.DisableInitContainer {
 		pod.Spec.InitContainers = []corev1.Container{
 			{
-				Name:  initContainerName,
-				Image: helperImageOrDefault(hc),
+				Name:            initContainerName,
+				Image:           helperImageOrDefault(hc),
+				ImagePullPolicy: imagePullPolicyOrDefault(hc),
 				Env: []corev1.EnvVar{
 					{
 						Name:  "MODE",
@@ -377,7 +393,8 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 						Name: "NODE_NAME",
 						ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{
-								FieldPath: "spec.nodeName",
+								APIVersion: "v1",
+								FieldPath:  "spec.nodeName",
 							},
 						},
 					},
@@ -482,15 +499,6 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 			}
 		}
 		pod.Spec.Containers = append(pod.Spec.Containers, sidecar)
-	}
-
-	if hc.Spec.ImagePullPolicy != "" {
-		for i := range pod.Spec.InitContainers {
-			pod.Spec.InitContainers[i].ImagePullPolicy = hc.Spec.ImagePullPolicy
-		}
-		for i := range pod.Spec.Containers {
-			pod.Spec.Containers[i].ImagePullPolicy = hc.Spec.ImagePullPolicy
-		}
 	}
 
 	for _, volumeMount := range extraHumioVolumeMountsOrDefault(hc) {
@@ -668,9 +676,10 @@ func envVarHasKey(envVars []corev1.EnvVar, key string) bool {
 	return false
 }
 
-// podSpecAsSHA256 looks at the pod spec minus known nondeterministic fields and returns a sha256 hash of the spec
-func podSpecAsSHA256(hc *humiov1alpha1.HumioCluster, sourcePod corev1.Pod) string {
-	pod := sourcePod.DeepCopy()
+// sanitizePod removes known nondeterministic fields from a pod and returns it.
+// This modifies the input pod object before returning it.
+func sanitizePod(hc *humiov1alpha1.HumioCluster, pod *corev1.Pod) *corev1.Pod {
+	// TODO: For volume mount containing service account secret, set name to empty string
 	sanitizedVolumes := make([]corev1.Volume, 0)
 	emptyPersistentVolumeClaimSource := corev1.PersistentVolumeClaimVolumeSource{}
 	hostname := fmt.Sprintf("%s-core-%s", hc.Name, "")
@@ -759,7 +768,36 @@ func podSpecAsSHA256(hc *humiov1alpha1.HumioCluster, sourcePod corev1.Pod) strin
 	pod.Spec.Volumes = sanitizedVolumes
 	pod.Spec.Hostname = hostname
 
-	b, _ := json.Marshal(pod.Spec)
+	// Values we don't set ourselves but which gets default values set.
+	// To get a cleaner diff we can set these values to their zero values,
+	// or to the values as obtained by our functions returning our own defaults.
+	pod.Spec.RestartPolicy = ""
+	pod.Spec.DNSPolicy = ""
+	pod.Spec.SchedulerName = ""
+	pod.Spec.Priority = nil
+	pod.Spec.EnableServiceLinks = nil
+	pod.Spec.PreemptionPolicy = nil
+	pod.Spec.DeprecatedServiceAccount = ""
+	pod.Spec.Tolerations = tolerationsOrDefault(hc)
+	for i, _ := range pod.Spec.InitContainers {
+		pod.Spec.InitContainers[i].ImagePullPolicy = imagePullPolicyOrDefault(hc)
+		pod.Spec.InitContainers[i].TerminationMessagePath = ""
+		pod.Spec.InitContainers[i].TerminationMessagePolicy = ""
+	}
+	for i, _ := range pod.Spec.Containers {
+		pod.Spec.Containers[i].ImagePullPolicy = imagePullPolicyOrDefault(hc)
+		pod.Spec.Containers[i].TerminationMessagePath = ""
+		pod.Spec.Containers[i].TerminationMessagePolicy = ""
+	}
+
+	return pod
+}
+
+// podSpecAsSHA256 looks at the pod spec minus known nondeterministic fields and returns a sha256 hash of the spec
+func podSpecAsSHA256(hc *humiov1alpha1.HumioCluster, sourcePod corev1.Pod) string {
+	pod := sourcePod.DeepCopy()
+	sanitizedPod := sanitizePod(hc, pod)
+	b, _ := json.Marshal(sanitizedPod.Spec)
 	return helpers.AsSHA256(string(b))
 }
 
@@ -885,16 +923,22 @@ func (r *HumioClusterReconciler) podsMatch(hc *humiov1alpha1.HumioCluster, pod c
 			envVarSourceMatches = true
 		}
 	}
+
+	currentPodCopy := pod.DeepCopy()
+	desiredPodCopy := desiredPod.DeepCopy()
+	sanitizedCurrentPod := sanitizePod(hc, currentPodCopy)
+	sanitizedDesiredPod := sanitizePod(hc, desiredPodCopy)
+	podSpecDiff := cmp.Diff(sanitizedCurrentPod.Spec, sanitizedDesiredPod.Spec)
 	if !specMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", podHashAnnotation, pod.Annotations[podHashAnnotation], desiredPodHash))
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", podHashAnnotation, pod.Annotations[podHashAnnotation], desiredPodHash), "podSpecDiff", podSpecDiff)
 		return false, nil
 	}
 	if !revisionMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", podRevisionAnnotation, pod.Annotations[podRevisionAnnotation], desiredPod.Annotations[podRevisionAnnotation]))
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", podRevisionAnnotation, pod.Annotations[podRevisionAnnotation], desiredPod.Annotations[podRevisionAnnotation]), "podSpecDiff", podSpecDiff)
 		return false, nil
 	}
 	if !envVarSourceMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", envVarSourceHashAnnotation, pod.Annotations[envVarSourceHashAnnotation], desiredPod.Annotations[envVarSourceHashAnnotation]))
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", envVarSourceHashAnnotation, pod.Annotations[envVarSourceHashAnnotation], desiredPod.Annotations[envVarSourceHashAnnotation]), "podSpecDiff", podSpecDiff)
 		return false, nil
 	}
 	return true, nil
