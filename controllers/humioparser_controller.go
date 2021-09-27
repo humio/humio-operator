@@ -41,6 +41,7 @@ type HumioParserReconciler struct {
 	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
+	Namespace   string
 }
 
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioparsers,verbs=get;list;watch;create;update;patch;delete
@@ -48,6 +49,12 @@ type HumioParserReconciler struct {
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioparsers/finalizers,verbs=update
 
 func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	if r.Namespace != "" {
+		if r.Namespace != req.Namespace {
+			return reconcile.Result{}, nil
+		}
+	}
+
 	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
 	r.Log.Info("Reconciling HumioParser")
 

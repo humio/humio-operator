@@ -51,6 +51,7 @@ type HumioClusterReconciler struct {
 	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
+	Namespace   string
 }
 
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
@@ -68,6 +69,12 @@ type HumioClusterReconciler struct {
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingress,verbs=create;delete;get;list;patch;update;watch
 
 func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	if r.Namespace != "" {
+		if r.Namespace != req.Namespace {
+			return reconcile.Result{}, nil
+		}
+	}
+
 	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
 	r.Log.Info("Reconciling HumioCluster")
 
@@ -1502,7 +1509,6 @@ func (r *HumioClusterReconciler) ensureInitialLicense(ctx context.Context, hc *h
 func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("ensuring license is valid")
 
-	var err error
 	licenseSecretKeySelector := licenseSecretKeyRefOrDefault(hc)
 	if licenseSecretKeySelector == nil {
 		return fmt.Errorf("no license secret key selector provided")
@@ -1670,7 +1676,7 @@ func (r *HumioClusterReconciler) ensureServiceExists(ctx context.Context, hc *hu
 			r.Log.Error(err, "could not set controller reference")
 			return err
 		}
-		r.Log.Info(fmt.Sprintf("creating service: %s", service.Name))
+		r.Log.Info(fmt.Sprintf("creating service %s of type %s with Humio port %d and ES port %d", service.Name, service.Spec.Type, humioServicePortOrDefault(hc), humioESServicePortOrDefault(hc)))
 		err = r.Create(ctx, service)
 		if err != nil {
 			r.Log.Error(err, "unable to create service for HumioCluster")
