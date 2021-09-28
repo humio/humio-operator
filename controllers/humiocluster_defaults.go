@@ -94,6 +94,10 @@ func nodeCountOrDefault(hc *humiov1alpha1.HumioCluster) int {
 	return *hc.Spec.NodeCount
 }
 
+func imagePullPolicyOrDefault(hc *humiov1alpha1.HumioCluster) corev1.PullPolicy {
+	return hc.Spec.ImagePullPolicy
+}
+
 func imagePullSecretsOrDefault(hc *humiov1alpha1.HumioCluster) []corev1.LocalObjectReference {
 	emptyImagePullSecrets := []corev1.LocalObjectReference{}
 	if reflect.DeepEqual(hc.Spec.ImagePullSecrets, emptyImagePullSecrets) {
@@ -378,7 +382,8 @@ func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster) {
 			Name: "THIS_POD_IP",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "status.podIP",
+					APIVersion: "v1",
+					FieldPath:  "status.podIP",
 				},
 			},
 		},
@@ -386,7 +391,8 @@ func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster) {
 			Name: "POD_NAME",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.name",
+					APIVersion: "v1",
+					FieldPath:  "metadata.name",
 				},
 			},
 		},
@@ -394,7 +400,8 @@ func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster) {
 			Name: "POD_NAMESPACE",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.namespace",
+					APIVersion: "v1",
+					FieldPath:  "metadata.namespace",
 				},
 			},
 		},
