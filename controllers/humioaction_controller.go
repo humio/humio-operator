@@ -19,20 +19,18 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	"reflect"
 
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-
-	humioapi "github.com/humio/cli/api"
-	"github.com/humio/humio-operator/pkg/helpers"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	"github.com/go-logr/logr"
+	humioapi "github.com/humio/cli/api"
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
+	"github.com/humio/humio-operator/pkg/kubernetes"
+	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // HumioActionReconciler reconciles a HumioAction object
@@ -160,6 +158,12 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, curNot
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	err := r.resolveSecrets(ctx, ha)
+	if err != nil {
+		r.Log.Error(err, "could not resolve secret references")
+		return reconcile.Result{}, fmt.Errorf("could not resolve secret references: %s", err)
+	}
+
 	r.Log.Info("Checking if action needs to be created")
 	// Add Action
 	if curNotifier == nil {
@@ -201,6 +205,50 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, curNot
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
 	return reconcile.Result{}, nil
+}
+
+func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1alpha1.HumioAction) error {
+	var err error
+
+	ha.Spec.SlackPostMessageProperties.ApiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiToken, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
+	if err != nil {
+		return fmt.Errorf("slackPostMessageProperties.ingestTokenSource.%v", err)
+	}
+
+	ha.Spec.OpsGenieProperties.GenieKey, err = r.resolveField(ctx, ha.Namespace, ha.Spec.OpsGenieProperties.GenieKey, ha.Spec.OpsGenieProperties.GenieKeySource)
+	if err != nil {
+		return fmt.Errorf("opsGenieProperties.ingestTokenSource.%v", err)
+	}
+
+	ha.Spec.HumioRepositoryProperties.IngestToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.HumioRepositoryProperties.IngestToken, ha.Spec.HumioRepositoryProperties.IngestTokenSource)
+	if err != nil {
+		return fmt.Errorf("humioRepositoryProperties.ingestTokenSource.%v", err)
+	}
+
+	return nil
+}
+
+func (r *HumioActionReconciler) resolveField(ctx context.Context, namespace, value string, ref humiov1alpha1.VarSource) (string, error) {
+	if value != "" {
+		return value, nil
+	}
+
+	if ref.SecretKeyRef != nil {
+		secret, err := kubernetes.GetSecret(ctx, r, ref.SecretKeyRef.Name, namespace)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return "", fmt.Errorf("secretKeyRef was set but no secret exists by name %s in namespace %s", ref.SecretKeyRef.Name, namespace)
+			}
+			return "", fmt.Errorf("unable to get secret with name %s in namespace %s", ref.SecretKeyRef.Name, namespace)
+		}
+		value, ok := secret.Data[ref.SecretKeyRef.Key]
+		if !ok {
+			return "", fmt.Errorf("secretKeyRef was found but it does not contain the key %s", ref.SecretKeyRef.Key)
+		}
+		return string(value), nil
+	}
+
+	return "", nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
