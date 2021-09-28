@@ -4926,6 +4926,20 @@ spec:
                   pods.
                 format: int32
                 type: integer
+              humioHeadlessServiceAnnotations:
+                additionalProperties:
+                  type: string
+                description: HumioHeadlessAnnotations is the set of annotations added
+                  to the Kubernetes Headless Service that is used for traffic between
+                  Humio pods
+                type: object
+              humioHeadlessServiceLabels:
+                additionalProperties:
+                  type: string
+                description: HumioHeadlessServiceLabels is the set of labels added
+                  to the Kubernetes Headless Service that is used for traffic between
+                  Humio pods
+                type: object
               humioServiceAccountAnnotations:
                 additionalProperties:
                   type: string

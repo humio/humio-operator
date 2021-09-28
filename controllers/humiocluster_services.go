@@ -26,9 +26,9 @@ import (
 )
 
 // humioServiceLabels generates the set of labels to attach to the humio kubernetes service
-func humioServiceLabels(hc *humiov1alpha1.HumioCluster) map[string]string {
+func mergeHumioServiceLabels(hc *humiov1alpha1.HumioCluster, serviceLabels map[string]string) map[string]string {
 	labels := kubernetes.LabelsForHumio(hc.Name)
-	for k, v := range hc.Spec.HumioServiceLabels {
+	for k, v := range serviceLabels {
 		if _, ok := labels[k]; ok {
 			continue
 		}
@@ -38,23 +38,15 @@ func humioServiceLabels(hc *humiov1alpha1.HumioCluster) map[string]string {
 }
 
 func constructService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
-	return constructServiceFrom(hc, hc.Name, humioServiceTypeOrDefault(hc), false)
-}
-
-func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
-	return constructServiceFrom(hc, fmt.Sprintf("%s-headless", hc.Name), corev1.ServiceTypeClusterIP, true)
-}
-
-func constructServiceFrom(hc *humiov1alpha1.HumioCluster, serviceName string, serviceType corev1.ServiceType, isHeadless bool) *corev1.Service {
-	service := &corev1.Service{
+	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        serviceName,
+			Name:        hc.Name,
 			Namespace:   hc.Namespace,
-			Labels:      humioServiceLabels(hc),
+			Labels:      mergeHumioServiceLabels(hc, hc.Spec.HumioServiceLabels),
 			Annotations: humioServiceAnnotationsOrDefault(hc),
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     serviceType,
+			Type:     humioServiceTypeOrDefault(hc),
 			Selector: kubernetes.LabelsForHumio(hc.Name),
 			Ports: []corev1.ServicePort{
 				{
@@ -68,8 +60,30 @@ func constructServiceFrom(hc *humiov1alpha1.HumioCluster, serviceName string, se
 			},
 		},
 	}
-	if isHeadless {
-		service.Spec.ClusterIP = "None"
+}
+
+func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        fmt.Sprintf("%s-headless", hc.Name),
+			Namespace:   hc.Namespace,
+			Labels:      mergeHumioServiceLabels(hc, hc.Spec.HumioHeadlessServiceLabels),
+			Annotations: humioHeadlessServiceAnnotationsOrDefault(hc),
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "None",
+			Type:      corev1.ServiceTypeClusterIP,
+			Selector:  kubernetes.LabelsForHumio(hc.Name),
+			Ports: []corev1.ServicePort{
+				{
+					Name: "http",
+					Port: humioPort,
+				},
+				{
+					Name: "es",
+					Port: elasticPort,
+				},
+			},
+		},
 	}
-	return service
 }

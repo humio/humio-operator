@@ -955,6 +955,17 @@ var _ = Describe("HumioCluster Controller", func() {
 				return -1
 			}, testTimeout, testInterval).Should(Equal(int32(9201)))
 
+			By("Confirming headless service has the correct HTTP and ES ports")
+			headlessSvc, _ := kubernetes.GetService(ctx, k8sClient, fmt.Sprintf("%s-headless", key.Name), key.Namespace)
+			Expect(headlessSvc.Spec.Type).To(BeIdenticalTo(corev1.ServiceTypeClusterIP))
+			for _, port := range headlessSvc.Spec.Ports {
+				if port.Name == "http" {
+					Expect(port.Port).Should(Equal(int32(8080)))
+				}
+				if port.Name == "es" {
+					Expect(port.Port).Should(Equal(int32(9200)))
+				}
+			}
 		})
 	})
 
@@ -2623,16 +2634,26 @@ var _ = Describe("HumioCluster Controller", func() {
 				"service.beta.kubernetes.io/aws-load-balancer-ssl-ports":                         "443",
 				"service.beta.kubernetes.io/aws-load-balancer-internal":                          "0.0.0.0/0",
 			}
+			toCreate.Spec.HumioServiceAnnotations = map[string]string{
+				"custom": "annotation",
+			}
 
 			By("Creating the cluster successfully")
 			ctx := context.Background()
 			createAndBootstrapCluster(ctx, toCreate, true)
 
-			By("Confirming service was created using the correct annotations")
+			By("Confirming the service was created using the correct annotations")
 			svc, err := kubernetes.GetService(ctx, k8sClient, toCreate.Name, toCreate.Namespace)
 			Expect(err).ToNot(HaveOccurred())
 			for k, v := range toCreate.Spec.HumioServiceAnnotations {
 				Expect(svc.Annotations).To(HaveKeyWithValue(k, v))
+			}
+
+			By("Confirming the headless service was created using the correct annotations")
+			headlessSvc, err := kubernetes.GetService(ctx, k8sClient, toCreate.Name, toCreate.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			for k, v := range toCreate.Spec.HumioHeadlessServiceAnnotations {
+				Expect(headlessSvc.Annotations).To(HaveKeyWithValue(k, v))
 			}
 		})
 	})
@@ -2675,16 +2696,26 @@ var _ = Describe("HumioCluster Controller", func() {
 			toCreate.Spec.HumioServiceLabels = map[string]string{
 				"mirror.linkerd.io/exported": "true",
 			}
+			toCreate.Spec.HumioHeadlessServiceLabels = map[string]string{
+				"custom": "label",
+			}
 
 			By("Creating the cluster successfully")
 			ctx := context.Background()
 			createAndBootstrapCluster(ctx, toCreate, true)
 
-			By("Confirming service was created using the correct annotations")
+			By("Confirming the service was created using the correct labels")
 			svc, err := kubernetes.GetService(ctx, k8sClient, toCreate.Name, toCreate.Namespace)
 			Expect(err).ToNot(HaveOccurred())
 			for k, v := range toCreate.Spec.HumioServiceLabels {
 				Expect(svc.Labels).To(HaveKeyWithValue(k, v))
+			}
+
+			By("Confirming the headless service was created using the correct labels")
+			headlessSvc, err := kubernetes.GetService(ctx, k8sClient, fmt.Sprintf("%s-headless", toCreate.Name), toCreate.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			for k, v := range toCreate.Spec.HumioHeadlessServiceLabels {
+				Expect(headlessSvc.Labels).To(HaveKeyWithValue(k, v))
 			}
 		})
 	})
