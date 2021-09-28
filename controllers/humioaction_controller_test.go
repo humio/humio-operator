@@ -54,28 +54,7 @@ var _ = Describe("Humio Action Controller", func() {
 	})
 
 	Context("SlackPostMessageProperties", func() {
-
 		It("should support referencing secrets", func() {
-			slackPostMessageActionSpec := humiov1alpha1.HumioActionSpec{
-				ManagedClusterName: "humiocluster-shared",
-				Name:               "example-slack-post-message-action",
-				ViewName:           "humio",
-				SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
-					ApiTokenSource: humiov1alpha1.VarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: "slack-secret",
-							},
-							Key: "key",
-						},
-					},
-					Channels: []string{"#some-channel"},
-					Fields: map[string]string{
-						"some": "key",
-					},
-				},
-			}
-
 			key := types.NamespacedName{
 				Name:      "humio-slack-post-message-action",
 				Namespace: "default",
@@ -86,12 +65,30 @@ var _ = Describe("Humio Action Controller", func() {
 					Name:      key.Name,
 					Namespace: key.Namespace,
 				},
-				Spec: slackPostMessageActionSpec,
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: "humiocluster-shared",
+					Name:               "example-slack-post-message-action",
+					ViewName:           "humio",
+					SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
+						ApiTokenSource: humiov1alpha1.VarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "secret",
+								},
+								Key: "key",
+							},
+						},
+						Channels: []string{"#some-channel"},
+						Fields: map[string]string{
+							"some": "key",
+						},
+					},
+				},
 			}
 
-			slackSecret := &corev1.Secret{
+			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "slack-secret",
+					Name:      "secret",
 					Namespace: "default",
 				},
 				Data: map[string][]byte{
@@ -101,7 +98,7 @@ var _ = Describe("Humio Action Controller", func() {
 
 			ctx := context.Background()
 
-			Expect(k8sClient.Create(ctx, slackSecret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
@@ -121,19 +118,6 @@ var _ = Describe("Humio Action Controller", func() {
 		})
 
 		It("should support direct api token", func() {
-			slackPostMessageActionSpec := humiov1alpha1.HumioActionSpec{
-				ManagedClusterName: "humiocluster-shared",
-				Name:               "example-slack-post-message-action",
-				ViewName:           "humio",
-				SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
-					ApiToken: "direct-token",
-					Channels: []string{"#some-channel"},
-					Fields: map[string]string{
-						"some": "key",
-					},
-				},
-			}
-
 			key := types.NamespacedName{
 				Name:      "humio-slack-post-message-action",
 				Namespace: "default",
@@ -144,7 +128,18 @@ var _ = Describe("Humio Action Controller", func() {
 					Name:      key.Name,
 					Namespace: key.Namespace,
 				},
-				Spec: slackPostMessageActionSpec,
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: "humiocluster-shared",
+					Name:               "example-slack-post-message-action",
+					ViewName:           "humio",
+					SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
+						ApiToken: "direct-token",
+						Channels: []string{"#some-channel"},
+						Fields: map[string]string{
+							"some": "key",
+						},
+					},
+				},
 			}
 
 			ctx := context.Background()
@@ -164,6 +159,210 @@ var _ = Describe("Humio Action Controller", func() {
 			Expect(err).To(BeNil())
 			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
 			Expect(createdAction.Spec.SlackPostMessageProperties.ApiToken).To(Equal("direct-token"))
+		})
+	})
+
+	Context("HumioRepositoryProperties", func() {
+		It("should support referencing secrets", func() {
+			key := types.NamespacedName{
+				Name:      "humio-repository-action",
+				Namespace: "default",
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: "humiocluster-shared",
+					Name:               "example-repository-action",
+					ViewName:           "humio",
+					HumioRepositoryProperties: &humiov1alpha1.HumioActionRepositoryProperties{
+						IngestTokenSource: humiov1alpha1.VarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "humio-secret",
+								},
+								Key: "key",
+							},
+						},
+					},
+				},
+			}
+
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "humio-secret",
+					Namespace: "default",
+				},
+				Data: map[string][]byte{
+					"key": []byte("secret-token"),
+				},
+			}
+
+			ctx := context.Background()
+
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			notifier, err := humioClient.GetNotifier(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier).ToNot(BeNil())
+
+			createdAction, err := humio.ActionFromNotifier(notifier)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.HumioRepositoryProperties.IngestToken).To(Equal("secret-token"))
+		})
+
+		It("should support direct api token", func() {
+			key := types.NamespacedName{
+				Name:      "humio-repository-action",
+				Namespace: "default",
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: "humiocluster-shared",
+					Name:               "example-repository-action",
+					ViewName:           "humio",
+					HumioRepositoryProperties: &humiov1alpha1.HumioActionRepositoryProperties{
+						IngestToken: "direct-token",
+					},
+				},
+			}
+
+			ctx := context.Background()
+
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			notifier, err := humioClient.GetNotifier(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier).ToNot(BeNil())
+
+			createdAction, err := humio.ActionFromNotifier(notifier)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.HumioRepositoryProperties.IngestToken).To(Equal("direct-token"))
+		})
+	})
+
+	Context("OpsGenieProperties", func() {
+		It("should support referencing secrets", func() {
+			key := types.NamespacedName{
+				Name:      "genie-action",
+				Namespace: "default",
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: "humiocluster-shared",
+					Name:               "example-genie-action",
+					ViewName:           "humio",
+					OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
+						GenieKeySource: humiov1alpha1.VarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "genie-secret",
+								},
+								Key: "key",
+							},
+						},
+					},
+				},
+			}
+
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "genie-secret",
+					Namespace: "default",
+				},
+				Data: map[string][]byte{
+					"key": []byte("secret-token"),
+				},
+			}
+
+			ctx := context.Background()
+
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			notifier, err := humioClient.GetNotifier(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier).ToNot(BeNil())
+
+			createdAction, err := humio.ActionFromNotifier(notifier)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.OpsGenieProperties.GenieKey).To(Equal("secret-token"))
+		})
+
+		It("should support direct genie key", func() {
+			key := types.NamespacedName{
+				Name:      "genie-action",
+				Namespace: "default",
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: "humiocluster-shared",
+					Name:               "example-genie-action",
+					ViewName:           "humio",
+					OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
+						GenieKey: "direct-token",
+					},
+				},
+			}
+
+			ctx := context.Background()
+
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			notifier, err := humioClient.GetNotifier(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(notifier).ToNot(BeNil())
+
+			createdAction, err := humio.ActionFromNotifier(notifier)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.OpsGenieProperties.GenieKey).To(Equal("direct-token"))
 		})
 	})
 })
