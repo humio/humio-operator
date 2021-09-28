@@ -547,6 +547,13 @@ func humioServiceAnnotationsOrDefault(hc *humiov1alpha1.HumioCluster) map[string
 	return map[string]string(nil)
 }
 
+func humioHeadlessServiceAnnotationsOrDefault(hc *humiov1alpha1.HumioCluster) map[string]string {
+	if hc.Spec.HumioHeadlessServiceAnnotations != nil {
+		return hc.Spec.HumioHeadlessServiceAnnotations
+	}
+	return map[string]string(nil)
+}
+
 func humioPathOrDefault(hc *humiov1alpha1.HumioCluster) string {
 	if hc.Spec.Path != "" {
 		if strings.HasPrefix(hc.Spec.Path, "/") {
