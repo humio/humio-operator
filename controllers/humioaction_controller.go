@@ -81,6 +81,12 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
 
+	err = r.resolveSecrets(ctx, ha)
+	if err != nil {
+		r.Log.Error(err, "could not resolve secret references")
+		return reconcile.Result{}, fmt.Errorf("could not resolve secret references: %s", err)
+	}
+
 	if _, err := humio.NotifierFromAction(ha); err != nil {
 		r.Log.Error(err, "unable to validate action")
 		err = r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
@@ -158,12 +164,6 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, curNot
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	err := r.resolveSecrets(ctx, ha)
-	if err != nil {
-		r.Log.Error(err, "could not resolve secret references")
-		return reconcile.Result{}, fmt.Errorf("could not resolve secret references: %s", err)
-	}
-
 	r.Log.Info("Checking if action needs to be created")
 	// Add Action
 	if curNotifier == nil {
@@ -210,19 +210,25 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, curNot
 func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1alpha1.HumioAction) error {
 	var err error
 
-	ha.Spec.SlackPostMessageProperties.ApiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiToken, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
-	if err != nil {
-		return fmt.Errorf("slackPostMessageProperties.ingestTokenSource.%v", err)
+	if ha.Spec.SlackPostMessageProperties != nil {
+		ha.Spec.SlackPostMessageProperties.ApiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiToken, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
+		if err != nil {
+			return fmt.Errorf("slackPostMessageProperties.ingestTokenSource.%v", err)
+		}
 	}
 
-	ha.Spec.OpsGenieProperties.GenieKey, err = r.resolveField(ctx, ha.Namespace, ha.Spec.OpsGenieProperties.GenieKey, ha.Spec.OpsGenieProperties.GenieKeySource)
-	if err != nil {
-		return fmt.Errorf("opsGenieProperties.ingestTokenSource.%v", err)
+	if ha.Spec.OpsGenieProperties != nil {
+		ha.Spec.OpsGenieProperties.GenieKey, err = r.resolveField(ctx, ha.Namespace, ha.Spec.OpsGenieProperties.GenieKey, ha.Spec.OpsGenieProperties.GenieKeySource)
+		if err != nil {
+			return fmt.Errorf("opsGenieProperties.ingestTokenSource.%v", err)
+		}
 	}
 
-	ha.Spec.HumioRepositoryProperties.IngestToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.HumioRepositoryProperties.IngestToken, ha.Spec.HumioRepositoryProperties.IngestTokenSource)
-	if err != nil {
-		return fmt.Errorf("humioRepositoryProperties.ingestTokenSource.%v", err)
+	if ha.Spec.HumioRepositoryProperties != nil {
+		ha.Spec.HumioRepositoryProperties.IngestToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.HumioRepositoryProperties.IngestToken, ha.Spec.HumioRepositoryProperties.IngestTokenSource)
+		if err != nil {
+			return fmt.Errorf("humioRepositoryProperties.ingestTokenSource.%v", err)
+		}
 	}
 
 	return nil
