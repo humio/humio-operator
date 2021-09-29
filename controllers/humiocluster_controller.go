@@ -79,28 +79,34 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			r.Log.Error(err, "HumioCluster not found")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
+		r.Log.Error(err, "problem reading HumioCluster object")
 		return reconcile.Result{}, err
 	}
 
 	// Set defaults
+	r.Log.Info("setting defaults for HumioCluster")
 	setDefaults(hc)
 	emptyResult := reconcile.Result{}
 
+	r.Log.Info("setting image from source")
 	if err := r.setImageFromSource(context.TODO(), hc); err != nil {
 		r.Log.Error(fmt.Errorf("could not get image: %s", err), "marking cluster state as ConfigError")
 		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
 		return ctrl.Result{}, err
 	}
 
+	r.Log.Info("ensuring valid humio version")
 	if err := r.ensureValidHumioVersion(hc); err != nil {
 		r.Log.Error(fmt.Errorf("humio version not valid: %s", err), "marking cluster state as ConfigError")
 		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
 		return ctrl.Result{}, err
 	}
 
+	r.Log.Info("ensuring valid storage configuration")
 	if err := r.ensureValidStorageConfiguration(hc); err != nil {
 		r.Log.Error(fmt.Errorf("storage configuration not valid: %s", err), "marking cluster state as ConfigError")
 		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
@@ -112,18 +118,21 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// Ensure we have a valid CA certificate to configure intra-cluster communication.
 	// Because generating the CA can take a while, we do this before we start tearing down mismatching pods
+	r.Log.Info("ensuring valid CA secret")
 	err = r.ensureValidCASecret(ctx, hc)
 	if err != nil {
 		r.Log.Error(err, "could not ensure we have a valid CA secret")
 		return reconcile.Result{}, err
 	}
 
+	r.Log.Info("ensuring headless service")
 	err = r.ensureHeadlessServiceExists(ctx, hc)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	// Ensure pods that does not run the desired version are deleted.
+	r.Log.Info("ensuring mismatched pods are deleted")
 	result, err := r.ensureMismatchedPodsAreDeleted(ctx, hc)
 	if result != emptyResult || err != nil {
 		return result, err
