@@ -12,7 +12,7 @@ oc --kubeconfig=$tmp_kubeconfig create namespace cert-manager
 helm repo add jetstack https://charts.jetstack.io
 helm repo update
 helm install --kubeconfig=$tmp_kubeconfig cert-manager jetstack/cert-manager --namespace cert-manager \
---version v1.4.4 \
+--version v1.5.3 \
 --set installCRDs=true
 
 helm repo add humio https://humio.github.io/cp-helm-charts

@@ -5,7 +5,7 @@ RUN apt update \
  && apt install -y build-essential curl
 
 # Install go
-RUN curl -s https://dl.google.com/go/go1.15.12.linux-amd64.tar.gz | tar -xz -C /usr/local
+RUN curl -s https://dl.google.com/go/go1.16.8.linux-amd64.tar.gz | tar -xz -C /usr/local
 RUN ln -s /usr/local/go/bin/go /usr/bin/go
 
 # Install kind
