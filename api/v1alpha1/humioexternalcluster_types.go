@@ -23,7 +23,7 @@ import (
 const (
 	// HumioExternalClusterStateUnknown is the Unknown state of the external cluster
 	HumioExternalClusterStateUnknown = "Unknown"
-	// HumioExternalClusterStateRunning is the Ready state of the external cluster
+	// HumioExternalClusterStateReady is the Ready state of the external cluster
 	HumioExternalClusterStateReady = "Ready"
 )
 
@@ -34,7 +34,7 @@ type HumioExternalClusterSpec struct {
 	// APITokenSecretName is used to obtain the API token we need to use when communicating with the external Humio cluster.
 	// The secret must contain a key "token" which holds the Humio API token.
 	APITokenSecretName string `json:"apiTokenSecretName,omitempty"`
-	// TLSDisabled is used to disable intra-cluster TLS when cert-manager is being used.
+	// Insecure is used to disable TLS certificate verification when communicating with Humio clusters over TLS.
 	Insecure bool `json:"insecure,omitempty"`
 	// CASecretName is used to point to a Kubernetes secret that holds the CA that will be used to issue intra-cluster TLS certificates.
 	// The secret must contain a key "ca.crt" which holds the CA certificate in PEM format.
