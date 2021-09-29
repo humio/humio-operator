@@ -6590,8 +6590,8 @@ spec:
                   in PEM format.
                 type: string
               insecure:
-                description: TLSDisabled is used to disable intra-cluster TLS when
-                  cert-manager is being used.
+                description: Insecure is used to disable TLS certificate verification
+                  when communicating with Humio clusters over TLS.
                 type: boolean
               url:
                 description: Url is used to connect to the Humio cluster we want to
