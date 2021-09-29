@@ -292,17 +292,34 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		_ = r.setNodeCount(ctx, len(pods), hc)
 	}(ctx, hc)
 
-	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
-		_ = r.getLatestHumioCluster(ctx, hc)
+	//defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
+	//	_ = r.getLatestHumioCluster(ctx, hc)
+	//
+	//	status, err := humioClient.Status()
+	//	if err != nil {
+	//		r.Log.Error(err, "unable to get cluster status")
+	//	}
+	//	_ = r.setVersion(ctx, status.Version, hc)
+	//	_ = r.setPod(ctx, hc)
+	//
+	//}(ctx, r.HumioClient, hc)
 
-		status, err := humioClient.Status()
-		if err != nil {
-			r.Log.Error(err, "unable to get cluster status")
-		}
-		_ = r.setVersion(ctx, status.Version, hc)
-		_ = r.setPod(ctx, hc)
+	r.Log.Info("getting humio cluster status")
+	status, err := r.HumioClient.Status()
+	if err != nil {
+		r.Log.Error(err, "unable to get cluster status")
+	}
+	r.Log.Info("setting the version field of the HumioCluster status")
+	err = r.setVersion(ctx, status.Version, hc)
+	if err != nil {
+		r.Log.Error(err, "unable to set cluster version status")
+	}
 
-	}(ctx, r.HumioClient, hc)
+	r.Log.Info("setting the pods field of the HumioCluster status")
+	err = r.setPod(ctx, hc)
+	if err != nil {
+		r.Log.Error(err, "unable to set cluster pod status")
+	}
 
 	err = r.ensureLabels(ctx, hc)
 	if err != nil {
