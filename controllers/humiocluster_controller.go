@@ -287,7 +287,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	result, err = r.ensureLicense(ctx, hc, req)
 	if result != emptyResult || err != nil {
-		return result, err
+		r.Log.Error(err, "could not ensure license. will requeue")
+		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	}
 
 	// Wait for the sidecar to create the secret which contains the token used to authenticate with humio and then authenticate with it
