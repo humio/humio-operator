@@ -24,7 +24,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
@@ -875,27 +874,30 @@ var _ = Describe("HumioCluster Controller", func() {
 					Expect(port.Port).Should(Equal(int32(9200)))
 				}
 			}
-
-			By("Updating service type")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
+			By("Updating service type")
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, &updatedHumioCluster)
 				updatedHumioCluster.Spec.HumioServiceType = corev1.ServiceTypeLoadBalancer
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
 
+			// Wait for the new HumioCluster to finish any existing reconcile loop by waiting for the
+			// status.observedGeneration to equal that of the current resource version. This will avoid race conditions
+			// where the HumioCluster is updated and service is deleted mid-way through a reconcile.
+			resourceVersion, _ := strconv.Atoi(updatedHumioCluster.ResourceVersion)
+			Eventually(func() bool {
+				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				observedGeneration, _ := strconv.Atoi(updatedHumioCluster.Status.ObservedGeneration)
+				return observedGeneration > resourceVersion
+			}, testTimeout, testInterval).Should(BeTrue())
+			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
+
 			By("Confirming we can see the updated HumioCluster object")
 			Eventually(func() corev1.ServiceType {
 				k8sClient.Get(ctx, key, &updatedHumioCluster)
 				return updatedHumioCluster.Spec.HumioServiceType
 			}, testTimeout, testInterval).Should(BeIdenticalTo(corev1.ServiceTypeLoadBalancer))
-
-			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
-			// TODO: hack: sleep to avoid race conditions where the HumioCluster is updated and service is deleted
-			// mid-way through a reconcile. Should fix by adding observedGeneration to the status and waiting for
-			// it to match the HumioCluster revision
-			time.Sleep(1 * time.Second)
-			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
 
 			By("Confirming service gets recreated with correct type")
 			Eventually(func() metav1.Time {
@@ -916,10 +918,15 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
-			// TODO: hack: sleep to avoid race conditions where the HumioCluster is updated and service is deleted
-			// mid-way through a reconcile. Should fix by adding observedGeneration to the status and waiting for
-			// it to match the HumioCluster revision
-			time.Sleep(1 * time.Second)
+			// Wait for the new HumioCluster to finish any existing reconcile loop by waiting for the
+			// status.observedGeneration to equal that of the current resource version. This will avoid race conditions
+			// where the HumioCluster is updated and service is deleted mid-way through a reconcile.
+			resourceVersion, _ = strconv.Atoi(updatedHumioCluster.ResourceVersion)
+			Eventually(func() bool {
+				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				observedGeneration, _ := strconv.Atoi(updatedHumioCluster.Status.ObservedGeneration)
+				return observedGeneration > resourceVersion
+			}, testTimeout, testInterval).Should(BeTrue())
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
 
 			By("Confirming service gets recreated with correct Humio port")
@@ -946,10 +953,15 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
-			// TODO: hack: sleep to avoid race conditions where the HumioCluster is updated and service is deleted
-			// mid-way through a reconcile. Should fix by adding observedGeneration to the status and waiting for
-			// it to match the HumioCluster revision
-			time.Sleep(1 * time.Second)
+			// Wait for the new HumioCluster to finish any existing reconcile loop by waiting for the
+			// status.observedGeneration to equal that of the current resource version. This will avoid race conditions
+			// where the HumioCluster is updated and service is deleted mid-way through a reconcile.
+			resourceVersion, _ = strconv.Atoi(updatedHumioCluster.ResourceVersion)
+			Eventually(func() bool {
+				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				observedGeneration, _ := strconv.Atoi(updatedHumioCluster.Status.ObservedGeneration)
+				return observedGeneration > resourceVersion
+			}, testTimeout, testInterval).Should(BeTrue())
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
 
 			By("Confirming service gets recreated with correct ES port")

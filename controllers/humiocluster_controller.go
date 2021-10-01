@@ -302,6 +302,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 		_ = r.setVersion(ctx, status.Version, hc)
 		_ = r.setPod(ctx, hc)
+		_ = r.setObservedGeneration(ctx, hc)
 
 	}(ctx, r.HumioClient, hc)
 
