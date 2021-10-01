@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
@@ -890,6 +891,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(BeIdenticalTo(corev1.ServiceTypeLoadBalancer))
 
 			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
+			// TODO: hack: sleep to avoid race conditions where the HumioCluster is updated and service is deleted
+			// mid-way through a reconcile. Should fix by adding observedGeneration to the status and waiting for
+			// it to match the HumioCluster revision
+			time.Sleep(1 * time.Second)
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
 
 			By("Confirming service gets recreated with correct type")
@@ -911,6 +916,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
+			// TODO: hack: sleep to avoid race conditions where the HumioCluster is updated and service is deleted
+			// mid-way through a reconcile. Should fix by adding observedGeneration to the status and waiting for
+			// it to match the HumioCluster revision
+			time.Sleep(1 * time.Second)
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
 
 			By("Confirming service gets recreated with correct Humio port")
@@ -937,6 +946,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
+			// TODO: hack: sleep to avoid race conditions where the HumioCluster is updated and service is deleted
+			// mid-way through a reconcile. Should fix by adding observedGeneration to the status and waiting for
+			// it to match the HumioCluster revision
+			time.Sleep(1 * time.Second)
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
 
 			By("Confirming service gets recreated with correct ES port")

@@ -90,24 +90,30 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	emptyResult := reconcile.Result{}
 
 	if err := r.setImageFromSource(context.TODO(), hc); err != nil {
-		r.Log.Error(fmt.Errorf("could not get image: %s", err), "marking cluster state as ConfigError")
-		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		r.Log.Error(err, "could not get imageSource")
+		errState := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		if errState != nil {
+			r.Log.Error(errState, "unable to set cluster state")
+		}
 		return ctrl.Result{}, err
 	}
 
 	if err := r.ensureValidHumioVersion(hc); err != nil {
-		r.Log.Error(fmt.Errorf("humio version not valid: %s", err), "marking cluster state as ConfigError")
-		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		r.Log.Error(err, "humio version not valid")
+		errState := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		if errState != nil {
+			r.Log.Error(errState, "unable to set cluster state")
+		}
 		return ctrl.Result{}, err
 	}
 
 	if err := r.ensureValidStorageConfiguration(hc); err != nil {
-		r.Log.Error(fmt.Errorf("storage configuration not valid: %s", err), "marking cluster state as ConfigError")
-		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
-		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
-			return reconcile.Result{}, err
+		r.Log.Error(err, "storage configuration not valid")
+		errState := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		if errState != nil {
+			r.Log.Error(errState, "unable to set cluster state")
 		}
+		return ctrl.Result{}, err
 	}
 
 	// Ensure we have a valid CA certificate to configure intra-cluster communication.
@@ -130,40 +136,40 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconcile.Result{}, err
 	}
 	if !allServiceAccountsExists {
-		r.Log.Error(fmt.Errorf("not all referenced service accounts exists"), "marking cluster state as ConfigError")
-		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
-		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
-			return reconcile.Result{}, err
+		r.Log.Error(err, "not all referenced service accounts exists")
+		errState := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		if errState != nil {
+			r.Log.Error(errState, "unable to set cluster state")
 		}
+		return ctrl.Result{}, err
 	}
 
 	_, err = constructPod(hc, "", &podAttachments{})
 	if err != nil {
 		r.Log.Error(err, "got error while trying to construct pod")
-		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
-		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
+		errState := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		if errState != nil {
+			r.Log.Error(errState, "unable to set cluster state")
 		}
-		return reconcile.Result{}, err
+		return ctrl.Result{}, err
 	}
 
 	if nodeCountOrDefault(hc) < hc.Spec.TargetReplicationFactor {
-		r.Log.Error(fmt.Errorf("node count lower than target replication factor"), "marking cluster state as ConfigError")
-		err := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
-		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
+		r.Log.Error(err, "node count lower than target replication factor")
+		errState := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		if errState != nil {
+			r.Log.Error(errState, "unable to set cluster state")
 		}
+		return ctrl.Result{}, err
 	}
 
 	if err := r.ensureLicenseIsValid(ctx, hc); err != nil {
 		r.Log.Error(err, "no valid license provided")
-		stateErr := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
-		if stateErr != nil {
-			r.Log.Error(stateErr, "unable to set cluster state")
-			return reconcile.Result{}, stateErr
+		errState := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		if errState != nil {
+			r.Log.Error(errState, "unable to set cluster state")
 		}
-		return reconcile.Result{}, err
+		return ctrl.Result{}, err
 	}
 
 	if hc.Status.State == "" {
