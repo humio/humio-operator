@@ -3516,6 +3516,14 @@ func podReadyCount(ctx context.Context, key types.NamespacedName, expectedPodRev
 
 func ensurePodsRollingRestart(ctx context.Context, hc *humiov1alpha1.HumioCluster, key types.NamespacedName, expectedPodRevision int) {
 	By("Ensuring replacement pods are ready one at a time")
+	var updatedHumioCluster humiov1alpha1.HumioCluster
+	resourceVersion, _ := strconv.Atoi(updatedHumioCluster.ResourceVersion)
+	Eventually(func() bool {
+		k8sClient.Get(ctx, key, &updatedHumioCluster)
+		observedGeneration, _ := strconv.Atoi(updatedHumioCluster.Status.ObservedGeneration)
+		return observedGeneration >= resourceVersion
+	}, testTimeout, testInterval).Should(BeTrue())
+
 	for expectedReadyCount := 1; expectedReadyCount < *hc.Spec.NodeCount+1; expectedReadyCount++ {
 		Eventually(func() int {
 			return podReadyCount(ctx, key, expectedPodRevision, expectedReadyCount)
