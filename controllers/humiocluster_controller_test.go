@@ -883,8 +883,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			// Wait for the new HumioCluster to finish any existing reconcile loop by waiting for the
-			// status.observedGeneration to equal that of the current resource version. This will avoid race conditions
-			// where the HumioCluster is updated and service is deleted mid-way through a reconcile.
+			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
+			// conditions where the HumioCluster is updated and service is deleted mid-way through a reconcile.
 			resourceVersion, _ := strconv.Atoi(updatedHumioCluster.ResourceVersion)
 			Eventually(func() bool {
 				k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -919,8 +919,8 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
 			// Wait for the new HumioCluster to finish any existing reconcile loop by waiting for the
-			// status.observedGeneration to equal that of the current resource version. This will avoid race conditions
-			// where the HumioCluster is updated and service is deleted mid-way through a reconcile.
+			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
+			// conditions where the HumioCluster is updated and service is deleted mid-way through a reconcile.
 			resourceVersion, _ = strconv.Atoi(updatedHumioCluster.ResourceVersion)
 			Eventually(func() bool {
 				k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -954,8 +954,8 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			// TODO: Right now the service is not updated properly, so we delete it ourselves to make the operator recreate the service
 			// Wait for the new HumioCluster to finish any existing reconcile loop by waiting for the
-			// status.observedGeneration to equal that of the current resource version. This will avoid race conditions
-			// where the HumioCluster is updated and service is deleted mid-way through a reconcile.
+			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
+			// conditions where the HumioCluster is updated and service is deleted mid-way through a reconcile.
 			resourceVersion, _ = strconv.Atoi(updatedHumioCluster.ResourceVersion)
 			Eventually(func() bool {
 				k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -3261,9 +3261,6 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 		Expect(k8sClient.Create(ctx, authRoleBinding)).To(Succeed())
 	}
 
-	By("Creating HumioCluster resource")
-	Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
-
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
 		// Simulate sidecar creating the secret which contains the admin token use to authenticate with humio
 		secretData := map[string][]byte{"token": []byte("")}
@@ -3273,8 +3270,11 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 		Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
 	}
 
-	var updatedHumioCluster humiov1alpha1.HumioCluster
+	By("Creating HumioCluster resource")
+	Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
+
 	By("Confirming cluster enters running state")
+	var updatedHumioCluster humiov1alpha1.HumioCluster
 	Eventually(func() string {
 		k8sClient.Get(ctx, key, &updatedHumioCluster)
 		return updatedHumioCluster.Status.State
