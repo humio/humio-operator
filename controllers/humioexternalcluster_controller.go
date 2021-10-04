@@ -77,7 +77,7 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 	}
 
-	cluster, err := helpers.NewCluster(ctx, r, "", hec.Name, hec.Namespace, helpers.UseCertManager())
+	cluster, err := helpers.NewCluster(ctx, r, "", hec.Name, hec.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
 		return reconcile.Result{}, err
