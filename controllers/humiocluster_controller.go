@@ -351,8 +351,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 
-	clusterController := humio.NewClusterController(r.Log, r.HumioClient)
-	err = r.ensurePartitionsAreBalanced(*clusterController, hc)
+	err = r.ensurePartitionsAreBalanced(hc)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -1408,104 +1407,6 @@ func (r *HumioClusterReconciler) ensurePvcLabels(ctx context.Context, hc *humiov
 	return nil
 }
 
-func (r *HumioClusterReconciler) ensureInitialLicense(ctx context.Context, hc *humiov1alpha1.HumioCluster, baseURL *url.URL, req ctrl.Request) (reconcile.Result, error) {
-	r.Log.Info("ensuring initial license")
-
-	humioAPIConfig := &humioapi.Config{
-		Address: baseURL,
-	}
-
-	// Get CA
-	if helpers.TLSEnabled(hc) {
-		existingCABundle, err := kubernetes.GetSecret(ctx, r, constructClusterCACertificateBundle(hc).Spec.SecretName, hc.Namespace)
-		if errors.IsNotFound(err) {
-			r.Log.Info("waiting for secret with CA bundle")
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
-		}
-		if err != nil {
-			r.Log.Error(err, "unable to obtain CA certificate")
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
-		}
-		humioAPIConfig.CACertificatePEM = string(existingCABundle.Data["ca.crt"])
-	}
-	r.HumioClient.SetHumioClientConfig(humioAPIConfig, req)
-
-	// check current license
-	existingLicense, err := r.HumioClient.GetLicense()
-	if existingLicense != nil {
-		r.Log.Info(fmt.Sprintf("initial license already installed: %s, err: %s", existingLicense, err))
-		defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
-			licenseStatus := humiov1alpha1.HumioLicenseStatus{
-				Type:       existingLicense.LicenseType(),
-				Expiration: existingLicense.ExpiresAt(),
-			}
-			_ = r.setLicense(ctx, licenseStatus, hc)
-		}(ctx, hc)
-		return reconcile.Result{}, nil
-	}
-	if err != nil {
-		if !strings.Contains(err.Error(), "No license installed. Please contact Humio support.") {
-			// Treat this error as a warning and do not stop the reconcile loop
-			r.Log.Error(err, "unable to check if initial license is already installed")
-			return reconcile.Result{}, nil
-		}
-	}
-
-	// fetch license key
-	licenseSecretKeySelector := licenseSecretKeyRefOrDefault(hc)
-	if licenseSecretKeySelector == nil {
-		return reconcile.Result{}, fmt.Errorf("no license secret key selector provided")
-	}
-
-	var licenseErrorCount int
-	licenseSecret, err := kubernetes.GetSecret(ctx, r, licenseSecretKeySelector.Name, hc.Namespace)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			r.Log.Error(err, fmt.Sprintf("license was requested but no secret exists by name %s in namespace %s", licenseSecretKeySelector.Name, hc.Namespace))
-			licenseErrorCount++
-		}
-		r.Log.Error(err, fmt.Sprintf("unable to get secret with name %s in namespace %s", licenseSecretKeySelector.Name, hc.Namespace))
-		licenseErrorCount++
-	}
-	if _, ok := licenseSecret.Data[licenseSecretKeySelector.Key]; !ok {
-		r.Log.Error(err, fmt.Sprintf("license secret was found but it does not contain the key %s", licenseSecretKeySelector.Key))
-		licenseErrorCount++
-	}
-
-	if licenseErrorCount > 0 {
-		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
-		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
-			return reconcile.Result{}, err
-		}
-	} else {
-		if hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
-			if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc); err != nil {
-				r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning))
-				return reconcile.Result{}, err
-			}
-		}
-	}
-
-	licenseStr := string(licenseSecret.Data[licenseSecretKeySelector.Key])
-
-	desiredLicense, err := humio.ParseLicense(licenseStr)
-	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("license was supplied but could not be parsed %s", err))
-		return reconcile.Result{}, err
-	}
-
-	if err := r.HumioClient.InstallLicense(licenseStr); err != nil {
-		r.Log.Error(err, "could not install initial license")
-		return reconcile.Result{}, err
-	}
-
-	r.Log.Info(fmt.Sprintf("successfully installed initial license: type: %s, issued: %s, expires: %s",
-		desiredLicense.LicenseType(), desiredLicense.IssuedAt(), desiredLicense.ExpiresAt()))
-
-	return reconcile.Result{}, nil
-}
-
 func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("ensuring license is valid")
 
@@ -1535,86 +1436,69 @@ func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *h
 func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1alpha1.HumioCluster, req ctrl.Request) (reconcile.Result, error) {
 	r.Log.Info("ensuring license")
 
-	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager())
+	// Configure a Humio client without an API token which we can use to check the current license on the cluster
+	noLicense := humioapi.OnPremLicense{}
+	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), false)
 	if err != nil {
-		return r.ensureInitialLicense(ctx, hc, r.HumioClient.GetBaseURL(hc), req)
+		return reconcile.Result{}, err
 	}
 	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
 
-	var existingLicense humioapi.License
-	existingLicense, err = r.HumioClient.GetLicense()
+	existingLicense, err := r.HumioClient.GetLicense()
 	if err != nil {
-		r.Log.Info(fmt.Sprintf("failed to get license: %v", err))
+		return ctrl.Result{}, fmt.Errorf("failed to get license: %s", err)
 	}
 
 	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
 		if existingLicense != nil {
 			licenseStatus := humiov1alpha1.HumioLicenseStatus{
-				Type:       existingLicense.LicenseType(),
+				Type:       "onprem",
 				Expiration: existingLicense.ExpiresAt(),
 			}
 			_ = r.setLicense(ctx, licenseStatus, hc)
 		}
 	}(ctx, hc)
 
-	licenseSecretKeySelector := licenseSecretKeyRefOrDefault(hc)
-	if licenseSecretKeySelector == nil {
-		return reconcile.Result{}, fmt.Errorf("no license secret key selector provided")
-	}
-
-	var licenseErrorCount int
-	licenseSecret, err := kubernetes.GetSecret(ctx, r, licenseSecretKeySelector.Name, hc.Namespace)
+	licenseStr, err := r.getLicenseString(ctx, hc)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			r.Log.Error(err, fmt.Sprintf("license was requested but no secret exists by name %s in namespace %s", licenseSecretKeySelector.Name, hc.Namespace))
-			licenseErrorCount++
-		}
-		r.Log.Error(err, fmt.Sprintf("unable to get secret with name %s in namespace %s", licenseSecretKeySelector.Name, hc.Namespace))
-		licenseErrorCount++
-	}
-	if _, ok := licenseSecret.Data[licenseSecretKeySelector.Key]; !ok {
-		r.Log.Error(err, fmt.Sprintf("license secret was found but it does not contain the key %s", licenseSecretKeySelector.Key))
-		licenseErrorCount++
+		return reconcile.Result{}, err
 	}
 
-	if licenseErrorCount > 0 {
-		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
-		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
-			return reconcile.Result{}, err
-		}
-	} else {
-		if hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
-			if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc); err != nil {
-				r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning))
-				return reconcile.Result{}, err
-			}
-		}
-	}
-
-	licenseStr := string(licenseSecret.Data[licenseSecretKeySelector.Key])
-
+	// Confirm we can parse the license provided in the HumioCluster resource
 	desiredLicense, err := humio.ParseLicense(licenseStr)
 	if err != nil {
 		r.Log.Error(err, fmt.Sprintf("license was supplied but could not be parsed %s", err))
 		return reconcile.Result{}, err
 	}
 
-	if existingLicense == nil {
-		return r.ensureInitialLicense(ctx, hc, r.HumioClient.GetBaseURL(hc), req)
-	}
-
-	if existingLicense.LicenseType() != desiredLicense.LicenseType() ||
-		existingLicense.IssuedAt() != desiredLicense.IssuedAt() ||
-		existingLicense.ExpiresAt() != desiredLicense.ExpiresAt() {
-		r.Log.Info(fmt.Sprintf("updating license because of: existingLicense.LicenseType(%s) != desiredLicense.LicenseType(%s) || existingLicense.IssuedAt(%s) != desiredLicense.IssuedAt(%s) || existingLicense.ExpiresAt(%s) != desiredLicense.ExpiresAt(%s)", existingLicense.LicenseType(), desiredLicense.LicenseType(), existingLicense.IssuedAt(), desiredLicense.IssuedAt(), existingLicense.ExpiresAt(), desiredLicense.ExpiresAt()))
-		if err := r.HumioClient.InstallLicense(licenseStr); err != nil {
-			r.Log.Error(err, "could not install license")
-			return r.ensureInitialLicense(ctx, hc, r.HumioClient.GetBaseURL(hc), req)
+	// At this point we know a non-empty license has been returned by the Humio API,
+	// so we can continue to parse the license and issue a license update if needed.
+	if existingLicense == nil || existingLicense == noLicense {
+		if err = r.HumioClient.InstallLicense(licenseStr); err != nil {
+			r.Log.Error(err, "could not install initial license")
+			return reconcile.Result{}, err
 		}
 
-		r.Log.Info(fmt.Sprintf("successfully installed license: type: %s, issued: %s, expires: %s",
-			desiredLicense.LicenseType(), desiredLicense.IssuedAt(), desiredLicense.ExpiresAt()))
+		r.Log.Info(fmt.Sprintf("successfully installed initial license: issued: %s, expires: %s",
+			desiredLicense.IssuedAt(), desiredLicense.ExpiresAt()))
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	cluster, err = helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
+
+	if existingLicense.IssuedAt() != desiredLicense.IssuedAt() ||
+		existingLicense.ExpiresAt() != desiredLicense.ExpiresAt() {
+		r.Log.Info(fmt.Sprintf("updating license because of: existingLicense.IssuedAt(%s) != desiredLicense.IssuedAt(%s) || existingLicense.ExpiresAt(%s) != desiredLicense.ExpiresAt(%s)", existingLicense.IssuedAt(), desiredLicense.IssuedAt(), existingLicense.ExpiresAt(), desiredLicense.ExpiresAt()))
+		if err = r.HumioClient.InstallLicense(licenseStr); err != nil {
+			return reconcile.Result{}, fmt.Errorf("could not install license: %s", err)
+		}
+
+		r.Log.Info(fmt.Sprintf("successfully installed license: issued: %s, expires: %s",
+			desiredLicense.IssuedAt(), desiredLicense.ExpiresAt()))
 
 		// refresh the existing license for the status update
 		existingLicense, err = r.HumioClient.GetLicense()
@@ -1627,7 +1511,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	return reconcile.Result{}, nil
 }
 
-func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(humioClusterController humio.ClusterController, hc *humiov1alpha1.HumioCluster) error {
+func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(hc *humiov1alpha1.HumioCluster) error {
 	if !hc.Spec.AutoRebalancePartitions {
 		r.Log.Info("partition auto-rebalancing not enabled, skipping")
 		return nil
@@ -2266,4 +2150,43 @@ func (r *HumioClusterReconciler) pvcList(ctx context.Context, hc *humiov1alpha1.
 		return kubernetes.ListPersistentVolumeClaims(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	}
 	return []corev1.PersistentVolumeClaim{}, nil
+}
+
+func (r *HumioClusterReconciler) getLicenseString(ctx context.Context, hc *humiov1alpha1.HumioCluster) (string, error) {
+	licenseSecretKeySelector := licenseSecretKeyRefOrDefault(hc)
+	if licenseSecretKeySelector == nil {
+		return "", fmt.Errorf("no license secret key selector provided")
+	}
+
+	var licenseErrorCount int
+	licenseSecret, err := kubernetes.GetSecret(ctx, r, licenseSecretKeySelector.Name, hc.Namespace)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			r.Log.Error(err, fmt.Sprintf("license was requested but no secret exists by name %s in namespace %s", licenseSecretKeySelector.Name, hc.Namespace))
+			licenseErrorCount++
+		}
+		r.Log.Error(err, fmt.Sprintf("unable to get secret with name %s in namespace %s", licenseSecretKeySelector.Name, hc.Namespace))
+		licenseErrorCount++
+	}
+	if _, ok := licenseSecret.Data[licenseSecretKeySelector.Key]; !ok {
+		r.Log.Error(err, fmt.Sprintf("license secret was found but it does not contain the key %s", licenseSecretKeySelector.Key))
+		licenseErrorCount++
+	}
+
+	if licenseErrorCount > 0 {
+		err = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		if err != nil {
+			r.Log.Error(err, "unable to set cluster state")
+			return "", err
+		}
+	} else {
+		if hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
+			if err = r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc); err != nil {
+				r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning))
+				return "", err
+			}
+		}
+	}
+
+	return string(licenseSecret.Data[licenseSecretKeySelector.Key]), nil
 }
