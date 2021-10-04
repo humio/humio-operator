@@ -78,7 +78,7 @@ func validCAIssuer(ctx context.Context, k8sclient client.Client, namespace, issu
 	issuer := &cmapi.Issuer{}
 	err := k8sclient.Get(ctx, types.NamespacedName{Name: issuerName, Namespace: namespace}, issuer)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 
 	for _, c := range issuer.Status.Conditions {
