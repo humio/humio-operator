@@ -886,11 +886,11 @@ var _ = Describe("HumioCluster Controller", func() {
 			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
 			// conditions where the HumioCluster is updated and service is deleted mid-way through a reconcile.
 			resourceVersion, _ := strconv.Atoi(updatedHumioCluster.ResourceVersion)
-			Eventually(func() bool {
+			Eventually(func() int {
 				k8sClient.Get(ctx, key, &updatedHumioCluster)
 				observedGeneration, _ := strconv.Atoi(updatedHumioCluster.Status.ObservedGeneration)
-				return observedGeneration > resourceVersion
-			}, testTimeout, testInterval).Should(BeTrue())
+				return observedGeneration
+			}, testTimeout, testInterval).Should(BeNumerically(">", resourceVersion))
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
 
 			By("Confirming we can see the updated HumioCluster object")
@@ -922,11 +922,11 @@ var _ = Describe("HumioCluster Controller", func() {
 			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
 			// conditions where the HumioCluster is updated and service is deleted mid-way through a reconcile.
 			resourceVersion, _ = strconv.Atoi(updatedHumioCluster.ResourceVersion)
-			Eventually(func() bool {
+			Eventually(func() int {
 				k8sClient.Get(ctx, key, &updatedHumioCluster)
 				observedGeneration, _ := strconv.Atoi(updatedHumioCluster.Status.ObservedGeneration)
-				return observedGeneration > resourceVersion
-			}, testTimeout, testInterval).Should(BeTrue())
+				return observedGeneration
+			}, testTimeout, testInterval).Should(BeNumerically(">", resourceVersion))
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
 
 			By("Confirming service gets recreated with correct Humio port")
@@ -957,11 +957,11 @@ var _ = Describe("HumioCluster Controller", func() {
 			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
 			// conditions where the HumioCluster is updated and service is deleted mid-way through a reconcile.
 			resourceVersion, _ = strconv.Atoi(updatedHumioCluster.ResourceVersion)
-			Eventually(func() bool {
+			Eventually(func() int {
 				k8sClient.Get(ctx, key, &updatedHumioCluster)
 				observedGeneration, _ := strconv.Atoi(updatedHumioCluster.Status.ObservedGeneration)
-				return observedGeneration > resourceVersion
-			}, testTimeout, testInterval).Should(BeTrue())
+				return observedGeneration
+			}, testTimeout, testInterval).Should(BeNumerically(">", resourceVersion))
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
 
 			By("Confirming service gets recreated with correct ES port")
@@ -3518,11 +3518,11 @@ func ensurePodsRollingRestart(ctx context.Context, hc *humiov1alpha1.HumioCluste
 	By("Ensuring replacement pods are ready one at a time")
 	var updatedHumioCluster humiov1alpha1.HumioCluster
 	resourceVersion, _ := strconv.Atoi(updatedHumioCluster.ResourceVersion)
-	Eventually(func() bool {
+	Eventually(func() int {
 		k8sClient.Get(ctx, key, &updatedHumioCluster)
 		observedGeneration, _ := strconv.Atoi(updatedHumioCluster.Status.ObservedGeneration)
-		return observedGeneration >= resourceVersion
-	}, testTimeout, testInterval).Should(BeTrue())
+		return observedGeneration
+	}, testTimeout, testInterval).Should(BeNumerically(">=", resourceVersion))
 
 	for expectedReadyCount := 1; expectedReadyCount < *hc.Spec.NodeCount+1; expectedReadyCount++ {
 		Eventually(func() int {
@@ -3545,6 +3545,14 @@ func ensurePodsTerminate(ctx context.Context, key types.NamespacedName, expected
 }
 
 func ensurePodsSimultaneousRestart(ctx context.Context, hc *humiov1alpha1.HumioCluster, key types.NamespacedName, expectedPodRevision int) {
+	var updatedHumioCluster humiov1alpha1.HumioCluster
+	resourceVersion, _ := strconv.Atoi(updatedHumioCluster.ResourceVersion)
+	Eventually(func() int {
+		k8sClient.Get(ctx, key, &updatedHumioCluster)
+		observedGeneration, _ := strconv.Atoi(updatedHumioCluster.Status.ObservedGeneration)
+		return observedGeneration
+	}, testTimeout, testInterval).Should(BeNumerically(">=", resourceVersion))
+
 	ensurePodsTerminate(ctx, key, expectedPodRevision)
 
 	By("Ensuring all pods come back up after terminating")
