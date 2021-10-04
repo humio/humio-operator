@@ -175,7 +175,7 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 
 			cl := fake.NewFakeClient(objs...)
 
-			cluster, err := NewCluster(context.Background(), cl, tt.managedHumioCluster.Name, "", tt.managedHumioCluster.Namespace, tt.certManagerEnabled)
+			cluster, err := NewCluster(context.Background(), cl, tt.managedHumioCluster.Name, "", tt.managedHumioCluster.Namespace, tt.certManagerEnabled, true)
 			if err != nil || cluster.Config() == nil {
 				t.Errorf("unable to obtain humio client config: %s", err)
 			}
@@ -372,7 +372,7 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 
 			cl := fake.NewFakeClient(objs...)
 
-			cluster, err := NewCluster(context.Background(), cl, "", tt.externalHumioCluster.Name, tt.externalHumioCluster.Namespace, false)
+			cluster, err := NewCluster(context.Background(), cl, "", tt.externalHumioCluster.Name, tt.externalHumioCluster.Namespace, false, true)
 			if tt.expectedConfigFailure && (err == nil) {
 				t.Errorf("unable to get a valid config: %s", err)
 			}
@@ -499,7 +499,7 @@ func TestCluster_NewCluster(t *testing.T) {
 
 			cl := fake.NewFakeClient(objs...)
 
-			_, err := NewCluster(context.Background(), cl, tt.managedClusterName, tt.externalClusterName, tt.namespace, false)
+			_, err := NewCluster(context.Background(), cl, tt.managedClusterName, tt.externalClusterName, tt.namespace, false, true)
 			if tt.expectError == (err == nil) {
 				t.Fatalf("expectError: %+v but got=%+v", tt.expectError, err)
 			}
