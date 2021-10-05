@@ -31,6 +31,7 @@ func (r *HumioClusterReconciler) getPodsStatus(hc *humiov1alpha1.HumioCluster, f
 		notReadyCount:       len(foundPodList),
 		expectedRunningPods: nodeCountOrDefault(hc),
 	}
+	var podsReady, podsNotReady []string
 	for _, pod := range foundPodList {
 		podRevisionStr := pod.Annotations[podRevisionAnnotation]
 		if podRevision, err := strconv.Atoi(podRevisionStr); err == nil {
@@ -47,11 +48,11 @@ func (r *HumioClusterReconciler) getPodsStatus(hc *humiov1alpha1.HumioCluster, f
 			for _, condition := range pod.Status.Conditions {
 				if condition.Type == corev1.PodReady {
 					if condition.Status == corev1.ConditionTrue {
-						r.Log.Info(fmt.Sprintf("pod %s is ready", pod.Name))
+						podsReady = append(podsReady, pod.Name)
 						status.readyCount++
 						status.notReadyCount--
 					} else {
-						r.Log.Info(fmt.Sprintf("pod %s is not ready", pod.Name))
+						podsNotReady = append(podsNotReady, pod.Name)
 						for _, containerStatus := range pod.Status.ContainerStatuses {
 							if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason != containerStateCreating && containerStatus.State.Waiting.Reason != podInitializing {
 								r.Log.Info(fmt.Sprintf("pod %s has errors, container state: Waiting, reason: %s", pod.Name, containerStatus.State.Waiting.Reason))
@@ -67,6 +68,8 @@ func (r *HumioClusterReconciler) getPodsStatus(hc *humiov1alpha1.HumioCluster, f
 			}
 		}
 	}
+	r.Log.Info(fmt.Sprintf("pod status readyCount=%d notReadyCount=%d podsReady=%s podsNotReady=%s", status.readyCount, status.notReadyCount, podsReady, podsNotReady))
+	// collect ready pods and not ready pods in separate lists and just print the lists here instead of a log entry per host
 	return &status, nil
 }
 
