@@ -1432,8 +1432,9 @@ func (r *HumioClusterReconciler) ensureInitialLicense(ctx context.Context, hc *h
 	}
 	if err != nil {
 		if !strings.Contains(err.Error(), "No license installed. Please contact Humio support.") {
+			// Treat this error as a warning and do not stop the reconcile loop
 			r.Log.Error(err, "unable to check if initial license is already installed")
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
+			return reconcile.Result{}, nil
 		}
 	}
 
