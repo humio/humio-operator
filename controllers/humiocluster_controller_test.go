@@ -3533,7 +3533,6 @@ func podReadyCount(ctx context.Context, key types.NamespacedName, expectedPodRev
 
 func ensurePodsRollingRestart(ctx context.Context, hc *humiov1alpha1.HumioCluster, key types.NamespacedName, expectedPodRevision int) {
 	By("Ensuring replacement pods are ready one at a time")
-	waitForReconcileToSync(ctx, key, k8sClient, nil)
 	for expectedReadyCount := 1; expectedReadyCount < *hc.Spec.NodeCount+1; expectedReadyCount++ {
 		Eventually(func() int {
 			return podReadyCount(ctx, key, expectedPodRevision, expectedReadyCount)
@@ -3555,7 +3554,6 @@ func ensurePodsTerminate(ctx context.Context, key types.NamespacedName, expected
 }
 
 func ensurePodsSimultaneousRestart(ctx context.Context, hc *humiov1alpha1.HumioCluster, key types.NamespacedName, expectedPodRevision int) {
-	waitForReconcileToSync(ctx, key, k8sClient, nil)
 	ensurePodsTerminate(ctx, key, expectedPodRevision)
 
 	By("Ensuring all pods come back up after terminating")

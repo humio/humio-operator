@@ -335,6 +335,12 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	if podsStatus.waitingOnPods() {
 		r.Log.Info("waiting on pods, refusing to continue with reconciliation until all pods are ready")
+		r.Log.Info(fmt.Sprintf("cluster state is %s. waitingOnPods=%v, "+
+			"revisionsInSync=%v, podRevisisons=%v, podDeletionTimestampSet=%v, podNames=%v, expectedRunningPods=%v, "+
+			"podsReady=%v, podsNotReady=%v",
+			hc.Status.State, podsStatus.waitingOnPods(), podsStatus.podRevisionsInSync(),
+			podsStatus.podRevisions, podsStatus.podDeletionTimestampSet, podsStatus.podNames,
+			podsStatus.expectedRunningPods, podsStatus.readyCount, podsStatus.notReadyCount))
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 
