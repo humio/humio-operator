@@ -89,6 +89,10 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	setDefaults(hc)
 	emptyResult := reconcile.Result{}
 
+	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
+		_ = r.setObservedGeneration(ctx, hc)
+	}(ctx, r.HumioClient, hc)
+
 	if err := r.setImageFromSource(context.TODO(), hc); err != nil {
 		r.Log.Error(err, "could not get imageSource")
 		errState := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
@@ -294,16 +298,12 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}(ctx, hc)
 
 	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
-		_ = r.getLatestHumioCluster(ctx, hc)
-
 		status, err := humioClient.Status()
 		if err != nil {
 			r.Log.Error(err, "unable to get cluster status")
 		}
 		_ = r.setVersion(ctx, status.Version, hc)
 		_ = r.setPod(ctx, hc)
-		_ = r.setObservedGeneration(ctx, hc)
-
 	}(ctx, r.HumioClient, hc)
 
 	err = r.ensureLabels(ctx, hc)

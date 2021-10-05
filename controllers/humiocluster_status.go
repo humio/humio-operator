@@ -46,6 +46,7 @@ func (r *HumioClusterReconciler) setState(ctx context.Context, state string, hc 
 		return nil
 	}
 	r.Log.Info(fmt.Sprintf("setting cluster state to %s", state))
+	// TODO: fix the logic in ensureMismatchedPodsAreDeleted() to allow it to work without doing setStateOptimistically().
 	if err := r.setStateOptimistically(ctx, state, hc); err != nil {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			err := r.getLatestHumioCluster(ctx, hc)
@@ -189,6 +190,7 @@ func (r *HumioClusterReconciler) setObservedGeneration(ctx context.Context, hc *
 	if hc.Status.ObservedGeneration == hc.ResourceVersion {
 		return nil
 	}
+
 	r.Log.Info(fmt.Sprintf("setting ObservedGeneration to %s", hc.ResourceVersion))
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		err := r.getLatestHumioCluster(ctx, hc)
