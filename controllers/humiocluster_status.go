@@ -22,6 +22,10 @@ import (
 	"reflect"
 	"strconv"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
+	"k8s.io/client-go/util/retry"
+
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,6 +46,30 @@ func (r *HumioClusterReconciler) setState(ctx context.Context, state string, hc 
 		return nil
 	}
 	r.Log.Info(fmt.Sprintf("setting cluster state to %s", state))
+	// TODO: fix the logic in ensureMismatchedPodsAreDeleted() to allow it to work without doing setStateOptimistically().
+	if err := r.setStateOptimistically(ctx, state, hc); err != nil {
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			err := r.getLatestHumioCluster(ctx, hc)
+			if err != nil {
+				if !errors.IsNotFound(err) {
+					return err
+				}
+			}
+			hc.Status.State = state
+			return r.Status().Update(ctx, hc)
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update resource status: %w", err)
+		}
+	}
+	return nil
+}
+
+// setStateOptimistically will attempt to set the state without fetching the latest HumioCluster
+func (r *HumioClusterReconciler) setStateOptimistically(ctx context.Context, state string, hc *humiov1alpha1.HumioCluster) error {
+	if hc.Status.State == state {
+		return nil
+	}
 	hc.Status.State = state
 	return r.Status().Update(ctx, hc)
 }
@@ -54,8 +82,18 @@ func (r *HumioClusterReconciler) setVersion(ctx context.Context, version string,
 		version = "Unknown"
 	}
 	r.Log.Info(fmt.Sprintf("setting cluster version to %s", version))
-	hc.Status.Version = version
-	return r.Status().Update(ctx, hc)
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := r.getLatestHumioCluster(ctx, hc)
+		if err != nil {
+			return err
+		}
+		hc.Status.Version = version
+		return r.Status().Update(ctx, hc)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update resource status: %w", err)
+	}
+	return nil
 }
 
 func (r *HumioClusterReconciler) setLicense(ctx context.Context, licenseStatus humiov1alpha1.HumioLicenseStatus, hc *humiov1alpha1.HumioCluster) error {
@@ -63,8 +101,18 @@ func (r *HumioClusterReconciler) setLicense(ctx context.Context, licenseStatus h
 		return nil
 	}
 	r.Log.Info(fmt.Sprintf("setting cluster license status to %v", licenseStatus))
-	hc.Status.LicenseStatus = licenseStatus
-	return r.Status().Update(ctx, hc)
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := r.getLatestHumioCluster(ctx, hc)
+		if err != nil {
+			return err
+		}
+		hc.Status.LicenseStatus = licenseStatus
+		return r.Status().Update(ctx, hc)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update resource status: %w", err)
+	}
+	return nil
 }
 
 func (r *HumioClusterReconciler) setNodeCount(ctx context.Context, nodeCount int, hc *humiov1alpha1.HumioCluster) error {
@@ -72,8 +120,18 @@ func (r *HumioClusterReconciler) setNodeCount(ctx context.Context, nodeCount int
 		return nil
 	}
 	r.Log.Info(fmt.Sprintf("setting cluster node count to %d", nodeCount))
-	hc.Status.NodeCount = nodeCount
-	return r.Status().Update(ctx, hc)
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := r.getLatestHumioCluster(ctx, hc)
+		if err != nil {
+			return err
+		}
+		hc.Status.NodeCount = nodeCount
+		return r.Status().Update(ctx, hc)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update resource status: %w", err)
+	}
+	return nil
 }
 
 func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
@@ -84,7 +142,7 @@ func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.H
 		return err
 	}
 
-	hc.Status.PodStatus = []humiov1alpha1.HumioPodStatus{}
+	podStatusList := []humiov1alpha1.HumioPodStatus{}
 	for _, pod := range pods {
 		podStatus := humiov1alpha1.HumioPodStatus{
 			PodName: pod.Name,
@@ -111,8 +169,39 @@ func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.H
 				}
 			}
 		}
-		hc.Status.PodStatus = append(hc.Status.PodStatus, podStatus)
+		podStatusList = append(podStatusList, podStatus)
 	}
 
-	return r.Status().Update(ctx, hc)
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := r.getLatestHumioCluster(ctx, hc)
+		if err != nil {
+			return err
+		}
+		hc.Status.PodStatus = podStatusList
+		return r.Status().Update(ctx, hc)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update resource status: %w", err)
+	}
+	return nil
+}
+
+func (r *HumioClusterReconciler) setObservedGeneration(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	if hc.Status.ObservedGeneration == hc.ResourceVersion {
+		return nil
+	}
+
+	r.Log.Info(fmt.Sprintf("setting ObservedGeneration to %s", hc.ResourceVersion))
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := r.getLatestHumioCluster(ctx, hc)
+		if err != nil {
+			return err
+		}
+		hc.Status.ObservedGeneration = hc.ResourceVersion
+		return r.Status().Update(ctx, hc)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update resource status: %w", err)
+	}
+	return nil
 }

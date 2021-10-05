@@ -6494,6 +6494,10 @@ spec:
               nodeCount:
                 description: NodeCount is the number of nodes of humio running
                 type: integer
+              observedGeneration:
+                description: ObservedGeneration shows the ResourceVersion of the HumioCluster
+                  which was last observed
+                type: string
               podStatus:
                 description: PodStatus shows the status of individual humio pods
                 items:

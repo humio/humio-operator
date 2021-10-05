@@ -21,6 +21,10 @@ import (
 	"fmt"
 	"strconv"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
+	"k8s.io/client-go/util/retry"
+
 	corev1 "k8s.io/api/core/v1"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -44,11 +48,17 @@ func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Co
 	}
 	newRevision++
 	r.Log.Info(fmt.Sprintf("setting cluster pod revision to %d", newRevision))
-	hc.Annotations[podRevisionAnnotation] = strconv.Itoa(newRevision)
-
-	r.setRestartPolicy(hc, restartPolicy)
-
-	err = r.Update(ctx, hc)
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := r.getLatestHumioCluster(ctx, hc)
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return err
+			}
+		}
+		hc.Annotations[podRevisionAnnotation] = strconv.Itoa(newRevision)
+		r.setRestartPolicy(hc, restartPolicy)
+		return r.Update(ctx, hc)
+	})
 	if err != nil {
 		return -1, fmt.Errorf("unable to set annotation %s on HumioCluster: %s", podRevisionAnnotation, err)
 	}
