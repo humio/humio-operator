@@ -7,7 +7,7 @@ spec:
     secretKeyRef:
       name: example-humiocluster-license
       key: data
-  image: "humio/humio-core:1.28.0"
+  image: "humio/humio-core:1.30.1"
   targetReplicationFactor: 2
   storagePartitionsCount: 24
   digestPartitionsCount: 24
