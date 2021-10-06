@@ -1338,6 +1338,7 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1al
 		return err
 	}
 
+	r.Log.Info(fmt.Sprintf("cluster node details: %#+v", cluster.Nodes))
 	for idx, pod := range foundPodList {
 		// Skip pods that already have a label. Check that the pvc also has the label if applicable
 		if kubernetes.LabelListContainsLabel(pod.GetLabels(), kubernetes.NodeIdLabelName) {
@@ -1355,7 +1356,6 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1al
 			r.Log.Info(fmt.Sprintf("not setting labels for pod %s because it is in state %s", pod.Name, pod.Status.Phase))
 			continue
 		}
-		r.Log.Info(fmt.Sprintf("setting labels for nodes: %#+v", cluster.Nodes))
 		for _, node := range cluster.Nodes {
 			if node.Uri == fmt.Sprintf("http://%s:%d", pod.Status.PodIP, humioPort) {
 				labels := kubernetes.LabelsForHumioNodeID(hc.Name, node.Id)
