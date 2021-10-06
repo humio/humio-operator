@@ -258,14 +258,14 @@ func containerReadinessProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Pr
 		return &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path:   "/api/v1/status",
+					Path:   "/api/v1/is-node-up",
 					Port:   intstr.IntOrString{IntVal: humioPort},
 					Scheme: getProbeScheme(hc),
 				},
 			},
 			InitialDelaySeconds: 30,
 			PeriodSeconds:       5,
-			TimeoutSeconds:      2,
+			TimeoutSeconds:      5,
 			SuccessThreshold:    1,
 			FailureThreshold:    10,
 		}
@@ -283,14 +283,14 @@ func containerLivenessProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Pro
 		return &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path:   "/api/v1/status",
+					Path:   "/api/v1/is-node-up",
 					Port:   intstr.IntOrString{IntVal: humioPort},
 					Scheme: getProbeScheme(hc),
 				},
 			},
 			InitialDelaySeconds: 30,
 			PeriodSeconds:       5,
-			TimeoutSeconds:      2,
+			TimeoutSeconds:      5,
 			SuccessThreshold:    1,
 			FailureThreshold:    10,
 		}
@@ -308,13 +308,13 @@ func containerStartupProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Prob
 		return &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path:   "/api/v1/config",
+					Path:   "/api/v1/is-node-up",
 					Port:   intstr.IntOrString{IntVal: humioPort},
 					Scheme: getProbeScheme(hc),
 				},
 			},
 			PeriodSeconds:    10,
-			TimeoutSeconds:   2,
+			TimeoutSeconds:   5,
 			SuccessThreshold: 1,
 			FailureThreshold: 30,
 		}
