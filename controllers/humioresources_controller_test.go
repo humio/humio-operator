@@ -1593,7 +1593,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			By("HumioAction: HumioRepositoryProperties: Should support referencing secrets")
 			key = types.NamespacedName{
-				Name:      "humio-repository-action",
+				Name:      "humio-repository-action-secret",
 				Namespace: "default",
 			}
 
@@ -1604,7 +1604,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: "humiocluster-shared",
-					Name:               "example-repository-action",
+					Name:               key.Name,
 					ViewName:           "humio",
 					HumioRepositoryProperties: &humiov1alpha1.HumioActionRepositoryProperties{
 						IngestTokenSource: humiov1alpha1.VarSource{
@@ -1649,7 +1649,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			By("HumioAction: OpsGenieProperties: Should support referencing secrets")
 			key = types.NamespacedName{
-				Name:      "genie-action",
+				Name:      "genie-action-secret",
 				Namespace: "default",
 			}
 
@@ -1660,7 +1660,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: "humiocluster-shared",
-					Name:               "example-genie-action",
+					Name:               key.Name,
 					ViewName:           "humio",
 					OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
 						GenieKeySource: humiov1alpha1.VarSource{
@@ -1705,7 +1705,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			By("HumioAction: OpsGenieProperties: Should support direct genie key")
 			key = types.NamespacedName{
-				Name:      "genie-action",
+				Name:      "genie-action-direct",
 				Namespace: "default",
 			}
 
@@ -1716,7 +1716,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: "humiocluster-shared",
-					Name:               "example-genie-action",
+					Name:               key.Name,
 					ViewName:           "humio",
 					OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
 						GenieKey: "direct-token",
@@ -1743,7 +1743,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			By("HumioAction: SlackPostMessageProperties: Should support referencing secrets")
 			key = types.NamespacedName{
-				Name:      "humio-slack-post-message-action",
+				Name:      "humio-slack-post-message-action-secret",
 				Namespace: "default",
 			}
 
@@ -1754,7 +1754,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: "humiocluster-shared",
-					Name:               "example-slack-post-message-action",
+					Name:               key.Name,
 					ViewName:           "humio",
 					SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
 						ApiTokenSource: humiov1alpha1.VarSource{
@@ -1803,7 +1803,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			By("HumioAction: SlackPostMessageProperties: Should support direct api token")
 			key = types.NamespacedName{
-				Name:      "humio-slack-post-message-action",
+				Name:      "humio-slack-post-message-action-direct",
 				Namespace: "default",
 			}
 
@@ -1814,7 +1814,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: "humiocluster-shared",
-					Name:               "example-slack-post-message-action",
+					Name:               key.Name,
 					ViewName:           "humio",
 					SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
 						ApiToken: "direct-token",
