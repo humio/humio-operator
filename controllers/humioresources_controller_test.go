@@ -1610,7 +1610,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 						IngestTokenSource: humiov1alpha1.VarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
 								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "humio-secret",
+									Name: "action-humio-repository-secret",
 								},
 								Key: "key",
 							},
@@ -1621,7 +1621,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "humio-secret",
+					Name:      "action-humio-repository-secret",
 					Namespace: "default",
 				},
 				Data: map[string][]byte{
@@ -1666,7 +1666,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 						GenieKeySource: humiov1alpha1.VarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
 								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "genie-secret",
+									Name: "action-genie-secret",
 								},
 								Key: "key",
 							},
@@ -1677,7 +1677,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			secret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "genie-secret",
+					Name:      "action-genie-secret",
 					Namespace: "default",
 				},
 				Data: map[string][]byte{
@@ -1760,7 +1760,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 						ApiTokenSource: humiov1alpha1.VarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
 								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "secret",
+									Name: "action-slack-post-secret",
 								},
 								Key: "key",
 							},
@@ -1775,7 +1775,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			secret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "secret",
+					Name:      "action-slack-post-secret",
 					Namespace: "default",
 				},
 				Data: map[string][]byte{
