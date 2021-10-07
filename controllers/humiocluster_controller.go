@@ -29,7 +29,7 @@ import (
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	"github.com/humio/humio-operator/pkg/openshift"
-	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1beta1"
+	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
