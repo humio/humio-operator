@@ -38,6 +38,7 @@ type HumioExternalClusterReconciler struct {
 	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
+	Namespace   string
 }
 
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioexternalclusters,verbs=get;list;watch;create;update;patch;delete
@@ -45,6 +46,12 @@ type HumioExternalClusterReconciler struct {
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioexternalclusters/finalizers,verbs=update
 
 func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	if r.Namespace != "" {
+		if r.Namespace != req.Namespace {
+			return reconcile.Result{}, nil
+		}
+	}
+
 	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
 	r.Log.Info("Reconciling HumioExternalCluster")
 
