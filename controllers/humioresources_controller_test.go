@@ -1594,7 +1594,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("HumioAction: HumioRepositoryProperties: Should support referencing secrets")
 			key = types.NamespacedName{
 				Name:      "humio-repository-action-secret",
-				Namespace: "default",
+				Namespace: clusterKey.Namespace,
 			}
 
 			toCreateAction = &humiov1alpha1.HumioAction{
@@ -1622,7 +1622,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "action-humio-repository-secret",
-					Namespace: "default",
+					Namespace: clusterKey.Namespace,
 				},
 				Data: map[string][]byte{
 					"key": []byte("secret-token"),
@@ -1650,7 +1650,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("HumioAction: OpsGenieProperties: Should support referencing secrets")
 			key = types.NamespacedName{
 				Name:      "genie-action-secret",
-				Namespace: "default",
+				Namespace: clusterKey.Namespace,
 			}
 
 			toCreateAction = &humiov1alpha1.HumioAction{
@@ -1678,7 +1678,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			secret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "action-genie-secret",
-					Namespace: "default",
+					Namespace: clusterKey.Namespace,
 				},
 				Data: map[string][]byte{
 					"key": []byte("secret-token"),
@@ -1706,7 +1706,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("HumioAction: OpsGenieProperties: Should support direct genie key")
 			key = types.NamespacedName{
 				Name:      "genie-action-direct",
-				Namespace: "default",
+				Namespace: clusterKey.Namespace,
 			}
 
 			toCreateAction = &humiov1alpha1.HumioAction{
@@ -1744,7 +1744,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("HumioAction: SlackPostMessageProperties: Should support referencing secrets")
 			key = types.NamespacedName{
 				Name:      "humio-slack-post-message-action-secret",
-				Namespace: "default",
+				Namespace: clusterKey.Namespace,
 			}
 
 			toCreateAction = &humiov1alpha1.HumioAction{
@@ -1776,7 +1776,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			secret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "action-slack-post-secret",
-					Namespace: "default",
+					Namespace: clusterKey.Namespace,
 				},
 				Data: map[string][]byte{
 					"key": []byte("secret-token"),
@@ -1804,7 +1804,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("HumioAction: SlackPostMessageProperties: Should support direct api token")
 			key = types.NamespacedName{
 				Name:      "humio-slack-post-message-action-direct",
-				Namespace: "default",
+				Namespace: clusterKey.Namespace,
 			}
 
 			toCreateAction = &humiov1alpha1.HumioAction{
