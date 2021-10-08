@@ -87,7 +87,7 @@ var _ = BeforeSuite(func() {
 	useExistingCluster := true
 	testProcessID = fmt.Sprintf("e2e-%s", kubernetes.RandomString())
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-		testTimeout = time.Second * 300
+		testTimeout = time.Second * 450
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &useExistingCluster,
 		}
