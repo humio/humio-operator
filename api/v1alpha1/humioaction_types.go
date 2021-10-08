@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -48,14 +49,16 @@ type HumioActionEmailProperties struct {
 
 // HumioActionRepositoryProperties defines the desired state of HumioActionRepositoryProperties
 type HumioActionRepositoryProperties struct {
-	IngestToken string `json:"ingestToken,omitempty"`
+	IngestToken       string    `json:"ingestToken,omitempty"`
+	IngestTokenSource VarSource `json:"ingestTokenSource,omitempty"`
 }
 
 // HumioActionOpsGenieProperties defines the desired state of HumioActionOpsGenieProperties
 type HumioActionOpsGenieProperties struct {
-	ApiUrl   string `json:"apiUrl,omitempty"`
-	GenieKey string `json:"genieKey,omitempty"`
-	UseProxy bool   `json:"useProxy,omitempty"`
+	ApiUrl         string    `json:"apiUrl,omitempty"`
+	GenieKey       string    `json:"genieKey,omitempty"`
+	GenieKeySource VarSource `json:"genieKeySource,omitempty"`
+	UseProxy       bool      `json:"useProxy,omitempty"`
 }
 
 // HumioActionPagerDutyProperties defines the desired state of HumioActionPagerDutyProperties
@@ -72,10 +75,15 @@ type HumioActionSlackProperties struct {
 
 // HumioActionSlackPostMessageProperties defines the desired state of HumioActionSlackPostMessageProperties
 type HumioActionSlackPostMessageProperties struct {
-	ApiToken string            `json:"apiToken,omitempty"`
-	Channels []string          `json:"channels,omitempty"`
-	Fields   map[string]string `json:"fields,omitempty"`
-	UseProxy bool              `json:"useProxy,omitempty"`
+	ApiToken       string            `json:"apiToken,omitempty"`
+	ApiTokenSource VarSource         `json:"apiTokenSource,omitempty"`
+	Channels       []string          `json:"channels,omitempty"`
+	Fields         map[string]string `json:"fields,omitempty"`
+	UseProxy       bool              `json:"useProxy,omitempty"`
+}
+
+type VarSource struct {
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 // HumioActionVictorOpsProperties defines the desired state of HumioActionVictorOpsProperties
