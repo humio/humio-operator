@@ -961,10 +961,6 @@ func (r *HumioClusterReconciler) getRestartPolicyFromPodInspection(pod, desiredP
 		return PodRestartPolicyRecreate, nil
 	}
 
-	if podHasTLSEnabled(pod) != podHasTLSEnabled(desiredPod) {
-		return PodRestartPolicyRecreate, nil
-	}
-
 	if envVarValue(pod.Spec.Containers[humioContainerIdx].Env, "EXTERNAL_URL") != envVarValue(desiredPod.Spec.Containers[desiredHumioContainerIdx].Env, "EXTERNAL_URL") {
 		return PodRestartPolicyRecreate, nil
 	}
@@ -1003,17 +999,6 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hc *humiov1alpha1.H
 		}
 	}
 	return podLifecycleState{}, nil
-}
-
-func podHasTLSEnabled(pod corev1.Pod) bool {
-	// TODO: perhaps we need to add a couple more checks to validate TLS is fully enabled
-	podConfiguredWithTLS := false
-	for _, vol := range pod.Spec.Volumes {
-		if vol.Name == "tls-cert" {
-			podConfiguredWithTLS = true
-		}
-	}
-	return podConfiguredWithTLS
 }
 
 func findHumioNodeName(ctx context.Context, c client.Client, hc *humiov1alpha1.HumioCluster) (string, error) {
