@@ -35,7 +35,7 @@ type ClusterInterface interface {
 	Url(context.Context, client.Client) (*url.URL, error)
 	Name() string
 	Config() *humioapi.Config
-	constructHumioConfig(context.Context, client.Client) (*humioapi.Config, error)
+	constructHumioConfig(context.Context, client.Client, bool) (*humioapi.Config, error)
 }
 
 type Cluster struct {
@@ -43,10 +43,11 @@ type Cluster struct {
 	externalClusterName string
 	namespace           string
 	certManagerEnabled  bool
+	withAPIToken        bool
 	humioConfig         *humioapi.Config
 }
 
-func NewCluster(ctx context.Context, k8sClient client.Client, managedClusterName, externalClusterName, namespace string, certManagerEnabled bool) (ClusterInterface, error) {
+func NewCluster(ctx context.Context, k8sClient client.Client, managedClusterName, externalClusterName, namespace string, certManagerEnabled bool, withAPIToken bool) (ClusterInterface, error) {
 	// Return error immediately if we do not have exactly one of the cluster names configured
 	if managedClusterName != "" && externalClusterName != "" {
 		return Cluster{}, fmt.Errorf("cannot have both ManagedClusterName and ExternalClusterName set at the same time")
@@ -62,9 +63,10 @@ func NewCluster(ctx context.Context, k8sClient client.Client, managedClusterName
 		managedClusterName:  managedClusterName,
 		namespace:           namespace,
 		certManagerEnabled:  certManagerEnabled,
+		withAPIToken:        withAPIToken,
 	}
 
-	humioConfig, err := cluster.constructHumioConfig(ctx, k8sClient)
+	humioConfig, err := cluster.constructHumioConfig(ctx, k8sClient, withAPIToken)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +131,7 @@ func (c Cluster) Config() *humioapi.Config {
 }
 
 // constructHumioConfig returns a config to use with Humio API client with the necessary CA and API token.
-func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Client) (*humioapi.Config, error) {
+func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Client, withAPIToken bool) (*humioapi.Config, error) {
 	if c.managedClusterName != "" {
 		// Lookup ManagedHumioCluster resource to figure out if we expect to use TLS or not
 		var humioManagedCluster humiov1alpha1.HumioCluster
@@ -147,30 +149,27 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 			return nil, err
 		}
 
-		// Get API token
+		config := &humioapi.Config{
+			Address: clusterURL,
+		}
+
 		var apiToken corev1.Secret
-		err = k8sClient.Get(ctx, types.NamespacedName{
-			Namespace: c.namespace,
-			Name:      fmt.Sprintf("%s-%s", c.managedClusterName, kubernetes.ServiceTokenSecretNameSuffix),
-		}, &apiToken)
-		if err != nil {
-			return nil, fmt.Errorf("unable to get secret containing api token: %s", err)
+		if withAPIToken {
+			// Get API token
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Namespace: c.namespace,
+				Name:      fmt.Sprintf("%s-%s", c.managedClusterName, kubernetes.ServiceTokenSecretNameSuffix),
+			}, &apiToken)
+			if err != nil {
+				return nil, fmt.Errorf("unable to get secret containing api token: %s", err)
+			}
+			config.Token = string(apiToken.Data["token"])
 		}
 
 		// If we do not use TLS, return a client without CA certificate
-		if !c.certManagerEnabled {
-			return &humioapi.Config{
-				Address:  clusterURL,
-				Token:    string(apiToken.Data["token"]),
-				Insecure: true,
-			}, nil
-		}
-		if !TLSEnabled(&humioManagedCluster) {
-			return &humioapi.Config{
-				Address:  clusterURL,
-				Token:    string(apiToken.Data["token"]),
-				Insecure: true,
-			}, nil
+		if !c.certManagerEnabled || !TLSEnabled(&humioManagedCluster) {
+			config.Insecure = true
+			return config, nil
 		}
 
 		// Look up the CA certificate stored in the cluster CA bundle
@@ -183,12 +182,8 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 			return nil, fmt.Errorf("unable to get CA certificate: %s", err)
 		}
 
-		return &humioapi.Config{
-			Address:          clusterURL,
-			Token:            string(apiToken.Data["token"]),
-			CACertificatePEM: string(caCertificate.Data["ca.crt"]),
-			Insecure:         false,
-		}, nil
+		config.CACertificatePEM = string(caCertificate.Data["ca.crt"])
+		return config, nil
 	}
 
 	// Fetch the HumioExternalCluster instance

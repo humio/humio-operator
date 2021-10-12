@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	HumioVersionMinimumSupported = "1.26.0"
+	HumioVersionMinimumSupported = "1.28.0"
 	HumioVersionWithNewTmpDir    = "1.33.0"
 )
 

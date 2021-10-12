@@ -75,7 +75,7 @@ func (r *HumioAlertReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	setAlertDefaults(ha)
 
-	cluster, err := helpers.NewCluster(ctx, r, ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName, ha.Namespace, helpers.UseCertManager())
+	cluster, err := helpers.NewCluster(ctx, r, ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName, ha.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
 		err = r.setState(ctx, humiov1alpha1.HumioAlertStateConfigError, ha)
