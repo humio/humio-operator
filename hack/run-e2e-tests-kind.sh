@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -x
+set -x -o pipefail
 
 declare -r envtest_assets_dir=${ENVTEST_ASSETS_DIR:-/tmp/envtest}
 declare -r ginkgo=$(go env GOPATH)/bin/ginkgo
