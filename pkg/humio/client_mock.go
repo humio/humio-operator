@@ -272,16 +272,14 @@ func (h *MockClientConfig) DeleteView(hv *humiov1alpha1.HumioView) error {
 }
 
 func (h *MockClientConfig) GetLicense() (humioapi.License, error) {
-	var licenseInterface humioapi.License
 	emptyOnPremLicense := humioapi.OnPremLicense{}
 
 	if !reflect.DeepEqual(h.apiClient.OnPremLicense, emptyOnPremLicense) {
-		licenseInterface = h.apiClient.OnPremLicense
-		return licenseInterface, nil
+		return h.apiClient.OnPremLicense, nil
 	}
 
 	// by default, humio starts without a license
-	return nil, fmt.Errorf("No license installed. Please contact Humio support.")
+	return emptyOnPremLicense, nil
 }
 
 func (h *MockClientConfig) InstallLicense(licenseString string) error {

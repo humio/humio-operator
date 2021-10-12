@@ -109,7 +109,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 
-	cluster, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager())
+	cluster, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
 		err = r.setState(ctx, humiov1alpha1.HumioRepositoryStateConfigError, hr)
@@ -194,7 +194,7 @@ func (r *HumioRepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *HumioRepositoryReconciler) finalize(ctx context.Context, hr *humiov1alpha1.HumioRepository) error {
-	_, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager())
+	_, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager(), true)
 	if errors.IsNotFound(err) {
 		return nil
 	}
