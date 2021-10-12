@@ -29,14 +29,6 @@ type ClusterController struct {
 	logger logr.Logger
 }
 
-// NewClusterController returns a ClusterController
-func NewClusterController(logger logr.Logger, client Client) *ClusterController {
-	return &ClusterController{
-		client: client,
-		logger: logger,
-	}
-}
-
 // AreAllRegisteredNodesAvailable only returns true if all nodes registered with humio are available
 func (c *ClusterController) AreAllRegisteredNodesAvailable() (bool, error) {
 	cluster, err := c.client.GetClusters()
