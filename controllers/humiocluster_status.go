@@ -46,17 +46,26 @@ func (r *HumioClusterReconciler) setState(ctx context.Context, state string, hc 
 		return nil
 	}
 	r.Log.Info(fmt.Sprintf("setting cluster state to %s", state))
+	var getHumioClusterRetries int
+	var updateStatusRetries int
 	// TODO: fix the logic in ensureMismatchedPodsAreDeleted() to allow it to work without doing setStateOptimistically().
 	if err := r.setStateOptimistically(ctx, state, hc); err != nil {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			err := r.getLatestHumioCluster(ctx, hc)
 			if err != nil {
 				if !errors.IsNotFound(err) {
+					r.Log.Error(err, fmt.Sprintf("failed to get latest HumioCluster (attempt %d). retrying...", getHumioClusterRetries))
+					getHumioClusterRetries++
 					return err
 				}
 			}
 			hc.Status.State = state
-			return r.Status().Update(ctx, hc)
+			err = r.Status().Update(ctx, hc)
+			if err != nil {
+				r.Log.Error(err, fmt.Sprintf("failed to update HumioCluster status (attempt %d). retrying...", updateStatusRetries))
+				updateStatusRetries++
+			}
+			return err
 		})
 		if err != nil {
 			return fmt.Errorf("failed to update resource status: %w", err)
@@ -82,13 +91,22 @@ func (r *HumioClusterReconciler) setVersion(ctx context.Context, version string,
 		version = "Unknown"
 	}
 	r.Log.Info(fmt.Sprintf("setting cluster version to %s", version))
+	var getHumioClusterRetries int
+	var updateStatusRetries int
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		err := r.getLatestHumioCluster(ctx, hc)
 		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("failed to get latest HumioCluster (attempt %d). retrying...", getHumioClusterRetries))
+			getHumioClusterRetries++
 			return err
 		}
 		hc.Status.Version = version
-		return r.Status().Update(ctx, hc)
+		err = r.Status().Update(ctx, hc)
+		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("failed to update HumioCluster status (attempt %d). retrying...", updateStatusRetries))
+			updateStatusRetries++
+		}
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update resource status: %w", err)
@@ -101,13 +119,22 @@ func (r *HumioClusterReconciler) setLicense(ctx context.Context, licenseStatus h
 		return nil
 	}
 	r.Log.Info(fmt.Sprintf("setting cluster license status to %v", licenseStatus))
+	var getHumioClusterRetries int
+	var updateStatusRetries int
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		err := r.getLatestHumioCluster(ctx, hc)
 		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("failed to get latest HumioCluster (attempt %d). retrying...", getHumioClusterRetries))
+			getHumioClusterRetries++
 			return err
 		}
 		hc.Status.LicenseStatus = licenseStatus
-		return r.Status().Update(ctx, hc)
+		err = r.Status().Update(ctx, hc)
+		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("failed to update HumioCluster status (attempt %d). retrying...", updateStatusRetries))
+			updateStatusRetries++
+		}
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update resource status: %w", err)
@@ -120,13 +147,22 @@ func (r *HumioClusterReconciler) setNodeCount(ctx context.Context, nodeCount int
 		return nil
 	}
 	r.Log.Info(fmt.Sprintf("setting cluster node count to %d", nodeCount))
+	var getHumioClusterRetries int
+	var updateStatusRetries int
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		err := r.getLatestHumioCluster(ctx, hc)
 		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("failed to get latest HumioCluster (attempt %d). retrying...", getHumioClusterRetries))
+			getHumioClusterRetries++
 			return err
 		}
 		hc.Status.NodeCount = nodeCount
-		return r.Status().Update(ctx, hc)
+		err = r.Status().Update(ctx, hc)
+		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("failed to update HumioCluster status (attempt %d). retrying...", updateStatusRetries))
+			updateStatusRetries++
+		}
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update resource status: %w", err)
@@ -172,13 +208,22 @@ func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.H
 		podStatusList = append(podStatusList, podStatus)
 	}
 
+	var getHumioClusterRetries int
+	var updateStatusRetries int
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		err := r.getLatestHumioCluster(ctx, hc)
 		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("failed to get latest HumioCluster (attempt %d). retrying...", getHumioClusterRetries))
+			getHumioClusterRetries++
 			return err
 		}
 		hc.Status.PodStatus = podStatusList
-		return r.Status().Update(ctx, hc)
+		err = r.Status().Update(ctx, hc)
+		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("failed to update HumioCluster status (attempt %d). retrying...", updateStatusRetries))
+			updateStatusRetries++
+		}
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update resource status: %w", err)
@@ -192,13 +237,22 @@ func (r *HumioClusterReconciler) setObservedGeneration(ctx context.Context, hc *
 	}
 
 	r.Log.Info(fmt.Sprintf("setting ObservedGeneration to %s", hc.ResourceVersion))
+	var getHumioClusterRetries int
+	var updateStatusRetries int
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		err := r.getLatestHumioCluster(ctx, hc)
 		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("failed to get latest HumioCluster (attempt %d). retrying...", getHumioClusterRetries))
+			getHumioClusterRetries++
 			return err
 		}
 		hc.Status.ObservedGeneration = hc.ResourceVersion
-		return r.Status().Update(ctx, hc)
+		err = r.Status().Update(ctx, hc)
+		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("failed to update HumioCluster status (attempt %d). retrying...", updateStatusRetries))
+			updateStatusRetries++
+		}
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update resource status: %w", err)
