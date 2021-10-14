@@ -101,6 +101,8 @@ var _ = BeforeSuite(func() {
 			UseExistingCluster: &useExistingCluster,
 		}
 
+		humioClientForTestSuite = humio.NewClient(log, &humioapi.Config{}, "")
+
 		humioClientForHumioAction = humio.NewClient(log, &humioapi.Config{}, "")
 		humioClientForHumioAlert = humio.NewClient(log, &humioapi.Config{}, "")
 		humioClientForHumioCluster = humio.NewClient(log, &humioapi.Config{}, "")
