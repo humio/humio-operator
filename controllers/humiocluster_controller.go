@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -293,10 +292,15 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return result, err
 	}
 
-	// Wait for the sidecar to create the secret which contains the token used to authenticate with humio and then authenticate with it
-	result, err = r.authWithSidecarToken(ctx, hc, r.HumioClient.GetBaseURL(hc), req)
-	if result != emptyResult || err != nil {
-		return result, err
+	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true)
+	if err != nil || cluster == nil || cluster.Config() == nil {
+		r.Log.Error(err, "unable to obtain humio client config")
+		stateErr := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		if stateErr != nil {
+			r.Log.Error(stateErr, "unable to set action state")
+			return reconcile.Result{}, stateErr
+		}
+		return reconcile.Result{}, err
 	}
 
 	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
@@ -304,8 +308,9 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		_ = r.setNodeCount(ctx, len(pods), hc)
 	}(ctx, hc)
 
+
 	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
-		status, err := humioClient.Status()
+		status, err := humioClient.Status(cluster.Config(),req)
 		if err != nil {
 			r.Log.Error(err, "unable to get cluster status")
 		}
@@ -313,7 +318,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		_ = r.setPod(ctx, hc)
 	}(ctx, r.HumioClient, hc)
 
-	err = r.ensureLabels(ctx, hc)
+	err = r.ensureLabels(ctx, cluster.Config(), req, hc)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -351,7 +356,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 	}
 
-	err = r.ensurePartitionsAreBalanced(hc)
+	err = r.ensurePartitionsAreBalanced(hc, cluster.Config(), req)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -918,7 +923,7 @@ func (r *HumioClusterReconciler) ensureCleanupUsersInSecurityContextConstraints(
 
 func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.Log.Info("cluster not configured to run with TLS, skipping")
+		//r.Log.Info("cluster not configured to run with TLS, skipping")
 		return nil
 	}
 
@@ -962,7 +967,7 @@ func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *hu
 
 func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.Log.Info("cluster not configured to run with TLS, skipping")
+		//r.Log.Info("cluster not configured to run with TLS, skipping")
 		return nil
 	}
 
@@ -1011,7 +1016,7 @@ func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *hu
 
 func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.Log.Info("cluster not configured to run with TLS, skipping")
+		//r.Log.Info("cluster not configured to run with TLS, skipping")
 		return nil
 	}
 
@@ -1045,7 +1050,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Co
 
 func (r *HumioClusterReconciler) ensureHumioClusterCACertBundle(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.Log.Info("cluster not configured to run with TLS, skipping")
+		//r.Log.Info("cluster not configured to run with TLS, skipping")
 		return nil
 	}
 
@@ -1077,7 +1082,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterCACertBundle(ctx context.Cont
 
 func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
-		r.Log.Info("cluster not configured to run with TLS, skipping")
+		//r.Log.Info("cluster not configured to run with TLS, skipping")
 		return nil
 	}
 
@@ -1324,9 +1329,9 @@ func (r *HumioClusterReconciler) serviceAccountExists(ctx context.Context, hc *h
 	return true, nil
 }
 
-func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("ensuring labels")
-	cluster, err := r.HumioClient.GetClusters()
+	cluster, err := r.HumioClient.GetClusters(config, req)
 	if err != nil {
 		r.Log.Error(err, "failed to get clusters")
 		return err
@@ -1442,9 +1447,8 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
 
-	existingLicense, err := r.HumioClient.GetLicense()
+	existingLicense, err := r.HumioClient.GetLicense(cluster.Config(), req)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get license: %s", err)
 	}
@@ -1474,7 +1478,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	// At this point we know a non-empty license has been returned by the Humio API,
 	// so we can continue to parse the license and issue a license update if needed.
 	if existingLicense == nil || existingLicense == noLicense {
-		if err = r.HumioClient.InstallLicense(licenseStr); err != nil {
+		if err = r.HumioClient.InstallLicense(cluster.Config(), req, licenseStr); err != nil {
 			r.Log.Error(err, "could not install initial license")
 			return reconcile.Result{}, err
 		}
@@ -1488,12 +1492,11 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
 
 	if existingLicense.IssuedAt() != desiredLicense.IssuedAt() ||
 		existingLicense.ExpiresAt() != desiredLicense.ExpiresAt() {
 		r.Log.Info(fmt.Sprintf("updating license because of: existingLicense.IssuedAt(%s) != desiredLicense.IssuedAt(%s) || existingLicense.ExpiresAt(%s) != desiredLicense.ExpiresAt(%s)", existingLicense.IssuedAt(), desiredLicense.IssuedAt(), existingLicense.ExpiresAt(), desiredLicense.ExpiresAt()))
-		if err = r.HumioClient.InstallLicense(licenseStr); err != nil {
+		if err = r.HumioClient.InstallLicense(cluster.Config(), req, licenseStr); err != nil {
 			return reconcile.Result{}, fmt.Errorf("could not install license: %s", err)
 		}
 
@@ -1501,7 +1504,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 			desiredLicense.IssuedAt(), desiredLicense.ExpiresAt()))
 
 		// refresh the existing license for the status update
-		existingLicense, err = r.HumioClient.GetLicense()
+		existingLicense, err = r.HumioClient.GetLicense(cluster.Config(), req)
 		if err != nil {
 			r.Log.Error(err, "failed to get updated license: %v", err)
 		}
@@ -1511,38 +1514,38 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	return reconcile.Result{}, nil
 }
 
-func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(hc *humiov1alpha1.HumioCluster) error {
+func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(hc *humiov1alpha1.HumioCluster, config *humioapi.Config, req reconcile.Request) error {
 	if !hc.Spec.AutoRebalancePartitions {
 		r.Log.Info("partition auto-rebalancing not enabled, skipping")
 		return nil
 	}
 
-	currentClusterInfo, err := r.HumioClient.GetClusters()
+	currentClusterInfo, err := r.HumioClient.GetClusters(config, req)
 	if err != nil {
 		return err
 	}
 
-	suggestedStorageLayout, err := r.HumioClient.SuggestedStoragePartitions()
+	suggestedStorageLayout, err := r.HumioClient.SuggestedStoragePartitions(config, req)
 	if err != nil {
 		return err
 	}
 	currentStorageLayoutInput := helpers.MapStoragePartition(currentClusterInfo.StoragePartitions, helpers.ToStoragePartitionInput)
 	if !reflect.DeepEqual(currentStorageLayoutInput, suggestedStorageLayout) {
 		r.Log.Info(fmt.Sprintf("triggering update of storage partitions to use suggested layout, current: %#+v, suggested: %#+v", currentClusterInfo.StoragePartitions, suggestedStorageLayout))
-		err = r.HumioClient.UpdateStoragePartitionScheme(suggestedStorageLayout)
+		err = r.HumioClient.UpdateStoragePartitionScheme(config, req, suggestedStorageLayout)
 		if err != nil {
 			return err
 		}
 	}
 
-	suggestedIngestLayout, err := r.HumioClient.SuggestedIngestPartitions()
+	suggestedIngestLayout, err := r.HumioClient.SuggestedIngestPartitions(config, req)
 	if err != nil {
 		return err
 	}
 	currentIngestLayoutInput := helpers.MapIngestPartition(currentClusterInfo.IngestPartitions, helpers.ToIngestPartitionInput)
 	if !reflect.DeepEqual(currentIngestLayoutInput, suggestedIngestLayout) {
 		r.Log.Info(fmt.Sprintf("triggering update of ingest partitions to use suggested layout, current: %#+v, suggested: %#+v", currentClusterInfo.IngestPartitions, suggestedIngestLayout))
-		err = r.HumioClient.UpdateIngestPartitionScheme(suggestedIngestLayout)
+		err = r.HumioClient.UpdateIngestPartitionScheme(config, req, suggestedIngestLayout)
 		if err != nil {
 			return err
 		}
@@ -1574,7 +1577,7 @@ func (r *HumioClusterReconciler) ensureServiceExists(ctx context.Context, hc *hu
 // and cleans them up if we have no use for them anymore.
 func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
 	if !helpers.UseCertManager() {
-		r.Log.Info("cert-manager not available, skipping")
+		//r.Log.Info("cert-manager not available, skipping")
 		return reconcile.Result{}, nil
 	}
 
@@ -1688,7 +1691,7 @@ func (r *HumioClusterReconciler) cleanupUnusedCAIssuer(ctx context.Context, hc *
 // cleanupUnusedTLSCertificates finds all existing per-node certificates and cleans them up if we have no matching pod for them
 func (r *HumioClusterReconciler) cleanupUnusedTLSCertificates(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
 	if !helpers.UseCertManager() {
-		r.Log.Info("cert-manager not available, skipping")
+		//r.Log.Info("cert-manager not available, skipping")
 		return reconcile.Result{}, nil
 	}
 
@@ -2102,40 +2105,6 @@ func (r *HumioClusterReconciler) ensureValidStorageConfiguration(hc *humiov1alph
 	}
 
 	return nil
-}
-
-func (r *HumioClusterReconciler) authWithSidecarToken(ctx context.Context, hc *humiov1alpha1.HumioCluster, baseURL *url.URL, req ctrl.Request) (reconcile.Result, error) {
-	adminTokenSecretName := fmt.Sprintf("%s-%s", hc.Name, kubernetes.ServiceTokenSecretNameSuffix)
-	existingSecret, err := kubernetes.GetSecret(ctx, r, adminTokenSecretName, hc.Namespace)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			r.Log.Info(fmt.Sprintf("waiting for sidecar to populate secret %s", adminTokenSecretName))
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
-		}
-	}
-
-	humioAPIConfig := &humioapi.Config{
-		Address: baseURL,
-		Token:   string(existingSecret.Data["token"]),
-	}
-
-	// Get CA
-	if helpers.TLSEnabled(hc) {
-		existingCABundle, err := kubernetes.GetSecret(ctx, r, constructClusterCACertificateBundle(hc).Spec.SecretName, hc.Namespace)
-		if errors.IsNotFound(err) {
-			r.Log.Info("waiting for secret with CA bundle")
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
-		}
-		if err != nil {
-			r.Log.Error(err, "unable to obtain CA certificate")
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
-		}
-		humioAPIConfig.CACertificatePEM = string(existingCABundle.Data["ca.crt"])
-	}
-
-	// Either authenticate or re-authenticate with the persistent token
-	r.HumioClient.SetHumioClientConfig(humioAPIConfig, req)
-	return reconcile.Result{}, nil
 }
 
 // TODO: there is no need for this. We should instead change this to a get method where we return the list of env vars

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sort"
 	"strconv"
 	"strings"
@@ -3314,11 +3315,17 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 		Expect(apiTokenSecret.Annotations).Should(HaveKeyWithValue(apiTokenMethodAnnotationName, apiTokenMethodFromAPI))
 	}
 
+	clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true)
+	Expect(err).To(BeNil())
+	Expect(clusterConfig).ToNot(BeNil())
+	Expect(clusterConfig.Config()).ToNot(BeNil())
+	//humioClientForTestSuite.SetHumioClientConfig(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
+
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 		usingClusterBy(key.Name, "Validating cluster nodes have ZONE configured correctly")
 		if updatedHumioCluster.Spec.DisableInitContainer == true {
 			Eventually(func() []string {
-				cluster, err := humioClient.GetClusters()
+				cluster, err := humioClientForTestSuite.GetClusters(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
 				if err != nil {
 					return []string{"got err"}
 				}
@@ -3339,7 +3346,7 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 			}, testTimeout, testInterval).Should(BeEmpty())
 		} else {
 			Eventually(func() []string {
-				cluster, err := humioClient.GetClusters()
+				cluster, err := humioClientForTestSuite.GetClusters(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
 				if err != nil || len(cluster.Nodes) < 1 {
 					return []string{}
 				}

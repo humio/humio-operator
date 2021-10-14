@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
 
@@ -42,72 +43,68 @@ type Client interface {
 }
 
 type ClusterClient interface {
-	GetClusters() (humioapi.Cluster, error)
-	UpdateStoragePartitionScheme([]humioapi.StoragePartitionInput) error
-	UpdateIngestPartitionScheme([]humioapi.IngestPartitionInput) error
-	StartDataRedistribution() error
-	ClusterMoveStorageRouteAwayFromNode(int) error
-	ClusterMoveIngestRoutesAwayFromNode(int) error
-	Unregister(int) error
-	SuggestedStoragePartitions() ([]humioapi.StoragePartitionInput, error)
-	SuggestedIngestPartitions() ([]humioapi.IngestPartitionInput, error)
-	SetHumioClientConfig(*humioapi.Config, ctrl.Request)
-	GetBaseURL(*humiov1alpha1.HumioCluster) *url.URL
-	TestAPIToken() error
-	Status() (humioapi.StatusResponse, error)
+	GetClusters(*humioapi.Config, reconcile.Request) (humioapi.Cluster, error)
+	UpdateStoragePartitionScheme(*humioapi.Config, reconcile.Request, []humioapi.StoragePartitionInput) error
+	UpdateIngestPartitionScheme(*humioapi.Config, reconcile.Request, []humioapi.IngestPartitionInput) error
+	SuggestedStoragePartitions(*humioapi.Config, reconcile.Request) ([]humioapi.StoragePartitionInput, error)
+	SuggestedIngestPartitions(*humioapi.Config, reconcile.Request) ([]humioapi.IngestPartitionInput, error)
+	GetHumioClient(*humioapi.Config, reconcile.Request) *humioapi.Client
+	GetBaseURL(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioCluster) *url.URL
+	TestAPIToken(*humioapi.Config, reconcile.Request) error
+	Status(*humioapi.Config, reconcile.Request) (humioapi.StatusResponse, error)
 }
 
 type IngestTokensClient interface {
-	AddIngestToken(*humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error)
-	GetIngestToken(*humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error)
-	UpdateIngestToken(*humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error)
-	DeleteIngestToken(*humiov1alpha1.HumioIngestToken) error
+	AddIngestToken(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error)
+	GetIngestToken(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error)
+	UpdateIngestToken(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error)
+	DeleteIngestToken(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioIngestToken) error
 }
 
 type ParsersClient interface {
-	AddParser(*humiov1alpha1.HumioParser) (*humioapi.Parser, error)
-	GetParser(*humiov1alpha1.HumioParser) (*humioapi.Parser, error)
-	UpdateParser(*humiov1alpha1.HumioParser) (*humioapi.Parser, error)
-	DeleteParser(*humiov1alpha1.HumioParser) error
+	AddParser(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioParser) (*humioapi.Parser, error)
+	GetParser(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioParser) (*humioapi.Parser, error)
+	UpdateParser(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioParser) (*humioapi.Parser, error)
+	DeleteParser(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioParser) error
 }
 
 type RepositoriesClient interface {
-	AddRepository(*humiov1alpha1.HumioRepository) (*humioapi.Repository, error)
-	GetRepository(*humiov1alpha1.HumioRepository) (*humioapi.Repository, error)
-	UpdateRepository(*humiov1alpha1.HumioRepository) (*humioapi.Repository, error)
-	DeleteRepository(*humiov1alpha1.HumioRepository) error
+	AddRepository(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioRepository) (*humioapi.Repository, error)
+	GetRepository(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioRepository) (*humioapi.Repository, error)
+	UpdateRepository(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioRepository) (*humioapi.Repository, error)
+	DeleteRepository(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioRepository) error
 }
 
 type ViewsClient interface {
-	AddView(*humiov1alpha1.HumioView) (*humioapi.View, error)
-	GetView(*humiov1alpha1.HumioView) (*humioapi.View, error)
-	UpdateView(*humiov1alpha1.HumioView) (*humioapi.View, error)
-	DeleteView(*humiov1alpha1.HumioView) error
+	AddView(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioView) (*humioapi.View, error)
+	GetView(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioView) (*humioapi.View, error)
+	UpdateView(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioView) (*humioapi.View, error)
+	DeleteView(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioView) error
 }
 
 type NotifiersClient interface {
-	AddNotifier(*humiov1alpha1.HumioAction) (*humioapi.Notifier, error)
-	GetNotifier(*humiov1alpha1.HumioAction) (*humioapi.Notifier, error)
-	UpdateNotifier(*humiov1alpha1.HumioAction) (*humioapi.Notifier, error)
-	DeleteNotifier(*humiov1alpha1.HumioAction) error
+	AddNotifier(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAction) (*humioapi.Notifier, error)
+	GetNotifier(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAction) (*humioapi.Notifier, error)
+	UpdateNotifier(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAction) (*humioapi.Notifier, error)
+	DeleteNotifier(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAction) error
 }
 
 type AlertsClient interface {
-	AddAlert(*humiov1alpha1.HumioAlert) (*humioapi.Alert, error)
-	GetAlert(*humiov1alpha1.HumioAlert) (*humioapi.Alert, error)
-	UpdateAlert(*humiov1alpha1.HumioAlert) (*humioapi.Alert, error)
-	DeleteAlert(*humiov1alpha1.HumioAlert) error
-	GetActionIDsMapForAlerts(*humiov1alpha1.HumioAlert) (map[string]string, error)
+	AddAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAlert) (*humioapi.Alert, error)
+	GetAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAlert) (*humioapi.Alert, error)
+	UpdateAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAlert) (*humioapi.Alert, error)
+	DeleteAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAlert) error
+	GetActionIDsMapForAlerts(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAlert) (map[string]string, error)
 }
 
 type LicenseClient interface {
-	GetLicense() (humioapi.License, error)
-	InstallLicense(string) error
+	GetLicense(*humioapi.Config, reconcile.Request) (humioapi.License, error)
+	InstallLicense(*humioapi.Config, reconcile.Request, string) error
 }
 
 // ClientConfig stores our Humio api client
 type ClientConfig struct {
-	apiClient    *humioapi.Client
+	//apiClient    *humioapi.Client
 	logger       logr.Logger
 	userAgent    string
 	humioClients map[humioClientKey]*humioapi.Client
@@ -120,17 +117,17 @@ type humioClientKey struct {
 
 // NewClient returns a ClientConfig
 func NewClient(logger logr.Logger, config *humioapi.Config, userAgent string) *ClientConfig {
-	client := humioapi.NewClient(*config)
+	//client := humioapi.NewClient(*config)
 	return &ClientConfig{
-		apiClient:    client,
+		//apiClient:    client,
 		logger:       logger,
 		userAgent:    userAgent,
 		humioClients: map[humioClientKey]*humioapi.Client{},
 	}
 }
 
-// SetHumioClientConfig takes a Humio API config as input and ensures to create a new API client that uses this config
-func (h *ClientConfig) SetHumioClientConfig(config *humioapi.Config, req ctrl.Request) {
+// GetHumioClient takes a Humio API config as input and returns an API client that uses this config
+func (h *ClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request) *humioapi.Client {
 	config.UserAgent = h.userAgent
 	key := humioClientKey{
 		namespace:     req.Namespace,
@@ -140,7 +137,7 @@ func (h *ClientConfig) SetHumioClientConfig(config *humioapi.Config, req ctrl.Re
 	c := h.humioClients[key]
 	if c == nil {
 		c = humioapi.NewClient(*config)
-		h.logger.Info(fmt.Sprintf("SetHumioClientConfig, key not found, created new logger for cluster %s/%s where auth=%t", key.name, key.namespace, key.authenticated))
+		h.logger.Info(fmt.Sprintf("GetHumioClient, key not found, created new logger for cluster %s/%s where auth=%t", key.name, key.namespace, key.authenticated))
 	} else {
 		existingConfig := c.Config()
 		equal := existingConfig.Token == config.Token &&
@@ -150,18 +147,19 @@ func (h *ClientConfig) SetHumioClientConfig(config *humioapi.Config, req ctrl.Re
 			existingConfig.Address.String() == config.Address.String()
 		if !equal {
 			c = humioapi.NewClient(*config)
-			h.logger.Info(fmt.Sprintf("SetHumioClientConfig, key found, created new logger for cluster %s/%s where auth=%t", key.name, key.namespace, key.authenticated))
+			h.logger.Info(fmt.Sprintf("GetHumioClient, key found, created new logger for cluster %s/%s where auth=%t", key.name, key.namespace, key.authenticated))
 		}
 	}
 	h.humioClients[key] = c
-	h.apiClient = c
-	h.logger.Info(fmt.Sprintf("SetHumioClientConfig, we now have %d entries in the humioClients map", len(h.humioClients)))
+	//h.apiClient = c // How can we get rid of this?
+	h.logger.Info(fmt.Sprintf("GetHumioClient, we now have %d entries in the humioClients map", len(h.humioClients)))
+	return c
 }
 
 // Status returns the status of the humio cluster
-func (h *ClientConfig) Status() (humioapi.StatusResponse, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	status, err := h.apiClient.Status()
+func (h *ClientConfig) Status(config *humioapi.Config, req reconcile.Request) (humioapi.StatusResponse, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	status, err := h.GetHumioClient(config, req).Status()
 	if err != nil {
 		h.logger.Error(err, "could not get status")
 		return humioapi.StatusResponse{}, err
@@ -170,9 +168,9 @@ func (h *ClientConfig) Status() (humioapi.StatusResponse, error) {
 }
 
 // GetClusters returns a humio cluster and can be mocked via the Client interface
-func (h *ClientConfig) GetClusters() (humioapi.Cluster, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	clusters, err := h.apiClient.Clusters().Get()
+func (h *ClientConfig) GetClusters(config *humioapi.Config, req reconcile.Request) (humioapi.Cluster, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	clusters, err := h.GetHumioClient(config, req).Clusters().Get()
 	if err != nil {
 		h.logger.Error(err, "could not get cluster information")
 	}
@@ -180,9 +178,9 @@ func (h *ClientConfig) GetClusters() (humioapi.Cluster, error) {
 }
 
 // UpdateStoragePartitionScheme updates the storage partition scheme and can be mocked via the Client interface
-func (h *ClientConfig) UpdateStoragePartitionScheme(spi []humioapi.StoragePartitionInput) error {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	err := h.apiClient.Clusters().UpdateStoragePartitionScheme(spi)
+func (h *ClientConfig) UpdateStoragePartitionScheme(config *humioapi.Config, req reconcile.Request, spi []humioapi.StoragePartitionInput) error {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	err := h.GetHumioClient(config, req).Clusters().UpdateStoragePartitionScheme(spi)
 	if err != nil {
 		h.logger.Error(err, "could not update storage partition scheme cluster information")
 	}
@@ -190,54 +188,30 @@ func (h *ClientConfig) UpdateStoragePartitionScheme(spi []humioapi.StoragePartit
 }
 
 // UpdateIngestPartitionScheme updates the ingest partition scheme and can be mocked via the Client interface
-func (h *ClientConfig) UpdateIngestPartitionScheme(ipi []humioapi.IngestPartitionInput) error {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	err := h.apiClient.Clusters().UpdateIngestPartitionScheme(ipi)
+func (h *ClientConfig) UpdateIngestPartitionScheme(config *humioapi.Config, req reconcile.Request, ipi []humioapi.IngestPartitionInput) error {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	err := h.GetHumioClient(config, req).Clusters().UpdateIngestPartitionScheme(ipi)
 	if err != nil {
 		h.logger.Error(err, "could not update ingest partition scheme cluster information")
 	}
 	return err
 }
 
-// StartDataRedistribution notifies the Humio cluster that it should start redistributing data to match current assignments
-func (h *ClientConfig) StartDataRedistribution() error {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.Clusters().StartDataRedistribution()
-}
-
-// ClusterMoveStorageRouteAwayFromNode notifies the Humio cluster that a node ID should be removed from handling any storage partitions
-func (h *ClientConfig) ClusterMoveStorageRouteAwayFromNode(id int) error {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.Clusters().ClusterMoveStorageRouteAwayFromNode(id)
-}
-
-// ClusterMoveIngestRoutesAwayFromNode notifies the Humio cluster that a node ID should be removed from handling any ingest partitions
-func (h *ClientConfig) ClusterMoveIngestRoutesAwayFromNode(id int) error {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.Clusters().ClusterMoveIngestRoutesAwayFromNode(id)
-}
-
-// Unregister tells the Humio cluster that we want to unregister a node
-func (h *ClientConfig) Unregister(id int) error {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.ClusterNodes().Unregister(int64(id), false)
-}
-
 // SuggestedStoragePartitions gets the suggested storage partition layout
-func (h *ClientConfig) SuggestedStoragePartitions() ([]humioapi.StoragePartitionInput, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.Clusters().SuggestedStoragePartitions()
+func (h *ClientConfig) SuggestedStoragePartitions(config *humioapi.Config, req reconcile.Request) ([]humioapi.StoragePartitionInput, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	return h.GetHumioClient(config, req).Clusters().SuggestedStoragePartitions()
 }
 
 // SuggestedIngestPartitions gets the suggested ingest partition layout
-func (h *ClientConfig) SuggestedIngestPartitions() ([]humioapi.IngestPartitionInput, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.Clusters().SuggestedIngestPartitions()
+func (h *ClientConfig) SuggestedIngestPartitions(config *humioapi.Config, req reconcile.Request) ([]humioapi.IngestPartitionInput, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	return h.GetHumioClient(config, req).Clusters().SuggestedIngestPartitions()
 }
 
 // GetBaseURL returns the base URL for given HumioCluster
-func (h *ClientConfig) GetBaseURL(hc *humiov1alpha1.HumioCluster) *url.URL {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
+func (h *ClientConfig) GetBaseURL(config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) *url.URL {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
 
 	protocol := "https"
 	if !helpers.TLSEnabled(hc) {
@@ -249,23 +223,20 @@ func (h *ClientConfig) GetBaseURL(hc *humiov1alpha1.HumioCluster) *url.URL {
 }
 
 // TestAPIToken tests if an API token is valid by fetching the username that the API token belongs to
-func (h *ClientConfig) TestAPIToken() error {
-	if h.apiClient == nil {
-		return fmt.Errorf("api client not set yet")
-	}
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	_, err := h.apiClient.Viewer().Username()
+func (h *ClientConfig) TestAPIToken(config *humioapi.Config, req reconcile.Request) error {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	_, err := h.GetHumioClient(config, req).Viewer().Username()
 	return err
 }
 
-func (h *ClientConfig) AddIngestToken(hit *humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.IngestTokens().Add(hit.Spec.RepositoryName, hit.Spec.Name, hit.Spec.ParserName)
+func (h *ClientConfig) AddIngestToken(config *humioapi.Config, req reconcile.Request, hit *humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	return h.GetHumioClient(config, req).IngestTokens().Add(hit.Spec.RepositoryName, hit.Spec.Name, hit.Spec.ParserName)
 }
 
-func (h *ClientConfig) GetIngestToken(hit *humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	tokens, err := h.apiClient.IngestTokens().List(hit.Spec.RepositoryName)
+func (h *ClientConfig) GetIngestToken(config *humioapi.Config, req reconcile.Request, hit *humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	tokens, err := h.GetHumioClient(config, req).IngestTokens().List(hit.Spec.RepositoryName)
 	if err != nil {
 		return &humioapi.IngestToken{}, err
 	}
@@ -277,25 +248,25 @@ func (h *ClientConfig) GetIngestToken(hit *humiov1alpha1.HumioIngestToken) (*hum
 	return &humioapi.IngestToken{}, nil
 }
 
-func (h *ClientConfig) UpdateIngestToken(hit *humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.IngestTokens().Update(hit.Spec.RepositoryName, hit.Spec.Name, hit.Spec.ParserName)
+func (h *ClientConfig) UpdateIngestToken(config *humioapi.Config, req reconcile.Request, hit *humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	return h.GetHumioClient(config, req).IngestTokens().Update(hit.Spec.RepositoryName, hit.Spec.Name, hit.Spec.ParserName)
 }
 
-func (h *ClientConfig) DeleteIngestToken(hit *humiov1alpha1.HumioIngestToken) error {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.IngestTokens().Remove(hit.Spec.RepositoryName, hit.Spec.Name)
+func (h *ClientConfig) DeleteIngestToken(config *humioapi.Config, req reconcile.Request, hit *humiov1alpha1.HumioIngestToken) error {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	return h.GetHumioClient(config, req).IngestTokens().Remove(hit.Spec.RepositoryName, hit.Spec.Name)
 }
 
-func (h *ClientConfig) AddParser(hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
+func (h *ClientConfig) AddParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
 	parser := humioapi.Parser{
 		Name:      hp.Spec.Name,
 		Script:    hp.Spec.ParserScript,
 		TagFields: hp.Spec.TagFields,
 		Tests:     hp.Spec.TestData,
 	}
-	err := h.apiClient.Parsers().Add(
+	err := h.GetHumioClient(config, req).Parsers().Add(
 		hp.Spec.RepositoryName,
 		&parser,
 		false,
@@ -303,20 +274,20 @@ func (h *ClientConfig) AddParser(hp *humiov1alpha1.HumioParser) (*humioapi.Parse
 	return &parser, err
 }
 
-func (h *ClientConfig) GetParser(hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.Parsers().Get(hp.Spec.RepositoryName, hp.Spec.Name)
+func (h *ClientConfig) GetParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	return h.GetHumioClient(config, req).Parsers().Get(hp.Spec.RepositoryName, hp.Spec.Name)
 }
 
-func (h *ClientConfig) UpdateParser(hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
+func (h *ClientConfig) UpdateParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
 	parser := humioapi.Parser{
 		Name:      hp.Spec.Name,
 		Script:    hp.Spec.ParserScript,
 		TagFields: hp.Spec.TagFields,
 		Tests:     hp.Spec.TestData,
 	}
-	err := h.apiClient.Parsers().Add(
+	err := h.GetHumioClient(config, req).Parsers().Add(
 		hp.Spec.RepositoryName,
 		&parser,
 		true,
@@ -324,45 +295,45 @@ func (h *ClientConfig) UpdateParser(hp *humiov1alpha1.HumioParser) (*humioapi.Pa
 	return &parser, err
 }
 
-func (h *ClientConfig) DeleteParser(hp *humiov1alpha1.HumioParser) error {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.Parsers().Remove(hp.Spec.RepositoryName, hp.Spec.Name)
+func (h *ClientConfig) DeleteParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) error {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	return h.GetHumioClient(config, req).Parsers().Remove(hp.Spec.RepositoryName, hp.Spec.Name)
 }
 
-func (h *ClientConfig) AddRepository(hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
+func (h *ClientConfig) AddRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
 	repository := humioapi.Repository{Name: hr.Spec.Name}
-	err := h.apiClient.Repositories().Create(hr.Spec.Name)
+	err := h.GetHumioClient(config, req).Repositories().Create(hr.Spec.Name)
 	return &repository, err
 }
 
-func (h *ClientConfig) GetRepository(hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	repoList, err := h.apiClient.Repositories().List()
+func (h *ClientConfig) GetRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	repoList, err := h.GetHumioClient(config, req).Repositories().List()
 	if err != nil {
 		return &humioapi.Repository{}, fmt.Errorf("could not list repositories: %s", err)
 	}
 	for _, repo := range repoList {
 		if repo.Name == hr.Spec.Name {
 			// we now know the repository exists
-			h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-			repository, err := h.apiClient.Repositories().Get(hr.Spec.Name)
+			h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+			repository, err := h.GetHumioClient(config, req).Repositories().Get(hr.Spec.Name)
 			return &repository, err
 		}
 	}
 	return &humioapi.Repository{}, nil
 }
 
-func (h *ClientConfig) UpdateRepository(hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	curRepository, err := h.GetRepository(hr)
+func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	curRepository, err := h.GetRepository(config, req, hr)
 	if err != nil {
 		return &humioapi.Repository{}, err
 	}
 
 	if curRepository.Description != hr.Spec.Description {
-		h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-		err = h.apiClient.Repositories().UpdateDescription(
+		h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+		err = h.GetHumioClient(config, req).Repositories().UpdateDescription(
 			hr.Spec.Name,
 			hr.Spec.Description,
 		)
@@ -372,8 +343,8 @@ func (h *ClientConfig) UpdateRepository(hr *humiov1alpha1.HumioRepository) (*hum
 	}
 
 	if curRepository.RetentionDays != float64(hr.Spec.Retention.TimeInDays) {
-		h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-		err = h.apiClient.Repositories().UpdateTimeBasedRetention(
+		h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+		err = h.GetHumioClient(config, req).Repositories().UpdateTimeBasedRetention(
 			hr.Spec.Name,
 			float64(hr.Spec.Retention.TimeInDays),
 			hr.Spec.AllowDataDeletion,
@@ -384,8 +355,8 @@ func (h *ClientConfig) UpdateRepository(hr *humiov1alpha1.HumioRepository) (*hum
 	}
 
 	if curRepository.StorageRetentionSizeGB != float64(hr.Spec.Retention.StorageSizeInGB) {
-		h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-		err = h.apiClient.Repositories().UpdateStorageBasedRetention(
+		h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+		err = h.GetHumioClient(config, req).Repositories().UpdateStorageBasedRetention(
 			hr.Spec.Name,
 			float64(hr.Spec.Retention.StorageSizeInGB),
 			hr.Spec.AllowDataDeletion,
@@ -396,8 +367,8 @@ func (h *ClientConfig) UpdateRepository(hr *humiov1alpha1.HumioRepository) (*hum
 	}
 
 	if curRepository.IngestRetentionSizeGB != float64(hr.Spec.Retention.IngestSizeInGB) {
-		h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-		err = h.apiClient.Repositories().UpdateIngestBasedRetention(
+		h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+		err = h.GetHumioClient(config, req).Repositories().UpdateIngestBasedRetention(
 			hr.Spec.Name,
 			float64(hr.Spec.Retention.IngestSizeInGB),
 			hr.Spec.AllowDataDeletion,
@@ -407,37 +378,37 @@ func (h *ClientConfig) UpdateRepository(hr *humiov1alpha1.HumioRepository) (*hum
 		}
 	}
 
-	return h.GetRepository(hr)
+	return h.GetRepository(config, req, hr)
 }
 
-func (h *ClientConfig) DeleteRepository(hr *humiov1alpha1.HumioRepository) error {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
+func (h *ClientConfig) DeleteRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
 	// perhaps we should allow calls to DeleteRepository() to include the reason instead of hardcoding it
-	return h.apiClient.Repositories().Delete(
+	return h.GetHumioClient(config, req).Repositories().Delete(
 		hr.Spec.Name,
 		"deleted by humio-operator",
 		hr.Spec.AllowDataDeletion,
 	)
 }
 
-func (h *ClientConfig) GetView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	viewList, err := h.apiClient.Views().List()
+func (h *ClientConfig) GetView(config *humioapi.Config, req reconcile.Request, hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	viewList, err := h.GetHumioClient(config, req).Views().List()
 	if err != nil {
 		return &humioapi.View{}, fmt.Errorf("could not list views: %s", err)
 	}
 	for _, v := range viewList {
 		if v.Name == hv.Spec.Name {
 			// we now know the view exists
-			h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-			view, err := h.apiClient.Views().Get(hv.Spec.Name)
+			h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+			view, err := h.GetHumioClient(config, req).Views().Get(hv.Spec.Name)
 			return view, err
 		}
 	}
 	return &humioapi.View{}, nil
 }
 
-func (h *ClientConfig) AddView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+func (h *ClientConfig) AddView(config *humioapi.Config, req reconcile.Request, hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
 	viewConnections := hv.GetViewConnections()
 
 	view := humioapi.View{
@@ -448,24 +419,24 @@ func (h *ClientConfig) AddView(hv *humiov1alpha1.HumioView) (*humioapi.View, err
 	description := ""
 	connectionMap := getConnectionMap(viewConnections)
 
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	err := h.apiClient.Views().Create(hv.Spec.Name, description, connectionMap)
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	err := h.GetHumioClient(config, req).Views().Create(hv.Spec.Name, description, connectionMap)
 	return &view, err
 }
 
-func (h *ClientConfig) UpdateView(hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
-	curView, err := h.GetView(hv)
+func (h *ClientConfig) UpdateView(config *humioapi.Config, req reconcile.Request, hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	curView, err := h.GetView(config, req, hv)
 	if err != nil {
 		return &humioapi.View{}, err
 	}
 
 	connections := hv.GetViewConnections()
 	if reflect.DeepEqual(curView.Connections, connections) {
-		return h.GetView(hv)
+		return h.GetView(config, req, hv)
 	}
 
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	err = h.apiClient.Views().UpdateConnections(
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	err = h.GetHumioClient(config, req).Views().UpdateConnections(
 		hv.Spec.Name,
 		getConnectionMap(connections),
 	)
@@ -473,22 +444,22 @@ func (h *ClientConfig) UpdateView(hv *humiov1alpha1.HumioView) (*humioapi.View, 
 		return &humioapi.View{}, err
 	}
 
-	return h.GetView(hv)
+	return h.GetView(config, req, hv)
 }
 
-func (h *ClientConfig) DeleteView(hv *humiov1alpha1.HumioView) error {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.Views().Delete(hv.Spec.Name, "Deleted by humio-operator")
+func (h *ClientConfig) DeleteView(config *humioapi.Config, req reconcile.Request, hv *humiov1alpha1.HumioView) error {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	return h.GetHumioClient(config, req).Views().Delete(hv.Spec.Name, "Deleted by humio-operator")
 }
 
-func (h *ClientConfig) validateView(viewName string) error {
+func (h *ClientConfig) validateView(config *humioapi.Config, req reconcile.Request, viewName string) error {
 	view := &humiov1alpha1.HumioView{
 		Spec: humiov1alpha1.HumioViewSpec{
 			Name: viewName,
 		},
 	}
 
-	viewResult, err := h.GetView(view)
+	viewResult, err := h.GetView(config, req, view)
 	if err != nil {
 		return fmt.Errorf("failed to verify view %s exists. error: %s", viewName, err)
 	}
@@ -501,14 +472,14 @@ func (h *ClientConfig) validateView(viewName string) error {
 	return nil
 }
 
-func (h *ClientConfig) GetNotifier(ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
-	err := h.validateView(ha.Spec.ViewName)
+func (h *ClientConfig) GetNotifier(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
 		return &humioapi.Notifier{}, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
 	}
 
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	notifier, err := h.apiClient.Notifiers().Get(ha.Spec.ViewName, ha.Spec.Name)
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	notifier, err := h.GetHumioClient(config, req).Notifiers().Get(ha.Spec.ViewName, ha.Spec.Name)
 	if err != nil {
 		return notifier, fmt.Errorf("error when trying to get notifier %+v, name=%s, view=%s: %s", notifier, ha.Spec.Name, ha.Spec.ViewName, err)
 	}
@@ -520,8 +491,8 @@ func (h *ClientConfig) GetNotifier(ha *humiov1alpha1.HumioAction) (*humioapi.Not
 	return notifier, nil
 }
 
-func (h *ClientConfig) AddNotifier(ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
-	err := h.validateView(ha.Spec.ViewName)
+func (h *ClientConfig) AddNotifier(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
 		return &humioapi.Notifier{}, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
 	}
@@ -531,16 +502,16 @@ func (h *ClientConfig) AddNotifier(ha *humiov1alpha1.HumioAction) (*humioapi.Not
 		return notifier, err
 	}
 
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	createdNotifier, err := h.apiClient.Notifiers().Add(ha.Spec.ViewName, notifier, false)
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	createdNotifier, err := h.GetHumioClient(config, req).Notifiers().Add(ha.Spec.ViewName, notifier, false)
 	if err != nil {
 		return createdNotifier, fmt.Errorf("got error when attempting to add notifier: %s", err)
 	}
 	return createdNotifier, nil
 }
 
-func (h *ClientConfig) UpdateNotifier(ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
-	err := h.validateView(ha.Spec.ViewName)
+func (h *ClientConfig) UpdateNotifier(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
 		return &humioapi.Notifier{}, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
 	}
@@ -550,13 +521,13 @@ func (h *ClientConfig) UpdateNotifier(ha *humiov1alpha1.HumioAction) (*humioapi.
 		return notifier, err
 	}
 
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.Notifiers().Update(ha.Spec.ViewName, notifier)
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	return h.GetHumioClient(config, req).Notifiers().Update(ha.Spec.ViewName, notifier)
 }
 
-func (h *ClientConfig) DeleteNotifier(ha *humiov1alpha1.HumioAction) error {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.Notifiers().Delete(ha.Spec.ViewName, ha.Spec.Name)
+func (h *ClientConfig) DeleteNotifier(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) error {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	return h.GetHumioClient(config, req).Notifiers().Delete(ha.Spec.ViewName, ha.Spec.Name)
 }
 
 func getConnectionMap(viewConnections []humioapi.ViewConnection) map[string]string {
@@ -567,29 +538,29 @@ func getConnectionMap(viewConnections []humioapi.ViewConnection) map[string]stri
 	return connectionMap
 }
 
-func (h *ClientConfig) GetLicense() (humioapi.License, error) {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	licensesClient := h.apiClient.Licenses()
+func (h *ClientConfig) GetLicense(config *humioapi.Config, req reconcile.Request) (humioapi.License, error) {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	licensesClient := h.GetHumioClient(config, req).Licenses()
 	emptyConfig := humioapi.Config{}
-	if !reflect.DeepEqual(h.apiClient.Config(), emptyConfig) && h.apiClient.Config().Address != nil {
+	if !reflect.DeepEqual(h.GetHumioClient(config, req).Config(), emptyConfig) && h.GetHumioClient(config, req).Config().Address != nil {
 		return licensesClient.Get()
 	}
 	return nil, fmt.Errorf("no api client configured yet")
 }
 
-func (h *ClientConfig) InstallLicense(license string) error {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.Licenses().Install(license)
+func (h *ClientConfig) InstallLicense(config *humioapi.Config, req reconcile.Request, license string) error {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	return h.GetHumioClient(config, req).Licenses().Install(license)
 }
 
-func (h *ClientConfig) GetAlert(ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
-	err := h.validateView(ha.Spec.ViewName)
+func (h *ClientConfig) GetAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
+	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
 		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
 	}
 
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	alert, err := h.apiClient.Alerts().Get(ha.Spec.ViewName, ha.Spec.Name)
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	alert, err := h.GetHumioClient(config, req).Alerts().Get(ha.Spec.ViewName, ha.Spec.Name)
 	if err != nil {
 		return alert, fmt.Errorf("error when trying to get alert %+v, name=%s, view=%s: %s", alert, ha.Spec.Name, ha.Spec.ViewName, err)
 	}
@@ -601,13 +572,13 @@ func (h *ClientConfig) GetAlert(ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, 
 	return alert, nil
 }
 
-func (h *ClientConfig) AddAlert(ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
-	err := h.validateView(ha.Spec.ViewName)
+func (h *ClientConfig) AddAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
+	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
 		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action: %s", err)
 	}
 
-	actionIdMap, err := h.GetActionIDsMapForAlerts(ha)
+	actionIdMap, err := h.GetActionIDsMapForAlerts(config, req, ha)
 	if err != nil {
 		return &humioapi.Alert{}, fmt.Errorf("could not get action id mapping: %s", err)
 	}
@@ -616,21 +587,21 @@ func (h *ClientConfig) AddAlert(ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, 
 		return alert, err
 	}
 
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	createdAlert, err := h.apiClient.Alerts().Add(ha.Spec.ViewName, alert, false)
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	createdAlert, err := h.GetHumioClient(config, req).Alerts().Add(ha.Spec.ViewName, alert, false)
 	if err != nil {
 		return createdAlert, fmt.Errorf("got error when attempting to add alert: %s, alert: %#v", err, *alert)
 	}
 	return createdAlert, nil
 }
 
-func (h *ClientConfig) UpdateAlert(ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
-	err := h.validateView(ha.Spec.ViewName)
+func (h *ClientConfig) UpdateAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
+	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
 		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action: %s", err)
 	}
 
-	actionIdMap, err := h.GetActionIDsMapForAlerts(ha)
+	actionIdMap, err := h.GetActionIDsMapForAlerts(config, req, ha)
 	if err != nil {
 		return &humioapi.Alert{}, fmt.Errorf("could not get action id mapping: %s", err)
 	}
@@ -639,16 +610,16 @@ func (h *ClientConfig) UpdateAlert(ha *humiov1alpha1.HumioAlert) (*humioapi.Aler
 		return alert, err
 	}
 
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.Alerts().Update(ha.Spec.ViewName, alert)
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	return h.GetHumioClient(config, req).Alerts().Update(ha.Spec.ViewName, alert)
 }
 
-func (h *ClientConfig) DeleteAlert(ha *humiov1alpha1.HumioAlert) error {
-	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.apiClient.Address().String(), h.apiClient.Config().Token != ""))
-	return h.apiClient.Alerts().Delete(ha.Spec.ViewName, ha.Spec.Name)
+func (h *ClientConfig) DeleteAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) error {
+	h.logger.Info(fmt.Sprintf("using client config for cluster=%s where authenticated=%t", h.GetHumioClient(config, req).Address().String(), h.GetHumioClient(config, req).Config().Token != ""))
+	return h.GetHumioClient(config, req).Alerts().Delete(ha.Spec.ViewName, ha.Spec.Name)
 }
 
-func (h *ClientConfig) getAndValidateAction(notifierName string, viewName string) (*humioapi.Notifier, error) {
+func (h *ClientConfig) getAndValidateAction(config *humioapi.Config, req reconcile.Request, notifierName string, viewName string) (*humioapi.Notifier, error) {
 	action := &humiov1alpha1.HumioAction{
 		Spec: humiov1alpha1.HumioActionSpec{
 			Name:     notifierName,
@@ -656,7 +627,7 @@ func (h *ClientConfig) getAndValidateAction(notifierName string, viewName string
 		},
 	}
 
-	notifierResult, err := h.GetNotifier(action)
+	notifierResult, err := h.GetNotifier(config, req, action)
 	if err != nil {
 		return notifierResult, fmt.Errorf("failed to verify notifier %s exists. error: %s", notifierName, err)
 	}
@@ -669,10 +640,10 @@ func (h *ClientConfig) getAndValidateAction(notifierName string, viewName string
 	return notifierResult, nil
 }
 
-func (h *ClientConfig) GetActionIDsMapForAlerts(ha *humiov1alpha1.HumioAlert) (map[string]string, error) {
+func (h *ClientConfig) GetActionIDsMapForAlerts(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (map[string]string, error) {
 	actionIdMap := make(map[string]string)
 	for _, action := range ha.Spec.Actions {
-		notifier, err := h.getAndValidateAction(action, ha.Spec.ViewName)
+		notifier, err := h.getAndValidateAction(config, req, action, ha.Spec.ViewName)
 		if err != nil {
 			return actionIdMap, fmt.Errorf("problem getting action for alert %s: %s", ha.Spec.Name, err)
 		}

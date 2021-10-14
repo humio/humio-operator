@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/humio/humio-operator/pkg/humio"
 
@@ -63,6 +64,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 			ctx := context.Background()
 			createAndBootstrapCluster(ctx, cluster, true)
 			defer cleanupCluster(ctx, cluster)
+
+			sharedCluster, err := helpers.NewCluster(ctx, k8sClient, clusterKey.Name, "", clusterKey.Namespace, helpers.UseCertManager(), true)
+			Expect(err).To(BeNil())
+			Expect(sharedCluster).ToNot(BeNil())
+			Expect(sharedCluster.Config()).ToNot(BeNil())
 
 			By("HumioIngestToken: Creating Humio Ingest token with token target secret")
 			key := types.NamespacedName{
@@ -244,7 +250,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedRepository.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
 
-			initialRepository, err := humioClient.GetRepository(toCreateRepository)
+			initialRepository, err := humioClientForTestSuite.GetRepository(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateRepository)
 			Expect(err).To(BeNil())
 			Expect(initialRepository).ToNot(BeNil())
 
@@ -256,7 +262,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				StorageRetentionSizeGB: float64(toCreateRepository.Spec.Retention.StorageSizeInGB),
 			}
 			Eventually(func() repositoryExpectation {
-				initialRepository, err := humioClient.GetRepository(fetchedRepository)
+				initialRepository, err := humioClientForTestSuite.GetRepository(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedRepository)
 				if err != nil {
 					return repositoryExpectation{}
 				}
@@ -268,7 +274,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					StorageRetentionSizeGB: initialRepository.StorageRetentionSizeGB,
 					SpaceUsed:              initialRepository.SpaceUsed,
 				}
-			}, testTimeout, testInterval).Should(Equal(expectedInitialRepository))
+			}, testTimeout, testInterval).Should(Equal(expectedInitialRepository)) // TODO: This gets an empty struct back, why?
 
 			By("HumioRepository: Updating the repository successfully")
 			updatedDescription := "important description - now updated"
@@ -278,7 +284,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8sClient.Update(ctx, fetchedRepository)
 			}, testTimeout, testInterval).Should(Succeed())
 
-			updatedRepository, err := humioClient.GetRepository(fetchedRepository)
+			updatedRepository, err := humioClientForTestSuite.GetRepository(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedRepository)
 			Expect(err).To(BeNil())
 			Expect(updatedRepository).ToNot(BeNil())
 
@@ -290,7 +296,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				StorageRetentionSizeGB: float64(fetchedRepository.Spec.Retention.StorageSizeInGB),
 			}
 			Eventually(func() repositoryExpectation {
-				updatedRepository, err := humioClient.GetRepository(fetchedRepository)
+				updatedRepository, err := humioClientForTestSuite.GetRepository(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedRepository)
 				if err != nil {
 					return repositoryExpectation{}
 				}
@@ -371,7 +377,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioViewStateExists))
 
 			By("HumioView: Creating the view successfully in Humio")
-			initialView, err := humioClient.GetView(viewToCreate)
+			initialView, err := humioClientForTestSuite.GetView(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, viewToCreate)
 			Expect(err).To(BeNil())
 			Expect(initialView).ToNot(BeNil())
 
@@ -381,7 +387,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Eventually(func() humioapi.View {
-				initialView, err := humioClient.GetView(fetchedView)
+				initialView, err := humioClientForTestSuite.GetView(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedView)
 				if err != nil {
 					return humioapi.View{}
 				}
@@ -402,7 +408,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("HumioView: Updating the view successfully in Humio")
-			updatedView, err := humioClient.GetView(fetchedView)
+			updatedView, err := humioClientForTestSuite.GetView(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedView)
 			Expect(err).To(BeNil())
 			Expect(updatedView).ToNot(BeNil())
 
@@ -411,7 +417,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Connections: fetchedView.GetViewConnections(),
 			}
 			Eventually(func() humioapi.View {
-				updatedView, err := humioClient.GetView(fetchedView)
+				updatedView, err := humioClientForTestSuite.GetView(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedView)
 				if err != nil {
 					return humioapi.View{}
 				}
@@ -465,7 +471,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedParser.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioParserStateExists))
 
-			initialParser, err := humioClient.GetParser(toCreateParser)
+			initialParser, err := humioClientForTestSuite.GetParser(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateParser)
 			Expect(err).To(BeNil())
 			Expect(initialParser).ToNot(BeNil())
 
@@ -485,7 +491,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8sClient.Update(ctx, fetchedParser)
 			}, testTimeout, testInterval).Should(Succeed())
 
-			updatedParser, err := humioClient.GetParser(fetchedParser)
+			updatedParser, err := humioClientForTestSuite.GetParser(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedParser)
 			Expect(err).To(BeNil())
 			Expect(updatedParser).ToNot(BeNil())
 
@@ -496,7 +502,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Tests:     spec.TestData,
 			}
 			Eventually(func() humioapi.Parser {
-				updatedParser, err := humioClient.GetParser(fetchedParser)
+				updatedParser, err := humioClientForTestSuite.GetParser(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedParser)
 				if err != nil {
 					return humioapi.Parser{}
 				}
@@ -858,7 +864,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
-			notifier, err := humioClient.GetNotifier(toCreateAction)
+			notifier, err := humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 			Expect(err).To(BeNil())
 			Expect(notifier).ToNot(BeNil())
 
@@ -887,7 +893,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("HumioAction: Verifying the action update succeeded")
-			expectedUpdatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+			expectedUpdatedNotifier, err := humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 			Expect(err).To(BeNil())
 			Expect(expectedUpdatedNotifier).ToNot(BeNil())
 
@@ -895,7 +901,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			verifiedNotifier, err := humio.NotifierFromAction(updatedAction)
 			Expect(err).To(BeNil())
 			Eventually(func() map[string]interface{} {
-				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				updatedNotifier, err := humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
 					return map[string]interface{}{}
 				}
@@ -945,7 +951,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			notifier = &humioapi.Notifier{}
 			Eventually(func() error {
-				notifier, err = humioClient.GetNotifier(toCreateAction)
+				notifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 				return err
 			}, testTimeout, testInterval).Should(Succeed())
 			Expect(notifier).ToNot(BeNil())
@@ -973,7 +979,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("HumioAction: Verifying the humio repo action update succeeded")
-			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
+			expectedUpdatedNotifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 			Expect(err).To(BeNil()) // problem getting view for action example-humio-repo-action: failed to verify view humio exists. error: Authorization Required.
 			Expect(expectedUpdatedNotifier).ToNot(BeNil())
 
@@ -981,7 +987,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			verifiedNotifier, err = humio.NotifierFromAction(updatedAction)
 			Expect(err).To(BeNil())
 			Eventually(func() map[string]interface{} {
-				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				updatedNotifier, err := humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
 					return map[string]interface{}{}
 				}
@@ -1029,7 +1035,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
-			notifier, err = humioClient.GetNotifier(toCreateAction)
+			notifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 			Expect(err).To(BeNil())
 			Expect(notifier).ToNot(BeNil())
 
@@ -1056,7 +1062,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("HumioAction: Verifying the ops genie action update succeeded")
-			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
+			expectedUpdatedNotifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 			Expect(err).To(BeNil())
 			Expect(expectedUpdatedNotifier).ToNot(BeNil())
 
@@ -1064,7 +1070,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			verifiedNotifier, err = humio.NotifierFromAction(updatedAction)
 			Expect(err).To(BeNil())
 			Eventually(func() map[string]interface{} {
-				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				updatedNotifier, err := humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
 					return map[string]interface{}{}
 				}
@@ -1113,7 +1119,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
-			notifier, err = humioClient.GetNotifier(toCreateAction)
+			notifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 			Expect(err).To(BeNil())
 			Expect(notifier).ToNot(BeNil())
 
@@ -1142,7 +1148,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("HumioAction: Verifying the pagerduty action update succeeded")
-			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
+			expectedUpdatedNotifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 			Expect(err).To(BeNil())
 			Expect(expectedUpdatedNotifier).ToNot(BeNil())
 
@@ -1150,7 +1156,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			verifiedNotifier, err = humio.NotifierFromAction(updatedAction)
 			Expect(err).To(BeNil())
 			Eventually(func() map[string]interface{} {
-				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				updatedNotifier, err := humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
 					return map[string]interface{}{}
 				}
@@ -1202,7 +1208,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
-			notifier, err = humioClient.GetNotifier(toCreateAction)
+			notifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 			Expect(err).To(BeNil())
 			Expect(notifier).ToNot(BeNil())
 
@@ -1235,7 +1241,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("HumioAction: Verifying the slack post message action update succeeded")
-			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
+			expectedUpdatedNotifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 			Expect(err).To(BeNil())
 			Expect(expectedUpdatedNotifier).ToNot(BeNil())
 
@@ -1243,7 +1249,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			verifiedNotifier, err = humio.NotifierFromAction(updatedAction)
 			Expect(err).To(BeNil())
 			Eventually(func() map[string]interface{} {
-				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				updatedNotifier, err := humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
 					return map[string]interface{}{}
 				}
@@ -1294,7 +1300,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
-			notifier, err = humioClient.GetNotifier(toCreateAction)
+			notifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 			Expect(err).To(BeNil())
 			Expect(notifier).ToNot(BeNil())
 
@@ -1325,7 +1331,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("HumioAction: Verifying the slack action update succeeded")
-			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
+			expectedUpdatedNotifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 			Expect(err).To(BeNil())
 			Expect(expectedUpdatedNotifier).ToNot(BeNil())
 
@@ -1333,7 +1339,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			verifiedNotifier, err = humio.NotifierFromAction(updatedAction)
 			Expect(err).To(BeNil())
 			Eventually(func() map[string]interface{} {
-				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				updatedNotifier, err := humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
 					return map[string]interface{}{}
 				}
@@ -1382,7 +1388,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
-			notifier, err = humioClient.GetNotifier(toCreateAction)
+			notifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 			Expect(err).To(BeNil())
 			Expect(notifier).ToNot(BeNil())
 
@@ -1411,7 +1417,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("HumioAction: Verifying the victor ops action update succeeded")
-			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
+			expectedUpdatedNotifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 			Expect(err).To(BeNil())
 			Expect(expectedUpdatedNotifier).ToNot(BeNil())
 
@@ -1419,7 +1425,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			verifiedNotifier, err = humio.NotifierFromAction(updatedAction)
 			Expect(err).To(BeNil())
 			Eventually(func() map[string]interface{} {
-				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				updatedNotifier, err := humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
 					return map[string]interface{}{}
 				}
@@ -1470,7 +1476,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
-			notifier, err = humioClient.GetNotifier(toCreateAction)
+			notifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 			Expect(err).To(BeNil())
 			Expect(notifier).ToNot(BeNil())
 
@@ -1503,7 +1509,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("HumioAction: Verifying the web hook action update succeeded")
-			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
+			expectedUpdatedNotifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 			Expect(err).To(BeNil())
 			Expect(expectedUpdatedNotifier).ToNot(BeNil())
 
@@ -1511,7 +1517,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			verifiedNotifier, err = humio.NotifierFromAction(updatedAction)
 			Expect(err).To(BeNil())
 			Eventually(func() map[string]interface{} {
-				updatedNotifier, err := humioClient.GetNotifier(fetchedAction)
+				updatedNotifier, err := humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
 					return map[string]interface{}{}
 				}
@@ -1548,7 +1554,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateConfigError))
 
-			invalidNotifier, err := humioClient.GetNotifier(toCreateInvalidAction)
+			invalidNotifier, err := humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateInvalidAction)
 			Expect(err).To(Not(BeNil()))
 			Expect(invalidNotifier).To(BeNil())
 
@@ -1583,7 +1589,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateConfigError))
 
-			invalidNotifier, err = humioClient.GetNotifier(toCreateInvalidAction)
+			invalidNotifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateInvalidAction)
 			Expect(err).To(Not(BeNil()))
 			Expect(invalidNotifier).To(BeNil())
 
@@ -1641,7 +1647,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
-			notifier, err = humioClient.GetNotifier(toCreateAction)
+			notifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 			Expect(err).To(BeNil())
 			Expect(notifier).ToNot(BeNil())
 
@@ -1697,7 +1703,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
-			notifier, err = humioClient.GetNotifier(toCreateAction)
+			notifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 			Expect(err).To(BeNil())
 			Expect(notifier).ToNot(BeNil())
 
@@ -1735,7 +1741,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
-			notifier, err = humioClient.GetNotifier(toCreateAction)
+			notifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 			Expect(err).To(BeNil())
 			Expect(notifier).ToNot(BeNil())
 
@@ -1795,7 +1801,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
-			notifier, err = humioClient.GetNotifier(toCreateAction)
+			notifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 			Expect(err).To(BeNil())
 			Expect(notifier).ToNot(BeNil())
 
@@ -1837,7 +1843,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
-			notifier, err = humioClient.GetNotifier(toCreateAction)
+			notifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 			Expect(err).To(BeNil())
 			Expect(notifier).ToNot(BeNil())
 
@@ -1917,11 +1923,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAlert.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
 
-			alert, err := humioClient.GetAlert(toCreateAlert)
+			alert, err := humioClientForTestSuite.GetAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAlert)
 			Expect(err).To(BeNil())
 			Expect(alert).ToNot(BeNil())
 
-			actionIdMap, err := humioClient.GetActionIDsMapForAlerts(toCreateAlert)
+			actionIdMap, err := humioClientForTestSuite.GetActionIDsMapForAlerts(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAlert)
 			Expect(err).To(BeNil())
 
 			originalAlert, err := humio.AlertTransform(toCreateAlert, actionIdMap)
@@ -1961,7 +1967,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("HumioAlert: Verifying the alert update succeeded")
-			expectedUpdatedAlert, err := humioClient.GetAlert(fetchedAlert)
+			expectedUpdatedAlert, err := humioClientForTestSuite.GetAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAlert)
 			Expect(err).To(BeNil())
 			Expect(expectedUpdatedAlert).ToNot(BeNil())
 
@@ -1969,7 +1975,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			verifiedAlert, err := humio.AlertTransform(updatedAlert, actionIdMap)
 			Expect(err).To(BeNil())
 			Eventually(func() humioapi.Alert {
-				updatedAlert, err := humioClient.GetAlert(fetchedAlert)
+				updatedAlert, err := humioClientForTestSuite.GetAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAlert)
 				if err != nil {
 					return *updatedAlert
 				}
