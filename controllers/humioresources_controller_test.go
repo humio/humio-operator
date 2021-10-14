@@ -943,8 +943,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return fetchedAction.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
-			notifier, err = humioClient.GetNotifier(toCreateAction)
-			Expect(err).To(BeNil())
+			notifier = &humioapi.Notifier{}
+			Eventually(func() error {
+				notifier, err = humioClient.GetNotifier(toCreateAction)
+				return err
+			}, testTimeout, testInterval).Should(Succeed())
 			Expect(notifier).ToNot(BeNil())
 
 			originalNotifier, err = humio.NotifierFromAction(toCreateAction)
@@ -971,7 +974,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			By("HumioAction: Verifying the humio repo action update succeeded")
 			expectedUpdatedNotifier, err = humioClient.GetNotifier(fetchedAction)
-			Expect(err).To(BeNil())
+			Expect(err).To(BeNil()) // problem getting view for action example-humio-repo-action: failed to verify view humio exists. error: Authorization Required.
 			Expect(expectedUpdatedNotifier).ToNot(BeNil())
 
 			By("HumioAction: Verifying the humio repo notifier matches the expected")
