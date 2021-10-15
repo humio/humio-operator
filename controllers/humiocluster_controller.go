@@ -308,9 +308,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		_ = r.setNodeCount(ctx, len(pods), hc)
 	}(ctx, hc)
 
-
 	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
-		status, err := humioClient.Status(cluster.Config(),req)
+		status, err := humioClient.Status(cluster.Config(), req)
 		if err != nil {
 			r.Log.Error(err, "unable to get cluster status")
 		}

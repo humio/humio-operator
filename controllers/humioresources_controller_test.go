@@ -893,7 +893,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			By("HumioAction: Verifying the action update succeeded")
-			expectedUpdatedNotifier, err := humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+			var expectedUpdatedNotifier *humioapi.Notifier
+			Eventually(func() error {
+				expectedUpdatedNotifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				return err
+			}, testTimeout, testInterval).Should(Succeed())
 			Expect(err).To(BeNil())
 			Expect(expectedUpdatedNotifier).ToNot(BeNil())
 
