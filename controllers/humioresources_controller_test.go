@@ -53,7 +53,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	// your API definition.
 	// Avoid adding tests for vanilla CRUD operations because they would
 	// test Kubernetes API server, which isn't the goal here.
-	XContext("Humio Resources Controllers", func() {
+	Context("Humio Resources Controllers", func() {
 		It("should handle resources correctly", func() {
 			By("HumioCluster: Creating shared test cluster")
 			clusterKey := types.NamespacedName{
