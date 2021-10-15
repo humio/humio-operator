@@ -147,7 +147,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Image", func() {
+	XContext("Humio Cluster Update Image", func() {
 		It("Update should correctly replace pods to use new image", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image",
@@ -211,7 +211,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Image Source", func() {
+	XContext("Humio Cluster Update Image Source", func() {
 		It("Update should correctly replace pods to use new image", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image-source",
@@ -405,7 +405,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Helper Image", func() {
+	XContext("Humio Cluster Update Helper Image", func() {
 		It("Update should correctly replace pods to use new image", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-helper-image",
