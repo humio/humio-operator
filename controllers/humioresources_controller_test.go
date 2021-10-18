@@ -1646,7 +1646,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() error {
 				invalidNotifier, err = humioClientForTestSuite.GetNotifier(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateInvalidAction)
 				return err
-			}, testTimeout, testInterval).Should(Succeed())
+			}, testTimeout, testInterval).ShouldNot(Succeed())
 			Expect(invalidNotifier).To(BeNil())
 
 			By("HumioAction: Successfully deleting it")
