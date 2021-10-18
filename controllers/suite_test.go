@@ -120,14 +120,14 @@ var _ = BeforeSuite(func() {
 		}
 		humioClientForTestSuite = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
 
-		humioClientForHumioAction = humioClientForTestSuite
-		humioClientForHumioAlert = humioClientForTestSuite
-		humioClientForHumioCluster = humioClientForTestSuite
-		humioClientForHumioExternalCluster = humioClientForTestSuite
-		humioClientForHumioIngestToken = humioClientForTestSuite
-		humioClientForHumioParser = humioClientForTestSuite
-		humioClientForHumioRepository = humioClientForTestSuite
-		humioClientForHumioView = humioClientForTestSuite
+		humioClientForHumioAction = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
+		humioClientForHumioAlert = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
+		humioClientForHumioCluster = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
+		humioClientForHumioExternalCluster = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
+		humioClientForHumioIngestToken = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
+		humioClientForHumioParser = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
+		humioClientForHumioRepository = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
+		humioClientForHumioView = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
 	}
 
 	cfg, err := testEnv.Start()
