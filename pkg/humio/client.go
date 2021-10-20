@@ -186,9 +186,9 @@ func (h *ClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request)
 	//h.apiClient = c // How can we get rid of this?
 	h.logger.Info(fmt.Sprintf("GetHumioClient, we now have %d entries in the humioClients map", len(h.humioClients)))
 	for clientKey, clientConnection := range h.humioClients {
-		h.logger.Info(fmt.Sprintf("GetHumioClient debug: key=%+v, value=%+v", clientKey, clientConnection))
+		h.logger.Info(fmt.Sprintf("GetHumioClient debug: key=%s/%s/%t, value=%+v/%+v", clientKey.name, clientKey.namespace, clientKey.authenticated, clientConnection.client, clientConnection.transport))
 	}
-	h.logger.Info(fmt.Sprintf("GetHumioClient debug: current=%+v", h.humioClients[key]))
+	h.logger.Info(fmt.Sprintf("GetHumioClient debug: current=%s/%s/%t", key.name, key.namespace, key.authenticated))
 	return c.client
 }
 
