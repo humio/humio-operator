@@ -188,6 +188,7 @@ func (h *ClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request)
 	for clientKey, clientConnection := range h.humioClients {
 		h.logger.Info(fmt.Sprintf("GetHumioClient debug: key=%+v, value=%+v", clientKey, clientConnection))
 	}
+	h.logger.Info(fmt.Sprintf("GetHumioClient debug: current=%+v", h.humioClients[key]))
 	return c.client
 }
 
