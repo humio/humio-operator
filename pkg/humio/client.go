@@ -166,9 +166,6 @@ func (h *ClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request)
 		// If the cluster address or SSL configuration has changed, we must create a new transport
 		if !equal {
 			h.logger.Info(fmt.Sprintf("GetHumioClient, key found, created new logger for cluster %s/%s where auth=%t", key.name, key.namespace, key.authenticated))
-			for clientKey, clientConnection := range h.humioClients {
-				h.logger.Info(fmt.Sprintf("GetHumioClient debug: key=%+v, value=%+v", clientKey, clientConnection))
-			}
 			transport := humioapi.NewHttpTransport(*config)
 			c = &humioClientConnection{
 				client:    humioapi.NewClientWithTransport(*config, transport),
@@ -188,6 +185,9 @@ func (h *ClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request)
 
 	//h.apiClient = c // How can we get rid of this?
 	h.logger.Info(fmt.Sprintf("GetHumioClient, we now have %d entries in the humioClients map", len(h.humioClients)))
+	for clientKey, clientConnection := range h.humioClients {
+		h.logger.Info(fmt.Sprintf("GetHumioClient debug: key=%+v, value=%+v", clientKey, clientConnection))
+	}
 	return c.client
 }
 
