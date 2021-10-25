@@ -1870,7 +1870,10 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	envVarSourceData, err := r.getEnvVarSource(ctx, hc)
 	if err != nil {
 		r.Log.Error(err, "got error when getting pod envVarSource")
-		_ = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		errState := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+		if errState != nil {
+			r.Log.Error(errState, "failed to set state")
+		}
 		return reconcile.Result{}, err
 	}
 	if envVarSourceData != nil {
