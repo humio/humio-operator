@@ -143,12 +143,16 @@ func NewClientWithTransport(logger logr.Logger, config *humioapi.Config, userAge
 
 // GetHumioClient takes a Humio API config as input and returns an API client that uses this config
 func (h *ClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request) *humioapi.Client {
+	h.humioClientsMutex.Lock()
+	defer h.humioClientsMutex.Unlock()
+
 	config.UserAgent = h.userAgent
 	key := humioClientKey{
 		namespace:     req.Namespace,
 		name:          req.Name,
 		authenticated: config.Token != "",
 	}
+
 	c := h.humioClients[key]
 	if c == nil {
 		h.logger.Info(fmt.Sprintf("GetHumioClient, key not found, created new logger for cluster %s/%s where auth=%t", key.name, key.namespace, key.authenticated))
@@ -182,10 +186,9 @@ func (h *ClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request)
 		// will be cached.
 		c.client = humioapi.NewClientWithTransport(*config, c.transport)
 	}
-	h.humioClientsMutex.Lock()
+
 	h.humioClients[key] = c
 	h.logger.Info(fmt.Sprintf("GetHumioClient, we now have %d entries in the humioClients map", len(h.humioClients)))
-	h.humioClientsMutex.Unlock()
 
 	return c.client
 }
