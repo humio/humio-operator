@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"sync"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -106,9 +107,10 @@ type LicenseClient interface {
 
 // ClientConfig stores our Humio api client
 type ClientConfig struct {
-	humioClients map[humioClientKey]*humioClientConnection
-	logger       logr.Logger
-	userAgent    string
+	humioClients      map[humioClientKey]*humioClientConnection
+	humioClientsMutex sync.Mutex
+	logger            logr.Logger
+	userAgent         string
 }
 
 type humioClientKey struct {
@@ -180,15 +182,11 @@ func (h *ClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request)
 		// will be cached.
 		c.client = humioapi.NewClientWithTransport(*config, c.transport)
 	}
-
+	h.humioClientsMutex.Lock()
 	h.humioClients[key] = c
-
-	//h.apiClient = c // How can we get rid of this?
 	h.logger.Info(fmt.Sprintf("GetHumioClient, we now have %d entries in the humioClients map", len(h.humioClients)))
-	for clientKey, clientConnection := range h.humioClients {
-		h.logger.Info(fmt.Sprintf("GetHumioClient debug: key=%s/%s/%t, value=%+v/%+v", clientKey.name, clientKey.namespace, clientKey.authenticated, clientConnection.client, clientConnection.transport))
-	}
-	h.logger.Info(fmt.Sprintf("GetHumioClient debug: current=%s/%s/%t", key.name, key.namespace, key.authenticated))
+	h.humioClientsMutex.Unlock()
+
 	return c.client
 }
 
