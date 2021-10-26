@@ -232,7 +232,7 @@ func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.H
 }
 
 func (r *HumioClusterReconciler) setObservedGeneration(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	if hc.Status.ObservedGeneration == hc.ResourceVersion {
+	if hc.Status.ObservedGeneration == hc.GetGeneration() {
 		return nil
 	}
 
@@ -246,7 +246,7 @@ func (r *HumioClusterReconciler) setObservedGeneration(ctx context.Context, hc *
 			getHumioClusterRetries++
 			return err
 		}
-		hc.Status.ObservedGeneration = hc.ResourceVersion
+		hc.Status.ObservedGeneration = hc.GetGeneration()
 		err = r.Status().Update(ctx, hc)
 		if err != nil {
 			r.Log.Error(err, fmt.Sprintf("failed to update HumioCluster status (attempt %d). retrying...", updateStatusRetries))

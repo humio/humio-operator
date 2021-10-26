@@ -3300,6 +3300,7 @@ var _ = Describe("HumioCluster Controller", func() {
 						},
 					},
 				}
+				updatedHumioCluster.GetGeneration()
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
 
@@ -3545,22 +3546,20 @@ func waitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sCl
 		currentHumioCluster = &updatedHumioCluster
 	}
 
-	resourceVersion, _ := strconv.Atoi(currentHumioCluster.ResourceVersion)
-	Eventually(func() int {
+	beforeGeneration := currentHumioCluster.GetGeneration()
+	Eventually(func() int64 {
 		Expect(k8sClient.Get(ctx, key, currentHumioCluster)).Should(Succeed())
-		observedGeneration, _ := strconv.Atoi(currentHumioCluster.Status.ObservedGeneration)
-		return observedGeneration
-	}, testTimeout, testInterval).Should(BeNumerically(">=", resourceVersion))
+		return currentHumioCluster.Status.ObservedGeneration
+	}, testTimeout, testInterval).Should(BeNumerically(">=", beforeGeneration))
 }
 
 func waitForReconcileToRun(ctx context.Context, key types.NamespacedName, k8sClient client.Client, currentHumioCluster humiov1alpha1.HumioCluster) {
 	By("Waiting for the next reconcile loop to run")
-	resourceVersion, _ := strconv.Atoi(currentHumioCluster.ResourceVersion)
-	Eventually(func() int {
+	beforeGeneration := currentHumioCluster.GetGeneration()
+	Eventually(func() int64 {
 		Expect(k8sClient.Get(ctx, key, &currentHumioCluster)).Should(Succeed())
-		observedGeneration, _ := strconv.Atoi(currentHumioCluster.Status.ObservedGeneration)
-		return observedGeneration
-	}, testTimeout, testInterval).Should(BeNumerically(">", resourceVersion))
+		return currentHumioCluster.Status.ObservedGeneration
+	}, testTimeout, testInterval).Should(BeNumerically(">", beforeGeneration))
 }
 
 func constructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreatedLicense bool) *humiov1alpha1.HumioCluster {

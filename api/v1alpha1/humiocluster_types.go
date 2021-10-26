@@ -232,7 +232,7 @@ type HumioClusterStatus struct {
 	// LicenseStatus shows the status of the Humio license attached to the cluster
 	LicenseStatus HumioLicenseStatus `json:"licenseStatus,omitempty"`
 	// ObservedGeneration shows the ResourceVersion of the HumioCluster which was last observed
-	ObservedGeneration string `json:"observedGeneration,omitempty"`
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

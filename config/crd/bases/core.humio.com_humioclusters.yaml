@@ -6194,7 +6194,8 @@ spec:
               observedGeneration:
                 description: ObservedGeneration shows the ResourceVersion of the HumioCluster
                   which was last observed
-                type: string
+                format: int64
+                type: integer
               podStatus:
                 description: PodStatus shows the status of individual humio pods
                 items:
