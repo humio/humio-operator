@@ -293,14 +293,14 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return result, err
 	}
 
-	err = r.ensureIngress(ctx, hc)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	result, err = r.ensureLicense(ctx, hc, req)
 	if result != emptyResult || err != nil {
 		return result, err
+	}
+
+	err = r.ensureIngress(ctx, hc)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true)
