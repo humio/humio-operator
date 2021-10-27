@@ -232,11 +232,11 @@ func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.H
 }
 
 func (r *HumioClusterReconciler) setObservedGeneration(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	if hc.Status.ObservedGeneration == hc.GetGeneration() {
+	if hc.Status.ObservedGeneration == fmt.Sprintf("%d", hc.GetGeneration()) {
 		return nil
 	}
 
-	r.Log.Info(fmt.Sprintf("setting ObservedGeneration to %s", hc.GetGeneration()))
+	r.Log.Info(fmt.Sprintf("setting ObservedGeneration to %d", hc.GetGeneration()))
 	var getHumioClusterRetries int
 	var updateStatusRetries int
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -246,7 +246,7 @@ func (r *HumioClusterReconciler) setObservedGeneration(ctx context.Context, hc *
 			getHumioClusterRetries++
 			return err
 		}
-		hc.Status.ObservedGeneration = hc.GetGeneration()
+		hc.Status.ObservedGeneration = fmt.Sprintf("%d", hc.GetGeneration())
 		err = r.Status().Update(ctx, hc)
 		if err != nil {
 			r.Log.Error(err, fmt.Sprintf("failed to update HumioCluster status (attempt %d). retrying...", updateStatusRetries))

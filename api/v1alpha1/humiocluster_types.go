@@ -232,7 +232,7 @@ type HumioClusterStatus struct {
 	// LicenseStatus shows the status of the Humio license attached to the cluster
 	LicenseStatus HumioLicenseStatus `json:"licenseStatus,omitempty"`
 	// ObservedGeneration shows the generation of the HumioCluster which was last observed
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	ObservedGeneration string `json:"observedGeneration,omitempty"` // TODO: We should change the type to int64 so we don't have to convert back and forth between int64 and string
 }
 
 //+kubebuilder:object:root=true

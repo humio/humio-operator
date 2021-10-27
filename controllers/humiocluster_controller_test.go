@@ -3567,7 +3567,11 @@ func waitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sCl
 		if err != nil {
 			return -1
 		}
-		return currentHumioCluster.Status.ObservedGeneration
+		observedGen, err := strconv.Atoi(currentHumioCluster.Status.ObservedGeneration)
+		if err != nil {
+			return -2
+		}
+		return int64(observedGen)
 	}, testTimeout, testInterval).Should(BeNumerically(">=", beforeGeneration))
 }
 
@@ -3580,7 +3584,11 @@ func waitForReconcileToRun(ctx context.Context, key types.NamespacedName, k8sCli
 		if err != nil {
 			return -1
 		}
-		return humioClusterBeforeUpdate.Status.ObservedGeneration
+		observedGen, err := strconv.Atoi(humioClusterBeforeUpdate.Status.ObservedGeneration)
+		if err != nil {
+			return -2
+		}
+		return int64(observedGen)
 	}, testTimeout, testInterval).Should(BeNumerically(">", beforeGeneration))
 }
 
