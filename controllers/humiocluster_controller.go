@@ -287,6 +287,17 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return result, err
 	}
 
+	// Ensure ingress objects are deleted if ingress is disabled.
+	result, err = r.ensureNoIngressesIfIngressNotEnabled(ctx, hc)
+	if result != emptyResult || err != nil {
+		return result, err
+	}
+
+	err = r.ensureIngress(ctx, hc)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	result, err = r.ensureLicense(ctx, hc, req)
 	if result != emptyResult || err != nil {
 		return result, err
@@ -318,17 +329,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}(ctx, r.HumioClient, hc)
 
 	err = r.ensureLabels(ctx, cluster.Config(), req, hc)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Ensure ingress objects are deleted if ingress is disabled.
-	result, err = r.ensureNoIngressesIfIngressNotEnabled(ctx, hc)
-	if result != emptyResult || err != nil {
-		return result, err
-	}
-
-	err = r.ensureIngress(ctx, hc)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
