@@ -6558,7 +6558,7 @@ spec:
                 description: NodeCount is the number of nodes of humio running
                 type: integer
               observedGeneration:
-                description: ObservedGeneration shows the ResourceVersion of the HumioCluster
+                description: ObservedGeneration shows the generation of the HumioCluster
                   which was last observed
                 format: int64
                 type: integer

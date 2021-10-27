@@ -236,7 +236,7 @@ func (r *HumioClusterReconciler) setObservedGeneration(ctx context.Context, hc *
 		return nil
 	}
 
-	r.Log.Info(fmt.Sprintf("setting ObservedGeneration to %s", hc.ResourceVersion))
+	r.Log.Info(fmt.Sprintf("setting ObservedGeneration to %s", hc.GetGeneration()))
 	var getHumioClusterRetries int
 	var updateStatusRetries int
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {

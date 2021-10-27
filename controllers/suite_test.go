@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -115,8 +116,9 @@ var _ = BeforeSuite(func() {
 		testTimeout = time.Second * 30
 		testEnv = &envtest.Environment{
 			// TODO: If we want to add support for TLS-functionality, we need to install cert-manager's CRD's
-			CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
-			ErrorIfCRDPathMissing: true,
+			CRDDirectoryPaths:        []string{filepath.Join("..", "config", "crd", "bases")},
+			ErrorIfCRDPathMissing:    true,
+			ControlPlaneStartTimeout: 60 * time.Second,
 		}
 		humioClientForTestSuite = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
 
@@ -330,11 +332,13 @@ var _ = BeforeSuite(func() {
 }, 120)
 
 var _ = AfterSuite(func() {
-	By(fmt.Sprintf("Removing test namespace: %s", testProcessID))
-	err := k8sClient.Delete(context.TODO(), &testNamespace)
-	Expect(err).ToNot(HaveOccurred())
+	if !reflect.DeepEqual(testNamespace, corev1.Namespace{}) {
+		By(fmt.Sprintf("Removing test namespace: %s", testProcessID))
+		err := k8sClient.Delete(context.TODO(), &testNamespace)
+		Expect(err).ToNot(HaveOccurred())
+	}
 	By("Tearing down the test environment")
-	err = testEnv.Stop()
+	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
 
