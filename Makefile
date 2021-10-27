@@ -54,7 +54,7 @@ ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test: manifests generate fmt vet ginkgo ## Run tests.
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.2/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); ACK_GINKGO_RC=true USE_CERTMANAGER=false TEST_USE_EXISTING_CLUSTER=false $(GINKGO) -p -randomizeSuites -randomizeAllSpecs -timeout 10m ./... -covermode=count -coverprofile cover.out
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); ACK_GINKGO_RC=true USE_CERTMANAGER=false TEST_USE_EXISTING_CLUSTER=false $(GINKGO) -race -p -randomizeSuites -randomizeAllSpecs -timeout 10m ./... -covermode=count -coverprofile cover.out
 
 ##@ Build
 

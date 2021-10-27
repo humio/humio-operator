@@ -1983,114 +1983,112 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			By("HumioAlert: Creating the alert successfully")
 			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
-			/*
 
-					fetchedAlert := &humiov1alpha1.HumioAlert{}
-				Eventually(func() string {
-					k8sClient.Get(ctx, key, fetchedAlert)
-					return fetchedAlert.Status.State
-				}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
+			fetchedAlert := &humiov1alpha1.HumioAlert{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAlert)
+				return fetchedAlert.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
 
-				var alert *humioapi.Alert
-				Eventually(func() error {
-					alert, err = humioClientForHumioAlert.GetAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAlert)
-					return err
-				}, testTimeout, testInterval).Should(Succeed())
-				Expect(alert).ToNot(BeNil())
+			var alert *humioapi.Alert
+			Eventually(func() error {
+				alert, err = humioClientForHumioAlert.GetAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAlert)
+				return err
+			}, testTimeout, testInterval).Should(Succeed())
+			Expect(alert).ToNot(BeNil())
 
-				var actionIdMap map[string]string
-				Eventually(func() error {
-					actionIdMap, err = humioClientForHumioAlert.GetActionIDsMapForAlerts(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAlert)
-					return err
-				}, testTimeout, testInterval).Should(Succeed())
+			var actionIdMap map[string]string
+			Eventually(func() error {
+				actionIdMap, err = humioClientForHumioAlert.GetActionIDsMapForAlerts(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAlert)
+				return err
+			}, testTimeout, testInterval).Should(Succeed())
 
-				originalAlert, err := humio.AlertTransform(toCreateAlert, actionIdMap)
-				Expect(err).To(BeNil())
-				Expect(alert.Name).To(Equal(originalAlert.Name))
-				Expect(alert.Description).To(Equal(originalAlert.Description))
-				Expect(alert.Notifiers).To(Equal(originalAlert.Notifiers))
-				Expect(alert.Labels).To(Equal(originalAlert.Labels))
-				Expect(alert.ThrottleTimeMillis).To(Equal(originalAlert.ThrottleTimeMillis))
-				Expect(alert.Silenced).To(Equal(originalAlert.Silenced))
-				Expect(alert.Query.QueryString).To(Equal(originalAlert.Query.QueryString))
-				Expect(alert.Query.Start).To(Equal(originalAlert.Query.Start))
-				Expect(alert.Query.End).To(Equal(originalAlert.Query.End))
-				Expect(alert.Query.IsLive).To(Equal(originalAlert.Query.IsLive))
+			originalAlert, err := humio.AlertTransform(toCreateAlert, actionIdMap)
+			Expect(err).To(BeNil())
+			Expect(alert.Name).To(Equal(originalAlert.Name))
+			Expect(alert.Description).To(Equal(originalAlert.Description))
+			Expect(alert.Notifiers).To(Equal(originalAlert.Notifiers))
+			Expect(alert.Labels).To(Equal(originalAlert.Labels))
+			Expect(alert.ThrottleTimeMillis).To(Equal(originalAlert.ThrottleTimeMillis))
+			Expect(alert.Silenced).To(Equal(originalAlert.Silenced))
+			Expect(alert.Query.QueryString).To(Equal(originalAlert.Query.QueryString))
+			Expect(alert.Query.Start).To(Equal(originalAlert.Query.Start))
+			Expect(alert.Query.End).To(Equal(originalAlert.Query.End))
+			Expect(alert.Query.IsLive).To(Equal(originalAlert.Query.IsLive))
 
-					createdAlert := toCreateAlert
-					err = humio.AlertHydrate(createdAlert, alert, actionIdMap)
-					Expect(err).To(BeNil())
-					Expect(createdAlert.Spec).To(Equal(toCreateAlert.Spec))
+			createdAlert := toCreateAlert
+			err = humio.AlertHydrate(createdAlert, alert, actionIdMap)
+			Expect(err).To(BeNil())
+			Expect(createdAlert.Spec).To(Equal(toCreateAlert.Spec))
 
-					By("HumioAlert: Updating the alert successfully")
-					updatedAlert := toCreateAlert
-					updatedAlert.Spec.Query.QueryString = "#repo = test | updated=true | count()"
-					updatedAlert.Spec.ThrottleTimeMillis = 70000
-					updatedAlert.Spec.Silenced = true
-					updatedAlert.Spec.Description = "updated humio alert"
-					updatedAlert.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
+			By("HumioAlert: Updating the alert successfully")
+			updatedAlert := toCreateAlert
+			updatedAlert.Spec.Query.QueryString = "#repo = test | updated=true | count()"
+			updatedAlert.Spec.ThrottleTimeMillis = 70000
+			updatedAlert.Spec.Silenced = true
+			updatedAlert.Spec.Description = "updated humio alert"
+			updatedAlert.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
 
-					By("HumioAlert: Waiting for the alert to be updated")
-					Eventually(func() error {
-						k8sClient.Get(ctx, key, fetchedAlert)
-						fetchedAlert.Spec.Query = updatedAlert.Spec.Query
-						fetchedAlert.Spec.ThrottleTimeMillis = updatedAlert.Spec.ThrottleTimeMillis
-						fetchedAlert.Spec.Silenced = updatedAlert.Spec.Silenced
-						fetchedAlert.Spec.Description = updatedAlert.Spec.Description
-						return k8sClient.Update(ctx, fetchedAlert)
-					}, testTimeout, testInterval).Should(Succeed())
+			By("HumioAlert: Waiting for the alert to be updated")
+			Eventually(func() error {
+				k8sClient.Get(ctx, key, fetchedAlert)
+				fetchedAlert.Spec.Query = updatedAlert.Spec.Query
+				fetchedAlert.Spec.ThrottleTimeMillis = updatedAlert.Spec.ThrottleTimeMillis
+				fetchedAlert.Spec.Silenced = updatedAlert.Spec.Silenced
+				fetchedAlert.Spec.Description = updatedAlert.Spec.Description
+				return k8sClient.Update(ctx, fetchedAlert)
+			}, testTimeout, testInterval).Should(Succeed())
 
-					By("HumioAlert: Verifying the alert update succeeded")
-					var expectedUpdatedAlert *humioapi.Alert
-					Eventually(func() error {
-						expectedUpdatedAlert, err = humioClientForHumioAlert.GetAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAlert)
-						return err
-					}, testTimeout, testInterval).Should(Succeed())
-					Expect(expectedUpdatedAlert).ToNot(BeNil())
+			By("HumioAlert: Verifying the alert update succeeded")
+			var expectedUpdatedAlert *humioapi.Alert
+			Eventually(func() error {
+				expectedUpdatedAlert, err = humioClientForHumioAlert.GetAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAlert)
+				return err
+			}, testTimeout, testInterval).Should(Succeed())
+			Expect(expectedUpdatedAlert).ToNot(BeNil())
 
-					By("HumioAlert: Verifying the alert matches the expected")
-					verifiedAlert, err := humio.AlertTransform(updatedAlert, actionIdMap)
-					Expect(err).To(BeNil())
-					Eventually(func() humioapi.Alert {
-						updatedAlert, err := humioClientForHumioAlert.GetAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAlert)
-						if err != nil {
-							return *updatedAlert
-						}
-						// Ignore the ID
-						updatedAlert.ID = ""
-						return *updatedAlert
-					}, testTimeout, testInterval).Should(Equal(*verifiedAlert))
+			By("HumioAlert: Verifying the alert matches the expected")
+			verifiedAlert, err := humio.AlertTransform(updatedAlert, actionIdMap)
+			Expect(err).To(BeNil())
+			Eventually(func() humioapi.Alert {
+				updatedAlert, err := humioClientForHumioAlert.GetAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAlert)
+				if err != nil {
+					return *updatedAlert
+				}
+				// Ignore the ID
+				updatedAlert.ID = ""
+				return *updatedAlert
+			}, testTimeout, testInterval).Should(Equal(*verifiedAlert))
 
-					By("HumioAlert: Successfully deleting it")
-					Expect(k8sClient.Delete(ctx, fetchedAlert)).To(Succeed())
-					Eventually(func() bool {
-						err := k8sClient.Get(ctx, key, fetchedAlert)
-						return errors.IsNotFound(err)
-					}, testTimeout, testInterval).Should(BeTrue())
+			By("HumioAlert: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAlert)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAlert)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
 
-					By("HumioAlert: Successfully deleting the action")
-					Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
-					Eventually(func() bool {
-						err := k8sClient.Get(ctx, actionKey, fetchedAction)
-						return errors.IsNotFound(err)
-					}, testTimeout, testInterval).Should(BeTrue())
+			By("HumioAlert: Successfully deleting the action")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, actionKey, fetchedAction)
+				return errors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
 
-					By("HumioAlert: Should deny improperly configured alert with missing required values")
-					toCreateInvalidAlert := &humiov1alpha1.HumioAlert{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      key.Name,
-							Namespace: key.Namespace,
-						},
-						Spec: humiov1alpha1.HumioAlertSpec{
-							ManagedClusterName: clusterKey.Name,
-							Name:               "example-invalid-alert",
-							ViewName:           "humio",
-						},
-					}
+			By("HumioAlert: Should deny improperly configured alert with missing required values")
+			toCreateInvalidAlert := &humiov1alpha1.HumioAlert{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioAlertSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "example-invalid-alert",
+					ViewName:           "humio",
+				},
+			}
 
-					By("HumioAlert: Creating the invalid alert")
-					Expect(k8sClient.Create(ctx, toCreateInvalidAlert)).Should(Not(Succeed()))
-			*/
+			By("HumioAlert: Creating the invalid alert")
+			Expect(k8sClient.Create(ctx, toCreateInvalidAlert)).Should(Not(Succeed()))
 		})
 	})
 })
