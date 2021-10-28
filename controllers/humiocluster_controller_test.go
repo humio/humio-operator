@@ -186,7 +186,16 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, toCreate)
 			}, testTimeout, testInterval).Should(Succeed())
 
+			var err error
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			Eventually(func() []corev1.Pod {
+				clusterPods, err = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				if err != nil {
+					return []corev1.Pod{}
+				}
+				return clusterPods
+			}, testTimeout, testInterval).Should(HaveLen(*toCreate.Spec.NodeCount))
+
 			for _, pod := range clusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
