@@ -47,10 +47,15 @@ helm install cert-manager jetstack/cert-manager --namespace cert-manager \
 
 helm repo add humio https://humio.github.io/cp-helm-charts
 helm install humio humio/cp-helm-charts --namespace=default \
---set cp-zookeeper.servers=3 --set cp-kafka.brokers=3 --set cp-schema-registry.enabled=false \
+--set cp-zookeeper.servers=3 --set cp-zookeeper.imageTag="5.5.6" \
+--set cp-kafka.brokers=3 --set cp-kafka.imageTag="5.5.6" \
+--set cp-zookeeper.imageTag="5.5.6" \
 --set cp-kafka.heapOptions="-Xms1G -Xmx1G" \
---set cp-kafka-rest.enabled=false --set cp-kafka-connect.enabled=false \
---set cp-ksql-server.enabled=false --set cp-control-center.enabled=false
+--set cp-control-center.enabled=false \
+--set cp-kafka-connect.enabled=false \
+--set cp-kafka-rest.enabled=false \
+--set cp-ksql-server.enabled=false \
+--set cp-schema-registry.enabled=false
 
 while [[ $(kubectl get pods humio-cp-zookeeper-0 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
 do
