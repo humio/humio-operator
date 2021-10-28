@@ -142,7 +142,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 		})
@@ -171,21 +171,24 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(pod.Annotations[podRevisionAnnotation]).To(Equal("1"))
 			}
 			updatedHumioCluster = humiov1alpha1.HumioCluster{}
-			k8sClient.Get(ctx, key, &updatedHumioCluster)
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 			Expect(updatedHumioCluster.Annotations[podRevisionAnnotation]).To(Equal("1"))
 
 			usingClusterBy(key.Name, "Updating the cluster image successfully")
 			updatedImage := image
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.Image = updatedImage
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
 
@@ -193,13 +196,13 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 
 			usingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
 			updatedHumioCluster = humiov1alpha1.HumioCluster{}
-			k8sClient.Get(ctx, key, &updatedHumioCluster)
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 			Expect(updatedHumioCluster.Annotations[podRevisionAnnotation]).To(Equal("2"))
 
 			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
@@ -255,7 +258,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Confirming the HumioCluster goes into ConfigError state since the configmap does not exist")
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 
@@ -292,13 +295,13 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 
 			usingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
 			updatedHumioCluster = humiov1alpha1.HumioCluster{}
-			k8sClient.Get(ctx, key, &updatedHumioCluster)
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 			Expect(updatedHumioCluster.Annotations[podRevisionAnnotation]).To(Equal("2"))
 
 			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
@@ -337,21 +340,24 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
 				Expect(pod.Annotations[podRevisionAnnotation]).To(Equal("1"))
 			}
-			k8sClient.Get(ctx, key, &updatedHumioCluster)
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 			Expect(updatedHumioCluster.Annotations[podRevisionAnnotation]).To(Equal("1"))
 
 			usingClusterBy(key.Name, "Updating the cluster image unsuccessfully")
 			updatedImage := "humio/humio-operator:1.28.0-missing-image"
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.Image = updatedImage
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
 
@@ -375,7 +381,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Waiting for humio cluster state to be Running")
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 
@@ -383,14 +389,17 @@ var _ = Describe("HumioCluster Controller", func() {
 			updatedImage = image
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.Image = updatedImage
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
 
@@ -398,13 +407,13 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 
 			usingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
 			updatedHumioCluster = humiov1alpha1.HumioCluster{}
-			k8sClient.Get(ctx, key, &updatedHumioCluster)
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 			Expect(updatedHumioCluster.Annotations[podRevisionAnnotation]).To(Equal("3"))
 
 			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
@@ -591,14 +600,17 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.EnvironmentVariables = updatedEnvironmentVariables
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
 
@@ -607,7 +619,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 
@@ -689,7 +701,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Adding an additional ingress annotation successfully")
 			var existingHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &existingHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &existingHumioCluster)).Should(Succeed())
 				existingHumioCluster.Spec.Ingress.Annotations = map[string]string{"humio.com/new-important-annotation": "true"}
 				return k8sClient.Update(ctx, &existingHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -710,7 +722,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Changing ingress hostnames successfully")
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &existingHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &existingHumioCluster)).Should(Succeed())
 				existingHumioCluster.Spec.Hostname = "humio2.example.com"
 				existingHumioCluster.Spec.ESHostname = "humio2-es.example.com"
 				return k8sClient.Update(ctx, &existingHumioCluster)
@@ -760,7 +772,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Removing an ingress annotation successfully")
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &existingHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &existingHumioCluster)).Should(Succeed())
 				delete(existingHumioCluster.Spec.Ingress.Annotations, "humio.com/new-important-annotation")
 				return k8sClient.Update(ctx, &existingHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -782,7 +794,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Disabling ingress successfully")
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &existingHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &existingHumioCluster)).Should(Succeed())
 				existingHumioCluster.Spec.Ingress.Enabled = false
 				return k8sClient.Update(ctx, &existingHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -846,7 +858,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			usingClusterBy(key.Name, "Updating service type")
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.HumioServiceType = corev1.ServiceTypeLoadBalancer
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -860,7 +875,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Confirming we can see the updated HumioCluster object")
 			Eventually(func() corev1.ServiceType {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Spec.HumioServiceType
 			}, testTimeout, testInterval).Should(BeIdenticalTo(corev1.ServiceTypeLoadBalancer))
 
@@ -878,7 +893,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Updating Humio port")
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.HumioServicePort = 443
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -910,7 +928,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Updating ES port")
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				updatedHumioCluster.Spec.HumioESServicePort = 9201
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -968,7 +986,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{Name: "USING_EPHEMERAL_DISKS", Value: "true"})
 				updatedHumioCluster.Spec.NodeUUIDPrefix = "humio_{{.Zone}}_"
 				return k8sClient.Update(ctx, &updatedHumioCluster)
@@ -1019,7 +1040,10 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{Name: "USING_EPHEMERAL_DISKS", Value: "true"})
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -1060,7 +1084,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Adding an annotation successfully")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.HumioServiceAccountAnnotations = map[string]string{"some-annotation": "true"}
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -1074,7 +1101,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Removing all annotations successfully")
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.HumioServiceAccountAnnotations = nil
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -1105,7 +1135,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Updating Pod Security Context to be empty")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.PodSecurityContext = &corev1.PodSecurityContext{}
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -1127,7 +1160,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Updating Pod Security Context to be non-empty")
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.PodSecurityContext = &corev1.PodSecurityContext{RunAsNonRoot: helpers.BoolPtr(true)}
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -1171,7 +1207,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Updating Container Security Context to be empty")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.ContainerSecurityContext = &corev1.SecurityContext{}
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -1195,7 +1234,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Updating Container Security Context to be non-empty")
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.ContainerSecurityContext = &corev1.SecurityContext{
 					Capabilities: &corev1.Capabilities{
 						Add: []corev1.Capability{
@@ -1262,7 +1304,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Updating Container probes to be empty")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.ContainerReadinessProbe = &corev1.Probe{}
 				updatedHumioCluster.Spec.ContainerLivenessProbe = &corev1.Probe{}
 				updatedHumioCluster.Spec.ContainerStartupProbe = &corev1.Probe{}
@@ -1317,7 +1362,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Updating Container probes to be non-empty")
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.ContainerReadinessProbe = &corev1.Probe{
 					Handler: corev1.Handler{
 						HTTPGet: &corev1.HTTPGetAction{
@@ -1544,7 +1592,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Removing extra kafka configs")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.ExtraKafkaConfigs = ""
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -1674,7 +1725,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Removing view group permissions")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.ViewGroupPermissions = ""
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -1753,7 +1807,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Updating cluster to use persistent volumes")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.DataVolumeSource = corev1.VolumeSource{}
 				updatedHumioCluster.Spec.DataVolumePersistentVolumeClaimSpecTemplate = corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -1772,7 +1829,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
 
@@ -1781,7 +1838,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 
@@ -1853,7 +1910,10 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.ExtraVolumes = []corev1.Volume{extraVolume}
 				updatedHumioCluster.Spec.ExtraHumioVolumeMounts = []corev1.VolumeMount{extraVolumeMount}
 				return k8sClient.Update(ctx, &updatedHumioCluster)
@@ -1910,7 +1970,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Updating humio cluster path")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.Path = "/logs"
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -1943,7 +2006,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
 
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 		})
@@ -1977,7 +2040,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Updating humio cluster path")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
 				updatedHumioCluster.Spec.Path = "/logs"
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -2010,7 +2076,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, kubernetes.MatchingLabelsForHumio(updatedHumioCluster.Name))
 
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 		})
@@ -2041,7 +2107,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 		})
@@ -2071,7 +2137,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 		})
@@ -2100,7 +2166,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 		})
@@ -2126,7 +2192,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 		})
@@ -2163,7 +2229,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 		})
@@ -2186,7 +2252,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 		})
@@ -2476,7 +2542,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
-				k8sClient.Get(ctx, key, &cluster)
+				Expect(k8sClient.Get(ctx, key, &cluster)).Should(Succeed())
 				return cluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateConfigError))
 		})
@@ -2495,7 +2561,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
-				k8sClient.Get(ctx, key, &cluster)
+				Expect(k8sClient.Get(ctx, key, &cluster)).Should(Succeed())
 				return cluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateConfigError))
 		})
@@ -2514,7 +2580,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
-				k8sClient.Get(ctx, key, &cluster)
+				Expect(k8sClient.Get(ctx, key, &cluster)).Should(Succeed())
 				return cluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateConfigError))
 		})
@@ -2880,7 +2946,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
-				k8sClient.Get(ctx, key, &cluster)
+				Expect(k8sClient.Get(ctx, key, &cluster)).Should(Succeed())
 				return cluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo("ConfigError"))
 
@@ -2921,7 +2987,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Should indicate cluster configuration error due to missing license secret")
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 
@@ -2944,14 +3010,14 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Should indicate cluster is no longer in a configuration error state")
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 
 			usingClusterBy(key.Name, "Ensuring the license is updated")
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.LicenseStatus.Type
 			}, testTimeout, testInterval).Should(BeIdenticalTo("onprem"))
 
@@ -2979,7 +3045,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Should indicate cluster configuration error due to missing license secret key")
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 		})
@@ -3001,7 +3067,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Ensuring the state is Running")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 
@@ -3019,7 +3085,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Should indicate healthy cluster resets state to Running")
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 		})
@@ -3067,7 +3133,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Confirming the HumioCluster goes into ConfigError state since the configmap does not exist")
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 
@@ -3168,7 +3234,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Confirming the HumioCluster goes into ConfigError state since the secret does not exist")
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				k8sClient.Get(ctx, key, &updatedHumioCluster)
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
 
@@ -3303,7 +3369,7 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 	usingClusterBy(key.Name, "Confirming cluster enters running state")
 	var updatedHumioCluster humiov1alpha1.HumioCluster
 	Eventually(func() string {
-		k8sClient.Get(ctx, key, &updatedHumioCluster)
+		Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 		return updatedHumioCluster.Status.State
 	}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 
@@ -3334,14 +3400,14 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 		markPodsAsRunning(ctx, k8sClient, clusterPods)
 
 		updatedHumioCluster = humiov1alpha1.HumioCluster{}
-		k8sClient.Get(ctx, key, &updatedHumioCluster)
+		Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 		return updatedHumioCluster.Status.State
 	}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 
 	usingClusterBy(key.Name, "Validating cluster has expected pod revision annotation")
 	Eventually(func() string {
 		updatedHumioCluster = humiov1alpha1.HumioCluster{}
-		k8sClient.Get(ctx, key, &updatedHumioCluster)
+		Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 		val, _ := updatedHumioCluster.Annotations[podRevisionAnnotation]
 		return val
 	}, testTimeout, testInterval).Should(Equal("1"))
@@ -3439,13 +3505,13 @@ func waitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sCl
 	usingClusterBy(key.Name, "Waiting for the reconcile loop to complete")
 	if currentHumioCluster == nil {
 		var updatedHumioCluster humiov1alpha1.HumioCluster
-		k8sClient.Get(ctx, key, &updatedHumioCluster)
+		Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 		currentHumioCluster = &updatedHumioCluster
 	}
 
 	resourceVersion, _ := strconv.Atoi(currentHumioCluster.ResourceVersion)
 	Eventually(func() int {
-		k8sClient.Get(ctx, key, currentHumioCluster)
+		Expect(k8sClient.Get(ctx, key, currentHumioCluster)).Should(Succeed())
 		observedGeneration, _ := strconv.Atoi(currentHumioCluster.Status.ObservedGeneration)
 		return observedGeneration
 	}, testTimeout, testInterval).Should(BeNumerically(">=", resourceVersion))
@@ -3455,7 +3521,7 @@ func waitForReconcileToRun(ctx context.Context, key types.NamespacedName, k8sCli
 	By("Waiting for the next reconcile loop to run")
 	resourceVersion, _ := strconv.Atoi(currentHumioCluster.ResourceVersion)
 	Eventually(func() int {
-		k8sClient.Get(ctx, key, &currentHumioCluster)
+		Expect(k8sClient.Get(ctx, key, &currentHumioCluster)).Should(Succeed())
 		observedGeneration, _ := strconv.Atoi(currentHumioCluster.Status.ObservedGeneration)
 		return observedGeneration
 	}, testTimeout, testInterval).Should(BeNumerically(">", resourceVersion))
