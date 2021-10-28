@@ -3369,7 +3369,10 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 	usingClusterBy(key.Name, "Confirming cluster enters running state")
 	var updatedHumioCluster humiov1alpha1.HumioCluster
 	Eventually(func() string {
-		Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+		err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+		if err != nil && !errors.IsNotFound(err) {
+			Expect(err).Should(Succeed())
+		}
 		return updatedHumioCluster.Status.State
 	}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 
