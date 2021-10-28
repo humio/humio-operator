@@ -2604,7 +2604,10 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
-				Expect(k8sClient.Get(ctx, key, &cluster)).Should(Succeed())
+				err := k8sClient.Get(ctx, key, &cluster)
+				if err != nil && !errors.IsNotFound(err) {
+					Expect(err).Should(Succeed())
+				}
 				return cluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateConfigError))
 		})
@@ -2970,7 +2973,10 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
-				Expect(k8sClient.Get(ctx, key, &cluster)).Should(Succeed())
+				err := k8sClient.Get(ctx, key, &cluster)
+				if err != nil && !errors.IsNotFound(err) {
+					Expect(err).Should(Succeed())
+				}
 				return cluster.Status.State
 			}, testTimeout, testInterval).Should(BeIdenticalTo("ConfigError"))
 
