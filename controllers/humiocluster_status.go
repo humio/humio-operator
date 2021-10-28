@@ -46,20 +46,22 @@ func (r *HumioClusterReconciler) setState(ctx context.Context, state string, hc 
 		return nil
 	}
 	r.Log.Info(fmt.Sprintf("setting cluster state to %s", state))
+	var getHumioClusterRetries int
+	var updateStatusRetries int
 	// TODO: fix the logic in ensureMismatchedPodsAreDeleted() to allow it to work without doing setStateOptimistically().
 	if err := r.setStateOptimistically(ctx, state, hc); err != nil {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			err := r.getLatestHumioCluster(ctx, hc)
 			if err != nil {
 				if !errors.IsNotFound(err) {
-					r.Log.Error(err, "failed to get latest HumioCluster. retrying...")
+					r.Log.Error(err, fmt.Sprintf("failed to get latest HumioCluster (attempt %d). retrying...", getHumioClusterRetries))
 					return err
 				}
 			}
 			hc.Status.State = state
 			err = r.Status().Update(ctx, hc)
 			if err != nil {
-				r.Log.Error(err, "failed to update HumioCluster status. retrying...")
+				r.Log.Error(err, fmt.Sprintf("failed to update HumioCluster status (attempt %d). retrying...", updateStatusRetries))
 			}
 			return err
 		})
