@@ -48,6 +48,7 @@ helm install cert-manager jetstack/cert-manager --namespace cert-manager \
 helm repo add humio https://humio.github.io/cp-helm-charts
 helm install humio humio/cp-helm-charts --namespace=default \
 --set cp-zookeeper.servers=1 --set cp-kafka.brokers=1 --set cp-schema-registry.enabled=false \
+--set cp-kafka.heapOptions="-Xms1G -Xmx1G" \
 --set cp-kafka-rest.enabled=false --set cp-kafka-connect.enabled=false \
 --set cp-ksql-server.enabled=false --set cp-control-center.enabled=false
 
