@@ -89,6 +89,14 @@ var _ = Describe("HumioCluster Controller", func() {
 				toCreate.Spec.NodeCount = helpers.IntPtr(2)
 				return k8sClient.Update(ctx, toCreate)
 			}, testTimeout, testInterval).Should(Succeed())
+
+			usingClusterBy(key.Name, "Validating all pods have been created")
+			Eventually(func() []corev1.Pod {
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				markPodsAsRunning(ctx, k8sClient, clusterPods)
+
+				return clusterPods
+			}, testTimeout, testInterval).Should(HaveLen(*toCreate.Spec.NodeCount))
 		})
 	})
 
@@ -277,6 +285,13 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			usingClusterBy(key.Name, "Validating all pods have been created")
+			Eventually(func() []corev1.Pod {
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				markPodsAsRunning(ctx, k8sClient, clusterPods)
+
+				return clusterPods
+			}, testTimeout, testInterval).Should(HaveLen(*toCreate.Spec.NodeCount))
 
 			usingClusterBy(key.Name, "Adding missing imageSource to pod spec")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -385,6 +400,14 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+			usingClusterBy(key.Name, "Validating all pods have been created")
+			Eventually(func() []corev1.Pod {
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				markPodsAsRunning(ctx, k8sClient, clusterPods)
+
+				return clusterPods
+			}, testTimeout, testInterval).Should(HaveLen(*toCreate.Spec.NodeCount))
+
 			for _, pod := range clusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
 				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
@@ -512,7 +535,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Validating all pods have been created")
 			Eventually(func() []corev1.Pod {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				markPodsAsRunning(ctx, k8sClient, clusterPods)
 
 				return clusterPods
