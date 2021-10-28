@@ -57,18 +57,18 @@ helm install humio humio/cp-helm-charts --namespace=default \
 --set cp-ksql-server.enabled=false \
 --set cp-schema-registry.enabled=false
 
-while [[ $(kubectl get pods humio-cp-zookeeper-0 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
+while [[ $(kubectl get pods humio-cp-zookeeper-2 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
 do
-  echo "Waiting for humio-cp-zookeeper-0 pod to become Ready"
+  echo "Waiting for humio-cp-zookeeper-2 pod to become Ready"
   kubectl get pods -A
-  kubectl describe pod humio-cp-zookeeper-0
+  kubectl describe pod humio-cp-zookeeper-2
   sleep 10
 done
 
-while [[ $(kubectl get pods humio-cp-kafka-0 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
+while [[ $(kubectl get pods humio-cp-kafka-2 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
 do
-  echo "Waiting for humio-cp-kafka-0 pod to become Ready"
+  echo "Waiting for humio-cp-kafka-2 pod to become Ready"
   kubectl get pods -A
-  kubectl describe pod humio-cp-kafka-0
+  kubectl describe pod humio-cp-kafka-2
   sleep 10
 done
