@@ -287,7 +287,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 			usingClusterBy(key.Name, "Validating all pods have been created")
 			Eventually(func() []corev1.Pod {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
 				markPodsAsRunning(ctx, k8sClient, clusterPods)
 
 				return clusterPods
