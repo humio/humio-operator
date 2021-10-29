@@ -55,8 +55,8 @@ helm install cert-manager jetstack/cert-manager --namespace cert-manager \
 
 helm repo add humio https://humio.github.io/cp-helm-charts
 helm install humio humio/cp-helm-charts --namespace=default \
---set cp-zookeeper.servers=3 --set cp-zookeeper.imageTag="5.5.6" \
---set cp-kafka.brokers=3 --set cp-kafka.imageTag="5.5.6" \
+--set cp-zookeeper.servers=1 --set cp-zookeeper.imageTag="5.5.6" \
+--set cp-kafka.brokers=1 --set cp-kafka.imageTag="5.5.6" \
 --set cp-zookeeper.imageTag="5.5.6" \
 --set cp-kafka.heapOptions="-Xms1G -Xmx1G" \
 --set cp-control-center.enabled=false \
@@ -65,18 +65,18 @@ helm install humio humio/cp-helm-charts --namespace=default \
 --set cp-ksql-server.enabled=false \
 --set cp-schema-registry.enabled=false
 
-while [[ $(kubectl get pods humio-cp-zookeeper-2 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
+while [[ $(kubectl get pods humio-cp-zookeeper-0 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
 do
-  echo "Waiting for humio-cp-zookeeper-2 pod to become Ready"
+  echo "Waiting for humio-cp-zookeeper-0 pod to become Ready"
   kubectl get pods -A
-  kubectl describe pod humio-cp-zookeeper-2
+  kubectl describe pod humio-cp-zookeeper-0
   sleep 10
 done
 
-while [[ $(kubectl get pods humio-cp-kafka-2 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
+while [[ $(kubectl get pods humio-cp-kafka-0 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
 do
-  echo "Waiting for humio-cp-kafka-2 pod to become Ready"
+  echo "Waiting for humio-cp-kafka-0 pod to become Ready"
   kubectl get pods -A
-  kubectl describe pod humio-cp-kafka-2
+  kubectl describe pod humio-cp-kafka-0
   sleep 10
 done
