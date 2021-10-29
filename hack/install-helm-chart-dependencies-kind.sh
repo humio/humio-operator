@@ -35,7 +35,15 @@ EOF
   --set humio-fluentbit.humioRepoName=operator-e2e \
   --set humio-fluentbit.customFluentBitConfig.e2eFilterTag="$E2E_FILTER_TAG" \
   --set humio-fluentbit.humioHostname=$humio_hostname \
-  --set humio-fluentbit.token=$humio_ingest_token
+  --set humio-fluentbit.token=$humio_ingest_token \
+  --set humio-metrics.enabled=true \
+  --set humio-metrics.es.port=9200 \
+  --set humio-metrics.es.tls=true \
+  --set humio-metrics.es.tls_verify=true \
+  --set humio-metrics.es.autodiscovery=false \
+  --set humio-metrics.publish.enabled=false \
+  --set humio-metrics.humioHostname=$humio_hostname \
+  --set humio-metrics.token=$humio_ingest_token
 fi
 
 kubectl create namespace cert-manager
