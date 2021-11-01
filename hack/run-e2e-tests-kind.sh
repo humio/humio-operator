@@ -4,7 +4,7 @@ set -x -o pipefail
 
 declare -r envtest_assets_dir=${ENVTEST_ASSETS_DIR:-/tmp/envtest}
 declare -r ginkgo=$(go env GOPATH)/bin/ginkgo
-declare -r ginkgo_nodes=${GINKGO_NODES:-1}
+declare -r ginkgo_nodes=${GINKGO_NODES:-2}
 
 if ! kubectl get daemonset -n kube-system kindnet ; then
   echo "Cluster unavailable or not using a kind cluster. Only kind clusters are supported!"
