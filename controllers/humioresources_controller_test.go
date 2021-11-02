@@ -2089,6 +2089,10 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			By("HumioAlert: Creating the invalid alert")
 			Expect(k8sClient.Create(ctx, toCreateInvalidAlert)).Should(Not(Succeed()))
+
+			By("HumioCluster: Confirming resource generation wasn't updated excessively")
+			Expect(k8sClient.Get(ctx, clusterKey, cluster)).Should(Succeed())
+			Expect(cluster.GetGeneration()).ShouldNot(BeNumerically(">", 100))
 		})
 	})
 })
