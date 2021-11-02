@@ -202,12 +202,12 @@ fmt-simple:
 
 # Build the operator docker image
 docker-build-operator:
-	docker build -t ${IMG} ${IMG_BUILD_ARGS} .
+	docker build --pull -t ${IMG} ${IMG_BUILD_ARGS} .
 
 # Build the helper docker image
 docker-build-helper:
 	cp LICENSE images/helper/
-	docker build -t ${IMG} ${IMG_BUILD_ARGS} images/helper
+	docker build --pull -t ${IMG} ${IMG_BUILD_ARGS} images/helper
 
 install-e2e-dependencies:
 	hack/install-e2e-dependencies.sh
