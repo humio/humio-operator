@@ -74,6 +74,17 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, err
 	}
 
+	cluster, err := helpers.NewCluster(ctx, r, hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName, hit.Namespace, helpers.UseCertManager(), true)
+	if err != nil || cluster == nil || cluster.Config() == nil {
+		r.Log.Error(err, "unable to obtain humio client config")
+		err = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateConfigError, hit)
+		if err != nil {
+			r.Log.Error(err, "unable to set cluster state")
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+	}
+
 	r.Log.Info("Checking if ingest token is marked to be deleted")
 	// Check if the HumioIngestToken instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
@@ -85,7 +96,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Ingest token contains finalizer so run finalizer method")
-			if err := r.finalize(ctx, hit); err != nil {
+			if err := r.finalize(ctx, cluster.Config(), req, hit); err != nil {
 				r.Log.Error(err, "Finalizer method returned error")
 				return reconcile.Result{}, err
 			}
@@ -111,19 +122,8 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	cluster, err := helpers.NewCluster(ctx, r, hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName, hit.Namespace, helpers.UseCertManager(), true)
-	if err != nil || cluster == nil || cluster.Config() == nil {
-		r.Log.Error(err, "unable to obtain humio client config")
-		err = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateConfigError, hit)
-		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
-	}
-
 	defer func(ctx context.Context, humioClient humio.Client, hit *humiov1alpha1.HumioIngestToken) {
-		curToken, err := humioClient.GetIngestToken(hit)
+		curToken, err := humioClient.GetIngestToken(cluster.Config(), req, hit)
 		if err != nil {
 			_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateUnknown, hit)
 			return
@@ -136,11 +136,9 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateNotFound, hit)
 	}(ctx, r.HumioClient, hit)
 
-	r.HumioClient.SetHumioClientConfig(cluster.Config(), req)
-
 	// Get current ingest token
 	r.Log.Info("get current ingest token")
-	curToken, err := r.HumioClient.GetIngestToken(hit)
+	curToken, err := r.HumioClient.GetIngestToken(cluster.Config(), req, hit)
 	if err != nil {
 		r.Log.Error(err, "could not check if ingest token exists", "Repository.Name", hit.Spec.RepositoryName)
 		return reconcile.Result{}, fmt.Errorf("could not check if ingest token exists: %s", err)
@@ -152,7 +150,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if emptyToken == *curToken {
 		r.Log.Info("ingest token doesn't exist. Now adding ingest token")
 		// create token
-		_, err := r.HumioClient.AddIngestToken(hit)
+		_, err := r.HumioClient.AddIngestToken(cluster.Config(), req, hit)
 		if err != nil {
 			r.Log.Error(err, "could not create ingest token")
 			return reconcile.Result{}, fmt.Errorf("could not create ingest token: %s", err)
@@ -164,13 +162,13 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Trigger update if parser name changed
 	if curToken.AssignedParser != hit.Spec.ParserName {
 		r.Log.Info("parser name differs, triggering update", "Expected", hit.Spec.ParserName, "Got", curToken.AssignedParser)
-		_, updateErr := r.HumioClient.UpdateIngestToken(hit)
+		_, updateErr := r.HumioClient.UpdateIngestToken(cluster.Config(), req, hit)
 		if updateErr != nil {
 			return reconcile.Result{}, fmt.Errorf("could not update ingest token: %s", updateErr)
 		}
 	}
 
-	err = r.ensureTokenSecretExists(ctx, hit, cluster)
+	err = r.ensureTokenSecretExists(ctx, cluster.Config(), req, hit, cluster)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("could not ensure token secret exists: %s", err)
 	}
@@ -192,13 +190,13 @@ func (r *HumioIngestTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *HumioIngestTokenReconciler) finalize(ctx context.Context, hit *humiov1alpha1.HumioIngestToken) error {
+func (r *HumioIngestTokenReconciler) finalize(ctx context.Context, config *humioapi.Config, req reconcile.Request, hit *humiov1alpha1.HumioIngestToken) error {
 	_, err := helpers.NewCluster(ctx, r, hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName, hit.Namespace, helpers.UseCertManager(), true)
 	if errors.IsNotFound(err) {
 		return nil
 	}
 
-	return r.HumioClient.DeleteIngestToken(hit)
+	return r.HumioClient.DeleteIngestToken(config, req, hit)
 }
 
 func (r *HumioIngestTokenReconciler) addFinalizer(ctx context.Context, hit *humiov1alpha1.HumioIngestToken) error {
@@ -214,12 +212,12 @@ func (r *HumioIngestTokenReconciler) addFinalizer(ctx context.Context, hit *humi
 	return nil
 }
 
-func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context, hit *humiov1alpha1.HumioIngestToken, cluster helpers.ClusterInterface) error {
+func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context, config *humioapi.Config, req reconcile.Request, hit *humiov1alpha1.HumioIngestToken, cluster helpers.ClusterInterface) error {
 	if hit.Spec.TokenSecretName == "" {
 		return nil
 	}
 
-	ingestToken, err := r.HumioClient.GetIngestToken(hit)
+	ingestToken, err := r.HumioClient.GetIngestToken(config, req, hit)
 	if err != nil {
 		return fmt.Errorf("failed to get ingest token: %s", err)
 	}
