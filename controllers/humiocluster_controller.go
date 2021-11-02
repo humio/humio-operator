@@ -289,7 +289,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	result, err = r.ensureLicense(ctx, hc, req)
 	if result != emptyResult || err != nil {
-		return result, err
+		// Usually if we fail to get the license, that means the cluster is not up. So wait a bit longer than usual to retry
+		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 	}
 
 	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true)

@@ -234,8 +234,8 @@ type HumioClusterStatus struct {
 	PodStatus HumioPodStatusList `json:"podStatus,omitempty"`
 	// LicenseStatus shows the status of the Humio license attached to the cluster
 	LicenseStatus HumioLicenseStatus `json:"licenseStatus,omitempty"`
-	// ObservedGeneration shows the ResourceVersion of the HumioCluster which was last observed
-	ObservedGeneration string `json:"observedGeneration,omitempty"`
+	// ObservedGeneration shows the generation of the HumioCluster which was last observed
+	ObservedGeneration string `json:"observedGeneration,omitempty"` // TODO: We should change the type to int64 so we don't have to convert back and forth between int64 and string
 }
 
 //+kubebuilder:object:root=true
