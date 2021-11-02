@@ -184,7 +184,6 @@ func (h *ClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request)
 	}
 
 	h.humioClients[key] = c
-	h.logger.Info(fmt.Sprintf("GetHumioClient, we now have %d entries in the humioClients map", len(h.humioClients)))
 
 	return c.client
 }
