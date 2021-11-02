@@ -30,6 +30,8 @@ LABEL "summary"="Humio Kubernetes Operator"
 LABEL "description"="A Kubernetes operatator to run and maintain \
 Humio clusters running in a Kubernetes cluster."
 
+RUN microdnf update && \
+    microdnf upgrade
 RUN mkdir /licenses
 COPY LICENSE /licenses/LICENSE
 
