@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -326,12 +327,15 @@ var _ = BeforeSuite(func() {
 }, 120)
 
 var _ = AfterSuite(func() {
-	By(fmt.Sprintf("Removing test namespace: %s", testProcessID))
-	err := k8sClient.Delete(context.TODO(), &testNamespace)
-	Expect(err).ToNot(HaveOccurred())
-	By("Tearing down the test environment")
-	err = testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	emptyNamespace := corev1.Namespace{}
+	if reflect.DeepEqual(testNamespace, emptyNamespace) && k8sClient != nil {
+		By(fmt.Sprintf("Removing test namespace: %s", testProcessID))
+		err := k8sClient.Delete(context.TODO(), &testNamespace)
+		Expect(err).ToNot(HaveOccurred())
+		By("Tearing down the test environment")
+		err = testEnv.Stop()
+		Expect(err).NotTo(HaveOccurred())
+	}
 })
 
 // getWatchNamespace returns the Namespace the operator should be watching for changes

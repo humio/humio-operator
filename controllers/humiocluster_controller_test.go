@@ -872,7 +872,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			// Wait for the new HumioCluster to finish any existing reconcile loop by waiting for the
 			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
 			// conditions where the HumioCluster is updated and service is deleted mid-way through a reconcile.
-			waitForReconcileToRun(ctx, key, k8sClient, updatedHumioCluster)
+			appendEnvVarAndWaitForReconcileToRun(ctx, key, k8sClient, updatedHumioCluster)
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
 
 			usingClusterBy(key.Name, "Confirming we can see the updated HumioCluster object")
@@ -908,7 +908,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			// Wait for the new HumioCluster to finish any existing reconcile loop by waiting for the
 			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
 			// conditions where the HumioCluster is updated and service is deleted mid-way through a reconcile.
-			waitForReconcileToRun(ctx, key, k8sClient, updatedHumioCluster)
+			appendEnvVarAndWaitForReconcileToRun(ctx, key, k8sClient, updatedHumioCluster)
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
 
 			usingClusterBy(key.Name, "Confirming service gets recreated with correct Humio port")
@@ -940,7 +940,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			// Wait for the new HumioCluster to finish any existing reconcile loop by waiting for the
 			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
 			// conditions where the HumioCluster is updated and service is deleted mid-way through a reconcile.
-			waitForReconcileToRun(ctx, key, k8sClient, updatedHumioCluster)
+			appendEnvVarAndWaitForReconcileToRun(ctx, key, k8sClient, updatedHumioCluster)
 			Expect(k8sClient.Delete(ctx, constructService(&updatedHumioCluster))).To(Succeed())
 
 			usingClusterBy(key.Name, "Confirming service gets recreated with correct ES port")
@@ -3544,22 +3544,45 @@ func waitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sCl
 		currentHumioCluster = &updatedHumioCluster
 	}
 
-	resourceVersion, _ := strconv.Atoi(currentHumioCluster.ResourceVersion)
-	Eventually(func() int {
+	beforeGeneration := currentHumioCluster.GetGeneration()
+	Eventually(func() int64 {
 		Expect(k8sClient.Get(ctx, key, currentHumioCluster)).Should(Succeed())
-		observedGeneration, _ := strconv.Atoi(currentHumioCluster.Status.ObservedGeneration)
-		return observedGeneration
-	}, testTimeout, testInterval).Should(BeNumerically(">=", resourceVersion))
+		observedGen, err := strconv.Atoi(currentHumioCluster.Status.ObservedGeneration)
+		if err != nil {
+			return -2
+		}
+		return int64(observedGen)
+	}, testTimeout, testInterval).Should(BeNumerically(">=", beforeGeneration))
 }
 
-func waitForReconcileToRun(ctx context.Context, key types.NamespacedName, k8sClient client.Client, currentHumioCluster humiov1alpha1.HumioCluster) {
-	By("Waiting for the next reconcile loop to run")
-	resourceVersion, _ := strconv.Atoi(currentHumioCluster.ResourceVersion)
-	Eventually(func() int {
-		Expect(k8sClient.Get(ctx, key, &currentHumioCluster)).Should(Succeed())
-		observedGeneration, _ := strconv.Atoi(currentHumioCluster.Status.ObservedGeneration)
-		return observedGeneration
-	}, testTimeout, testInterval).Should(BeNumerically(">", resourceVersion))
+func appendEnvVarAndWaitForReconcileToRun(ctx context.Context, key types.NamespacedName, k8sClient client.Client, currentHumioCluster humiov1alpha1.HumioCluster) {
+	usingClusterBy(key.Name, "Waiting for the next reconcile loop to run")
+
+	// Get the current generation
+	beforeGeneration := currentHumioCluster.GetGeneration()
+
+	// Force update the status field to trigger a new resource generation
+	var humioClusterBeforeUpdate humiov1alpha1.HumioCluster
+	Eventually(func() error {
+		Expect(k8sClient.Get(ctx, key, &humioClusterBeforeUpdate)).Should(Succeed())
+		humioClusterBeforeUpdate.Spec.EnvironmentVariables = append(humioClusterBeforeUpdate.Spec.EnvironmentVariables,
+			corev1.EnvVar{
+				Name:  "random",
+				Value: "random",
+			})
+		return k8sClient.Update(ctx, &humioClusterBeforeUpdate)
+	}, testTimeout, testInterval).Should(Succeed())
+
+	// Confirm we actually see the new resource generation
+	Eventually(func() int64 {
+		var humioClusterAfterUpdate humiov1alpha1.HumioCluster
+		Expect(k8sClient.Get(ctx, key, &humioClusterAfterUpdate)).Should(Succeed())
+		observedGen, err := strconv.Atoi(humioClusterAfterUpdate.Status.ObservedGeneration)
+		if err != nil {
+			return -1
+		}
+		return int64(observedGen)
+	}, testTimeout, testInterval).Should(BeNumerically(">", beforeGeneration))
 }
 
 func constructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreatedLicense bool) *humiov1alpha1.HumioCluster {
