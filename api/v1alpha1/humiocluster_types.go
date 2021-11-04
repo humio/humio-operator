@@ -213,6 +213,9 @@ type HumioPodStatus struct {
 	NodeId  int    `json:"nodeId,omitempty"`
 }
 
+// HumioPodStatusList holds the list of HumioPodStatus types
+type HumioPodStatusList []HumioPodStatus
+
 // HumioLicenseStatus shows the status of Humio license
 type HumioLicenseStatus struct {
 	Type       string `json:"type,omitempty"`
@@ -228,7 +231,7 @@ type HumioClusterStatus struct {
 	// NodeCount is the number of nodes of humio running
 	NodeCount int `json:"nodeCount,omitempty"`
 	// PodStatus shows the status of individual humio pods
-	PodStatus []HumioPodStatus `json:"podStatus,omitempty"`
+	PodStatus HumioPodStatusList `json:"podStatus,omitempty"`
 	// LicenseStatus shows the status of the Humio license attached to the cluster
 	LicenseStatus HumioLicenseStatus `json:"licenseStatus,omitempty"`
 	// ObservedGeneration shows the ResourceVersion of the HumioCluster which was last observed
@@ -259,6 +262,21 @@ type HumioClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HumioCluster `json:"items"`
+}
+
+// Len is the number of elements in the collection
+func (l HumioPodStatusList) Len() int {
+	return len(l)
+}
+
+// Less reports whether the element with index i must sort before the element with index j.
+func (l HumioPodStatusList) Less(i, j int) bool {
+	return l[i].PodName < l[j].PodName
+}
+
+// Swap swaps the elements with indexes i and j
+func (l HumioPodStatusList) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
 }
 
 func init() {
