@@ -172,7 +172,7 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 	}
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
-	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
