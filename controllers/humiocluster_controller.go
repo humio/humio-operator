@@ -352,7 +352,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			hc.Status.State, podsStatus.waitingOnPods(), podsStatus.podRevisionsInSync(),
 			podsStatus.podRevisions, podsStatus.podDeletionTimestampSet, podsStatus.podNames,
 			podsStatus.expectedRunningPods, podsStatus.readyCount, podsStatus.notReadyCount))
-		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
+		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	}
 
 	err = r.ensurePartitionsAreBalanced(hc, cluster.Config(), req)
@@ -378,7 +378,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
-	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -2001,12 +2001,12 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 		attachments, err := r.newPodAttachments(ctx, hc, foundPodList)
 		if err != nil {
 			r.Log.Error(err, "failed to get pod attachments")
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+			return reconcile.Result{RequeueAfter: time.Second * 5}, err
 		}
 		pod, err := r.createPod(ctx, hc, attachments)
 		if err != nil {
 			r.Log.Error(err, "unable to create pod")
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+			return reconcile.Result{RequeueAfter: time.Second * 5}, err
 		}
 		humioClusterPrometheusMetrics.Counters.PodsCreated.Inc()
 
@@ -2051,17 +2051,17 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 		err = r.Create(ctx, pvc)
 		if err != nil {
 			r.Log.Error(err, "unable to create pvc")
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+			return reconcile.Result{RequeueAfter: time.Second * 5}, err
 		}
 		r.Log.Info(fmt.Sprintf("successfully created pvc %s for HumioCluster %s", pvc.Name, hc.Name))
 		humioClusterPrometheusMetrics.Counters.PvcsCreated.Inc()
 
 		if err = r.waitForNewPvc(ctx, hc, pvc); err != nil {
 			r.Log.Error(err, "unable to create pvc: %s", err)
-			return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, err
+			return reconcile.Result{RequeueAfter: time.Second * 5}, err
 		}
 
-		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
+		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	}
 
 	// TODO: what should happen if we have more pvcs than are expected?
