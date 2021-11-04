@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -145,7 +146,7 @@ func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.H
 		return err
 	}
 
-	podStatusList := []humiov1alpha1.HumioPodStatus{}
+	podStatusList := humiov1alpha1.HumioPodStatusList{}
 	for _, pod := range pods {
 		podStatus := humiov1alpha1.HumioPodStatus{
 			PodName: pod.Name,
@@ -180,6 +181,7 @@ func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.H
 		if err != nil {
 			return err
 		}
+		sort.Sort(podStatusList)
 		hc.Status.PodStatus = podStatusList
 		return r.Status().Update(ctx, hc)
 	})
