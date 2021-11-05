@@ -46,7 +46,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
@@ -57,7 +56,6 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var k8sManager ctrl.Manager
@@ -349,8 +347,8 @@ func getWatchNamespace() (string, error) {
 }
 
 func usingClusterBy(cluster, text string, callbacks ...func()) {
-	time := time.Now().Format(time.RFC3339Nano)
-	fmt.Fprintln(GinkgoWriter, "STEP | "+time+" | "+cluster+": "+text)
+	timestamp := time.Now().Format(time.RFC3339Nano)
+	fmt.Fprintln(GinkgoWriter, "STEP | "+timestamp+" | "+cluster+": "+text)
 	if len(callbacks) == 1 {
 		callbacks[0]()
 	}
