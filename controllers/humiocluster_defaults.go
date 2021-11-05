@@ -99,11 +99,10 @@ func imagePullPolicyOrDefault(hc *humiov1alpha1.HumioCluster) corev1.PullPolicy 
 }
 
 func imagePullSecretsOrDefault(hc *humiov1alpha1.HumioCluster) []corev1.LocalObjectReference {
-	emptyImagePullSecrets := []corev1.LocalObjectReference{}
-	if reflect.DeepEqual(hc.Spec.ImagePullSecrets, emptyImagePullSecrets) {
-		return emptyImagePullSecrets
+	if len(hc.Spec.ImagePullSecrets) > 0 {
+		return hc.Spec.ImagePullSecrets
 	}
-	return hc.Spec.ImagePullSecrets
+	return []corev1.LocalObjectReference{}
 }
 
 func dataVolumePersistentVolumeClaimSpecTemplateOrDefault(hc *humiov1alpha1.HumioCluster, pvcName string) corev1.VolumeSource {
@@ -159,11 +158,10 @@ func affinityOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Affinity {
 }
 
 func tolerationsOrDefault(hc *humiov1alpha1.HumioCluster) []corev1.Toleration {
-	emptyTolerations := []corev1.Toleration{}
-	if reflect.DeepEqual(hc.Spec.Tolerations, emptyTolerations) {
-		return emptyTolerations
+	if len(hc.Spec.Tolerations) > 0 {
+		return hc.Spec.Tolerations
 	}
-	return hc.Spec.Tolerations
+	return []corev1.Toleration{}
 }
 
 func shareProcessNamespaceOrDefault(hc *humiov1alpha1.HumioCluster) *bool {
@@ -493,19 +491,17 @@ func ingressTLSOrDefault(hc *humiov1alpha1.HumioCluster) bool {
 }
 
 func extraHumioVolumeMountsOrDefault(hc *humiov1alpha1.HumioCluster) []corev1.VolumeMount {
-	emptyVolumeMounts := []corev1.VolumeMount{}
-	if reflect.DeepEqual(hc.Spec.ExtraHumioVolumeMounts, emptyVolumeMounts) {
-		return emptyVolumeMounts
+	if len(hc.Spec.ExtraHumioVolumeMounts) > 0 {
+		return hc.Spec.ExtraHumioVolumeMounts
 	}
-	return hc.Spec.ExtraHumioVolumeMounts
+	return []corev1.VolumeMount{}
 }
 
 func extraVolumesOrDefault(hc *humiov1alpha1.HumioCluster) []corev1.Volume {
-	emptyVolumes := []corev1.Volume{}
-	if reflect.DeepEqual(hc.Spec.ExtraVolumes, emptyVolumes) {
-		return emptyVolumes
+	if len(hc.Spec.ExtraVolumes) > 0 {
+		return hc.Spec.ExtraVolumes
 	}
-	return hc.Spec.ExtraVolumes
+	return []corev1.Volume{}
 }
 
 func nodeUUIDPrefixOrDefault(hc *humiov1alpha1.HumioCluster) string {
@@ -516,11 +512,10 @@ func nodeUUIDPrefixOrDefault(hc *humiov1alpha1.HumioCluster) string {
 }
 
 func sidecarContainersOrDefault(hc *humiov1alpha1.HumioCluster) []corev1.Container {
-	emptySidecarContainers := []corev1.Container{}
-	if reflect.DeepEqual(hc.Spec.SidecarContainers, emptySidecarContainers) {
-		return emptySidecarContainers
+	if len(hc.Spec.SidecarContainers) > 0 {
+		return hc.Spec.SidecarContainers
 	}
-	return hc.Spec.SidecarContainers
+	return []corev1.Container{}
 }
 
 func humioServiceTypeOrDefault(hc *humiov1alpha1.HumioCluster) corev1.ServiceType {

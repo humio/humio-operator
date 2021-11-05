@@ -379,7 +379,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Simulating mock pods to be scheduled")
 			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-			markPodsAsRunning(ctx, k8sClient, clusterPods)
+			_ = markPodsAsRunning(ctx, k8sClient, clusterPods)
 
 			usingClusterBy(key.Name, "Waiting for humio cluster state to be Running")
 			Eventually(func() string {
@@ -452,7 +452,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Validating pod uses default helper image as init container")
 			Eventually(func() string {
 				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-				markPodsAsRunning(ctx, k8sClient, clusterPods)
+				_ = markPodsAsRunning(ctx, k8sClient, clusterPods)
 
 				for _, pod := range clusterPods {
 					initIdx, _ := kubernetes.GetInitContainerIndexByName(pod, initContainerName)
@@ -466,7 +466,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Validating pod uses default helper image as auth sidecar container")
 			Eventually(func() string {
 				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-				markPodsAsRunning(ctx, k8sClient, clusterPods)
+				_ = markPodsAsRunning(ctx, k8sClient, clusterPods)
 
 				for _, pod := range clusterPods {
 					authIdx, _ := kubernetes.GetContainerIndexByName(pod, authContainerName)
@@ -2928,7 +2928,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Validating pod is created with the default grace period")
 			Eventually(func() int64 {
 				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-				markPodsAsRunning(ctx, k8sClient, clusterPods)
+				_ = markPodsAsRunning(ctx, k8sClient, clusterPods)
 
 				for _, pod := range clusterPods {
 					if pod.Spec.TerminationGracePeriodSeconds != nil {
@@ -3413,7 +3413,7 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 	var clusterPods []corev1.Pod
 	Eventually(func() []corev1.Pod {
 		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-		markPodsAsRunning(ctx, k8sClient, clusterPods)
+		_ = markPodsAsRunning(ctx, k8sClient, clusterPods)
 		return clusterPods
 	}, testTimeout, testInterval).Should(HaveLen(*cluster.Spec.NodeCount))
 
@@ -3433,7 +3433,7 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 	usingClusterBy(key.Name, "Confirming cluster enters running state")
 	Eventually(func() string {
 		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-		markPodsAsRunning(ctx, k8sClient, clusterPods)
+		_ = markPodsAsRunning(ctx, k8sClient, clusterPods)
 
 		updatedHumioCluster = humiov1alpha1.HumioCluster{}
 		Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
@@ -3625,7 +3625,10 @@ func markPodsAsRunning(ctx context.Context, client client.Client, pods []corev1.
 
 	usingClusterBy("", "Simulating Humio container starts up and is marked Ready")
 	for nodeID, pod := range pods {
-		markPodAsRunning(ctx, client, nodeID, pod)
+		err := markPodAsRunning(ctx, client, nodeID, pod)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -3643,10 +3646,7 @@ func markPodAsRunning(ctx context.Context, client client.Client, nodeID int, pod
 			Status: corev1.ConditionTrue,
 		},
 	}
-	if err := client.Status().Update(ctx, &pod); err != nil {
-		return fmt.Errorf("failed to mark pod as ready: %s", err)
-	}
-	return nil
+	return client.Status().Update(ctx, &pod)
 }
 
 func podReadyCount(ctx context.Context, key types.NamespacedName, expectedPodRevision int, expectedReadyCount int) int {
@@ -3667,7 +3667,7 @@ func podReadyCount(ctx context.Context, key types.NamespacedName, expectedPodRev
 				}
 			} else {
 				if nodeID+1 <= expectedReadyCount {
-					markPodAsRunning(ctx, k8sClient, nodeID, pod)
+					_ = markPodAsRunning(ctx, k8sClient, nodeID, pod)
 					readyCount++
 					continue
 				}
