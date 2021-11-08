@@ -181,7 +181,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	// A workaround for now is to delete the repository CR and create it again.
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
-	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
