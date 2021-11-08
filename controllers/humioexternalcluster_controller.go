@@ -96,7 +96,7 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 			r.Log.Error(err, "unable to set cluster state")
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
+		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 	}
 
 	err = r.Client.Get(ctx, req.NamespacedName, hec)
@@ -113,7 +113,7 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
-	return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 15}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
