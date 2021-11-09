@@ -19,17 +19,19 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"sort"
+	"time"
+
 	"github.com/go-logr/logr"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
@@ -160,7 +162,7 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 	}
 
 	// Update
-	if reflect.DeepEqual(curView.Connections, hv.GetViewConnections()) == false {
+	if viewConnectionsDiffer(curView.Connections, hv.GetViewConnections()) {
 		r.Log.Info(fmt.Sprintf("view information differs, triggering update, expected %v, got: %v",
 			hv.Spec.Connections,
 			curView.Connections))
@@ -173,6 +175,27 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
 	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+}
+
+// viewConnectionsDiffer returns whether two slices of connections differ.
+// Connections are compared by repo name and filter so the ordering is not taken
+// into account.
+func viewConnectionsDiffer(curConnections, newConnections []humioapi.ViewConnection) bool {
+	// sort the slices to avoid changes to the order of items in the slice to
+	// trigger an update. Kubernetes does not guarantee that slice items are
+	// deterministic ordered, so without this we could trigger updates to views
+	// without any functional changes. As the result of a view update in Humio is
+	// live queries against it are refreshed it can lead to dashboards and queries
+	// refreshing all the time.
+	sortConnections(curConnections)
+	sortConnections(newConnections)
+	return !reflect.DeepEqual(curConnections, newConnections)
+}
+
+func sortConnections(connections []humioapi.ViewConnection) {
+	sort.SliceStable(connections, func(i, j int) bool {
+		return connections[i].RepoName > connections[j].RepoName || connections[i].Filter > connections[j].Filter
+	})
 }
 
 // SetupWithManager sets up the controller with the Manager.
