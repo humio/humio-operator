@@ -556,6 +556,10 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "SINGLE_USER_PASSWORD",
 					Value: "password",
 				},
+				{
+					Name:  "ENABLE_IOC_SERVICE",
+					Value: "false",
+				},
 			}
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
@@ -599,6 +603,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				{
 					Name:  "SINGLE_USER_PASSWORD",
 					Value: "password",
+				},
+				{
+					Name:  "ENABLE_IOC_SERVICE",
+					Value: "false",
 				},
 			}
 			Eventually(func() error {
@@ -3597,6 +3605,10 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 				{
 					Name:  "SINGLE_USER_PASSWORD",
 					Value: "password",
+				},
+				{
+					Name:  "ENABLE_IOC_SERVICE",
+					Value: "false",
 				},
 			},
 			DataVolumeSource: corev1.VolumeSource{
