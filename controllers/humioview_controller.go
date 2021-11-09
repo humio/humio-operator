@@ -181,6 +181,9 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 // Connections are compared by repo name and filter so the ordering is not taken
 // into account.
 func viewConnectionsDiffer(curConnections, newConnections []humioapi.ViewConnection) bool {
+	if len(curConnections) != len(newConnections) {
+		return true
+	}
 	// sort the slices to avoid changes to the order of items in the slice to
 	// trigger an update. Kubernetes does not guarantee that slice items are
 	// deterministic ordered, so without this we could trigger updates to views
@@ -189,7 +192,14 @@ func viewConnectionsDiffer(curConnections, newConnections []humioapi.ViewConnect
 	// refreshing all the time.
 	sortConnections(curConnections)
 	sortConnections(newConnections)
-	return !reflect.DeepEqual(curConnections, newConnections)
+
+	for i := range curConnections {
+		if curConnections[i] != newConnections[i] {
+			return true
+		}
+	}
+
+	return false
 }
 
 func sortConnections(connections []humioapi.ViewConnection) {
