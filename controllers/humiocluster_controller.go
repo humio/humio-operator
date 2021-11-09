@@ -235,7 +235,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// this means that you can end up with the SCC listing the service accounts
 	// used for the last cluster to be deleted, in the case that all HumioCluster's are removed.
 	// TODO: Determine if we should move this to a finalizer to fix the situation described above.
-	err = r.ensureCleanupUsersInSecurityContextConstraints(ctx, hc)
+	err = r.ensureCleanupUsersInSecurityContextConstraints(ctx)
 	if err != nil {
 		r.Log.Error(err, "could not ensure we clean up users in SecurityContextConstraints")
 		return reconcile.Result{}, err
@@ -882,7 +882,7 @@ func (r *HumioClusterReconciler) ensureSecurityContextConstraintsContainsService
 	return nil
 }
 
-func (r *HumioClusterReconciler) ensureCleanupUsersInSecurityContextConstraints(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+func (r *HumioClusterReconciler) ensureCleanupUsersInSecurityContextConstraints(ctx context.Context) error {
 	if !helpers.IsOpenShift() {
 		return nil
 	}
