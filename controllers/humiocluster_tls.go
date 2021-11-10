@@ -190,9 +190,9 @@ func constructNodeCertificate(hc *humiov1alpha1.HumioCluster, nodeSuffix string)
 		},
 		Spec: cmapi.CertificateSpec{
 			DNSNames: []string{
-				fmt.Sprintf("%s-core-%s.%s-headless.%s", hc.Name, nodeSuffix, hc.Name, hc.Namespace), // Used for intra-cluster communication
-				fmt.Sprintf("%s-core-%s", hc.Name, nodeSuffix),                                       // Used for auth sidecar
-				fmt.Sprintf("%s.%s", hc.Name, hc.Namespace),                                          // Used by humio-operator and ingress controllers to reach the Humio API
+				fmt.Sprintf("%s-core-%s.%s.%s", hc.Name, nodeSuffix, headlessServiceName(hc.Name), hc.Namespace), // Used for intra-cluster communication
+				fmt.Sprintf("%s-core-%s", hc.Name, nodeSuffix),                                                   // Used for auth sidecar
+				fmt.Sprintf("%s.%s", hc.Name, hc.Namespace),                                                      // Used by humio-operator and ingress controllers to reach the Humio API
 			},
 			IssuerRef: cmmeta.ObjectReference{
 				Name: constructCAIssuer(hc).Name,

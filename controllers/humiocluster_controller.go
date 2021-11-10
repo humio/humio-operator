@@ -1575,7 +1575,7 @@ func (r *HumioClusterReconciler) ensureServiceExists(ctx context.Context, hc *hu
 
 func (r *HumioClusterReconciler) ensureHeadlessServiceExists(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("ensuring headless service")
-	_, err := kubernetes.GetService(ctx, r, fmt.Sprintf("%s-headless", hc.Name), hc.Namespace)
+	_, err := kubernetes.GetService(ctx, r, headlessServiceName(hc.Name), hc.Namespace)
 	if errors.IsNotFound(err) {
 		service := constructHeadlessService(hc)
 		if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {

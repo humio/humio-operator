@@ -65,7 +65,7 @@ func constructService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        fmt.Sprintf("%s-headless", hc.Name),
+			Name:        headlessServiceName(hc.Name),
 			Namespace:   hc.Namespace,
 			Labels:      mergeHumioServiceLabels(hc, hc.Spec.HumioHeadlessServiceLabels),
 			Annotations: humioHeadlessServiceAnnotationsOrDefault(hc),
@@ -86,4 +86,8 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			},
 		},
 	}
+}
+
+func headlessServiceName(prefix string) string {
+	return fmt.Sprintf("%s-headless", prefix)
 }

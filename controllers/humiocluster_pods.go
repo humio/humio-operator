@@ -161,7 +161,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 			ShareProcessNamespace: shareProcessNamespaceOrDefault(hc),
 			ServiceAccountName:    humioServiceAccountNameOrDefault(hc),
 			ImagePullSecrets:      imagePullSecretsOrDefault(hc),
-			Subdomain:             fmt.Sprintf("%s-headless", hc.Name),
+			Subdomain:             headlessServiceName(hc.Name),
 			Hostname:              humioNodeName,
 			Containers: []corev1.Container{
 				{
@@ -696,7 +696,7 @@ func sanitizePod(hc *humiov1alpha1.HumioCluster, pod *corev1.Pod) *corev1.Pod {
 				if envVar.Name == "EXTERNAL_URL" {
 					sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
 						Name:  "EXTERNAL_URL",
-						Value: fmt.Sprintf("%s://%s-core-%s.%s-headless.%s:%d", strings.ToLower(string(getProbeScheme(hc))), hc.Name, "", hc.Name, hc.Namespace, humioPort),
+						Value: fmt.Sprintf("%s://%s-core-%s.%s.%s:%d", strings.ToLower(string(getProbeScheme(hc))), hc.Name, "", headlessServiceName(hc.Name), hc.Namespace, humioPort),
 					})
 				} else {
 					sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
