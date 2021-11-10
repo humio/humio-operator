@@ -636,9 +636,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 }
 
 func volumeSource(hc *humiov1alpha1.HumioCluster, podList []corev1.Pod, pvcList []corev1.PersistentVolumeClaim) (corev1.VolumeSource, error) {
-	emptyDataVolume := corev1.VolumeSource{}
-
-	if pvcsEnabled(hc) && !reflect.DeepEqual(hc.Spec.DataVolumeSource, emptyDataVolume) {
+	if pvcsEnabled(hc) && hc.Spec.DataVolumeSource != (corev1.VolumeSource{}) {
 		return corev1.VolumeSource{}, fmt.Errorf("cannot have both dataVolumePersistentVolumeClaimSpecTemplate and dataVolumeSource defined")
 	}
 	if pvcsEnabled(hc) {
