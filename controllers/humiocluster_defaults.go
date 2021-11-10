@@ -125,8 +125,7 @@ func dataVolumeSourceOrDefault(hc *humiov1alpha1.HumioCluster) corev1.VolumeSour
 }
 
 func affinityOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Affinity {
-	emptyAffinity := corev1.Affinity{}
-	if reflect.DeepEqual(hc.Spec.Affinity, emptyAffinity) {
+	if hc.Spec.Affinity == (corev1.Affinity{}) {
 		return &corev1.Affinity{
 			NodeAffinity: &corev1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
@@ -172,10 +171,7 @@ func shareProcessNamespaceOrDefault(hc *humiov1alpha1.HumioCluster) *bool {
 }
 
 func humioServiceAccountAnnotationsOrDefault(hc *humiov1alpha1.HumioCluster) map[string]string {
-	if hc.Spec.HumioServiceAccountAnnotations != nil {
-		return hc.Spec.HumioServiceAccountAnnotations
-	}
-	return map[string]string(nil)
+	return hc.Spec.HumioServiceAccountAnnotations
 }
 
 func humioServiceAccountNameOrDefault(hc *humiov1alpha1.HumioCluster) string {
@@ -247,8 +243,7 @@ func authRoleBindingName(hc *humiov1alpha1.HumioCluster) string {
 }
 
 func containerReadinessProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Probe {
-	emptyProbe := &corev1.Probe{}
-	if reflect.DeepEqual(hc.Spec.ContainerReadinessProbe, emptyProbe) {
+	if hc.Spec.ContainerReadinessProbe != nil && (*hc.Spec.ContainerReadinessProbe == (corev1.Probe{})) {
 		return nil
 	}
 
@@ -272,8 +267,7 @@ func containerReadinessProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Pr
 }
 
 func containerLivenessProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Probe {
-	emptyProbe := &corev1.Probe{}
-	if reflect.DeepEqual(hc.Spec.ContainerLivenessProbe, emptyProbe) {
+	if hc.Spec.ContainerLivenessProbe != nil && (*hc.Spec.ContainerLivenessProbe == (corev1.Probe{})) {
 		return nil
 	}
 
@@ -297,8 +291,7 @@ func containerLivenessProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Pro
 }
 
 func containerStartupProbeOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.Probe {
-	emptyProbe := &corev1.Probe{}
-	if reflect.DeepEqual(hc.Spec.ContainerStartupProbe, emptyProbe) {
+	if hc.Spec.ContainerStartupProbe != nil && (*hc.Spec.ContainerStartupProbe == (corev1.Probe{})) {
 		return nil
 	}
 
