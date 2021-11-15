@@ -36,7 +36,7 @@ type HumioViewConnection struct {
 	// RepositoryName contains the name of the target repository
 	RepositoryName string `json:"repositoryName,omitempty"`
 	// Filter contains the prefix filter that will be applied for the given RepositoryName
-	Filter string `json:"filter,omitEmpty"`
+	Filter string `json:"filter,omitempty"`
 }
 
 // HumioViewSpec defines the desired state of HumioView

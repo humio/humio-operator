@@ -150,8 +150,7 @@ func constructIngress(hc *humiov1alpha1.HumioCluster, name string, hostname stri
 			},
 		})
 	}
-	var ingress networkingv1.Ingress
-	ingress = networkingv1.Ingress{
+	ingress := networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Namespace:   hc.Namespace,

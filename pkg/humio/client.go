@@ -116,7 +116,6 @@ type ClientConfig struct {
 type humioClientKey struct {
 	namespace, name string
 	authenticated   bool
-	transport       *http.Transport
 }
 
 type humioClientConnection struct {
@@ -130,7 +129,7 @@ func NewClient(logger logr.Logger, config *humioapi.Config, userAgent string) *C
 	return NewClientWithTransport(logger, config, userAgent, transport)
 }
 
-// NewClient returns a ClientConfig using an existing http.Transport
+// NewClientWithTransport returns a ClientConfig using an existing http.Transport
 func NewClientWithTransport(logger logr.Logger, config *humioapi.Config, userAgent string, transport *http.Transport) *ClientConfig {
 	return &ClientConfig{
 		logger:       logger,
