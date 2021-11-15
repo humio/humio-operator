@@ -173,6 +173,7 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 			s := scheme.Scheme
 			s.AddKnownTypes(humiov1alpha1.GroupVersion, &tt.managedHumioCluster)
 
+			//lint:ignore SA1019 fake.NewFakeClient is deprecated: Please use NewClientBuilder instead. TODO: Migrate to NewClientBuilder.
 			cl := fake.NewFakeClient(objs...)
 
 			cluster, err := NewCluster(context.Background(), cl, tt.managedHumioCluster.Name, "", tt.managedHumioCluster.Namespace, tt.certManagerEnabled, true)
@@ -370,6 +371,7 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 			s := scheme.Scheme
 			s.AddKnownTypes(humiov1alpha1.GroupVersion, &tt.externalHumioCluster)
 
+			//lint:ignore SA1019 fake.NewFakeClient is deprecated: Please use NewClientBuilder instead. TODO: Migrate to NewClientBuilder.
 			cl := fake.NewFakeClient(objs...)
 
 			cluster, err := NewCluster(context.Background(), cl, "", tt.externalHumioCluster.Name, tt.externalHumioCluster.Namespace, false, true)
@@ -497,6 +499,7 @@ func TestCluster_NewCluster(t *testing.T) {
 			s.AddKnownTypes(humiov1alpha1.GroupVersion, &managedHumioCluster)
 			s.AddKnownTypes(humiov1alpha1.GroupVersion, &externalHumioCluster)
 
+			//lint:ignore SA1019 fake.NewFakeClient is deprecated: Please use NewClientBuilder instead. TODO: Migrate to NewClientBuilder.
 			cl := fake.NewFakeClient(objs...)
 
 			_, err := NewCluster(context.Background(), cl, tt.managedClusterName, tt.externalClusterName, tt.namespace, false, true)

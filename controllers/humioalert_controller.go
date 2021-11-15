@@ -32,7 +32,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/humio"
 )
@@ -204,7 +203,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, config *
 // SetupWithManager sets up the controller with the Manager.
 func (r *HumioAlertReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&corev1alpha1.HumioAlert{}).
+		For(&humiov1alpha1.HumioAlert{}).
 		Complete(r)
 }
 
