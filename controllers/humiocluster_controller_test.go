@@ -3453,7 +3453,7 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 	Eventually(func() string {
 		updatedHumioCluster = humiov1alpha1.HumioCluster{}
 		Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-		val, _ := updatedHumioCluster.Annotations[podRevisionAnnotation]
+		val := updatedHumioCluster.Annotations[podRevisionAnnotation]
 		return val
 	}, testTimeout, testInterval).Should(Equal("1"))
 

@@ -126,9 +126,7 @@ func constructNodeUUIDPrefix(hc *humiov1alpha1.HumioCluster) (string, error) {
 	}
 	nodeUUIDPrefix := tpl.String()
 
-	if strings.Contains(nodeUUIDPrefix, containsZoneIdentifier) {
-		nodeUUIDPrefix = strings.Replace(nodeUUIDPrefix, containsZoneIdentifier, fmt.Sprintf("$(cat %s/availability-zone)", sharedPath), 1)
-	}
+	nodeUUIDPrefix = strings.Replace(nodeUUIDPrefix, containsZoneIdentifier, fmt.Sprintf("$(cat %s/availability-zone)", sharedPath), 1)
 
 	if !strings.HasPrefix(nodeUUIDPrefix, "/") {
 		nodeUUIDPrefix = fmt.Sprintf("/%s", nodeUUIDPrefix)
@@ -652,7 +650,7 @@ func volumeSource(hc *humiov1alpha1.HumioCluster, podList []corev1.Pod, pvcList 
 }
 
 // envVarValue returns the value of the given environment variable
-// if the environment varible is not preset, return empty string
+// if the environment variable is not preset, return empty string
 func envVarValue(envVars []corev1.EnvVar, key string) string {
 	for _, envVar := range envVars {
 		if envVar.Name == key {
