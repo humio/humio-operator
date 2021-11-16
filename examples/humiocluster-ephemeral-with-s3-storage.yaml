@@ -62,7 +62,7 @@ spec:
     - name: S3_STORAGE_PREFERRED_COPY_SOURCE
       value: "true"
     - name: HUMIO_JVM_ARGS
-      value: -Xss2m -Xms2g -Xmx26g -server -XX:MaxDirectMemorySize=26g -XX:+UseParallelOldGC -XX:+UnlockDiagnosticVMOptions -XX:CompileCommand=dontinline,com/humio/util/HotspotUtilsJ.dontInline -Xlog:gc+jni=debug:stdout -Dakka.log-config-on-start=on -Xlog:gc*:stdout:time,tags
+      value: -Xss2m -Xms2g -Xmx26g -server -XX:MaxDirectMemorySize=26g -XX:+UseParallelGC -XX:+UnlockDiagnosticVMOptions -XX:CompileCommand=dontinline,com/humio/util/HotspotUtilsJ.dontInline -Xlog:gc+jni=debug:stdout -Dakka.log-config-on-start=on -Xlog:gc*:stdout:time,tags
     - name: "ZOOKEEPER_URL"
       value: "z-2-my-zookeeper.c4.kafka.us-west-2.amazonaws.com:2181,z-3-my-zookeeper.c4.kafka.us-west-2.amazonaws.com:2181,z-1-my-zookeeper.c4.kafka.us-west-2.amazonaws.com:2181"
     - name: "KAFKA_SERVERS"

@@ -16,7 +16,7 @@ spec:
   targetReplicationFactor: 1
   environmentVariables:
     - name: "HUMIO_JVM_ARGS"
-      value:  "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelOldGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false"
+      value:  "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false"
     - name: "ZOOKEEPER_URL"
       value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless:2181"
     - name: "KAFKA_SERVERS"
