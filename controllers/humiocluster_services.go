@@ -17,6 +17,8 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
+
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	corev1 "k8s.io/api/core/v1"
@@ -24,9 +26,9 @@ import (
 )
 
 // humioServiceLabels generates the set of labels to attach to the humio kubernetes service
-func humioServiceLabels(hc *humiov1alpha1.HumioCluster) map[string]string {
+func mergeHumioServiceLabels(hc *humiov1alpha1.HumioCluster, serviceLabels map[string]string) map[string]string {
 	labels := kubernetes.LabelsForHumio(hc.Name)
-	for k, v := range hc.Spec.HumioServiceLabels {
+	for k, v := range serviceLabels {
 		if _, ok := labels[k]; ok {
 			continue
 		}
@@ -40,7 +42,7 @@ func constructService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        hc.Name,
 			Namespace:   hc.Namespace,
-			Labels:      humioServiceLabels(hc),
+			Labels:      mergeHumioServiceLabels(hc, hc.Spec.HumioServiceLabels),
 			Annotations: humioServiceAnnotationsOrDefault(hc),
 		},
 		Spec: corev1.ServiceSpec{
@@ -58,4 +60,34 @@ func constructService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			},
 		},
 	}
+}
+
+func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        headlessServiceName(hc.Name),
+			Namespace:   hc.Namespace,
+			Labels:      mergeHumioServiceLabels(hc, hc.Spec.HumioHeadlessServiceLabels),
+			Annotations: humioHeadlessServiceAnnotationsOrDefault(hc),
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "None",
+			Type:      corev1.ServiceTypeClusterIP,
+			Selector:  kubernetes.LabelsForHumio(hc.Name),
+			Ports: []corev1.ServicePort{
+				{
+					Name: "http",
+					Port: humioPort,
+				},
+				{
+					Name: "es",
+					Port: elasticPort,
+				},
+			},
+		},
+	}
+}
+
+func headlessServiceName(prefix string) string {
+	return fmt.Sprintf("%s-headless", prefix)
 }

@@ -161,7 +161,7 @@ func constructPod(hc *humiov1alpha1.HumioCluster, humioNodeName string, attachme
 			ShareProcessNamespace: shareProcessNamespaceOrDefault(hc),
 			ServiceAccountName:    humioServiceAccountNameOrDefault(hc),
 			ImagePullSecrets:      imagePullSecretsOrDefault(hc),
-			Subdomain:             hc.Name,
+			Subdomain:             headlessServiceName(hc.Name),
 			Hostname:              humioNodeName,
 			Containers: []corev1.Container{
 				{
@@ -696,7 +696,7 @@ func sanitizePod(hc *humiov1alpha1.HumioCluster, pod *corev1.Pod) *corev1.Pod {
 				if envVar.Name == "EXTERNAL_URL" {
 					sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
 						Name:  "EXTERNAL_URL",
-						Value: fmt.Sprintf("%s://%s-core-%s.%s:%d", strings.ToLower(string(getProbeScheme(hc))), hc.Name, "", hc.Namespace, humioPort),
+						Value: fmt.Sprintf("%s://%s-core-%s.%s.%s:%d", strings.ToLower(string(getProbeScheme(hc))), hc.Name, "", headlessServiceName(hc.Name), hc.Namespace, humioPort),
 					})
 				} else {
 					sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
@@ -961,7 +961,7 @@ func (r *HumioClusterReconciler) getRestartPolicyFromPodInspection(pod, desiredP
 		return PodRestartPolicyRecreate, nil
 	}
 
-	if podHasTLSEnabled(pod) != podHasTLSEnabled(desiredPod) {
+	if envVarValue(pod.Spec.Containers[humioContainerIdx].Env, "EXTERNAL_URL") != envVarValue(desiredPod.Spec.Containers[desiredHumioContainerIdx].Env, "EXTERNAL_URL") {
 		return PodRestartPolicyRecreate, nil
 	}
 
@@ -999,17 +999,6 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hc *humiov1alpha1.H
 		}
 	}
 	return podLifecycleState{}, nil
-}
-
-func podHasTLSEnabled(pod corev1.Pod) bool {
-	// TODO: perhaps we need to add a couple more checks to validate TLS is fully enabled
-	podConfiguredWithTLS := false
-	for _, vol := range pod.Spec.Volumes {
-		if vol.Name == "tls-cert" {
-			podConfiguredWithTLS = true
-		}
-	}
-	return podConfiguredWithTLS
 }
 
 func findHumioNodeName(ctx context.Context, c client.Client, hc *humiov1alpha1.HumioCluster) (string, error) {
