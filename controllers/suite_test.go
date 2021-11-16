@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -325,8 +324,7 @@ var _ = BeforeSuite(func() {
 }, 120)
 
 var _ = AfterSuite(func() {
-	emptyNamespace := corev1.Namespace{}
-	if reflect.DeepEqual(testNamespace, emptyNamespace) && k8sClient != nil {
+	if testNamespace.ObjectMeta.Name != "" && k8sClient != nil {
 		By(fmt.Sprintf("Removing test namespace: %s", testProcessID))
 		err := k8sClient.Delete(context.TODO(), &testNamespace)
 		Expect(err).ToNot(HaveOccurred())
