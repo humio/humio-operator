@@ -548,10 +548,7 @@ func humioServiceAnnotationsOrDefault(hc *humiov1alpha1.HumioCluster) map[string
 }
 
 func humioHeadlessServiceAnnotationsOrDefault(hc *humiov1alpha1.HumioCluster) map[string]string {
-	if hc.Spec.HumioHeadlessServiceAnnotations != nil {
-		return hc.Spec.HumioHeadlessServiceAnnotations
-	}
-	return map[string]string(nil)
+	return hc.Spec.HumioHeadlessServiceAnnotations
 }
 
 func humioPathOrDefault(hc *humiov1alpha1.HumioCluster) string {
