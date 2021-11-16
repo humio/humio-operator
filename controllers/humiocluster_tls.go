@@ -251,7 +251,7 @@ func (r *HumioClusterReconciler) updateNodeCertificates(ctx context.Context, hc 
 
 			b, _ := json.Marshal(certForHash)
 			desiredCertificateHash := helpers.AsSHA256(string(b))
-			currentCertificateHash, _ := cert.Annotations[certHashAnnotation]
+			currentCertificateHash := cert.Annotations[certHashAnnotation]
 			if currentCertificateHash != desiredCertificateHash {
 				r.Log.Info(fmt.Sprintf("node certificate %s doesn't have expected hash, got: %s, expected: %s",
 					cert.Name, currentCertificateHash, desiredCertificateHash))

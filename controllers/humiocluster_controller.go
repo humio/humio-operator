@@ -741,7 +741,7 @@ func (r *HumioClusterReconciler) ensureHumioPodPermissions(ctx context.Context, 
 }
 
 func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	if hc.Spec.DisableInitContainer == true {
+	if hc.Spec.DisableInitContainer {
 		return nil
 	}
 
@@ -1644,7 +1644,7 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc
 				// this is the cluster-wide secret
 				if hc.Spec.TLS != nil {
 					if hc.Spec.TLS.Enabled != nil {
-						if *hc.Spec.TLS.Enabled == false {
+						if !*hc.Spec.TLS.Enabled {
 							inUse = false
 						}
 					}
@@ -1734,7 +1734,7 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSCertificates(ctx context.Contex
 				// this is the cluster-wide secret
 				if hc.Spec.TLS != nil {
 					if hc.Spec.TLS.Enabled != nil {
-						if *hc.Spec.TLS.Enabled == false {
+						if !*hc.Spec.TLS.Enabled {
 							inUse = false
 						}
 					}
@@ -2113,13 +2113,13 @@ func (r *HumioClusterReconciler) ensureValidStorageConfiguration(hc *humiov1alph
 
 	if reflect.DeepEqual(hc.Spec.DataVolumeSource, emptyVolumeSource) &&
 		reflect.DeepEqual(hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate, emptyDataVolumePersistentVolumeClaimSpecTemplate) {
-		r.Log.Error(errInvalidStorageConfiguration, fmt.Sprintf("no storage configuration provided"))
+		r.Log.Error(errInvalidStorageConfiguration, "no storage configuration provided")
 		return errInvalidStorageConfiguration
 	}
 
 	if !reflect.DeepEqual(hc.Spec.DataVolumeSource, emptyVolumeSource) &&
 		!reflect.DeepEqual(hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate, emptyDataVolumePersistentVolumeClaimSpecTemplate) {
-		r.Log.Error(errInvalidStorageConfiguration, fmt.Sprintf("conflicting storage configuration provided"))
+		r.Log.Error(errInvalidStorageConfiguration, "conflicting storage configuration provided")
 		return errInvalidStorageConfiguration
 	}
 

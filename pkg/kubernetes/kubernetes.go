@@ -43,9 +43,7 @@ func LabelsForHumio(clusterName string) map[string]string {
 // MatchingLabelsForHumio returns a MatchingLabels which can be passed on to the Kubernetes client to only return
 // objects related to a specific HumioCluster instance
 func MatchingLabelsForHumio(clusterName string) client.MatchingLabels {
-	var matchingLabels client.MatchingLabels
-	matchingLabels = LabelsForHumio(clusterName)
-	return matchingLabels
+	return LabelsForHumio(clusterName)
 }
 
 // LabelsForHumioNodeID returns a set of labels for a specific pod given the name of the cluster and the Humio node ID
