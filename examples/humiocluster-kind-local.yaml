@@ -29,7 +29,7 @@ spec:
         storage: 10Gi
   environmentVariables:
     - name: HUMIO_JVM_ARGS
-      value: -Xss2m -Xms1g -Xmx2g -server -XX:MaxDirectMemorySize=1g -XX:+UseParallelOldGC -XX:+UnlockDiagnosticVMOptions -XX:CompileCommand=dontinline,com/humio/util/HotspotUtilsJ.dontInline -Xlog:gc+jni=debug:stdout -Dakka.log-config-on-start=on -Xlog:gc*:stdout:time,tags
+      value: -Xss2m -Xms1g -Xmx2g -server -XX:MaxDirectMemorySize=1g -XX:+UseParallelGC -XX:+UnlockDiagnosticVMOptions -XX:CompileCommand=dontinline,com/humio/util/HotspotUtilsJ.dontInline -Xlog:gc+jni=debug:stdout -Dakka.log-config-on-start=on -Xlog:gc*:stdout:time,tags
     - name: "ZOOKEEPER_URL"
       value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181"
     - name: "KAFKA_SERVERS"
