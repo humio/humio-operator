@@ -95,14 +95,6 @@ func (s *podsStatusState) podRevisionsInSync() bool {
 	return true
 }
 
-func (s *podsStatusState) allPodsReady() bool {
-	return s.readyCount == s.expectedRunningPods
-}
-
-func (s *podsStatusState) haveMissingPods() bool {
-	return s.readyCount < s.expectedRunningPods
-}
-
 func (s *podsStatusState) havePodsWithContainerStateWaitingErrors() bool {
 	return len(s.podErrors) > 0
 }
