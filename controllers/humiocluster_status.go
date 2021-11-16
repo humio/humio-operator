@@ -57,10 +57,7 @@ func (r *HumioClusterReconciler) setState(ctx context.Context, state string, hc 
 				}
 			}
 			hc.Status.State = state
-			err = r.Status().Update(ctx, hc)
-			if err != nil {
-			}
-			return err
+			return r.Status().Update(ctx, hc)
 		})
 		if err != nil {
 			return fmt.Errorf("failed to update resource status: %w", err)

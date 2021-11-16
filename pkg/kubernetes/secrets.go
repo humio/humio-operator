@@ -37,11 +37,9 @@ func LabelsForSecret(clusterName string, secretName string, additionalSecretLabe
 	labels := LabelsForHumio(clusterName)
 	labels[SecretNameLabelName] = secretName
 
-	if additionalSecretLabels != nil {
-		for k, v := range additionalSecretLabels {
-			if _, found := labels[k]; !found {
-				labels[k] = v
-			}
+	for k, v := range additionalSecretLabels {
+		if _, found := labels[k]; !found {
+			labels[k] = v
 		}
 	}
 
@@ -51,9 +49,7 @@ func LabelsForSecret(clusterName string, secretName string, additionalSecretLabe
 // MatchingLabelsForSecret returns a MatchingLabels which can be passed on to the Kubernetes client to only return
 // secrets related to a specific HumioCluster instance
 func MatchingLabelsForSecret(clusterName, secretName string) client.MatchingLabels {
-	var matchingLabels client.MatchingLabels
-	matchingLabels = LabelsForSecret(clusterName, secretName, nil)
-	return matchingLabels
+	return LabelsForSecret(clusterName, secretName, nil)
 }
 
 // ConstructSecret returns an opaque secret which holds the given data

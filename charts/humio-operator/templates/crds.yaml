@@ -7074,8 +7074,6 @@ spec:
                       description: RepositoryName contains the name of the target
                         repository
                       type: string
-                  required:
-                  - filter
                   type: object
                 type: array
               externalClusterName:

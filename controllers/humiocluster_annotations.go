@@ -80,17 +80,6 @@ func (r *HumioClusterReconciler) getHumioClusterPodRevision(hc *humiov1alpha1.Hu
 	return existingRevision, nil
 }
 
-func (r *HumioClusterReconciler) getHumioClusterPodRestartPolicy(hc *humiov1alpha1.HumioCluster) string {
-	if hc.Annotations == nil {
-		hc.Annotations = map[string]string{}
-	}
-	existingPolicy, ok := hc.Annotations[podRestartPolicyAnnotation]
-	if !ok {
-		existingPolicy = PodRestartPolicyRecreate
-	}
-	return existingPolicy
-}
-
 func (r *HumioClusterReconciler) setPodRevision(pod *corev1.Pod, newRevision int) error {
 	pod.Annotations[podRevisionAnnotation] = strconv.Itoa(newRevision)
 	return nil
