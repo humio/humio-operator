@@ -633,6 +633,20 @@ func (in *HumioClusterSpec) DeepCopyInto(out *HumioClusterSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.HumioHeadlessServiceAnnotations != nil {
+		in, out := &in.HumioHeadlessServiceAnnotations, &out.HumioHeadlessServiceAnnotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.HumioHeadlessServiceLabels != nil {
+		in, out := &in.HumioHeadlessServiceLabels, &out.HumioHeadlessServiceLabels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.SidecarContainers != nil {
 		in, out := &in.SidecarContainers, &out.SidecarContainers
 		*out = make([]v1.Container, len(*in))
