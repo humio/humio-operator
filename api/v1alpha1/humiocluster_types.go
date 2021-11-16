@@ -146,6 +146,12 @@ type HumioClusterSpec struct {
 	// HumioServiceLabels is the set of labels added to the Kubernetes Service that is used to direct traffic
 	// to the Humio pods
 	HumioServiceLabels map[string]string `json:"humioServiceLabels,omitempty"`
+	// HumioHeadlessAnnotations is the set of annotations added to the Kubernetes Headless Service that is used for
+	// traffic between Humio pods
+	HumioHeadlessServiceAnnotations map[string]string `json:"humioHeadlessServiceAnnotations,omitempty"`
+	// HumioHeadlessServiceLabels is the set of labels added to the Kubernetes Headless Service that is used for
+	// traffic between Humio pods
+	HumioHeadlessServiceLabels map[string]string `json:"humioHeadlessServiceLabels,omitempty"`
 	// SidecarContainers can be used in advanced use-cases where you want one or more sidecar container added to the
 	// Humio pod to help out in debugging purposes.
 	SidecarContainers []corev1.Container `json:"sidecarContainer,omitempty"`
