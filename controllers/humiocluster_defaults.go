@@ -404,7 +404,7 @@ func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster) {
 			},
 		},
 
-		{Name: "HUMIO_JVM_ARGS", Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelOldGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC"},
+		{Name: "HUMIO_JVM_ARGS", Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC"},
 		{Name: "HUMIO_PORT", Value: strconv.Itoa(humioPort)},
 		{Name: "ELASTIC_PORT", Value: strconv.Itoa(elasticPort)},
 		{Name: "DIGEST_REPLICATION_FACTOR", Value: strconv.Itoa(hc.Spec.TargetReplicationFactor)},
