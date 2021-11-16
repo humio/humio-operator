@@ -162,8 +162,7 @@ func (h *MockClientConfig) UpdateIngestToken(config *humioapi.Config, req reconc
 }
 
 func (h *MockClientConfig) DeleteIngestToken(config *humioapi.Config, req reconcile.Request, hit *humiov1alpha1.HumioIngestToken) error {
-	updatedApiClient := h.apiClient
-	updatedApiClient.IngestToken = humioapi.IngestToken{}
+	h.apiClient.IngestToken = humioapi.IngestToken{}
 	return nil
 }
 
@@ -211,8 +210,7 @@ func (h *MockClientConfig) UpdateRepository(config *humioapi.Config, req reconci
 }
 
 func (h *MockClientConfig) DeleteRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
-	updatedApiClient := h.apiClient
-	updatedApiClient.Repository = humioapi.Repository{}
+	h.apiClient.Repository = humioapi.Repository{}
 	return nil
 }
 
@@ -221,8 +219,6 @@ func (h *MockClientConfig) GetView(config *humioapi.Config, req reconcile.Reques
 }
 
 func (h *MockClientConfig) AddView(config *humioapi.Config, req reconcile.Request, hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
-	updatedApiClient := h.apiClient
-
 	connections := make([]humioapi.ViewConnection, 0)
 	for _, connection := range hv.Spec.Connections {
 		connections = append(connections, humioapi.ViewConnection{
@@ -231,7 +227,7 @@ func (h *MockClientConfig) AddView(config *humioapi.Config, req reconcile.Reques
 		})
 	}
 
-	updatedApiClient.View = humioapi.View{
+	h.apiClient.View = humioapi.View{
 		Name:        hv.Spec.Name,
 		Connections: connections,
 	}
@@ -280,13 +276,11 @@ func (h *MockClientConfig) GetNotifier(config *humioapi.Config, req reconcile.Re
 }
 
 func (h *MockClientConfig) AddNotifier(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
-	updatedApiClient := h.apiClient
-
 	notifier, err := NotifierFromAction(ha)
 	if err != nil {
 		return notifier, err
 	}
-	updatedApiClient.Notifier = *notifier
+	h.apiClient.Notifier = *notifier
 	return &h.apiClient.Notifier, nil
 }
 
@@ -304,8 +298,6 @@ func (h *MockClientConfig) GetAlert(config *humioapi.Config, req reconcile.Reque
 }
 
 func (h *MockClientConfig) AddAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
-	updatedApiClient := h.apiClient
-
 	actionIdMap, err := h.GetActionIDsMapForAlerts(config, req, ha)
 	if err != nil {
 		return &humioapi.Alert{}, fmt.Errorf("could not get action id mapping: %s", err)
@@ -314,7 +306,7 @@ func (h *MockClientConfig) AddAlert(config *humioapi.Config, req reconcile.Reque
 	if err != nil {
 		return alert, err
 	}
-	updatedApiClient.Alert = *alert
+	h.apiClient.Alert = *alert
 	return &h.apiClient.Alert, nil
 }
 
@@ -323,8 +315,7 @@ func (h *MockClientConfig) UpdateAlert(config *humioapi.Config, req reconcile.Re
 }
 
 func (h *MockClientConfig) DeleteAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) error {
-	updateApiClient := h.apiClient
-	updateApiClient.Alert = humioapi.Alert{}
+	h.apiClient.Alert = humioapi.Alert{}
 	return nil
 }
 
