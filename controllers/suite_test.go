@@ -330,10 +330,10 @@ var _ = AfterSuite(func() {
 		By(fmt.Sprintf("Removing test namespace: %s", testProcessID))
 		err := k8sClient.Delete(context.TODO(), &testNamespace)
 		Expect(err).ToNot(HaveOccurred())
-		By("Tearing down the test environment")
-		err = testEnv.Stop()
-		Expect(err).NotTo(HaveOccurred())
 	}
+	By("Tearing down the test environment")
+	err := testEnv.Stop()
+	Expect(err).NotTo(HaveOccurred())
 })
 
 // getWatchNamespace returns the Namespace the operator should be watching for changes

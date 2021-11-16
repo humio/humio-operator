@@ -1831,9 +1831,11 @@ func (r *HumioClusterReconciler) ensureHumioServiceAccountAnnotations(ctx contex
 	}
 
 	serviceAccount := kubernetes.ConstructServiceAccount(serviceAccountName, hc.Name, hc.Namespace, serviceAccountAnnotations)
-	if !reflect.DeepEqual(existingServiceAccount.Annotations, serviceAccount.Annotations) {
+	serviceAccountAnnotationsString := helpers.MapToSortedString(serviceAccountAnnotations)
+	existingServiceAccountAnnotationsString := helpers.MapToSortedString(existingServiceAccount.Annotations)
+	if serviceAccountAnnotationsString != existingServiceAccountAnnotationsString {
 		r.Log.Info(fmt.Sprintf("service account annotations do not match: annotations %s, got %s. updating service account %s",
-			helpers.MapToString(serviceAccount.Annotations), helpers.MapToString(existingServiceAccount.Annotations), existingServiceAccount.Name))
+			serviceAccountAnnotationsString, existingServiceAccountAnnotationsString, existingServiceAccount.Name))
 		existingServiceAccount.Annotations = serviceAccount.Annotations
 		err = r.Update(ctx, existingServiceAccount)
 		if err != nil {
@@ -2005,8 +2007,10 @@ func (r *HumioClusterReconciler) ingressesMatch(ingress *networkingv1.Ingress, d
 		return false
 	}
 
-	if !reflect.DeepEqual(ingress.Annotations, desiredIngress.Annotations) {
-		r.Log.Info(fmt.Sprintf("ingress annotations do not match: got %+v, wanted %+v", ingress.Annotations, desiredIngress.Annotations))
+	ingressAnnotations := helpers.MapToSortedString(ingress.Annotations)
+	desiredIngressAnnotations := helpers.MapToSortedString(desiredIngress.Annotations)
+	if ingressAnnotations != desiredIngressAnnotations {
+		r.Log.Info(fmt.Sprintf("ingress annotations do not match: got %s, wanted %s", ingressAnnotations, desiredIngressAnnotations))
 		return false
 	}
 	return true

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/shurcooL/graphql"
@@ -147,8 +148,9 @@ func IntPtr(val int) *int {
 	return &val
 }
 
-// MapToString prettifies a string map so it's more suitable for readability when logging
-func MapToString(m map[string]string) string {
+// MapToSortedString prettifies a string map, so it's more suitable for readability when logging.
+// The output is constructed by sorting the slice.
+func MapToSortedString(m map[string]string) string {
 	if len(m) == 0 {
 		return `"":""`
 	}
@@ -156,6 +158,9 @@ func MapToString(m map[string]string) string {
 	for k, v := range m {
 		a = append(a, fmt.Sprintf("%s=%s", k, v))
 	}
+	sort.SliceStable(a, func(i, j int) bool {
+		return a[i] > a[j]
+	})
 	return strings.Join(a, ",")
 }
 
