@@ -3440,7 +3440,7 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 	usingClusterBy(key.Name, "Creating HumioCluster resource")
 	Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
 
-	usingClusterBy(key.Name, "Confirming cluster enters running state")
+	usingClusterBy(key.Name, "Confirming cluster enters pending state")
 	var updatedHumioCluster humiov1alpha1.HumioCluster
 	Eventually(func() string {
 		err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -3448,7 +3448,7 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 			Expect(err).Should(Succeed())
 		}
 		return updatedHumioCluster.Status.State
-	}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+	}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStatePending))
 
 	usingClusterBy(key.Name, "Waiting to have the correct number of pods")
 	var clusterPods []corev1.Pod
