@@ -136,7 +136,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if err != nil {
 			opts.withMessage(err.Error())
 		}
-		return r.updateStatus(r.Client.Status(), hc, opts)
+		r.updateStatus(r.Client.Status(), hc, opts)
 	}
 
 	if allServiceAccountsExists, err := r.validateUserDefinedServiceAccountsExists(ctx, hc); err != nil {
