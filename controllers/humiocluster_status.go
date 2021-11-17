@@ -106,10 +106,16 @@ func (s stateOption) GetResult() (reconcile.Result, error) {
 
 func (r *HumioClusterReconciler) updateStatus(statusWriter client.StatusWriter, hc *humiov1alpha1.HumioCluster, options StatusOptions) (reconcile.Result, error) {
 	opts := options.Get()
-	for _, opt := range opts {
-		opt.Apply(hc)
-	}
-	if err := statusWriter.Update(context.TODO(), hc); err != nil {
+	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := r.getLatestHumioCluster(context.TODO(), hc)
+		if err != nil {
+			return err
+		}
+		for _, opt := range opts {
+			opt.Apply(hc)
+		}
+		return statusWriter.Update(context.TODO(), hc)
+	}); err != nil {
 		return reconcile.Result{}, err
 	}
 	for _, opt := range opts {
