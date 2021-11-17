@@ -22,6 +22,11 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -31,6 +36,95 @@ import (
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+type Option interface {
+	Apply(hc *humiov1alpha1.HumioCluster)
+	GetResult() (reconcile.Result, error)
+}
+
+type optionBuilder struct {
+	options []Option
+}
+
+func (o *optionBuilder) Get() []Option {
+	return o.options
+}
+
+type messageOption struct {
+	message string
+}
+
+type stateOption struct {
+	state string
+}
+
+type StatusOptions interface {
+	Get() []Option
+}
+
+func statusOptions() *optionBuilder {
+	return &optionBuilder{
+		options: []Option{},
+	}
+}
+
+func (o *optionBuilder) withMessage(msg string) *optionBuilder {
+	o.options = append(o.options, messageOption{
+		message: msg,
+	})
+	return o
+}
+
+func (o *optionBuilder) withState(state string) *optionBuilder {
+	o.options = append(o.options, stateOption{
+		state: state,
+	})
+	return o
+}
+
+func (m messageOption) Apply(hc *humiov1alpha1.HumioCluster) {
+	hc.Status.Message = m.message
+}
+
+func (m messageOption) GetResult() (reconcile.Result, error) {
+	return reconcile.Result{}, nil
+}
+
+func (s stateOption) Apply(hc *humiov1alpha1.HumioCluster) {
+	hc.Status.State = s.state
+}
+
+func (s stateOption) GetResult() (reconcile.Result, error) {
+	if s.state == humiov1alpha1.HumioClusterStateRestarting || s.state == humiov1alpha1.HumioClusterStateUpgrading {
+		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+	}
+	if s.state == humiov1alpha1.HumioClusterStatePending {
+		return reconcile.Result{RequeueAfter: time.Second * 1}, nil
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *HumioClusterReconciler) updateStatus(statusWriter client.StatusWriter, hc *humiov1alpha1.HumioCluster, options StatusOptions) (reconcile.Result, error) {
+	opts := options.Get()
+	for _, opt := range opts {
+		opt.Apply(hc)
+	}
+	if err := statusWriter.Update(context.TODO(), hc); err != nil {
+		return reconcile.Result{}, err
+	}
+	for _, opt := range opts {
+		if res, err := opt.GetResult(); err != nil {
+			return res, err
+		}
+	}
+	for _, opt := range opts {
+		res, _ := opt.GetResult()
+		if res.Requeue || res.RequeueAfter > 0 {
+			return res, nil
+		}
+	}
+	return reconcile.Result{}, nil
+}
 
 // getLatestHumioCluster ensures we have the latest HumioCluster resource. It may have been changed during the
 // reconciliation

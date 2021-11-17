@@ -6568,6 +6568,10 @@ spec:
                   type:
                     type: string
                 type: object
+              message:
+                description: Message contains additional information about the state
+                  of the cluster
+                type: string
               nodeCount:
                 description: NodeCount is the number of nodes of humio running
                 type: integer
