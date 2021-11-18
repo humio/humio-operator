@@ -379,7 +379,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Simulating mock pods to be scheduled")
 			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-			_ = markPodsAsRunning(ctx, k8sClient, clusterPods)
+			Expect(markPodsAsRunning(ctx, k8sClient, clusterPods)).To(Succeed())
 
 			usingClusterBy(key.Name, "Waiting for humio cluster state to be Running")
 			Eventually(func() string {
@@ -452,7 +452,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Validating pod uses default helper image as init container")
 			Eventually(func() string {
 				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-				_ = markPodsAsRunning(ctx, k8sClient, clusterPods)
+				Expect(markPodsAsRunning(ctx, k8sClient, clusterPods)).To(Succeed())
 
 				for _, pod := range clusterPods {
 					initIdx, _ := kubernetes.GetInitContainerIndexByName(pod, initContainerName)
@@ -466,7 +466,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Validating pod uses default helper image as auth sidecar container")
 			Eventually(func() string {
 				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-				_ = markPodsAsRunning(ctx, k8sClient, clusterPods)
+				Expect(markPodsAsRunning(ctx, k8sClient, clusterPods)).To(Succeed())
 
 				for _, pod := range clusterPods {
 					authIdx, _ := kubernetes.GetContainerIndexByName(pod, authContainerName)
@@ -2969,7 +2969,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Validating pod is created with the default grace period")
 			Eventually(func() int64 {
 				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-				_ = markPodsAsRunning(ctx, k8sClient, clusterPods)
+				Expect(markPodsAsRunning(ctx, k8sClient, clusterPods)).To(Succeed())
 
 				for _, pod := range clusterPods {
 					if pod.Spec.TerminationGracePeriodSeconds != nil {
@@ -3454,7 +3454,7 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 	var clusterPods []corev1.Pod
 	Eventually(func() []corev1.Pod {
 		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-		_ = markPodsAsRunning(ctx, k8sClient, clusterPods)
+		Expect(markPodsAsRunning(ctx, k8sClient, clusterPods)).To(Succeed())
 		return clusterPods
 	}, testTimeout, testInterval).Should(HaveLen(*cluster.Spec.NodeCount))
 
@@ -3474,7 +3474,7 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 	usingClusterBy(key.Name, "Confirming cluster enters running state")
 	Eventually(func() string {
 		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
-		_ = markPodsAsRunning(ctx, k8sClient, clusterPods)
+		Expect(markPodsAsRunning(ctx, k8sClient, clusterPods)).To(Succeed())
 
 		updatedHumioCluster = humiov1alpha1.HumioCluster{}
 		Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
