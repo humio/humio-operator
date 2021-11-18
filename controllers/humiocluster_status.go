@@ -104,7 +104,7 @@ func (s stateOption) GetResult() (reconcile.Result, error) {
 	if s.state == humiov1alpha1.HumioClusterStateConfigError {
 		return reconcile.Result{RequeueAfter: time.Second * 10}, nil
 	}
-	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 }
 
 func (r *HumioClusterReconciler) updateStatus(statusWriter client.StatusWriter, hc *humiov1alpha1.HumioCluster, options StatusOptions) (reconcile.Result, error) {
