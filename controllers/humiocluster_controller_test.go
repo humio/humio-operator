@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/client-go/util/retry"
+
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -3699,7 +3701,17 @@ func markPodAsRunning(ctx context.Context, client client.Client, nodeID int, pod
 			Status: corev1.ConditionTrue,
 		},
 	}
-	return client.Status().Update(ctx, &pod)
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := client.Get(context.TODO(), types.NamespacedName{
+			Name:      pod.Name,
+			Namespace: pod.Namespace,
+		}, &pod)
+		if err != nil {
+			return err
+		}
+		return client.Status().Update(ctx, &pod)
+	})
 }
 
 func podReadyCount(ctx context.Context, key types.NamespacedName, expectedPodRevision int, expectedReadyCount int) int {
