@@ -96,12 +96,15 @@ func (s stateOption) Apply(hc *humiov1alpha1.HumioCluster) {
 
 func (s stateOption) GetResult() (reconcile.Result, error) {
 	if s.state == humiov1alpha1.HumioClusterStateRestarting || s.state == humiov1alpha1.HumioClusterStateUpgrading {
-		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+		return reconcile.Result{RequeueAfter: time.Second * 1}, nil
 	}
 	if s.state == humiov1alpha1.HumioClusterStatePending {
 		return reconcile.Result{RequeueAfter: time.Second * 1}, nil
 	}
-	return reconcile.Result{}, nil
+	if s.state == humiov1alpha1.HumioClusterStateConfigError {
+		return reconcile.Result{RequeueAfter: time.Second * 10}, nil
+	}
+	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 }
 
 func (r *HumioClusterReconciler) updateStatus(statusWriter client.StatusWriter, hc *humiov1alpha1.HumioCluster, options StatusOptions) (reconcile.Result, error) {
