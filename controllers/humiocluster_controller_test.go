@@ -3696,15 +3696,17 @@ func markPodAsRunning(ctx context.Context, client client.Client, nodeID int, pod
 	usingClusterBy("", fmt.Sprintf("Simulating Humio container starts up and is marked Ready (container %d)", nodeID))
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		var existingPod corev1.Pod
 		err := client.Get(context.TODO(), types.NamespacedName{
 			Name:      pod.Name,
 			Namespace: pod.Namespace,
-		}, &pod)
+		}, &existingPod)
 		if err != nil {
 			return err
 		}
-		pod.Status.PodIP = fmt.Sprintf("192.168.0.%d", nodeID)
-		pod.Status.Conditions = []corev1.PodCondition{
+		existingPod.Spec = pod.Spec
+		existingPod.Status.PodIP = fmt.Sprintf("192.168.0.%d", nodeID)
+		existingPod.Status.Conditions = []corev1.PodCondition{
 			{
 				Type:   corev1.PodReady,
 				Status: corev1.ConditionTrue,
