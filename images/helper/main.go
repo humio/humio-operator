@@ -39,7 +39,6 @@ import (
 
 // perhaps we move these somewhere else?
 const localAdminTokenFile = "/data/humio-data/local-admin-token.txt" // #nosec G101
-const globalSnapshotFile = "/data/humio-data/global-data-snapshot.json"
 const adminAccountUserName = "admin" // TODO: Pull this from an environment variable
 
 const (
@@ -78,7 +77,7 @@ func createNewAdminUser(client *humio.Client) error {
 }
 
 // getApiTokenForUserID returns the API token for the given user ID
-func getApiTokenForUserID(client *humio.Client, snapShotFile, userID string) (string, string, error) {
+func getApiTokenForUserID(client *humio.Client, userID string) (string, string, error) {
 	// Try using the API to rotate and get the API token
 	token, err := client.Users().RotateUserApiTokenAndGet(userID)
 	if err == nil {
@@ -350,8 +349,8 @@ func authMode() {
 
 	for {
 		// Check required files exist before we continue
-		if !fileExists(localAdminTokenFile) || !fileExists(globalSnapshotFile) {
-			fmt.Printf("Waiting on the Humio container to create the files %s and %s. Retrying in 5 seconds.\n", localAdminTokenFile, globalSnapshotFile)
+		if !fileExists(localAdminTokenFile) {
+			fmt.Printf("Waiting on the Humio container to create the files %s. Retrying in 5 seconds.\n", localAdminTokenFile)
 			time.Sleep(5 * time.Second)
 			continue
 		}
@@ -401,7 +400,7 @@ func authMode() {
 		}
 
 		// Get API token for user ID of admin account
-		apiToken, methodUsed, err := getApiTokenForUserID(humioClient, globalSnapshotFile, userID)
+		apiToken, methodUsed, err := getApiTokenForUserID(humioClient, userID)
 		if err != nil {
 			fmt.Printf("Got err trying to obtain api token of admin user: %s\n", err)
 			time.Sleep(5 * time.Second)
@@ -455,8 +454,8 @@ func initMode() {
 }
 
 // httpHandler simply returns a HTTP 200 with the text OK
-func httpHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "OK")
+func httpHandler(w http.ResponseWriter, _ *http.Request) {
+	_, _ = fmt.Fprintf(w, "OK")
 }
 
 func main() {
