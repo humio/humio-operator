@@ -31,7 +31,7 @@ import (
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -80,7 +80,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Fetch the HumioCluster
 	hc := &humiov1alpha1.HumioCluster{}
 	if err := r.Get(ctx, req.NamespacedName, hc); err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
@@ -526,7 +526,7 @@ func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Co
 	}
 	_, err := kubernetes.GetConfigMap(ctx, r, hnp.GetExtraKafkaConfigsConfigMapName(), hnp.GetNamespace())
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			configMap := kubernetes.ConstructExtraKafkaConfigsConfigMap(
 				hnp.GetExtraKafkaConfigsConfigMapName(),
 				extraKafkaPropertiesFilename,
@@ -559,7 +559,7 @@ func (r *HumioClusterReconciler) getEnvVarSource(ctx context.Context, hnp *Humio
 			envVarConfigMapName = envVarSource.ConfigMapRef.Name
 			configMap, err := kubernetes.GetConfigMap(ctx, r, envVarConfigMapName, hnp.GetNamespace())
 			if err != nil {
-				if errors.IsNotFound(err) {
+				if k8serrors.IsNotFound(err) {
 					return nil, fmt.Errorf("environmentVariablesSource was set but no configMap exists by name %s in namespace %s", envVarConfigMapName, hnp.GetNamespace())
 				}
 				return nil, fmt.Errorf("unable to get configMap with name %s in namespace %s", envVarConfigMapName, hnp.GetNamespace())
@@ -571,7 +571,7 @@ func (r *HumioClusterReconciler) getEnvVarSource(ctx context.Context, hnp *Humio
 			secretData := map[string]string{}
 			secret, err := kubernetes.GetSecret(ctx, r, envVarSecretName, hnp.GetNamespace())
 			if err != nil {
-				if errors.IsNotFound(err) {
+				if k8serrors.IsNotFound(err) {
 					return nil, fmt.Errorf("environmentVariablesSource was set but no secret exists by name %s in namespace %s", envVarSecretName, hnp.GetNamespace())
 				}
 				return nil, fmt.Errorf("unable to get secret with name %s in namespace %s", envVarSecretName, hnp.GetNamespace())
@@ -616,7 +616,7 @@ func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context
 	}
 	_, err := kubernetes.GetConfigMap(ctx, r, viewGroupPermissionsConfigMapName(hc), hc.Namespace)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			configMap := kubernetes.ConstructViewGroupPermissionsConfigMap(
 				viewGroupPermissionsConfigMapName(hc),
 				viewGroupPermissionsFilename,
@@ -706,7 +706,7 @@ func (r *HumioClusterReconciler) humioHostnames(ctx context.Context, hc *humiov1
 
 		hostnameSecret, err := kubernetes.GetSecret(ctx, r, hc.Spec.HostnameSource.SecretKeyRef.Name, hc.Namespace)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if k8serrors.IsNotFound(err) {
 				return "", "", fmt.Errorf("hostnameSource.secretKeyRef was set but no secret exists by name %s in namespace %s", hc.Spec.HostnameSource.SecretKeyRef.Name, hc.Namespace)
 
 			}
@@ -725,7 +725,7 @@ func (r *HumioClusterReconciler) humioHostnames(ctx context.Context, hc *humiov1
 
 		esHostnameSecret, err := kubernetes.GetSecret(ctx, r, hc.Spec.ESHostnameSource.SecretKeyRef.Name, hc.Namespace)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if k8serrors.IsNotFound(err) {
 				return "", "", fmt.Errorf("esHostnameSource.secretKeyRef was set but no secret exists by name %s in namespace %s", hc.Spec.ESHostnameSource.SecretKeyRef.Name, hc.Namespace)
 
 			}
@@ -776,7 +776,7 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 
 		existingIngress, err := kubernetes.GetIngress(ctx, r, desiredIngress.Name, hc.Namespace)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if k8serrors.IsNotFound(err) {
 				if err := controllerutil.SetControllerReference(hc, desiredIngress, r.Scheme()); err != nil {
 					r.Log.Error(err, "could not set controller reference")
 					return err
@@ -988,7 +988,7 @@ func (r *HumioClusterReconciler) ensureCleanupUsersInSecurityContextConstraints(
 			// We found an existing service account
 			continue
 		}
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			// If we have an error and it reflects that the service account does not exist, we remove the entry from the list.
 			scc.Users = helpers.RemoveElement(scc.Users, fmt.Sprintf("system:serviceaccount:%s:%s", sccUserNamespace, sccUserName))
 			if err = r.Update(ctx, scc); err != nil {
@@ -1009,7 +1009,7 @@ func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *hu
 
 	r.Log.Info("checking for an existing valid CA Issuer")
 	validCAIssuer, err := validCAIssuer(ctx, r, hc.Namespace, hc.Name)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return r.logErrorAndReturn(err, "could not validate CA Issuer")
 	}
 	if validCAIssuer {
@@ -1022,7 +1022,7 @@ func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *hu
 		Namespace: hc.Namespace,
 		Name:      hc.Name,
 	}, &existingCAIssuer); err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			caIssuer := constructCAIssuer(hc)
 			if err := controllerutil.SetControllerReference(hc, &caIssuer, r.Scheme()); err != nil {
 				return r.logErrorAndReturn(err, "could not set controller reference")
@@ -1051,7 +1051,7 @@ func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *hu
 		r.Log.Info("found valid CA secret")
 		return nil
 	}
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return r.logErrorAndReturn(err, "could not validate CA secret")
 	}
 
@@ -1093,7 +1093,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Co
 		Namespace: hc.Namespace,
 		Name:      fmt.Sprintf("%s-keystore-passphrase", hc.Name),
 	}, existingSecret); err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			randomPass := kubernetes.RandomString()
 			secretData := map[string][]byte{
 				"passphrase": []byte(randomPass), // TODO: do we need separate passwords for different aspects?
@@ -1127,7 +1127,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterCACertBundle(ctx context.Cont
 		Name:      hc.Name,
 	}, existingCertificate)
 
-	if errors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) {
 		r.Log.Info("CA cert bundle doesn't exist, creating it now")
 		cert := constructClusterCACertificateBundle(hc)
 		if err := controllerutil.SetControllerReference(hc, &cert, r.Scheme()); err != nil {
@@ -1186,7 +1186,7 @@ func (r *HumioClusterReconciler) ensureInitClusterRole(ctx context.Context, hnp 
 	clusterRoleName := hnp.GetInitClusterRoleName()
 	_, err := kubernetes.GetClusterRole(ctx, r, clusterRoleName)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			clusterRole := kubernetes.ConstructInitClusterRole(clusterRoleName, hnp.GetNodePoolLabels())
 			// TODO: We cannot use controllerutil.SetControllerReference() as ClusterRole is cluster-wide and owner is namespaced.
 			// We probably need another way to ensure we clean them up. Perhaps we can use finalizers?
@@ -1207,7 +1207,7 @@ func (r *HumioClusterReconciler) ensureAuthRole(ctx context.Context, hc *humiov1
 	roleName := hnp.GetAuthRoleName()
 	_, err := kubernetes.GetRole(ctx, r, roleName, hnp.GetNamespace())
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			role := kubernetes.ConstructAuthRole(roleName, hnp.GetNamespace(), hnp.GetNodePoolLabels())
 			if err := controllerutil.SetControllerReference(hc, role, r.Scheme()); err != nil {
 				r.Log.Error(err, "could not set controller reference")
@@ -1230,7 +1230,7 @@ func (r *HumioClusterReconciler) ensureInitClusterRoleBinding(ctx context.Contex
 	clusterRoleBindingName := hnp.GetInitClusterRoleBindingName()
 	_, err := kubernetes.GetClusterRoleBinding(ctx, r, clusterRoleBindingName)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			clusterRole := kubernetes.ConstructClusterRoleBinding(
 				clusterRoleBindingName,
 				hnp.GetInitClusterRoleName(),
@@ -1257,7 +1257,7 @@ func (r *HumioClusterReconciler) ensureAuthRoleBinding(ctx context.Context, hc *
 	roleBindingName := hnp.GetAuthRoleBindingName()
 	_, err := kubernetes.GetRoleBinding(ctx, r, roleBindingName, hnp.GetNamespace())
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			roleBinding := kubernetes.ConstructRoleBinding(
 				roleBindingName,
 				hnp.GetAuthRoleName(),
@@ -1289,7 +1289,7 @@ func (r *HumioClusterReconciler) validateUserDefinedServiceAccountsExists(ctx co
 	if hc.Spec.HumioServiceAccountName != "" {
 		_, err := kubernetes.GetServiceAccount(ctx, r, hc.Spec.HumioServiceAccountName, hc.Namespace)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if k8serrors.IsNotFound(err) {
 				return false, r.logErrorAndReturn(err, "not all referenced service accounts exists")
 			}
 			return true, r.logErrorAndReturn(err, "could not get service accounts")
@@ -1298,7 +1298,7 @@ func (r *HumioClusterReconciler) validateUserDefinedServiceAccountsExists(ctx co
 	if hc.Spec.InitServiceAccountName != "" {
 		_, err := kubernetes.GetServiceAccount(ctx, r, hc.Spec.InitServiceAccountName, hc.Namespace)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if k8serrors.IsNotFound(err) {
 				return false, r.logErrorAndReturn(err, "not all referenced service accounts exists")
 			}
 			return true, r.logErrorAndReturn(err, "could not get service accounts")
@@ -1307,7 +1307,7 @@ func (r *HumioClusterReconciler) validateUserDefinedServiceAccountsExists(ctx co
 	if hc.Spec.AuthServiceAccountName != "" {
 		_, err := kubernetes.GetServiceAccount(ctx, r, hc.Spec.AuthServiceAccountName, hc.Namespace)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if k8serrors.IsNotFound(err) {
 				return false, r.logErrorAndReturn(err, "not all referenced service accounts exists")
 			}
 			return true, r.logErrorAndReturn(err, "could not get service accounts")
@@ -1384,7 +1384,7 @@ func (r *HumioClusterReconciler) ensureServiceAccountSecretExists(ctx context.Co
 
 func (r *HumioClusterReconciler) serviceAccountExists(ctx context.Context, namespace, serviceAccountName string) (bool, error) {
 	if _, err := kubernetes.GetServiceAccount(ctx, r, serviceAccountName, namespace); err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return false, nil
 		}
 		return false, err
@@ -1616,7 +1616,7 @@ func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(hc *humiov1alpha1.H
 func (r *HumioClusterReconciler) ensureServiceExists(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
 	r.Log.Info("ensuring service")
 	_, err := kubernetes.GetService(ctx, r, hnp.GetNodePoolName(), hnp.GetNamespace())
-	if errors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) {
 		service := constructService(hnp)
 		if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {
 			return r.logErrorAndReturn(err, "could not set controller reference")
@@ -1632,7 +1632,7 @@ func (r *HumioClusterReconciler) ensureServiceExists(ctx context.Context, hc *hu
 func (r *HumioClusterReconciler) ensureHeadlessServiceExists(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("ensuring headless service")
 	_, err := kubernetes.GetService(ctx, r, headlessServiceName(hc.Name), hc.Namespace)
-	if errors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) {
 		service := constructHeadlessService(hc)
 		if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {
 			return r.logErrorAndReturn(err, "could not set controller reference")
@@ -1704,7 +1704,7 @@ func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNod
 			}
 		}
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !k8serrors.IsNotFound(err) {
 				return r.logErrorAndReturn(err, "unable to get humio service account")
 			}
 		}
@@ -1720,7 +1720,7 @@ func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNod
 			}
 		}
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !k8serrors.IsNotFound(err) {
 				return r.logErrorAndReturn(err, "unable to get init service account")
 			}
 		}
@@ -1734,7 +1734,7 @@ func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNod
 			}
 		}
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !k8serrors.IsNotFound(err) {
 				return r.logErrorAndReturn(err, "unable to get init cluster role")
 			}
 		}
@@ -1748,7 +1748,7 @@ func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNod
 			}
 		}
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !k8serrors.IsNotFound(err) {
 				return r.logErrorAndReturn(err, "unable to get init cluster role binding")
 			}
 		}
@@ -1764,7 +1764,7 @@ func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNod
 			}
 		}
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !k8serrors.IsNotFound(err) {
 				return r.logErrorAndReturn(err, "unable to get auth service account")
 			}
 		}
@@ -1778,7 +1778,7 @@ func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNod
 			}
 		}
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !k8serrors.IsNotFound(err) {
 				return r.logErrorAndReturn(err, "unable to get auth role")
 			}
 		}
@@ -1792,7 +1792,7 @@ func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNod
 			}
 		}
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !k8serrors.IsNotFound(err) {
 				return r.logErrorAndReturn(err, "unable to get auth role binding")
 			}
 		}
@@ -1895,7 +1895,7 @@ func (r *HumioClusterReconciler) cleanupUnusedCAIssuer(ctx context.Context, hc *
 		Name:      hc.Name,
 	}, &existingCAIssuer)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{Requeue: true}, r.logErrorAndReturn(err, "could not get CA Issuer")
@@ -1970,7 +1970,7 @@ func (r *HumioClusterReconciler) tlsCertSecretInUse(ctx context.Context, secretN
 		Name:      secretName,
 	}, pod)
 
-	if errors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) {
 		return false, nil
 	}
 	return true, err
@@ -2023,7 +2023,7 @@ func (r *HumioClusterReconciler) ensureHumioServiceAccountAnnotations(ctx contex
 	r.Log.Info(fmt.Sprintf("ensuring service account %s annotations", serviceAccountName))
 	existingServiceAccount, err := kubernetes.GetServiceAccount(ctx, r, serviceAccountName, hnp.GetNamespace())
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return false, nil
 		}
 		return false, r.logErrorAndReturn(err, fmt.Sprintf("failed to get service account %s", serviceAccountName))

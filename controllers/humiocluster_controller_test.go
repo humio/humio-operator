@@ -34,7 +34,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -153,7 +153,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.State
@@ -162,7 +162,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "should describe cluster configuration error")
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.Message
@@ -429,7 +429,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Eventually(func() error {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				updatedHumioCluster.Spec.ImageSource = &humiov1alpha1.HumioImageSource{
@@ -2319,7 +2319,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "Confirming config map was cleaned up")
 			Eventually(func() bool {
 				_, err := kubernetes.GetConfigMap(ctx, k8sClient, viewGroupPermissionsConfigMapName(toCreate), toCreate.Namespace)
-				return errors.IsNotFound(err)
+				return k8serrors.IsNotFound(err)
 			}, testTimeout, testInterval).Should(BeTrue())
 		})
 	})
@@ -2641,7 +2641,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.State
@@ -2650,7 +2650,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "should describe cluster configuration error")
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.Message
@@ -2676,7 +2676,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.State
@@ -2685,7 +2685,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "should describe cluster configuration error")
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.Message
@@ -2710,7 +2710,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.State
@@ -2719,7 +2719,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "should describe cluster configuration error")
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.Message
@@ -2743,7 +2743,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.State
@@ -2752,7 +2752,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "should describe cluster configuration error")
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.Message
@@ -2794,7 +2794,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.State
@@ -2803,7 +2803,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "should describe cluster configuration error")
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.Message
@@ -2829,7 +2829,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.State
@@ -2838,7 +2838,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			usingClusterBy(key.Name, "should describe cluster configuration error")
 			Eventually(func() string {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.Message
@@ -3102,7 +3102,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				updatedHumioCluster.Spec.ESHostnameSource.SecretKeyRef = nil
@@ -3131,7 +3131,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
 				err := k8sClient.Get(ctx, key, &cluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return cluster.Status.State
@@ -3153,7 +3153,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
 				err := k8sClient.Get(ctx, key, &cluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return cluster.Status.State
@@ -3175,7 +3175,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
 				err := k8sClient.Get(ctx, key, &cluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return cluster.Status.State
@@ -3564,7 +3564,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
 				err := k8sClient.Get(ctx, key, &cluster)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !k8serrors.IsNotFound(err) {
 					Expect(err).Should(Succeed())
 				}
 				return cluster.Status.State
@@ -3975,7 +3975,7 @@ func createAndBootstrapMultiNodePoolCluster(ctx context.Context, cluster *humiov
 	var updatedHumioCluster humiov1alpha1.HumioCluster
 	Eventually(func() string {
 		err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !k8serrors.IsNotFound(err) {
 			Expect(err).Should(Succeed())
 		}
 		for _, pool := range updatedHumioCluster.Status.NodePoolStatus {
@@ -4067,7 +4067,7 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 	var updatedHumioCluster humiov1alpha1.HumioCluster
 	Eventually(func() string {
 		err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !k8serrors.IsNotFound(err) {
 			Expect(err).Should(Succeed())
 		}
 		return updatedHumioCluster.Status.State

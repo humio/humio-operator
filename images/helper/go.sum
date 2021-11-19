@@ -185,6 +185,8 @@ github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/humio/cli v0.28.9 h1:oWARPJTki8z17Tg234E0eV9aukCoWkpQBVQfWyd5Wy0=
 github.com/humio/cli v0.28.9/go.mod h1:j09wyZdZO0+uUsndNOmthom+Gnr4xX5/iflZQ2zLN1Y=
+github.com/humio/cli v0.28.12-0.20211119083335-17df27fe9e4a h1:JtLQhPdgwXQRFYR9SwgIMPLTCa9LO2ZhVU3c42Iurrk=
+github.com/humio/cli v0.28.12-0.20211119083335-17df27fe9e4a/go.mod h1:PgicXQX6gOnJsEYUxPUHalJIAKyUs+U7iqrFzGynDPE=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/imdario/mergo v0.3.5/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/client-go/util/retry"
 
@@ -48,7 +48,7 @@ func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Co
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		err := r.getLatestHumioCluster(ctx, hc)
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !k8serrors.IsNotFound(err) {
 				return err
 			}
 		}

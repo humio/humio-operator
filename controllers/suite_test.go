@@ -33,7 +33,7 @@ import (
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -250,7 +250,7 @@ var _ = BeforeSuite(func() {
 		ctx := context.Background()
 		Eventually(func() bool {
 			_, err = openshift.GetSecurityContextConstraints(ctx, k8sClient)
-			if errors.IsNotFound(err) {
+			if k8serrors.IsNotFound(err) {
 				// Object has not been created yet
 				return true
 			}
@@ -263,7 +263,7 @@ var _ = BeforeSuite(func() {
 			// At this point we know the object already exists.
 			return true
 		}, testTimeout, testInterval).Should(BeTrue())
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			By("Simulating helm chart installation of the SecurityContextConstraints object")
 			sccName := os.Getenv("OPENSHIFT_SCC_NAME")
 			priority := int32(0)

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -271,7 +271,7 @@ func (r *HumioClusterReconciler) setState(ctx context.Context, state string, hc 
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			err := r.getLatestHumioCluster(ctx, hc)
 			if err != nil {
-				if !errors.IsNotFound(err) {
+				if !k8serrors.IsNotFound(err) {
 					return err
 				}
 			}
