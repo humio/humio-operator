@@ -27,6 +27,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sort"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -149,17 +150,29 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		r.Log.Info("created parser")
 		return reconcile.Result{Requeue: true}, nil
-
 	}
 	if err != nil {
 		r.Log.Error(err, "could not check if parser exists", "Repository.Name", hp.Spec.RepositoryName)
 		return reconcile.Result{}, fmt.Errorf("could not check if parser exists: %s", err)
 	}
 
+	currentTagFields := make([]string, len(curParser.TagFields))
+	expectedTagFields := make([]string, len(hp.Spec.TagFields))
+	currentTests := make([]string, len(curParser.Tests))
+	expectedTests := make([]string, len(hp.Spec.TestData))
+	_ = copy(currentTagFields, curParser.TagFields)
+	_ = copy(expectedTagFields, hp.Spec.TagFields)
+	_ = copy(currentTests, curParser.Tests)
+	_ = copy(expectedTests, hp.Spec.TestData)
+	sort.Strings(currentTagFields)
+	sort.Strings(expectedTagFields)
+	sort.Strings(currentTests)
+	sort.Strings(expectedTests)
 	parserScriptDiff := cmp.Diff(curParser.Script, hp.Spec.ParserScript)
 	tagFieldsDiff := cmp.Diff(curParser.TagFields, hp.Spec.TagFields)
 	testDataDiff := cmp.Diff(curParser.Tests, hp.Spec.TestData)
-	if (curParser.Script != hp.Spec.ParserScript) || !reflect.DeepEqual(curParser.TagFields, hp.Spec.TagFields) || !reflect.DeepEqual(curParser.Tests, hp.Spec.TestData) {
+
+	if parserScriptDiff != "" || tagFieldsDiff != "" || testDataDiff != "" {
 		r.Log.Info("parser information differs, triggering update", "parserScriptDiff", parserScriptDiff, "tagFieldsDiff", tagFieldsDiff, "testDataDiff", testDataDiff)
 		_, err = r.HumioClient.UpdateParser(cluster.Config(), req, hp)
 		if err != nil {
