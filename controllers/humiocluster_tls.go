@@ -149,7 +149,7 @@ func constructCAIssuer(hc *humiov1alpha1.HumioCluster) cmapi.Issuer {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: hc.Namespace,
 			Name:      hc.Name,
-			Labels:    kubernetes.MatchingLabelsForHumio(hc.Name),
+			Labels:    kubernetes.LabelsForHumio(hc.Name),
 		},
 		Spec: cmapi.IssuerSpec{
 			IssuerConfig: cmapi.IssuerConfig{
@@ -180,30 +180,30 @@ func constructClusterCACertificateBundle(hc *humiov1alpha1.HumioCluster) cmapi.C
 	}
 }
 
-func constructNodeCertificate(hc *humiov1alpha1.HumioCluster, nodeSuffix string) cmapi.Certificate {
+func constructNodeCertificate(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, nodeSuffix string) cmapi.Certificate {
 	return cmapi.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{},
-			Namespace:   hc.Namespace,
-			Name:        fmt.Sprintf("%s-core-%s", hc.Name, nodeSuffix),
-			Labels:      kubernetes.MatchingLabelsForHumio(hc.Name),
+			Namespace:   hnp.GetNamespace(),
+			Name:        fmt.Sprintf("%s-core-%s", hnp.GetNodePoolName(), nodeSuffix),
+			Labels:      hnp.GetNodePoolLabels(),
 		},
 		Spec: cmapi.CertificateSpec{
 			DNSNames: []string{
-				fmt.Sprintf("%s-core-%s.%s.%s", hc.Name, nodeSuffix, headlessServiceName(hc.Name), hc.Namespace), // Used for intra-cluster communication
-				fmt.Sprintf("%s-core-%s", hc.Name, nodeSuffix),                                                   // Used for auth sidecar
-				fmt.Sprintf("%s.%s", hc.Name, hc.Namespace),                                                      // Used by humio-operator and ingress controllers to reach the Humio API
+				fmt.Sprintf("%s-core-%s.%s.%s", hnp.GetNodePoolName(), nodeSuffix, headlessServiceName(hnp.GetClusterName()), hnp.GetNamespace()), // Used for intra-cluster communication
+				fmt.Sprintf("%s-core-%s", hnp.GetNodePoolName(), nodeSuffix),                                                                      // Used for auth sidecar
+				fmt.Sprintf("%s.%s", hnp.GetNodePoolName(), hnp.GetNamespace()),                                                                   // Used by humio-operator and ingress controllers to reach the Humio API
 			},
 			IssuerRef: cmmeta.ObjectReference{
 				Name: constructCAIssuer(hc).Name,
 			},
-			SecretName: fmt.Sprintf("%s-core-%s", hc.Name, nodeSuffix),
+			SecretName: fmt.Sprintf("%s-core-%s", hnp.GetNodePoolName(), nodeSuffix),
 			Keystores: &cmapi.CertificateKeystores{
 				JKS: &cmapi.JKSKeystore{
 					Create: true,
 					PasswordSecretRef: cmmeta.SecretKeySelector{
 						LocalObjectReference: cmmeta.LocalObjectReference{
-							Name: fmt.Sprintf("%s-keystore-passphrase", hc.Name),
+							Name: fmt.Sprintf("%s-keystore-passphrase", hnp.GetClusterName()),
 						},
 						Key: "passphrase",
 					},
@@ -213,9 +213,9 @@ func constructNodeCertificate(hc *humiov1alpha1.HumioCluster, nodeSuffix string)
 	}
 }
 
-func (r *HumioClusterReconciler) waitForNewNodeCertificate(ctx context.Context, hc *humiov1alpha1.HumioCluster, expectedCertCount int) error {
+func (r *HumioClusterReconciler) waitForNewNodeCertificate(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, expectedCertCount int) error {
 	for i := 0; i < waitForNodeCertificateTimeoutSeconds; i++ {
-		existingNodeCertCount, err := r.updateNodeCertificates(ctx, hc)
+		existingNodeCertCount, err := r.updateNodeCertificates(ctx, hc, hnp)
 		if err != nil {
 			return err
 		}
@@ -230,19 +230,19 @@ func (r *HumioClusterReconciler) waitForNewNodeCertificate(ctx context.Context, 
 
 // updateNodeCertificates updates existing node certificates that have been changed. Returns the count of existing node
 // certificates
-func (r *HumioClusterReconciler) updateNodeCertificates(ctx context.Context, hc *humiov1alpha1.HumioCluster) (int, error) {
-	certificates, err := kubernetes.ListCertificates(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+func (r *HumioClusterReconciler) updateNodeCertificates(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (int, error) {
+	certificates, err := kubernetes.ListCertificates(ctx, r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
 	if err != nil {
 		return -1, err
 	}
 
 	existingNodeCertCount := 0
 	for _, cert := range certificates {
-		if strings.HasPrefix(cert.Name, fmt.Sprintf("%s-core", hc.Name)) {
+		if strings.HasPrefix(cert.Name, fmt.Sprintf("%s-core", hnp.GetNodePoolName())) {
 			existingNodeCertCount++
 
 			// Check if we should update the existing certificate
-			certForHash := constructNodeCertificate(hc, "")
+			certForHash := constructNodeCertificate(hc, hnp, "")
 
 			// Keystores will always contain a new pointer when constructing a certificate.
 			// To work around this, we override it to nil before calculating the hash,
@@ -258,7 +258,7 @@ func (r *HumioClusterReconciler) updateNodeCertificates(ctx context.Context, hc 
 				currentCertificateNameSubstrings := strings.Split(cert.Name, "-")
 				currentCertificateSuffix := currentCertificateNameSubstrings[len(currentCertificateNameSubstrings)-1]
 
-				desiredCertificate := constructNodeCertificate(hc, currentCertificateSuffix)
+				desiredCertificate := constructNodeCertificate(hc, hnp, currentCertificateSuffix)
 				desiredCertificate.ResourceVersion = cert.ResourceVersion
 				desiredCertificate.Annotations[certHashAnnotation] = desiredCertificateHash
 				r.Log.Info(fmt.Sprintf("updating node TLS certificate with name %s", desiredCertificate.Name))

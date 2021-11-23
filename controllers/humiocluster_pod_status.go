@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -20,16 +20,17 @@ type podsStatusState struct {
 	readyCount              int
 	notReadyCount           int
 	podRevisions            []int
+	podImageVersions        []string
 	podDeletionTimestampSet []bool
 	podNames                []string
 	podErrors               []corev1.Pod
 }
 
-func (r *HumioClusterReconciler) getPodsStatus(hc *humiov1alpha1.HumioCluster, foundPodList []corev1.Pod) (*podsStatusState, error) {
+func (r *HumioClusterReconciler) getPodsStatus(hnp *HumioNodePool, foundPodList []corev1.Pod) (*podsStatusState, error) {
 	status := podsStatusState{
 		readyCount:          0,
 		notReadyCount:       len(foundPodList),
-		expectedRunningPods: nodeCountOrDefault(hc),
+		expectedRunningPods: hnp.GetNodeCount(),
 	}
 	var podsReady, podsNotReady []string
 	for _, pod := range foundPodList {
@@ -42,6 +43,8 @@ func (r *HumioClusterReconciler) getPodsStatus(hc *humiov1alpha1.HumioCluster, f
 		}
 		status.podDeletionTimestampSet = append(status.podDeletionTimestampSet, pod.DeletionTimestamp != nil)
 		status.podNames = append(status.podNames, pod.Name)
+		humioIdx, _ := kubernetes.GetContainerIndexByName(pod, "humio")
+		status.podImageVersions = append(status.podImageVersions, pod.Spec.Containers[humioIdx].Image)
 
 		// pods that were just deleted may still have a status of Ready, but we should not consider them ready
 		if pod.DeletionTimestamp == nil {

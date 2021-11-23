@@ -26,8 +26,8 @@ import (
 )
 
 // humioServiceLabels generates the set of labels to attach to the humio kubernetes service
-func mergeHumioServiceLabels(hc *humiov1alpha1.HumioCluster, serviceLabels map[string]string) map[string]string {
-	labels := kubernetes.LabelsForHumio(hc.Name)
+func mergeHumioServiceLabels(clusterName string, serviceLabels map[string]string) map[string]string {
+	labels := kubernetes.LabelsForHumio(clusterName)
 	for k, v := range serviceLabels {
 		if _, ok := labels[k]; ok {
 			continue
@@ -37,25 +37,25 @@ func mergeHumioServiceLabels(hc *humiov1alpha1.HumioCluster, serviceLabels map[s
 	return labels
 }
 
-func constructService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
+func constructService(hnp *HumioNodePool) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        hc.Name,
-			Namespace:   hc.Namespace,
-			Labels:      mergeHumioServiceLabels(hc, hc.Spec.HumioServiceLabels),
-			Annotations: humioServiceAnnotationsOrDefault(hc),
+			Name:        hnp.GetNodePoolName(),
+			Namespace:   hnp.GetNamespace(),
+			Labels:      mergeHumioServiceLabels(hnp.GetClusterName(), hnp.GetHumioServiceLabels()),
+			Annotations: hnp.GetHumioServiceAnnotations(),
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     humioServiceTypeOrDefault(hc),
-			Selector: kubernetes.LabelsForHumio(hc.Name),
+			Type:     hnp.GetServiceType(),
+			Selector: hnp.GetNodePoolLabels(),
 			Ports: []corev1.ServicePort{
 				{
 					Name: "http",
-					Port: humioServicePortOrDefault(hc),
+					Port: hnp.GetHumioServicePort(),
 				},
 				{
 					Name: "es",
-					Port: humioESServicePortOrDefault(hc),
+					Port: hnp.GetHumioESServicePort(),
 				},
 			},
 		},
@@ -67,7 +67,7 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        headlessServiceName(hc.Name),
 			Namespace:   hc.Namespace,
-			Labels:      mergeHumioServiceLabels(hc, hc.Spec.HumioHeadlessServiceLabels),
+			Labels:      mergeHumioServiceLabels(hc.GetClusterName(), hc.Spec.HumioHeadlessServiceLabels),
 			Annotations: humioHeadlessServiceAnnotationsOrDefault(hc),
 		},
 		Spec: corev1.ServiceSpec{

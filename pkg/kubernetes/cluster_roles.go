@@ -28,11 +28,11 @@ import (
 
 // ConstructInitClusterRole returns the cluster role used by the init container to obtain information about the
 // Kubernetes worker node that the Humio cluster pod was scheduled on
-func ConstructInitClusterRole(clusterRoleName, humioClusterName string) *rbacv1.ClusterRole {
+func ConstructInitClusterRole(clusterRoleName string, labels map[string]string) *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   clusterRoleName,
-			Labels: LabelsForHumio(humioClusterName),
+			Labels: labels,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{

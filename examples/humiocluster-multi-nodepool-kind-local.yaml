@@ -1,0 +1,69 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioCluster
+metadata:
+  name: example-humiocluster
+spec:
+  nodePools:
+    - name: ingest-only
+      spec:
+        image: "humio/humio-core:1.30.1"
+        nodeCount: 1
+        dataVolumePersistentVolumeClaimSpecTemplate:
+          storageClassName: standard
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 10Gi
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+          requests:
+            cpu: "1"
+            memory: 2Gi
+        environmentVariables:
+          - name: HUMIO_JVM_ARGS
+            value: -Xss2m -Xms1g -Xmx2g -server -XX:MaxDirectMemorySize=1g -XX:+UseParallelGC -XX:+UnlockDiagnosticVMOptions -XX:CompileCommand=dontinline,com/humio/util/HotspotUtilsJ.dontInline -Xlog:gc+jni=debug:stdout -Dakka.log-config-on-start=on -Xlog:gc*:stdout:time,tags
+          - name: "ZOOKEEPER_URL"
+            value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181"
+          - name: "KAFKA_SERVERS"
+            value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092"
+          - name: AUTHENTICATION_METHOD
+            value: "single-user"
+          - name: SINGLE_USER_PASSWORD
+            value: "password"
+  license:
+    secretKeyRef:
+      name: example-humiocluster-license
+      key: data
+  image: "humio/humio-core:1.30.1"
+  nodeCount: 1
+  tls:
+    enabled: false
+  targetReplicationFactor: 1
+  storagePartitionsCount: 24
+  digestPartitionsCount: 24
+  resources:
+    limits:
+      cpu: "2"
+      memory: 4Gi
+    requests:
+      cpu: "1"
+      memory: 2Gi
+  dataVolumePersistentVolumeClaimSpecTemplate:
+    storageClassName: standard
+    accessModes: [ReadWriteOnce]
+    resources:
+      requests:
+        storage: 10Gi
+  environmentVariables:
+    - name: HUMIO_JVM_ARGS
+      value: -Xss2m -Xms1g -Xmx2g -server -XX:MaxDirectMemorySize=1g -XX:+UseParallelGC -XX:+UnlockDiagnosticVMOptions -XX:CompileCommand=dontinline,com/humio/util/HotspotUtilsJ.dontInline -Xlog:gc+jni=debug:stdout -Dakka.log-config-on-start=on -Xlog:gc*:stdout:time,tags
+    - name: "ZOOKEEPER_URL"
+      value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181"
+    - name: "KAFKA_SERVERS"
+      value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092"
+    - name: AUTHENTICATION_METHOD
+      value: "single-user"
+    - name: SINGLE_USER_PASSWORD
+      value: "password"
