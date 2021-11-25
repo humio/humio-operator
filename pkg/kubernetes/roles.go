@@ -18,6 +18,7 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,9 +37,10 @@ func ConstructAuthRole(roleName, humioClusterName, humioClusterNamespace string)
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups: []string{""},
-				Resources: []string{"secrets"},
-				Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
+				APIGroups:     []string{""},
+				Resources:     []string{"secrets"},
+				Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
+				ResourceNames: []string{fmt.Sprintf("%s-%s", humioClusterName, ServiceTokenSecretNameSuffix)},
 			},
 		},
 	}
