@@ -87,29 +87,27 @@ type nodeUUIDTemplateVars struct {
 // Note that relying on PVCs may not be good enough here as it's possible to have persistent storage using hostPath.
 // For this reason, we rely on the USING_EPHEMERAL_DISKS environment variable.
 func constructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]string, error) {
-	containerArgs := []string{"-c"}
+	var shellCommands []string
 	if envVarHasValue(podEnvVars, "USING_EPHEMERAL_DISKS", "true") {
 		nodeUUIDPrefix, err := constructNodeUUIDPrefix(hnp)
 		if err != nil {
 			return []string{""}, fmt.Errorf("unable to construct node UUID: %s", err)
 		}
-		if hnp.InitContainerDisabled() {
-			containerArgs = append(containerArgs, fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s && exec bash %s/run.sh",
-				nodeUUIDPrefix, humioAppPath))
-		} else {
-			containerArgs = append(containerArgs, fmt.Sprintf("export ZONE=$(cat %s/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s && exec bash %s/run.sh",
-				sharedPath, nodeUUIDPrefix, humioAppPath))
-		}
-	} else {
-		if hnp.InitContainerDisabled() {
-			containerArgs = append(containerArgs, fmt.Sprintf("exec bash %s/run.sh",
-				humioAppPath))
-		} else {
-			containerArgs = append(containerArgs, fmt.Sprintf("export ZONE=$(cat %s/availability-zone) && exec bash %s/run.sh",
-				sharedPath, humioAppPath))
-		}
+		shellCommands = append(shellCommands, fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s", nodeUUIDPrefix))
 	}
-	return containerArgs, nil
+
+	if !hnp.InitContainerDisabled() {
+		shellCommands = append(shellCommands, fmt.Sprintf("export ZONE=$(cat %s/availability-zone)", sharedPath))
+	}
+
+	hnpResources := hnp.GetResources()
+	if !envVarHasKey(podEnvVars, "CORES") && hnpResources.Limits.Cpu().IsZero() {
+		shellCommands = append(shellCommands, "export CORES=$(getconf _NPROCESSORS_ONLN)")
+	}
+
+	sort.Strings(shellCommands)
+	shellCommands = append(shellCommands, fmt.Sprintf("exec bash %s/run.sh", humioAppPath))
+	return []string{"-c", strings.Join(shellCommands, " && ")}, nil
 }
 
 // constructNodeUUIDPrefix checks the value of the nodeUUID prefix and attempts to render it as a template. If the template
@@ -126,8 +124,8 @@ func constructNodeUUIDPrefix(hnp *HumioNodePool) (string, error) {
 	if err := t.Execute(&tpl, data); err != nil {
 		return "", err
 	}
-	nodeUUIDPrefix := tpl.String()
 
+	nodeUUIDPrefix := tpl.String()
 	nodeUUIDPrefix = strings.Replace(nodeUUIDPrefix, containsZoneIdentifier, fmt.Sprintf("$(cat %s/availability-zone)", sharedPath), 1)
 
 	if !strings.HasPrefix(nodeUUIDPrefix, "/") {
