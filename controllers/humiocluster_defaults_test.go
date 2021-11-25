@@ -18,12 +18,15 @@ package controllers
 
 import (
 	"strings"
+	"testing"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var _ = Describe("HumioCluster Defaults", func() {
@@ -152,3 +155,354 @@ var _ = Describe("HumioCluster Defaults", func() {
 		})
 	})
 })
+
+func Test_constructContainerArgs(t *testing.T) {
+	type fields struct {
+		humioCluster            *humiov1alpha1.HumioCluster
+		expectedContainerArgs   []string
+		unexpectedContainerArgs []string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+	}{
+		{
+			"no cpu resource settings, ephemeral disks and init container",
+			fields{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
+						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+							EnvironmentVariables: []corev1.EnvVar{
+								{
+									Name:  "USING_EPHEMERAL_DISKS",
+									Value: "true",
+								},
+							},
+						},
+					},
+				},
+				[]string{
+					"export CORES=",
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
+					"export ZONE=",
+				},
+				[]string{},
+			},
+		},
+		{
+			"cpu resource settings, ephemeral disks and init container",
+			fields{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
+						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+							EnvironmentVariables: []corev1.EnvVar{
+								{
+									Name:  "USING_EPHEMERAL_DISKS",
+									Value: "true",
+								},
+							},
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+				[]string{
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
+					"export ZONE=",
+				},
+				[]string{
+					"export CORES=",
+				},
+			},
+		},
+		{
+			"no cpu resource settings, ephemeral disks and init container disabled",
+			fields{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
+						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+							EnvironmentVariables: []corev1.EnvVar{
+								{
+									Name:  "USING_EPHEMERAL_DISKS",
+									Value: "true",
+								},
+							},
+							DisableInitContainer: true,
+						},
+					},
+				},
+				[]string{
+					"export CORES=",
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
+				},
+				[]string{
+					"export ZONE=",
+				},
+			},
+		},
+		{
+			"cpu resource settings, ephemeral disks and init container disabled",
+			fields{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
+						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+							EnvironmentVariables: []corev1.EnvVar{
+								{
+									Name:  "USING_EPHEMERAL_DISKS",
+									Value: "true",
+								},
+							},
+							DisableInitContainer: true,
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+				[]string{
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
+				},
+				[]string{
+					"export CORES=",
+					"export ZONE=",
+				},
+			},
+		},
+		{
+			"no cpu resource settings, without ephemeral disks and init container",
+			fields{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{},
+				},
+				[]string{
+					"export CORES=",
+					"export ZONE=",
+				},
+				[]string{
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
+				},
+			},
+		},
+		{
+			"cpu resource settings, without ephemeral disks and init container",
+			fields{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
+						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+				[]string{
+					"export ZONE=",
+				},
+				[]string{
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
+					"export CORES=",
+				},
+			},
+		},
+		{
+			"no cpu resource settings, without ephemeral disks and init container disabled",
+			fields{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
+						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+							DisableInitContainer: true,
+						},
+					},
+				},
+				[]string{
+					"export CORES=",
+				},
+				[]string{
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
+					"export ZONE=",
+				},
+			},
+		},
+		{
+			"cpu resource settings, without ephemeral disks and init container disabled",
+			fields{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
+						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+							DisableInitContainer: true,
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+				[]string{},
+				[]string{
+					"export CORES=",
+					"export ZONE=",
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
+				},
+			},
+		},
+		{
+			"cpu cores envvar, ephemeral disks and init container",
+			fields{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
+						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+							EnvironmentVariables: []corev1.EnvVar{
+								{
+									Name:  "USING_EPHEMERAL_DISKS",
+									Value: "true",
+								},
+								{
+									Name:  "CORES",
+									Value: "1",
+								},
+							},
+						},
+					},
+				},
+				[]string{
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
+					"export ZONE=",
+				},
+				[]string{
+					"export CORES=",
+				},
+			},
+		},
+		{
+			"cpu cores envvar, ephemeral disks and init container disabled",
+			fields{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
+						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+							EnvironmentVariables: []corev1.EnvVar{
+								{
+									Name:  "USING_EPHEMERAL_DISKS",
+									Value: "true",
+								},
+								{
+									Name:  "CORES",
+									Value: "1",
+								},
+							},
+							DisableInitContainer: true,
+						},
+					},
+				},
+				[]string{
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
+				},
+				[]string{
+					"export CORES=",
+					"export ZONE=",
+				},
+			},
+		},
+		{
+			"cpu cores envvar, without ephemeral disks and init container",
+			fields{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
+						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+							EnvironmentVariables: []corev1.EnvVar{
+								{
+									Name:  "CORES",
+									Value: "1",
+								},
+							},
+						},
+					},
+				},
+				[]string{
+					"export ZONE=",
+				},
+				[]string{
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
+					"export CORES=",
+				},
+			},
+		},
+		{
+			"cpu cores envvar, without ephemeral disks and init container disabled",
+			fields{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
+						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+							EnvironmentVariables: []corev1.EnvVar{
+								{
+									Name:  "CORES",
+									Value: "1",
+								},
+							},
+							DisableInitContainer: true,
+						},
+					},
+				},
+				[]string{},
+				[]string{
+					"export CORES=",
+					"export ZONE=",
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
+				},
+			},
+		},
+		{
+			"cpu cores envvar and cpu resource settings",
+			fields{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
+						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+							EnvironmentVariables: []corev1.EnvVar{
+								{
+									Name:  "CORES",
+									Value: "1",
+								},
+							},
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+				[]string{},
+				[]string{
+					"export CORES=",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hnp := NewHumioNodeManagerFromHumioCluster(tt.fields.humioCluster)
+			pod, _ := constructPod(hnp, "", &podAttachments{})
+			humioIdx, _ := kubernetes.GetContainerIndexByName(*pod, humioContainerName)
+
+			got, _ := constructContainerArgs(hnp, pod.Spec.Containers[humioIdx].Env)
+			for _, expected := range tt.fields.expectedContainerArgs {
+				if !strings.Contains(got[1], expected) {
+					t.Errorf("constructContainerArgs()[1] = %v, expected to find substring %v", got[1], expected)
+				}
+			}
+			for _, unexpected := range tt.fields.unexpectedContainerArgs {
+				if strings.Contains(got[1], unexpected) {
+					t.Errorf("constructContainerArgs()[1] = %v, did not expect find substring %v", got[1], unexpected)
+				}
+			}
+		})
+	}
+}
