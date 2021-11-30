@@ -148,6 +148,15 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			usingClusterBy(key.Name, "should describe cluster configuration error")
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil && !errors.IsNotFound(err) {
+					Expect(err).Should(Succeed())
+				}
+				return updatedHumioCluster.Status.Message
+			}, testTimeout, testInterval).Should(Equal("Humio version must be at least 1.28.0: unsupported Humio version: 1.18.4"))
 		})
 	})
 
@@ -264,6 +273,13 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			usingClusterBy(key.Name, "Confirming the HumioCluster describes the reason the cluster is in ConfigError state")
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.Message
+			}, testTimeout, testInterval).Should(Equal("failed to set imageFromSource: ConfigMap \"image-source-missing\" not found"))
 
 			usingClusterBy(key.Name, "Creating the imageSource configmap")
 			updatedImage := image
@@ -2137,6 +2153,16 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			usingClusterBy(key.Name, "should describe cluster configuration error")
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil && !errors.IsNotFound(err) {
+					Expect(err).Should(Succeed())
+				}
+				return updatedHumioCluster.Status.Message
+			}, testTimeout, testInterval).Should(Equal("no storage configuration provided: " +
+				"exactly one of dataVolumeSource and dataVolumePersistentVolumeClaimSpecTemplate must be set"))
 		})
 		It("Creating cluster with conflicting volume mount mount path", func() {
 			key := types.NamespacedName{
@@ -2170,6 +2196,16 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			usingClusterBy(key.Name, "should describe cluster configuration error")
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil && !errors.IsNotFound(err) {
+					Expect(err).Should(Succeed())
+				}
+				return updatedHumioCluster.Status.Message
+			}, testTimeout, testInterval).Should(Equal("no storage configuration provided: " +
+				"exactly one of dataVolumeSource and dataVolumePersistentVolumeClaimSpecTemplate must be set"))
 		})
 		It("Creating cluster with conflicting volume name", func() {
 			key := types.NamespacedName{
@@ -2202,6 +2238,16 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			usingClusterBy(key.Name, "should describe cluster configuration error")
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil && !errors.IsNotFound(err) {
+					Expect(err).Should(Succeed())
+				}
+				return updatedHumioCluster.Status.Message
+			}, testTimeout, testInterval).Should(Equal("no storage configuration provided: " +
+				"exactly one of dataVolumeSource and dataVolumePersistentVolumeClaimSpecTemplate must be set"))
 		})
 		It("Creating cluster with higher replication factor than nodes", func() {
 			key := types.NamespacedName{
@@ -2231,6 +2277,16 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return updatedHumioCluster.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			usingClusterBy(key.Name, "should describe cluster configuration error")
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil && !errors.IsNotFound(err) {
+					Expect(err).Should(Succeed())
+				}
+				return updatedHumioCluster.Status.Message
+			}, testTimeout, testInterval).Should(Equal("no storage configuration provided: " +
+				"exactly one of dataVolumeSource and dataVolumePersistentVolumeClaimSpecTemplate must be set"))
 		})
 		It("Creating cluster with conflicting storage configuration", func() {
 			key := types.NamespacedName{
