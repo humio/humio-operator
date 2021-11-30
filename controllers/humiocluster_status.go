@@ -19,17 +19,210 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"sort"
-	"strconv"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"k8s.io/client-go/util/retry"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+type Option interface {
+	Apply(hc *humiov1alpha1.HumioCluster)
+	GetResult() (reconcile.Result, error)
+}
+
+type optionBuilder struct {
+	options []Option
+}
+
+func (o *optionBuilder) Get() []Option {
+	return o.options
+}
+
+type messageOption struct {
+	message string
+}
+
+type stateOption struct {
+	state string
+}
+
+type versionOption struct {
+	version string
+}
+
+type podsOption struct {
+	pods humiov1alpha1.HumioPodStatusList
+}
+
+type licenseOption struct {
+	license humiov1alpha1.HumioLicenseStatus
+}
+
+type nodeCountOption struct {
+	nodeCount int
+}
+
+type observedGenerationOption struct {
+	observedGeneration int64
+}
+
+type StatusOptions interface {
+	Get() []Option
+}
+
+func statusOptions() *optionBuilder {
+	return &optionBuilder{
+		options: []Option{},
+	}
+}
+
+func (o *optionBuilder) withMessage(msg string) *optionBuilder {
+	o.options = append(o.options, messageOption{
+		message: msg,
+	})
+	return o
+}
+
+func (o *optionBuilder) withState(state string) *optionBuilder {
+	o.options = append(o.options, stateOption{
+		state: state,
+	})
+	return o
+}
+
+func (o *optionBuilder) withVersion(version string) *optionBuilder {
+	o.options = append(o.options, versionOption{
+		version: version,
+	})
+	return o
+}
+
+func (o *optionBuilder) withPods(pods humiov1alpha1.HumioPodStatusList) *optionBuilder {
+	o.options = append(o.options, podsOption{
+		pods: pods,
+	})
+	return o
+}
+
+func (o *optionBuilder) withLicense(license humiov1alpha1.HumioLicenseStatus) *optionBuilder {
+	o.options = append(o.options, licenseOption{
+		license: license,
+	})
+	return o
+}
+
+func (o *optionBuilder) withNodeCount(nodeCount int) *optionBuilder {
+	o.options = append(o.options, nodeCountOption{
+		nodeCount: nodeCount,
+	})
+	return o
+}
+
+func (o *optionBuilder) withObservedGeneration(observedGeneration int64) *optionBuilder {
+	o.options = append(o.options, observedGenerationOption{
+		observedGeneration: observedGeneration,
+	})
+	return o
+}
+
+func (m messageOption) Apply(hc *humiov1alpha1.HumioCluster) {
+	hc.Status.Message = m.message
+}
+
+func (messageOption) GetResult() (reconcile.Result, error) {
+	return reconcile.Result{}, nil
+}
+
+func (s stateOption) Apply(hc *humiov1alpha1.HumioCluster) {
+	hc.Status.State = s.state
+}
+
+func (s stateOption) GetResult() (reconcile.Result, error) {
+	if s.state == humiov1alpha1.HumioClusterStateRestarting || s.state == humiov1alpha1.HumioClusterStateUpgrading ||
+		s.state == humiov1alpha1.HumioClusterStatePending {
+		return reconcile.Result{RequeueAfter: time.Second * 1}, nil
+	}
+	if s.state == humiov1alpha1.HumioClusterStateConfigError {
+		return reconcile.Result{RequeueAfter: time.Second * 10}, nil
+	}
+	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+}
+
+func (v versionOption) Apply(hc *humiov1alpha1.HumioCluster) {
+	hc.Status.Version = v.version
+}
+
+func (versionOption) GetResult() (reconcile.Result, error) {
+	return reconcile.Result{}, nil
+}
+
+func (p podsOption) Apply(hc *humiov1alpha1.HumioCluster) {
+	hc.Status.PodStatus = p.pods
+}
+
+func (podsOption) GetResult() (reconcile.Result, error) {
+	return reconcile.Result{}, nil
+}
+
+func (l licenseOption) Apply(hc *humiov1alpha1.HumioCluster) {
+	hc.Status.LicenseStatus = l.license
+}
+
+func (licenseOption) GetResult() (reconcile.Result, error) {
+	return reconcile.Result{}, nil
+}
+
+func (n nodeCountOption) Apply(hc *humiov1alpha1.HumioCluster) {
+	hc.Status.NodeCount = n.nodeCount
+}
+
+func (nodeCountOption) GetResult() (reconcile.Result, error) {
+	return reconcile.Result{}, nil
+}
+
+func (o observedGenerationOption) Apply(hc *humiov1alpha1.HumioCluster) {
+	hc.Status.ObservedGeneration = fmt.Sprintf("%d", o.observedGeneration)
+}
+
+func (observedGenerationOption) GetResult() (reconcile.Result, error) {
+	return reconcile.Result{}, nil
+}
+
+func (r *HumioClusterReconciler) updateStatus(statusWriter client.StatusWriter, hc *humiov1alpha1.HumioCluster, options StatusOptions) (reconcile.Result, error) {
+	opts := options.Get()
+	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := r.getLatestHumioCluster(context.TODO(), hc)
+		if err != nil {
+			return err
+		}
+		for _, opt := range opts {
+			opt.Apply(hc)
+		}
+		return statusWriter.Update(context.TODO(), hc)
+	}); err != nil {
+		return reconcile.Result{}, err
+	}
+	for _, opt := range opts {
+		if res, err := opt.GetResult(); err != nil {
+			return res, err
+		}
+	}
+	for _, opt := range opts {
+		res, _ := opt.GetResult()
+		if res.Requeue || res.RequeueAfter > 0 {
+			return res, nil
+		}
+	}
+	return reconcile.Result{}, nil
+}
 
 // getLatestHumioCluster ensures we have the latest HumioCluster resource. It may have been changed during the
 // reconciliation
@@ -72,137 +265,4 @@ func (r *HumioClusterReconciler) setStateOptimistically(ctx context.Context, sta
 	}
 	hc.Status.State = state
 	return r.Status().Update(ctx, hc)
-}
-
-func (r *HumioClusterReconciler) setVersion(ctx context.Context, version string, hc *humiov1alpha1.HumioCluster) error {
-	if hc.Status.State == version {
-		return nil
-	}
-	if version == "" {
-		version = "Unknown"
-	}
-	r.Log.Info(fmt.Sprintf("setting cluster version to %s", version))
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		err := r.getLatestHumioCluster(ctx, hc)
-		if err != nil {
-			return err
-		}
-		hc.Status.Version = version
-		return r.Status().Update(ctx, hc)
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update resource status: %w", err)
-	}
-	return nil
-}
-
-func (r *HumioClusterReconciler) setLicense(ctx context.Context, licenseStatus humiov1alpha1.HumioLicenseStatus, hc *humiov1alpha1.HumioCluster) error {
-	if hc.Status.LicenseStatus == licenseStatus {
-		return nil
-	}
-	r.Log.Info(fmt.Sprintf("setting cluster license status to %v", licenseStatus))
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		err := r.getLatestHumioCluster(ctx, hc)
-		if err != nil {
-			return err
-		}
-		hc.Status.LicenseStatus = licenseStatus
-		return r.Status().Update(ctx, hc)
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update resource status: %w", err)
-	}
-	return nil
-}
-
-func (r *HumioClusterReconciler) setNodeCount(ctx context.Context, nodeCount int, hc *humiov1alpha1.HumioCluster) error {
-	if hc.Status.NodeCount == nodeCount {
-		return nil
-	}
-	r.Log.Info(fmt.Sprintf("setting cluster node count to %d", nodeCount))
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		err := r.getLatestHumioCluster(ctx, hc)
-		if err != nil {
-			return err
-		}
-		hc.Status.NodeCount = nodeCount
-		return r.Status().Update(ctx, hc)
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update resource status: %w", err)
-	}
-	return nil
-}
-
-func (r *HumioClusterReconciler) setPod(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	r.Log.Info("setting cluster pod status")
-	pods, err := kubernetes.ListPods(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
-	if err != nil {
-		r.Log.Error(err, "unable to set pod status")
-		return err
-	}
-
-	podStatusList := humiov1alpha1.HumioPodStatusList{}
-	for _, pod := range pods {
-		podStatus := humiov1alpha1.HumioPodStatus{
-			PodName: pod.Name,
-		}
-		if nodeIdStr, ok := pod.Labels[kubernetes.NodeIdLabelName]; ok {
-			nodeId, err := strconv.Atoi(nodeIdStr)
-			if err != nil {
-				r.Log.Error(err, fmt.Sprintf("unable to set pod status, node id %s is invalid", nodeIdStr))
-				return err
-			}
-			podStatus.NodeId = nodeId
-		}
-		if pvcsEnabled(hc) {
-			for _, volume := range pod.Spec.Volumes {
-				if volume.Name == "humio-data" {
-					if volume.PersistentVolumeClaim != nil {
-						podStatus.PvcName = volume.PersistentVolumeClaim.ClaimName
-					} else {
-						// This is not actually an error in every case. If the HumioCluster resource is migrating to
-						// PVCs then this will happen in a rolling fashion thus some pods will not have PVCs for a
-						// short time.
-						r.Log.Info(fmt.Sprintf("unable to set pod pvc status for pod %s because there is no pvc attached to the pod", pod.Name))
-					}
-				}
-			}
-		}
-		podStatusList = append(podStatusList, podStatus)
-	}
-
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		err := r.getLatestHumioCluster(ctx, hc)
-		if err != nil {
-			return err
-		}
-		sort.Sort(podStatusList)
-		hc.Status.PodStatus = podStatusList
-		return r.Status().Update(ctx, hc)
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update resource status: %w", err)
-	}
-	return nil
-}
-
-func (r *HumioClusterReconciler) setObservedGeneration(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	if hc.Status.ObservedGeneration == fmt.Sprintf("%d", hc.GetGeneration()) {
-		return nil
-	}
-
-	r.Log.Info(fmt.Sprintf("setting ObservedGeneration to %d", hc.GetGeneration()))
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		err := r.getLatestHumioCluster(ctx, hc)
-		if err != nil {
-			return err
-		}
-		hc.Status.ObservedGeneration = fmt.Sprintf("%d", hc.GetGeneration())
-		return r.Status().Update(ctx, hc)
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update resource status: %w", err)
-	}
-	return nil
 }

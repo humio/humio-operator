@@ -30,6 +30,8 @@ const (
 	HumioClusterStateUpgrading = "Upgrading"
 	// HumioClusterStateConfigError is the state of the cluster when user-provided cluster specification results in configuration error
 	HumioClusterStateConfigError = "ConfigError"
+	// HumioClusterStatePending is the state of the cluster when waiting on resources to be provisioned
+	HumioClusterStatePending = "Pending"
 )
 
 // HumioClusterSpec defines the desired state of HumioCluster
@@ -232,6 +234,8 @@ type HumioLicenseStatus struct {
 type HumioClusterStatus struct {
 	// State will be empty before the cluster is bootstrapped. From there it can be "Running", "Upgrading" or "Restarting"
 	State string `json:"state,omitempty"`
+	// Message contains additional information about the state of the cluster
+	Message string `json:"message,omitempty"`
 	// Version is the version of humio running
 	Version string `json:"version,omitempty"`
 	// NodeCount is the number of nodes of humio running
