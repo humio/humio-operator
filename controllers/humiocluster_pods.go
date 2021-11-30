@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"html/template"
 	"reflect"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1079,4 +1081,42 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hc *humi
 		authServiceAccountSecretName: authSASecretName,
 		envVarSourceData:             envVarSourceData,
 	}, nil
+}
+
+func (r *HumioClusterReconciler) getPodStatusList(ctx context.Context, hc *humiov1alpha1.HumioCluster) (humiov1alpha1.HumioPodStatusList, error) {
+	podStatusList := humiov1alpha1.HumioPodStatusList{}
+	pods, err := kubernetes.ListPods(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+	if err != nil {
+		return podStatusList, r.logErrorAndReturn(err, "unable to set pod status")
+	}
+
+	for _, pod := range pods {
+		podStatus := humiov1alpha1.HumioPodStatus{
+			PodName: pod.Name,
+		}
+		if nodeIdStr, ok := pod.Labels[kubernetes.NodeIdLabelName]; ok {
+			nodeId, err := strconv.Atoi(nodeIdStr)
+			if err != nil {
+				return podStatusList, r.logErrorAndReturn(err, fmt.Sprintf("unable to set pod status, node id %s is invalid", nodeIdStr))
+			}
+			podStatus.NodeId = nodeId
+		}
+		if pvcsEnabled(hc) {
+			for _, volume := range pod.Spec.Volumes {
+				if volume.Name == "humio-data" {
+					if volume.PersistentVolumeClaim != nil {
+						podStatus.PvcName = volume.PersistentVolumeClaim.ClaimName
+					} else {
+						// This is not actually an error in every case. If the HumioCluster resource is migrating to
+						// PVCs then this will happen in a rolling fashion thus some pods will not have PVCs for a
+						// short time.
+						r.Log.Info(fmt.Sprintf("unable to set pod pvc status for pod %s because there is no pvc attached to the pod", pod.Name))
+					}
+				}
+			}
+		}
+		podStatusList = append(podStatusList, podStatus)
+	}
+	sort.Sort(podStatusList)
+	return podStatusList, nil
 }
