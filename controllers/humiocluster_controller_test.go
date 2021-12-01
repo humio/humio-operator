@@ -77,7 +77,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 		})
 	})
@@ -93,7 +93,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 		})
 	})
@@ -116,7 +116,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 		})
 	})
@@ -131,7 +131,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			toCreate.Spec.Image = "humio/humio-core:1.18.4"
 
 			ctx := context.Background()
-			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateConfigError)
 			defer cleanupCluster(ctx, toCreate)
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			usingClusterBy(key.Name, "should indicate cluster configuration error")
@@ -166,7 +166,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -238,7 +238,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -343,7 +343,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -456,7 +456,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating a cluster with default helper image")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Validating pod uses default helper image as init container")
@@ -574,7 +574,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -679,7 +679,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Waiting for ingresses to be created")
@@ -838,7 +838,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			Eventually(func() bool {
@@ -864,7 +864,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			svc, _ := kubernetes.GetService(ctx, k8sClient, key.Name, key.Namespace)
@@ -1003,7 +1003,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully without ephemeral disks")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -1060,7 +1060,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -1105,7 +1105,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			Eventually(func() error {
@@ -1159,7 +1159,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -1230,7 +1230,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -1325,7 +1325,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -1573,7 +1573,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully with extra kafka configs")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))
@@ -1715,7 +1715,7 @@ var _ = Describe("HumioCluster Controller", func() {
 `
 			usingClusterBy(key.Name, "Creating the cluster successfully with view group permissions")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Confirming config map was created")
@@ -1833,7 +1833,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Bootstrapping the cluster successfully without persistent volumes")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			Expect(kubernetes.ListPersistentVolumeClaims(ctx, k8sClient, key.Namespace, kubernetes.MatchingLabelsForHumio(key.Name))).To(HaveLen(0))
@@ -1898,7 +1898,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			initialExpectedVolumesCount := 6
@@ -1990,7 +1990,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Confirming PUBLIC_URL is set to default value and PROXY_PREFIX_URL is not set")
@@ -2060,7 +2060,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Confirming PUBLIC_URL is set to default value and PROXY_PREFIX_URL is not set")
@@ -2366,7 +2366,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Confirming ingress objects do not have TLS configured")
@@ -2398,7 +2398,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully without any Hostnames defined")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Confirming we did not create any ingresses")
@@ -2700,7 +2700,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Confirming init container is using the correct service account")
@@ -2758,7 +2758,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Confirming init container is using the correct service account")
@@ -2826,7 +2826,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Confirming service was created using the correct annotations")
@@ -2863,7 +2863,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Confirming the humio pods use the requested tolerations")
@@ -2890,7 +2890,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Confirming service was created using the correct annotations")
@@ -2920,7 +2920,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Confirming the humio pods are not using shared process namespace nor additional sidecars")
@@ -3013,7 +3013,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating Humio cluster without a termination grace period set")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Validating pod is created with the default grace period")
@@ -3086,7 +3086,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully with a license secret")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			secretName := fmt.Sprintf("%s-license", key.Name)
@@ -3185,7 +3185,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Ensuring the state is Running")
@@ -3225,7 +3225,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Confirming the humio pods are not using env var source")
@@ -3326,7 +3326,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, toCreate, true)
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, toCreate)
 
 			usingClusterBy(key.Name, "Confirming the humio pods are not using env var source")
@@ -3418,7 +3418,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 })
 
-func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.HumioCluster, autoCreateLicense bool) {
+func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.HumioCluster, autoCreateLicense bool, expectedState string) {
 	key := types.NamespacedName{
 		Namespace: cluster.Namespace,
 		Name:      cluster.Name,
@@ -3489,6 +3489,10 @@ func createAndBootstrapCluster(ctx context.Context, cluster *humiov1alpha1.Humio
 
 	usingClusterBy(key.Name, "Creating HumioCluster resource")
 	Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
+
+	if expectedState != humiov1alpha1.HumioClusterStateRunning {
+		return
+	}
 
 	usingClusterBy(key.Name, "Confirming cluster enters running state")
 	var updatedHumioCluster humiov1alpha1.HumioCluster
