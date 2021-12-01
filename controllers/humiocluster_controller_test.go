@@ -128,7 +128,8 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.18.4"
+			unsopportedImageVersion := "1.18.4"
+			toCreate.Spec.Image = fmt.Sprintf("%s:%s", "humio/humio-core", unsopportedImageVersion)
 
 			ctx := context.Background()
 			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateConfigError)
@@ -150,7 +151,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.Message
-			}, testTimeout, testInterval).Should(Equal(fmt.Sprintf("Humio version must be at least %s: unsupported Humio version: 1.18.4", HumioVersionMinimumSupported)))
+			}, testTimeout, testInterval).Should(Equal(fmt.Sprintf("Humio version must be at least %s: unsupported Humio version: %s", HumioVersionMinimumSupported, unsopportedImageVersion)))
 		})
 	})
 
