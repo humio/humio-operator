@@ -127,15 +127,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-err-unsupp-vers",
 				Namespace: testProcessID,
 			}
-			toCreate := &humiov1alpha1.HumioCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      key.Name,
-					Namespace: key.Namespace,
-				},
-				Spec: humiov1alpha1.HumioClusterSpec{
-					Image: "humio/humio-core:1.18.4",
-				},
-			}
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = "humio/humio-core:1.18.4"
+
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
 			defer cleanupCluster(ctx, toCreate)
@@ -156,7 +150,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.Message
-			}, testTimeout, testInterval).Should(Equal("Humio version must be at least 1.28.0: unsupported Humio version: 1.18.4"))
+			}, testTimeout, testInterval).Should(Equal(fmt.Sprintf("Humio version must be at least %s: unsupported Humio version: 1.18.4", HumioVersionMinimumSupported)))
 		})
 	})
 
