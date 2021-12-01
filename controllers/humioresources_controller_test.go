@@ -63,7 +63,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			cluster := constructBasicSingleNodeHumioCluster(clusterKey, true)
 			ctx := context.Background()
-			createAndBootstrapCluster(ctx, cluster, true)
+			createAndBootstrapCluster(ctx, cluster, true, humiov1alpha1.HumioClusterStateRunning)
 			defer cleanupCluster(ctx, cluster)
 
 			sharedCluster, err := helpers.NewCluster(ctx, k8sClient, clusterKey.Name, "", clusterKey.Namespace, helpers.UseCertManager(), true)
