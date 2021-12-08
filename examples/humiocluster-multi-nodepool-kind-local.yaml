@@ -1,12 +1,12 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioCluster
 metadata:
-  name: example-humiocluster
+  name: example-humiocluster-3
 spec:
   nodePools:
     - name: ingest-only
       spec:
-        image: "humio/humio-core:1.30.1"
+        image: "humio/humio-core:1.32.3"
         nodeCount: 1
         dataVolumePersistentVolumeClaimSpecTemplate:
           storageClassName: standard
@@ -36,7 +36,7 @@ spec:
     secretKeyRef:
       name: example-humiocluster-license
       key: data
-  image: "humio/humio-core:1.30.1"
+  image: "humio/humio-core:1.32.3"
   nodeCount: 1
   tls:
     enabled: false
