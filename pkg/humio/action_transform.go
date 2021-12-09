@@ -256,7 +256,7 @@ func pagerDutyAction(hn *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) 
 		strings.ToLower(hn.Spec.PagerDutyProperties.Severity), "", true); err == nil {
 		acceptedSeverities := []string{"critical", "error", "warning", "info"}
 		if !stringInList(strings.ToLower(hn.Spec.PagerDutyProperties.Severity), acceptedSeverities) {
-			errorList = append(errorList, fmt.Sprintf("unsupported severity for PagerdutyProperties: \"%s\". must be one of: %s",
+			errorList = append(errorList, fmt.Sprintf("unsupported severity for PagerdutyProperties: %q. must be one of: %s",
 				hn.Spec.PagerDutyProperties.Severity, strings.Join(acceptedSeverities, ", ")))
 		}
 	} else {
@@ -324,7 +324,7 @@ func victorOpsAction(hn *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) 
 		hn.Spec.VictorOpsProperties.MessageType, "", true); err == nil {
 		acceptedMessageTypes := []string{"critical", "warning", "acknowledgement", "info", "recovery"}
 		if !stringInList(strings.ToLower(notifier.Properties["messageType"].(string)), acceptedMessageTypes) {
-			errorList = append(errorList, fmt.Sprintf("unsupported messageType for victorOpsProperties: \"%s\". must be one of: %s",
+			errorList = append(errorList, fmt.Sprintf("unsupported messageType for victorOpsProperties: %q. must be one of: %s",
 				notifier.Properties["messageType"].(string), strings.Join(acceptedMessageTypes, ", ")))
 		}
 	} else {

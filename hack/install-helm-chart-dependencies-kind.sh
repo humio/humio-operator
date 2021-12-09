@@ -5,6 +5,7 @@ set -x
 declare -r e2e_kind_k8s_version=${E2E_KIND_K8S_VERSION:-unknown}
 declare -r e2e_run_ref=${GITHUB_REF:-outside-github-$(hostname)}
 declare -r e2e_run_id=${GITHUB_RUN_ID:-none}
+declare -r e2e_run_attempt=${GITHUB_RUN_ATTEMPT:-none}
 declare -r humio_hostname=${E2E_LOGS_HUMIO_HOSTNAME:-none}
 declare -r humio_ingest_token=${E2E_LOGS_HUMIO_INGEST_TOKEN:-none}
 
@@ -24,6 +25,7 @@ if [[ $humio_hostname != "none" ]] && [[ $humio_ingest_token != "none" ]]; then
     Set E2E_KIND_K8S_VERSION $e2e_kind_k8s_version
     Set E2E_RUN_REF $e2e_run_ref
     Set E2E_RUN_ID $e2e_run_id
+    Set E2E_RUN_ATTEMPT $e2e_run_attempt
 EOF
 )
 

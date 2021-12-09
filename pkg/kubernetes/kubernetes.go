@@ -18,7 +18,6 @@ package kubernetes
 
 import (
 	"math/rand"
-	"strconv"
 	"strings"
 	"time"
 
@@ -26,7 +25,8 @@ import (
 )
 
 const (
-	NodeIdLabelName = "humio.com/node-id"
+	NodeIdLabelName   = "humio.com/node-id"
+	NodePoolLabelName = "humio.com/node-pool"
 )
 
 // LabelsForHumio returns the set of common labels for Humio resources.
@@ -44,13 +44,6 @@ func LabelsForHumio(clusterName string) map[string]string {
 // objects related to a specific HumioCluster instance
 func MatchingLabelsForHumio(clusterName string) client.MatchingLabels {
 	return LabelsForHumio(clusterName)
-}
-
-// LabelsForHumioNodeID returns a set of labels for a specific pod given the name of the cluster and the Humio node ID
-func LabelsForHumioNodeID(clusterName string, nodeID int) map[string]string {
-	labels := LabelsForHumio(clusterName)
-	labels[NodeIdLabelName] = strconv.Itoa(nodeID)
-	return labels
 }
 
 // LabelListContainsLabel returns true if the set of labels contain a label with the specified name

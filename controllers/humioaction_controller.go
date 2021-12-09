@@ -198,7 +198,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 			return reconcile.Result{}, fmt.Errorf("could not update action: %s", err)
 		}
 		if notifier != nil {
-			r.Log.Info(fmt.Sprintf("Updated notifier \"%s\"", notifier.Name))
+			r.Log.Info(fmt.Sprintf("Updated notifier %q", notifier.Name))
 		}
 	}
 

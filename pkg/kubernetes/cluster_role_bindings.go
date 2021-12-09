@@ -28,11 +28,11 @@ import (
 
 // ConstructClusterRoleBinding constructs a cluster role binding which binds the given serviceAccountName to the
 // ClusterRole passed in as clusterRoleName
-func ConstructClusterRoleBinding(clusterRoleBindingName, clusterRoleName, humioClusterName, humioClusterNamespace, serviceAccountName string) *rbacv1.ClusterRoleBinding {
+func ConstructClusterRoleBinding(clusterRoleBindingName, clusterRoleName, humioClusterNamespace, serviceAccountName string, labels map[string]string) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   clusterRoleBindingName,
-			Labels: LabelsForHumio(humioClusterName),
+			Labels: labels,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",

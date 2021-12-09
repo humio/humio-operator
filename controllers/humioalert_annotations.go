@@ -12,7 +12,7 @@ import (
 )
 
 func (r *HumioAlertReconciler) reconcileHumioAlertAnnotations(ctx context.Context, addedAlert *humioapi.Alert, ha *humiov1alpha1.HumioAlert, req ctrl.Request) (reconcile.Result, error) {
-	r.Log.Info(fmt.Sprintf("Adding ID \"%s\" to alert \"%s\"", addedAlert.ID, addedAlert.Name))
+	r.Log.Info(fmt.Sprintf("Adding ID %q to alert %q", addedAlert.ID, addedAlert.Name))
 	currentAlert := &humiov1alpha1.HumioAlert{}
 	err := r.Get(ctx, req.NamespacedName, currentAlert)
 	if err != nil {

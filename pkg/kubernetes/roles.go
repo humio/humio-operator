@@ -27,12 +27,12 @@ import (
 
 // ConstructAuthRole returns the role used by the auth sidecar container to make an API token available for the
 // humio-operator. This API token can be used to obtain insights into the health of the Humio cluster and make changes.
-func ConstructAuthRole(roleName, humioClusterName, humioClusterNamespace string) *rbacv1.Role {
+func ConstructAuthRole(roleName string, humioClusterNamespace string, labels map[string]string) *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      roleName,
 			Namespace: humioClusterNamespace,
-			Labels:    LabelsForHumio(humioClusterName),
+			Labels:    labels,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{

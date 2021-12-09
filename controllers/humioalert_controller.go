@@ -192,7 +192,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, config *
 			return reconcile.Result{}, fmt.Errorf("could not update alert: %s", err)
 		}
 		if alert != nil {
-			r.Log.Info(fmt.Sprintf("Updated alert \"%s\"", alert.Name))
+			r.Log.Info(fmt.Sprintf("Updated alert %q", alert.Name))
 		}
 	}
 
