@@ -25,11 +25,11 @@ import (
 )
 
 // GetService returns the given service if it exists
-func GetService(ctx context.Context, c client.Client, humioClusterName, humioClusterNamespace string) (*corev1.Service, error) {
+func GetService(ctx context.Context, c client.Client, humioNodePoolName, humioClusterNamespace string) (*corev1.Service, error) {
 	var existingService corev1.Service
 	err := c.Get(ctx, types.NamespacedName{
 		Namespace: humioClusterNamespace,
-		Name:      humioClusterName,
+		Name:      humioNodePoolName,
 	}, &existingService)
 	return &existingService, err
 }

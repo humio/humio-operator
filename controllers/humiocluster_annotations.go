@@ -41,48 +41,29 @@ const (
 	pvcHashAnnotation          = "humio_pvc_hash"
 )
 
-func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Context, hc *humiov1alpha1.HumioCluster, restartPolicy string) (int, error) {
-	newRevision, err := r.getHumioClusterPodRevision(hc)
-	if err != nil {
-		return -1, err
-	}
-	newRevision++
-	r.Log.Info(fmt.Sprintf("setting cluster pod revision to %d", newRevision))
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, restartPolicy string) (int, error) {
+	revisionKey, revisionValue := hnp.GetHumioClusterNodePoolRevisionAnnotation()
+	revisionValue++
+	r.Log.Info(fmt.Sprintf("setting cluster pod revision %s=%d", revisionKey, revisionValue))
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		err := r.getLatestHumioCluster(ctx, hc)
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				return err
 			}
 		}
-		hc.Annotations[podRevisionAnnotation] = strconv.Itoa(newRevision)
+		hc.Annotations[revisionKey] = strconv.Itoa(revisionValue)
 		r.setRestartPolicy(hc, restartPolicy)
 		return r.Update(ctx, hc)
 	})
 	if err != nil {
-		return -1, fmt.Errorf("unable to set annotation %s on HumioCluster: %s", podRevisionAnnotation, err)
+		return -1, fmt.Errorf("unable to set annotation %s on HumioCluster: %s", revisionKey, err)
 	}
-	return newRevision, nil
+	return revisionValue, nil
 }
 
-func (r *HumioClusterReconciler) getHumioClusterPodRevision(hc *humiov1alpha1.HumioCluster) (int, error) {
-	if hc.Annotations == nil {
-		hc.Annotations = map[string]string{}
-	}
-	revision, ok := hc.Annotations[podRevisionAnnotation]
-	if !ok {
-		revision = "0"
-	}
-	existingRevision, err := strconv.Atoi(revision)
-	if err != nil {
-		return -1, fmt.Errorf("unable to read annotation %s on HumioCluster: %s", podRevisionAnnotation, err)
-	}
-	return existingRevision, nil
-}
-
-func (r *HumioClusterReconciler) setPodRevision(pod *corev1.Pod, newRevision int) error {
+func (r *HumioClusterReconciler) setPodRevision(pod *corev1.Pod, newRevision int) {
 	pod.Annotations[podRevisionAnnotation] = strconv.Itoa(newRevision)
-	return nil
 }
 
 func (r *HumioClusterReconciler) setRestartPolicy(hc *humiov1alpha1.HumioCluster, policy string) {

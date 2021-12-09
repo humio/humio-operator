@@ -50,13 +50,13 @@ type Cluster struct {
 func NewCluster(ctx context.Context, k8sClient client.Client, managedClusterName, externalClusterName, namespace string, certManagerEnabled bool, withAPIToken bool) (ClusterInterface, error) {
 	// Return error immediately if we do not have exactly one of the cluster names configured
 	if managedClusterName != "" && externalClusterName != "" {
-		return Cluster{}, fmt.Errorf("cannot have both ManagedClusterName and ExternalClusterName set at the same time")
+		return nil, fmt.Errorf("cannot have both ManagedClusterName and ExternalClusterName set at the same time")
 	}
 	if managedClusterName == "" && externalClusterName == "" {
-		return Cluster{}, fmt.Errorf("must have one of ManagedClusterName and ExternalClusterName set")
+		return nil, fmt.Errorf("must have one of ManagedClusterName and ExternalClusterName set")
 	}
 	if namespace == "" {
-		return Cluster{}, fmt.Errorf("must have non-empty namespace set")
+		return nil, fmt.Errorf("must have non-empty namespace set")
 	}
 	cluster := Cluster{
 		externalClusterName: externalClusterName,
