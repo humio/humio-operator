@@ -51,7 +51,8 @@ type messageOption struct {
 }
 
 type stateOption struct {
-	state string
+	state        string
+	nodePoolName string
 }
 
 type versionOption struct {
@@ -94,6 +95,14 @@ func (o *optionBuilder) withMessage(msg string) *optionBuilder {
 func (o *optionBuilder) withState(state string) *optionBuilder {
 	o.options = append(o.options, stateOption{
 		state: state,
+	})
+	return o
+}
+
+func (o *optionBuilder) withNodePoolState(state string, nodePoolName string) *optionBuilder {
+	o.options = append(o.options, stateOption{
+		state:        state,
+		nodePoolName: nodePoolName,
 	})
 	return o
 }
@@ -142,7 +151,25 @@ func (messageOption) GetResult() (reconcile.Result, error) {
 }
 
 func (s stateOption) Apply(hc *humiov1alpha1.HumioCluster) {
-	hc.Status.State = s.state
+	if s.state != "" {
+		hc.Status.State = s.state
+	}
+
+	if s.nodePoolName != "" {
+		for idx, nodePoolStatus := range hc.Status.NodePoolStatus {
+			if nodePoolStatus.Name == s.nodePoolName {
+				nodePoolStatus.State = s.state
+				hc.Status.NodePoolStatus[idx] = nodePoolStatus
+				return
+			}
+
+		}
+
+		hc.Status.NodePoolStatus = append(hc.Status.NodePoolStatus, humiov1alpha1.HumioNodePoolStatus{
+			Name:  s.nodePoolName,
+			State: s.state,
+		})
+	}
 }
 
 func (s stateOption) GetResult() (reconcile.Result, error) {

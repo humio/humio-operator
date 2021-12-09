@@ -26,12 +26,12 @@ import (
 )
 
 // ConstructRoleBinding constructs a role binding which binds the given serviceAccountName to the role passed in
-func ConstructRoleBinding(roleBindingName, roleName, humioClusterName, humioClusterNamespace, serviceAccountName string) *rbacv1.RoleBinding {
+func ConstructRoleBinding(roleBindingName, roleName, humioClusterNamespace, serviceAccountName string, labels map[string]string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      roleBindingName,
 			Namespace: humioClusterNamespace,
-			Labels:    LabelsForHumio(humioClusterName),
+			Labels:    labels,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "Role",

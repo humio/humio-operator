@@ -46,12 +46,6 @@ func LabelsForSecret(clusterName string, secretName string, additionalSecretLabe
 	return labels
 }
 
-// MatchingLabelsForSecret returns a MatchingLabels which can be passed on to the Kubernetes client to only return
-// secrets related to a specific HumioCluster instance
-func MatchingLabelsForSecret(clusterName, secretName string) client.MatchingLabels {
-	return LabelsForSecret(clusterName, secretName, nil)
-}
-
 // ConstructSecret returns an opaque secret which holds the given data
 func ConstructSecret(humioClusterName, humioClusterNamespace, secretName string, data map[string][]byte, additionalSecretLabels map[string]string) *corev1.Secret {
 	return &corev1.Secret{

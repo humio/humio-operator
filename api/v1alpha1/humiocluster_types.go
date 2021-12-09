@@ -36,15 +36,6 @@ const (
 
 // HumioClusterSpec defines the desired state of HumioCluster
 type HumioClusterSpec struct {
-	// Image is the desired humio container image, including the image tag
-	Image string `json:"image,omitempty"`
-	// ImageSource is the reference to an external source identifying the image
-	ImageSource *HumioImageSource `json:"imageSource,omitempty"`
-	// HelperImage is the desired helper container image, including image tag
-	HelperImage string `json:"helperImage,omitempty"`
-	// DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
-	// This is not recommended, unless you are using auto rebalancing partitions and are running in a single single availability zone.
-	DisableInitContainer bool `json:"disableInitContainer,omitempty"`
 	// AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes.
 	// If all Kubernetes worker nodes are located in the same availability zone, you must set DisableInitContainer to true to use auto rebalancing of partitions.
 	AutoRebalancePartitions bool `json:"autoRebalancePartitions,omitempty"`
@@ -54,61 +45,12 @@ type HumioClusterSpec struct {
 	StoragePartitionsCount int `json:"storagePartitionsCount,omitempty"`
 	// DigestPartitionsCount is the desired number of digest partitions
 	DigestPartitionsCount int `json:"digestPartitionsCount,omitempty"`
-	// NodeCount is the desired number of humio cluster nodes
-	NodeCount *int `json:"nodeCount,omitempty"`
 	// License is the kubernetes secret reference which contains the Humio license
 	License HumioClusterLicenseSpec `json:"license,omitempty"`
-	// EnvironmentVariables that will be merged with default environment variables then set on the humio container
-	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
-	// EnvironmentVariablesSource is the reference to an external source of environment variables that will be merged with environmentVariables
-	EnvironmentVariablesSource []corev1.EnvFromSource `json:"environmentVariablesSource,omitempty"`
-	// DataVolumeSource is the volume that is mounted on the humio pods. This conflicts with DataVolumePersistentVolumeClaimSpecTemplate.
-	DataVolumeSource corev1.VolumeSource `json:"dataVolumeSource,omitempty"`
-	// DataVolumePersistentVolumeClaimSpecTemplate is the PersistentVolumeClaimSpec that will be used with for the humio data volume. This conflicts with DataVolumeSource.
-	DataVolumePersistentVolumeClaimSpecTemplate corev1.PersistentVolumeClaimSpec `json:"dataVolumePersistentVolumeClaimSpecTemplate,omitempty"`
-	// ImagePullSecrets defines the imagepullsecrets for the humio pods. These secrets are not created by the operator
-	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	// Affinity defines the affinity policies that will be attached to the humio pods
-	Affinity corev1.Affinity `json:"affinity,omitempty"`
-	// Tolerations defines the tolerations that will be attached to the humio pods
-	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// IdpCertificateSecretName is the name of the secret that contains the IDP Certificate when using SAML authentication
 	IdpCertificateSecretName string `json:"idpCertificateSecretName,omitempty"`
-	// HumioServiceAccountAnnotations is the set of annotations added to the Kubernetes Service Account that will be attached to the Humio pods
-	HumioServiceAccountAnnotations map[string]string `json:"humioServiceAccountAnnotations,omitempty"`
-	// HumioServiceAccountName is the name of the Kubernetes Service Account that will be attached to the Humio pods
-	HumioServiceAccountName string `json:"humioServiceAccountName,omitempty"`
-	// InitServiceAccountName is the name of the Kubernetes Service Account that will be attached to the init container in the humio pod.
-	InitServiceAccountName string `json:"initServiceAccountName,omitempty"`
-	// AuthServiceAccountName is the name of the Kubernetes Service Account that will be attached to the auth container in the humio pod.
-	AuthServiceAccountName string `json:"authServiceAccountName,omitempty"`
-	// Resources is the kubernetes resource limits for the humio pod
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
-	// ExtraKafkaConfigs is a multi-line string containing kafka properties
-	ExtraKafkaConfigs string `json:"extraKafkaConfigs,omitempty"`
 	// ViewGroupPermissions is a multi-line string containing view-group-permissions.json
 	ViewGroupPermissions string `json:"viewGroupPermissions,omitempty"`
-	// ContainerSecurityContext is the security context applied to the Humio container
-	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
-	// ContainerReadinessProbe is the readiness probe applied to the Humio container.
-	// If specified and non-empty, the user-specified readiness probe will be used.
-	// If specified and empty, the pod will be created without a readiness probe set.
-	// Otherwise, use the built in default readiness probe configuration.
-	ContainerReadinessProbe *corev1.Probe `json:"containerReadinessProbe,omitempty"`
-	// ContainerLivenessProbe is the liveness probe applied to the Humio container
-	// If specified and non-empty, the user-specified liveness probe will be used.
-	// If specified and empty, the pod will be created without a liveness probe set.
-	// Otherwise, use the built in default liveness probe configuration.
-	ContainerLivenessProbe *corev1.Probe `json:"containerLivenessProbe,omitempty"`
-	// ContainerStartupProbe is the startup probe applied to the Humio container
-	// If specified and non-empty, the user-specified startup probe will be used.
-	// If specified and empty, the pod will be created without a startup probe set.
-	// Otherwise, use the built in default startup probe configuration.
-	ContainerStartupProbe *corev1.Probe `json:"containerStartupProbe,omitempty"`
-	// PodSecurityContext is the security context applied to the Humio pod
-	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
-	// PodAnnotations can be used to specify annotations that will be added to the Humio pods
-	PodAnnotations map[string]string `json:"podAnnotations,omitempty"`
 	// Hostname is the public hostname used by clients to access Humio
 	Hostname string `json:"hostname,omitempty"`
 	// ESHostname is the public hostname used by log shippers with support for ES bulk API to access Humio
@@ -122,49 +64,160 @@ type HumioClusterSpec struct {
 	Path string `json:"path,omitempty"`
 	// Ingress is used to set up ingress-related objects in order to reach Humio externally from the kubernetes cluster
 	Ingress HumioClusterIngressSpec `json:"ingress,omitempty"`
-	// ImagePullPolicy sets the imagePullPolicy for all the containers in the humio pod
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
-	// ExtraHumioVolumeMounts is the list of additional volume mounts that will be added to the Humio container
-	ExtraHumioVolumeMounts []corev1.VolumeMount `json:"extraHumioVolumeMounts,omitempty"`
-	// ExtraVolumes is the list of additional volumes that will be added to the Humio pod
-	ExtraVolumes []corev1.Volume `json:"extraVolumes,omitempty"`
 	// TLS is used to define TLS specific configuration such as intra-cluster TLS settings
 	TLS *HumioClusterTLSSpec `json:"tls,omitempty"`
-	// NodeUUIDPrefix is the prefix for the Humio Node's UUID. By default this does not include the zone. If it's
-	// necessary to include zone, there is a special `Zone` variable that can be used. To use this, set `{{.Zone}}`. For
-	// compatibility with pre-0.0.14 spec defaults, this should be set to `humio_{{.Zone}}`
-	NodeUUIDPrefix string `json:"nodeUUIDPrefix,omitempty"`
-	// HumioServiceType is the ServiceType of the Humio Service that is used to direct traffic to the Humio pods
-	HumioServiceType corev1.ServiceType `json:"humioServiceType,omitempty"`
-	// HumioServicePort is the port number of the Humio Service that is used to direct traffic to the http interface of
-	// the Humio pods.
-	HumioServicePort int32 `json:"humioServicePort,omitempty"`
-	// HumioESServicePort is the port number of the Humio Service that is used to direct traffic to the ES interface of
-	// the Humio pods.
-	HumioESServicePort int32 `json:"humioESServicePort,omitempty"`
-	// HumioServiceAnnotations is the set of annotations added to the Kubernetes Service that is used to direct traffic
-	// to the Humio pods
-	HumioServiceAnnotations map[string]string `json:"humioServiceAnnotations,omitempty"`
-	// HumioServiceLabels is the set of labels added to the Kubernetes Service that is used to direct traffic
-	// to the Humio pods
-	HumioServiceLabels map[string]string `json:"humioServiceLabels,omitempty"`
 	// HumioHeadlessAnnotations is the set of annotations added to the Kubernetes Headless Service that is used for
 	// traffic between Humio pods
 	HumioHeadlessServiceAnnotations map[string]string `json:"humioHeadlessServiceAnnotations,omitempty"`
 	// HumioHeadlessServiceLabels is the set of labels added to the Kubernetes Headless Service that is used for
 	// traffic between Humio pods
 	HumioHeadlessServiceLabels map[string]string `json:"humioHeadlessServiceLabels,omitempty"`
-	// SidecarContainers can be used in advanced use-cases where you want one or more sidecar container added to the
-	// Humio pod to help out in debugging purposes.
-	SidecarContainers []corev1.Container `json:"sidecarContainer,omitempty"`
+
+	HumioNodeSpec `json:",inline"`
+
+	// NodePools can be used to define additional groups of Humio cluster pods that share a set of configuration.
+	NodePools []HumioNodePoolSpec `json:"nodePools,omitempty"`
+}
+
+type HumioNodeSpec struct {
+	// Image is the desired humio container image, including the image tag
+	Image string `json:"image,omitempty"`
+
+	// NodeCount is the desired number of humio cluster nodes
+	NodeCount *int `json:"nodeCount,omitempty"`
+
+	// DataVolumePersistentVolumeClaimSpecTemplate is the PersistentVolumeClaimSpec that will be used with for the humio data volume. This conflicts with DataVolumeSource.
+	DataVolumePersistentVolumeClaimSpecTemplate corev1.PersistentVolumeClaimSpec `json:"dataVolumePersistentVolumeClaimSpecTemplate,omitempty"`
+
+	// DataVolumeSource is the volume that is mounted on the humio pods. This conflicts with DataVolumePersistentVolumeClaimSpecTemplate.
+	DataVolumeSource corev1.VolumeSource `json:"dataVolumeSource,omitempty"`
+
+	// AuthServiceAccountName is the name of the Kubernetes Service Account that will be attached to the auth container in the humio pod.
+	AuthServiceAccountName string `json:"authServiceAccountName,omitempty"`
+
+	// DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
+	// This is not recommended, unless you are using auto rebalancing partitions and are running in a single single availability zone.
+	DisableInitContainer bool `json:"disableInitContainer,omitempty"`
+
+	// EnvironmentVariablesSource is the reference to an external source of environment variables that will be merged with environmentVariables
+	EnvironmentVariablesSource []corev1.EnvFromSource `json:"environmentVariablesSource,omitempty"`
+
+	// PodAnnotations can be used to specify annotations that will be added to the Humio pods
+	PodAnnotations map[string]string `json:"podAnnotations,omitempty"`
+
 	// ShareProcessNamespace can be useful in combination with SidecarContainers to be able to inspect the main Humio
 	// process. This should not be enabled, unless you need this for debugging purposes.
 	// https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/
 	ShareProcessNamespace *bool `json:"shareProcessNamespace,omitempty"`
+
+	// HumioServiceAccountName is the name of the Kubernetes Service Account that will be attached to the Humio pods
+	HumioServiceAccountName string `json:"humioServiceAccountName,omitempty"`
+
+	// ImagePullSecrets defines the imagepullsecrets for the humio pods. These secrets are not created by the operator
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+
+	// HelperImage is the desired helper container image, including image tag
+	HelperImage string `json:"helperImage,omitempty"`
+
+	// ImagePullPolicy sets the imagePullPolicy for all the containers in the humio pod
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+
+	// ContainerSecurityContext is the security context applied to the Humio container
+	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
+
+	// ContainerReadinessProbe is the readiness probe applied to the Humio container.
+	// If specified and non-empty, the user-specified readiness probe will be used.
+	// If specified and empty, the pod will be created without a readiness probe set.
+	// Otherwise, use the built in default readiness probe configuration.
+	ContainerReadinessProbe *corev1.Probe `json:"containerReadinessProbe,omitempty"`
+
+	// ContainerLivenessProbe is the liveness probe applied to the Humio container
+	// If specified and non-empty, the user-specified liveness probe will be used.
+	// If specified and empty, the pod will be created without a liveness probe set.
+	// Otherwise, use the built in default liveness probe configuration.
+	ContainerLivenessProbe *corev1.Probe `json:"containerLivenessProbe,omitempty"`
+
+	// ContainerStartupProbe is the startup probe applied to the Humio container
+	// If specified and non-empty, the user-specified startup probe will be used.
+	// If specified and empty, the pod will be created without a startup probe set.
+	// Otherwise, use the built in default startup probe configuration.
+	ContainerStartupProbe *corev1.Probe `json:"containerStartupProbe,omitempty"`
+
+	// PodSecurityContext is the security context applied to the Humio pod
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+
+	// Resources is the kubernetes resource limits for the humio pod
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
 	// TerminationGracePeriodSeconds defines the amount of time to allow cluster pods to gracefully terminate
 	// before being forcefully restarted. If using bucket storage, this should allow enough time for Humio to finish
 	// uploading data to bucket storage.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
+
+	// Affinity defines the affinity policies that will be attached to the humio pods
+	Affinity corev1.Affinity `json:"affinity,omitempty"`
+
+	// Tolerations defines the tolerations that will be attached to the humio pods
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+
+	// SidecarContainers can be used in advanced use-cases where you want one or more sidecar container added to the
+	// Humio pod to help out in debugging purposes.
+	SidecarContainers []corev1.Container `json:"sidecarContainer,omitempty"`
+
+	// NodeUUIDPrefix is the prefix for the Humio Node's UUID. By default this does not include the zone. If it's
+	// necessary to include zone, there is a special `Zone` variable that can be used. To use this, set `{{.Zone}}`. For
+	// compatibility with pre-0.0.14 spec defaults, this should be set to `humio_{{.Zone}}`
+	NodeUUIDPrefix string `json:"nodeUUIDPrefix,omitempty"`
+
+	// ExtraKafkaConfigs is a multi-line string containing kafka properties
+	ExtraKafkaConfigs string `json:"extraKafkaConfigs,omitempty"`
+
+	// ExtraHumioVolumeMounts is the list of additional volume mounts that will be added to the Humio container
+	ExtraHumioVolumeMounts []corev1.VolumeMount `json:"extraHumioVolumeMounts,omitempty"`
+
+	// ExtraVolumes is the list of additional volumes that will be added to the Humio pod
+	ExtraVolumes []corev1.Volume `json:"extraVolumes,omitempty"`
+
+	// HumioServiceAccountAnnotations is the set of annotations added to the Kubernetes Service Account that will be attached to the Humio pods
+	HumioServiceAccountAnnotations map[string]string `json:"humioServiceAccountAnnotations,omitempty"`
+
+	// HumioServiceLabels is the set of labels added to the Kubernetes Service that is used to direct traffic
+	// to the Humio pods
+	HumioServiceLabels map[string]string `json:"humioServiceLabels,omitempty"`
+
+	// EnvironmentVariables that will be merged with default environment variables then set on the humio container
+	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
+
+	// ImageSource is the reference to an external source identifying the image
+	ImageSource *HumioImageSource `json:"imageSource,omitempty"`
+
+	// HumioServiceType is the ServiceType of the Humio Service that is used to direct traffic to the Humio pods
+	HumioServiceType corev1.ServiceType `json:"humioServiceType,omitempty"`
+
+	// HumioServicePort is the port number of the Humio Service that is used to direct traffic to the http interface of
+	// the Humio pods.
+	HumioServicePort int32 `json:"humioServicePort,omitempty"`
+
+	// HumioESServicePort is the port number of the Humio Service that is used to direct traffic to the ES interface of
+	// the Humio pods.
+	HumioESServicePort int32 `json:"humioESServicePort,omitempty"`
+
+	// HumioServiceAnnotations is the set of annotations added to the Kubernetes Service that is used to direct traffic
+	// to the Humio pods
+	HumioServiceAnnotations map[string]string `json:"humioServiceAnnotations,omitempty"`
+
+	// InitServiceAccountName is the name of the Kubernetes Service Account that will be attached to the init container in the humio pod.
+	InitServiceAccountName string `json:"initServiceAccountName,omitempty"`
+
+	// PodLabels can be used to specify labels that will be added to the Humio pods
+	PodLabels map[string]string `json:"podLabels,omitempty"`
+}
+
+type HumioNodePoolSpec struct {
+	// TODO: Mark name as required and non-empty, perhaps even confirm the content somehow
+	Name string `json:"name,omitempty"`
+
+	HumioNodeSpec `json:"spec,omitempty"`
 }
 
 // HumioHostnameSource is the possible references to a hostname value that is stored outside of the HumioCluster resource
@@ -214,6 +267,9 @@ type HumioImageSource struct {
 	ConfigMapRef *corev1.ConfigMapKeySelector `json:"configMapRef,omitempty"`
 }
 
+// HumioPodStatusList holds the list of HumioPodStatus types
+type HumioPodStatusList []HumioPodStatus
+
 // HumioPodStatus shows the status of individual humio pods
 type HumioPodStatus struct {
 	PodName string `json:"podName,omitempty"`
@@ -221,18 +277,26 @@ type HumioPodStatus struct {
 	NodeId  int    `json:"nodeId,omitempty"`
 }
 
-// HumioPodStatusList holds the list of HumioPodStatus types
-type HumioPodStatusList []HumioPodStatus
-
 // HumioLicenseStatus shows the status of Humio license
 type HumioLicenseStatus struct {
 	Type       string `json:"type,omitempty"`
 	Expiration string `json:"expiration,omitempty"`
 }
 
+// HumioNodePoolStatusList holds the list of HumioNodePoolStatus types
+type HumioNodePoolStatusList []HumioNodePoolStatus
+
+// HumioNodePoolStatus shows the status of each node pool
+type HumioNodePoolStatus struct {
+	// Name is the name of the node pool
+	Name string `json:"name,omitempty"`
+	// State will be empty before the cluster is bootstrapped. From there it can be "Running", "Upgrading", "Restarting" or "Pending"
+	State string `json:"state,omitempty"`
+}
+
 // HumioClusterStatus defines the observed state of HumioCluster
 type HumioClusterStatus struct {
-	// State will be empty before the cluster is bootstrapped. From there it can be "Running", "Upgrading" or "Restarting"
+	// State will be empty before the cluster is bootstrapped. From there it can be "Running", "Upgrading", "Restarting" or "Pending"
 	State string `json:"state,omitempty"`
 	// Message contains additional information about the state of the cluster
 	Message string `json:"message,omitempty"`
@@ -244,6 +308,8 @@ type HumioClusterStatus struct {
 	PodStatus HumioPodStatusList `json:"podStatus,omitempty"`
 	// LicenseStatus shows the status of the Humio license attached to the cluster
 	LicenseStatus HumioLicenseStatus `json:"licenseStatus,omitempty"`
+	// NodePoolStatus shows the status of each node pool
+	NodePoolStatus HumioNodePoolStatusList `json:"nodePoolStatus,omitempty"`
 	// ObservedGeneration shows the generation of the HumioCluster which was last observed
 	ObservedGeneration string `json:"observedGeneration,omitempty"` // TODO: We should change the type to int64 so we don't have to convert back and forth between int64 and string
 }

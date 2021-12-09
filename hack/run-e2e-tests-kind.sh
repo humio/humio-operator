@@ -18,7 +18,7 @@ fi
 
 export PATH=$BIN_DIR:$PATH
 
-kubectl apply -k config/crd/
+kubectl create -k config/crd/
 kubectl label node --overwrite --all topology.kubernetes.io/zone=az1
 
 iterations=0
