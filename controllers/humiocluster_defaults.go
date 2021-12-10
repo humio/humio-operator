@@ -132,6 +132,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			HumioServiceAnnotations:        hc.Spec.HumioServiceAnnotations,
 			InitServiceAccountName:         hc.Spec.InitServiceAccountName,
 			PodLabels:                      hc.Spec.PodLabels,
+			UpdateStrategy:                 hc.Spec.UpdateStrategy,
 		},
 		tls:                      hc.Spec.TLS,
 		idpCertificateSecretName: hc.Spec.IdpCertificateSecretName,
@@ -192,6 +193,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			HumioServiceAnnotations:        hnp.HumioServiceAnnotations,
 			InitServiceAccountName:         hnp.InitServiceAccountName,
 			PodLabels:                      hnp.PodLabels,
+			UpdateStrategy:                 hnp.UpdateStrategy,
 		},
 		tls:                      hc.Spec.TLS,
 		idpCertificateSecretName: hc.Spec.IdpCertificateSecretName,
@@ -807,6 +809,16 @@ func (hnp HumioNodePool) GetProbeScheme() corev1.URIScheme {
 	}
 
 	return corev1.URISchemeHTTPS
+}
+
+func (hnp HumioNodePool) GetUpdateStrategy() *humiov1alpha1.HumioUpdateStrategy {
+	if hnp.humioNodeSpec.UpdateStrategy != nil {
+		return hnp.humioNodeSpec.UpdateStrategy
+	}
+
+	return &humiov1alpha1.HumioUpdateStrategy{
+		Type: humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate,
+	}
 }
 
 func viewGroupPermissionsOrDefault(hc *humiov1alpha1.HumioCluster) string {

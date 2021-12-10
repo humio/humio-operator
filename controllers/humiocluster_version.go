@@ -52,6 +52,10 @@ func (hv *HumioVersion) AtLeast(version string) (bool, error) {
 	return hv.constraint(fmt.Sprintf(">= %s", version))
 }
 
+func (hv *HumioVersion) Version() *semver.Version {
+	return hv.version
+}
+
 func (hv *HumioVersion) constraint(constraintStr string) (bool, error) {
 	constraint, err := semver.NewConstraint(constraintStr)
 	return constraint.Check(hv.version), err
