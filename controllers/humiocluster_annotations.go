@@ -35,13 +35,10 @@ const (
 	podHashAnnotation          = "humio.com/pod-hash"
 	podRevisionAnnotation      = "humio.com/pod-revision"
 	envVarSourceHashAnnotation = "humio.com/env-var-source-hash"
-	podRestartPolicyAnnotation = "humio.com/pod-restart-policy"
-	PodRestartPolicyRolling    = "rolling"
-	PodRestartPolicyRecreate   = "recreate"
 	pvcHashAnnotation          = "humio_pvc_hash"
 )
 
-func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, restartPolicy string) (int, error) {
+func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (int, error) {
 	revisionKey, revisionValue := hnp.GetHumioClusterNodePoolRevisionAnnotation()
 	revisionValue++
 	r.Log.Info(fmt.Sprintf("setting cluster pod revision %s=%d", revisionKey, revisionValue))
@@ -56,7 +53,6 @@ func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Co
 			hc.Annotations = map[string]string{}
 		}
 		hc.Annotations[revisionKey] = strconv.Itoa(revisionValue)
-		r.setRestartPolicy(hc, restartPolicy)
 		return r.Update(ctx, hc)
 	})
 	if err != nil {
@@ -67,9 +63,4 @@ func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Co
 
 func (r *HumioClusterReconciler) setPodRevision(pod *corev1.Pod, newRevision int) {
 	pod.Annotations[podRevisionAnnotation] = strconv.Itoa(newRevision)
-}
-
-func (r *HumioClusterReconciler) setRestartPolicy(hc *humiov1alpha1.HumioCluster, policy string) {
-	r.Log.Info(fmt.Sprintf("setting HumioCluster annotation %s to %s", podRestartPolicyAnnotation, policy))
-	hc.Annotations[podRestartPolicyAnnotation] = policy
 }
