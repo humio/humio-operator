@@ -11365,6 +11365,40 @@ spec:
                                 type: string
                             type: object
                           type: array
+                        updateStrategy:
+                          description: UpdateStrategy controls how Humio pods are
+                            updated when changes are made to the HumioCluster resource
+                            that results in a change to the Humio pods
+                          properties:
+                            type:
+                              description: "Type controls how Humio pods are updated
+                                \ when changes are made to the HumioCluster resource
+                                that results in a change to the Humio pods. The available
+                                values are: OnDelete, RollingUpdate, ReplaceAllOnUpdate,
+                                and RollingUpdateBestEffort. / When set to OnDelete,
+                                no Humio pods will be terminated but new pods will
+                                be created with the new spec. Replacing existing pods
+                                will require each pod to be deleted by the user. \n
+                                When set to RollingUpdate, pods will always be replaced
+                                one pod at a time. There may be some Humio updates
+                                where rolling updates are not supported, so it is
+                                not recommended to have this set all the time. \n
+                                When set to ReplaceAllOnUpdate, all Humio pods will
+                                be replaced at the same time during an update. Pods
+                                will still be replaced one at a time when there are
+                                other configuration changes such as updates to pod
+                                environment variables. This is the default behavior.
+                                \n When set to RollingUpdateBestEffort, the operator
+                                will evaluate the Humio version change and determine
+                                if the Humio pods can be updated in a rolling fashion
+                                or if they must be replaced at the same time."
+                              enum:
+                              - OnDelete
+                              - RollingUpdate
+                              - ReplaceAllOnUpdate
+                              - RollingUpdateBestEffort
+                              type: string
+                          type: object
                       type: object
                   type: object
                 type: array
@@ -12773,6 +12807,37 @@ spec:
                       type: string
                   type: object
                 type: array
+              updateStrategy:
+                description: UpdateStrategy controls how Humio pods are updated when
+                  changes are made to the HumioCluster resource that results in a
+                  change to the Humio pods
+                properties:
+                  type:
+                    description: "Type controls how Humio pods are updated  when changes
+                      are made to the HumioCluster resource that results in a change
+                      to the Humio pods. The available values are: OnDelete, RollingUpdate,
+                      ReplaceAllOnUpdate, and RollingUpdateBestEffort. / When set
+                      to OnDelete, no Humio pods will be terminated but new pods will
+                      be created with the new spec. Replacing existing pods will require
+                      each pod to be deleted by the user. \n When set to RollingUpdate,
+                      pods will always be replaced one pod at a time. There may be
+                      some Humio updates where rolling updates are not supported,
+                      so it is not recommended to have this set all the time. \n When
+                      set to ReplaceAllOnUpdate, all Humio pods will be replaced at
+                      the same time during an update. Pods will still be replaced
+                      one at a time when there are other configuration changes such
+                      as updates to pod environment variables. This is the default
+                      behavior. \n When set to RollingUpdateBestEffort, the operator
+                      will evaluate the Humio version change and determine if the
+                      Humio pods can be updated in a rolling fashion or if they must
+                      be replaced at the same time."
+                    enum:
+                    - OnDelete
+                    - RollingUpdate
+                    - ReplaceAllOnUpdate
+                    - RollingUpdateBestEffort
+                    type: string
+                type: object
               viewGroupPermissions:
                 description: ViewGroupPermissions is a multi-line string containing
                   view-group-permissions.json
