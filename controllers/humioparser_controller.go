@@ -18,13 +18,16 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sort"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -62,7 +65,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	hp := &humiov1alpha1.HumioParser{}
 	err := r.Get(ctx, req.NamespacedName, hp)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
@@ -137,13 +140,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Get current parser
 	r.Log.Info("get current parser")
 	curParser, err := r.HumioClient.GetParser(cluster.Config(), req, hp)
-	if err != nil {
-		r.Log.Error(err, "could not check if parser exists", "Repository.Name", hp.Spec.RepositoryName)
-		return reconcile.Result{}, fmt.Errorf("could not check if parser exists: %s", err)
-	}
-
-	emptyParser := humioapi.Parser{Tests: nil, TagFields: nil}
-	if reflect.DeepEqual(emptyParser, *curParser) {
+	if errors.As(err, &humioapi.EntityNotFound{}) {
 		r.Log.Info("parser doesn't exist. Now adding parser")
 		// create parser
 		_, err := r.HumioClient.AddParser(cluster.Config(), req, hp)
@@ -154,9 +151,29 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		r.Log.Info("created parser")
 		return reconcile.Result{Requeue: true}, nil
 	}
+	if err != nil {
+		r.Log.Error(err, "could not check if parser exists", "Repository.Name", hp.Spec.RepositoryName)
+		return reconcile.Result{}, fmt.Errorf("could not check if parser exists: %s", err)
+	}
 
-	if (curParser.Script != hp.Spec.ParserScript) || !reflect.DeepEqual(curParser.TagFields, hp.Spec.TagFields) || !reflect.DeepEqual(curParser.Tests, hp.Spec.TestData) {
-		r.Log.Info("parser information differs, triggering update")
+	currentTagFields := make([]string, len(curParser.TagFields))
+	expectedTagFields := make([]string, len(hp.Spec.TagFields))
+	currentTests := make([]string, len(curParser.Tests))
+	expectedTests := make([]string, len(hp.Spec.TestData))
+	_ = copy(currentTagFields, curParser.TagFields)
+	_ = copy(expectedTagFields, hp.Spec.TagFields)
+	_ = copy(currentTests, curParser.Tests)
+	_ = copy(expectedTests, hp.Spec.TestData)
+	sort.Strings(currentTagFields)
+	sort.Strings(expectedTagFields)
+	sort.Strings(currentTests)
+	sort.Strings(expectedTests)
+	parserScriptDiff := cmp.Diff(curParser.Script, hp.Spec.ParserScript)
+	tagFieldsDiff := cmp.Diff(curParser.TagFields, hp.Spec.TagFields)
+	testDataDiff := cmp.Diff(curParser.Tests, hp.Spec.TestData)
+
+	if parserScriptDiff != "" || tagFieldsDiff != "" || testDataDiff != "" {
+		r.Log.Info("parser information differs, triggering update", "parserScriptDiff", parserScriptDiff, "tagFieldsDiff", tagFieldsDiff, "testDataDiff", testDataDiff)
 		_, err = r.HumioClient.UpdateParser(cluster.Config(), req, hp)
 		if err != nil {
 			r.Log.Error(err, "could not update parser")
@@ -182,7 +199,7 @@ func (r *HumioParserReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *HumioParserReconciler) finalize(ctx context.Context, config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) error {
 	_, err := helpers.NewCluster(ctx, r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager(), true)
-	if errors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) {
 		return nil
 	}
 
