@@ -52,6 +52,9 @@ func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Co
 				return err
 			}
 		}
+		if hc.Annotations == nil {
+			hc.Annotations = map[string]string{}
+		}
 		hc.Annotations[revisionKey] = strconv.Itoa(revisionValue)
 		r.setRestartPolicy(hc, restartPolicy)
 		return r.Update(ctx, hc)
