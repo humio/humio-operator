@@ -177,7 +177,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.30.0"
+			toCreate.Spec.Image = "humio/humio-core:1.30.5"
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
@@ -249,7 +249,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-update-image-np",
 				Namespace: testProcessID,
 			}
-			originalImage := "humio/humio-core:1.30.0"
+			originalImage := "humio/humio-core:1.30.5"
 			toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
 			toCreate.Spec.Image = originalImage
 			toCreate.Spec.NodeCount = helpers.IntPtr(1)
@@ -415,7 +415,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.30.0"
+			toCreate.Spec.Image = "humio/humio-core:1.30.5"
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
