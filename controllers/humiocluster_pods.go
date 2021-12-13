@@ -53,7 +53,7 @@ const (
 	humioDataTmpPath         = "/app/humio/humio-data/tmp"
 	sharedPath               = "/shared"
 	tmpPath                  = "/tmp"
-	waitForPodTimeoutSeconds = 30
+	waitForPodTimeoutSeconds = 10
 )
 
 type podLifecycleState struct {
