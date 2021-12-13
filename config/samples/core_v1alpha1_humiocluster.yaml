@@ -11,7 +11,7 @@ spec:
   extraKafkaConfigs: "security.protocol=PLAINTEXT"
   tls:
     enabled: false
-  image: "humio/humio-core:1.30.0"
+  image: "humio/humio-core:1.32.5"
   nodeCount: 1
   targetReplicationFactor: 1
   environmentVariables:
