@@ -28,7 +28,7 @@ import (
 	humio "github.com/humio/cli/api"
 	"github.com/shurcooL/graphql"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -242,7 +242,7 @@ func ensureAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, nam
 	// Get existing Kubernetes secret
 	adminSecretName := fmt.Sprintf("%s-%s", clusterName, adminSecretNameSuffix)
 	secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, adminSecretName, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) {
 		// If the secret doesn't exist, create it
 		desiredSecret := corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
