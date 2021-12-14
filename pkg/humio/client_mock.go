@@ -40,7 +40,7 @@ type ClientMock struct {
 	Repository                        humioapi.Repository
 	View                              humioapi.View
 	OnPremLicense                     humioapi.OnPremLicense
-	Notifier                          humioapi.Notifier
+	Action                            humioapi.Action
 	Alert                             humioapi.Alert
 }
 
@@ -65,7 +65,7 @@ func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePa
 			Repository:                        humioapi.Repository{},
 			View:                              humioapi.View{},
 			OnPremLicense:                     humioapi.OnPremLicense{},
-			Notifier:                          humioapi.Notifier{},
+			Action:                            humioapi.Action{},
 			Alert:                             humioapi.Alert{},
 		},
 		Version: version,
@@ -177,6 +177,10 @@ func (h *MockClientConfig) AddParser(config *humioapi.Config, req reconcile.Requ
 }
 
 func (h *MockClientConfig) GetParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
+	if h.apiClient.Parser.Name == "" {
+		return nil, fmt.Errorf("could not find parser in view %q with name %q, err=%w", hp.Spec.RepositoryName, hp.Spec.Name, humioapi.EntityNotFound{})
+	}
+
 	return &h.apiClient.Parser, nil
 }
 
@@ -267,33 +271,36 @@ func (h *MockClientConfig) InstallLicense(config *humioapi.Config, req reconcile
 	return nil
 }
 
-func (h *MockClientConfig) GetNotifier(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
-	if h.apiClient.Notifier.Name == "" {
-		return nil, fmt.Errorf("could not find notifier in view %s with name: %s", ha.Spec.ViewName, ha.Spec.Name)
+func (h *MockClientConfig) GetAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
+	if h.apiClient.Action.Name == "" {
+		return nil, fmt.Errorf("could not find action in view %q with name %q, err=%w", ha.Spec.ViewName, ha.Spec.Name, humioapi.EntityNotFound{})
 	}
 
-	return &h.apiClient.Notifier, nil
+	return &h.apiClient.Action, nil
 }
 
-func (h *MockClientConfig) AddNotifier(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
-	notifier, err := NotifierFromAction(ha)
+func (h *MockClientConfig) AddAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
+	action, err := ActionFromActionCR(ha)
 	if err != nil {
-		return notifier, err
+		return action, err
 	}
-	h.apiClient.Notifier = *notifier
-	return &h.apiClient.Notifier, nil
+	h.apiClient.Action = *action
+	return &h.apiClient.Action, nil
 }
 
-func (h *MockClientConfig) UpdateNotifier(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
-	return h.AddNotifier(config, req, ha)
+func (h *MockClientConfig) UpdateAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
+	return h.AddAction(config, req, ha)
 }
 
-func (h *MockClientConfig) DeleteNotifier(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) error {
-	h.apiClient.Notifier = humioapi.Notifier{}
+func (h *MockClientConfig) DeleteAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) error {
+	h.apiClient.Action = humioapi.Action{}
 	return nil
 }
 
 func (h *MockClientConfig) GetAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
+	if h.apiClient.Alert.Name == "" {
+		return nil, fmt.Errorf("could not find alert in view %q with name %q, err=%w", ha.Spec.ViewName, ha.Spec.Name, humioapi.EntityNotFound{})
+	}
 	return &h.apiClient.Alert, nil
 }
 

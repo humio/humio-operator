@@ -55,6 +55,8 @@ spec:
                     type: array
                   subjectTemplate:
                     type: string
+                  useProxy:
+                    type: boolean
                 type: object
               externalClusterName:
                 description: ExternalClusterName refers to an object of type HumioExternalCluster
@@ -137,6 +139,8 @@ spec:
                     type: string
                   severity:
                     type: string
+                  useProxy:
+                    type: boolean
                 type: object
               slackPostMessageProperties:
                 description: SlackPostMessageProperties indicates this is a Slack
@@ -186,6 +190,8 @@ spec:
                     type: object
                   url:
                     type: string
+                  useProxy:
+                    type: boolean
                 type: object
               victorOpsProperties:
                 description: VictorOpsProperties indicates this is a VictorOps Action,
@@ -195,6 +201,8 @@ spec:
                     type: string
                   notifyUrl:
                     type: string
+                  useProxy:
+                    type: boolean
                 type: object
               viewName:
                 description: ViewName is the name of the Humio View under which the
@@ -210,10 +218,14 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  ignoreSSL:
+                    type: boolean
                   method:
                     type: string
                   url:
                     type: string
+                  useProxy:
+                    type: boolean
                 type: object
             required:
             - name
@@ -312,11 +324,12 @@ spec:
                 description: Query defines the desired state of the Humio query
                 properties:
                   end:
-                    description: End is the end time for the query. Defaults to "now"
+                    description: 'End is the end time for the query. Defaults to "now"
+                      Deprecated: Will be ignored. All alerts end at "now".'
                     type: string
                   isLive:
-                    description: IsLive sets whether the query is a live query. Defaults
-                      to "true"
+                    description: 'IsLive sets whether the query is a live query. Defaults
+                      to "true" Deprecated: Will be ignored. All alerts are live.'
                     type: boolean
                   queryString:
                     description: QueryString is the Humio query that will trigger

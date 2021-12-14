@@ -25,7 +25,6 @@ import (
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sort"
 	"time"
@@ -125,13 +124,12 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioParser) {
 		curParser, err := humioClient.GetParser(cluster.Config(), req, hp)
-		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioParserStateUnknown, hp)
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			_ = r.setState(ctx, humiov1alpha1.HumioParserStateNotFound, hp)
 			return
 		}
-		emptyParser := humioapi.Parser{}
-		if reflect.DeepEqual(emptyParser, *curParser) {
-			_ = r.setState(ctx, humiov1alpha1.HumioParserStateNotFound, hp)
+		if err != nil || curParser == nil {
+			_ = r.setState(ctx, humiov1alpha1.HumioParserStateUnknown, hp)
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioParserStateExists, hp)
@@ -146,14 +144,14 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		_, err := r.HumioClient.AddParser(cluster.Config(), req, hp)
 		if err != nil {
 			r.Log.Error(err, "could not create parser")
-			return reconcile.Result{}, fmt.Errorf("could not create parser: %s", err)
+			return reconcile.Result{}, fmt.Errorf("could not create parser: %w", err)
 		}
 		r.Log.Info("created parser")
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err != nil {
 		r.Log.Error(err, "could not check if parser exists", "Repository.Name", hp.Spec.RepositoryName)
-		return reconcile.Result{}, fmt.Errorf("could not check if parser exists: %s", err)
+		return reconcile.Result{}, fmt.Errorf("could not check if parser exists: %w", err)
 	}
 
 	currentTagFields := make([]string, len(curParser.TagFields))
