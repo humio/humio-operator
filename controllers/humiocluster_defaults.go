@@ -18,10 +18,11 @@ package controllers
 
 import (
 	"fmt"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/humio/humio-operator/pkg/kubernetes"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -348,7 +349,7 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 			},
 		},
 
-		{Name: "HUMIO_JVM_ARGS", Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC"},
+		{Name: "HUMIO_JVM_ARGS", Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true"},
 		{Name: "HUMIO_PORT", Value: strconv.Itoa(humioPort)},
 		{Name: "ELASTIC_PORT", Value: strconv.Itoa(elasticPort)},
 		{Name: "DIGEST_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
@@ -851,7 +852,7 @@ func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster, hnp *HumioNo
 			},
 		},
 
-		{Name: "HUMIO_JVM_ARGS", Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC"},
+		{Name: "HUMIO_JVM_ARGS", Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true"},
 		{Name: "HUMIO_PORT", Value: strconv.Itoa(humioPort)},
 		{Name: "ELASTIC_PORT", Value: strconv.Itoa(elasticPort)},
 		{Name: "DIGEST_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
