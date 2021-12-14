@@ -38,9 +38,11 @@ type HumioQuery struct {
 	// Start is the start time for the query. Defaults to "24h"
 	Start string `json:"start,omitempty"`
 	// End is the end time for the query. Defaults to "now"
-	End string `json:"end,omitempty"`
+	// Deprecated: Will be ignored. All alerts end at "now".
+	DeprecatedEnd string `json:"end,omitempty"`
 	// IsLive sets whether the query is a live query. Defaults to "true"
-	IsLive *bool `json:"isLive,omitempty"`
+	// Deprecated: Will be ignored. All alerts are live.
+	DeprecatedIsLive *bool `json:"isLive,omitempty"`
 }
 
 // HumioAlertSpec defines the desired state of HumioAlert

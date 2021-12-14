@@ -73,11 +73,12 @@ spec:
                 description: Query defines the desired state of the Humio query
                 properties:
                   end:
-                    description: End is the end time for the query. Defaults to "now"
+                    description: 'End is the end time for the query. Defaults to "now"
+                      Deprecated: Will be ignored. All alerts end at "now".'
                     type: string
                   isLive:
-                    description: IsLive sets whether the query is a live query. Defaults
-                      to "true"
+                    description: 'IsLive sets whether the query is a live query. Defaults
+                      to "true" Deprecated: Will be ignored. All alerts are live.'
                     type: boolean
                   queryString:
                     description: QueryString is the Humio query that will trigger

@@ -38,6 +38,8 @@ type HumioActionWebhookProperties struct {
 	Headers      map[string]string `json:"headers,omitempty"`
 	Method       string            `json:"method,omitempty"`
 	Url          string            `json:"url,omitempty"`
+	IgnoreSSL    bool              `json:"ignoreSSL,omitempty"`
+	UseProxy     bool              `json:"useProxy,omitempty"`
 }
 
 // HumioActionEmailProperties defines the desired state of HumioActionEmailProperties
@@ -45,6 +47,7 @@ type HumioActionEmailProperties struct {
 	BodyTemplate    string   `json:"bodyTemplate,omitempty"`
 	SubjectTemplate string   `json:"subjectTemplate,omitempty"`
 	Recipients      []string `json:"recipients,omitempty"`
+	UseProxy        bool     `json:"useProxy,omitempty"`
 }
 
 // HumioActionRepositoryProperties defines the desired state of HumioActionRepositoryProperties
@@ -65,12 +68,14 @@ type HumioActionOpsGenieProperties struct {
 type HumioActionPagerDutyProperties struct {
 	RoutingKey string `json:"routingKey,omitempty"`
 	Severity   string `json:"severity,omitempty"`
+	UseProxy   bool   `json:"useProxy,omitempty"`
 }
 
 // HumioActionSlackProperties defines the desired state of HumioActionSlackProperties
 type HumioActionSlackProperties struct {
-	Fields map[string]string `json:"fields,omitempty"`
-	Url    string            `json:"url,omitempty"`
+	Fields   map[string]string `json:"fields,omitempty"`
+	Url      string            `json:"url,omitempty"`
+	UseProxy bool              `json:"useProxy,omitempty"`
 }
 
 // HumioActionSlackPostMessageProperties defines the desired state of HumioActionSlackPostMessageProperties
@@ -90,6 +95,7 @@ type VarSource struct {
 type HumioActionVictorOpsProperties struct {
 	MessageType string `json:"messageType,omitempty"`
 	NotifyUrl   string `json:"notifyUrl,omitempty"`
+	UseProxy    bool   `json:"useProxy,omitempty"`
 }
 
 // HumioActionSpec defines the desired state of HumioAction

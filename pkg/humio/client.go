@@ -41,7 +41,7 @@ type Client interface {
 	RepositoriesClient
 	ViewsClient
 	LicenseClient
-	NotifiersClient
+	ActionsClient
 	AlertsClient
 }
 
@@ -85,11 +85,11 @@ type ViewsClient interface {
 	DeleteView(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioView) error
 }
 
-type NotifiersClient interface {
-	AddNotifier(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAction) (*humioapi.Notifier, error)
-	GetNotifier(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAction) (*humioapi.Notifier, error)
-	UpdateNotifier(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAction) (*humioapi.Notifier, error)
-	DeleteNotifier(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAction) error
+type ActionsClient interface {
+	AddAction(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAction) (*humioapi.Action, error)
+	GetAction(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAction) (*humioapi.Action, error)
+	UpdateAction(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAction) (*humioapi.Action, error)
+	DeleteAction(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAction) error
 }
 
 type AlertsClient interface {
@@ -472,58 +472,58 @@ func (h *ClientConfig) validateView(config *humioapi.Config, req reconcile.Reque
 	return nil
 }
 
-func (h *ClientConfig) GetNotifier(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+func (h *ClientConfig) GetAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
-		return &humioapi.Notifier{}, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
+		return nil, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
 	}
 
-	notifier, err := h.GetHumioClient(config, req).Notifiers().Get(ha.Spec.ViewName, ha.Spec.Name)
+	action, err := h.GetHumioClient(config, req).Actions().Get(ha.Spec.ViewName, ha.Spec.Name)
 	if err != nil {
-		return notifier, fmt.Errorf("error when trying to get notifier %+v, name=%s, view=%s: %s", notifier, ha.Spec.Name, ha.Spec.ViewName, err)
+		return action, fmt.Errorf("error when trying to get action %+v, name=%s, view=%s: %s", action, ha.Spec.Name, ha.Spec.ViewName, err)
 	}
 
-	if notifier == nil || notifier.Name == "" {
+	if action == nil || action.Name == "" {
 		return nil, nil
 	}
 
-	return notifier, nil
+	return action, nil
 }
 
-func (h *ClientConfig) AddNotifier(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+func (h *ClientConfig) AddAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
-		return &humioapi.Notifier{}, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
+		return nil, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
 	}
 
-	notifier, err := NotifierFromAction(ha)
+	action, err := ActionFromActionCR(ha)
 	if err != nil {
-		return notifier, err
+		return action, err
 	}
 
-	createdNotifier, err := h.GetHumioClient(config, req).Notifiers().Add(ha.Spec.ViewName, notifier, false)
+	createdAction, err := h.GetHumioClient(config, req).Actions().Add(ha.Spec.ViewName, action)
 	if err != nil {
-		return createdNotifier, fmt.Errorf("got error when attempting to add notifier: %s", err)
+		return createdAction, fmt.Errorf("got error when attempting to add action: %s", err)
 	}
-	return createdNotifier, nil
+	return createdAction, nil
 }
 
-func (h *ClientConfig) UpdateNotifier(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+func (h *ClientConfig) UpdateAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
-		return &humioapi.Notifier{}, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
+		return nil, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
 	}
 
-	notifier, err := NotifierFromAction(ha)
+	action, err := ActionFromActionCR(ha)
 	if err != nil {
-		return notifier, err
+		return action, err
 	}
 
-	return h.GetHumioClient(config, req).Notifiers().Update(ha.Spec.ViewName, notifier)
+	return h.GetHumioClient(config, req).Actions().Update(ha.Spec.ViewName, action)
 }
 
-func (h *ClientConfig) DeleteNotifier(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) error {
-	return h.GetHumioClient(config, req).Notifiers().Delete(ha.Spec.ViewName, ha.Spec.Name)
+func (h *ClientConfig) DeleteAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) error {
+	return h.GetHumioClient(config, req).Actions().Delete(ha.Spec.ViewName, ha.Spec.Name)
 }
 
 func getConnectionMap(viewConnections []humioapi.ViewConnection) map[string]string {
@@ -575,7 +575,7 @@ func (h *ClientConfig) AddAlert(config *humioapi.Config, req reconcile.Request, 
 		return alert, err
 	}
 
-	createdAlert, err := h.GetHumioClient(config, req).Alerts().Add(ha.Spec.ViewName, alert, false)
+	createdAlert, err := h.GetHumioClient(config, req).Alerts().Add(ha.Spec.ViewName, alert)
 	if err != nil {
 		return createdAlert, fmt.Errorf("got error when attempting to add alert: %s, alert: %#v", err, *alert)
 	}
@@ -597,6 +597,12 @@ func (h *ClientConfig) UpdateAlert(config *humioapi.Config, req reconcile.Reques
 		return alert, err
 	}
 
+	currentAlert, err := h.GetAlert(config, req, ha)
+	if err != nil {
+		return &humioapi.Alert{}, fmt.Errorf("could not find alert with name: %q", alert.Name)
+	}
+	alert.ID = currentAlert.ID
+
 	return h.GetHumioClient(config, req).Alerts().Update(ha.Spec.ViewName, alert)
 }
 
@@ -604,35 +610,35 @@ func (h *ClientConfig) DeleteAlert(config *humioapi.Config, req reconcile.Reques
 	return h.GetHumioClient(config, req).Alerts().Delete(ha.Spec.ViewName, ha.Spec.Name)
 }
 
-func (h *ClientConfig) getAndValidateAction(config *humioapi.Config, req reconcile.Request, notifierName string, viewName string) (*humioapi.Notifier, error) {
+func (h *ClientConfig) getAndValidateAction(config *humioapi.Config, req reconcile.Request, actionName string, viewName string) (*humioapi.Action, error) {
 	action := &humiov1alpha1.HumioAction{
 		Spec: humiov1alpha1.HumioActionSpec{
-			Name:     notifierName,
+			Name:     actionName,
 			ViewName: viewName,
 		},
 	}
 
-	notifierResult, err := h.GetNotifier(config, req, action)
+	actionResult, err := h.GetAction(config, req, action)
 	if err != nil {
-		return notifierResult, fmt.Errorf("failed to verify notifier %s exists. error: %s", notifierName, err)
+		return actionResult, fmt.Errorf("failed to verify action %s exists. error: %s", actionName, err)
 	}
 
-	emptyNotifier := &humioapi.Notifier{}
-	if reflect.DeepEqual(emptyNotifier, notifierResult) {
-		return notifierResult, fmt.Errorf("notifier %s does not exist", notifierName)
+	emptyAction := &humioapi.Action{}
+	if reflect.DeepEqual(emptyAction, actionResult) {
+		return actionResult, fmt.Errorf("action %s does not exist", actionName)
 	}
 
-	return notifierResult, nil
+	return actionResult, nil
 }
 
 func (h *ClientConfig) GetActionIDsMapForAlerts(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (map[string]string, error) {
 	actionIdMap := make(map[string]string)
-	for _, action := range ha.Spec.Actions {
-		notifier, err := h.getAndValidateAction(config, req, action, ha.Spec.ViewName)
+	for _, actionNameForAlert := range ha.Spec.Actions {
+		action, err := h.getAndValidateAction(config, req, actionNameForAlert, ha.Spec.ViewName)
 		if err != nil {
 			return actionIdMap, fmt.Errorf("problem getting action for alert %s: %s", ha.Spec.Name, err)
 		}
-		actionIdMap[action] = notifier.ID
+		actionIdMap[actionNameForAlert] = action.ID
 
 	}
 	return actionIdMap, nil

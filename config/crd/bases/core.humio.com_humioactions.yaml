@@ -54,6 +54,8 @@ spec:
                     type: array
                   subjectTemplate:
                     type: string
+                  useProxy:
+                    type: boolean
                 type: object
               externalClusterName:
                 description: ExternalClusterName refers to an object of type HumioExternalCluster
@@ -136,6 +138,8 @@ spec:
                     type: string
                   severity:
                     type: string
+                  useProxy:
+                    type: boolean
                 type: object
               slackPostMessageProperties:
                 description: SlackPostMessageProperties indicates this is a Slack
@@ -185,6 +189,8 @@ spec:
                     type: object
                   url:
                     type: string
+                  useProxy:
+                    type: boolean
                 type: object
               victorOpsProperties:
                 description: VictorOpsProperties indicates this is a VictorOps Action,
@@ -194,6 +200,8 @@ spec:
                     type: string
                   notifyUrl:
                     type: string
+                  useProxy:
+                    type: boolean
                 type: object
               viewName:
                 description: ViewName is the name of the Humio View under which the
@@ -209,10 +217,14 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  ignoreSSL:
+                    type: boolean
                   method:
                     type: string
                   url:
                     type: string
+                  useProxy:
+                    type: boolean
                 type: object
             required:
             - name
