@@ -962,13 +962,12 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 						return *podLifecycleStateValue, r.logErrorAndReturn(err, "failed to read version")
 					}
 					podLifecycleStateValue.versionDifference = &podLifecycleStateVersionDifference{
-						fromVersion: fromVersion,
-						toVersion:   toVersion,
+						from: fromVersion,
+						to:   toVersion,
 					}
 				}
 
 				if envVarValue(pod.Spec.Containers[humioContainerIdx].Env, "EXTERNAL_URL") != envVarValue(desiredPod.Spec.Containers[desiredHumioContainerIdx].Env, "EXTERNAL_URL") {
-					// return a different type here to signify that we cannot restart in a rolling fashion
 					podLifecycleStateValue.configurationDifference.requiresSimultaneousRestart = true
 				}
 
