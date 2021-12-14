@@ -728,7 +728,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 				{
 					Name:  "HUMIO_JVM_ARGS",
-					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false",
+					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
 				},
 				{
 					Name:  "ZOOKEEPER_URL",
@@ -776,7 +776,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 				{
 					Name:  "HUMIO_JVM_ARGS",
-					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false",
+					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
 				},
 				{
 					Name:  "ZOOKEEPER_URL",
@@ -863,7 +863,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 				{
 					Name:  "HUMIO_JVM_ARGS",
-					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false",
+					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
 				},
 				{
 					Name:  "ZOOKEEPER_URL",
@@ -897,7 +897,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 				{
 					Name:  "HUMIO_JVM_ARGS",
-					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false",
+					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
 				},
 				{
 					Name:  "ZOOKEEPER_URL",
@@ -947,7 +947,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 				{
 					Name:  "HUMIO_JVM_ARGS",
-					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false",
+					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
 				},
 				{
 					Name:  "ZOOKEEPER_URL",
@@ -1049,7 +1049,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 				{
 					Name:  "HUMIO_JVM_ARGS",
-					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false",
+					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
 				},
 				{
 					Name:  "ZOOKEEPER_URL",
@@ -4282,7 +4282,7 @@ func constructBasicMultiNodePoolHumioCluster(key types.NamespacedName, useAutoCr
 				EnvironmentVariables: []corev1.EnvVar{
 					{
 						Name:  "HUMIO_JVM_ARGS",
-						Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false",
+						Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
 					},
 					{
 						Name:  "ZOOKEEPER_URL",
@@ -4343,7 +4343,7 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 				EnvironmentVariables: []corev1.EnvVar{
 					{
 						Name:  "HUMIO_JVM_ARGS",
-						Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dzookeeper.client.secure=false",
+						Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
 					},
 					{
 						Name:  "ZOOKEEPER_URL",
