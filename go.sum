@@ -537,10 +537,8 @@ github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c/go.mod h1:lADxMC39cJ
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/huandu/xstrings v1.3.1/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=
 github.com/hudl/fargo v1.3.0/go.mod h1:y3CKSmjA+wD2gak7sUSXTAoopbhU08POFhmITJgmKTg=
-github.com/humio/cli v0.28.9 h1:oWARPJTki8z17Tg234E0eV9aukCoWkpQBVQfWyd5Wy0=
-github.com/humio/cli v0.28.9/go.mod h1:j09wyZdZO0+uUsndNOmthom+Gnr4xX5/iflZQ2zLN1Y=
-github.com/humio/cli v0.28.12-0.20211119083335-17df27fe9e4a h1:JtLQhPdgwXQRFYR9SwgIMPLTCa9LO2ZhVU3c42Iurrk=
-github.com/humio/cli v0.28.12-0.20211119083335-17df27fe9e4a/go.mod h1:PgicXQX6gOnJsEYUxPUHalJIAKyUs+U7iqrFzGynDPE=
+github.com/humio/cli v0.28.12-0.20211216125513-ae41a0f58fc2 h1:WBSy6lWkUSHdYVQ3ZJIMTDpGFsLodGSVmMFsxo0DImw=
+github.com/humio/cli v0.28.12-0.20211216125513-ae41a0f58fc2/go.mod h1:PgicXQX6gOnJsEYUxPUHalJIAKyUs+U7iqrFzGynDPE=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/imdario/mergo v0.3.5/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=

@@ -18,10 +18,10 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"reflect"
-
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
@@ -86,7 +86,7 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, fmt.Errorf("could not resolve secret references: %s", err)
 	}
 
-	if _, err := humio.NotifierFromAction(ha); err != nil {
+	if _, err := humio.ActionFromActionCR(ha); err != nil {
 		r.Log.Error(err, "unable to validate action")
 		err = r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
 		if err != nil {
@@ -96,34 +96,23 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, err
 	}
 
-	curNotifier, err := r.HumioClient.GetNotifier(cluster.Config(), req, ha)
-	if curNotifier != nil && err != nil {
-		r.Log.Error(err, "got unexpected error when checking if action exists")
-		stateErr := r.setState(ctx, humiov1alpha1.HumioActionStateUnknown, ha)
-		if stateErr != nil {
-			r.Log.Error(stateErr, "unable to set action state")
-			return reconcile.Result{}, stateErr
-		}
-		return reconcile.Result{}, fmt.Errorf("could not check if action exists: %s", err)
-	}
-
 	defer func(ctx context.Context, humioClient humio.Client, ha *humiov1alpha1.HumioAction) {
-		curNotifier, err := r.HumioClient.GetNotifier(cluster.Config(), req, ha)
-		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioActionStateUnknown, ha)
+		curAction, err := r.HumioClient.GetAction(cluster.Config(), req, ha)
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			_ = r.setState(ctx, humiov1alpha1.HumioActionStateNotFound, ha)
 			return
 		}
-		if curNotifier == nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioActionStateNotFound, ha)
+		if err != nil || curAction == nil {
+			_ = r.setState(ctx, humiov1alpha1.HumioActionStateUnknown, ha)
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioActionStateExists, ha)
 	}(ctx, r.HumioClient, ha)
 
-	return r.reconcileHumioAction(ctx, cluster.Config(), curNotifier, ha, req)
+	return r.reconcileHumioAction(ctx, cluster.Config(), ha, req)
 }
 
-func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config *humioapi.Config, curNotifier *humioapi.Notifier, ha *humiov1alpha1.HumioAction, req ctrl.Request) (reconcile.Result, error) {
+func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config *humioapi.Config, ha *humiov1alpha1.HumioAction, req ctrl.Request) (reconcile.Result, error) {
 	// Delete
 	r.Log.Info("Checking if Action is marked to be deleted")
 	isMarkedForDeletion := ha.GetDeletionTimestamp() != nil
@@ -134,7 +123,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting Action")
-			if err := r.HumioClient.DeleteNotifier(config, req, ha); err != nil {
+			if err := r.HumioClient.DeleteAction(config, req, ha); err != nil {
 				r.Log.Error(err, "Delete Action returned error")
 				return reconcile.Result{}, err
 			}
@@ -165,40 +154,45 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 
 	r.Log.Info("Checking if action needs to be created")
 	// Add Action
-	if curNotifier == nil {
+	curAction, err := r.HumioClient.GetAction(config, req, ha)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
 		r.Log.Info("Action doesn't exist. Now adding action")
-		addedNotifier, err := r.HumioClient.AddNotifier(config, req, ha)
+		addedAction, err := r.HumioClient.AddAction(config, req, ha)
 		if err != nil {
 			r.Log.Error(err, "could not create action")
 			return reconcile.Result{}, fmt.Errorf("could not create Action: %s", err)
 		}
 		r.Log.Info("Created action", "Action", ha.Spec.Name)
 
-		result, err := r.reconcileHumioActionAnnotations(ctx, addedNotifier, ha, req)
+		result, err := r.reconcileHumioActionAnnotations(ctx, addedAction, ha, req)
 		if err != nil {
 			return result, err
 		}
 		return reconcile.Result{Requeue: true}, nil
 	}
+	if err != nil {
+		r.Log.Error(err, "could not check if action exists", "Action.Name", ha.Spec.Name)
+		return reconcile.Result{}, fmt.Errorf("could not check if action exists: %w", err)
+	}
 
 	r.Log.Info("Checking if action needs to be updated")
 	// Update
-	expectedNotifier, err := humio.NotifierFromAction(ha)
+	expectedAction, err := humio.ActionFromActionCR(ha)
 	if err != nil {
 		r.Log.Error(err, "could not parse expected action")
 		return reconcile.Result{}, fmt.Errorf("could not parse expected action: %s", err)
 	}
-	if !reflect.DeepEqual(*curNotifier, *expectedNotifier) {
-		r.Log.Info(fmt.Sprintf("Action differs, triggering update, expected %#v, got: %#v",
-			expectedNotifier,
-			curNotifier))
-		notifier, err := r.HumioClient.UpdateNotifier(config, req, ha)
+	sanitizeAction(curAction)
+	sanitizeAction(expectedAction)
+	if !cmp.Equal(*curAction, *expectedAction) {
+		r.Log.Info("Action differs, triggering update")
+		action, err := r.HumioClient.UpdateAction(config, req, ha)
 		if err != nil {
 			r.Log.Error(err, "could not update action")
 			return reconcile.Result{}, fmt.Errorf("could not update action: %s", err)
 		}
-		if notifier != nil {
-			r.Log.Info(fmt.Sprintf("Updated notifier %q", notifier.Name))
+		if action != nil {
+			r.Log.Info(fmt.Sprintf("Updated action %q", ha.Spec.Name))
 		}
 	}
 
@@ -270,4 +264,8 @@ func (r *HumioActionReconciler) setState(ctx context.Context, state string, hr *
 	r.Log.Info(fmt.Sprintf("setting action state to %s", state))
 	hr.Status.State = state
 	return r.Status().Update(ctx, hr)
+}
+
+func sanitizeAction(action *humioapi.Action) {
+	action.ID = ""
 }
