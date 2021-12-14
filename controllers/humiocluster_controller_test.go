@@ -243,6 +243,388 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster Update Image Rolling Restart", func() {
+		It("Update should correctly replace pods to use new image in a rolling fashion", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-update-image-rolling",
+				Namespace: testProcessID,
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = "humio/humio-core:1.30.0"
+			toCreate.Spec.NodeCount = helpers.IntPtr(2)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+			}
+
+			usingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
+			defer cleanupCluster(ctx, toCreate)
+
+			revisionKey, _ := NewHumioNodeManagerFromHumioCluster(toCreate).GetHumioClusterNodePoolRevisionAnnotation()
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(podRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
+
+			usingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage := image
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			ensurePodsRollingRestart(ctx, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			usingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "2"))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(podRevisionAnnotation, "2"))
+			}
+
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				usingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+		})
+	})
+
+	Context("Humio Cluster Update Image Update Strategy OnDelete", func() {
+		It("Update should not replace pods on image update when update strategy OnDelete is used", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-update-image-on-delete",
+				Namespace: testProcessID,
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = "humio/humio-core:1.30.0"
+			toCreate.Spec.NodeCount = helpers.IntPtr(2)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyOnDelete,
+			}
+
+			usingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
+			defer cleanupCluster(ctx, toCreate)
+
+			revisionKey, _ := NewHumioNodeManagerFromHumioCluster(toCreate).GetHumioClusterNodePoolRevisionAnnotation()
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(podRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
+
+			usingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage := image
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			usingClusterBy(key.Name, "Confirming pods have not been recreated")
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(podRevisionAnnotation, "1"))
+			}
+
+			usingClusterBy(key.Name, "Simulating manual deletion of pods")
+			for _, pod := range updatedClusterPods {
+				Expect(k8sClient.Delete(ctx, &pod)).To(Succeed())
+			}
+
+			Eventually(func() []corev1.Pod {
+				var clusterPods []corev1.Pod
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+				_ = markPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
+				return clusterPods
+			}, testTimeout, testInterval).Should(HaveLen(*toCreate.Spec.NodeCount))
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			usingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "2"))
+
+			updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(podRevisionAnnotation, "2"))
+			}
+
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				usingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+		})
+	})
+
+	Context("Humio Cluster Update Image Rolling Best Effort", func() {
+		It("Update should correctly replace pods to use new image in a rolling fashion for certain upgrades", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-update-image-rolling-be",
+				Namespace: testProcessID,
+			}
+			toCreate := constructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = "humio/humio-core:1.30.0"
+			toCreate.Spec.NodeCount = helpers.IntPtr(2)
+
+			usingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
+			defer cleanupCluster(ctx, toCreate)
+
+			revisionKey, _ := NewHumioNodeManagerFromHumioCluster(toCreate).GetHumioClusterNodePoolRevisionAnnotation()
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(podRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
+
+			usingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage := "humio/humio-core:1.30.1"
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			usingClusterBy(key.Name, "Pods upgrade in a rolling fashion because the new version is a patch release")
+			ensurePodsRollingRestart(ctx, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			usingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "2"))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(podRevisionAnnotation, "2"))
+			}
+
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				usingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			usingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage = "humio/humio-core:1.31.0"
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			usingClusterBy(key.Name, "Pods upgrade at the same time because the new version is preview")
+			ensurePodsSimultaneousRestart(ctx, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 3)
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			usingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "3"))
+
+			updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(podRevisionAnnotation, "3"))
+			}
+
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				usingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			usingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage = "humio/humio-core:1.32.1"
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			usingClusterBy(key.Name, "Pods upgrade in a rolling fashion because the new version is stable and"+
+				"only one minor revision greater than the previous version")
+			ensurePodsRollingRestart(ctx, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 4)
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			usingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "4"))
+
+			updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(podRevisionAnnotation, "4"))
+			}
+
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				usingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			usingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage = "humio/humio-core:1.34.0"
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			usingClusterBy(key.Name, "Pods upgrade at the same time because the new version is more than one"+
+				"minor revision greater than the previous version")
+			ensurePodsSimultaneousRestart(ctx, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 5)
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			usingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "5"))
+
+			updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(podRevisionAnnotation, "5"))
+			}
+
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				usingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+		})
+	})
+
 	Context("Humio Cluster Update Image Multi Node Pool", func() {
 		It("Update should correctly replace pods to use new image in multiple node pools", func() {
 			key := types.NamespacedName{
