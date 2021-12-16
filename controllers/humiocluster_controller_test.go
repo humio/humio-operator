@@ -177,7 +177,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.30.5"
+			toCreate.Spec.Image = "humio/humio-core:1.30.6"
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
@@ -249,7 +249,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-update-image-np",
 				Namespace: testProcessID,
 			}
-			originalImage := "humio/humio-core:1.30.5"
+			originalImage := "humio/humio-core:1.30.6"
 			toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
 			toCreate.Spec.Image = originalImage
 			toCreate.Spec.NodeCount = helpers.IntPtr(1)
@@ -415,7 +415,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.30.5"
+			toCreate.Spec.Image = "humio/humio-core:1.30.6"
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
@@ -541,7 +541,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			usingClusterBy(key.Name, "Updating the cluster image unsuccessfully")
-			updatedImage := "humio/humio-operator:1.28.0-missing-image"
+			updatedImage := "humio/humio-operator:1.30.0-missing-image"
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
