@@ -74,24 +74,21 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		r.Log.Error(err, "unable to obtain humio client config")
 		err = r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
 		if err != nil {
-			r.Log.Error(err, "unable to set action state")
-			return reconcile.Result{}, err
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set action state")
 		}
 		return reconcile.Result{}, err
 	}
 
 	err = r.resolveSecrets(ctx, ha)
 	if err != nil {
-		r.Log.Error(err, "could not resolve secret references")
-		return reconcile.Result{}, fmt.Errorf("could not resolve secret references: %w", err)
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not resolve secret references")
 	}
 
 	if _, err := humio.ActionFromActionCR(ha); err != nil {
 		r.Log.Error(err, "unable to validate action")
 		err = r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
 		if err != nil {
-			r.Log.Error(err, "unable to set action state")
-			return reconcile.Result{}, err
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set action state")
 		}
 		return reconcile.Result{}, err
 	}
@@ -124,8 +121,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting Action")
 			if err := r.HumioClient.DeleteAction(config, req, ha); err != nil {
-				r.Log.Error(err, "Delete Action returned error")
-				return reconcile.Result{}, err
+				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete Action returned error")
 			}
 
 			r.Log.Info("Action Deleted. Removing finalizer")
@@ -159,8 +155,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 		r.Log.Info("Action doesn't exist. Now adding action")
 		addedAction, err := r.HumioClient.AddAction(config, req, ha)
 		if err != nil {
-			r.Log.Error(err, "could not create action")
-			return reconcile.Result{}, fmt.Errorf("could not create Action: %w", err)
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create action")
 		}
 		r.Log.Info("Created action", "Action", ha.Spec.Name)
 
@@ -171,16 +166,14 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err != nil {
-		r.Log.Error(err, "could not check if action exists", "Action.Name", ha.Spec.Name)
-		return reconcile.Result{}, fmt.Errorf("could not check if action exists: %w", err)
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if action exists")
 	}
 
 	r.Log.Info("Checking if action needs to be updated")
 	// Update
 	expectedAction, err := humio.ActionFromActionCR(ha)
 	if err != nil {
-		r.Log.Error(err, "could not parse expected action")
-		return reconcile.Result{}, fmt.Errorf("could not parse expected action: %w", err)
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not parse expected action")
 	}
 	sanitizeAction(curAction)
 	sanitizeAction(expectedAction)
@@ -188,8 +181,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 		r.Log.Info("Action differs, triggering update")
 		action, err := r.HumioClient.UpdateAction(config, req, ha)
 		if err != nil {
-			r.Log.Error(err, "could not update action")
-			return reconcile.Result{}, fmt.Errorf("could not update action: %w", err)
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update action")
 		}
 		if action != nil {
 			r.Log.Info(fmt.Sprintf("Updated action %q", ha.Spec.Name))
@@ -264,6 +256,11 @@ func (r *HumioActionReconciler) setState(ctx context.Context, state string, hr *
 	r.Log.Info(fmt.Sprintf("setting action state to %s", state))
 	hr.Status.State = state
 	return r.Status().Update(ctx, hr)
+}
+
+func (r *HumioActionReconciler) logErrorAndReturn(err error, msg string) error {
+	r.Log.Error(err, msg)
+	return fmt.Errorf("%s: %w", msg, err)
 }
 
 func sanitizeAction(action *humioapi.Action) {
