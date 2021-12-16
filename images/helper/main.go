@@ -39,7 +39,7 @@ import (
 
 // perhaps we move these somewhere else?
 const localAdminTokenFile = "/data/humio-data/local-admin-token.txt" // #nosec G101
-const adminAccountUserName = "admin" // TODO: Pull this from an environment variable
+const adminAccountUserName = "admin"                                 // TODO: Pull this from an environment variable
 
 const (
 	// apiTokenMethodAnnotationName is used to signal what mechanism was used to obtain the API token
@@ -210,7 +210,7 @@ func validateAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, n
 	adminSecretName := fmt.Sprintf("%s-%s", clusterName, adminSecretNameSuffix)
 	secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, adminSecretName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("got err while trying to get existing secret from k8s: %s", err)
+		return fmt.Errorf("got err while trying to get existing secret from k8s: %w", err)
 	}
 
 	// Check if secret currently holds a valid humio api token
@@ -228,7 +228,7 @@ func validateAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, n
 
 		_, err = humioClient.Clusters().Get()
 		if err != nil {
-			return fmt.Errorf("got err while trying to use apiToken: %s", err)
+			return fmt.Errorf("got err while trying to use apiToken: %w", err)
 		}
 
 		// We could successfully get information about the cluster, so the token must be valid
@@ -261,7 +261,7 @@ func ensureAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, nam
 		_, err := clientset.CoreV1().Secrets(namespace).Create(ctx, &desiredSecret, metav1.CreateOptions{})
 		return err
 	} else if err != nil {
-		return fmt.Errorf("got err while getting the current k8s secret for apiToken: %s", err)
+		return fmt.Errorf("got err while getting the current k8s secret for apiToken: %w", err)
 	}
 
 	// If we got no error, we compare current token with desired token and update if needed.
@@ -269,7 +269,7 @@ func ensureAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, nam
 		secret.StringData = map[string]string{"token": desiredAPIToken}
 		_, err := clientset.CoreV1().Secrets(namespace).Update(ctx, secret, metav1.UpdateOptions{})
 		if err != nil {
-			return fmt.Errorf("got err while updating k8s secret for apiToken: %s", err)
+			return fmt.Errorf("got err while updating k8s secret for apiToken: %w", err)
 		}
 	}
 

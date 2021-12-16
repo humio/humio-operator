@@ -175,7 +175,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		_, err = r.HumioClient.UpdateParser(cluster.Config(), req, hp)
 		if err != nil {
 			r.Log.Error(err, "could not update parser")
-			return reconcile.Result{}, fmt.Errorf("could not update parser: %s", err)
+			return reconcile.Result{}, fmt.Errorf("could not update parser: %w", err)
 		}
 	}
 

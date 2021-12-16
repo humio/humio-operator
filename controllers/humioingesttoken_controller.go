@@ -141,7 +141,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	curToken, err := r.HumioClient.GetIngestToken(cluster.Config(), req, hit)
 	if err != nil {
 		r.Log.Error(err, "could not check if ingest token exists", "Repository.Name", hit.Spec.RepositoryName)
-		return reconcile.Result{}, fmt.Errorf("could not check if ingest token exists: %s", err)
+		return reconcile.Result{}, fmt.Errorf("could not check if ingest token exists: %w", err)
 	}
 	// If token doesn't exist, the Get returns: nil, err.
 	// How do we distinguish between "doesn't exist" and "error while executing get"?
@@ -153,7 +153,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		_, err := r.HumioClient.AddIngestToken(cluster.Config(), req, hit)
 		if err != nil {
 			r.Log.Error(err, "could not create ingest token")
-			return reconcile.Result{}, fmt.Errorf("could not create ingest token: %s", err)
+			return reconcile.Result{}, fmt.Errorf("could not create ingest token: %w", err)
 		}
 		r.Log.Info("created ingest token")
 		return reconcile.Result{Requeue: true}, nil
@@ -164,13 +164,13 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		r.Log.Info("parser name differs, triggering update", "Expected", hit.Spec.ParserName, "Got", curToken.AssignedParser)
 		_, updateErr := r.HumioClient.UpdateIngestToken(cluster.Config(), req, hit)
 		if updateErr != nil {
-			return reconcile.Result{}, fmt.Errorf("could not update ingest token: %s", updateErr)
+			return reconcile.Result{}, fmt.Errorf("could not update ingest token: %w", updateErr)
 		}
 	}
 
 	err = r.ensureTokenSecretExists(ctx, cluster.Config(), req, hit, cluster)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("could not ensure token secret exists: %s", err)
+		return reconcile.Result{}, fmt.Errorf("could not ensure token secret exists: %w", err)
 	}
 
 	// TODO: handle updates to ingest token name and repositoryName. Right now we just create the new ingest token,
@@ -219,13 +219,13 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 
 	ingestToken, err := r.HumioClient.GetIngestToken(config, req, hit)
 	if err != nil {
-		return fmt.Errorf("failed to get ingest token: %s", err)
+		return fmt.Errorf("failed to get ingest token: %w", err)
 	}
 
 	secretData := map[string][]byte{"token": []byte(ingestToken.Token)}
 	desiredSecret := kubernetes.ConstructSecret(cluster.Name(), hit.Namespace, hit.Spec.TokenSecretName, secretData, hit.Spec.TokenSecretLabels)
 	if err := controllerutil.SetControllerReference(hit, desiredSecret, r.Scheme()); err != nil {
-		return fmt.Errorf("could not set controller reference: %s", err)
+		return fmt.Errorf("could not set controller reference: %w", err)
 	}
 
 	existingSecret, err := kubernetes.GetSecret(ctx, r, hit.Spec.TokenSecretName, hit.Namespace)
@@ -233,7 +233,7 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 		if k8serrors.IsNotFound(err) {
 			err = r.Create(ctx, desiredSecret)
 			if err != nil {
-				return fmt.Errorf("unable to create ingest token secret for HumioIngestToken: %s", err)
+				return fmt.Errorf("unable to create ingest token secret for HumioIngestToken: %w", err)
 			}
 			r.Log.Info("successfully created ingest token secret", "TokenSecretName", hit.Spec.TokenSecretName)
 			humioIngestTokenPrometheusMetrics.Counters.ServiceAccountSecretsCreated.Inc()

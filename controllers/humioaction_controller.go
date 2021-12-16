@@ -83,7 +83,7 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	err = r.resolveSecrets(ctx, ha)
 	if err != nil {
 		r.Log.Error(err, "could not resolve secret references")
-		return reconcile.Result{}, fmt.Errorf("could not resolve secret references: %s", err)
+		return reconcile.Result{}, fmt.Errorf("could not resolve secret references: %w", err)
 	}
 
 	if _, err := humio.ActionFromActionCR(ha); err != nil {
@@ -160,7 +160,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 		addedAction, err := r.HumioClient.AddAction(config, req, ha)
 		if err != nil {
 			r.Log.Error(err, "could not create action")
-			return reconcile.Result{}, fmt.Errorf("could not create Action: %s", err)
+			return reconcile.Result{}, fmt.Errorf("could not create Action: %w", err)
 		}
 		r.Log.Info("Created action", "Action", ha.Spec.Name)
 
@@ -180,7 +180,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 	expectedAction, err := humio.ActionFromActionCR(ha)
 	if err != nil {
 		r.Log.Error(err, "could not parse expected action")
-		return reconcile.Result{}, fmt.Errorf("could not parse expected action: %s", err)
+		return reconcile.Result{}, fmt.Errorf("could not parse expected action: %w", err)
 	}
 	sanitizeAction(curAction)
 	sanitizeAction(expectedAction)
@@ -189,7 +189,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 		action, err := r.HumioClient.UpdateAction(config, req, ha)
 		if err != nil {
 			r.Log.Error(err, "could not update action")
-			return reconcile.Result{}, fmt.Errorf("could not update action: %s", err)
+			return reconcile.Result{}, fmt.Errorf("could not update action: %w", err)
 		}
 		if action != nil {
 			r.Log.Info(fmt.Sprintf("Updated action %q", ha.Spec.Name))

@@ -87,7 +87,7 @@ func (r *HumioClusterReconciler) waitForNewPvc(ctx context.Context, hnp *HumioNo
 		r.Log.Info(fmt.Sprintf("validating new pvc was created. waiting for pvc with name %s", expectedPvc.Name))
 		latestPvcList, err := kubernetes.ListPersistentVolumeClaims(ctx, r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
 		if err != nil {
-			return fmt.Errorf("failed to list pvcs: %s", err)
+			return fmt.Errorf("failed to list pvcs: %w", err)
 		}
 		for _, pvc := range latestPvcList {
 			if pvc.Name == expectedPvc.Name {
