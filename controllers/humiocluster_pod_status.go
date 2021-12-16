@@ -38,8 +38,7 @@ func (r *HumioClusterReconciler) getPodsStatus(hnp *HumioNodePool, foundPodList 
 		if podRevision, err := strconv.Atoi(podRevisionStr); err == nil {
 			status.podRevisions = append(status.podRevisions, podRevision)
 		} else {
-			r.Log.Error(err, fmt.Sprintf("unable to identify pod revision for pod %s", pod.Name))
-			return &status, err
+			return &status, r.logErrorAndReturn(err, fmt.Sprintf("unable to identify pod revision for pod %s", pod.Name))
 		}
 		status.podDeletionTimestampSet = append(status.podDeletionTimestampSet, pod.DeletionTimestamp != nil)
 		status.podNames = append(status.podNames, pod.Name)

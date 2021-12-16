@@ -79,8 +79,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		r.Log.Error(err, "unable to obtain humio client config")
 		err = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateConfigError, hit)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
-			return reconcile.Result{}, err
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
 		}
 		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 	}
@@ -97,8 +96,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Ingest token contains finalizer so run finalizer method")
 			if err := r.finalize(ctx, cluster.Config(), req, hit); err != nil {
-				r.Log.Error(err, "Finalizer method returned error")
-				return reconcile.Result{}, err
+				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
 
 			// Remove humioFinalizer. Once all finalizers have been
@@ -140,8 +138,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.Log.Info("get current ingest token")
 	curToken, err := r.HumioClient.GetIngestToken(cluster.Config(), req, hit)
 	if err != nil {
-		r.Log.Error(err, "could not check if ingest token exists", "Repository.Name", hit.Spec.RepositoryName)
-		return reconcile.Result{}, fmt.Errorf("could not check if ingest token exists: %w", err)
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if ingest token exists")
 	}
 	// If token doesn't exist, the Get returns: nil, err.
 	// How do we distinguish between "doesn't exist" and "error while executing get"?
@@ -152,8 +149,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// create token
 		_, err := r.HumioClient.AddIngestToken(cluster.Config(), req, hit)
 		if err != nil {
-			r.Log.Error(err, "could not create ingest token")
-			return reconcile.Result{}, fmt.Errorf("could not create ingest token: %w", err)
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create ingest token")
 		}
 		r.Log.Info("created ingest token")
 		return reconcile.Result{Requeue: true}, nil
@@ -206,8 +202,7 @@ func (r *HumioIngestTokenReconciler) addFinalizer(ctx context.Context, hit *humi
 	// Update CR
 	err := r.Update(ctx, hit)
 	if err != nil {
-		r.Log.Error(err, "Failed to update HumioIngestToken with finalizer")
-		return err
+		return r.logErrorAndReturn(err, "Failed to update HumioIngestToken with finalizer")
 	}
 	return nil
 }
@@ -244,8 +239,7 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 		if string(existingSecret.Data["token"]) != string(desiredSecret.Data["token"]) {
 			r.Log.Info("secret does not match the token in Humio. Updating token", "TokenSecretName", hit.Spec.TokenSecretName)
 			if err = r.Update(ctx, desiredSecret); err != nil {
-				r.Log.Error(err, "unable to update alert")
-				return err
+				return r.logErrorAndReturn(err, "unable to update alert")
 			}
 		}
 	}
@@ -259,4 +253,9 @@ func (r *HumioIngestTokenReconciler) setState(ctx context.Context, state string,
 	r.Log.Info(fmt.Sprintf("setting ingest token state to %s", state))
 	hit.Status.State = state
 	return r.Status().Update(ctx, hit)
+}
+
+func (r *HumioIngestTokenReconciler) logErrorAndReturn(err error, msg string) error {
+	r.Log.Error(err, msg)
+	return fmt.Errorf("%s: %w", msg, err)
 }
