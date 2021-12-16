@@ -139,7 +139,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	curRepository, err := r.HumioClient.GetRepository(cluster.Config(), req, hr)
 	if err != nil {
 		r.Log.Error(err, "could not check if repository exists")
-		return reconcile.Result{}, fmt.Errorf("could not check if repository exists: %s", err)
+		return reconcile.Result{}, fmt.Errorf("could not check if repository exists: %w", err)
 	}
 
 	emptyRepository := humioapi.Repository{}
@@ -149,7 +149,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		_, err := r.HumioClient.AddRepository(cluster.Config(), req, hr)
 		if err != nil {
 			r.Log.Error(err, "could not create repository")
-			return reconcile.Result{}, fmt.Errorf("could not create repository: %s", err)
+			return reconcile.Result{}, fmt.Errorf("could not create repository: %w", err)
 		}
 		r.Log.Info("created repository", "RepositoryName", hr.Spec.Name)
 		return reconcile.Result{Requeue: true}, nil
@@ -171,7 +171,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		_, err = r.HumioClient.UpdateRepository(cluster.Config(), req, hr)
 		if err != nil {
 			r.Log.Error(err, "could not update repository")
-			return reconcile.Result{}, fmt.Errorf("could not update repository: %s", err)
+			return reconcile.Result{}, fmt.Errorf("could not update repository: %w", err)
 		}
 	}
 

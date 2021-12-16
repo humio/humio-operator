@@ -85,7 +85,7 @@ func constructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]s
 	if envVarHasValue(podEnvVars, "USING_EPHEMERAL_DISKS", "true") {
 		nodeUUIDPrefix, err := constructNodeUUIDPrefix(hnp)
 		if err != nil {
-			return []string{""}, fmt.Errorf("unable to construct node UUID: %s", err)
+			return []string{""}, fmt.Errorf("unable to construct node UUID: %w", err)
 		}
 		shellCommands = append(shellCommands, fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s", nodeUUIDPrefix))
 	}
@@ -330,7 +330,7 @@ func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 		if attachments.envVarSourceData != nil {
 			b, err := json.Marshal(attachments.envVarSourceData)
 			if err != nil {
-				return &corev1.Pod{}, fmt.Errorf("error trying to JSON encode envVarSourceData: %s", err)
+				return &corev1.Pod{}, fmt.Errorf("error trying to JSON encode envVarSourceData: %w", err)
 			}
 			pod.Annotations[envVarSourceHashAnnotation] = helpers.AsSHA256(string(b))
 		}
@@ -607,7 +607,7 @@ func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 
 	containerArgs, err := constructContainerArgs(hnp, pod.Spec.Containers[humioIdx].Env)
 	if err != nil {
-		return &corev1.Pod{}, fmt.Errorf("unable to construct node container args: %s", err)
+		return &corev1.Pod{}, fmt.Errorf("unable to construct node container args: %w", err)
 	}
 	pod.Spec.Containers[humioIdx].Args = containerArgs
 
@@ -822,7 +822,7 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 	if attachments.envVarSourceData != nil {
 		b, err := json.Marshal(attachments.envVarSourceData)
 		if err != nil {
-			return &corev1.Pod{}, fmt.Errorf("error trying to JSON encode envVarSourceData: %s", err)
+			return &corev1.Pod{}, fmt.Errorf("error trying to JSON encode envVarSourceData: %w", err)
 		}
 		pod.Annotations[envVarSourceHashAnnotation] = helpers.AsSHA256(string(b))
 	}
@@ -1019,16 +1019,16 @@ func findHumioNodeName(ctx context.Context, c client.Client, hnp *HumioNodePool)
 func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *HumioNodePool, foundPodList []corev1.Pod) (*podAttachments, error) {
 	pvcList, err := r.pvcList(ctx, hnp)
 	if err != nil {
-		return &podAttachments{}, fmt.Errorf("problem getting pvc list: %s", err)
+		return &podAttachments{}, fmt.Errorf("problem getting pvc list: %w", err)
 	}
 	r.Log.Info(fmt.Sprintf("attempting to get volume source, pvc count is %d, pod count is %d", len(pvcList), len(foundPodList)))
 	volumeSource, err := volumeSource(hnp, foundPodList, pvcList)
 	if err != nil {
-		return &podAttachments{}, fmt.Errorf("unable to construct data volume source for HumioCluster: %s", err)
+		return &podAttachments{}, fmt.Errorf("unable to construct data volume source for HumioCluster: %w", err)
 	}
 	authSASecretName, err := r.getAuthServiceAccountSecretName(ctx, hnp)
 	if err != nil {
-		return &podAttachments{}, fmt.Errorf("unable get auth service account secret for HumioCluster: %s", err)
+		return &podAttachments{}, fmt.Errorf("unable get auth service account secret for HumioCluster: %w", err)
 
 	}
 	if authSASecretName == "" {
@@ -1043,7 +1043,7 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 
 	initSASecretName, err := r.getInitServiceAccountSecretName(ctx, hnp)
 	if err != nil {
-		return &podAttachments{}, fmt.Errorf("unable get init service account secret for HumioCluster: %s", err)
+		return &podAttachments{}, fmt.Errorf("unable get init service account secret for HumioCluster: %w", err)
 	}
 	if initSASecretName == "" {
 		return &podAttachments{}, errors.New("unable to create Pod for HumioCluster: the init service account secret does not exist")
@@ -1051,7 +1051,7 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 
 	envVarSourceData, err := r.getEnvVarSource(ctx, hnp)
 	if err != nil {
-		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster: %s", err)
+		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster: %w", err)
 	}
 
 	return &podAttachments{

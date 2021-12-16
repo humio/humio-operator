@@ -1456,7 +1456,7 @@ func (r *HumioClusterReconciler) ensurePvcLabels(ctx context.Context, hnp *Humio
 	}
 	nodeId, err := strconv.Atoi(pod.Labels[kubernetes.NodeIdLabelName])
 	if err != nil {
-		return fmt.Errorf("unable to set label on pvc, nodeid %v is invalid: %s", pod.Labels[kubernetes.NodeIdLabelName], err)
+		return fmt.Errorf("unable to set label on pvc, nodeid %v is invalid: %w", pod.Labels[kubernetes.NodeIdLabelName], err)
 	}
 	labels := hnp.GetNodePoolLabels()
 	labels[kubernetes.NodeIdLabelName] = strconv.Itoa(nodeId)
@@ -1507,7 +1507,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 
 	existingLicense, err := r.HumioClient.GetLicense(cluster.Config(), req)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get license: %s", err)
+		return ctrl.Result{}, fmt.Errorf("failed to get license: %w", err)
 	}
 
 	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
@@ -1532,7 +1532,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	// Confirm we can parse the license provided in the HumioCluster resource
 	desiredLicense, err := humio.ParseLicense(licenseStr)
 	if err != nil {
-		r.Log.Error(err, fmt.Sprintf("license was supplied but could not be parsed %s", err))
+		r.Log.Error(err, fmt.Sprintf("license was supplied but could not be parsed %w", err))
 		return reconcile.Result{}, err
 	}
 
@@ -1558,7 +1558,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 		existingLicense.ExpiresAt() != desiredLicense.ExpiresAt() {
 		r.Log.Info(fmt.Sprintf("updating license because of: existingLicense.IssuedAt(%s) != desiredLicense.IssuedAt(%s) || existingLicense.ExpiresAt(%s) != desiredLicense.ExpiresAt(%s)", existingLicense.IssuedAt(), desiredLicense.IssuedAt(), existingLicense.ExpiresAt(), desiredLicense.ExpiresAt()))
 		if err = r.HumioClient.InstallLicense(cluster.Config(), req, licenseStr); err != nil {
-			return reconcile.Result{}, fmt.Errorf("could not install license: %s", err)
+			return reconcile.Result{}, fmt.Errorf("could not install license: %w", err)
 		}
 
 		r.Log.Info(fmt.Sprintf("successfully installed license: issued: %s, expires: %s",
@@ -1567,7 +1567,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 		// refresh the existing license for the status update
 		existingLicense, err = r.HumioClient.GetLicense(cluster.Config(), req)
 		if err != nil {
-			r.Log.Error(err, "failed to get updated license: %v", err)
+			r.Log.Error(err, "failed to get updated license: %w", err)
 		}
 		return reconcile.Result{}, nil
 	}

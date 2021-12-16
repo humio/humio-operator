@@ -148,7 +148,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, config *
 		addedAlert, err := r.HumioClient.AddAlert(config, req, ha)
 		if err != nil {
 			r.Log.Error(err, "could not create alert")
-			return reconcile.Result{}, fmt.Errorf("could not create alert: %s", err)
+			return reconcile.Result{}, fmt.Errorf("could not create alert: %w", err)
 		}
 		r.Log.Info("Created alert", "Alert", ha.Spec.Name)
 
@@ -168,12 +168,12 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, config *
 	actionIdMap, err := r.HumioClient.GetActionIDsMapForAlerts(config, req, ha)
 	if err != nil {
 		r.Log.Error(err, "could not get action id mapping")
-		return reconcile.Result{}, fmt.Errorf("could not get action id mapping: %s", err)
+		return reconcile.Result{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
 	expectedAlert, err := humio.AlertTransform(ha, actionIdMap)
 	if err != nil {
 		r.Log.Error(err, "could not parse expected alert")
-		return reconcile.Result{}, fmt.Errorf("could not parse expected Alert: %s", err)
+		return reconcile.Result{}, fmt.Errorf("could not parse expected Alert: %w", err)
 	}
 
 	sanitizeAlert(curAlert)
@@ -184,7 +184,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, config *
 		alert, err := r.HumioClient.UpdateAlert(config, req, ha)
 		if err != nil {
 			r.Log.Error(err, "could not update alert")
-			return reconcile.Result{}, fmt.Errorf("could not update alert: %s", err)
+			return reconcile.Result{}, fmt.Errorf("could not update alert: %w", err)
 		}
 		if alert != nil {
 			r.Log.Info(fmt.Sprintf("Updated alert %q", alert.Name))
