@@ -263,8 +263,7 @@ func (r *HumioClusterReconciler) updateNodeCertificates(ctx context.Context, hc 
 				desiredCertificate.Annotations[certHashAnnotation] = desiredCertificateHash
 				r.Log.Info(fmt.Sprintf("updating node TLS certificate with name %s", desiredCertificate.Name))
 				if err := controllerutil.SetControllerReference(hc, &desiredCertificate, r.Scheme()); err != nil {
-					r.Log.Error(err, "could not set controller reference")
-					return existingNodeCertCount, err
+					return existingNodeCertCount, r.logErrorAndReturn(err, "could not set controller reference")
 				}
 				err = r.Update(ctx, &desiredCertificate)
 				if err != nil {

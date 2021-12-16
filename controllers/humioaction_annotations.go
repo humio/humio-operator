@@ -17,15 +17,13 @@ func (r *HumioActionReconciler) reconcileHumioActionAnnotations(ctx context.Cont
 	actionCR := &humiov1alpha1.HumioAction{}
 	err := r.Get(ctx, req.NamespacedName, actionCR)
 	if err != nil {
-		r.Log.Error(err, "failed to add ID annotation to action")
-		return reconcile.Result{}, err
+		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to add ID annotation to action")
 	}
 
 	// Copy annotations from the actions transformer to get the current action ID
 	action, err := humio.CRActionFromAPIAction(addedAction)
 	if err != nil {
-		r.Log.Error(err, "failed to add ID annotation to action")
-		return reconcile.Result{}, err
+		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to add ID annotation to action")
 	}
 	if len(actionCR.ObjectMeta.Annotations) < 1 {
 		actionCR.ObjectMeta.Annotations = make(map[string]string)
@@ -36,8 +34,7 @@ func (r *HumioActionReconciler) reconcileHumioActionAnnotations(ctx context.Cont
 
 	err = r.Update(ctx, actionCR)
 	if err != nil {
-		r.Log.Error(err, "failed to add ID annotation to action")
-		return reconcile.Result{}, err
+		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to add ID annotation to action")
 	}
 
 	r.Log.Info("Added ID to Action", "Action", ha.Spec.Name)

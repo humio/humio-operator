@@ -798,25 +798,21 @@ func podSpecAsSHA256(hnp *HumioNodePool, sourcePod corev1.Pod) string {
 func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, attachments *podAttachments) (*corev1.Pod, error) {
 	podName, err := findHumioNodeName(ctx, r, hnp)
 	if err != nil {
-		r.Log.Error(err, "unable to find pod name")
-		return &corev1.Pod{}, err
+		return &corev1.Pod{}, r.logErrorAndReturn(err, "unable to find pod name")
 	}
 
 	pod, err := constructPod(hnp, podName, attachments)
 	if err != nil {
-		r.Log.Error(err, "unable to construct pod")
-		return &corev1.Pod{}, err
+		return &corev1.Pod{}, r.logErrorAndReturn(err, "unable to construct pod")
 	}
 
 	if err := controllerutil.SetControllerReference(hc, pod, r.Scheme()); err != nil {
-		r.Log.Error(err, "could not set controller reference")
-		return &corev1.Pod{}, err
+		return &corev1.Pod{}, r.logErrorAndReturn(err, "could not set controller reference")
 	}
 	r.Log.Info(fmt.Sprintf("pod %s will use attachments %+v", pod.Name, attachments))
 	pod.Annotations[podHashAnnotation] = podSpecAsSHA256(hnp, *pod)
 	if err := controllerutil.SetControllerReference(hc, pod, r.Scheme()); err != nil {
-		r.Log.Error(err, "could not set controller reference")
-		return &corev1.Pod{}, err
+		return &corev1.Pod{}, r.logErrorAndReturn(err, "could not set controller reference")
 	}
 
 	if attachments.envVarSourceData != nil {
@@ -934,8 +930,7 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 			// if pod spec differs, we want to delete it
 			desiredPod, err := constructPod(hnp, "", attachments)
 			if err != nil {
-				r.Log.Error(err, "could not construct pod")
-				return podLifecycleState{}, err
+				return podLifecycleState{}, r.logErrorAndReturn(err, "could not construct pod")
 			}
 
 			podsMatchTest, err := r.podsMatch(hnp, pod, *desiredPod)
