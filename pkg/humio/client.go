@@ -323,7 +323,7 @@ func (h *ClientConfig) AddRepository(config *humioapi.Config, req reconcile.Requ
 func (h *ClientConfig) GetRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
 	repoList, err := h.GetHumioClient(config, req).Repositories().List()
 	if err != nil {
-		return &humioapi.Repository{}, fmt.Errorf("could not list repositories: %s", err)
+		return &humioapi.Repository{}, fmt.Errorf("could not list repositories: %w", err)
 	}
 	for _, repo := range repoList {
 		if repo.Name == hr.Spec.Name {
@@ -399,7 +399,7 @@ func (h *ClientConfig) DeleteRepository(config *humioapi.Config, req reconcile.R
 func (h *ClientConfig) GetView(config *humioapi.Config, req reconcile.Request, hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
 	viewList, err := h.GetHumioClient(config, req).Views().List()
 	if err != nil {
-		return &humioapi.View{}, fmt.Errorf("could not list views: %s", err)
+		return &humioapi.View{}, fmt.Errorf("could not list views: %w", err)
 	}
 	for _, v := range viewList {
 		if v.Name == hv.Spec.Name {
@@ -461,7 +461,7 @@ func (h *ClientConfig) validateView(config *humioapi.Config, req reconcile.Reque
 
 	viewResult, err := h.GetView(config, req, view)
 	if err != nil {
-		return fmt.Errorf("failed to verify view %s exists. error: %s", viewName, err)
+		return fmt.Errorf("failed to verify view %s exists. error: %w", viewName, err)
 	}
 
 	emptyView := &humioapi.View{}
@@ -475,12 +475,12 @@ func (h *ClientConfig) validateView(config *humioapi.Config, req reconcile.Reque
 func (h *ClientConfig) GetAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
-		return nil, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
+		return nil, fmt.Errorf("problem getting view for action %s: %w", ha.Spec.Name, err)
 	}
 
 	action, err := h.GetHumioClient(config, req).Actions().Get(ha.Spec.ViewName, ha.Spec.Name)
 	if err != nil {
-		return action, fmt.Errorf("error when trying to get action %+v, name=%s, view=%s: %s", action, ha.Spec.Name, ha.Spec.ViewName, err)
+		return action, fmt.Errorf("error when trying to get action %+v, name=%s, view=%s: %w", action, ha.Spec.Name, ha.Spec.ViewName, err)
 	}
 
 	if action == nil || action.Name == "" {
@@ -493,7 +493,7 @@ func (h *ClientConfig) GetAction(config *humioapi.Config, req reconcile.Request,
 func (h *ClientConfig) AddAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
-		return nil, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
+		return nil, fmt.Errorf("problem getting view for action %s: %w", ha.Spec.Name, err)
 	}
 
 	action, err := ActionFromActionCR(ha)
@@ -503,7 +503,7 @@ func (h *ClientConfig) AddAction(config *humioapi.Config, req reconcile.Request,
 
 	createdAction, err := h.GetHumioClient(config, req).Actions().Add(ha.Spec.ViewName, action)
 	if err != nil {
-		return createdAction, fmt.Errorf("got error when attempting to add action: %s", err)
+		return createdAction, fmt.Errorf("got error when attempting to add action: %w", err)
 	}
 	return createdAction, nil
 }
@@ -511,7 +511,7 @@ func (h *ClientConfig) AddAction(config *humioapi.Config, req reconcile.Request,
 func (h *ClientConfig) UpdateAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
-		return nil, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
+		return nil, fmt.Errorf("problem getting view for action %s: %w", ha.Spec.Name, err)
 	}
 
 	action, err := ActionFromActionCR(ha)
@@ -545,12 +545,12 @@ func (h *ClientConfig) InstallLicense(config *humioapi.Config, req reconcile.Req
 func (h *ClientConfig) GetAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
 	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
-		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action %s: %s", ha.Spec.Name, err)
+		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action %s: %w", ha.Spec.Name, err)
 	}
 
 	alert, err := h.GetHumioClient(config, req).Alerts().Get(ha.Spec.ViewName, ha.Spec.Name)
 	if err != nil {
-		return alert, fmt.Errorf("error when trying to get alert %+v, name=%s, view=%s: %s", alert, ha.Spec.Name, ha.Spec.ViewName, err)
+		return alert, fmt.Errorf("error when trying to get alert %+v, name=%s, view=%s: %w", alert, ha.Spec.Name, ha.Spec.ViewName, err)
 	}
 
 	if alert == nil || alert.Name == "" {
@@ -563,12 +563,12 @@ func (h *ClientConfig) GetAlert(config *humioapi.Config, req reconcile.Request, 
 func (h *ClientConfig) AddAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
 	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
-		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action: %s", err)
+		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action: %w", err)
 	}
 
 	actionIdMap, err := h.GetActionIDsMapForAlerts(config, req, ha)
 	if err != nil {
-		return &humioapi.Alert{}, fmt.Errorf("could not get action id mapping: %s", err)
+		return &humioapi.Alert{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
 	alert, err := AlertTransform(ha, actionIdMap)
 	if err != nil {
@@ -577,7 +577,7 @@ func (h *ClientConfig) AddAlert(config *humioapi.Config, req reconcile.Request, 
 
 	createdAlert, err := h.GetHumioClient(config, req).Alerts().Add(ha.Spec.ViewName, alert)
 	if err != nil {
-		return createdAlert, fmt.Errorf("got error when attempting to add alert: %s, alert: %#v", err, *alert)
+		return createdAlert, fmt.Errorf("got error when attempting to add alert: %w, alert: %#v", err, *alert)
 	}
 	return createdAlert, nil
 }
@@ -585,12 +585,12 @@ func (h *ClientConfig) AddAlert(config *humioapi.Config, req reconcile.Request, 
 func (h *ClientConfig) UpdateAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
 	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
-		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action: %s", err)
+		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action: %w", err)
 	}
 
 	actionIdMap, err := h.GetActionIDsMapForAlerts(config, req, ha)
 	if err != nil {
-		return &humioapi.Alert{}, fmt.Errorf("could not get action id mapping: %s", err)
+		return &humioapi.Alert{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
 	alert, err := AlertTransform(ha, actionIdMap)
 	if err != nil {
@@ -620,7 +620,7 @@ func (h *ClientConfig) getAndValidateAction(config *humioapi.Config, req reconci
 
 	actionResult, err := h.GetAction(config, req, action)
 	if err != nil {
-		return actionResult, fmt.Errorf("failed to verify action %s exists. error: %s", actionName, err)
+		return actionResult, fmt.Errorf("failed to verify action %s exists. error: %w", actionName, err)
 	}
 
 	emptyAction := &humioapi.Action{}
@@ -636,7 +636,7 @@ func (h *ClientConfig) GetActionIDsMapForAlerts(config *humioapi.Config, req rec
 	for _, actionNameForAlert := range ha.Spec.Actions {
 		action, err := h.getAndValidateAction(config, req, actionNameForAlert, ha.Spec.ViewName)
 		if err != nil {
-			return actionIdMap, fmt.Errorf("problem getting action for alert %s: %s", ha.Spec.Name, err)
+			return actionIdMap, fmt.Errorf("problem getting action for alert %s: %w", ha.Spec.Name, err)
 		}
 		actionIdMap[actionNameForAlert] = action.ID
 

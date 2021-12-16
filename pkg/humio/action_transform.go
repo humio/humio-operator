@@ -153,7 +153,7 @@ func CRActionFromAPIAction(action *humioapi.Action) (*humiov1alpha1.HumioAction,
 func ActionFromActionCR(ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	at, err := actionType(ha)
 	if err != nil {
-		return nil, fmt.Errorf("could not find action type: %s", err)
+		return nil, fmt.Errorf("could not find action type: %w", err)
 	}
 	switch at {
 	case ActionTypeEmail:

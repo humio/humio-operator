@@ -261,7 +261,7 @@ func (h *MockClientConfig) GetLicense(config *humioapi.Config, req reconcile.Req
 func (h *MockClientConfig) InstallLicense(config *humioapi.Config, req reconcile.Request, licenseString string) error {
 	onPremLicense, err := ParseLicenseType(licenseString)
 	if err != nil {
-		return fmt.Errorf("failed to parse license type: %s", err)
+		return fmt.Errorf("failed to parse license type: %w", err)
 	}
 
 	if onPremLicense != nil {
@@ -307,7 +307,7 @@ func (h *MockClientConfig) GetAlert(config *humioapi.Config, req reconcile.Reque
 func (h *MockClientConfig) AddAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
 	actionIdMap, err := h.GetActionIDsMapForAlerts(config, req, ha)
 	if err != nil {
-		return &humioapi.Alert{}, fmt.Errorf("could not get action id mapping: %s", err)
+		return &humioapi.Alert{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
 	alert, err := AlertTransform(ha, actionIdMap)
 	if err != nil {

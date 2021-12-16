@@ -161,7 +161,7 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 				Name:      fmt.Sprintf("%s-%s", c.managedClusterName, kubernetes.ServiceTokenSecretNameSuffix),
 			}, &apiToken)
 			if err != nil {
-				return nil, fmt.Errorf("unable to get secret containing api token: %s", err)
+				return nil, fmt.Errorf("unable to get secret containing api token: %w", err)
 			}
 			config.Token = string(apiToken.Data["token"])
 		}
@@ -179,7 +179,7 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 			Name:      c.managedClusterName,
 		}, &caCertificate)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get CA certificate: %s", err)
+			return nil, fmt.Errorf("unable to get CA certificate: %w", err)
 		}
 
 		config.CACertificatePEM = string(caCertificate.Data["ca.crt"])
@@ -215,7 +215,7 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 		Name:      humioExternalCluster.Spec.APITokenSecretName,
 	}, &apiToken)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get secret containing api token: %s", err)
+		return nil, fmt.Errorf("unable to get secret containing api token: %w", err)
 	}
 
 	clusterURL, err := url.Parse(humioExternalCluster.Spec.Url)
@@ -240,7 +240,7 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 			Name:      humioExternalCluster.Spec.CASecretName,
 		}, &caCertificate)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get CA certificate: %s", err)
+			return nil, fmt.Errorf("unable to get CA certificate: %w", err)
 		}
 		return &humioapi.Config{
 			Address:          clusterURL,
