@@ -32,6 +32,15 @@ const (
 	HumioClusterStateConfigError = "ConfigError"
 	// HumioClusterStatePending is the state of the cluster when waiting on resources to be provisioned
 	HumioClusterStatePending = "Pending"
+	// HumioClusterUpdateStrategyOnDelete is the update strategy that will not terminate existing pods but will allow new pods to be created with the new spec
+	HumioClusterUpdateStrategyOnDelete = "OnDelete"
+	// HumioClusterUpdateStrategyRollingUpdate is the update strategy that will always cause pods to be replaced one at a time
+	HumioClusterUpdateStrategyRollingUpdate = "RollingUpdate"
+	// HumioClusterUpdateStrategyReplaceAllOnUpdate is the update strategy that will replace all pods at the same time during an update.
+	HumioClusterUpdateStrategyReplaceAllOnUpdate = "ReplaceAllOnUpdate"
+	// HumioClusterUpdateStrategyRollingUpdateBestEffort is the update strategy where the operator will evaluate the Humio version change and determine if the
+	// Humio pods can be updated in a rolling fashion or if they must be replaced at the same time
+	HumioClusterUpdateStrategyRollingUpdateBestEffort = "RollingUpdateBestEffort"
 )
 
 // HumioClusterSpec defines the desired state of HumioCluster
@@ -211,6 +220,31 @@ type HumioNodeSpec struct {
 
 	// PodLabels can be used to specify labels that will be added to the Humio pods
 	PodLabels map[string]string `json:"podLabels,omitempty"`
+
+	// UpdateStrategy controls how Humio pods are updated when changes are made to the HumioCluster resource that results
+	// in a change to the Humio pods
+	UpdateStrategy *HumioUpdateStrategy `json:"updateStrategy,omitempty"`
+}
+
+type HumioUpdateStrategy struct {
+	// Type controls how Humio pods are updated  when changes are made to the HumioCluster resource that results
+	// in a change to the Humio pods. The available values are: OnDelete, RollingUpdate, ReplaceAllOnUpdate, and
+	// RollingUpdateBestEffort.
+	///
+	// When set to OnDelete, no Humio pods will be terminated but new pods will be created with the new spec. Replacing
+	// existing pods will require each pod to be deleted by the user.
+	//
+	// When set to RollingUpdate, pods will always be replaced one pod at a time. There may be some Humio updates where
+	// rolling updates are not supported, so it is not recommended to have this set all the time.
+	//
+	// When set to ReplaceAllOnUpdate, all Humio pods will be replaced at the same time during an update. Pods will still
+	// be replaced one at a time when there are other configuration changes such as updates to pod environment variables.
+	// This is the default behavior.
+	//
+	// When set to RollingUpdateBestEffort, the operator will evaluate the Humio version change and determine if the
+	// Humio pods can be updated in a rolling fashion or if they must be replaced at the same time.
+	// +kubebuilder:validation:Enum=OnDelete;RollingUpdate;ReplaceAllOnUpdate;RollingUpdateBestEffort
+	Type string `json:"type,omitempty"`
 }
 
 type HumioNodePoolSpec struct {
