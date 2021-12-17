@@ -30,6 +30,9 @@ import (
 	"strings"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/retry"
+
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
@@ -265,7 +268,18 @@ func (r *HumioClusterReconciler) updateNodeCertificates(ctx context.Context, hc 
 				if err := controllerutil.SetControllerReference(hc, &desiredCertificate, r.Scheme()); err != nil {
 					return existingNodeCertCount, r.logErrorAndReturn(err, "could not set controller reference")
 				}
-				err = r.Update(ctx, &desiredCertificate)
+				err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					err := r.Get(ctx, types.NamespacedName{
+						Namespace: desiredCertificate.Namespace,
+						Name:      desiredCertificate.Name,
+					}, &desiredCertificate)
+					if err != nil {
+						if !k8serrors.IsNotFound(err) {
+							return err
+						}
+					}
+					return r.Update(ctx, &desiredCertificate)
+				})
 				if err != nil {
 					return existingNodeCertCount, err
 				}
