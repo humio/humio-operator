@@ -565,14 +565,15 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Image Rolling Best Effort Stable", func() {
+	// Disabled until patched humio version is rolled out
+	XContext("Humio Cluster Update Image Rolling Best Effort Stable", func() {
 		It("Update should correctly replace pods to use new image in a rolling fashion for stable updates", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image-rolling-stable",
 				Namespace: testProcessID,
 			}
 			toCreate := constructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.30.6"
+			toCreate.Spec.Image = "humio/humio-core:1.x.x"
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
