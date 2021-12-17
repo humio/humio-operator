@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	"reflect"
@@ -72,47 +73,33 @@ func (r *HumioAlertReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 
-	setAlertDefaults(ha)
-
 	cluster, err := helpers.NewCluster(ctx, r, ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName, ha.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
 		err = r.setState(ctx, humiov1alpha1.HumioAlertStateConfigError, ha)
 		if err != nil {
-			r.Log.Error(err, "unable to set Alert state")
-			return reconcile.Result{}, err
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set alert state")
 		}
 		return reconcile.Result{}, err
 	}
 
-	curAlert, err := r.HumioClient.GetAlert(cluster.Config(), req, ha)
-	if curAlert != nil && err != nil {
-		r.Log.Error(err, "got unexpected error when checking if Alert exists")
-		err = r.setState(ctx, humiov1alpha1.HumioAlertStateUnknown, ha)
-		if err != nil {
-			r.Log.Error(err, "unable to set Alert state")
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{}, fmt.Errorf("could not check if Alert exists: %s", err)
-	}
-
 	defer func(ctx context.Context, humioClient humio.Client, ha *humiov1alpha1.HumioAlert) {
 		curAlert, err := r.HumioClient.GetAlert(cluster.Config(), req, ha)
-		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioAlertStateConfigError, ha)
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			_ = r.setState(ctx, humiov1alpha1.HumioAlertStateNotFound, ha)
 			return
 		}
-		if curAlert == nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioAlertStateNotFound, ha)
+		if err != nil || curAlert == nil {
+			_ = r.setState(ctx, humiov1alpha1.HumioAlertStateConfigError, ha)
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioAlertStateExists, ha)
 	}(ctx, r.HumioClient, ha)
 
-	return r.reconcileHumioAlert(ctx, cluster.Config(), curAlert, ha, req)
+	return r.reconcileHumioAlert(ctx, cluster.Config(), ha, req)
 }
 
-func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, config *humioapi.Config, curAlert *humioapi.Alert, ha *humiov1alpha1.HumioAlert, req ctrl.Request) (reconcile.Result, error) {
+func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, config *humioapi.Config, ha *humiov1alpha1.HumioAlert, req ctrl.Request) (reconcile.Result, error) {
 	// Delete
 	r.Log.Info("Checking if alert is marked to be deleted")
 	isMarkedForDeletion := ha.GetDeletionTimestamp() != nil
@@ -124,8 +111,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, config *
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting alert")
 			if err := r.HumioClient.DeleteAlert(config, req, ha); err != nil {
-				r.Log.Error(err, "Delete alert returned error")
-				return reconcile.Result{}, err
+				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete alert returned error")
 			}
 
 			r.Log.Info("Alert Deleted. Removing finalizer")
@@ -154,12 +140,12 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, config *
 
 	r.Log.Info("Checking if alert needs to be created")
 	// Add Alert
-	if curAlert == nil {
+	curAlert, err := r.HumioClient.GetAlert(config, req, ha)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
 		r.Log.Info("Alert doesn't exist. Now adding alert")
 		addedAlert, err := r.HumioClient.AddAlert(config, req, ha)
 		if err != nil {
-			r.Log.Error(err, "could not create alert")
-			return reconcile.Result{}, fmt.Errorf("could not create alert: %s", err)
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create alert")
 		}
 		r.Log.Info("Created alert", "Alert", ha.Spec.Name)
 
@@ -169,27 +155,29 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, config *
 		}
 		return reconcile.Result{Requeue: true}, nil
 	}
+	if err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if alert exists")
+	}
 
 	r.Log.Info("Checking if alert needs to be updated")
 	// Update
 	actionIdMap, err := r.HumioClient.GetActionIDsMapForAlerts(config, req, ha)
 	if err != nil {
-		r.Log.Error(err, "could not get action id mapping")
-		return reconcile.Result{}, fmt.Errorf("could not get action id mapping: %s", err)
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not get action id mapping")
 	}
 	expectedAlert, err := humio.AlertTransform(ha, actionIdMap)
 	if err != nil {
-		r.Log.Error(err, "could not parse expected alert")
-		return reconcile.Result{}, fmt.Errorf("could not parse expected Alert: %s", err)
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not parse expected Alert")
 	}
+
+	sanitizeAlert(curAlert)
 	if !reflect.DeepEqual(*curAlert, *expectedAlert) {
 		r.Log.Info(fmt.Sprintf("Alert differs, triggering update, expected %#v, got: %#v",
 			expectedAlert,
 			curAlert))
 		alert, err := r.HumioClient.UpdateAlert(config, req, ha)
 		if err != nil {
-			r.Log.Error(err, "could not update alert")
-			return reconcile.Result{}, fmt.Errorf("could not update alert: %s", err)
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update alert")
 		}
 		if alert != nil {
 			r.Log.Info(fmt.Sprintf("Updated alert %q", alert.Name))
@@ -214,4 +202,15 @@ func (r *HumioAlertReconciler) setState(ctx context.Context, state string, ha *h
 	r.Log.Info(fmt.Sprintf("setting alert state to %s", state))
 	ha.Status.State = state
 	return r.Status().Update(ctx, ha)
+}
+
+func (r *HumioAlertReconciler) logErrorAndReturn(err error, msg string) error {
+	r.Log.Error(err, msg)
+	return fmt.Errorf("%s: %w", msg, err)
+}
+
+func sanitizeAlert(alert *humioapi.Alert) {
+	alert.TimeOfLastTrigger = 0
+	alert.ID = ""
+	alert.LastError = ""
 }

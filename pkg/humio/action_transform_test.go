@@ -9,14 +9,14 @@ import (
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
 
-func TestActionAsNotifier(t *testing.T) {
+func TestActionCRAsAction(t *testing.T) {
 	type args struct {
 		ha *humiov1alpha1.HumioAction
 	}
 	tests := []struct {
 		name           string
 		args           args
-		want           *humioapi.Notifier
+		want           *humioapi.Action
 		wantErr        bool
 		wantErrMessage string
 	}{
@@ -30,9 +30,9 @@ func TestActionAsNotifier(t *testing.T) {
 					},
 				},
 			},
-			&humioapi.Notifier{},
+			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property emailProperties.recipients is required", humioapi.NotifierTypeEmail),
+			fmt.Sprintf("%s failed due to errors: property emailProperties.recipients is required", ActionTypeEmail),
 		},
 		{
 			"missing required humioRepository.ingestToken",
@@ -44,9 +44,9 @@ func TestActionAsNotifier(t *testing.T) {
 					},
 				},
 			},
-			&humioapi.Notifier{},
+			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property humioRepository.ingestToken is required", humioapi.NotifierTypeHumioRepo),
+			fmt.Sprintf("%s failed due to errors: property humioRepositoryProperties.ingestToken is required", ActionTypeHumioRepo),
 		},
 		{
 			"missing required opsGenieProperties.genieKey",
@@ -58,9 +58,9 @@ func TestActionAsNotifier(t *testing.T) {
 					},
 				},
 			},
-			&humioapi.Notifier{},
+			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property opsGenieProperties.genieKey is required", humioapi.NotifierTypeOpsGenie),
+			fmt.Sprintf("%s failed due to errors: property opsGenieProperties.genieKey is required, property opsGenieProperties.apiUrl is required", ActionTypeOpsGenie),
 		},
 		{
 			"missing required pagerDutyProperties",
@@ -72,9 +72,9 @@ func TestActionAsNotifier(t *testing.T) {
 					},
 				},
 			},
-			&humioapi.Notifier{},
+			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property pagerDutyProperties.routingKey is required, property pagerDutyProperties.severity is required", humioapi.NotifierTypePagerDuty),
+			fmt.Sprintf("%s failed due to errors: property pagerDutyProperties.routingKey is required, property pagerDutyProperties.severity is required", ActionTypePagerDuty),
 		},
 		{
 			"missing required slackProperties",
@@ -86,9 +86,9 @@ func TestActionAsNotifier(t *testing.T) {
 					},
 				},
 			},
-			&humioapi.Notifier{},
+			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property slackProperties.fields is required, invalid url for slackProperties.url: parse \"\": empty url", humioapi.NotifierTypeSlack),
+			fmt.Sprintf("%s failed due to errors: property slackProperties.fields is required, invalid url for slackProperties.url: parse \"\": empty url", ActionTypeSlack),
 		},
 		{
 			"missing required slackPostMessageProperties",
@@ -100,9 +100,9 @@ func TestActionAsNotifier(t *testing.T) {
 					},
 				},
 			},
-			&humioapi.Notifier{},
+			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property slackPostMessageProperties.apiToken is required, property slackPostMessageProperties.channels is required, property slackPostMessageProperties.fields is required", humioapi.NotifierTypeSlackPostMessage),
+			fmt.Sprintf("%s failed due to errors: property slackPostMessageProperties.apiToken is required, property slackPostMessageProperties.channels is required, property slackPostMessageProperties.fields is required", ActionTypeSlackPostMessage),
 		},
 		{
 			"missing required victorOpsProperties",
@@ -114,9 +114,9 @@ func TestActionAsNotifier(t *testing.T) {
 					},
 				},
 			},
-			&humioapi.Notifier{},
+			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property victorOpsProperties.messageType is required, property victorOpsProperties.notifyUrl is required", humioapi.NotifierTypeVictorOps),
+			fmt.Sprintf("%s failed due to errors: property victorOpsProperties.messageType is required, invalid url for victorOpsProperties.notifyUrl: parse \"\": empty url", ActionTypeVictorOps),
 		},
 		{
 			"missing required webhookProperties",
@@ -128,9 +128,9 @@ func TestActionAsNotifier(t *testing.T) {
 					},
 				},
 			},
-			&humioapi.Notifier{},
+			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property webhookProperties.bodyTemplate is required, property webhookProperties.headers is required, property webhookProperties.method is required, property webhookProperties.url is required", humioapi.NotifierTypeWebHook),
+			fmt.Sprintf("%s failed due to errors: property webhookProperties.bodyTemplate is required, property webhookProperties.headers is required, property webhookProperties.method is required, invalid url for webhookProperties.url: parse \"\": empty url", ActionTypeWebhook),
 		},
 		{
 			"invalid pagerDutyProperties.severity",
@@ -145,9 +145,9 @@ func TestActionAsNotifier(t *testing.T) {
 					},
 				},
 			},
-			&humioapi.Notifier{},
+			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: unsupported severity for PagerdutyProperties: \"invalid\". must be one of: critical, error, warning, info", humioapi.NotifierTypePagerDuty),
+			fmt.Sprintf("%s failed due to errors: unsupported severity for pagerDutyProperties: \"invalid\". must be one of: critical, error, warning, info", ActionTypePagerDuty),
 		},
 		{
 			"invalid victorOpsProperties.messageType",
@@ -162,9 +162,9 @@ func TestActionAsNotifier(t *testing.T) {
 					},
 				},
 			},
-			&humioapi.Notifier{},
+			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: unsupported messageType for victorOpsProperties: \"invalid\". must be one of: critical, warning, acknowledgement, info, recovery", humioapi.NotifierTypeVictorOps),
+			fmt.Sprintf("%s failed due to errors: unsupported messageType for victorOpsProperties: \"invalid\". must be one of: critical, warning, acknowledgement, info, recovery", ActionTypeVictorOps),
 		},
 		{
 			"invalid action multiple properties",
@@ -177,9 +177,9 @@ func TestActionAsNotifier(t *testing.T) {
 					},
 				},
 			},
-			&humioapi.Notifier{},
+			nil,
 			true,
-			"could not find action type: found properties for more than one action: victorOpsProperties, emailProperties",
+			fmt.Sprintf("could not find action type: found properties for more than one action: %s, %s", ActionTypeVictorOps, ActionTypeEmail),
 		},
 		{
 			"invalid action missing properties",
@@ -190,23 +190,23 @@ func TestActionAsNotifier(t *testing.T) {
 					},
 				},
 			},
-			&humioapi.Notifier{},
+			nil,
 			true,
 			"could not find action type: no properties specified for action",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NotifierFromAction(tt.args.ha)
+			got, err := ActionFromActionCR(tt.args.ha)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NotifierFromAction() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ActionFromActionCR() error = %v, wantErr = %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NotifierFromAction() got = %#v, want %#v", got, tt.want)
+				t.Errorf("ActionFromActionCR() got = %#v, want = %#v", got, tt.want)
 			}
 			if err != nil && err.Error() != tt.wantErrMessage {
-				t.Errorf("NotifierFromAction() got = %v, want %v", err.Error(), tt.wantErrMessage)
+				t.Errorf("ActionFromActionCR() got = %v, want = %v", err.Error(), tt.wantErrMessage)
 			}
 		})
 	}

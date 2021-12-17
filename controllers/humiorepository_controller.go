@@ -77,8 +77,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		r.Log.Error(err, "unable to obtain humio client config")
 		err = r.setState(ctx, humiov1alpha1.HumioRepositoryStateConfigError, hr)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
-			return reconcile.Result{}, err
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
 		}
 		return reconcile.Result{}, err
 	}
@@ -95,8 +94,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Repository contains finalizer so run finalizer method")
 			if err := r.finalize(ctx, cluster.Config(), req, hr); err != nil {
-				r.Log.Error(err, "Finalizer method returned error")
-				return reconcile.Result{}, err
+				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
 
 			// Remove humioFinalizer. Once all finalizers have been
@@ -138,8 +136,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	r.Log.Info("get current repository")
 	curRepository, err := r.HumioClient.GetRepository(cluster.Config(), req, hr)
 	if err != nil {
-		r.Log.Error(err, "could not check if repository exists")
-		return reconcile.Result{}, fmt.Errorf("could not check if repository exists: %s", err)
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if repository exists")
 	}
 
 	emptyRepository := humioapi.Repository{}
@@ -148,8 +145,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		// create repository
 		_, err := r.HumioClient.AddRepository(cluster.Config(), req, hr)
 		if err != nil {
-			r.Log.Error(err, "could not create repository")
-			return reconcile.Result{}, fmt.Errorf("could not create repository: %s", err)
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create repository")
 		}
 		r.Log.Info("created repository", "RepositoryName", hr.Spec.Name)
 		return reconcile.Result{Requeue: true}, nil
@@ -170,8 +166,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			curRepository.StorageRetentionSizeGB))
 		_, err = r.HumioClient.UpdateRepository(cluster.Config(), req, hr)
 		if err != nil {
-			r.Log.Error(err, "could not update repository")
-			return reconcile.Result{}, fmt.Errorf("could not update repository: %s", err)
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update repository")
 		}
 	}
 
@@ -207,8 +202,7 @@ func (r *HumioRepositoryReconciler) addFinalizer(ctx context.Context, hr *humiov
 	// Update CR
 	err := r.Update(ctx, hr)
 	if err != nil {
-		r.Log.Error(err, "Failed to update HumioRepository with finalizer")
-		return err
+		return r.logErrorAndReturn(err, "Failed to update HumioRepository with finalizer")
 	}
 	return nil
 }
@@ -220,4 +214,9 @@ func (r *HumioRepositoryReconciler) setState(ctx context.Context, state string, 
 	r.Log.Info(fmt.Sprintf("setting repository state to %s", state))
 	hr.Status.State = state
 	return r.Status().Update(ctx, hr)
+}
+
+func (r *HumioRepositoryReconciler) logErrorAndReturn(err error, msg string) error {
+	r.Log.Error(err, msg)
+	return fmt.Errorf("%s: %w", msg, err)
 }

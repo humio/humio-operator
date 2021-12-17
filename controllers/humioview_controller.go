@@ -78,8 +78,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.Log.Error(err, "unable to obtain humio client config")
 		err = r.setState(ctx, humiov1alpha1.HumioParserStateConfigError, hv)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
-			return reconcile.Result{}, err
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
 		}
 		return reconcile.Result{}, err
 	}
@@ -101,8 +100,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	r.Log.Info("get current view")
 	curView, err := r.HumioClient.GetView(cluster.Config(), req, hv)
 	if err != nil {
-		r.Log.Error(err, "could not check if view exists")
-		return reconcile.Result{}, fmt.Errorf("could not check if view exists: %s", err)
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if view exists")
 	}
 
 	return r.reconcileHumioView(ctx, cluster.Config(), curView, hv, req)
@@ -122,8 +120,7 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting View")
 			if err := r.HumioClient.DeleteView(config, req, hv); err != nil {
-				r.Log.Error(err, "Delete view returned error")
-				return reconcile.Result{}, err
+				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete view returned error")
 			}
 
 			r.Log.Info("View Deleted. Removing finalizer")
@@ -154,8 +151,7 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 		r.Log.Info("View doesn't exist. Now adding view")
 		_, err := r.HumioClient.AddView(config, req, hv)
 		if err != nil {
-			r.Log.Error(err, "could not create view")
-			return reconcile.Result{}, fmt.Errorf("could not create view: %s", err)
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create view")
 		}
 		r.Log.Info("created view", "ViewName", hv.Spec.Name)
 		return reconcile.Result{Requeue: true}, nil
@@ -168,8 +164,7 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 			curView.Connections))
 		_, err := r.HumioClient.UpdateView(config, req, hv)
 		if err != nil {
-			r.Log.Error(err, "could not update view")
-			return reconcile.Result{}, fmt.Errorf("could not update view: %s", err)
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update view")
 		}
 	}
 
@@ -222,4 +217,9 @@ func (r *HumioViewReconciler) setState(ctx context.Context, state string, hr *hu
 	r.Log.Info(fmt.Sprintf("setting view state to %s", state))
 	hr.Status.State = state
 	return r.Status().Update(ctx, hr)
+}
+
+func (r *HumioViewReconciler) logErrorAndReturn(err error, msg string) error {
+	r.Log.Error(err, msg)
+	return fmt.Errorf("%s: %w", msg, err)
 }

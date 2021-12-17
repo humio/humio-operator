@@ -22,8 +22,7 @@ func (r *HumioClusterReconciler) waitForNewSecret(ctx context.Context, hnp *Humi
 	for i := 0; i < waitForSecretTimeoutSeconds; i++ {
 		foundSecretsList, err := kubernetes.ListSecrets(ctx, r, hnp.GetNamespace(), hnp.GetLabelsForSecret(expectedSecretName))
 		if err != nil {
-			r.Log.Error(err, "unable list secrets")
-			return err
+			return r.logErrorAndReturn(err, "unable to list secrets")
 		}
 		r.Log.Info(fmt.Sprintf("validating new secret was created. expected secret count %d, current secret count %d", expectedSecretCount, len(foundSecretsList)))
 		if len(foundSecretsList) >= expectedSecretCount {
