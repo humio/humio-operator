@@ -56,7 +56,7 @@ func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Co
 		return r.Update(ctx, hc)
 	})
 	if err != nil {
-		return -1, fmt.Errorf("unable to set annotation %s on HumioCluster: %s", revisionKey, err)
+		return -1, fmt.Errorf("unable to set annotation %s on HumioCluster: %w", revisionKey, err)
 	}
 	return revisionValue, nil
 }

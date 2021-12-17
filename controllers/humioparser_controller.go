@@ -25,7 +25,6 @@ import (
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sort"
 	"time"
@@ -80,8 +79,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		r.Log.Error(err, "unable to obtain humio client config")
 		err = r.setState(ctx, humiov1alpha1.HumioParserStateConfigError, hp)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
-			return reconcile.Result{}, err
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
 		}
 		return reconcile.Result{}, err
 	}
@@ -98,8 +96,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Parser contains finalizer so run finalizer method")
 			if err := r.finalize(ctx, cluster.Config(), req, hp); err != nil {
-				r.Log.Error(err, "Finalizer method returned error")
-				return reconcile.Result{}, err
+				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
 
 			// Remove humioFinalizer. Once all finalizers have been
@@ -125,13 +122,12 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioParser) {
 		curParser, err := humioClient.GetParser(cluster.Config(), req, hp)
-		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioParserStateUnknown, hp)
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			_ = r.setState(ctx, humiov1alpha1.HumioParserStateNotFound, hp)
 			return
 		}
-		emptyParser := humioapi.Parser{}
-		if reflect.DeepEqual(emptyParser, *curParser) {
-			_ = r.setState(ctx, humiov1alpha1.HumioParserStateNotFound, hp)
+		if err != nil || curParser == nil {
+			_ = r.setState(ctx, humiov1alpha1.HumioParserStateUnknown, hp)
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioParserStateExists, hp)
@@ -145,15 +141,13 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// create parser
 		_, err := r.HumioClient.AddParser(cluster.Config(), req, hp)
 		if err != nil {
-			r.Log.Error(err, "could not create parser")
-			return reconcile.Result{}, fmt.Errorf("could not create parser: %s", err)
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create parser")
 		}
 		r.Log.Info("created parser")
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err != nil {
-		r.Log.Error(err, "could not check if parser exists", "Repository.Name", hp.Spec.RepositoryName)
-		return reconcile.Result{}, fmt.Errorf("could not check if parser exists: %s", err)
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if parser exists")
 	}
 
 	currentTagFields := make([]string, len(curParser.TagFields))
@@ -176,8 +170,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		r.Log.Info("parser information differs, triggering update", "parserScriptDiff", parserScriptDiff, "tagFieldsDiff", tagFieldsDiff, "testDataDiff", testDataDiff)
 		_, err = r.HumioClient.UpdateParser(cluster.Config(), req, hp)
 		if err != nil {
-			r.Log.Error(err, "could not update parser")
-			return reconcile.Result{}, fmt.Errorf("could not update parser: %s", err)
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update parser")
 		}
 	}
 
@@ -213,8 +206,7 @@ func (r *HumioParserReconciler) addFinalizer(ctx context.Context, hp *humiov1alp
 	// Update CR
 	err := r.Update(ctx, hp)
 	if err != nil {
-		r.Log.Error(err, "Failed to update HumioParser with finalizer")
-		return err
+		return r.logErrorAndReturn(err, "Failed to update HumioParser with finalizer")
 	}
 	return nil
 }
@@ -226,4 +218,9 @@ func (r *HumioParserReconciler) setState(ctx context.Context, state string, hp *
 	r.Log.Info(fmt.Sprintf("setting parser state to %s", state))
 	hp.Status.State = state
 	return r.Status().Update(ctx, hp)
+}
+
+func (r *HumioParserReconciler) logErrorAndReturn(err error, msg string) error {
+	r.Log.Error(err, msg)
+	return fmt.Errorf("%s: %w", msg, err)
 }

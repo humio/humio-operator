@@ -18,480 +18,460 @@ package humio
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 
-	"github.com/humio/humio-operator/pkg/helpers"
-
 	humioapi "github.com/humio/cli/api"
 )
 
 const (
 	ActionIdentifierAnnotation = "humio.com/action-id"
+
+	ActionTypeWebhook          = "Webhook"
+	ActionTypeSlack            = "Slack"
+	ActionTypeSlackPostMessage = "SlackPostMessage"
+	ActionTypePagerDuty        = "PagerDuty"
+	ActionTypeVictorOps        = "VictorOps"
+	ActionTypeHumioRepo        = "HumioRepo"
+	ActionTypeEmail            = "Email"
+	ActionTypeOpsGenie         = "OpsGenie"
 )
 
-var (
-	propertiesMap = map[string]string{
-		humioapi.NotifierTypeWebHook:          "webhookProperties",
-		humioapi.NotifierTypeVictorOps:        "victorOpsProperties",
-		humioapi.NotifierTypePagerDuty:        "pagerDutyProperties",
-		humioapi.NotifierTypeHumioRepo:        "humioRepositoryProperties",
-		humioapi.NotifierTypeSlackPostMessage: "slackPostMessageProperties",
-		humioapi.NotifierTypeSlack:            "victorOpsProperties",
-		humioapi.NotifierTypeOpsGenie:         "opsGenieProperties",
-		humioapi.NotifierTypeEmail:            "emailProperties",
-	}
-)
-
-func ActionFromNotifier(notifier *humioapi.Notifier) (*humiov1alpha1.HumioAction, error) {
+func CRActionFromAPIAction(action *humioapi.Action) (*humiov1alpha1.HumioAction, error) {
 	ha := &humiov1alpha1.HumioAction{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				ActionIdentifierAnnotation: notifier.ID,
+				ActionIdentifierAnnotation: action.ID,
 			},
 		},
 		Spec: humiov1alpha1.HumioActionSpec{
-			Name: notifier.Name,
+			Name: action.Name,
 		},
 	}
 
-	switch notifier.Entity {
-	case humioapi.NotifierTypeEmail:
-		var recipients []string
-		for _, r := range notifier.Properties["recipients"].([]interface{}) {
-			recipients = append(recipients, r.(string))
-		}
+	if !reflect.ValueOf(action.EmailAction).IsZero() {
 		ha.Spec.EmailProperties = &humiov1alpha1.HumioActionEmailProperties{
-			Recipients: recipients,
+			Recipients: action.EmailAction.Recipients,
 		}
-		if notifier.Properties["bodyTemplate"] != nil {
-			ha.Spec.EmailProperties.BodyTemplate = notifier.Properties["bodyTemplate"].(string)
+		if action.EmailAction.BodyTemplate != "" {
+			ha.Spec.EmailProperties.BodyTemplate = action.EmailAction.BodyTemplate
 		}
-		if notifier.Properties["subjectTemplate"] != nil {
-			ha.Spec.EmailProperties.SubjectTemplate = notifier.Properties["subjectTemplate"].(string)
+		if action.EmailAction.SubjectTemplate != "" {
+			ha.Spec.EmailProperties.SubjectTemplate = action.EmailAction.SubjectTemplate
 		}
-	case humioapi.NotifierTypeHumioRepo:
-		ha.Spec.HumioRepositoryProperties = &humiov1alpha1.HumioActionRepositoryProperties{}
-		if notifier.Properties["ingestToken"] != nil {
-			ha.Spec.HumioRepositoryProperties.IngestToken = notifier.Properties["ingestToken"].(string)
+	}
+
+	if !reflect.ValueOf(action.HumioRepoAction).IsZero() {
+		ha.Spec.HumioRepositoryProperties = &humiov1alpha1.HumioActionRepositoryProperties{
+			IngestToken: action.HumioRepoAction.IngestToken,
 		}
-	case humioapi.NotifierTypeOpsGenie:
-		ha.Spec.OpsGenieProperties = &humiov1alpha1.HumioActionOpsGenieProperties{}
-		if notifier.Properties["genieKey"] != nil {
-			ha.Spec.OpsGenieProperties.GenieKey = notifier.Properties["genieKey"].(string)
+	}
+
+	if !reflect.ValueOf(action.OpsGenieAction).IsZero() {
+		ha.Spec.OpsGenieProperties = &humiov1alpha1.HumioActionOpsGenieProperties{
+			ApiUrl:   action.OpsGenieAction.ApiUrl,
+			GenieKey: action.OpsGenieAction.GenieKey,
+			UseProxy: action.OpsGenieAction.UseProxy,
 		}
-		if notifier.Properties["apiUrl"] != nil {
-			ha.Spec.OpsGenieProperties.ApiUrl = notifier.Properties["apiUrl"].(string)
+	}
+
+	if !reflect.ValueOf(action.PagerDutyAction).IsZero() {
+		ha.Spec.PagerDutyProperties = &humiov1alpha1.HumioActionPagerDutyProperties{
+			RoutingKey: action.PagerDutyAction.RoutingKey,
+			Severity:   action.PagerDutyAction.Severity,
+			UseProxy:   action.PagerDutyAction.UseProxy,
 		}
-		if notifier.Properties["useProxy"] != nil {
-			ha.Spec.OpsGenieProperties.UseProxy = notifier.Properties["useProxy"].(bool)
-		}
-	case humioapi.NotifierTypePagerDuty:
-		ha.Spec.PagerDutyProperties = &humiov1alpha1.HumioActionPagerDutyProperties{}
-		if notifier.Properties["severity"] != nil {
-			ha.Spec.PagerDutyProperties.Severity = notifier.Properties["severity"].(string)
-		}
-		if notifier.Properties["routingKey"] != nil {
-			ha.Spec.PagerDutyProperties.RoutingKey = notifier.Properties["routingKey"].(string)
-		}
-	case humioapi.NotifierTypeSlack:
+	}
+
+	if !reflect.ValueOf(action.SlackAction).IsZero() {
 		fields := make(map[string]string)
-		for k, v := range notifier.Properties["fields"].(map[string]interface{}) {
-			fields[k] = v.(string)
+		for _, field := range action.SlackAction.Fields {
+			fields[field.FieldName] = field.Value
 		}
 		ha.Spec.SlackProperties = &humiov1alpha1.HumioActionSlackProperties{
-			Fields: fields,
+			Fields:   fields,
+			Url:      action.SlackAction.Url,
+			UseProxy: action.SlackAction.UseProxy,
 		}
-		if notifier.Properties["url"] != nil {
-			ha.Spec.SlackProperties.Url = notifier.Properties["url"].(string)
-		}
-	case humioapi.NotifierTypeSlackPostMessage:
+	}
+
+	if !reflect.ValueOf(action.SlackPostMessageAction).IsZero() {
 		fields := make(map[string]string)
-		for k, v := range notifier.Properties["fields"].(map[string]interface{}) {
-			fields[k] = v.(string)
-		}
-		var channels []string
-		for _, c := range notifier.Properties["channels"].([]interface{}) {
-			channels = append(channels, c.(string))
+		for _, field := range action.SlackPostMessageAction.Fields {
+			fields[field.FieldName] = field.Value
 		}
 		ha.Spec.SlackPostMessageProperties = &humiov1alpha1.HumioActionSlackPostMessageProperties{
-			Channels: channels,
+			ApiToken: action.SlackPostMessageAction.ApiToken,
+			Channels: action.SlackPostMessageAction.Channels,
 			Fields:   fields,
+			UseProxy: action.SlackPostMessageAction.UseProxy,
 		}
-		if notifier.Properties["apiToken"] != nil {
-			ha.Spec.SlackPostMessageProperties.ApiToken = notifier.Properties["apiToken"].(string)
+	}
+
+	if !reflect.ValueOf(action.VictorOpsAction).IsZero() {
+		ha.Spec.VictorOpsProperties = &humiov1alpha1.HumioActionVictorOpsProperties{
+			MessageType: action.VictorOpsAction.MessageType,
+			NotifyUrl:   action.VictorOpsAction.NotifyUrl,
+			UseProxy:    action.VictorOpsAction.UseProxy,
 		}
-		if notifier.Properties["useProxy"] != nil {
-			ha.Spec.SlackPostMessageProperties.UseProxy = notifier.Properties["useProxy"].(bool)
-		}
-	case humioapi.NotifierTypeVictorOps:
-		ha.Spec.VictorOpsProperties = &humiov1alpha1.HumioActionVictorOpsProperties{}
-		if notifier.Properties["messageType"] != nil {
-			ha.Spec.VictorOpsProperties.MessageType = notifier.Properties["messageType"].(string)
-		}
-		if notifier.Properties["notifyUrl"] != nil {
-			ha.Spec.VictorOpsProperties.NotifyUrl = notifier.Properties["notifyUrl"].(string)
-		}
-	case humioapi.NotifierTypeWebHook:
+	}
+
+	if !reflect.ValueOf(action.WebhookAction).IsZero() {
 		headers := make(map[string]string)
-		for k, v := range notifier.Properties["headers"].(map[string]interface{}) {
-			headers[k] = v.(string)
+		for _, field := range action.WebhookAction.Headers {
+			headers[field.Header] = field.Value
 		}
 		ha.Spec.WebhookProperties = &humiov1alpha1.HumioActionWebhookProperties{
-			Headers: headers,
+			BodyTemplate: action.WebhookAction.BodyTemplate,
+			Headers:      headers,
+			Method:       action.WebhookAction.Method,
+			Url:          action.WebhookAction.Url,
+			IgnoreSSL:    action.WebhookAction.IgnoreSSL,
+			UseProxy:     action.WebhookAction.UseProxy,
 		}
-		if notifier.Properties["bodyTemplate"] != nil {
-			ha.Spec.WebhookProperties.BodyTemplate = notifier.Properties["bodyTemplate"].(string)
-		}
-		if notifier.Properties["method"] != nil {
-			ha.Spec.WebhookProperties.Method = notifier.Properties["method"].(string)
-		}
-		if notifier.Properties["url"] != nil {
-			ha.Spec.WebhookProperties.Url = notifier.Properties["url"].(string)
-		}
-	default:
-		return &humiov1alpha1.HumioAction{}, fmt.Errorf("invalid notifier type: %s", notifier.Entity)
+	}
+	if reflect.ValueOf(action.EmailAction).IsZero() &&
+		reflect.ValueOf(action.HumioRepoAction).IsZero() &&
+		reflect.ValueOf(action.OpsGenieAction).IsZero() &&
+		reflect.ValueOf(action.PagerDutyAction).IsZero() &&
+		reflect.ValueOf(action.SlackAction).IsZero() &&
+		reflect.ValueOf(action.SlackPostMessageAction).IsZero() &&
+		reflect.ValueOf(action.VictorOpsAction).IsZero() &&
+		reflect.ValueOf(action.WebhookAction).IsZero() {
+		return nil, fmt.Errorf("no action configuration specified")
 	}
 
 	return ha, nil
 }
 
-func NotifierFromAction(ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+func ActionFromActionCR(ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	at, err := actionType(ha)
 	if err != nil {
-		return &humioapi.Notifier{}, fmt.Errorf("could not find action type: %s", err)
+		return nil, fmt.Errorf("could not find action type: %w", err)
 	}
 	switch at {
-	case humioapi.NotifierTypeEmail:
+	case ActionTypeEmail:
 		return emailAction(ha)
-	case humioapi.NotifierTypeHumioRepo:
+	case ActionTypeHumioRepo:
 		return humioRepoAction(ha)
-	case humioapi.NotifierTypeOpsGenie:
+	case ActionTypeOpsGenie:
 		return opsGenieAction(ha)
-	case humioapi.NotifierTypePagerDuty:
+	case ActionTypePagerDuty:
 		return pagerDutyAction(ha)
-	case humioapi.NotifierTypeSlack:
+	case ActionTypeSlack:
 		return slackAction(ha)
-	case humioapi.NotifierTypeSlackPostMessage:
+	case ActionTypeSlackPostMessage:
 		return slackPostMessageAction(ha)
-	case humioapi.NotifierTypeVictorOps:
+	case ActionTypeVictorOps:
 		return victorOpsAction(ha)
-	case humioapi.NotifierTypeWebHook:
+	case ActionTypeWebhook:
 		return webhookAction(ha)
 	}
-	return &humioapi.Notifier{}, fmt.Errorf("invalid action type: %s", at)
+	return nil, fmt.Errorf("invalid action type: %s", at)
 }
 
-func emailAction(hn *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+func emailAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	var errorList []string
-	notifier, err := baseNotifier(hn)
+	action, err := baseAction(hn)
 	if err != nil {
-		return notifier, err
+		return nil, err
 	}
-	if err := setListOfStringsProperty(notifier, "recipients", "emailProperties.recipients",
-		hn.Spec.EmailProperties.Recipients, []interface{}{""}, true); err != nil {
-		errorList = append(errorList, err.Error())
+
+	if len(hn.Spec.EmailProperties.Recipients) == 0 {
+		errorList = append(errorList, "property emailProperties.recipients is required")
 	}
-	if err := setStringProperty(notifier, "bodyTemplate", "emailProperties.bodyTemplate",
-		hn.Spec.EmailProperties.BodyTemplate, "", false); err != nil {
-		errorList = append(errorList, err.Error())
+	if len(errorList) > 0 {
+		return ifErrors(action, ActionTypeEmail, errorList)
 	}
-	if err := setStringProperty(notifier, "subjectTemplate", "emailProperties.subjectTemplate",
-		hn.Spec.EmailProperties.SubjectTemplate, "", false); err != nil {
-		errorList = append(errorList, err.Error())
-	}
-	return ifErrors(notifier, humioapi.NotifierTypeEmail, errorList)
+	action.Type = humioapi.ActionTypeEmail
+	action.EmailAction.Recipients = hn.Spec.EmailProperties.Recipients
+	action.EmailAction.BodyTemplate = hn.Spec.EmailProperties.BodyTemplate
+	action.EmailAction.BodyTemplate = hn.Spec.EmailProperties.BodyTemplate
+	action.EmailAction.SubjectTemplate = hn.Spec.EmailProperties.SubjectTemplate
+	action.EmailAction.UseProxy = hn.Spec.EmailProperties.UseProxy
+
+	return action, nil
 }
 
-func humioRepoAction(hn *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+func humioRepoAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	var errorList []string
-	notifier, err := baseNotifier(hn)
+	action, err := baseAction(hn)
 	if err != nil {
-		return notifier, err
+		return action, err
 	}
-	if err := setStringProperty(notifier, "ingestToken", "humioRepository.ingestToken",
-		hn.Spec.HumioRepositoryProperties.IngestToken, "", true); err != nil {
-		errorList = append(errorList, err.Error())
+
+	if hn.Spec.HumioRepositoryProperties.IngestToken == "" {
+		errorList = append(errorList, "property humioRepositoryProperties.ingestToken is required")
 	}
-	return ifErrors(notifier, humioapi.NotifierTypeHumioRepo, errorList)
+	if len(errorList) > 0 {
+		return ifErrors(action, ActionTypeHumioRepo, errorList)
+	}
+	action.Type = humioapi.ActionTypeHumioRepo
+	action.HumioRepoAction.IngestToken = hn.Spec.HumioRepositoryProperties.IngestToken
+
+	return action, nil
 }
 
-func opsGenieAction(hn *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+func opsGenieAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	var errorList []string
-	notifier, err := baseNotifier(hn)
+	action, err := baseAction(hn)
 	if err != nil {
-		return notifier, err
+		return action, err
 	}
-	if err := setStringProperty(notifier, "apiUrl", "opsGenieProperties.apiUrl",
-		hn.Spec.OpsGenieProperties.ApiUrl, "https://api.opsgenie.com", false); err != nil {
-		errorList = append(errorList, err.Error())
+
+	if hn.Spec.OpsGenieProperties.GenieKey == "" {
+		errorList = append(errorList, "property opsGenieProperties.genieKey is required")
 	}
-	if err := setStringProperty(notifier, "genieKey", "opsGenieProperties.genieKey",
-		hn.Spec.OpsGenieProperties.GenieKey, "", true); err != nil {
-		errorList = append(errorList, err.Error())
+	if hn.Spec.OpsGenieProperties.ApiUrl == "" {
+		errorList = append(errorList, "property opsGenieProperties.apiUrl is required")
 	}
-	if err := setBoolProperty(notifier, "useProxy", "opsGenieProperties.useProxy",
-		helpers.BoolPtr(hn.Spec.OpsGenieProperties.UseProxy), helpers.BoolPtr(true), false); err != nil {
-		errorList = append(errorList, err.Error())
+	if len(errorList) > 0 {
+		return ifErrors(action, ActionTypeOpsGenie, errorList)
 	}
-	return ifErrors(notifier, humioapi.NotifierTypeOpsGenie, errorList)
+	action.Type = humioapi.ActionTypeOpsGenie
+	action.OpsGenieAction.GenieKey = hn.Spec.OpsGenieProperties.GenieKey
+	action.OpsGenieAction.ApiUrl = hn.Spec.OpsGenieProperties.ApiUrl
+	action.OpsGenieAction.UseProxy = hn.Spec.OpsGenieProperties.UseProxy
+
+	return action, nil
 }
 
-func pagerDutyAction(hn *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
+func pagerDutyAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	var errorList []string
-	notifier, err := baseNotifier(hn)
+	action, err := baseAction(hn)
 	if err != nil {
-		return notifier, err
-	}
-	if err := setStringProperty(notifier, "routingKey", "pagerDutyProperties.routingKey",
-		hn.Spec.PagerDutyProperties.RoutingKey, "", true); err != nil {
-		errorList = append(errorList, err.Error())
+		return action, err
 	}
 
-	if err := setStringProperty(notifier, "severity", "pagerDutyProperties.severity",
-		strings.ToLower(hn.Spec.PagerDutyProperties.Severity), "", true); err == nil {
+	var severity string
+	if hn.Spec.PagerDutyProperties.RoutingKey == "" {
+		errorList = append(errorList, "property pagerDutyProperties.routingKey is required")
+	}
+	if hn.Spec.PagerDutyProperties.Severity == "" {
+		errorList = append(errorList, "property pagerDutyProperties.severity is required")
+	}
+	if hn.Spec.PagerDutyProperties.Severity != "" {
+		severity = strings.ToLower(hn.Spec.PagerDutyProperties.Severity)
 		acceptedSeverities := []string{"critical", "error", "warning", "info"}
-		if !stringInList(strings.ToLower(hn.Spec.PagerDutyProperties.Severity), acceptedSeverities) {
-			errorList = append(errorList, fmt.Sprintf("unsupported severity for PagerdutyProperties: %q. must be one of: %s",
+		if !stringInList(severity, acceptedSeverities) {
+			errorList = append(errorList, fmt.Sprintf("unsupported severity for pagerDutyProperties: %q. must be one of: %s",
 				hn.Spec.PagerDutyProperties.Severity, strings.Join(acceptedSeverities, ", ")))
 		}
-	} else {
-		errorList = append(errorList, err.Error())
 	}
-
-	return ifErrors(notifier, humioapi.NotifierTypePagerDuty, errorList)
-}
-
-func slackAction(hn *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
-	var errorList []string
-	notifier, err := baseNotifier(hn)
-	if err != nil {
-		return notifier, err
-	}
-	if err := setMapOfStringsProperty(notifier, "fields", "slackProperties.fields",
-		hn.Spec.SlackProperties.Fields, map[string]interface{}{}, true); err != nil {
-		errorList = append(errorList, err.Error())
-	}
-	if _, err := url.ParseRequestURI(hn.Spec.SlackProperties.Url); err == nil {
-		if err := setStringProperty(notifier, "url", "slackProperties.url",
-			hn.Spec.SlackProperties.Url, "", true); err != nil {
-			errorList = append(errorList, err.Error())
-		}
-	} else {
-		errorList = append(errorList, fmt.Sprintf("invalid url for slackProperties.url: %s", err))
-	}
-
-	return ifErrors(notifier, humioapi.NotifierTypeSlack, errorList)
-}
-
-func slackPostMessageAction(hn *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
-	var errorList []string
-	notifier, err := baseNotifier(hn)
-	if err != nil {
-		return notifier, err
-	}
-	if err := setStringProperty(notifier, "apiToken", "slackPostMessageProperties.apiToken",
-		hn.Spec.SlackPostMessageProperties.ApiToken, "", true); err != nil {
-		errorList = append(errorList, err.Error())
-	}
-	if err := setListOfStringsProperty(notifier, "channels", "slackPostMessageProperties.channels",
-		hn.Spec.SlackPostMessageProperties.Channels, []interface{}{""}, true); err != nil {
-		errorList = append(errorList, err.Error())
-	}
-	if err := setMapOfStringsProperty(notifier, "fields", "slackPostMessageProperties.fields",
-		hn.Spec.SlackPostMessageProperties.Fields, map[string]interface{}{}, true); err != nil {
-		errorList = append(errorList, err.Error())
-	}
-	if err := setBoolProperty(notifier, "useProxy", "slackPostMessageProperties.useProxy",
-		helpers.BoolPtr(hn.Spec.SlackPostMessageProperties.UseProxy), helpers.BoolPtr(true), false); err != nil {
-		errorList = append(errorList, err.Error())
-	}
-	return ifErrors(notifier, humioapi.NotifierTypeSlackPostMessage, errorList)
-}
-
-func victorOpsAction(hn *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
-	var errorList []string
-	notifier, err := baseNotifier(hn)
-	if err != nil {
-		return notifier, err
-	}
-
-	if err := setStringProperty(notifier, "messageType", "victorOpsProperties.messageType",
-		hn.Spec.VictorOpsProperties.MessageType, "", true); err == nil {
-		acceptedMessageTypes := []string{"critical", "warning", "acknowledgement", "info", "recovery"}
-		if !stringInList(strings.ToLower(notifier.Properties["messageType"].(string)), acceptedMessageTypes) {
-			errorList = append(errorList, fmt.Sprintf("unsupported messageType for victorOpsProperties: %q. must be one of: %s",
-				notifier.Properties["messageType"].(string), strings.Join(acceptedMessageTypes, ", ")))
-		}
-	} else {
-		errorList = append(errorList, err.Error())
-	}
-
-	if err := setStringProperty(notifier, "notifyUrl", "victorOpsProperties.notifyUrl",
-		hn.Spec.VictorOpsProperties.NotifyUrl, "", true); err == nil {
-		if _, err := url.ParseRequestURI(notifier.Properties["notifyUrl"].(string)); err != nil {
-			errorList = append(errorList, fmt.Sprintf("invalid url for victorOpsProperties.notifyUrl: %s", err))
-		}
-	} else {
-		errorList = append(errorList, err.Error())
-	}
-
-	return ifErrors(notifier, humioapi.NotifierTypeVictorOps, errorList)
-}
-
-func webhookAction(hn *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
-	var errorList []string
-	notifier, err := baseNotifier(hn)
-	if err != nil {
-		return notifier, err
-	}
-
-	if err := setStringProperty(notifier, "bodyTemplate", "webhookProperties.bodyTemplate",
-		hn.Spec.WebhookProperties.BodyTemplate, "", true); err != nil {
-		errorList = append(errorList, err.Error())
-	}
-	if err := setMapOfStringsProperty(notifier, "headers", "webhookProperties.headers",
-		hn.Spec.WebhookProperties.Headers, map[string]interface{}{}, true); err != nil {
-		errorList = append(errorList, err.Error())
-	}
-	// TODO: validate method
-	if err := setStringProperty(notifier, "method", "webhookProperties.method",
-		hn.Spec.WebhookProperties.Method, "", true); err != nil {
-		errorList = append(errorList, err.Error())
-	}
-	// TODO: validate url
-	if err := setStringProperty(notifier, "url", "webhookProperties.url",
-		hn.Spec.WebhookProperties.Url, "", true); err != nil {
-		errorList = append(errorList, err.Error())
-	}
-	return ifErrors(notifier, humioapi.NotifierTypeWebHook, errorList)
-}
-
-func ifErrors(notifier *humioapi.Notifier, actionType string, errorList []string) (*humioapi.Notifier, error) {
 	if len(errorList) > 0 {
-		return &humioapi.Notifier{}, fmt.Errorf("%s failed due to errors: %s", actionType, strings.Join(errorList, ", "))
+		return ifErrors(action, ActionTypePagerDuty, errorList)
 	}
-	return notifier, nil
+	action.Type = humioapi.ActionTypePagerDuty
+	action.PagerDutyAction.RoutingKey = hn.Spec.PagerDutyProperties.RoutingKey
+	action.PagerDutyAction.Severity = severity
+	action.PagerDutyAction.UseProxy = hn.Spec.PagerDutyProperties.UseProxy
+
+	return action, nil
 }
 
-func setBoolProperty(notifier *humioapi.Notifier, key string, propertyName string, property *bool, defaultProperty *bool, required bool) error {
-	if property != nil {
-		notifier.Properties[key] = *property
-	} else {
-		if required {
-			return fmt.Errorf("property %s is required", propertyName)
-		}
-		if defaultProperty != nil {
-			notifier.Properties[key] = *defaultProperty
-		}
-	}
-	return nil
-}
-
-func setStringProperty(notifier *humioapi.Notifier, key string, propertyName string, property string, defaultProperty string, required bool) error {
-	if property != "" {
-		notifier.Properties[key] = property
-	} else {
-		if required {
-			return fmt.Errorf("property %s is required", propertyName)
-		}
-		if defaultProperty != "" {
-			notifier.Properties[key] = defaultProperty
-		}
-	}
-	return nil
-}
-
-func setListOfStringsProperty(notifier *humioapi.Notifier, key string, propertyName string, properties []string, defaultProperty []interface{}, required bool) error {
-	if len(properties) > 0 {
-		var notifierProperties []interface{}
-		for _, property := range properties {
-			notifierProperties = append(notifierProperties, property)
-		}
-		notifier.Properties[key] = notifierProperties
-		return nil
-	}
-	if required {
-		return fmt.Errorf("property %s is required", propertyName)
-	}
-	if len(defaultProperty) > 0 {
-		notifier.Properties[key] = defaultProperty
-	}
-	return nil
-}
-
-func setMapOfStringsProperty(notifier *humioapi.Notifier, key string, propertyName string, properties map[string]string, defaultProperty map[string]interface{}, required bool) error {
-	if len(properties) > 0 {
-		notifierProperties := make(map[string]interface{})
-		for k, v := range properties {
-			notifierProperties[k] = v
-		}
-		notifier.Properties[key] = notifierProperties
-		return nil
-	}
-	if required {
-		return fmt.Errorf("property %s is required", propertyName)
-	}
-	if len(defaultProperty) > 0 {
-		notifier.Properties[key] = defaultProperty
-	}
-	return nil
-}
-
-func baseNotifier(ha *humiov1alpha1.HumioAction) (*humioapi.Notifier, error) {
-	at, err := actionType(ha)
+func slackAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
+	var errorList []string
+	action, err := baseAction(hn)
 	if err != nil {
-		return &humioapi.Notifier{}, fmt.Errorf("could not find action type: %s", err)
+		return action, err
 	}
-	notifier := &humioapi.Notifier{
-		Name:       ha.Spec.Name,
-		Entity:     at,
-		Properties: map[string]interface{}{},
+
+	if hn.Spec.SlackProperties.Fields == nil {
+		errorList = append(errorList, "property slackProperties.fields is required")
+	}
+	if _, err := url.ParseRequestURI(hn.Spec.SlackProperties.Url); err != nil {
+		errorList = append(errorList, fmt.Sprintf("invalid url for slackProperties.url: %s", err.Error()))
+	}
+	if len(errorList) > 0 {
+		return ifErrors(action, ActionTypeSlack, errorList)
+	}
+	action.Type = humioapi.ActionTypeSlack
+	action.SlackAction.Url = hn.Spec.SlackProperties.Url
+	action.SlackAction.UseProxy = hn.Spec.SlackProperties.UseProxy
+	action.SlackAction.Fields = []humioapi.SlackFieldEntryInput{}
+	for k, v := range hn.Spec.SlackProperties.Fields {
+		action.SlackAction.Fields = append(action.SlackAction.Fields,
+			humioapi.SlackFieldEntryInput{
+				FieldName: k,
+				Value:     v,
+			},
+		)
+	}
+
+	return action, nil
+}
+
+func slackPostMessageAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
+	var errorList []string
+	action, err := baseAction(hn)
+	if err != nil {
+		return action, err
+	}
+
+	if hn.Spec.SlackPostMessageProperties.ApiToken == "" {
+		errorList = append(errorList, "property slackPostMessageProperties.apiToken is required")
+	}
+	if len(hn.Spec.SlackPostMessageProperties.Channels) == 0 {
+		errorList = append(errorList, "property slackPostMessageProperties.channels is required")
+	}
+	if hn.Spec.SlackPostMessageProperties.Fields == nil {
+		errorList = append(errorList, "property slackPostMessageProperties.fields is required")
+	}
+	if len(errorList) > 0 {
+		return ifErrors(action, ActionTypeSlackPostMessage, errorList)
+	}
+	action.Type = humioapi.ActionTypeSlackPostMessage
+	action.SlackPostMessageAction.ApiToken = hn.Spec.SlackPostMessageProperties.ApiToken
+	action.SlackPostMessageAction.Channels = hn.Spec.SlackPostMessageProperties.Channels
+	action.SlackPostMessageAction.UseProxy = hn.Spec.SlackPostMessageProperties.UseProxy
+	action.SlackPostMessageAction.Fields = []humioapi.SlackFieldEntryInput{}
+	for k, v := range hn.Spec.SlackPostMessageProperties.Fields {
+		action.SlackPostMessageAction.Fields = append(action.SlackPostMessageAction.Fields,
+			humioapi.SlackFieldEntryInput{
+				FieldName: k,
+				Value:     v,
+			},
+		)
+	}
+
+	return action, nil
+}
+
+func victorOpsAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
+	var errorList []string
+	action, err := baseAction(hn)
+	if err != nil {
+		return action, err
+	}
+
+	var messageType string
+	if hn.Spec.VictorOpsProperties.MessageType == "" {
+		errorList = append(errorList, "property victorOpsProperties.messageType is required")
+	}
+	if hn.Spec.VictorOpsProperties.MessageType != "" {
+		messageType = strings.ToLower(hn.Spec.VictorOpsProperties.MessageType)
+		acceptedMessageTypes := []string{"critical", "warning", "acknowledgement", "info", "recovery"}
+		if !stringInList(strings.ToLower(hn.Spec.VictorOpsProperties.MessageType), acceptedMessageTypes) {
+			errorList = append(errorList, fmt.Sprintf("unsupported messageType for victorOpsProperties: %q. must be one of: %s",
+				hn.Spec.VictorOpsProperties.MessageType, strings.Join(acceptedMessageTypes, ", ")))
+		}
+	}
+	if _, err := url.ParseRequestURI(hn.Spec.VictorOpsProperties.NotifyUrl); err != nil {
+		errorList = append(errorList, fmt.Sprintf("invalid url for victorOpsProperties.notifyUrl: %s", err.Error()))
+	}
+	if len(errorList) > 0 {
+		return ifErrors(action, ActionTypeVictorOps, errorList)
+	}
+	action.Type = humioapi.ActionTypeVictorOps
+	action.VictorOpsAction.MessageType = messageType
+	action.VictorOpsAction.NotifyUrl = hn.Spec.VictorOpsProperties.NotifyUrl
+	action.VictorOpsAction.UseProxy = hn.Spec.VictorOpsProperties.UseProxy
+
+	return action, nil
+}
+
+func webhookAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
+	var errorList []string
+	action, err := baseAction(hn)
+	if err != nil {
+		return action, err
+	}
+
+	var method string
+	if hn.Spec.WebhookProperties.BodyTemplate == "" {
+		errorList = append(errorList, "property webhookProperties.bodyTemplate is required")
+	}
+	if len(hn.Spec.WebhookProperties.Headers) == 0 {
+		errorList = append(errorList, "property webhookProperties.headers is required")
+	}
+	if hn.Spec.WebhookProperties.Method == "" {
+		errorList = append(errorList, "property webhookProperties.method is required")
+	}
+	if hn.Spec.WebhookProperties.Method != "" {
+		method = strings.ToUpper(hn.Spec.WebhookProperties.Method)
+		acceptedMethods := []string{http.MethodGet, http.MethodPost, http.MethodPut}
+		if !stringInList(strings.ToUpper(hn.Spec.WebhookProperties.Method), acceptedMethods) {
+			errorList = append(errorList, fmt.Sprintf("unsupported method for webhookProperties: %q. must be one of: %s",
+				hn.Spec.WebhookProperties.Method, strings.Join(acceptedMethods, ", ")))
+		}
+	}
+	if _, err := url.ParseRequestURI(hn.Spec.WebhookProperties.Url); err != nil {
+		errorList = append(errorList, fmt.Sprintf("invalid url for webhookProperties.url: %s", err.Error()))
+	}
+	if len(errorList) > 0 {
+		return ifErrors(action, ActionTypeWebhook, errorList)
+	}
+	action.Type = humioapi.ActionTypeWebhook
+	action.WebhookAction.BodyTemplate = hn.Spec.WebhookProperties.BodyTemplate
+	action.WebhookAction.Method = method
+	action.WebhookAction.Url = hn.Spec.WebhookProperties.Url
+	action.WebhookAction.UseProxy = hn.Spec.WebhookProperties.UseProxy
+	action.WebhookAction.Headers = []humioapi.HttpHeaderEntryInput{}
+	for k, v := range hn.Spec.WebhookProperties.Headers {
+		action.WebhookAction.Headers = append(action.WebhookAction.Headers,
+			humioapi.HttpHeaderEntryInput{
+				Header: k,
+				Value:  v,
+			},
+		)
+	}
+
+	return action, nil
+}
+
+func ifErrors(action *humioapi.Action, actionType string, errorList []string) (*humioapi.Action, error) {
+	if len(errorList) > 0 {
+		return nil, fmt.Errorf("%s failed due to errors: %s", actionType, strings.Join(errorList, ", "))
+	}
+	return action, nil
+}
+
+func baseAction(ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
+	action := &humioapi.Action{
+		Name: ha.Spec.Name,
 	}
 	if _, ok := ha.ObjectMeta.Annotations[ActionIdentifierAnnotation]; ok {
-		notifier.ID = ha.ObjectMeta.Annotations[ActionIdentifierAnnotation]
+		action.ID = ha.ObjectMeta.Annotations[ActionIdentifierAnnotation]
 	}
-	return notifier, nil
+	return action, nil
 }
 
 func actionType(ha *humiov1alpha1.HumioAction) (string, error) {
 	var actionTypes []string
 
 	if ha.Spec.WebhookProperties != nil {
-		actionTypes = append(actionTypes, humioapi.NotifierTypeWebHook)
+		actionTypes = append(actionTypes, ActionTypeWebhook)
 	}
 	if ha.Spec.VictorOpsProperties != nil {
-		actionTypes = append(actionTypes, humioapi.NotifierTypeVictorOps)
+		actionTypes = append(actionTypes, ActionTypeVictorOps)
 	}
 	if ha.Spec.PagerDutyProperties != nil {
-		actionTypes = append(actionTypes, humioapi.NotifierTypePagerDuty)
+		actionTypes = append(actionTypes, ActionTypePagerDuty)
 	}
 	if ha.Spec.HumioRepositoryProperties != nil {
-		actionTypes = append(actionTypes, humioapi.NotifierTypeHumioRepo)
+		actionTypes = append(actionTypes, ActionTypeHumioRepo)
 	}
 	if ha.Spec.SlackPostMessageProperties != nil {
-		actionTypes = append(actionTypes, humioapi.NotifierTypeSlackPostMessage)
+		actionTypes = append(actionTypes, ActionTypeSlackPostMessage)
 	}
 	if ha.Spec.SlackProperties != nil {
-		actionTypes = append(actionTypes, humioapi.NotifierTypeSlack)
+		actionTypes = append(actionTypes, ActionTypeSlack)
 	}
 	if ha.Spec.OpsGenieProperties != nil {
-		actionTypes = append(actionTypes, humioapi.NotifierTypeOpsGenie)
+		actionTypes = append(actionTypes, ActionTypeOpsGenie)
 	}
 	if ha.Spec.EmailProperties != nil {
-		actionTypes = append(actionTypes, humioapi.NotifierTypeEmail)
+		actionTypes = append(actionTypes, ActionTypeEmail)
 	}
 
 	if len(actionTypes) > 1 {
-		var props []string
-		for _, a := range actionTypes {
-			props = append(props, propertiesMap[a])
-		}
-		return "", fmt.Errorf("found properties for more than one action: %s", strings.Join(props, ", "))
+		return "", fmt.Errorf("found properties for more than one action: %s", strings.Join(actionTypes, ", "))
 	}
 	if len(actionTypes) < 1 {
 		return "", fmt.Errorf("no properties specified for action")

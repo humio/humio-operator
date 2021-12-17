@@ -12,32 +12,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func (r *HumioActionReconciler) reconcileHumioActionAnnotations(ctx context.Context, addedNotifier *humioapi.Notifier, ha *humiov1alpha1.HumioAction, req ctrl.Request) (reconcile.Result, error) {
-	r.Log.Info(fmt.Sprintf("Adding ID %s to action %s", addedNotifier.ID, addedNotifier.Name))
-	currentAction := &humiov1alpha1.HumioAction{}
-	err := r.Get(ctx, req.NamespacedName, currentAction)
+func (r *HumioActionReconciler) reconcileHumioActionAnnotations(ctx context.Context, addedAction *humioapi.Action, ha *humiov1alpha1.HumioAction, req ctrl.Request) (reconcile.Result, error) {
+	r.Log.Info(fmt.Sprintf("Adding ID %s to action %s", addedAction.ID, addedAction.Name))
+	actionCR := &humiov1alpha1.HumioAction{}
+	err := r.Get(ctx, req.NamespacedName, actionCR)
 	if err != nil {
-		r.Log.Error(err, "failed to add ID annotation to action")
-		return reconcile.Result{}, err
+		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to add ID annotation to action")
 	}
 
 	// Copy annotations from the actions transformer to get the current action ID
-	addedAction, err := humio.ActionFromNotifier(addedNotifier)
+	action, err := humio.CRActionFromAPIAction(addedAction)
 	if err != nil {
-		r.Log.Error(err, "failed to add ID annotation to action")
-		return reconcile.Result{}, err
+		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to add ID annotation to action")
 	}
-	if len(currentAction.ObjectMeta.Annotations) < 1 {
-		currentAction.ObjectMeta.Annotations = make(map[string]string)
+	if len(actionCR.ObjectMeta.Annotations) < 1 {
+		actionCR.ObjectMeta.Annotations = make(map[string]string)
 	}
-	for k, v := range addedAction.Annotations {
-		currentAction.ObjectMeta.Annotations[k] = v
+	for k, v := range action.Annotations {
+		actionCR.ObjectMeta.Annotations[k] = v
 	}
 
-	err = r.Update(ctx, currentAction)
+	err = r.Update(ctx, actionCR)
 	if err != nil {
-		r.Log.Error(err, "failed to add ID annotation to action")
-		return reconcile.Result{}, err
+		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to add ID annotation to action")
 	}
 
 	r.Log.Info("Added ID to Action", "Action", ha.Spec.Name)
