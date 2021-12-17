@@ -238,8 +238,8 @@ func (r *HumioClusterReconciler) updateStatus(statusWriter client.StatusWriter, 
 		return reconcile.Result{}, err
 	}
 	for _, opt := range opts {
-		if res, err := opt.GetResult(); err != nil {
-			return res, err
+		if _, err := opt.GetResult(); err != nil {
+			return reconcile.Result{RequeueAfter: time.Second * 1}, err
 		}
 	}
 	for _, opt := range opts {
