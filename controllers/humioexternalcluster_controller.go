@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -72,15 +73,13 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 	if hec.Status.State == "" {
 		err := r.setState(ctx, humiov1alpha1.HumioExternalClusterStateUnknown, hec)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
-			return reconcile.Result{}, err
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
 		}
 	}
 
 	cluster, err := helpers.NewCluster(ctx, r, "", hec.Name, hec.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster.Config() == nil {
-		r.Log.Error(err, "unable to obtain humio client config")
-		return reconcile.Result{}, err
+		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 
 	err = r.HumioClient.TestAPIToken(cluster.Config(), req)
@@ -88,27 +87,23 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 		r.Log.Error(err, "unable to test if the API token is works")
 		err = r.Client.Get(ctx, req.NamespacedName, hec)
 		if err != nil {
-			r.Log.Error(err, "unable to get cluster state")
-			return reconcile.Result{}, err
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to get cluster state")
 		}
 		err = r.setState(ctx, humiov1alpha1.HumioExternalClusterStateUnknown, hec)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
-			return reconcile.Result{}, err
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
 		}
 		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 	}
 
 	err = r.Client.Get(ctx, req.NamespacedName, hec)
 	if err != nil {
-		r.Log.Error(err, "unable to get cluster state")
-		return reconcile.Result{}, err
+		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to get cluster state")
 	}
 	if hec.Status.State != humiov1alpha1.HumioExternalClusterStateReady {
 		err = r.setState(ctx, humiov1alpha1.HumioExternalClusterStateReady, hec)
 		if err != nil {
-			r.Log.Error(err, "unable to set cluster state")
-			return reconcile.Result{}, err
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
 		}
 	}
 
@@ -121,4 +116,9 @@ func (r *HumioExternalClusterReconciler) SetupWithManager(mgr ctrl.Manager) erro
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioExternalCluster{}).
 		Complete(r)
+}
+
+func (r *HumioExternalClusterReconciler) logErrorAndReturn(err error, msg string) error {
+	r.Log.Error(err, msg)
+	return fmt.Errorf("%s: %w", msg, err)
 }

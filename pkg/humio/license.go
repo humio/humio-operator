@@ -31,7 +31,7 @@ func ParseLicense(licenseString string) (humioapi.License, error) {
 			IssuedAtVal:  onPremLicense.IssuedAtVal,
 		}, nil
 	}
-	return nil, fmt.Errorf("invalid license: %s", err)
+	return nil, fmt.Errorf("invalid license: %w", err)
 }
 
 func ParseLicenseType(licenseString string) (*humioapi.OnPremLicense, error) {
@@ -39,11 +39,11 @@ func ParseLicenseType(licenseString string) (*humioapi.OnPremLicense, error) {
 
 	token, err := jwt.ParseSigned(licenseString)
 	if err != nil {
-		return nil, fmt.Errorf("error when parsing license: %s", err)
+		return nil, fmt.Errorf("error when parsing license: %w", err)
 	}
 	err = token.UnsafeClaimsWithoutVerification(&licenseContent)
 	if err != nil {
-		return nil, fmt.Errorf("error when parsing license: %s", err)
+		return nil, fmt.Errorf("error when parsing license: %w", err)
 	}
 
 	locUTC, _ := time.LoadLocation("UTC")
