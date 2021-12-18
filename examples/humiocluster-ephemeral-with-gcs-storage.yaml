@@ -68,8 +68,14 @@ spec:
       value: "my-encryption-key"
     - name: USING_EPHEMERAL_DISKS
       value: "true"
-    - name: HUMIO_JVM_ARGS
-      value: -Xss2m -Xms2g -Xmx26g -server -XX:MaxDirectMemorySize=26g -XX:+UseParallelGC -XX:+UnlockDiagnosticVMOptions -XX:CompileCommand=dontinline,com/humio/util/HotspotUtilsJ.dontInline -Xlog:gc+jni=debug:stdout -Dakka.log-config-on-start=on -Xlog:gc*:stdout:time,tags
+    - name: "HUMIO_MEMORY_OPTS"
+      value: "-Xss2m -Xms2g -Xmx26g -XX:MaxDirectMemorySize=26g"
+    - name: "HUMIO_GC_OPTS"
+      value: "-XX:+UseParallelGC"
+    - name: "HUMIO_JVM_LOG_OPTS"
+      value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags"
+    - name: "HUMIO_OPTS"
+      value: "-Dlog4j2.formatMsgNoLookups=true -Dakka.log-config-on-start=on"
     - name: "ZOOKEEPER_URL"
       value: "z-2-my-zookeeper.c4.kafka.us-west-2.amazonaws.com:2181,z-3-my-zookeeper.c4.kafka.us-west-2.amazonaws.com:2181,z-1-my-zookeeper.c4.kafka.us-west-2.amazonaws.com:2181"
     - name: "KAFKA_SERVERS"

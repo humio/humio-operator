@@ -784,6 +784,18 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 		pod.Spec.Containers[i].TerminationMessagePolicy = ""
 	}
 
+	// Sort lists of container environment variables, so we won't get a diff because the order changes.
+	for _, container := range pod.Spec.Containers {
+		sort.SliceStable(container.Env, func(i, j int) bool {
+			return container.Env[i].Name > container.Env[j].Name
+		})
+	}
+	for _, container := range pod.Spec.InitContainers {
+		sort.SliceStable(container.Env, func(i, j int) bool {
+			return container.Env[i].Name > container.Env[j].Name
+		})
+	}
+
 	return pod
 }
 
