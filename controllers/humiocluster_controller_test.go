@@ -1201,10 +1201,6 @@ var _ = Describe("HumioCluster Controller", func() {
 					Value: "",
 				},
 				{
-					Name:  "HUMIO_JVM_ARGS",
-					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-				},
-				{
 					Name:  "ZOOKEEPER_URL",
 					Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
 				},
@@ -1228,6 +1224,27 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
+			}
+
+			humioVersion, _ := HumioVersionFromString(NewHumioNodeManagerFromHumioCluster(toCreate).GetImage())
+			if ok, _ := humioVersion.AtLeast(HumioVersionWithLauncherScript); ok {
+				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+					Name:  "HUMIO_MEMORY_OPTS",
+					Value: "-Xss2m -Xms256m -Xmx2g",
+				})
+				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+					Name:  "HUMIO_GC_OPTS",
+					Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
+				})
+				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+					Name:  "HUMIO_OPTS",
+					Value: "-Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+				})
+			} else {
+				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+					Name:  "HUMIO_JVM_ARGS",
+					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+				})
 			}
 
 			usingClusterBy(key.Name, "Creating the cluster successfully")
@@ -1249,10 +1266,6 @@ var _ = Describe("HumioCluster Controller", func() {
 					Value: "update",
 				},
 				{
-					Name:  "HUMIO_JVM_ARGS",
-					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-				},
-				{
 					Name:  "ZOOKEEPER_URL",
 					Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
 				},
@@ -1277,6 +1290,28 @@ var _ = Describe("HumioCluster Controller", func() {
 					Value: "false",
 				},
 			}
+
+			humioVersion, _ = HumioVersionFromString(NewHumioNodeManagerFromHumioCluster(toCreate).GetImage())
+			if ok, _ := humioVersion.AtLeast(HumioVersionWithLauncherScript); ok {
+				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+					Name:  "HUMIO_MEMORY_OPTS",
+					Value: "-Xss2m -Xms256m -Xmx2g",
+				})
+				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+					Name:  "HUMIO_GC_OPTS",
+					Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
+				})
+				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+					Name:  "HUMIO_OPTS",
+					Value: "-Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+				})
+			} else {
+				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+					Name:  "HUMIO_JVM_ARGS",
+					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+				})
+			}
+
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -4857,6 +4892,27 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 				},
 			},
 		},
+	}
+
+	humioVersion, _ := HumioVersionFromString(NewHumioNodeManagerFromHumioCluster(humioCluster).GetImage())
+	if ok, _ := humioVersion.AtLeast(HumioVersionWithLauncherScript); ok {
+		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
+			Name:  "HUMIO_MEMORY_OPTS",
+			Value: "-Xss2m -Xms256m -Xmx2g",
+		})
+		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
+			Name:  "HUMIO_GC_OPTS",
+			Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
+		})
+		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
+			Name:  "HUMIO_OPTS",
+			Value: "-Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+		})
+	} else {
+		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
+			Name:  "HUMIO_JVM_ARGS",
+			Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+		})
 	}
 
 	if useAutoCreatedLicense {

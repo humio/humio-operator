@@ -864,7 +864,6 @@ func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster, hnp *HumioNo
 			},
 		},
 
-		{Name: "HUMIO_JVM_ARGS", Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true"},
 		{Name: "HUMIO_PORT", Value: strconv.Itoa(humioPort)},
 		{Name: "ELASTIC_PORT", Value: strconv.Itoa(elasticPort)},
 		{Name: "DIGEST_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
@@ -878,6 +877,27 @@ func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster, hnp *HumioNo
 			Name:  "EXTERNAL_URL", // URL used by other Humio hosts.
 			Value: fmt.Sprintf("%s://$(POD_NAME).%s.$(POD_NAMESPACE):$(HUMIO_PORT)", scheme, headlessServiceName(hc.Name)),
 		},
+	}
+
+	humioVersion, _ := HumioVersionFromString(NewHumioNodeManagerFromHumioCluster(hc).GetImage())
+	if ok, _ := humioVersion.AtLeast(HumioVersionWithLauncherScript); ok {
+		envDefaults = append(envDefaults, corev1.EnvVar{
+			Name:  "HUMIO_MEMORY_OPTS",
+			Value: "-Xss2m -Xms256m -Xmx1536m",
+		})
+		envDefaults = append(envDefaults, corev1.EnvVar{
+			Name:  "HUMIO_GC_OPTS",
+			Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
+		})
+		envDefaults = append(envDefaults, corev1.EnvVar{
+			Name:  "HUMIO_OPTS",
+			Value: "-Dlog4j2.formatMsgNoLookups=true",
+		})
+	} else {
+		envDefaults = append(envDefaults, corev1.EnvVar{
+			Name:  "HUMIO_JVM_ARGS",
+			Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
+		})
 	}
 
 	if envVarHasValue(hc.Spec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") {
