@@ -76,3 +76,27 @@ do
   kubectl describe pod humio-cp-kafka-0
   sleep 10
 done
+
+while [[ $(kubectl get pods -n cert-manager -l app.kubernetes.io/name=cert-manager -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
+do
+  echo "Waiting for cert-manager pod to become Ready"
+  kubectl get pods -n cert-manager
+  kubectl describe pod -n cert-manager -l app.kubernetes.io/name=cert-manager
+  sleep 10
+done
+
+while [[ $(kubectl get pods -n cert-manager -l app.kubernetes.io/name=cainjector -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
+do
+  echo "Waiting for cert-manager cainjector pod to become Ready"
+  kubectl get pods -n cert-manager
+  kubectl describe pod -n cert-manager -l app.kubernetes.io/name=cainjector
+  sleep 10
+done
+
+while [[ $(kubectl get pods -n cert-manager -l app.kubernetes.io/name=webhook -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
+do
+  echo "Waiting for cert-manager webhook pod to become Ready"
+  kubectl get pods -n cert-manager
+  kubectl describe pod -n cert-manager -l app.kubernetes.io/name=webhook
+  sleep 10
+done
