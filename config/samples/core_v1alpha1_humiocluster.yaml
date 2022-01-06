@@ -15,12 +15,8 @@ spec:
   nodeCount: 1
   targetReplicationFactor: 1
   environmentVariables:
-    - name: "HUMIO_MEMORY_OPTS"
-      value: "-Xss2m -Xms256m -Xmx1536m"
-    - name: "HUMIO_GC_OPTS"
-      value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC"
     - name: "HUMIO_OPTS"
-      value: "-Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false"
+      value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false"
     - name: "ZOOKEEPER_URL"
       value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless:2181"
     - name: "KAFKA_SERVERS"
