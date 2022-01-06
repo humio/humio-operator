@@ -351,7 +351,6 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 			},
 		},
 
-		{Name: "HUMIO_JVM_ARGS", Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true"},
 		{Name: "HUMIO_PORT", Value: strconv.Itoa(humioPort)},
 		{Name: "ELASTIC_PORT", Value: strconv.Itoa(elasticPort)},
 		{Name: "DIGEST_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
@@ -365,6 +364,31 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 			Name:  "EXTERNAL_URL", // URL used by other Humio hosts.
 			Value: fmt.Sprintf("%s://$(POD_NAME).%s.$(POD_NAMESPACE):$(HUMIO_PORT)", strings.ToLower(scheme), headlessServiceName(hnp.GetClusterName())),
 		},
+	}
+
+	humioVersion, _ := HumioVersionFromString(hnp.GetImage())
+	if ok, _ := humioVersion.AtLeast(HumioVersionWithLauncherScript); ok {
+		envDefaults = append(envDefaults, corev1.EnvVar{
+			Name:  "HUMIO_MEMORY_OPTS",
+			Value: "-Xss2m -Xms256m -Xmx1536m",
+		})
+		envDefaults = append(envDefaults, corev1.EnvVar{
+			Name:  "HUMIO_GC_OPTS",
+			Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
+		})
+		envDefaults = append(envDefaults, corev1.EnvVar{
+			Name:  "HUMIO_JVM_LOG_OPTS",
+			Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags",
+		})
+		envDefaults = append(envDefaults, corev1.EnvVar{
+			Name:  "HUMIO_OPTS",
+			Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true",
+		})
+	} else {
+		envDefaults = append(envDefaults, corev1.EnvVar{
+			Name:  "HUMIO_JVM_ARGS",
+			Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
+		})
 	}
 
 	if envVarHasValue(hnp.humioNodeSpec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") {
@@ -829,117 +853,6 @@ func viewGroupPermissionsConfigMapName(hc *humiov1alpha1.HumioCluster) string {
 	return fmt.Sprintf("%s-%s", hc.Name, viewGroupPermissionsConfigMapNameSuffix)
 }
 
-func setEnvironmentVariableDefaults(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) {
-	scheme := "https"
-	if !hnp.TLSEnabled() {
-		scheme = "http"
-	}
-
-	envDefaults := []corev1.EnvVar{
-		{
-			Name: "THIS_POD_IP",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					APIVersion: "v1",
-					FieldPath:  "status.podIP",
-				},
-			},
-		},
-		{
-			Name: "POD_NAME",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					APIVersion: "v1",
-					FieldPath:  "metadata.name",
-				},
-			},
-		},
-		{
-			Name: "POD_NAMESPACE",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					APIVersion: "v1",
-					FieldPath:  "metadata.namespace",
-				},
-			},
-		},
-
-		{Name: "HUMIO_PORT", Value: strconv.Itoa(humioPort)},
-		{Name: "ELASTIC_PORT", Value: strconv.Itoa(elasticPort)},
-		{Name: "DIGEST_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
-		{Name: "STORAGE_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
-		{Name: "DEFAULT_PARTITION_COUNT", Value: strconv.Itoa(hnp.GetStoragePartitionsCount())},
-		{Name: "INGEST_QUEUE_INITIAL_PARTITIONS", Value: strconv.Itoa(hnp.GetDigestPartitionsCount())},
-		{Name: "KAFKA_MANAGED_BY_HUMIO", Value: "true"},
-		{Name: "AUTHENTICATION_METHOD", Value: "single-user"},
-		{Name: "HUMIO_LOG4J_CONFIGURATION", Value: "log4j2-json-stdout.xml"},
-		{
-			Name:  "EXTERNAL_URL", // URL used by other Humio hosts.
-			Value: fmt.Sprintf("%s://$(POD_NAME).%s.$(POD_NAMESPACE):$(HUMIO_PORT)", scheme, headlessServiceName(hc.Name)),
-		},
-	}
-
-	humioVersion, _ := HumioVersionFromString(NewHumioNodeManagerFromHumioCluster(hc).GetImage())
-	if ok, _ := humioVersion.AtLeast(HumioVersionWithLauncherScript); ok {
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "HUMIO_MEMORY_OPTS",
-			Value: "-Xss2m -Xms256m -Xmx1536m",
-		})
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "HUMIO_GC_OPTS",
-			Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
-		})
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "HUMIO_OPTS",
-			Value: "-Dlog4j2.formatMsgNoLookups=true",
-		})
-	} else {
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "HUMIO_JVM_ARGS",
-			Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
-		})
-	}
-
-	if envVarHasValue(hc.Spec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") {
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
-			Value: "$(ZOOKEEPER_URL)",
-		})
-	}
-
-	for _, defaultEnvVar := range envDefaults {
-		appendEnvVarToHumioClusterEnvVarsIfNotAlreadyPresent(hc, defaultEnvVar)
-	}
-
-	// Allow overriding PUBLIC_URL. This may be useful when other methods of exposing the cluster are used other than
-	// ingress
-	if !envVarHasKey(envDefaults, "PUBLIC_URL") {
-		// Only include the path suffix if it's non-root. It likely wouldn't harm anything, but it's unnecessary
-		pathSuffix := ""
-		if humioPathOrDefault(hc) != "/" {
-			pathSuffix = humioPathOrDefault(hc)
-		}
-		if hc.Spec.Ingress.Enabled {
-			appendEnvVarToHumioClusterEnvVarsIfNotAlreadyPresent(hc, corev1.EnvVar{
-				Name:  "PUBLIC_URL", // URL used by users/browsers.
-				Value: fmt.Sprintf("https://%s%s", hc.Spec.Hostname, pathSuffix),
-			})
-		} else {
-			appendEnvVarToHumioClusterEnvVarsIfNotAlreadyPresent(hc, corev1.EnvVar{
-				Name:  "PUBLIC_URL", // URL used by users/browsers.
-				Value: fmt.Sprintf("%s://$(THIS_POD_IP):$(HUMIO_PORT)%s", scheme, pathSuffix),
-			})
-		}
-	}
-
-	if humioPathOrDefault(hc) != "/" {
-		appendEnvVarToHumioClusterEnvVarsIfNotAlreadyPresent(hc, corev1.EnvVar{
-			Name:  "PROXY_PREFIX_URL",
-			Value: humioPathOrDefault(hc),
-		})
-	}
-}
-
 func appendEnvVarToEnvVarsIfNotAlreadyPresent(envVars []corev1.EnvVar, defaultEnvVar corev1.EnvVar) []corev1.EnvVar {
 	for _, envVar := range envVars {
 		if envVar.Name == defaultEnvVar.Name {
@@ -947,15 +860,6 @@ func appendEnvVarToEnvVarsIfNotAlreadyPresent(envVars []corev1.EnvVar, defaultEn
 		}
 	}
 	return append(envVars, defaultEnvVar)
-}
-
-func appendEnvVarToHumioClusterEnvVarsIfNotAlreadyPresent(hc *humiov1alpha1.HumioCluster, defaultEnvVar corev1.EnvVar) {
-	for _, envVar := range hc.Spec.EnvironmentVariables {
-		if envVar.Name == defaultEnvVar.Name {
-			return
-		}
-	}
-	hc.Spec.EnvironmentVariables = append(hc.Spec.EnvironmentVariables, defaultEnvVar)
 }
 
 func certificateSecretNameOrDefault(hc *humiov1alpha1.HumioCluster) string {

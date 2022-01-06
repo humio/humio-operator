@@ -57,29 +57,43 @@ var _ = Describe("HumioCluster Defaults", func() {
 				Spec: spec,
 			}
 
-			setEnvironmentVariableDefaults(toCreate, NewHumioNodeManagerFromHumioCluster(toCreate))
-			numEnvVars := len(toCreate.Spec.EnvironmentVariables)
-			Expect(numEnvVars).ToNot(BeNumerically("<", 2))
-			Expect(toCreate.Spec.EnvironmentVariables).Should(ContainElements([]corev1.EnvVar{
+			By("Confirming the humio node manager configures default PUBLIC_URL")
+			hnp := NewHumioNodeManagerFromHumioCluster(toCreate)
+			Expect(hnp.GetEnvironmentVariables()).Should(ContainElements([]corev1.EnvVar{
 				{
 					Name:  "PUBLIC_URL",
 					Value: "http://$(THIS_POD_IP):$(HUMIO_PORT)",
 				},
 			}))
-			additionalEnvVar := corev1.EnvVar{
-				Name:  "test",
-				Value: "test",
-			}
-			appendEnvVarToHumioClusterEnvVarsIfNotAlreadyPresent(toCreate, additionalEnvVar)
-			Expect(len(toCreate.Spec.EnvironmentVariables)).To(BeIdenticalTo(numEnvVars + 1))
 
-			updatedPublicURL := corev1.EnvVar{
-				Name:  "PUBLIC_URL",
-				Value: "test",
-			}
+			By("Confirming the humio node manager correctly returns a newly added unrelated environment variable")
+			toCreate.Spec.EnvironmentVariables = appendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
+				corev1.EnvVar{
+					Name:  "test",
+					Value: "test",
+				},
+			)
+			hnp = NewHumioNodeManagerFromHumioCluster(toCreate)
+			Expect(hnp.GetEnvironmentVariables()).To(ContainElement(
+				corev1.EnvVar{
+					Name:  "test",
+					Value: "test",
+				}),
+			)
 
-			appendEnvVarToHumioClusterEnvVarsIfNotAlreadyPresent(toCreate, updatedPublicURL)
-			Expect(len(toCreate.Spec.EnvironmentVariables)).To(BeIdenticalTo(numEnvVars + 1))
+			By("Confirming the humio node manager correctly overrides the PUBLIC_URL")
+			toCreate.Spec.EnvironmentVariables = appendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
+				corev1.EnvVar{
+					Name:  "PUBLIC_URL",
+					Value: "test",
+				})
+			hnp = NewHumioNodeManagerFromHumioCluster(toCreate)
+			Expect(hnp.GetEnvironmentVariables()).To(ContainElement(
+				corev1.EnvVar{
+					Name:  "PUBLIC_URL",
+					Value: "test",
+				}),
+			)
 		})
 	})
 
@@ -104,27 +118,40 @@ var _ = Describe("HumioCluster Defaults", func() {
 				Spec: spec,
 			}
 
-			setEnvironmentVariableDefaults(toCreate, NewHumioNodeManagerFromHumioCluster(toCreate))
-			numEnvVars := len(toCreate.Spec.EnvironmentVariables)
-			Expect(numEnvVars).ToNot(BeNumerically("<", 2))
-			Expect(toCreate.Spec.EnvironmentVariables).Should(ContainElements([]corev1.EnvVar{
-				{
+			By("Confirming the humio node manager correctly overrides the PUBLIC_URL")
+			toCreate.Spec.EnvironmentVariables = appendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
+				corev1.EnvVar{
 					Name:  "PUBLIC_URL",
 					Value: "test",
-				},
-			}))
+				})
+			hnp := NewHumioNodeManagerFromHumioCluster(toCreate)
+			Expect(hnp.GetEnvironmentVariables()).To(ContainElement(
+				corev1.EnvVar{
+					Name:  "PUBLIC_URL",
+					Value: "test",
+				}),
+			)
 
-			updatedPublicURL := corev1.EnvVar{
-				Name:  "PUBLIC_URL",
-				Value: "updated",
+			By("Confirming the humio node manager correctly updates the PUBLIC_URL override")
+			updatedEnvVars := make([]corev1.EnvVar, len(toCreate.Spec.EnvironmentVariables))
+			for i, k := range toCreate.Spec.EnvironmentVariables {
+				if k.Name == "PUBLIC_URL" {
+					updatedEnvVars[i] = corev1.EnvVar{
+						Name:  "PUBLIC_URL",
+						Value: "updated",
+					}
+				} else {
+					updatedEnvVars[i] = k
+				}
 			}
-			appendEnvVarToHumioClusterEnvVarsIfNotAlreadyPresent(toCreate, updatedPublicURL)
-			Expect(toCreate.Spec.EnvironmentVariables).Should(ContainElements([]corev1.EnvVar{
-				{
+			toCreate.Spec.EnvironmentVariables = updatedEnvVars
+			hnp = NewHumioNodeManagerFromHumioCluster(toCreate)
+			Expect(hnp.GetEnvironmentVariables()).To(ContainElement(
+				corev1.EnvVar{
 					Name:  "PUBLIC_URL",
-					Value: "test",
-				},
-			}))
+					Value: "updated",
+				}),
+			)
 		})
 	})
 
@@ -144,8 +171,8 @@ var _ = Describe("HumioCluster Defaults", func() {
 					},
 				}
 
-				setEnvironmentVariableDefaults(toCreate, NewHumioNodeManagerFromHumioCluster(toCreate))
-				Expect(toCreate.Spec.EnvironmentVariables).Should(ContainElements([]corev1.EnvVar{
+				hnp := NewHumioNodeManagerFromHumioCluster(toCreate)
+				Expect(hnp.GetEnvironmentVariables()).Should(ContainElements([]corev1.EnvVar{
 					{
 						Name:  "HUMIO_LOG4J_CONFIGURATION",
 						Value: "log4j2-json-stdout.xml",
