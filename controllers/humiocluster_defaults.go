@@ -369,10 +369,6 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	humioVersion, _ := HumioVersionFromString(hnp.GetImage())
 	if ok, _ := humioVersion.AtLeast(HumioVersionWithLauncherScript); ok {
 		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "HUMIO_MEMORY_OPTS",
-			Value: "-Xss2m -Xms256m -Xmx1536m",
-		})
-		envDefaults = append(envDefaults, corev1.EnvVar{
 			Name:  "HUMIO_GC_OPTS",
 			Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
 		})
