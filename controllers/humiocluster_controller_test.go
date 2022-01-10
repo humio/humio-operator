@@ -717,6 +717,80 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster Update EXTERNAL_URL", func() {
+		It("Update should correctly replace pods to use the new EXTERNAL_URL in a non-rolling fashion", func() {
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				key := types.NamespacedName{
+					Name:      "humiocluster-update-ext-url",
+					Namespace: testProcessID,
+				}
+				toCreate := constructBasicSingleNodeHumioCluster(key, true)
+				toCreate.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{Enabled: helpers.BoolPtr(false)}
+
+				usingClusterBy(key.Name, "Creating the cluster successfully")
+				ctx := context.Background()
+				createAndBootstrapCluster(ctx, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
+				defer cleanupCluster(ctx, toCreate)
+
+				revisionKey, _ := NewHumioNodeManagerFromHumioCluster(toCreate).GetHumioClusterNodePoolRevisionAnnotation()
+				var updatedHumioCluster humiov1alpha1.HumioCluster
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				for _, pod := range clusterPods {
+					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+					Expect(pod.Spec.Containers[humioIndex].Env).To(ContainElement(corev1.EnvVar{
+						Name:  "EXTERNAL_URL",
+						Value: "http://$(POD_NAME).humiocluster-update-ext-url-headless.$(POD_NAMESPACE):$(HUMIO_PORT)",
+					}))
+					Expect(pod.Annotations).To(HaveKeyWithValue(podRevisionAnnotation, "1"))
+				}
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
+
+				usingClusterBy(key.Name, "Updating the cluster TLS successfully")
+				Eventually(func() error {
+					updatedHumioCluster = humiov1alpha1.HumioCluster{}
+					err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+					if err != nil {
+						return err
+					}
+					updatedHumioCluster.Spec.TLS.Enabled = helpers.BoolPtr(true)
+					return k8sClient.Update(ctx, &updatedHumioCluster)
+				}, testTimeout, testInterval).Should(Succeed())
+
+				Eventually(func() string {
+					updatedHumioCluster = humiov1alpha1.HumioCluster{}
+					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+					return updatedHumioCluster.Status.State
+				}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
+
+				ensurePodsSimultaneousRestart(ctx, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+
+				Eventually(func() string {
+					updatedHumioCluster = humiov1alpha1.HumioCluster{}
+					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+					return updatedHumioCluster.Status.State
+				}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+				usingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "2"))
+
+				updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+				Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
+				for _, pod := range updatedClusterPods {
+					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+					Expect(pod.Spec.Containers[humioIndex].Env).To(ContainElement(corev1.EnvVar{
+						Name:  "EXTERNAL_URL",
+						Value: "https://$(POD_NAME).humiocluster-update-ext-url-headless.$(POD_NAMESPACE):$(HUMIO_PORT)",
+					}))
+					Expect(pod.Annotations).To(HaveKeyWithValue(podRevisionAnnotation, "2"))
+				}
+			}
+		})
+	})
+
 	Context("Humio Cluster Update Image Multi Node Pool", func() {
 		It("Update should correctly replace pods to use new image in multiple node pools", func() {
 			key := types.NamespacedName{
