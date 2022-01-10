@@ -1371,10 +1371,6 @@ var _ = Describe("HumioCluster Controller", func() {
 					Value: "",
 				},
 				{
-					Name:  "HUMIO_MEMORY_OPTS",
-					Value: "-Xss2m -Xms256m -Xmx2g",
-				},
-				{
 					Name:  "HUMIO_OPTS",
 					Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
 				},
@@ -1407,10 +1403,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				{
 					Name:  "test",
 					Value: "",
-				},
-				{
-					Name:  "HUMIO_MEMORY_OPTS",
-					Value: "-Xss2m -Xms256m -Xmx2g",
 				},
 				{
 					Name:  "HUMIO_OPTS",
@@ -1461,10 +1453,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				{
 					Name:  "test",
 					Value: "update",
-				},
-				{
-					Name:  "HUMIO_MEMORY_OPTS",
-					Value: "-Xss2m -Xms256m -Xmx2g",
 				},
 				{
 					Name:  "HUMIO_OPTS",
@@ -1567,10 +1555,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				{
 					Name:  "test",
 					Value: "update",
-				},
-				{
-					Name:  "HUMIO_MEMORY_OPTS",
-					Value: "-Xss2m -Xms256m -Xmx2g",
 				},
 				{
 					Name:  "HUMIO_OPTS",
@@ -4805,10 +4789,6 @@ func constructBasicMultiNodePoolHumioCluster(key types.NamespacedName, useAutoCr
 				ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 				NodeCount:         helpers.IntPtr(1),
 				EnvironmentVariables: []corev1.EnvVar{
-					{
-						Name:  "HUMIO_MEMORY_OPTS",
-						Value: "-Xss2m -Xms256m -Xmx2g",
-					},
 					{
 						Name:  "HUMIO_OPTS",
 						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
