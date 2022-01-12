@@ -19,6 +19,8 @@ package controllers
 import (
 	"fmt"
 
+	"github.com/humio/humio-operator/pkg/helpers"
+
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	corev1 "k8s.io/api/core/v1"
@@ -90,4 +92,31 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 
 func headlessServiceName(prefix string) string {
 	return fmt.Sprintf("%s-headless", prefix)
+}
+
+func servicesMatch(existingService *corev1.Service, service *corev1.Service) (bool, error) {
+	existingLabels := helpers.MapToSortedString(existingService.GetLabels())
+	labels := helpers.MapToSortedString(service.GetLabels())
+	if existingLabels != labels {
+		return false, fmt.Errorf("service labels do not match: got %s, expected: %s", existingLabels, labels)
+	}
+
+	existingAnnotations := helpers.MapToSortedString(existingService.GetAnnotations())
+	annotations := helpers.MapToSortedString(service.GetAnnotations())
+	if existingAnnotations != annotations {
+		return false, fmt.Errorf("service annotations do not match: got %s, expected: %s", existingAnnotations, annotations)
+	}
+
+	existingSelector := helpers.MapToSortedString(existingService.Spec.Selector)
+	selector := helpers.MapToSortedString(service.Spec.Selector)
+	if existingSelector != selector {
+		return false, fmt.Errorf("service selector does not match: got %s, expected: %s", existingSelector, selector)
+	}
+	return true, nil
+}
+
+func updateService(existingService *corev1.Service, service *corev1.Service) {
+	existingService.Annotations = service.Annotations
+	existingService.Labels = service.Labels
+	existingService.Spec.Selector = service.Spec.Selector
 }
