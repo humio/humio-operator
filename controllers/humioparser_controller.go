@@ -20,14 +20,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"time"
+
 	"github.com/google/go-cmp/cmp"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sort"
-	"time"
 
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -81,7 +82,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
 		}
-		return reconcile.Result{}, err
+		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 	}
 
 	r.Log.Info("Checking if parser is marked to be deleted")
