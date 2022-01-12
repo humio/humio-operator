@@ -216,7 +216,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	for _, pool := range humioNodePools {
-		if err := r.ensureServiceExists(ctx, hc, pool); err != nil {
+		if err := r.ensureService(ctx, hc, pool); err != nil {
 			return r.updateStatus(r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()))
 		}
@@ -1586,11 +1586,11 @@ func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(hc *humiov1alpha1.H
 	return nil
 }
 
-func (r *HumioClusterReconciler) ensureServiceExists(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
+func (r *HumioClusterReconciler) ensureService(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
 	r.Log.Info("ensuring service")
-	_, err := kubernetes.GetService(ctx, r, hnp.GetNodePoolName(), hnp.GetNamespace())
+	existingService, err := kubernetes.GetService(ctx, r, hnp.GetNodePoolName(), hnp.GetNamespace())
+	service := constructService(hnp)
 	if k8serrors.IsNotFound(err) {
-		service := constructService(hnp)
 		if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {
 			return r.logErrorAndReturn(err, "could not set controller reference")
 		}
@@ -1598,21 +1598,38 @@ func (r *HumioClusterReconciler) ensureServiceExists(ctx context.Context, hc *hu
 		if err = r.Create(ctx, service); err != nil {
 			return r.logErrorAndReturn(err, "unable to create service for HumioCluster")
 		}
+		return nil
+	}
+
+	if servicesMatchTest, err := servicesMatch(existingService, service); !servicesMatchTest || err != nil {
+		r.Log.Info(fmt.Sprintf("service %s requires update: %s", existingService.Name, err))
+		updateService(existingService, service)
+		if err = r.Update(ctx, existingService); err != nil {
+			return r.logErrorAndReturn(err, fmt.Sprintf("could not update service %s", service.Name))
+		}
 	}
 	return nil
 }
 
 func (r *HumioClusterReconciler) ensureHeadlessServiceExists(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("ensuring headless service")
-	_, err := kubernetes.GetService(ctx, r, headlessServiceName(hc.Name), hc.Namespace)
+	existingService, err := kubernetes.GetService(ctx, r, headlessServiceName(hc.Name), hc.Namespace)
+	service := constructHeadlessService(hc)
 	if k8serrors.IsNotFound(err) {
-		service := constructHeadlessService(hc)
 		if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {
 			return r.logErrorAndReturn(err, "could not set controller reference")
 		}
 		err = r.Create(ctx, service)
 		if err != nil {
 			return r.logErrorAndReturn(err, "unable to create headless service for HumioCluster")
+		}
+		return nil
+	}
+	if servicesMatchTest, err := servicesMatch(existingService, service); !servicesMatchTest || err != nil {
+		r.Log.Info(fmt.Sprintf("service %s requires update: %s", existingService.Name, err))
+		updateService(existingService, service)
+		if err = r.Update(ctx, existingService); err != nil {
+			return r.logErrorAndReturn(err, fmt.Sprintf("could not update service %s", service.Name))
 		}
 	}
 	return nil

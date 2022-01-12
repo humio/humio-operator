@@ -2067,6 +2067,69 @@ var _ = Describe("HumioCluster Controller", func() {
 				return -1
 			}, testTimeout, testInterval).Should(Equal(int32(9201)))
 
+			svc, _ = kubernetes.GetService(ctx, k8sClient, key.Name, key.Namespace)
+			Expect(svc.Annotations).To(BeNil())
+
+			usingClusterBy(key.Name, "Updating service annotations")
+			updatedAnnotationKey := "new-annotation"
+			updatedAnnotationValue := "new-value"
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.HumioServiceAnnotations = map[string]string{updatedAnnotationKey: updatedAnnotationValue}
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			usingClusterBy(key.Name, "Confirming we can see the updated service annotations")
+			Eventually(func() map[string]string {
+				service := constructService(NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster))
+				Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
+				return service.Annotations
+			}, testTimeout, testInterval).Should(HaveKeyWithValue(updatedAnnotationKey, updatedAnnotationValue))
+
+			usingClusterBy(key.Name, "Updating service labels")
+			updatedLabelsKey := "new-label"
+			updatedLabelsValue := "new-value"
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.HumioServiceLabels = map[string]string{updatedLabelsKey: updatedLabelsValue}
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			usingClusterBy(key.Name, "Confirming we can see the updated service labels")
+			Eventually(func() map[string]string {
+				service := constructService(NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster))
+				Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
+				return service.Labels
+			}, testTimeout, testInterval).Should(HaveKeyWithValue(updatedLabelsKey, updatedLabelsValue))
+
+			// The selector is not controlled through the spec, but with the addition of node pools, the operator adds
+			// a new selector. This test confirms the operator will be able to migrate to different selectors on the
+			// service.
+			usingClusterBy(key.Name, "Updating service selector for migration to node pools")
+			service := constructService(NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster))
+			Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
+			delete(service.Spec.Selector, "humio.com/node-pool")
+			Expect(k8sClient.Update(ctx, service)).To(Succeed())
+
+			Eventually(func() map[string]string {
+				Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
+				return service.Spec.Selector
+			}, testTimeout, testInterval).Should(Not(HaveKeyWithValue("humio.com/node-pool", key.Name)))
+
+			incrementGenerationAndWaitForReconcileToSync(ctx, key, k8sClient)
+
+			Eventually(func() map[string]string {
+				service := constructService(NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster))
+				Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
+				return service.Spec.Selector
+			}, testTimeout, testInterval).Should(HaveKeyWithValue("humio.com/node-pool", key.Name))
+
 			usingClusterBy(key.Name, "Confirming headless service has the correct HTTP and ES ports")
 			headlessSvc, _ := kubernetes.GetService(ctx, k8sClient, fmt.Sprintf("%s-headless", key.Name), key.Namespace)
 			Expect(headlessSvc.Spec.Type).To(BeIdenticalTo(corev1.ServiceTypeClusterIP))
@@ -2078,6 +2141,41 @@ var _ = Describe("HumioCluster Controller", func() {
 					Expect(port.Port).Should(Equal(int32(9200)))
 				}
 			}
+
+			headlessSvc, _ = kubernetes.GetService(ctx, k8sClient, key.Name, key.Namespace)
+			Expect(svc.Annotations).To(BeNil())
+
+			usingClusterBy(key.Name, "Updating headless service annotations")
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.HumioHeadlessServiceAnnotations = map[string]string{updatedAnnotationKey: updatedAnnotationValue}
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			usingClusterBy(key.Name, "Confirming we can see the updated service annotations")
+			Eventually(func() map[string]string {
+				Expect(k8sClient.Get(ctx, key, headlessSvc)).Should(Succeed())
+				return headlessSvc.Annotations
+			}, testTimeout, testInterval).Should(HaveKeyWithValue(updatedAnnotationKey, updatedAnnotationValue))
+
+			usingClusterBy(key.Name, "Updating headless service labels")
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.HumioHeadlessServiceLabels = map[string]string{updatedLabelsKey: updatedLabelsValue}
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			usingClusterBy(key.Name, "Confirming we can see the updated service labels")
+			Eventually(func() map[string]string {
+				Expect(k8sClient.Get(ctx, key, headlessSvc)).Should(Succeed())
+				return headlessSvc.Labels
+			}, testTimeout, testInterval).Should(HaveKeyWithValue(updatedLabelsKey, updatedLabelsValue))
 		})
 	})
 
