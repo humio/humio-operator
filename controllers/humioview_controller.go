@@ -80,7 +80,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
 		}
-		return reconcile.Result{}, err
+		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hv *humiov1alpha1.HumioView) {
