@@ -10,9 +10,11 @@ import (
 )
 
 const (
-	containerStateCreating  = "ContainerCreating"
-	containerStateCompleted = "Completed"
-	podInitializing         = "PodInitializing"
+	containerStateCreating          = "ContainerCreating"
+	containerStateCompleted         = "Completed"
+	podInitializing                 = "PodInitializing"
+	podConditionReasonUnschedulable = "Unschedulable"
+	podConditionReasonEvicted       = "Evicted"
 )
 
 type podsStatusState struct {
@@ -24,6 +26,7 @@ type podsStatusState struct {
 	podDeletionTimestampSet []bool
 	podNames                []string
 	podErrors               []corev1.Pod
+	podsRequiringDeletion   []corev1.Pod
 }
 
 func (r *HumioClusterReconciler) getPodsStatus(hnp *HumioNodePool, foundPodList []corev1.Pod) (*podsStatusState, error) {
@@ -47,7 +50,24 @@ func (r *HumioClusterReconciler) getPodsStatus(hnp *HumioNodePool, foundPodList 
 
 		// pods that were just deleted may still have a status of Ready, but we should not consider them ready
 		if pod.DeletionTimestamp == nil {
+			// If a pod is evicted, we don't want to wait for a new pod spec since the eviction could happen for a
+			// number of reasons. If we delete the pod then we will re-create it on the next reconcile. Adding the pod
+			// to the podsRequiringDeletion list will cause it to be deleted.
+			if pod.Status.Phase == corev1.PodFailed && pod.Status.Reason == podConditionReasonEvicted {
+				r.Log.Info(fmt.Sprintf("pod %s has errors, pod phase: %s, reason: %s", pod.Name, pod.Status.Phase, pod.Status.Reason))
+				status.podsRequiringDeletion = append(status.podsRequiringDeletion, pod)
+				continue
+			}
+			// If a pod is Pending but unschedulable, we want to consider this an error state so it will be replaced
+			// but only if the pod spec is updated (e.g. to lower the pod resources).
 			for _, condition := range pod.Status.Conditions {
+				if condition.Status == corev1.ConditionFalse {
+					if condition.Reason == podConditionReasonUnschedulable {
+						r.Log.Info(fmt.Sprintf("pod %s has errors, container status: %s, reason: %s", pod.Name, condition.Status, condition.Reason))
+						status.podErrors = append(status.podErrors, pod)
+						continue
+					}
+				}
 				if condition.Type == corev1.PodReady {
 					if condition.Status == corev1.ConditionTrue {
 						podsReady = append(podsReady, pod.Name)
@@ -78,7 +98,7 @@ func (r *HumioClusterReconciler) getPodsStatus(hnp *HumioNodePool, foundPodList 
 // waitingOnPods returns true when there are pods running that are not in a ready state. This does not include pods
 // that are not ready due to container errors.
 func (s *podsStatusState) waitingOnPods() bool {
-	return (s.readyCount < s.expectedRunningPods || s.notReadyCount > 0) && !s.havePodsWithContainerStateWaitingErrors()
+	return (s.readyCount < s.expectedRunningPods || s.notReadyCount > 0) && !s.havePodsWithErrors() && !s.havePodsRequiringDeletion()
 }
 
 func (s *podsStatusState) podRevisionsInSync() bool {
@@ -97,6 +117,10 @@ func (s *podsStatusState) podRevisionsInSync() bool {
 	return true
 }
 
-func (s *podsStatusState) havePodsWithContainerStateWaitingErrors() bool {
+func (s *podsStatusState) havePodsWithErrors() bool {
 	return len(s.podErrors) > 0
+}
+
+func (s *podsStatusState) havePodsRequiringDeletion() bool {
+	return len(s.podsRequiringDeletion) > 0
 }

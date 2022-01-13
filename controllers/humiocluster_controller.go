@@ -2080,7 +2080,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 
 	// prioritize deleting the pods with errors
 	var podList []corev1.Pod
-	if podsStatus.havePodsWithContainerStateWaitingErrors() {
+	if podsStatus.havePodsWithErrors() {
 		r.Log.Info(fmt.Sprintf("found %d humio pods with errors", len(podsStatus.podErrors)))
 		podList = podsStatus.podErrors
 	} else {
@@ -2089,6 +2089,16 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	desiredLifecycleState, err := r.getPodDesiredLifecycleState(hnp, podList, attachments)
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "got error when getting pod desired lifecycle")
+	}
+
+	if podsStatus.havePodsRequiringDeletion() {
+		r.Log.Info(fmt.Sprintf("found %d humio pods requiring deletion", len(podsStatus.podsRequiringDeletion)))
+		r.Log.Info(fmt.Sprintf("deleting pod %s", podsStatus.podsRequiringDeletion[0].Name))
+		if err = r.Delete(ctx, &podsStatus.podsRequiringDeletion[0]); err != nil {
+			return r.updateStatus(r.Client.Status(), hc, statusOptions().
+				withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s", podsStatus.podsRequiringDeletion[0].Name)).Error()))
+		}
+		return reconcile.Result{RequeueAfter: time.Second + 1}, nil
 	}
 
 	// If we are currently deleting pods, then check if the cluster state is Running or in a ConfigError state. If it
