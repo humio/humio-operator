@@ -97,6 +97,7 @@ func constructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]s
 	hnpResources := hnp.GetResources()
 	if !envVarHasKey(podEnvVars, "CORES") && hnpResources.Limits.Cpu().IsZero() {
 		shellCommands = append(shellCommands, "export CORES=$(getconf _NPROCESSORS_ONLN)")
+		shellCommands = append(shellCommands, "export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\"")
 	}
 
 	sort.Strings(shellCommands)
