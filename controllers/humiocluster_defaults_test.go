@@ -210,6 +210,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				},
 				[]string{
 					"export CORES=",
+					"export HUMIO_OPTS=",
 					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 					"export ZONE=",
 				},
@@ -242,6 +243,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				},
 				[]string{
 					"export CORES=",
+					"export HUMIO_OPTS=",
 				},
 			},
 		},
@@ -263,6 +265,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				},
 				[]string{
 					"export CORES=",
+					"export HUMIO_OPTS=",
 					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 				},
 				[]string{
@@ -296,6 +299,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				},
 				[]string{
 					"export CORES=",
+					"export HUMIO_OPTS=",
 					"export ZONE=",
 				},
 			},
@@ -308,6 +312,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				},
 				[]string{
 					"export CORES=",
+					"export HUMIO_OPTS=",
 					"export ZONE=",
 				},
 				[]string{
@@ -335,6 +340,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				[]string{
 					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 					"export CORES=",
+					"export HUMIO_OPTS=",
 				},
 			},
 		},
@@ -350,6 +356,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				},
 				[]string{
 					"export CORES=",
+					"export HUMIO_OPTS=",
 				},
 				[]string{
 					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
@@ -375,6 +382,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				[]string{},
 				[]string{
 					"export CORES=",
+					"export HUMIO_OPTS=",
 					"export ZONE=",
 					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 				},
@@ -405,6 +413,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				},
 				[]string{
 					"export CORES=",
+					"export HUMIO_OPTS=",
 				},
 			},
 		},
@@ -433,6 +442,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				},
 				[]string{
 					"export CORES=",
+					"export HUMIO_OPTS=",
 					"export ZONE=",
 				},
 			},
@@ -458,6 +468,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				[]string{
 					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 					"export CORES=",
+					"export HUMIO_OPTS=",
 				},
 			},
 		},
@@ -480,6 +491,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				[]string{},
 				[]string{
 					"export CORES=",
+					"export HUMIO_OPTS=",
 					"export ZONE=",
 					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 				},
@@ -508,6 +520,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				[]string{},
 				[]string{
 					"export CORES=",
+					"export HUMIO_OPTS=",
 				},
 			},
 		},
