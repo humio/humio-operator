@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	image                        = "humio/humio-core:1.34.0"
+	image                        = "humio/humio-core:1.34.1"
 	helperImage                  = "humio/humio-operator-helper:0.5.0"
 	targetReplicationFactor      = 2
 	storagePartitionsCount       = 24
