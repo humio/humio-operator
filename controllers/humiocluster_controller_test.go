@@ -5126,11 +5126,11 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 				Resources: corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceMemory: resource.MustParse("3Gi"),
-						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceCPU:    resource.MustParse("2"),
 					},
 					Limits: corev1.ResourceList{
-						corev1.ResourceMemory: resource.MustParse("3Gi"),
-						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
+						corev1.ResourceCPU:    resource.MustParse("6"),
 					},
 				},
 				EnvironmentVariables: []corev1.EnvVar{
