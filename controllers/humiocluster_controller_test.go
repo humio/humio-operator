@@ -5124,10 +5124,6 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 				ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 				NodeCount:         helpers.IntPtr(1),
 				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceMemory: resource.MustParse("3Gi"),
-						corev1.ResourceCPU:    resource.MustParse("2"),
-					},
 					Limits: corev1.ResourceList{
 						corev1.ResourceMemory: resource.MustParse("4Gi"),
 						corev1.ResourceCPU:    resource.MustParse("6"),
