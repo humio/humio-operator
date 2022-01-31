@@ -2224,11 +2224,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			delete(service.Spec.Selector, "humio.com/node-pool")
 			Expect(k8sClient.Update(ctx, service)).To(Succeed())
 
-			Eventually(func() map[string]string {
-				Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
-				return service.Spec.Selector
-			}, testTimeout, testInterval).Should(Not(HaveKeyWithValue("humio.com/node-pool", key.Name)))
-
 			incrementGenerationAndWaitForReconcileToSync(ctx, key, k8sClient)
 
 			Eventually(func() map[string]string {
