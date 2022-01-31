@@ -854,6 +854,18 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
+				usingClusterBy(key.Name, "Waiting for pods to be Running")
+				Eventually(func() int {
+					var runningPods int
+					clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+					for _, pod := range clusterPods {
+						if pod.Status.Phase == corev1.PodRunning {
+							runningPods++
+						}
+					}
+					return runningPods
+				}, testTimeout, testInterval).Should(Equal(*toCreate.Spec.NodeCount))
+
 				usingClusterBy(key.Name, "Updating the cluster TLS successfully")
 				Eventually(func() error {
 					updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -5147,6 +5159,10 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 					{
 						Name:  "ENABLE_IOC_SERVICE",
 						Value: "false",
+					},
+					{
+						Name:  "HUMIO_MEMORY_OPTS",
+						Value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g",
 					},
 				},
 				DataVolumePersistentVolumeClaimSpecTemplate: corev1.PersistentVolumeClaimSpec{
