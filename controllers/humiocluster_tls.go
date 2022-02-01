@@ -30,6 +30,9 @@ import (
 	"strings"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/retry"
+
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
@@ -251,23 +254,36 @@ func (r *HumioClusterReconciler) updateNodeCertificates(ctx context.Context, hc 
 
 			b, _ := json.Marshal(certForHash)
 			desiredCertificateHash := helpers.AsSHA256(string(b))
-			currentCertificateHash := cert.Annotations[certHashAnnotation]
-			if currentCertificateHash != desiredCertificateHash {
-				r.Log.Info(fmt.Sprintf("node certificate %s doesn't have expected hash, got: %s, expected: %s",
-					cert.Name, currentCertificateHash, desiredCertificateHash))
-				currentCertificateNameSubstrings := strings.Split(cert.Name, "-")
-				currentCertificateSuffix := currentCertificateNameSubstrings[len(currentCertificateNameSubstrings)-1]
 
-				desiredCertificate := constructNodeCertificate(hc, hnp, currentCertificateSuffix)
-				desiredCertificate.ResourceVersion = cert.ResourceVersion
-				desiredCertificate.Annotations[certHashAnnotation] = desiredCertificateHash
-				r.Log.Info(fmt.Sprintf("updating node TLS certificate with name %s", desiredCertificate.Name))
-				if err := controllerutil.SetControllerReference(hc, &desiredCertificate, r.Scheme()); err != nil {
-					return existingNodeCertCount, r.logErrorAndReturn(err, "could not set controller reference")
-				}
-				err = r.Update(ctx, &desiredCertificate)
+			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				currentCertificate := &cmapi.Certificate{}
+				err := r.Client.Get(ctx, types.NamespacedName{
+					Namespace: cert.Namespace,
+					Name:      cert.Name}, currentCertificate)
 				if err != nil {
-					return existingNodeCertCount, err
+					return err
+				}
+				currentCertificateHash := currentCertificate.Annotations[certHashAnnotation]
+				if currentCertificateHash != desiredCertificateHash {
+					r.Log.Info(fmt.Sprintf("node certificate %s doesn't have expected hash, got: %s, expected: %s",
+						currentCertificate.Name, currentCertificateHash, desiredCertificateHash))
+					currentCertificateNameSubstrings := strings.Split(currentCertificate.Name, "-")
+					currentCertificateSuffix := currentCertificateNameSubstrings[len(currentCertificateNameSubstrings)-1]
+
+					desiredCertificate := constructNodeCertificate(hc, hnp, currentCertificateSuffix)
+					desiredCertificate.ResourceVersion = currentCertificate.ResourceVersion
+					desiredCertificate.Annotations[certHashAnnotation] = desiredCertificateHash
+					r.Log.Info(fmt.Sprintf("updating node TLS certificate with name %s", desiredCertificate.Name))
+					if err := controllerutil.SetControllerReference(hc, &desiredCertificate, r.Scheme()); err != nil {
+						return r.logErrorAndReturn(err, "could not set controller reference")
+					}
+					return r.Update(ctx, &desiredCertificate)
+				}
+				return r.Status().Update(ctx, hc)
+			})
+			if err != nil {
+				if !k8serrors.IsNotFound(err) {
+					return existingNodeCertCount, r.logErrorAndReturn(err, "failed to update resource status")
 				}
 			}
 		}
