@@ -5123,11 +5123,6 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 				Image:             image,
 				ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 				NodeCount:         helpers.IntPtr(1),
-				Resources: corev1.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						corev1.ResourceMemory: resource.MustParse("4Gi"),
-					},
-				},
 				EnvironmentVariables: []corev1.EnvVar{
 					{
 						Name:  "ZOOKEEPER_URL",
@@ -5152,6 +5147,10 @@ func constructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 					{
 						Name:  "ENABLE_IOC_SERVICE",
 						Value: "false",
+					},
+					{
+						Name:  "HUMIO_MEMORY_OPTS",
+						Value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g",
 					},
 				},
 				DataVolumePersistentVolumeClaimSpecTemplate: corev1.PersistentVolumeClaimSpec{
