@@ -877,12 +877,6 @@ var _ = Describe("HumioCluster Controller", func() {
 					return k8sClient.Update(ctx, &updatedHumioCluster)
 				}, testTimeout, testInterval).Should(Succeed())
 
-				Eventually(func() string {
-					updatedHumioCluster = humiov1alpha1.HumioCluster{}
-					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-					return updatedHumioCluster.Status.State
-				}, testTimeout, testInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
-
 				ensurePodsSimultaneousRestart(ctx, NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
 
 				Eventually(func() string {
