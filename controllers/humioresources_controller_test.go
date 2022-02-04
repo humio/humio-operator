@@ -77,6 +77,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Namespace: clusterKey.Namespace,
 			}
 
+			initialParserName := "json"
 			toCreateIngestToken := &humiov1alpha1.HumioIngestToken{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      key.Name,
@@ -85,7 +86,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioIngestTokenSpec{
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
-					ParserName:         "json",
+					ParserName:         initialParserName,
 					RepositoryName:     "humio",
 					TokenSecretName:    "target-secret-1",
 				},
@@ -115,6 +116,32 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Expect(string(ingestTokenSecret.Data["token"])).To(Equal("mocktoken"))
 			}
 			Expect(ingestTokenSecret.OwnerReferences).Should(HaveLen(1))
+
+			usingClusterBy(clusterKey.Name, "HumioIngestToken: Checking correct parser assigned to ingest token")
+			var humioIngestToken *humioapi.IngestToken
+			Eventually(func() string {
+				humioIngestToken, err = humioClientForHumioIngestToken.GetIngestToken(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedIngestToken)
+				if humioIngestToken != nil {
+					return humioIngestToken.AssignedParser
+				}
+				return "nil"
+			}, testTimeout, testInterval).Should(BeEquivalentTo(initialParserName))
+
+			usingClusterBy(clusterKey.Name, "HumioIngestToken: Updating parser for ingest token")
+			updatedParserName := "accesslog"
+			Eventually(func() error {
+				k8sClient.Get(ctx, key, fetchedIngestToken)
+				fetchedIngestToken.Spec.ParserName = updatedParserName
+				return k8sClient.Update(ctx, fetchedIngestToken)
+			}, testTimeout, testInterval).Should(Succeed())
+
+			Eventually(func() string {
+				humioIngestToken, err = humioClientForHumioIngestToken.GetIngestToken(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedIngestToken)
+				if humioIngestToken != nil {
+					return humioIngestToken.AssignedParser
+				}
+				return "nil"
+			}, testTimeout, testInterval).Should(BeEquivalentTo(updatedParserName))
 
 			usingClusterBy(clusterKey.Name, "HumioIngestToken: Deleting ingest token secret successfully adds back secret")
 			Expect(
