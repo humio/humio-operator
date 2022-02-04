@@ -8,7 +8,7 @@ require (
 	github.com/go-logr/zapr v0.4.0
 	github.com/google/go-cmp v0.5.6
 	github.com/google/martian v2.1.0+incompatible
-	github.com/humio/cli v0.28.12-0.20211216125513-ae41a0f58fc2
+	github.com/humio/cli v0.28.12-0.20220204094224-ae0ebe12cd9b
 	github.com/jetstack/cert-manager v1.5.3
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.16.0
