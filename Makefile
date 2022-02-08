@@ -54,7 +54,7 @@ ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test: manifests generate fmt vet ginkgo ## Run tests.
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.2/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); USE_CERTMANAGER=false TEST_USE_EXISTING_CLUSTER=false $(GINKGO) -nodes=5 -randomizeSuites -randomizeAllSpecs -timeout 10m ./... -covermode=count -coverprofile cover.out
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); USE_CERTMANAGER=false TEST_USE_EXISTING_CLUSTER=false $(GINKGO) --always-emit-ginkgo-writer -nodes=3 -slow-spec-threshold=5s --json-report=test-results.json --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m ./... -covermode=count -coverprofile cover.out
 
 ##@ Build
 
@@ -240,7 +240,7 @@ ifeq (,$(shell which ginkgo))
 	GINKGO_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CGINKGO_TMP_DIR ;\
 	go mod init tmp ;\
-	go get github.com/onsi/ginkgo/ginkgo ;\
+	go get github.com/onsi/ginkgo/v2/ginkgo ;\
 	go get github.com/onsi/gomega/... ;\
 	rm -rf $$CGINKGO_TMP_DIR ;\
 	}
