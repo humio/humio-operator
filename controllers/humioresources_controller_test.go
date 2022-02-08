@@ -29,7 +29,7 @@ import (
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -960,7 +960,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
-			By("HumioAction: Verifying the action matches the expected")
 			usingClusterBy(clusterKey.Name, "HumioAction: Verifying the action matches the expected")
 			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
 			Expect(err).To(BeNil())
@@ -1048,7 +1047,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, testInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
-			By("HumioAction: Verifying the humio repo action matches the expected")
 			usingClusterBy(clusterKey.Name, "HumioAction: Verifying the humio repo action matches the expected")
 			verifiedAction, err = humio.ActionFromActionCR(updatedAction)
 			Expect(err).To(BeNil())
