@@ -541,6 +541,8 @@ github.com/humio/cli v0.28.12-0.20211216125513-ae41a0f58fc2 h1:WBSy6lWkUSHdYVQ3Z
 github.com/humio/cli v0.28.12-0.20211216125513-ae41a0f58fc2/go.mod h1:PgicXQX6gOnJsEYUxPUHalJIAKyUs+U7iqrFzGynDPE=
 github.com/humio/cli v0.28.12-0.20220204094224-ae0ebe12cd9b h1:t6cLUJssjCH6FsKfH/JbWrwhAva2gabd1YUqw+aaIHA=
 github.com/humio/cli v0.28.12-0.20220204094224-ae0ebe12cd9b/go.mod h1:PgicXQX6gOnJsEYUxPUHalJIAKyUs+U7iqrFzGynDPE=
+github.com/humio/cli v0.28.12-0.20220208073027-4a83fcd97d5d h1:RLCLDshcdUi8supYvhjcEAPuOj6oyjzOTvCIL3buJ5w=
+github.com/humio/cli v0.28.12-0.20220208073027-4a83fcd97d5d/go.mod h1:PgicXQX6gOnJsEYUxPUHalJIAKyUs+U7iqrFzGynDPE=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/imdario/mergo v0.3.5/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
