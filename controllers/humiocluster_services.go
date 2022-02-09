@@ -39,7 +39,7 @@ func mergeHumioServiceLabels(clusterName string, serviceLabels map[string]string
 	return labels
 }
 
-func constructService(hnp *HumioNodePool) *corev1.Service {
+func ConstructService(hnp *HumioNodePool) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        hnp.GetNodePoolName(),
@@ -79,7 +79,7 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			Ports: []corev1.ServicePort{
 				{
 					Name: "http",
-					Port: humioPort,
+					Port: HumioPort,
 				},
 				{
 					Name: "es",

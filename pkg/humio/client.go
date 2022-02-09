@@ -52,6 +52,7 @@ type ClusterClient interface {
 	SuggestedStoragePartitions(*humioapi.Config, reconcile.Request) ([]humioapi.StoragePartitionInput, error)
 	SuggestedIngestPartitions(*humioapi.Config, reconcile.Request) ([]humioapi.IngestPartitionInput, error)
 	GetHumioClient(*humioapi.Config, reconcile.Request) *humioapi.Client
+	ClearHumioClientConnections()
 	GetBaseURL(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioCluster) *url.URL
 	TestAPIToken(*humioapi.Config, reconcile.Request) error
 	Status(*humioapi.Config, reconcile.Request) (humioapi.StatusResponse, error)
@@ -185,6 +186,13 @@ func (h *ClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request)
 	h.humioClients[key] = c
 
 	return c.client
+}
+
+func (h *ClientConfig) ClearHumioClientConnections() {
+	h.humioClientsMutex.Lock()
+	defer h.humioClientsMutex.Unlock()
+
+	h.humioClients = make(map[humioClientKey]*humioClientConnection)
 }
 
 // Status returns the status of the humio cluster

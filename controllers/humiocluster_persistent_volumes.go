@@ -43,7 +43,7 @@ func constructPersistentVolumeClaim(hnp *HumioNodePool) *corev1.PersistentVolume
 	}
 }
 
-func findPvcForPod(pvcList []corev1.PersistentVolumeClaim, pod corev1.Pod) (corev1.PersistentVolumeClaim, error) {
+func FindPvcForPod(pvcList []corev1.PersistentVolumeClaim, pod corev1.Pod) (corev1.PersistentVolumeClaim, error) {
 	for _, pvc := range pvcList {
 		for _, volume := range pod.Spec.Volumes {
 			if volume.Name == "humio-data" {
@@ -60,7 +60,7 @@ func findPvcForPod(pvcList []corev1.PersistentVolumeClaim, pod corev1.Pod) (core
 	return corev1.PersistentVolumeClaim{}, fmt.Errorf("could not find a pvc for pod %s", pod.Name)
 }
 
-func findNextAvailablePvc(pvcList []corev1.PersistentVolumeClaim, podList []corev1.Pod) (string, error) {
+func FindNextAvailablePvc(pvcList []corev1.PersistentVolumeClaim, podList []corev1.Pod) (string, error) {
 	pvcLookup := make(map[string]struct{})
 	for _, pod := range podList {
 		for _, volume := range pod.Spec.Volumes {

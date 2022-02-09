@@ -49,20 +49,12 @@ import (
 
 const (
 	humioAppPath             = "/app/humio"
-	humioDataPath            = "/data/humio-data"
+	HumioDataPath            = "/data/humio-data"
 	humioDataTmpPath         = "/app/humio/humio-data/tmp"
 	sharedPath               = "/shared"
-	tmpPath                  = "/tmp"
+	TmpPath                  = "/tmp"
 	waitForPodTimeoutSeconds = 10
 )
-
-func getProbeScheme(hc *humiov1alpha1.HumioCluster) corev1.URIScheme {
-	if !helpers.TLSEnabled(hc) {
-		return corev1.URISchemeHTTP
-	}
-
-	return corev1.URISchemeHTTPS
-}
 
 type podAttachments struct {
 	dataVolumeSource             corev1.VolumeSource
@@ -76,13 +68,13 @@ type nodeUUIDTemplateVars struct {
 	Zone string
 }
 
-// constructContainerArgs returns the container arguments for the Humio pods. We want to grab a UUID from zookeeper
+// ConstructContainerArgs returns the container arguments for the Humio pods. We want to grab a UUID from zookeeper
 // only when using ephemeral disks. If we're using persistent storage, then we rely on Humio to generate the UUID.
 // Note that relying on PVCs may not be good enough here as it's possible to have persistent storage using hostPath.
 // For this reason, we rely on the USING_EPHEMERAL_DISKS environment variable.
-func constructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]string, error) {
+func ConstructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]string, error) {
 	var shellCommands []string
-	if envVarHasValue(podEnvVars, "USING_EPHEMERAL_DISKS", "true") {
+	if EnvVarHasValue(podEnvVars, "USING_EPHEMERAL_DISKS", "true") {
 		nodeUUIDPrefix, err := constructNodeUUIDPrefix(hnp)
 		if err != nil {
 			return []string{""}, fmt.Errorf("unable to construct node UUID: %w", err)
@@ -95,7 +87,7 @@ func constructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]s
 	}
 
 	hnpResources := hnp.GetResources()
-	if !envVarHasKey(podEnvVars, "CORES") && hnpResources.Limits.Cpu().IsZero() {
+	if !EnvVarHasKey(podEnvVars, "CORES") && hnpResources.Limits.Cpu().IsZero() {
 		shellCommands = append(shellCommands, "export CORES=$(getconf _NPROCESSORS_ONLN)")
 		shellCommands = append(shellCommands, "export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\"")
 	}
@@ -133,7 +125,7 @@ func constructNodeUUIDPrefix(hnp *HumioNodePool) (string, error) {
 	return nodeUUIDPrefix, nil
 }
 
-func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAttachments) (*corev1.Pod, error) {
+func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAttachments) (*corev1.Pod, error) {
 	var pod corev1.Pod
 	mode := int32(420)
 	productVersion := "unknown"
@@ -158,7 +150,7 @@ func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 			Hostname:              humioNodeName,
 			Containers: []corev1.Container{
 				{
-					Name:            authContainerName,
+					Name:            AuthContainerName,
 					Image:           hnp.GetHelperImage(),
 					ImagePullPolicy: hnp.GetImagePullPolicy(),
 					Env: []corev1.EnvVar{
@@ -194,13 +186,13 @@ func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 						},
 						{
 							Name:  "HUMIO_NODE_URL",
-							Value: fmt.Sprintf("%s://$(POD_NAME):%d/", strings.ToLower(string(hnp.GetProbeScheme())), humioPort),
+							Value: fmt.Sprintf("%s://$(POD_NAME):%d/", strings.ToLower(string(hnp.GetProbeScheme())), HumioPort),
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "humio-data",
-							MountPath: humioDataPath,
+							MountPath: HumioDataPath,
 							ReadOnly:  true,
 						},
 						{
@@ -248,14 +240,14 @@ func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 					SecurityContext: hnp.GetContainerSecurityContext(),
 				},
 				{
-					Name:            humioContainerName,
+					Name:            HumioContainerName,
 					Image:           hnp.GetImage(),
 					ImagePullPolicy: hnp.GetImagePullPolicy(),
 					Command:         []string{"/bin/sh"},
 					Ports: []corev1.ContainerPort{
 						{
 							Name:          "http",
-							ContainerPort: humioPort,
+							ContainerPort: HumioPort,
 							Protocol:      "TCP",
 						},
 						{
@@ -268,7 +260,7 @@ func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "humio-data",
-							MountPath: humioDataPath,
+							MountPath: HumioDataPath,
 						},
 						{
 							Name:      "shared",
@@ -277,7 +269,7 @@ func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 						},
 						{
 							Name:      "tmp",
-							MountPath: tmpPath,
+							MountPath: TmpPath,
 							ReadOnly:  false,
 						},
 					},
@@ -319,7 +311,7 @@ func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 		VolumeSource: attachments.dataVolumeSource,
 	})
 
-	humioIdx, err := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+	humioIdx, err := kubernetes.GetContainerIndexByName(pod, HumioContainerName)
 	if err != nil {
 		return &corev1.Pod{}, err
 	}
@@ -337,7 +329,7 @@ func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 		}
 	}
 
-	if envVarHasValue(pod.Spec.Containers[humioIdx].Env, "AUTHENTICATION_METHOD", "saml") {
+	if EnvVarHasValue(pod.Spec.Containers[humioIdx].Env, "AUTHENTICATION_METHOD", "saml") {
 		pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
 			Name:  "SAML_IDP_CERTIFICATE",
 			Value: fmt.Sprintf("/var/lib/humio/idp-certificate-secret/%s", idpCertificateFilename),
@@ -361,7 +353,7 @@ func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 	if !hnp.InitContainerDisabled() {
 		pod.Spec.InitContainers = []corev1.Container{
 			{
-				Name:            initContainerName,
+				Name:            InitContainerName,
 				Image:           hnp.GetHelperImage(),
 				ImagePullPolicy: hnp.GetImagePullPolicy(),
 				Env: []corev1.EnvVar{
@@ -431,7 +423,7 @@ func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 	if hnp.GetExtraKafkaConfigs() != "" {
 		pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
 			Name:  "EXTRA_KAFKA_CONFIGS_FILE",
-			Value: fmt.Sprintf("/var/lib/humio/extra-kafka-configs-configmap/%s", extraKafkaPropertiesFilename),
+			Value: fmt.Sprintf("/var/lib/humio/extra-kafka-configs-configmap/%s", ExtraKafkaPropertiesFilename),
 		})
 		pod.Spec.Containers[humioIdx].VolumeMounts = append(pod.Spec.Containers[humioIdx].VolumeMounts, corev1.VolumeMount{
 			Name:      "extra-kafka-configs",
@@ -459,8 +451,8 @@ func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 		pod.Spec.Containers[humioIdx].VolumeMounts = append(pod.Spec.Containers[humioIdx].VolumeMounts, corev1.VolumeMount{
 			Name:      "view-group-permissions",
 			ReadOnly:  true,
-			MountPath: fmt.Sprintf("%s/%s", humioDataPath, viewGroupPermissionsFilename),
-			SubPath:   viewGroupPermissionsFilename,
+			MountPath: fmt.Sprintf("%s/%s", HumioDataPath, ViewGroupPermissionsFilename),
+			SubPath:   ViewGroupPermissionsFilename,
 		})
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 			Name: "view-group-permissions",
@@ -555,7 +547,7 @@ func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 		})
 
 		// Configuration specific to auth container
-		authIdx, err := kubernetes.GetContainerIndexByName(pod, authContainerName)
+		authIdx, err := kubernetes.GetContainerIndexByName(pod, AuthContainerName)
 		if err != nil {
 			return &corev1.Pod{}, err
 		}
@@ -595,18 +587,18 @@ func constructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 		})
 	}
 
-	if envVarHasValue(pod.Spec.Containers[humioIdx].Env, "ENABLE_ORGANIZATIONS", "true") && envVarHasKey(pod.Spec.Containers[humioIdx].Env, "ORGANIZATION_MODE") {
-		authIdx, err := kubernetes.GetContainerIndexByName(pod, authContainerName)
+	if EnvVarHasValue(pod.Spec.Containers[humioIdx].Env, "ENABLE_ORGANIZATIONS", "true") && EnvVarHasKey(pod.Spec.Containers[humioIdx].Env, "ORGANIZATION_MODE") {
+		authIdx, err := kubernetes.GetContainerIndexByName(pod, AuthContainerName)
 		if err != nil {
 			return &corev1.Pod{}, err
 		}
 		pod.Spec.Containers[authIdx].Env = append(pod.Spec.Containers[authIdx].Env, corev1.EnvVar{
 			Name:  "ORGANIZATION_MODE",
-			Value: envVarValue(pod.Spec.Containers[humioIdx].Env, "ORGANIZATION_MODE"),
+			Value: EnvVarValue(pod.Spec.Containers[humioIdx].Env, "ORGANIZATION_MODE"),
 		})
 	}
 
-	containerArgs, err := constructContainerArgs(hnp, pod.Spec.Containers[humioIdx].Env)
+	containerArgs, err := ConstructContainerArgs(hnp, pod.Spec.Containers[humioIdx].Env)
 	if err != nil {
 		return &corev1.Pod{}, fmt.Errorf("unable to construct node container args: %w", err)
 	}
@@ -633,7 +625,7 @@ func volumeSource(hnp *HumioNodePool, podList []corev1.Pod, pvcList []corev1.Per
 		return corev1.VolumeSource{}, fmt.Errorf("cannot have both dataVolumePersistentVolumeClaimSpecTemplate and dataVolumeSource defined")
 	}
 	if hnp.PVCsEnabled() {
-		pvcName, err := findNextAvailablePvc(pvcList, podList)
+		pvcName, err := FindNextAvailablePvc(pvcList, podList)
 		if err != nil {
 			return corev1.VolumeSource{}, err
 		}
@@ -642,9 +634,9 @@ func volumeSource(hnp *HumioNodePool, podList []corev1.Pod, pvcList []corev1.Per
 	return hnp.GetDataVolumeSource(), nil
 }
 
-// envVarValue returns the value of the given environment variable
+// EnvVarValue returns the value of the given environment variable
 // if the environment variable is not preset, return empty string
-func envVarValue(envVars []corev1.EnvVar, key string) string {
+func EnvVarValue(envVars []corev1.EnvVar, key string) string {
 	for _, envVar := range envVars {
 		if envVar.Name == key {
 			return envVar.Value
@@ -653,7 +645,7 @@ func envVarValue(envVars []corev1.EnvVar, key string) string {
 	return ""
 }
 
-func envVarHasValue(envVars []corev1.EnvVar, key string, value string) bool {
+func EnvVarHasValue(envVars []corev1.EnvVar, key string, value string) bool {
 	for _, envVar := range envVars {
 		if envVar.Name == key && envVar.Value == value {
 			return true
@@ -662,7 +654,7 @@ func envVarHasValue(envVars []corev1.EnvVar, key string, value string) bool {
 	return false
 }
 
-func envVarHasKey(envVars []corev1.EnvVar, key string) bool {
+func EnvVarHasKey(envVars []corev1.EnvVar, key string) bool {
 	for _, envVar := range envVars {
 		if envVar.Name == key {
 			return true
@@ -682,12 +674,12 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 
 	for idx, container := range pod.Spec.Containers {
 		sanitizedEnvVars := make([]corev1.EnvVar, 0)
-		if container.Name == humioContainerName {
+		if container.Name == HumioContainerName {
 			for _, envVar := range container.Env {
 				if envVar.Name == "EXTERNAL_URL" {
 					sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
 						Name:  "EXTERNAL_URL",
-						Value: fmt.Sprintf("%s://%s-core-%s.%s.%s:%d", strings.ToLower(string(hnp.GetProbeScheme())), hnp.GetNodePoolName(), "", headlessServiceName(hnp.GetClusterName()), hnp.GetNamespace(), humioPort),
+						Value: fmt.Sprintf("%s://%s-core-%s.%s.%s:%d", strings.ToLower(string(hnp.GetProbeScheme())), hnp.GetNodePoolName(), "", headlessServiceName(hnp.GetClusterName()), hnp.GetNamespace(), HumioPort),
 					})
 				} else {
 					sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
@@ -698,12 +690,12 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 				}
 			}
 			container.Env = sanitizedEnvVars
-		} else if container.Name == authContainerName {
+		} else if container.Name == AuthContainerName {
 			for _, envVar := range container.Env {
 				if envVar.Name == "HUMIO_NODE_URL" {
 					sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
 						Name:  "HUMIO_NODE_URL",
-						Value: fmt.Sprintf("%s://%s-core-%s.%s:%d/", strings.ToLower(string(hnp.GetProbeScheme())), hnp.GetNodePoolName(), "", hnp.GetNamespace(), humioPort),
+						Value: fmt.Sprintf("%s://%s-core-%s.%s:%d/", strings.ToLower(string(hnp.GetProbeScheme())), hnp.GetNodePoolName(), "", hnp.GetNamespace(), HumioPort),
 					})
 				} else {
 					sanitizedEnvVars = append(sanitizedEnvVars, envVar)
@@ -814,7 +806,7 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 		return &corev1.Pod{}, r.logErrorAndReturn(err, "unable to find pod name")
 	}
 
-	pod, err := constructPod(hnp, podName, attachments)
+	pod, err := ConstructPod(hnp, podName, attachments)
 	if err != nil {
 		return &corev1.Pod{}, r.logErrorAndReturn(err, "unable to construct pod")
 	}
@@ -888,7 +880,7 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 	if _, ok := pod.Annotations[podHashAnnotation]; !ok {
 		return false, fmt.Errorf("did not find annotation with pod hash")
 	}
-	if _, ok := pod.Annotations[podRevisionAnnotation]; !ok {
+	if _, ok := pod.Annotations[PodRevisionAnnotation]; !ok {
 		return false, fmt.Errorf("did not find annotation with pod revision")
 	}
 	var specMatches bool
@@ -901,7 +893,7 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 	if pod.Annotations[podHashAnnotation] == desiredPodHash {
 		specMatches = true
 	}
-	if pod.Annotations[podRevisionAnnotation] == desiredPod.Annotations[podRevisionAnnotation] {
+	if pod.Annotations[PodRevisionAnnotation] == desiredPod.Annotations[PodRevisionAnnotation] {
 		revisionMatches = true
 	}
 	if _, ok := pod.Annotations[envVarSourceHashAnnotation]; ok {
@@ -925,7 +917,7 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 		return false, nil
 	}
 	if !revisionMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", podRevisionAnnotation, pod.Annotations[podRevisionAnnotation], desiredPod.Annotations[podRevisionAnnotation]), "podSpecDiff", podSpecDiff)
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", PodRevisionAnnotation, pod.Annotations[PodRevisionAnnotation], desiredPod.Annotations[PodRevisionAnnotation]), "podSpecDiff", podSpecDiff)
 		return false, nil
 	}
 	if !envVarSourceMatches {
@@ -941,7 +933,7 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 		// only consider pods not already being deleted
 		if pod.DeletionTimestamp == nil {
 			// if pod spec differs, we want to delete it
-			desiredPod, err := constructPod(hnp, "", attachments)
+			desiredPod, err := ConstructPod(hnp, "", attachments)
 			if err != nil {
 				return podLifecycleState{}, r.logErrorAndReturn(err, "could not construct pod")
 			}
@@ -952,11 +944,11 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 			}
 			if !podsMatchTest {
 				podLifecycleStateValue.configurationDifference = &podLifecycleStateConfigurationDifference{}
-				humioContainerIdx, err := kubernetes.GetContainerIndexByName(pod, humioContainerName)
+				humioContainerIdx, err := kubernetes.GetContainerIndexByName(pod, HumioContainerName)
 				if err != nil {
 					return podLifecycleState{}, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
 				}
-				desiredHumioContainerIdx, err := kubernetes.GetContainerIndexByName(*desiredPod, humioContainerName)
+				desiredHumioContainerIdx, err := kubernetes.GetContainerIndexByName(*desiredPod, HumioContainerName)
 				if err != nil {
 					return podLifecycleState{}, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
 				}
@@ -975,7 +967,7 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 					}
 				}
 
-				if envVarValue(pod.Spec.Containers[humioContainerIdx].Env, "EXTERNAL_URL") != envVarValue(desiredPod.Spec.Containers[desiredHumioContainerIdx].Env, "EXTERNAL_URL") {
+				if EnvVarValue(pod.Spec.Containers[humioContainerIdx].Env, "EXTERNAL_URL") != EnvVarValue(desiredPod.Spec.Containers[desiredHumioContainerIdx].Env, "EXTERNAL_URL") {
 					podLifecycleStateValue.configurationDifference.requiresSimultaneousRestart = true
 				}
 
