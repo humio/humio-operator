@@ -33,28 +33,28 @@ import (
 )
 
 const (
-	image                        = "humio/humio-core:1.34.1"
-	helperImage                  = "humio/humio-operator-helper:0.5.0"
+	Image                        = "humio/humio-core:1.34.1"
+	HelperImage                  = "humio/humio-operator-helper:0.5.0"
 	targetReplicationFactor      = 2
 	storagePartitionsCount       = 24
 	digestPartitionsCount        = 24
 	nodeCount                    = 3
-	humioPort                    = 8080
+	HumioPort                    = 8080
 	elasticPort                  = 9200
 	idpCertificateFilename       = "idp-certificate.pem"
-	extraKafkaPropertiesFilename = "extra-kafka-properties.properties"
-	viewGroupPermissionsFilename = "view-group-permissions.json"
+	ExtraKafkaPropertiesFilename = "extra-kafka-properties.properties"
+	ViewGroupPermissionsFilename = "view-group-permissions.json"
 	nodeUUIDPrefix               = "humio_"
-	humioContainerName           = "humio"
-	authContainerName            = "auth"
-	initContainerName            = "init"
+	HumioContainerName           = "humio"
+	AuthContainerName            = "auth"
+	InitContainerName            = "init"
 
 	// cluster-wide resources:
 	initClusterRoleSuffix        = "init"
 	initClusterRoleBindingSuffix = "init"
 
 	// namespaced resources:
-	humioServiceAccountNameSuffix           = "humio"
+	HumioServiceAccountNameSuffix           = "humio"
 	initServiceAccountNameSuffix            = "init"
 	initServiceAccountSecretNameIdentifier  = "init"
 	authServiceAccountNameSuffix            = "auth"
@@ -234,7 +234,7 @@ func (hnp HumioNodePool) GetImage() string {
 	if hnp.humioNodeSpec.Image != "" && hnp.GetImageSource() == nil {
 		return hnp.humioNodeSpec.Image
 	}
-	return image
+	return Image
 }
 
 func (hnp HumioNodePool) GetImageSource() *humiov1alpha1.HumioImageSource {
@@ -245,7 +245,7 @@ func (hnp HumioNodePool) GetHelperImage() string {
 	if hnp.humioNodeSpec.HelperImage != "" {
 		return hnp.humioNodeSpec.HelperImage
 	}
-	return helperImage
+	return HelperImage
 }
 
 func (hnp HumioNodePool) GetImagePullSecrets() []corev1.LocalObjectReference {
@@ -294,7 +294,7 @@ func (hnp HumioNodePool) GetHumioClusterNodePoolRevisionAnnotation() (string, in
 	if len(hnp.clusterAnnotations) > 0 {
 		annotations = hnp.clusterAnnotations
 	}
-	podAnnotationKey := strings.Join([]string{podRevisionAnnotation, hnp.GetNodePoolName()}, "-")
+	podAnnotationKey := strings.Join([]string{PodRevisionAnnotation, hnp.GetNodePoolName()}, "-")
 	revision, ok := annotations[podAnnotationKey]
 	if !ok {
 		revision = "0"
@@ -314,7 +314,7 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	var envVar []corev1.EnvVar
 
 	for _, env := range hnp.humioNodeSpec.EnvironmentVariables {
-		envVar = appendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, env)
+		envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, env)
 	}
 
 	scheme := "https"
@@ -351,7 +351,7 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 			},
 		},
 
-		{Name: "HUMIO_PORT", Value: strconv.Itoa(humioPort)},
+		{Name: "HUMIO_PORT", Value: strconv.Itoa(HumioPort)},
 		{Name: "ELASTIC_PORT", Value: strconv.Itoa(elasticPort)},
 		{Name: "DIGEST_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
 		{Name: "STORAGE_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
@@ -387,7 +387,7 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 		})
 	}
 
-	if envVarHasValue(hnp.humioNodeSpec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") {
+	if EnvVarHasValue(hnp.humioNodeSpec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") {
 		envDefaults = append(envDefaults, corev1.EnvVar{
 			Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
 			Value: "$(ZOOKEEPER_URL)",
@@ -395,24 +395,24 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	}
 
 	for _, defaultEnvVar := range envDefaults {
-		envVar = appendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, defaultEnvVar)
+		envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, defaultEnvVar)
 	}
 
 	// Allow overriding PUBLIC_URL. This may be useful when other methods of exposing the cluster are used other than
 	// ingress
-	if !envVarHasKey(envDefaults, "PUBLIC_URL") {
+	if !EnvVarHasKey(envDefaults, "PUBLIC_URL") {
 		// Only include the path suffix if it's non-root. It likely wouldn't harm anything, but it's unnecessary
 		pathSuffix := ""
 		if hnp.GetPath() != "/" {
 			pathSuffix = hnp.GetPath()
 		}
 		if hnp.GetIngress().Enabled {
-			envVar = appendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
+			envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
 				Name:  "PUBLIC_URL", // URL used by users/browsers.
 				Value: fmt.Sprintf("https://%s%s", hnp.GetHostname(), pathSuffix),
 			})
 		} else {
-			envVar = appendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
+			envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
 				Name:  "PUBLIC_URL", // URL used by users/browsers.
 				Value: fmt.Sprintf("%s://$(THIS_POD_IP):$(HUMIO_PORT)%s", scheme, pathSuffix),
 			})
@@ -420,7 +420,7 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	}
 
 	if hnp.GetPath() != "/" {
-		envVar = appendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
+		envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
 			Name:  "PROXY_PREFIX_URL",
 			Value: hnp.GetPath(),
 		})
@@ -583,7 +583,7 @@ func (hnp HumioNodePool) GetHumioServiceAccountName() string {
 	if hnp.humioNodeSpec.HumioServiceAccountName != "" {
 		return hnp.humioNodeSpec.HumioServiceAccountName
 	}
-	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), humioServiceAccountNameSuffix)
+	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), HumioServiceAccountNameSuffix)
 }
 
 func (hnp HumioNodePool) GetHumioServiceAccountAnnotations() map[string]string {
@@ -600,7 +600,7 @@ func (hnp HumioNodePool) GetContainerReadinessProbe() *corev1.Probe {
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   "/api/v1/is-node-up",
-					Port:   intstr.IntOrString{IntVal: humioPort},
+					Port:   intstr.IntOrString{IntVal: HumioPort},
 					Scheme: hnp.GetProbeScheme(),
 				},
 			},
@@ -624,7 +624,7 @@ func (hnp HumioNodePool) GetContainerLivenessProbe() *corev1.Probe {
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   "/api/v1/is-node-up",
-					Port:   intstr.IntOrString{IntVal: humioPort},
+					Port:   intstr.IntOrString{IntVal: HumioPort},
 					Scheme: hnp.GetProbeScheme(),
 				},
 			},
@@ -648,7 +648,7 @@ func (hnp HumioNodePool) GetContainerStartupProbe() *corev1.Probe {
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   "/api/v1/is-node-up",
-					Port:   intstr.IntOrString{IntVal: humioPort},
+					Port:   intstr.IntOrString{IntVal: HumioPort},
 					Scheme: hnp.GetProbeScheme(),
 				},
 			},
@@ -785,7 +785,7 @@ func (hnp HumioNodePool) GetHumioServicePort() int32 {
 	if hnp.humioNodeSpec.HumioServicePort != 0 {
 		return hnp.humioNodeSpec.HumioServicePort
 	}
-	return humioPort
+	return HumioPort
 }
 
 func (hnp HumioNodePool) GetHumioESServicePort() int32 {
@@ -845,11 +845,11 @@ func viewGroupPermissionsOrDefault(hc *humiov1alpha1.HumioCluster) string {
 	return hc.Spec.ViewGroupPermissions
 }
 
-func viewGroupPermissionsConfigMapName(hc *humiov1alpha1.HumioCluster) string {
+func ViewGroupPermissionsConfigMapName(hc *humiov1alpha1.HumioCluster) string {
 	return fmt.Sprintf("%s-%s", hc.Name, viewGroupPermissionsConfigMapNameSuffix)
 }
 
-func appendEnvVarToEnvVarsIfNotAlreadyPresent(envVars []corev1.EnvVar, defaultEnvVar corev1.EnvVar) []corev1.EnvVar {
+func AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars []corev1.EnvVar, defaultEnvVar corev1.EnvVar) []corev1.EnvVar {
 	for _, envVar := range envVars {
 		if envVar.Name == defaultEnvVar.Name {
 			return envVars

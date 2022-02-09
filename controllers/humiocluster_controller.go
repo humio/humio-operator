@@ -92,8 +92,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	var humioNodePools []*HumioNodePool
 	humioNodePools = append(humioNodePools, NewHumioNodeManagerFromHumioCluster(hc))
-	for _, nodePool := range hc.Spec.NodePools {
-		humioNodePools = append(humioNodePools, NewHumioNodeManagerFromHumioNodePool(hc, &nodePool))
+	for idx := range hc.Spec.NodePools {
+		humioNodePools = append(humioNodePools, NewHumioNodeManagerFromHumioNodePool(hc, &hc.Spec.NodePools[idx]))
 	}
 
 	emptyResult := reconcile.Result{}
@@ -498,7 +498,7 @@ func (r *HumioClusterReconciler) ensurePodRevisionAnnotation(hc *humiov1alpha1.H
 }
 
 func (r *HumioClusterReconciler) validateInitialPodSpec(hnp *HumioNodePool) error {
-	if _, err := constructPod(hnp, "", &podAttachments{}); err != nil {
+	if _, err := ConstructPod(hnp, "", &podAttachments{}); err != nil {
 		return r.logErrorAndReturn(err, "failed to validate pod spec")
 	}
 	return nil
@@ -528,7 +528,7 @@ func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Co
 		if k8serrors.IsNotFound(err) {
 			configMap := kubernetes.ConstructExtraKafkaConfigsConfigMap(
 				hnp.GetExtraKafkaConfigsConfigMapName(),
-				extraKafkaPropertiesFilename,
+				ExtraKafkaPropertiesFilename,
 				extraKafkaConfigsConfigMapData,
 				hnp.GetClusterName(),
 				hnp.GetNamespace(),
@@ -605,7 +605,7 @@ func (r *HumioClusterReconciler) setImageFromSource(ctx context.Context, hnp *Hu
 func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	viewGroupPermissionsConfigMapData := viewGroupPermissionsOrDefault(hc)
 	if viewGroupPermissionsConfigMapData == "" {
-		viewGroupPermissionsConfigMap, err := kubernetes.GetConfigMap(ctx, r, viewGroupPermissionsConfigMapName(hc), hc.Namespace)
+		viewGroupPermissionsConfigMap, err := kubernetes.GetConfigMap(ctx, r, ViewGroupPermissionsConfigMapName(hc), hc.Namespace)
 		if err == nil {
 			if err = r.Delete(ctx, viewGroupPermissionsConfigMap); err != nil {
 				r.Log.Error(err, "unable to delete view group permissions config map")
@@ -613,12 +613,12 @@ func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context
 		}
 		return nil
 	}
-	_, err := kubernetes.GetConfigMap(ctx, r, viewGroupPermissionsConfigMapName(hc), hc.Namespace)
+	_, err := kubernetes.GetConfigMap(ctx, r, ViewGroupPermissionsConfigMapName(hc), hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			configMap := kubernetes.ConstructViewGroupPermissionsConfigMap(
-				viewGroupPermissionsConfigMapName(hc),
-				viewGroupPermissionsFilename,
+				ViewGroupPermissionsConfigMapName(hc),
+				ViewGroupPermissionsFilename,
 				viewGroupPermissionsConfigMapData,
 				hc.Name,
 				hc.Namespace,
@@ -756,10 +756,10 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 
 	// Due to ingress-ingress relying on ingress object annotations to enable/disable/adjust certain features we create multiple ingress objects.
 	ingresses := []*networkingv1.Ingress{
-		constructGeneralIngress(hc, hostname),
-		constructStreamingQueryIngress(hc, hostname),
-		constructIngestIngress(hc, hostname),
-		constructESIngestIngress(hc, esHostname),
+		ConstructGeneralIngress(hc, hostname),
+		ConstructStreamingQueryIngress(hc, hostname),
+		ConstructIngestIngress(hc, hostname),
+		ConstructESIngestIngress(hc, esHostname),
 	}
 	for _, desiredIngress := range ingresses {
 		// After constructing ingress objects, the rule's host attribute should be set to that which is defined in
@@ -1403,7 +1403,7 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, config *humio
 			continue
 		}
 		for _, node := range cluster.Nodes {
-			if node.Uri == fmt.Sprintf("http://%s:%d", pod.Status.PodIP, humioPort) {
+			if node.Uri == fmt.Sprintf("http://%s:%d", pod.Status.PodIP, HumioPort) {
 				labels := hnp.GetNodePoolLabels()
 				labels[kubernetes.NodeIdLabelName] = strconv.Itoa(node.Id)
 				r.Log.Info(fmt.Sprintf("setting labels for pod %s, labels=%v", pod.Name, labels))
@@ -1423,7 +1423,7 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, config *humio
 }
 
 func (r *HumioClusterReconciler) ensurePvcLabels(ctx context.Context, hnp *HumioNodePool, pod corev1.Pod, pvcList []corev1.PersistentVolumeClaim) error {
-	pvc, err := findPvcForPod(pvcList, pod)
+	pvc, err := FindPvcForPod(pvcList, pod)
 	if err != nil {
 		return r.logErrorAndReturn(err, "failed to get pvc for pod to assign labels")
 	}
@@ -1589,7 +1589,7 @@ func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(hc *humiov1alpha1.H
 func (r *HumioClusterReconciler) ensureService(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
 	r.Log.Info("ensuring service")
 	existingService, err := kubernetes.GetService(ctx, r, hnp.GetNodePoolName(), hnp.GetNamespace())
-	service := constructService(hnp)
+	service := ConstructService(hnp)
 	if k8serrors.IsNotFound(err) {
 		if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {
 			return r.logErrorAndReturn(err, "could not set controller reference")
@@ -1642,10 +1642,10 @@ func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNod
 	if err != nil {
 		return r.logErrorAndReturn(err, "unable to list pods")
 	}
-	for _, pod := range allPods {
+	for idx, pod := range allPods {
 		if _, found := pod.Labels[kubernetes.NodePoolLabelName]; !found {
-			pod.SetLabels(hnp.GetPodLabels())
-			err = r.Client.Update(ctx, &pod)
+			allPods[idx].SetLabels(hnp.GetPodLabels())
+			err = r.Client.Update(ctx, &allPods[idx])
 			if err != nil {
 				return r.logErrorAndReturn(err, "unable to update pod")
 			}
@@ -1657,10 +1657,10 @@ func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNod
 		if err != nil {
 			return err
 		}
-		for _, cert := range allNodeCertificates {
+		for idx, cert := range allNodeCertificates {
 			if _, found := cert.Labels[kubernetes.NodePoolLabelName]; !found {
-				cert.SetLabels(hnp.GetNodePoolLabels())
-				err = r.Client.Update(ctx, &cert)
+				allNodeCertificates[idx].SetLabels(hnp.GetNodePoolLabels())
+				err = r.Client.Update(ctx, &allNodeCertificates[idx])
 				if err != nil {
 					return r.logErrorAndReturn(err, "unable to update node certificate")
 				}
@@ -1673,10 +1673,10 @@ func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNod
 		if err != nil {
 			return err
 		}
-		for _, pvc := range allPVCs {
+		for idx, pvc := range allPVCs {
 			if _, found := pvc.Labels[kubernetes.NodePoolLabelName]; !found {
-				pvc.SetLabels(hnp.GetNodePoolLabels())
-				err = r.Client.Update(ctx, &pvc)
+				allPVCs[idx].SetLabels(hnp.GetNodePoolLabels())
+				err = r.Client.Update(ctx, &allPVCs[idx])
 				if err != nil {
 					return r.logErrorAndReturn(err, "unable to update pvc")
 				}
