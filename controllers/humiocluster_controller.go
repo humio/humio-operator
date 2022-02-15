@@ -2294,12 +2294,11 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 
 func (r *HumioClusterReconciler) ensureValidHumioVersion(hnp *HumioNodePool) error {
 	hv, err := HumioVersionFromString(hnp.GetImage())
-	if ok, _ := hv.AtLeast(HumioVersionMinimumSupported); !ok {
-		return r.logErrorAndReturn(fmt.Errorf("unsupported Humio version: %s", hv.version.String()), fmt.Sprintf("Humio version must be at least %s", HumioVersionMinimumSupported))
-	}
 	if err != nil {
 		return r.logErrorAndReturn(err, fmt.Sprintf("detected invalid Humio version: %s", hv.version))
-
+	}
+	if ok, _ := hv.AtLeast(HumioVersionMinimumSupported); !ok {
+		return r.logErrorAndReturn(fmt.Errorf("unsupported Humio version: %s", hv.version.String()), fmt.Sprintf("Humio version must be at least %s", HumioVersionMinimumSupported))
 	}
 	return nil
 }
