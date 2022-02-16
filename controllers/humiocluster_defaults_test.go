@@ -67,7 +67,7 @@ var _ = Describe("HumioCluster Defaults", func() {
 			}))
 
 			By("Confirming the humio node manager correctly returns a newly added unrelated environment variable")
-			toCreate.Spec.EnvironmentVariables = appendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
+			toCreate.Spec.EnvironmentVariables = AppendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
 				corev1.EnvVar{
 					Name:  "test",
 					Value: "test",
@@ -82,7 +82,7 @@ var _ = Describe("HumioCluster Defaults", func() {
 			)
 
 			By("Confirming the humio node manager correctly overrides the PUBLIC_URL")
-			toCreate.Spec.EnvironmentVariables = appendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
+			toCreate.Spec.EnvironmentVariables = AppendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
 				corev1.EnvVar{
 					Name:  "PUBLIC_URL",
 					Value: "test",
@@ -119,7 +119,7 @@ var _ = Describe("HumioCluster Defaults", func() {
 			}
 
 			By("Confirming the humio node manager correctly overrides the PUBLIC_URL")
-			toCreate.Spec.EnvironmentVariables = appendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
+			toCreate.Spec.EnvironmentVariables = AppendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
 				corev1.EnvVar{
 					Name:  "PUBLIC_URL",
 					Value: "test",
@@ -529,10 +529,10 @@ func Test_constructContainerArgs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			hnp := NewHumioNodeManagerFromHumioCluster(tt.fields.humioCluster)
-			pod, _ := constructPod(hnp, "", &podAttachments{})
-			humioIdx, _ := kubernetes.GetContainerIndexByName(*pod, humioContainerName)
+			pod, _ := ConstructPod(hnp, "", &podAttachments{})
+			humioIdx, _ := kubernetes.GetContainerIndexByName(*pod, HumioContainerName)
 
-			got, _ := constructContainerArgs(hnp, pod.Spec.Containers[humioIdx].Env)
+			got, _ := ConstructContainerArgs(hnp, pod.Spec.Containers[humioIdx].Env)
 			for _, expected := range tt.fields.expectedContainerArgs {
 				if !strings.Contains(got[1], expected) {
 					t.Errorf("constructContainerArgs()[1] = %v, expected to find substring %v", got[1], expected)
