@@ -346,16 +346,28 @@ var _ = AfterSuite(func() {
 
 var _ = ReportAfterSuite("HumioCluster Controller Suite", func(suiteReport ginkgotypes.Report) {
 	for _, r := range suiteReport.SpecReports {
-		r.CapturedGinkgoWriterOutput = ""
-		r.CapturedStdOutErr = ""
+		testRunID := kubernetes.RandomString()
+
+		suite.PrintLinesWithRunID(testRunID, strings.Split(r.CapturedGinkgoWriterOutput, "\n"), r.State)
+		suite.PrintLinesWithRunID(testRunID, strings.Split(r.CapturedStdOutErr, "\n"), r.State)
+
+		r.CapturedGinkgoWriterOutput = testRunID
+		r.CapturedStdOutErr = testRunID
+
 		u, _ := json.Marshal(r)
 		fmt.Println(string(u))
 	}
 })
 
 var _ = ReportAfterEach(func(specReport ginkgotypes.SpecReport) {
-	specReport.CapturedGinkgoWriterOutput = ""
-	specReport.CapturedStdOutErr = ""
+	testRunID := kubernetes.RandomString()
+
+	suite.PrintLinesWithRunID(testRunID, strings.Split(specReport.CapturedGinkgoWriterOutput, "\n"), specReport.State)
+	suite.PrintLinesWithRunID(testRunID, strings.Split(specReport.CapturedStdOutErr, "\n"), specReport.State)
+
+	specReport.CapturedGinkgoWriterOutput = testRunID
+	specReport.CapturedStdOutErr = testRunID
+
 	u, _ := json.Marshal(specReport)
 	fmt.Println(string(u))
 })
