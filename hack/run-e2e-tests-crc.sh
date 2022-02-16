@@ -42,6 +42,5 @@ do
   sleep 2
 done
 
-# TODO: add -p to automatically detect optimal number of test nodes, OR, -nodes=n to set parallelism, and add -stream to output logs from tests running in parallel.
 # We skip the helpers package as those tests assumes the environment variable USE_CERT_MANAGER is not set.
 OPENSHIFT_SCC_NAME=default-humio-operator KUBECONFIG=$tmp_kubeconfig USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo -timeout 90m -skipPackage helpers -v ./... -covermode=count -coverprofile cover.out -progress
