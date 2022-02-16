@@ -39,6 +39,8 @@ jobs:
         E2E_KIND_K8S_VERSION: ${{ matrix.kind-k8s-version }}
         E2E_LOGS_HUMIO_HOSTNAME: ${{ secrets.E2E_LOGS_HUMIO_HOSTNAME }}
         E2E_LOGS_HUMIO_INGEST_TOKEN: ${{ secrets.E2E_LOGS_HUMIO_INGEST_TOKEN }}
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         GINKGO_NODES: "6"
       run: |
         make run-e2e-tests-ci-kind
