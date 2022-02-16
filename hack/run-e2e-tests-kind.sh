@@ -34,6 +34,5 @@ done
 
 make ginkgo
 
-# TODO: add -p to automatically detect optimal number of test nodes, OR, -nodes=n to set parallelism, and add -stream to output logs from tests running in parallel.
 # We skip the helpers package as those tests assumes the environment variable USE_CERT_MANAGER is not set.
-USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo -timeout 90m -nodes=$ginkgo_nodes -skipPackage helpers -race -v ./... -covermode=count -coverprofile cover.out -progress | tee /proc/1/fd/1
+USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo --always-emit-ginkgo-writer -slow-spec-threshold=5s -timeout 90m -nodes=$ginkgo_nodes -skipPackage helpers -race -v ./... -covermode=count -coverprofile cover.out -progress | tee /proc/1/fd/1

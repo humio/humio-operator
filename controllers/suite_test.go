@@ -43,7 +43,7 @@ import (
 	"github.com/humio/humio-operator/pkg/humio"
 	"github.com/humio/humio-operator/pkg/openshift"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -320,8 +320,7 @@ var _ = BeforeSuite(func() {
 			Expect(k8sClient.Create(ctx, &scc)).To(Succeed())
 		}
 	}
-
-}, 120)
+})
 
 var _ = AfterSuite(func() {
 	if testNamespace.ObjectMeta.Name != "" && k8sClient != nil {
