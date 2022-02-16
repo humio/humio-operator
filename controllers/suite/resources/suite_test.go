@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package resources
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/humio/humio-operator/controllers"
-	"github.com/humio/humio-operator/controllers/test_suites"
+	"github.com/humio/humio-operator/controllers/suite"
 	ginkgotypes "github.com/onsi/ginkgo/v2/types"
 	"k8s.io/apimachinery/pkg/types"
 	"os"
@@ -246,7 +246,7 @@ var _ = BeforeSuite(func() {
 			}
 			// At this point we know the object already exists.
 			return true
-		}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+		}, testTimeout, suite.TestInterval).Should(BeTrue())
 		if k8serrors.IsNotFound(err) {
 			By("Simulating helm chart installation of the SecurityContextConstraints object")
 			sccName := os.Getenv("OPENSHIFT_SCC_NAME")
@@ -305,9 +305,9 @@ var _ = BeforeSuite(func() {
 		}
 	}
 
-	test_suites.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioCluster: Creating shared test cluster in namespace %s", clusterKey.Namespace))
-	cluster = test_suites.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
-	test_suites.CreateAndBootstrapCluster(context.TODO(), k8sClient, humioClient, cluster, true, corev1alpha1.HumioClusterStateRunning, testTimeout)
+	suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioCluster: Creating shared test cluster in namespace %s", clusterKey.Namespace))
+	cluster = suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
+	suite.CreateAndBootstrapCluster(context.TODO(), k8sClient, humioClient, cluster, true, corev1alpha1.HumioClusterStateRunning, testTimeout)
 
 	sharedCluster, err = helpers.NewCluster(context.TODO(), k8sClient, clusterKey.Name, "", clusterKey.Namespace, helpers.UseCertManager(), true)
 	Expect(err).To(BeNil())
@@ -317,11 +317,11 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	if k8sClient != nil {
-		test_suites.UsingClusterBy(clusterKey.Name, "HumioCluster: Confirming resource generation wasn't updated excessively")
+		suite.UsingClusterBy(clusterKey.Name, "HumioCluster: Confirming resource generation wasn't updated excessively")
 		Expect(k8sClient.Get(context.Background(), clusterKey, cluster)).Should(Succeed())
 		Expect(cluster.GetGeneration()).ShouldNot(BeNumerically(">", 100))
 
-		test_suites.CleanupCluster(context.TODO(), k8sClient, cluster)
+		suite.CleanupCluster(context.TODO(), k8sClient, cluster)
 
 		if testNamespace.ObjectMeta.Name != "" {
 			By(fmt.Sprintf("Removing test namespace: %s", clusterKey.Namespace))
