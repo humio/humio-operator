@@ -19,6 +19,9 @@ package clusters
 import (
 	"context"
 	"fmt"
+	"os"
+	"reflect"
+
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/controllers/suite"
@@ -33,8 +36,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"os"
-	"reflect"
 )
 
 var _ = Describe("HumioCluster Controller", func() {

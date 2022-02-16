@@ -2,25 +2,28 @@ package suite
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	ginkgotypes "github.com/onsi/ginkgo/v2/types"
+
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 	"github.com/humio/humio-operator/pkg/kubernetes"
-	ginkgotypes "github.com/onsi/ginkgo/v2/types"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"strconv"
-	"strings"
-	"time"
 
 	//lint:ignore ST1001 we use dot import for ginkgo as per their official instructions
 	. "github.com/onsi/ginkgo/v2"
@@ -34,6 +37,12 @@ const (
 	apiTokenMethodAnnotationName = "humio.com/api-token-method" // #nosec G101
 	// apiTokenMethodFromAPI is used to indicate that the API token was obtained using an API call
 	apiTokenMethodFromAPI = "api"
+	// dockerUsernameEnvVar is used to login to docker when pulling images
+	dockerUsernameEnvVar = "DOCKER_USERNAME"
+	// dockerPasswordEnvVar is used to login to docker when pulling images
+	dockerPasswordEnvVar = "DOCKER_PASSWORD"
+	// DockerRegistryCredentialsSecretName is the name of the k8s secret containing the registry credentials
+	DockerRegistryCredentialsSecretName = "regcred"
 )
 
 const TestInterval = time.Second * 1
@@ -162,8 +171,64 @@ func CleanupCluster(ctx context.Context, k8sClient client.Client, hc *humiov1alp
 	}
 }
 
-func ConstructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreatedLicense bool) *humiov1alpha1.HumioCluster {
+func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alpha1.HumioNodeSpec {
 	storageClassNameStandard := "standard"
+	nodeSpec := humiov1alpha1.HumioNodeSpec{
+		Image:             controllers.Image,
+		ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
+		NodeCount:         helpers.IntPtr(1),
+		EnvironmentVariables: []corev1.EnvVar{
+			{
+				Name:  "ZOOKEEPER_URL",
+				Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
+			},
+			{
+				Name:  "KAFKA_SERVERS",
+				Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+			},
+			{
+				Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
+				Value: key.Name,
+			},
+			{
+				Name:  "AUTHENTICATION_METHOD",
+				Value: "single-user",
+			},
+			{
+				Name:  "SINGLE_USER_PASSWORD",
+				Value: "password",
+			},
+			{
+				Name:  "ENABLE_IOC_SERVICE",
+				Value: "false",
+			},
+			{
+				Name:  "HUMIO_MEMORY_OPTS",
+				Value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g",
+			},
+		},
+		DataVolumePersistentVolumeClaimSpecTemplate: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadWriteOnce,
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: *resource.NewQuantity(1*1024*1024*1024, resource.BinarySI),
+				},
+			},
+			StorageClassName: &storageClassNameStandard,
+		},
+	}
+
+	if useDockerCredentials() {
+		nodeSpec.ImagePullSecrets = []corev1.LocalObjectReference{
+			{Name: DockerRegistryCredentialsSecretName},
+		}
+	}
+	return nodeSpec
+}
+
+func ConstructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreatedLicense bool) *humiov1alpha1.HumioCluster {
 	humioCluster := &humiov1alpha1.HumioCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      key.Name,
@@ -171,52 +236,7 @@ func ConstructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 		},
 		Spec: humiov1alpha1.HumioClusterSpec{
 			TargetReplicationFactor: 1,
-			HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-				Image:             controllers.Image,
-				ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
-				NodeCount:         helpers.IntPtr(1),
-				EnvironmentVariables: []corev1.EnvVar{
-					{
-						Name:  "ZOOKEEPER_URL",
-						Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
-					},
-					{
-						Name:  "KAFKA_SERVERS",
-						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
-					},
-					{
-						Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
-						Value: key.Name,
-					},
-					{
-						Name:  "AUTHENTICATION_METHOD",
-						Value: "single-user",
-					},
-					{
-						Name:  "SINGLE_USER_PASSWORD",
-						Value: "password",
-					},
-					{
-						Name:  "ENABLE_IOC_SERVICE",
-						Value: "false",
-					},
-					{
-						Name:  "HUMIO_MEMORY_OPTS",
-						Value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g",
-					},
-				},
-				DataVolumePersistentVolumeClaimSpecTemplate: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{
-						corev1.ReadWriteOnce,
-					},
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: *resource.NewQuantity(1*1024*1024*1024, resource.BinarySI),
-						},
-					},
-					StorageClassName: &storageClassNameStandard,
-				},
-			},
+			HumioNodeSpec:           ConstructBasicNodeSpecForHumioCluster(key),
 		},
 	}
 
@@ -566,4 +586,36 @@ func PrintLinesWithRunID(runID string, lines []string, specState ginkgotypes.Spe
 		u, _ := json.Marshal(output)
 		fmt.Println(string(u))
 	}
+}
+
+func useDockerCredentials() bool {
+	return os.Getenv(dockerUsernameEnvVar) != "" && os.Getenv(dockerPasswordEnvVar) != ""
+}
+
+func CreateDockerRegredSecret(ctx context.Context, namespace corev1.Namespace, k8sClient client.Client) {
+	if !useDockerCredentials() {
+		return
+	}
+
+	By("Creating docker registry credentials secret")
+	dockerConfigJsonContent, err := json.Marshal(map[string]map[string]map[string]string{
+		"auths": {
+			"index.docker.io/v1/": {
+				"auth": base64.StdEncoding.EncodeToString(
+					[]byte(fmt.Sprintf("%s:%s", os.Getenv(dockerUsernameEnvVar), os.Getenv(dockerPasswordEnvVar))),
+				),
+			},
+		},
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	regcredSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      DockerRegistryCredentialsSecretName,
+			Namespace: namespace.Name,
+		},
+		Data: map[string][]byte{".dockerconfigjson": dockerConfigJsonContent},
+		Type: corev1.SecretTypeDockerConfigJson,
+	}
+	Expect(k8sClient.Create(ctx, &regcredSecret)).To(Succeed())
 }
