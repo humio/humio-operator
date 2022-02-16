@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package resources
 
 import (
 	"context"
 	"fmt"
-	"github.com/humio/humio-operator/controllers/test_suites"
+	"github.com/humio/humio-operator/controllers/suite"
 	"github.com/humio/humio-operator/pkg/humio"
 	"net/http"
 	"os"
@@ -75,14 +75,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Creating the ingest token with token secret successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Creating the ingest token with token secret successfully")
 			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
 
 			fetchedIngestToken := &humiov1alpha1.HumioIngestToken{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedIngestToken)
 				return fetchedIngestToken.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
 
 			ingestTokenSecret := &corev1.Secret{}
 			Eventually(func() error {
@@ -93,14 +93,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 						Name:      toCreateIngestToken.Spec.TokenSecretName,
 					},
 					ingestTokenSecret)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
 				Expect(string(ingestTokenSecret.Data["token"])).To(Equal("mocktoken"))
 			}
 			Expect(ingestTokenSecret.OwnerReferences).Should(HaveLen(1))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Checking correct parser assigned to ingest token")
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Checking correct parser assigned to ingest token")
 			var humioIngestToken *humioapi.IngestToken
 			Eventually(func() string {
 				humioIngestToken, err = humioClient.GetIngestToken(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedIngestToken)
@@ -108,15 +108,15 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return humioIngestToken.AssignedParser
 				}
 				return "nil"
-			}, testTimeout, test_suites.TestInterval).Should(BeEquivalentTo(initialParserName))
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(initialParserName))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Updating parser for ingest token")
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Updating parser for ingest token")
 			updatedParserName := "accesslog"
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, fetchedIngestToken)
 				fetchedIngestToken.Spec.ParserName = updatedParserName
 				return k8sClient.Update(ctx, fetchedIngestToken)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			Eventually(func() string {
 				humioIngestToken, err = humioClient.GetIngestToken(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedIngestToken)
@@ -124,9 +124,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return humioIngestToken.AssignedParser
 				}
 				return "nil"
-			}, testTimeout, test_suites.TestInterval).Should(BeEquivalentTo(updatedParserName))
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(updatedParserName))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Deleting ingest token secret successfully adds back secret")
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Deleting ingest token secret successfully adds back secret")
 			Expect(
 				k8sClient.Delete(
 					ctx,
@@ -147,18 +147,18 @@ var _ = Describe("Humio Resources Controllers", func() {
 						Name:      toCreateIngestToken.Spec.TokenSecretName,
 					},
 					ingestTokenSecret)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
 				Expect(string(ingestTokenSecret.Data["token"])).To(Equal("mocktoken"))
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedIngestToken)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedIngestToken)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("should handle ingest without token target secret correctly", func() {
@@ -181,16 +181,16 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Creating the ingest token without token secret successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Creating the ingest token without token secret successfully")
 			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
 
 			fetchedIngestToken := &humiov1alpha1.HumioIngestToken{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedIngestToken)
 				return fetchedIngestToken.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Checking we do not create a token secret")
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Checking we do not create a token secret")
 			var allSecrets corev1.SecretList
 			k8sClient.List(ctx, &allSecrets, client.InNamespace(fetchedIngestToken.Namespace))
 			for _, secret := range allSecrets.Items {
@@ -199,7 +199,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Enabling token secret name successfully creates secret")
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Enabling token secret name successfully creates secret")
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, fetchedIngestToken)
 				fetchedIngestToken.Spec.TokenSecretName = "target-secret-2"
@@ -207,7 +207,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					"custom-label": "custom-value",
 				}
 				return k8sClient.Update(ctx, fetchedIngestToken)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			ingestTokenSecret := &corev1.Secret{}
 			Eventually(func() error {
 				return k8sClient.Get(
@@ -217,19 +217,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 						Name:      fetchedIngestToken.Spec.TokenSecretName,
 					},
 					ingestTokenSecret)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(ingestTokenSecret.Labels).Should(HaveKeyWithValue("custom-label", "custom-value"))
 
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
 				Expect(string(ingestTokenSecret.Data["token"])).To(Equal("mocktoken"))
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedIngestToken)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedIngestToken)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
 		})
 
@@ -254,21 +254,21 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioIngestToken: Validates resource enters state %s", humiov1alpha1.HumioIngestTokenStateConfigError))
+			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioIngestToken: Validates resource enters state %s", humiov1alpha1.HumioIngestTokenStateConfigError))
 			fetchedIngestToken := &humiov1alpha1.HumioIngestToken{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, keyErr, fetchedIngestToken)
 				return fetchedIngestToken.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateConfigError))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedIngestToken)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, keyErr, fetchedIngestToken)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Creating ingest token pointing to non-existent external cluster")
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Creating ingest token pointing to non-existent external cluster")
 			keyErr = types.NamespacedName{
 				Name:      "humioingesttoken-non-existent-external-cluster",
 				Namespace: clusterKey.Namespace,
@@ -288,26 +288,26 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			Expect(k8sClient.Create(ctx, toCreateIngestToken)).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioIngestToken: Validates resource enters state %s", humiov1alpha1.HumioIngestTokenStateConfigError))
+			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioIngestToken: Validates resource enters state %s", humiov1alpha1.HumioIngestTokenStateConfigError))
 			fetchedIngestToken = &humiov1alpha1.HumioIngestToken{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, keyErr, fetchedIngestToken)
 				return fetchedIngestToken.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateConfigError))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedIngestToken)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, keyErr, fetchedIngestToken)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 	})
 
 	Context("Humio Repository and View", func() {
 		It("should handle resources correctly", func() {
 			ctx := context.Background()
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioRepository: Should handle repository correctly")
+			suite.UsingClusterBy(clusterKey.Name, "HumioRepository: Should handle repository correctly")
 			key := types.NamespacedName{
 				Name:      "humiorepository",
 				Namespace: clusterKey.Namespace,
@@ -330,20 +330,20 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioRepository: Creating the repository successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioRepository: Creating the repository successfully")
 			Expect(k8sClient.Create(ctx, toCreateRepository)).Should(Succeed())
 
 			fetchedRepository := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedRepository)
 				return fetchedRepository.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
 
 			var initialRepository *humioapi.Repository
 			Eventually(func() error {
 				initialRepository, err = humioClient.GetRepository(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateRepository)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(initialRepository).ToNot(BeNil())
 
 			expectedInitialRepository := repositoryExpectation{
@@ -366,21 +366,21 @@ var _ = Describe("Humio Resources Controllers", func() {
 					StorageRetentionSizeGB: initialRepository.StorageRetentionSizeGB,
 					SpaceUsed:              initialRepository.SpaceUsed,
 				}
-			}, testTimeout, test_suites.TestInterval).Should(Equal(expectedInitialRepository))
+			}, testTimeout, suite.TestInterval).Should(Equal(expectedInitialRepository))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioRepository: Updating the repository successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioRepository: Updating the repository successfully")
 			updatedDescription := "important description - now updated"
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, fetchedRepository)
 				fetchedRepository.Spec.Description = updatedDescription
 				return k8sClient.Update(ctx, fetchedRepository)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			var updatedRepository *humioapi.Repository
 			Eventually(func() error {
 				updatedRepository, err = humioClient.GetRepository(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedRepository)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(updatedRepository).ToNot(BeNil())
 
 			expectedUpdatedRepository := repositoryExpectation{
@@ -404,16 +404,16 @@ var _ = Describe("Humio Resources Controllers", func() {
 					StorageRetentionSizeGB: updatedRepository.StorageRetentionSizeGB,
 					SpaceUsed:              updatedRepository.SpaceUsed,
 				}
-			}, testTimeout, test_suites.TestInterval).Should(Equal(expectedUpdatedRepository))
+			}, testTimeout, suite.TestInterval).Should(Equal(expectedUpdatedRepository))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioRepository: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioRepository: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedRepository)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedRepository)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioView: Should handle view correctly")
+			suite.UsingClusterBy(clusterKey.Name, "HumioView: Should handle view correctly")
 			viewKey := types.NamespacedName{
 				Name:      "humioview",
 				Namespace: clusterKey.Namespace,
@@ -453,30 +453,30 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioView: Creating the repository successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioView: Creating the repository successfully")
 			Expect(k8sClient.Create(ctx, repositoryToCreate)).Should(Succeed())
 
 			fetchedRepo := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, viewKey, fetchedRepo)
 				return fetchedRepo.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioView: Creating the view successfully in k8s")
+			suite.UsingClusterBy(clusterKey.Name, "HumioView: Creating the view successfully in k8s")
 			Expect(k8sClient.Create(ctx, viewToCreate)).Should(Succeed())
 
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, viewKey, fetchedView)
 				return fetchedView.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioViewStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewStateExists))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioView: Creating the view successfully in Humio")
+			suite.UsingClusterBy(clusterKey.Name, "HumioView: Creating the view successfully in Humio")
 			var initialView *humioapi.View
 			Eventually(func() error {
 				initialView, err = humioClient.GetView(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, viewToCreate)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(initialView).ToNot(BeNil())
 
 			expectedInitialView := humioapi.View{
@@ -490,9 +490,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return humioapi.View{}
 				}
 				return *initialView
-			}, testTimeout, test_suites.TestInterval).Should(Equal(expectedInitialView))
+			}, testTimeout, suite.TestInterval).Should(Equal(expectedInitialView))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioView: Updating the view successfully in k8s")
+			suite.UsingClusterBy(clusterKey.Name, "HumioView: Updating the view successfully in k8s")
 			updatedConnections := []humiov1alpha1.HumioViewConnection{
 				{
 					RepositoryName: "humio",
@@ -503,14 +503,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 				k8sClient.Get(ctx, viewKey, fetchedView)
 				fetchedView.Spec.Connections = updatedConnections
 				return k8sClient.Update(ctx, fetchedView)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioView: Updating the view successfully in Humio")
+			suite.UsingClusterBy(clusterKey.Name, "HumioView: Updating the view successfully in Humio")
 			var updatedView *humioapi.View
 			Eventually(func() error {
 				updatedView, err = humioClient.GetView(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedView)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(updatedView).ToNot(BeNil())
 
 			expectedUpdatedView := humioapi.View{
@@ -523,22 +523,22 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return humioapi.View{}
 				}
 				return *updatedView
-			}, testTimeout, test_suites.TestInterval).Should(Equal(expectedUpdatedView))
+			}, testTimeout, suite.TestInterval).Should(Equal(expectedUpdatedView))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioView: Successfully deleting the view")
+			suite.UsingClusterBy(clusterKey.Name, "HumioView: Successfully deleting the view")
 			Expect(k8sClient.Delete(ctx, fetchedView)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, viewKey, fetchedView)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioView: Successfully deleting the repo")
+			suite.UsingClusterBy(clusterKey.Name, "HumioView: Successfully deleting the repo")
 			Expect(k8sClient.Delete(ctx, fetchedRepo)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, viewKey, fetchedRepo)
-				test_suites.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Waiting for repo to get deleted. Current status: %#+v", fetchedRepo.Status))
+				suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Waiting for repo to get deleted. Current status: %#+v", fetchedRepo.Status))
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
 		})
 	})
@@ -568,14 +568,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: spec,
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioParser: Creating the parser successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Creating the parser successfully")
 			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
 
 			fetchedParser := &humiov1alpha1.HumioParser{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedParser)
 				return fetchedParser.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateExists))
 
 			var initialParser *humioapi.Parser
 			Eventually(func() error {
@@ -585,7 +585,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				initialParser.ID = ""
 
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(initialParser).ToNot(BeNil())
 
 			expectedInitialParser := humioapi.Parser{
@@ -596,13 +596,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			Expect(*initialParser).To(Equal(expectedInitialParser))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioParser: Updating the parser successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Updating the parser successfully")
 			updatedScript := "kvParse() | updated"
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, fetchedParser)
 				fetchedParser.Spec.ParserScript = updatedScript
 				return k8sClient.Update(ctx, fetchedParser)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			var updatedParser *humioapi.Parser
 			Eventually(func() error {
@@ -612,7 +612,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				updatedParser.ID = ""
 
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(updatedParser).ToNot(BeNil())
 
 			expectedUpdatedParser := humioapi.Parser{
@@ -631,14 +631,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 				updatedParser.ID = ""
 
 				return *updatedParser
-			}, testTimeout, test_suites.TestInterval).Should(Equal(expectedUpdatedParser))
+			}, testTimeout, suite.TestInterval).Should(Equal(expectedUpdatedParser))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioParser: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedParser)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedParser)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
 		})
 	})
@@ -646,7 +646,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	Context("Humio External Cluster", func() {
 		It("should handle resources correctly", func() {
 			ctx := context.Background()
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Should handle externalcluster correctly")
+			suite.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Should handle externalcluster correctly")
 			key := types.NamespacedName{
 				Name:      "humioexternalcluster",
 				Namespace: clusterKey.Namespace,
@@ -674,22 +674,22 @@ var _ = Describe("Humio Resources Controllers", func() {
 				toCreateExternalCluster.Spec.Insecure = true
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Creating the external cluster successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Creating the external cluster successfully")
 			Expect(k8sClient.Create(ctx, toCreateExternalCluster)).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Confirming external cluster gets marked as ready")
+			suite.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Confirming external cluster gets marked as ready")
 			fetchedExternalCluster := &humiov1alpha1.HumioExternalCluster{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedExternalCluster)
 				return fetchedExternalCluster.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioExternalClusterStateReady))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioExternalClusterStateReady))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedExternalCluster)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedExternalCluster)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 	})
 
@@ -714,19 +714,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioParser: Validates resource enters state %s", humiov1alpha1.HumioParserStateConfigError))
+			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioParser: Validates resource enters state %s", humiov1alpha1.HumioParserStateConfigError))
 			fetchedParser := &humiov1alpha1.HumioParser{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, keyErr, fetchedParser)
 				return fetchedParser.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateConfigError))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioParser: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedParser)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, keyErr, fetchedParser)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioParser: Creating ingest token pointing to non-existent external cluster", func() {
@@ -749,19 +749,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioParser: Validates resource enters state %s", humiov1alpha1.HumioParserStateConfigError))
+			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioParser: Validates resource enters state %s", humiov1alpha1.HumioParserStateConfigError))
 			fetchedParser := &humiov1alpha1.HumioParser{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, keyErr, fetchedParser)
 				return fetchedParser.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateConfigError))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioParser: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedParser)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, keyErr, fetchedParser)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioRepository: Creating repository pointing to non-existent managed cluster", func() {
@@ -782,19 +782,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			Expect(k8sClient.Create(ctx, toCreateRepository)).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioRepository: Validates resource enters state %s", humiov1alpha1.HumioRepositoryStateConfigError))
+			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioRepository: Validates resource enters state %s", humiov1alpha1.HumioRepositoryStateConfigError))
 			fetchedRepository := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, keyErr, fetchedRepository)
 				return fetchedRepository.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateConfigError))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioRepository: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioRepository: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedRepository)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, keyErr, fetchedRepository)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioRepository: Creating repository pointing to non-existent external cluster", func() {
@@ -815,19 +815,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			Expect(k8sClient.Create(ctx, toCreateRepository)).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioRepository: Validates resource enters state %s", humiov1alpha1.HumioRepositoryStateConfigError))
+			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioRepository: Validates resource enters state %s", humiov1alpha1.HumioRepositoryStateConfigError))
 			fetchedRepository := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, keyErr, fetchedRepository)
 				return fetchedRepository.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateConfigError))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioRepository: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioRepository: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedRepository)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, keyErr, fetchedRepository)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioView: Creating repository pointing to non-existent managed cluster", func() {
@@ -854,19 +854,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			Expect(k8sClient.Create(ctx, toCreateView)).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioView: Validates resource enters state %s", humiov1alpha1.HumioViewStateConfigError))
+			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioView: Validates resource enters state %s", humiov1alpha1.HumioViewStateConfigError))
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, keyErr, fetchedView)
 				return fetchedView.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioViewStateConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewStateConfigError))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioView: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioView: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedView)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, keyErr, fetchedView)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioView: Creating repository pointing to non-existent external cluster", func() {
@@ -893,26 +893,26 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			Expect(k8sClient.Create(ctx, toCreateView)).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioView: Validates resource enters state %s", humiov1alpha1.HumioViewStateConfigError))
+			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioView: Validates resource enters state %s", humiov1alpha1.HumioViewStateConfigError))
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, keyErr, fetchedView)
 				return fetchedView.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioViewStateConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewStateConfigError))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioView: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioView: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedView)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, keyErr, fetchedView)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 	})
 
 	Context("Humio Action", func() {
 		It("should handle email action correctly", func() {
 			ctx := context.Background()
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle action correctly")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle action correctly")
 			emailActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-action",
@@ -935,20 +935,20 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: emailActionSpec,
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			var action *humioapi.Action
 			Eventually(func() error {
 				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
 			originalAction, err := humio.ActionFromActionCR(toCreateAction)
@@ -960,29 +960,29 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
 			Expect(createdAction.Spec.EmailProperties.Recipients).To(Equal(toCreateAction.Spec.EmailProperties.Recipients))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the action successfully")
 			updatedAction := toCreateAction
 			updatedAction.Spec.EmailProperties.Recipients = []string{"updated@example.com"}
 			updatedAction.Spec.EmailProperties.BodyTemplate = "updated body template"
 			updatedAction.Spec.EmailProperties.SubjectTemplate = "updated subject template"
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the action to be updated")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the action to be updated")
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.EmailProperties = updatedAction.Spec.EmailProperties
 				return k8sClient.Update(ctx, fetchedAction)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the action update succeeded")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the action update succeeded")
 			var expectedUpdatedAction *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(err).To(BeNil())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the action matches the expected")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the action matches the expected")
 			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
 			Expect(err).To(BeNil())
 			Expect(verifiedAction).ToNot(BeNil())
@@ -992,19 +992,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return humioapi.EmailAction{}
 				}
 				return updatedAction.EmailAction
-			}, testTimeout, test_suites.TestInterval).Should(BeEquivalentTo(verifiedAction.EmailAction))
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.EmailAction))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedAction)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("should handle humio repo action correctly", func() {
 			ctx := context.Background()
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle humio repo action correctly")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle humio repo action correctly")
 			humioRepoActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-humio-repo-action",
@@ -1027,20 +1027,20 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humioRepoActionSpec,
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the humio repo action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the humio repo action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			action := &humioapi.Action{}
 			Eventually(func() error {
 				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
 			originalAction, err := humio.ActionFromActionCR(toCreateAction)
@@ -1052,26 +1052,26 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
 			Expect(createdAction.Spec.HumioRepositoryProperties.IngestToken).To(Equal(toCreateAction.Spec.HumioRepositoryProperties.IngestToken))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the humio repo action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the humio repo action successfully")
 			updatedAction := toCreateAction
 			updatedAction.Spec.HumioRepositoryProperties.IngestToken = "updated-token"
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the humio repo action to be updated")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the humio repo action to be updated")
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.HumioRepositoryProperties = updatedAction.Spec.HumioRepositoryProperties
 				return k8sClient.Update(ctx, fetchedAction)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the humio repo action update succeeded")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the humio repo action update succeeded")
 			var expectedUpdatedAction *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the humio repo action matches the expected")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the humio repo action matches the expected")
 			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
 			Expect(err).To(BeNil())
 			Expect(verifiedAction).ToNot(BeNil())
@@ -1081,19 +1081,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return humioapi.HumioRepoAction{}
 				}
 				return updatedAction.HumioRepoAction
-			}, testTimeout, test_suites.TestInterval).Should(BeEquivalentTo(verifiedAction.HumioRepoAction))
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.HumioRepoAction))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedAction)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("should handle ops genie action correctly", func() {
 			ctx := context.Background()
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle ops genie action correctly")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle ops genie action correctly")
 			opsGenieActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-ops-genie-action",
@@ -1117,20 +1117,20 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: opsGenieActionSpec,
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the ops genie action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the ops genie action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			var action *humioapi.Action
 			Eventually(func() error {
 				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
 			originalAction, err := humio.ActionFromActionCR(toCreateAction)
@@ -1143,27 +1143,27 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(createdAction.Spec.OpsGenieProperties.GenieKey).To(Equal(toCreateAction.Spec.OpsGenieProperties.GenieKey))
 			Expect(createdAction.Spec.OpsGenieProperties.ApiUrl).To(Equal(toCreateAction.Spec.OpsGenieProperties.ApiUrl))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the ops genie action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the ops genie action successfully")
 			updatedAction := toCreateAction
 			updatedAction.Spec.OpsGenieProperties.GenieKey = "updatedgeniekey"
 			updatedAction.Spec.OpsGenieProperties.ApiUrl = "https://example.com"
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the ops genie action to be updated")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the ops genie action to be updated")
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.OpsGenieProperties = updatedAction.Spec.OpsGenieProperties
 				return k8sClient.Update(ctx, fetchedAction)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the ops genie action update succeeded")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the ops genie action update succeeded")
 			var expectedUpdatedAction *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the ops genie action matches the expected")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the ops genie action matches the expected")
 			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
 			Expect(err).To(BeNil())
 			Expect(verifiedAction).ToNot(BeNil())
@@ -1173,19 +1173,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return humioapi.OpsGenieAction{}
 				}
 				return updatedAction.OpsGenieAction
-			}, testTimeout, test_suites.TestInterval).Should(BeEquivalentTo(verifiedAction.OpsGenieAction))
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.OpsGenieAction))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedAction)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("should handle pagerduty action correctly", func() {
 			ctx := context.Background()
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle pagerduty action correctly")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle pagerduty action correctly")
 			pagerDutyActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-pagerduty-action",
@@ -1209,20 +1209,20 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: pagerDutyActionSpec,
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the pagerduty action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the pagerduty action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			var action *humioapi.Action
 			Eventually(func() error {
 				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
 			originalAction, err := humio.ActionFromActionCR(toCreateAction)
@@ -1235,27 +1235,27 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(createdAction.Spec.PagerDutyProperties.Severity).To(Equal(toCreateAction.Spec.PagerDutyProperties.Severity))
 			Expect(createdAction.Spec.PagerDutyProperties.RoutingKey).To(Equal(toCreateAction.Spec.PagerDutyProperties.RoutingKey))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the pagerduty action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the pagerduty action successfully")
 			updatedAction := toCreateAction
 			updatedAction.Spec.PagerDutyProperties.Severity = "error"
 			updatedAction.Spec.PagerDutyProperties.RoutingKey = "updatedroutingkey"
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the pagerduty action to be updated")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the pagerduty action to be updated")
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.PagerDutyProperties = updatedAction.Spec.PagerDutyProperties
 				return k8sClient.Update(ctx, fetchedAction)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the pagerduty action update succeeded")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the pagerduty action update succeeded")
 			var expectedUpdatedAction *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the pagerduty action matches the expected")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the pagerduty action matches the expected")
 			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
 			Expect(err).To(BeNil())
 			Expect(verifiedAction).ToNot(BeNil())
@@ -1265,19 +1265,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return humioapi.PagerDutyAction{}
 				}
 				return updatedAction.PagerDutyAction
-			}, testTimeout, test_suites.TestInterval).Should(BeEquivalentTo(verifiedAction.PagerDutyAction))
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.PagerDutyAction))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedAction)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("should handle slack post message action correctly", func() {
 			ctx := context.Background()
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle slack post message action correctly")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle slack post message action correctly")
 			slackPostMessageActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-slack-post-message-action",
@@ -1304,20 +1304,20 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: slackPostMessageActionSpec,
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the slack post message action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the slack post message action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			var action *humioapi.Action
 			Eventually(func() error {
 				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
 			originalAction, err := humio.ActionFromActionCR(toCreateAction)
@@ -1331,7 +1331,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(createdAction.Spec.SlackPostMessageProperties.Channels).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.Channels))
 			Expect(createdAction.Spec.SlackPostMessageProperties.Fields).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.Fields))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the slack post message action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the slack post message action successfully")
 			updatedAction := toCreateAction
 			updatedAction.Spec.SlackPostMessageProperties.ApiToken = "updated-token"
 			updatedAction.Spec.SlackPostMessageProperties.Channels = []string{"#some-channel", "#other-channel"}
@@ -1339,22 +1339,22 @@ var _ = Describe("Humio Resources Controllers", func() {
 				"some": "updatedkey",
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the slack post message action to be updated")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the slack post message action to be updated")
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.SlackPostMessageProperties = updatedAction.Spec.SlackPostMessageProperties
 				return k8sClient.Update(ctx, fetchedAction)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack post message action update succeeded")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack post message action update succeeded")
 			var expectedUpdatedAction *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack post message action matches the expected")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack post message action matches the expected")
 			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
 			Expect(err).To(BeNil())
 			Expect(verifiedAction).ToNot(BeNil())
@@ -1364,19 +1364,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return humioapi.SlackPostMessageAction{}
 				}
 				return updatedAction.SlackPostMessageAction
-			}, testTimeout, test_suites.TestInterval).Should(BeEquivalentTo(verifiedAction.SlackPostMessageAction))
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.SlackPostMessageAction))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedAction)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("should handle slack action correctly", func() {
 			ctx := context.Background()
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle slack action correctly")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle slack action correctly")
 			slackActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-slack-action",
@@ -1402,20 +1402,20 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: slackActionSpec,
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the slack action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the slack action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			var action *humioapi.Action
 			Eventually(func() error {
 				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
 			originalAction, err := humio.ActionFromActionCR(toCreateAction)
@@ -1428,29 +1428,29 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(createdAction.Spec.SlackProperties.Url).To(Equal(toCreateAction.Spec.SlackProperties.Url))
 			Expect(createdAction.Spec.SlackProperties.Fields).To(Equal(toCreateAction.Spec.SlackProperties.Fields))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the slack action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the slack action successfully")
 			updatedAction := toCreateAction
 			updatedAction.Spec.SlackProperties.Url = "https://hooks.slack.com/services/T00000000/B00000000/YYYYYYYYYYYYYYYYYYYYYYYY"
 			updatedAction.Spec.SlackProperties.Fields = map[string]string{
 				"some": "updatedkey",
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the slack action to be updated")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the slack action to be updated")
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.SlackProperties = updatedAction.Spec.SlackProperties
 				return k8sClient.Update(ctx, fetchedAction)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack action update succeeded")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack action update succeeded")
 			var expectedUpdatedAction *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack action matches the expected")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack action matches the expected")
 			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
 			Expect(err).To(BeNil())
 			Expect(verifiedAction).ToNot(BeNil())
@@ -1460,20 +1460,20 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return humioapi.SlackAction{}
 				}
 				return updatedAction.SlackAction
-			}, testTimeout, test_suites.TestInterval).Should(BeEquivalentTo(verifiedAction.SlackAction))
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.SlackAction))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedAction)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
 		})
 
 		It("should handle victor ops action correctly", func() {
 			ctx := context.Background()
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle victor ops action correctly")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle victor ops action correctly")
 			victorOpsActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-victor-ops-action",
@@ -1497,20 +1497,20 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: victorOpsActionSpec,
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the victor ops action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the victor ops action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			var action *humioapi.Action
 			Eventually(func() error {
 				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
 			originalAction, err := humio.ActionFromActionCR(toCreateAction)
@@ -1523,27 +1523,27 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(createdAction.Spec.VictorOpsProperties.MessageType).To(Equal(toCreateAction.Spec.VictorOpsProperties.MessageType))
 			Expect(createdAction.Spec.VictorOpsProperties.NotifyUrl).To(Equal(toCreateAction.Spec.VictorOpsProperties.NotifyUrl))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the victor ops action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the victor ops action successfully")
 			updatedAction := toCreateAction
 			updatedAction.Spec.VictorOpsProperties.MessageType = "recovery"
 			updatedAction.Spec.VictorOpsProperties.NotifyUrl = "https://alert.victorops.com/integrations/1111/alert/1111/routing_key"
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the victor ops action to be updated")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the victor ops action to be updated")
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.VictorOpsProperties = updatedAction.Spec.VictorOpsProperties
 				return k8sClient.Update(ctx, fetchedAction)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the victor ops action update succeeded")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the victor ops action update succeeded")
 			var expectedUpdatedAction *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the victor ops action matches the expected")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the victor ops action matches the expected")
 			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
 			Expect(err).To(BeNil())
 			Expect(verifiedAction).ToNot(BeNil())
@@ -1553,19 +1553,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return humioapi.VictorOpsAction{}
 				}
 				return updatedAction.VictorOpsAction
-			}, testTimeout, test_suites.TestInterval).Should(BeEquivalentTo(verifiedAction.VictorOpsAction))
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.VictorOpsAction))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedAction)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("should handle web hook action correctly", func() {
 			ctx := context.Background()
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle web hook action correctly")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle web hook action correctly")
 			webHookActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-webhook-action",
@@ -1591,20 +1591,20 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: webHookActionSpec,
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the web hook action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the web hook action successfully")
 			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			var action *humioapi.Action
 			Eventually(func() error {
 				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
 			originalAction, err := humio.ActionFromActionCR(toCreateAction)
@@ -1619,29 +1619,29 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(createdAction.Spec.WebhookProperties.Method).To(Equal(toCreateAction.Spec.WebhookProperties.Method))
 			Expect(createdAction.Spec.WebhookProperties.Url).To(Equal(toCreateAction.Spec.WebhookProperties.Url))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the web hook action successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the web hook action successfully")
 			updatedAction := toCreateAction
 			updatedAction.Spec.WebhookProperties.Headers = map[string]string{"updated": "header"}
 			updatedAction.Spec.WebhookProperties.BodyTemplate = "updated template"
 			updatedAction.Spec.WebhookProperties.Method = http.MethodPut
 			updatedAction.Spec.WebhookProperties.Url = "https://example.com/some/updated/api"
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the web hook action to be updated")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the web hook action to be updated")
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.WebhookProperties = updatedAction.Spec.WebhookProperties
 				return k8sClient.Update(ctx, fetchedAction)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the web hook action update succeeded")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the web hook action update succeeded")
 			var expectedUpdatedAction *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the web hook action matches the expected")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the web hook action matches the expected")
 			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
 			Expect(err).To(BeNil())
 			Expect(verifiedAction).ToNot(BeNil())
@@ -1651,14 +1651,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return humioapi.WebhookAction{}
 				}
 				return updatedAction.WebhookAction
-			}, testTimeout, test_suites.TestInterval).Should(BeEquivalentTo(verifiedAction.WebhookAction))
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.WebhookAction))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedAction)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: Should deny improperly configured action with missing properties", func() {
@@ -1680,28 +1680,28 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the invalid action")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the invalid action")
 			Expect(k8sClient.Create(ctx, toCreateInvalidAction)).Should(Succeed())
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateConfigError))
 
 			var invalidAction *humioapi.Action
 			Eventually(func() error {
 				invalidAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateInvalidAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).ShouldNot(Succeed())
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
 			Expect(invalidAction).To(BeNil())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedAction)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: Should deny improperly configured action with extra properties", func() {
@@ -1724,28 +1724,28 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the invalid action")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the invalid action")
 			Expect(k8sClient.Create(ctx, toCreateInvalidAction)).Should(Succeed())
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateConfigError))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateConfigError))
 
 			var invalidAction *humioapi.Action
 			Eventually(func() error {
 				invalidAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateInvalidAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).ShouldNot(Succeed())
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
 			Expect(invalidAction).To(BeNil())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedAction)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: HumioRepositoryProperties: Should support referencing secrets", func() {
@@ -1794,13 +1794,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			var action *humioapi.Action
 			Eventually(func() error {
 				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
 			createdAction, err := humio.CRActionFromAPIAction(action)
@@ -1856,13 +1856,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			var action *humioapi.Action
 			Eventually(func() error {
 				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
 			createdAction, err := humio.CRActionFromAPIAction(action)
@@ -1901,13 +1901,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			var action *humioapi.Action
 			Eventually(func() error {
 				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
 			createdAction, err := humio.CRActionFromAPIAction(action)
@@ -1967,13 +1967,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			var action *humioapi.Action
 			Eventually(func() error {
 				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
 			createdAction, err := humio.CRActionFromAPIAction(action)
@@ -2014,13 +2014,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			var action *humioapi.Action
 			Eventually(func() error {
 				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
 			createdAction, err := humio.CRActionFromAPIAction(action)
@@ -2033,7 +2033,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	Context("Humio Alert", func() {
 		It("should handle alert action correctly", func() {
 			ctx := context.Background()
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAlert: Should handle alert correctly")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Should handle alert correctly")
 			dependentEmailActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-email-action",
@@ -2056,14 +2056,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: dependentEmailActionSpec,
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the action required by the alert successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the action required by the alert successfully")
 			Expect(k8sClient.Create(ctx, toCreateDependentAction)).Should(Succeed())
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, actionKey, fetchedAction)
 				return fetchedAction.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			alertSpec := humiov1alpha1.HumioAlertSpec{
 				ManagedClusterName: clusterKey.Name,
@@ -2093,27 +2093,27 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: alertSpec,
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the alert successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the alert successfully")
 			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
 
 			fetchedAlert := &humiov1alpha1.HumioAlert{}
 			Eventually(func() string {
 				k8sClient.Get(ctx, key, fetchedAlert)
 				return fetchedAlert.Status.State
-			}, testTimeout, test_suites.TestInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
 
 			var alert *humioapi.Alert
 			Eventually(func() error {
 				alert, err = humioClient.GetAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAlert)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(alert).ToNot(BeNil())
 
 			var actionIdMap map[string]string
 			Eventually(func() error {
 				actionIdMap, err = humioClient.GetActionIDsMapForAlerts(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAlert)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			originalAlert, err := humio.AlertTransform(toCreateAlert, actionIdMap)
 			Expect(err).To(BeNil())
@@ -2131,7 +2131,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(createdAlert.Spec).To(Equal(toCreateAlert.Spec))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAlert: Updating the alert successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Updating the alert successfully")
 			updatedAlert := toCreateAlert
 			updatedAlert.Spec.Query.QueryString = "#repo = test | updated=true | count()"
 			updatedAlert.Spec.ThrottleTimeMillis = 70000
@@ -2139,7 +2139,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			updatedAlert.Spec.Description = "updated humio alert"
 			updatedAlert.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAlert: Waiting for the alert to be updated")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Waiting for the alert to be updated")
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, fetchedAlert)
 				fetchedAlert.Spec.Query = updatedAlert.Spec.Query
@@ -2147,17 +2147,17 @@ var _ = Describe("Humio Resources Controllers", func() {
 				fetchedAlert.Spec.Silenced = updatedAlert.Spec.Silenced
 				fetchedAlert.Spec.Description = updatedAlert.Spec.Description
 				return k8sClient.Update(ctx, fetchedAlert)
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAlert: Verifying the alert update succeeded")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Verifying the alert update succeeded")
 			var expectedUpdatedAlert *humioapi.Alert
 			Eventually(func() error {
 				expectedUpdatedAlert, err = humioClient.GetAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAlert)
 				return err
-			}, testTimeout, test_suites.TestInterval).Should(Succeed())
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAlert).ToNot(BeNil())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAlert: Verifying the alert matches the expected")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Verifying the alert matches the expected")
 			verifiedAlert, err := humio.AlertTransform(updatedAlert, actionIdMap)
 			Expect(err).To(BeNil())
 			Eventually(func() humioapi.Alert {
@@ -2168,21 +2168,21 @@ var _ = Describe("Humio Resources Controllers", func() {
 				// Ignore the ID
 				updatedAlert.ID = ""
 				return *updatedAlert
-			}, testTimeout, test_suites.TestInterval).Should(Equal(*verifiedAlert))
+			}, testTimeout, suite.TestInterval).Should(Equal(*verifiedAlert))
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAlert: Successfully deleting it")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAlert)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedAlert)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAlert: Successfully deleting the action")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Successfully deleting the action")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, actionKey, fetchedAction)
 				return k8serrors.IsNotFound(err)
-			}, testTimeout, test_suites.TestInterval).Should(BeTrue())
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAlert: Should deny improperly configured alert with missing required values", func() {
@@ -2203,7 +2203,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			test_suites.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the invalid alert")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the invalid alert")
 			Expect(k8sClient.Create(ctx, toCreateInvalidAlert)).Should(Not(Succeed()))
 		})
 	})
