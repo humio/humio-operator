@@ -20,10 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/humio/humio-operator/controllers"
-	"github.com/humio/humio-operator/controllers/suite"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"path/filepath"
 	"sort"
@@ -31,6 +27,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/humio/humio-operator/controllers"
+	"github.com/humio/humio-operator/controllers/suite"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/humio/humio-operator/pkg/kubernetes"
 
@@ -251,6 +251,8 @@ var _ = BeforeSuite(func() {
 	err = k8sClient.Create(context.TODO(), &testNamespace)
 	Expect(err).ToNot(HaveOccurred())
 
+	suite.CreateDockerRegredSecret(context.TODO(), testNamespace, k8sClient)
+
 	if helpers.IsOpenShift() {
 		var err error
 		ctx := context.Background()
@@ -330,6 +332,14 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	if testProcessNamespace != "" && k8sClient != nil {
+		By(fmt.Sprintf("Removing regcred secret for namespace: %s", testProcessNamespace))
+		_ = k8sClient.Delete(context.TODO(), &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      suite.DockerRegistryCredentialsSecretName,
+				Namespace: testProcessNamespace,
+			},
+		})
+
 		By(fmt.Sprintf("Removing test namespace: %s", testProcessNamespace))
 		err := k8sClient.Delete(context.TODO(),
 			&corev1.Namespace{
@@ -401,154 +411,17 @@ func createAndBootstrapMultiNodePoolCluster(ctx context.Context, k8sClient clien
 }
 
 func constructBasicMultiNodePoolHumioCluster(key types.NamespacedName, useAutoCreatedLicense bool, numberOfAdditionalNodePools int) *humiov1alpha1.HumioCluster {
-	storageClassNameStandard := "standard"
-	toCreate := constructBasicSingleNodeHumioCluster(key, useAutoCreatedLicense)
+	toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, useAutoCreatedLicense)
+	nodeSpec := suite.ConstructBasicNodeSpecForHumioCluster(key)
 
 	for i := 1; i <= numberOfAdditionalNodePools; i++ {
 		toCreate.Spec.NodePools = append(toCreate.Spec.NodePools, humiov1alpha1.HumioNodePoolSpec{
-			Name: fmt.Sprintf("np-%d", i),
-			HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-				Image:             controllers.Image,
-				ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
-				NodeCount:         helpers.IntPtr(1),
-				EnvironmentVariables: []corev1.EnvVar{
-					{
-						Name:  "HUMIO_OPTS",
-						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-					},
-					{
-						Name:  "ZOOKEEPER_URL",
-						Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
-					},
-					{
-						Name:  "KAFKA_SERVERS",
-						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
-					},
-					{
-						Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
-						Value: key.Name,
-					},
-					{
-						Name:  "AUTHENTICATION_METHOD",
-						Value: "single-user",
-					},
-					{
-						Name:  "SINGLE_USER_PASSWORD",
-						Value: "password",
-					},
-					{
-						Name:  "ENABLE_IOC_SERVICE",
-						Value: "false",
-					},
-				},
-				DataVolumePersistentVolumeClaimSpecTemplate: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{
-						corev1.ReadWriteOnce,
-					},
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: *resource.NewQuantity(1*1024*1024*1024, resource.BinarySI),
-						},
-					},
-					StorageClassName: &storageClassNameStandard,
-				},
-			},
+			Name:          fmt.Sprintf("np-%d", i),
+			HumioNodeSpec: nodeSpec,
 		})
 	}
 
 	return toCreate
-}
-
-func constructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreatedLicense bool) *humiov1alpha1.HumioCluster {
-	storageClassNameStandard := "standard"
-	humioCluster := &humiov1alpha1.HumioCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      key.Name,
-			Namespace: key.Namespace,
-		},
-		Spec: humiov1alpha1.HumioClusterSpec{
-			TargetReplicationFactor: 1,
-			HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-				Image:             controllers.Image,
-				ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
-				NodeCount:         helpers.IntPtr(1),
-				EnvironmentVariables: []corev1.EnvVar{
-					{
-						Name:  "ZOOKEEPER_URL",
-						Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
-					},
-					{
-						Name:  "KAFKA_SERVERS",
-						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
-					},
-					{
-						Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
-						Value: key.Name,
-					},
-					{
-						Name:  "AUTHENTICATION_METHOD",
-						Value: "single-user",
-					},
-					{
-						Name:  "SINGLE_USER_PASSWORD",
-						Value: "password",
-					},
-					{
-						Name:  "ENABLE_IOC_SERVICE",
-						Value: "false",
-					},
-					{
-						Name:  "HUMIO_MEMORY_OPTS",
-						Value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g",
-					},
-				},
-				DataVolumePersistentVolumeClaimSpecTemplate: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{
-						corev1.ReadWriteOnce,
-					},
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: *resource.NewQuantity(1*1024*1024*1024, resource.BinarySI),
-						},
-					},
-					StorageClassName: &storageClassNameStandard,
-				},
-			},
-		},
-	}
-
-	humioVersion, _ := controllers.HumioVersionFromString(controllers.NewHumioNodeManagerFromHumioCluster(humioCluster).GetImage())
-	if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithLauncherScript); ok {
-		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
-			Name:  "HUMIO_GC_OPTS",
-			Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
-		})
-		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
-			Name:  "HUMIO_JVM_LOG_OPTS",
-			Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags",
-		})
-		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
-			Name:  "HUMIO_OPTS",
-			Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-		})
-	} else {
-		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
-			Name:  "HUMIO_JVM_ARGS",
-			Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-		})
-	}
-
-	if useAutoCreatedLicense {
-		humioCluster.Spec.License = humiov1alpha1.HumioClusterLicenseSpec{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: fmt.Sprintf("%s-license", key.Name),
-				},
-				Key: "license",
-			},
-		}
-	}
-	return humioCluster
 }
 
 func markPodAsPending(ctx context.Context, client client.Client, nodeID int, pod corev1.Pod, clusterName string) error {

@@ -20,16 +20,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/humio/humio-operator/controllers"
-	"github.com/humio/humio-operator/controllers/suite"
-	"github.com/humio/humio-operator/pkg/kubernetes"
-	ginkgotypes "github.com/onsi/ginkgo/v2/types"
-	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/humio/humio-operator/pkg/kubernetes"
+
+	"github.com/humio/humio-operator/controllers"
+	"github.com/humio/humio-operator/controllers/suite"
+	ginkgotypes "github.com/onsi/ginkgo/v2/types"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -230,6 +232,8 @@ var _ = BeforeSuite(func() {
 	err = k8sClient.Create(context.TODO(), &testNamespace)
 	Expect(err).ToNot(HaveOccurred())
 
+	suite.CreateDockerRegredSecret(context.TODO(), testNamespace, k8sClient)
+
 	if helpers.IsOpenShift() {
 		var err error
 		ctx := context.Background()
@@ -323,6 +327,14 @@ var _ = AfterSuite(func() {
 		Expect(cluster.GetGeneration()).ShouldNot(BeNumerically(">", 100))
 
 		suite.CleanupCluster(context.TODO(), k8sClient, cluster)
+
+		By(fmt.Sprintf("Removing regcred secret for namespace: %s", testNamespace.Name))
+		_ = k8sClient.Delete(context.TODO(), &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      suite.DockerRegistryCredentialsSecretName,
+				Namespace: clusterKey.Namespace,
+			},
+		})
 
 		if testNamespace.ObjectMeta.Name != "" {
 			By(fmt.Sprintf("Removing test namespace: %s", clusterKey.Namespace))
