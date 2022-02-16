@@ -82,3 +82,4 @@ images/helper/helper
 telepresence.log
 bin/
 testbin/
+*-junit.xml

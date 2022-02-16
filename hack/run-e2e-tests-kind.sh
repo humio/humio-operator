@@ -2,7 +2,6 @@
 
 set -x -o pipefail
 
-declare -r envtest_assets_dir=${ENVTEST_ASSETS_DIR:-/tmp/envtest}
 declare -r ginkgo=$(go env GOPATH)/bin/ginkgo
 declare -r ginkgo_nodes=${GINKGO_NODES:-1}
 
@@ -35,4 +34,4 @@ done
 make ginkgo
 
 # We skip the helpers package as those tests assumes the environment variable USE_CERT_MANAGER is not set.
-USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo --always-emit-ginkgo-writer -slow-spec-threshold=5s -timeout 90m -nodes=$ginkgo_nodes -skipPackage helpers -race -v ./... -covermode=count -coverprofile cover.out -progress | tee /proc/1/fd/1
+USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo --always-emit-ginkgo-writer -slow-spec-threshold=5s -timeout 90m -nodes=$ginkgo_nodes --skip-package helpers -race -v ./... -covermode=count -coverprofile cover.out -progress | tee /proc/1/fd/1

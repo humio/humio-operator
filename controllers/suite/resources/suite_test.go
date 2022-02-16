@@ -14,18 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package resources
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/humio/humio-operator/controllers"
+	"github.com/humio/humio-operator/controllers/suite"
+	ginkgotypes "github.com/onsi/ginkgo/v2/types"
+	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/humio/humio-operator/pkg/kubernetes"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -59,25 +62,18 @@ import (
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var k8sManager ctrl.Manager
-var humioClientForHumioAction humio.Client
-var humioClientForHumioAlert humio.Client
-var humioClientForHumioCluster humio.Client
-var humioClientForHumioExternalCluster humio.Client
-var humioClientForHumioIngestToken humio.Client
-var humioClientForHumioParser humio.Client
-var humioClientForHumioRepository humio.Client
-var humioClientForHumioView humio.Client
-var humioClientForTestSuite humio.Client
+var humioClient humio.Client
 var testTimeout time.Duration
-var testProcessID string
 var testNamespace corev1.Namespace
-
-const testInterval = time.Second * 1
+var clusterKey types.NamespacedName
+var cluster = &corev1alpha1.HumioCluster{}
+var sharedCluster helpers.ClusterInterface
+var err error
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "Controller Suite")
+	RunSpecs(t, "HumioResources Controller Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -91,37 +87,25 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	useExistingCluster := true
-	testProcessID = fmt.Sprintf("e2e-%s", kubernetes.RandomString())
+	clusterKey = types.NamespacedName{
+		Name:      fmt.Sprintf("humiocluster-shared-%d", GinkgoParallelProcess()),
+		Namespace: fmt.Sprintf("e2e-resources-%d", GinkgoParallelProcess()),
+	}
+
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 		testTimeout = time.Second * 300
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &useExistingCluster,
 		}
-		humioClientForTestSuite = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioAction = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioAlert = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioCluster = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioExternalCluster = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioIngestToken = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioParser = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioRepository = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioView = humio.NewClient(log, &humioapi.Config{}, "")
+		humioClient = humio.NewClient(log, &humioapi.Config{}, "")
 	} else {
 		testTimeout = time.Second * 30
 		testEnv = &envtest.Environment{
 			// TODO: If we want to add support for TLS-functionality, we need to install cert-manager's CRD's
-			CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
+			CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 			ErrorIfCRDPathMissing: true,
 		}
-		humioClientForTestSuite = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
-		humioClientForHumioAction = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
-		humioClientForHumioAlert = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
-		humioClientForHumioCluster = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
-		humioClientForHumioExternalCluster = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
-		humioClientForHumioIngestToken = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
-		humioClientForHumioParser = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
-		humioClientForHumioRepository = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
-		humioClientForHumioView = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil, "")
+		humioClient = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
 	}
 
 	cfg, err := testEnv.Start()
@@ -143,7 +127,7 @@ var _ = BeforeSuite(func() {
 
 	//+kubebuilder:scaffold:scheme
 
-	watchNamespace, _ := getWatchNamespace()
+	watchNamespace, _ := helpers.GetWatchNamespace()
 
 	options := ctrl.Options{
 		Scheme:             scheme.Scheme,
@@ -164,67 +148,67 @@ var _ = BeforeSuite(func() {
 	k8sManager, err = ctrl.NewManager(cfg, options)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&HumioActionReconciler{
+	err = (&controllers.HumioActionReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioAction,
+		HumioClient: humioClient,
 		BaseLogger:  log,
-		Namespace:   testProcessID,
+		Namespace:   clusterKey.Namespace,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&HumioAlertReconciler{
+	err = (&controllers.HumioAlertReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioAlert,
+		HumioClient: humioClient,
 		BaseLogger:  log,
-		Namespace:   testProcessID,
+		Namespace:   clusterKey.Namespace,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&HumioClusterReconciler{
+	err = (&controllers.HumioClusterReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioCluster,
+		HumioClient: humioClient,
 		BaseLogger:  log,
-		Namespace:   testProcessID,
+		Namespace:   clusterKey.Namespace,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&HumioExternalClusterReconciler{
+	err = (&controllers.HumioExternalClusterReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioExternalCluster,
+		HumioClient: humioClient,
 		BaseLogger:  log,
-		Namespace:   testProcessID,
+		Namespace:   clusterKey.Namespace,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&HumioIngestTokenReconciler{
+	err = (&controllers.HumioIngestTokenReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioIngestToken,
+		HumioClient: humioClient,
 		BaseLogger:  log,
-		Namespace:   testProcessID,
+		Namespace:   clusterKey.Namespace,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&HumioParserReconciler{
+	err = (&controllers.HumioParserReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioParser,
+		HumioClient: humioClient,
 		BaseLogger:  log,
-		Namespace:   testProcessID,
+		Namespace:   clusterKey.Namespace,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&HumioRepositoryReconciler{
+	err = (&controllers.HumioRepositoryReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioRepository,
+		HumioClient: humioClient,
 		BaseLogger:  log,
-		Namespace:   testProcessID,
+		Namespace:   clusterKey.Namespace,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&HumioViewReconciler{
+	err = (&controllers.HumioViewReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioView,
+		HumioClient: humioClient,
 		BaseLogger:  log,
-		Namespace:   testProcessID,
+		Namespace:   clusterKey.Namespace,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -236,10 +220,10 @@ var _ = BeforeSuite(func() {
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).NotTo(BeNil())
 
-	By(fmt.Sprintf("Creating test namespace: %s", testProcessID))
+	By(fmt.Sprintf("Creating test namespace: %s", clusterKey.Namespace))
 	testNamespace = corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: testProcessID,
+			Name: clusterKey.Namespace,
 		},
 	}
 	err = k8sClient.Create(context.TODO(), &testNamespace)
@@ -262,7 +246,7 @@ var _ = BeforeSuite(func() {
 			}
 			// At this point we know the object already exists.
 			return true
-		}, testTimeout, testInterval).Should(BeTrue())
+		}, testTimeout, suite.TestInterval).Should(BeTrue())
 		if k8serrors.IsNotFound(err) {
 			By("Simulating helm chart installation of the SecurityContextConstraints object")
 			sccName := os.Getenv("OPENSHIFT_SCC_NAME")
@@ -270,7 +254,7 @@ var _ = BeforeSuite(func() {
 			scc := openshiftsecurityv1.SecurityContextConstraints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      sccName,
-					Namespace: testProcessID,
+					Namespace: clusterKey.Namespace,
 				},
 				Priority:                 &priority,
 				AllowPrivilegedContainer: true,
@@ -320,40 +304,49 @@ var _ = BeforeSuite(func() {
 			Expect(k8sClient.Create(ctx, &scc)).To(Succeed())
 		}
 	}
+
+	suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioCluster: Creating shared test cluster in namespace %s", clusterKey.Namespace))
+	cluster = suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
+	suite.CreateAndBootstrapCluster(context.TODO(), k8sClient, humioClient, cluster, true, corev1alpha1.HumioClusterStateRunning, testTimeout)
+
+	sharedCluster, err = helpers.NewCluster(context.TODO(), k8sClient, clusterKey.Name, "", clusterKey.Namespace, helpers.UseCertManager(), true)
+	Expect(err).To(BeNil())
+	Expect(sharedCluster).ToNot(BeNil())
+	Expect(sharedCluster.Config()).ToNot(BeNil())
 })
 
 var _ = AfterSuite(func() {
-	if testNamespace.ObjectMeta.Name != "" && k8sClient != nil {
-		By(fmt.Sprintf("Removing test namespace: %s", testProcessID))
-		err := k8sClient.Delete(context.TODO(), &testNamespace)
-		Expect(err).ToNot(HaveOccurred())
+	if k8sClient != nil {
+		suite.UsingClusterBy(clusterKey.Name, "HumioCluster: Confirming resource generation wasn't updated excessively")
+		Expect(k8sClient.Get(context.Background(), clusterKey, cluster)).Should(Succeed())
+		Expect(cluster.GetGeneration()).ShouldNot(BeNumerically(">", 100))
+
+		suite.CleanupCluster(context.TODO(), k8sClient, cluster)
+
+		if testNamespace.ObjectMeta.Name != "" {
+			By(fmt.Sprintf("Removing test namespace: %s", clusterKey.Namespace))
+			err := k8sClient.Delete(context.TODO(), &testNamespace)
+			Expect(err).ToNot(HaveOccurred())
+		}
 	}
+
 	By("Tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
 
-// getWatchNamespace returns the Namespace the operator should be watching for changes
-func getWatchNamespace() (string, error) {
-	// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
-	// which specifies the Namespace to watch.
-	// An empty value means the operator is running with cluster scope.
-	var watchNamespaceEnvVar = "WATCH_NAMESPACE"
+var _ = ReportAfterSuite("HumioResources Controller Suite", func(suiteReport ginkgotypes.Report) {
+	for _, r := range suiteReport.SpecReports {
+		r.CapturedGinkgoWriterOutput = ""
+		r.CapturedStdOutErr = ""
+		u, _ := json.Marshal(r)
+		fmt.Println(string(u))
+	}
+})
 
-	ns, found := os.LookupEnv(watchNamespaceEnvVar)
-	if !found {
-		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
-	}
-	return ns, nil
-}
-
-func usingClusterBy(cluster, text string, callbacks ...func()) {
-	timestamp := time.Now().Format(time.RFC3339Nano)
-	fmt.Fprintln(GinkgoWriter, "STEP | "+timestamp+" | "+cluster+": "+text)
-	if len(callbacks) == 1 {
-		callbacks[0]()
-	}
-	if len(callbacks) > 1 {
-		panic("just one callback per By, please")
-	}
-}
+var _ = ReportAfterEach(func(specReport ginkgotypes.SpecReport) {
+	specReport.CapturedGinkgoWriterOutput = ""
+	specReport.CapturedStdOutErr = ""
+	u, _ := json.Marshal(specReport)
+	fmt.Println(string(u))
+})

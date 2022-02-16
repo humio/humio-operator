@@ -61,7 +61,7 @@ more_set_headers "X-XSS-Protection: 1; mode=block";`
 	return annotations
 }
 
-func constructGeneralIngress(hc *humiov1alpha1.HumioCluster, hostname string) *networkingv1.Ingress {
+func ConstructGeneralIngress(hc *humiov1alpha1.HumioCluster, hostname string) *networkingv1.Ingress {
 	annotations := make(map[string]string)
 	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = "512m"
 	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = "1.1"
@@ -71,13 +71,13 @@ func constructGeneralIngress(hc *humiov1alpha1.HumioCluster, hostname string) *n
 		fmt.Sprintf("%s-general", hc.Name),
 		hostname,
 		[]string{humioPathOrDefault(hc)},
-		humioPort,
+		HumioPort,
 		certificateSecretNameOrDefault(hc),
 		constructNginxIngressAnnotations(hc, hostname, annotations),
 	)
 }
 
-func constructStreamingQueryIngress(hc *humiov1alpha1.HumioCluster, hostname string) *networkingv1.Ingress {
+func ConstructStreamingQueryIngress(hc *humiov1alpha1.HumioCluster, hostname string) *networkingv1.Ingress {
 	annotations := make(map[string]string)
 	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = "512m"
 	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = "1.1"
@@ -89,13 +89,13 @@ func constructStreamingQueryIngress(hc *humiov1alpha1.HumioCluster, hostname str
 		fmt.Sprintf("%s-streaming-query", hc.Name),
 		hostname,
 		[]string{fmt.Sprintf("%sapi/v./(dataspaces|repositories)/[^/]+/query$", humioPathOrDefault(hc))},
-		humioPort,
+		HumioPort,
 		certificateSecretNameOrDefault(hc),
 		constructNginxIngressAnnotations(hc, hostname, annotations),
 	)
 }
 
-func constructIngestIngress(hc *humiov1alpha1.HumioCluster, hostname string) *networkingv1.Ingress {
+func ConstructIngestIngress(hc *humiov1alpha1.HumioCluster, hostname string) *networkingv1.Ingress {
 	annotations := make(map[string]string)
 	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = "512m"
 	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = "1.1"
@@ -111,13 +111,13 @@ func constructIngestIngress(hc *humiov1alpha1.HumioCluster, hostname string) *ne
 			fmt.Sprintf("%sservices/collector", humioPathOrDefault(hc)),
 			fmt.Sprintf("%s_bulk", humioPathOrDefault(hc)),
 		},
-		humioPort,
+		HumioPort,
 		certificateSecretNameOrDefault(hc),
 		constructNginxIngressAnnotations(hc, hostname, annotations),
 	)
 }
 
-func constructESIngestIngress(hc *humiov1alpha1.HumioCluster, esHostname string) *networkingv1.Ingress {
+func ConstructESIngestIngress(hc *humiov1alpha1.HumioCluster, esHostname string) *networkingv1.Ingress {
 	annotations := make(map[string]string)
 	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = "512m"
 	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = "1.1"
@@ -142,7 +142,7 @@ func constructIngress(hc *humiov1alpha1.HumioCluster, name string, hostname stri
 			PathType: &pathTypeImplementationSpecific,
 			Backend: networkingv1.IngressBackend{
 				Service: &networkingv1.IngressServiceBackend{
-					Name: (*constructService(NewHumioNodeManagerFromHumioCluster(hc))).Name,
+					Name: (*ConstructService(NewHumioNodeManagerFromHumioCluster(hc))).Name,
 					Port: networkingv1.ServiceBackendPort{
 						Number: int32(port),
 					},
