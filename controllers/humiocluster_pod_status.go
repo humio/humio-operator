@@ -13,7 +13,7 @@ const (
 	containerStateCreating          = "ContainerCreating"
 	containerStateCompleted         = "Completed"
 	podInitializing                 = "PodInitializing"
-	podConditionReasonUnschedulable = "Unschedulable"
+	PodConditionReasonUnschedulable = "Unschedulable"
 	podConditionReasonEvicted       = "Evicted"
 )
 
@@ -37,7 +37,7 @@ func (r *HumioClusterReconciler) getPodsStatus(hnp *HumioNodePool, foundPodList 
 	}
 	var podsReady, podsNotReady []string
 	for _, pod := range foundPodList {
-		podRevisionStr := pod.Annotations[podRevisionAnnotation]
+		podRevisionStr := pod.Annotations[PodRevisionAnnotation]
 		if podRevision, err := strconv.Atoi(podRevisionStr); err == nil {
 			status.podRevisions = append(status.podRevisions, podRevision)
 		} else {
@@ -62,7 +62,7 @@ func (r *HumioClusterReconciler) getPodsStatus(hnp *HumioNodePool, foundPodList 
 			// but only if the pod spec is updated (e.g. to lower the pod resources).
 			for _, condition := range pod.Status.Conditions {
 				if condition.Status == corev1.ConditionFalse {
-					if condition.Reason == podConditionReasonUnschedulable {
+					if condition.Reason == PodConditionReasonUnschedulable {
 						r.Log.Info(fmt.Sprintf("pod %s has errors, container status: %s, reason: %s", pod.Name, condition.Status, condition.Reason))
 						status.podErrors = append(status.podErrors, pod)
 						continue

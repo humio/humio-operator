@@ -46,11 +46,9 @@ type ClientMock struct {
 
 type MockClientConfig struct {
 	apiClient *ClientMock
-	Url       string
-	Version   string
 }
 
-func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePartitionSchemeError error, updateIngestPartitionSchemeError error, version string) *MockClientConfig {
+func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePartitionSchemeError error, updateIngestPartitionSchemeError error) *MockClientConfig {
 	storagePartition := humioapi.StoragePartition{}
 	ingestPartition := humioapi.IngestPartition{}
 
@@ -68,7 +66,6 @@ func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePa
 			Action:                            humioapi.Action{},
 			Alert:                             humioapi.Alert{},
 		},
-		Version: version,
 	}
 
 	cluster.StoragePartitions = []humioapi.StoragePartition{storagePartition}
@@ -80,7 +77,7 @@ func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePa
 func (h *MockClientConfig) Status(config *humioapi.Config, req reconcile.Request) (humioapi.StatusResponse, error) {
 	return humioapi.StatusResponse{
 		Status:  "OK",
-		Version: h.Version,
+		Version: "x.y.z",
 	}, nil
 }
 
@@ -336,6 +333,16 @@ func (h *MockClientConfig) GetActionIDsMapForAlerts(config *humioapi.Config, req
 }
 
 func (h *MockClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request) *humioapi.Client {
-	url, _ := url.Parse("http://localhost:8080/")
-	return humioapi.NewClient(humioapi.Config{Address: url})
+	clusterURL, _ := url.Parse("http://localhost:8080/")
+	return humioapi.NewClient(humioapi.Config{Address: clusterURL})
+}
+
+func (h *MockClientConfig) ClearHumioClientConnections() {
+	h.apiClient.IngestToken = humioapi.IngestToken{}
+	h.apiClient.Parser = humioapi.Parser{}
+	h.apiClient.Repository = humioapi.Repository{}
+	h.apiClient.View = humioapi.View{}
+	h.apiClient.OnPremLicense = humioapi.OnPremLicense{}
+	h.apiClient.Action = humioapi.Action{}
+	h.apiClient.Alert = humioapi.Alert{}
 }

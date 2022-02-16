@@ -33,7 +33,7 @@ import (
 const (
 	certHashAnnotation         = "humio.com/certificate-hash"
 	podHashAnnotation          = "humio.com/pod-hash"
-	podRevisionAnnotation      = "humio.com/pod-revision"
+	PodRevisionAnnotation      = "humio.com/pod-revision"
 	envVarSourceHashAnnotation = "humio.com/env-var-source-hash"
 	pvcHashAnnotation          = "humio_pvc_hash"
 )
@@ -62,5 +62,5 @@ func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Co
 }
 
 func (r *HumioClusterReconciler) setPodRevision(pod *corev1.Pod, newRevision int) {
-	pod.Annotations[podRevisionAnnotation] = strconv.Itoa(newRevision)
+	pod.Annotations[PodRevisionAnnotation] = strconv.Itoa(newRevision)
 }
