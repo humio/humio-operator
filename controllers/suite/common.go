@@ -2,12 +2,14 @@ package suite
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 	"github.com/humio/humio-operator/pkg/kubernetes"
+	ginkgotypes "github.com/onsi/ginkgo/v2/types"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -536,4 +538,32 @@ func WaitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sCl
 		}
 		return int64(observedGen)
 	}, testTimeout, TestInterval).Should(BeNumerically("==", beforeGeneration))
+}
+
+type stdoutErrLine struct {
+	// We reuse the same names as Ginkgo so when we print out the relevant log lines we have a common field and value to jump from the test result to the relevant log lines by simply searching for the ID shown in the result.
+	CapturedGinkgoWriterOutput, CapturedStdOutErr string
+
+	// Line contains either the CapturedGinkgoWriterOutput or CapturedStdOutErr we get in the spec/suite report.
+	Line string
+
+	// LineNumber represents the index of line in the provided slice of lines. This may help to understand what order things were output in case two lines mention the same timestamp.
+	LineNumber int
+
+	// State includes information about if a given report passed or failed
+	State ginkgotypes.SpecState
+}
+
+func PrintLinesWithRunID(runID string, lines []string, specState ginkgotypes.SpecState) {
+	for idx, line := range lines {
+		output := stdoutErrLine{
+			CapturedGinkgoWriterOutput: runID,
+			CapturedStdOutErr:          runID,
+			Line:                       line,
+			LineNumber:                 idx,
+			State:                      specState,
+		}
+		u, _ := json.Marshal(output)
+		fmt.Println(string(u))
+	}
 }
