@@ -39,7 +39,6 @@ EOF
   --set humio-fluentbit.es.port=443 \
   --set humio-fluentbit.es.tls=true \
   --set humio-fluentbit.humioRepoName=operator-e2e \
-  --set humio-fluentbit.customFluentBitConfig.e2eFilterTag=$(printf $E2E_FILTER_TAG) \
   --set humio-fluentbit.humioHostname=$humio_hostname \
   --set humio-fluentbit.token=$humio_ingest_token \
   --set humio-metrics.enabled=true \
@@ -56,7 +55,8 @@ EOF
     --set humio-fluentbit.imagePullSecrets[0].name=regcred \
     --set humio-metrics.imagePullSecrets[0].name=regcred"
   fi
-  $helm_install_command
+  # $E2E_FILTER_TAG is specified here rather than in $helm_install_command due to issues with variable expansion
+  $helm_install_command --set humio-fluentbit.customFluentBitConfig.e2eFilterTag="$E2E_FILTER_TAG"
 fi
 
 kubectl create namespace cert-manager
