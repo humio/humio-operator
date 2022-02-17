@@ -203,7 +203,7 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 					},
 					ReadinessProbe: &corev1.Probe{
 						FailureThreshold: 3,
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							HTTPGet: &corev1.HTTPGetAction{
 								Path:   "/",
 								Port:   intstr.IntOrString{IntVal: 8180},
@@ -216,7 +216,7 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 					},
 					LivenessProbe: &corev1.Probe{
 						FailureThreshold: 3,
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							HTTPGet: &corev1.HTTPGetAction{
 								Path:   "/",
 								Port:   intstr.IntOrString{IntVal: 8180},
