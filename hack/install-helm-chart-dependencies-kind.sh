@@ -39,7 +39,7 @@ EOF
   --set humio-fluentbit.es.port=443 \
   --set humio-fluentbit.es.tls=true \
   --set humio-fluentbit.humioRepoName=operator-e2e \
-  --set humio-fluentbit.customFluentBitConfig.e2eFilterTag="$E2E_FILTER_TAG" \
+  --set humio-fluentbit.customFluentBitConfig.e2eFilterTag=$(printf $E2E_FILTER_TAG) \
   --set humio-fluentbit.humioHostname=$humio_hostname \
   --set humio-fluentbit.token=$humio_ingest_token \
   --set humio-metrics.enabled=true \
@@ -82,9 +82,8 @@ helm_install_command="helm install humio humio/cp-helm-charts --namespace=defaul
 
 if [[ $DOCKER_USERNAME != "" ]] && [[ $DOCKER_PASSWORD != "" ]]; then
   helm_install_command="${helm_install_command} \
-  --set cp-zookeeper.imagePullSecrets[0].name=regcred \"
-  --set cp-kafka-rest.imagePullSecrets[0].name=regcred \"
-  --set cp-ksql-server.imagePullSecrets[0].name=regcred"
+  --set cp-zookeeper.imagePullSecrets[0].name=regcred \
+  --set cp-kafka.imagePullSecrets[0].name=regcred"
 fi
 
 $helm_install_command
