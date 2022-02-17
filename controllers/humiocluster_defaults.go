@@ -597,7 +597,7 @@ func (hnp HumioNodePool) GetContainerReadinessProbe() *corev1.Probe {
 
 	if hnp.humioNodeSpec.ContainerReadinessProbe == nil {
 		return &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   "/api/v1/is-node-up",
 					Port:   intstr.IntOrString{IntVal: HumioPort},
@@ -621,7 +621,7 @@ func (hnp HumioNodePool) GetContainerLivenessProbe() *corev1.Probe {
 
 	if hnp.humioNodeSpec.ContainerLivenessProbe == nil {
 		return &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   "/api/v1/is-node-up",
 					Port:   intstr.IntOrString{IntVal: HumioPort},
@@ -645,7 +645,7 @@ func (hnp HumioNodePool) GetContainerStartupProbe() *corev1.Probe {
 
 	if hnp.humioNodeSpec.ContainerStartupProbe == nil {
 		return &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   "/api/v1/is-node-up",
 					Port:   intstr.IntOrString{IntVal: HumioPort},

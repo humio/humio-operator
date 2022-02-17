@@ -2638,7 +2638,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					return pod.Spec.Containers[humioIdx].ReadinessProbe
 				}
 				return &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						Exec: &corev1.ExecAction{Command: []string{"no-pods-found"}},
 					},
 				}
@@ -2652,7 +2652,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					return pod.Spec.Containers[humioIdx].LivenessProbe
 				}
 				return &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						Exec: &corev1.ExecAction{Command: []string{"no-pods-found"}},
 					},
 				}
@@ -2666,7 +2666,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					return pod.Spec.Containers[humioIdx].StartupProbe
 				}
 				return &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						Exec: &corev1.ExecAction{Command: []string{"no-pods-found"}},
 					},
 				}
@@ -2680,7 +2680,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					return err
 				}
 				updatedHumioCluster.Spec.ContainerReadinessProbe = &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path:   "/api/v1/config",
 							Port:   intstr.IntOrString{IntVal: controllers.HumioPort},
@@ -2694,7 +2694,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					FailureThreshold:    20,
 				}
 				updatedHumioCluster.Spec.ContainerLivenessProbe = &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path:   "/api/v1/config",
 							Port:   intstr.IntOrString{IntVal: controllers.HumioPort},
@@ -2708,7 +2708,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					FailureThreshold:    20,
 				}
 				updatedHumioCluster.Spec.ContainerStartupProbe = &corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path:   "/api/v1/config",
 							Port:   intstr.IntOrString{IntVal: controllers.HumioPort},
@@ -2735,7 +2735,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return &corev1.Probe{}
 			}, testTimeout, suite.TestInterval).Should(Equal(&corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path:   "/api/v1/config",
 						Port:   intstr.IntOrString{IntVal: controllers.HumioPort},
@@ -2758,7 +2758,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return &corev1.Probe{}
 			}, testTimeout, suite.TestInterval).Should(Equal(&corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path:   "/api/v1/config",
 						Port:   intstr.IntOrString{IntVal: controllers.HumioPort},
@@ -2781,7 +2781,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return &corev1.Probe{}
 			}, testTimeout, suite.TestInterval).Should(Equal(&corev1.Probe{
-				Handler: corev1.Handler{
+				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path:   "/api/v1/config",
 						Port:   intstr.IntOrString{IntVal: controllers.HumioPort},
@@ -2798,7 +2798,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].ReadinessProbe).To(Equal(&corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path:   "/api/v1/config",
 							Port:   intstr.IntOrString{IntVal: controllers.HumioPort},
@@ -2812,7 +2812,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					FailureThreshold:    20,
 				}))
 				Expect(pod.Spec.Containers[humioIdx].LivenessProbe).To(Equal(&corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path:   "/api/v1/config",
 							Port:   intstr.IntOrString{IntVal: controllers.HumioPort},
@@ -2826,7 +2826,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					FailureThreshold:    20,
 				}))
 				Expect(pod.Spec.Containers[humioIdx].StartupProbe).To(Equal(&corev1.Probe{
-					Handler: corev1.Handler{
+					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path:   "/api/v1/config",
 							Port:   intstr.IntOrString{IntVal: controllers.HumioPort},
