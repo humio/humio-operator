@@ -8,7 +8,7 @@ WORKDIR /src
 COPY . /src
 RUN CGO_ENABLED=0 go build -ldflags="-X 'main.version=$RELEASE_VERSION' -X 'main.commit=$RELEASE_COMMIT' -X 'main.date=$RELEASE_DATE'" -o /app /src/*.go
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
+FROM scratch
 
 LABEL "name"="humio-operator-helper"
 LABEL "vendor"="humio"
@@ -17,8 +17,9 @@ LABEL "description"="Provides cluster and environmental information \
 to the Humio pods in addition to faciliciting authentication bootstrapping \
 for the Humio application."
 
-# copy license
 COPY LICENSE /licenses/LICENSE
 
 COPY --from=builder /app /
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
 ENTRYPOINT ["/app"]
