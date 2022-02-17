@@ -23,20 +23,18 @@ COPY pkg/ pkg/
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -ldflags="-X 'main.version=$RELEASE_VERSION' -X 'main.commit=$RELEASE_COMMIT' -X 'main.date=$RELEASE_DATE'" -a -o manager main.go
 
 # Use ubi8 as base image to package the manager binary to comply with Red Hat image certification requirements
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
+FROM scratch
 LABEL "name"="humio-operator"
 LABEL "vendor"="humio"
 LABEL "summary"="Humio Kubernetes Operator"
 LABEL "description"="A Kubernetes operatator to run and maintain \
 Humio clusters running in a Kubernetes cluster."
 
-RUN microdnf update && \
-    microdnf upgrade
-RUN mkdir /licenses
 COPY LICENSE /licenses/LICENSE
 
 WORKDIR /
 COPY --from=builder /workspace/manager .
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 USER 1001
 
 ENTRYPOINT ["/manager"]
