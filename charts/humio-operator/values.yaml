@@ -19,6 +19,7 @@ operator:
       cpu: 250m
       memory: 200Mi
   watchNamespaces: []
+  podAnnotations: {}
 installCRDs: false
 openshift: false
 certmanager: true
