@@ -4,7 +4,7 @@ set -x
 
 # Extract humio images and tags from go source
 DEFAULT_IMAGE=$(grep '^\s*Image\s*=' controllers/humiocluster_defaults.go | cut -d '"' -f 2)
-PRE_UPDATE_IMAGES=$(grep '^\s*toCreate\.Spec\.Image' controllers/suite/clusters/humiocluster_controller_test.go | grep humio/humio-core: | grep -v 1.x.x | cut -d '"' -f 2 | sort -u)
+PRE_UPDATE_IMAGES=$(grep 'Version\s* = ' controllers/suite/clusters/humiocluster_controller_test.go | grep -v oldUnsupportedHumioVersion | grep -v 1.x.x | cut -d '"' -f 2 | sort -u)
 
 # Preload default image used by tests
 docker pull $DEFAULT_IMAGE
