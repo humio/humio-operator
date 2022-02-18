@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
@@ -36,6 +37,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+)
+
+const (
+	oldSupportedHumioVersion   = "humio/humio-core:1.30.7"
+	oldUnsupportedHumioVersion = "humio/humio-core:1.18.4"
+
+	upgradePatchBestEffortOldVersion = "humio/humio-core:1.36.0"
+	upgradePatchBestEffortNewVersion = "humio/humio-core:1.36.1"
+
+	upgradeRollingBestEffortPreviewOldVersion = "humio/humio-core:1.x.x"
+	upgradeRollingBestEffortPreviewNewVersion = "humio/humio-core:1.x.x"
+
+	upgradeRollingBestEffortStableOldVersion = "humio/humio-core:1.x.x"
+	upgradeRollingBestEffortStableNewVersion = "humio/humio-core:1.x.x"
+
+	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.34.2"
+	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.36.1"
 )
 
 var _ = Describe("HumioCluster Controller", func() {
@@ -131,8 +149,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			unsupportedImageVersion := "1.18.4"
-			toCreate.Spec.Image = fmt.Sprintf("%s:%s", "humio/humio-core", unsupportedImageVersion)
+			toCreate.Spec.Image = oldUnsupportedHumioVersion
 
 			ctx := context.Background()
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateConfigError, testTimeout)
@@ -154,7 +171,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.Message
-			}, testTimeout, suite.TestInterval).Should(Equal(fmt.Sprintf("Humio version must be at least %s: unsupported Humio version: %s", controllers.HumioVersionMinimumSupported, unsupportedImageVersion)))
+			}, testTimeout, suite.TestInterval).Should(Equal(fmt.Sprintf("Humio version must be at least %s: unsupported Humio version: %s", controllers.HumioVersionMinimumSupported, strings.Split(oldUnsupportedHumioVersion, ":")[1])))
 		})
 	})
 
@@ -165,7 +182,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.30.7"
+			toCreate.Spec.Image = oldSupportedHumioVersion
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -345,7 +362,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.30.7"
+			toCreate.Spec.Image = oldSupportedHumioVersion
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
 				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
@@ -421,7 +438,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.36.0"
+			toCreate.Spec.Image = oldSupportedHumioVersion
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
 				Type: humiov1alpha1.HumioClusterUpdateStrategyOnDelete,
@@ -516,7 +533,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.30.6"
+			toCreate.Spec.Image = upgradePatchBestEffortOldVersion
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -537,7 +554,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
-			updatedImage := "humio/humio-core:1.30.7"
+			updatedImage := upgradePatchBestEffortNewVersion
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -592,7 +609,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.x.x"
+			toCreate.Spec.Image = upgradeRollingBestEffortPreviewOldVersion
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -613,14 +630,13 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
-			updatedImage := "humio/humio-core:1.x.x"
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
 				if err != nil {
 					return err
 				}
-				updatedHumioCluster.Spec.Image = updatedImage
+				updatedHumioCluster.Spec.Image = upgradeRollingBestEffortPreviewNewVersion
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -648,7 +664,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(upgradeRollingBestEffortPreviewNewVersion))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
@@ -667,7 +683,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.x.x"
+			toCreate.Spec.Image = upgradeRollingBestEffortStableOldVersion
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -688,14 +704,13 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
-			updatedImage := controllers.Image
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
 				if err != nil {
 					return err
 				}
-				updatedHumioCluster.Spec.Image = updatedImage
+				updatedHumioCluster.Spec.Image = upgradeRollingBestEffortStableNewVersion
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -724,7 +739,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(upgradeRollingBestEffortStableNewVersion))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
@@ -742,7 +757,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.34.2"
+			toCreate.Spec.Image = upgradeRollingBestEffortVersionJumpOldVersion
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -763,14 +778,13 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
-			updatedImage := "humio/humio-core:1.36.1"
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
 				if err != nil {
 					return err
 				}
-				updatedHumioCluster.Spec.Image = updatedImage
+				updatedHumioCluster.Spec.Image = upgradeRollingBestEffortVersionJumpNewVersion
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -799,7 +813,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(upgradeRollingBestEffortVersionJumpNewVersion))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
@@ -896,7 +910,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      "humiocluster-update-image-np",
 				Namespace: testProcessNamespace,
 			}
-			originalImage := "humio/humio-core:1.30.7"
+			originalImage := oldSupportedHumioVersion
 			toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
 			toCreate.Spec.Image = originalImage
 			toCreate.Spec.NodeCount = helpers.IntPtr(1)
@@ -1062,7 +1076,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.30.7"
+			toCreate.Spec.Image = oldSupportedHumioVersion
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
