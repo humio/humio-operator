@@ -421,7 +421,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.30.7"
+			toCreate.Spec.Image = "humio/humio-core:1.36.0"
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
 				Type: humiov1alpha1.HumioClusterUpdateStrategyOnDelete,
@@ -509,15 +509,14 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	// Disabled until patched humio version is rolled out
-	XContext("Humio Cluster Update Image Rolling Best Effort Patch", func() {
+	Context("Humio Cluster Update Image Rolling Best Effort Patch", func() {
 		It("Update should correctly replace pods to use new image in a rolling fashion for patch updates", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image-rolling-patch",
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.x.x"
+			toCreate.Spec.Image = "humio/humio-core:1.30.6"
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -538,7 +537,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
-			updatedImage := "humio/humio-core:1.x.x"
+			updatedImage := "humio/humio-core:1.30.7"
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -736,15 +735,14 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	// Disabled until patched humio version is rolled out
-	XContext("Humio Cluster Update Image Rolling Best Effort Version Jump", func() {
+	Context("Humio Cluster Update Image Rolling Best Effort Version Jump", func() {
 		It("Update should correctly replace pods to use new image in a rolling fashion for version jump updates", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image-rolling-vj",
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = "humio/humio-core:1.x.x"
+			toCreate.Spec.Image = "humio/humio-core:1.34.2"
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -765,7 +763,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
-			updatedImage := "humio/humio-core:1.x.x"
+			updatedImage := "humio/humio-core:1.36.1"
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
