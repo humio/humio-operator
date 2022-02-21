@@ -2,6 +2,8 @@
 
 set -x
 
+start=$(date +%s)
+
 # Extract humio images and tags from go source
 DEFAULT_IMAGE=$(grep '^\s*Image\s*=' controllers/humiocluster_defaults.go | cut -d '"' -f 2)
 PRE_UPDATE_IMAGES=$(grep 'Version\s* = ' controllers/suite/clusters/humiocluster_controller_test.go | grep -v oldUnsupportedHumioVersion | grep -v 1.x.x | cut -d '"' -f 2 | sort -u)
@@ -20,3 +22,6 @@ done
 # Preload image we will run e2e tests from within
 docker build -t testcontainer -f test.Dockerfile .
 kind load docker-image testcontainer
+
+end=$(date +%s)
+echo "Preloading images into kind took $((end-start)) seconds"
