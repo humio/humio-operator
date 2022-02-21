@@ -28,9 +28,9 @@ spec:
         productID: "none"
         productName: "humio-operator"
         productVersion: {{ .Values.operator.image.tag | quote }}
-        {{- if .Values.operator.podAnnotations }}
-{{ toYaml .Values.operator.podAnnotations | nindent 8 }}
-        {{- end }}
+{{- if .Values.operator.podAnnotations }}
+        {{- toYaml .Values.operator.podAnnotations | nindent 8 }}
+{{- end }}
       labels:
         app: '{{ .Chart.Name }}'
         app.kubernetes.io/name: '{{ .Chart.Name }}'
