@@ -25,6 +25,11 @@ install_operator_sdk() {
     && rm operator-sdk-v${operator_sdk_version}-x86_64-linux-gnu
 }
 
+start=$(date +%s)
+
 install_helm
 install_kubectl
 install_operator_sdk
+
+end=$(date +%s)
+echo "Installed E2E dependencies took $((end-start)) seconds"
