@@ -11,6 +11,8 @@ declare -r humio_ingest_token=${E2E_LOGS_HUMIO_INGEST_TOKEN:-none}
 
 export PATH=$BIN_DIR:$PATH
 
+start=$(date +%s)
+
 if ! kubectl get daemonset -n kube-system kindnet ; then
   echo "Cluster unavailable or not using a kind cluster. Only kind clusters are supported!"
   exit 1
@@ -127,3 +129,6 @@ do
   kubectl describe pod -n cert-manager -l app.kubernetes.io/name=webhook
   sleep 10
 done
+
+end=$(date +%s)
+echo "Installing Helm chart dependencies took $((end-start)) seconds"
