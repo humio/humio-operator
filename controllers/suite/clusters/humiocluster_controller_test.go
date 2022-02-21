@@ -49,8 +49,8 @@ const (
 	upgradeRollingBestEffortPreviewOldVersion = "humio/humio-core:1.36.1"
 	upgradeRollingBestEffortPreviewNewVersion = "humio/humio-core:1.37.0"
 
-	upgradeRollingBestEffortStableOldVersion = "humio/humio-core:1.x.x"
-	upgradeRollingBestEffortStableNewVersion = "humio/humio-core:1.x.x"
+	upgradeRollingBestEffortStableOldVersion = "humio/humio-core:1.35.0"
+	upgradeRollingBestEffortStableNewVersion = "humio/humio-core:1.36.1"
 
 	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.34.2"
 	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.36.1"
@@ -674,8 +674,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	// Disabled until patched humio version is rolled out
-	XContext("Humio Cluster Update Image Rolling Best Effort Stable", func() {
+	Context("Humio Cluster Update Image Rolling Best Effort Stable", func() {
 		It("Update should correctly replace pods to use new image in a rolling fashion for stable updates", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image-rolling-stable",
