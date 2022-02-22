@@ -352,8 +352,14 @@ var _ = ReportAfterSuite("HumioCluster Controller Suite", func(suiteReport ginkg
 	for _, r := range suiteReport.SpecReports {
 		testRunID := fmt.Sprintf("ReportAfterSuite-%s", kubernetes.RandomString())
 
-		suite.PrintLinesWithRunID(testRunID, strings.Split(r.CapturedGinkgoWriterOutput, "\n"), r.State)
-		suite.PrintLinesWithRunID(testRunID, strings.Split(r.CapturedStdOutErr, "\n"), r.State)
+		// Don't print CapturedGinkgoWriterOutput and CapturedStdOutErr for now as they end up being logged 3 times.
+		// Ginkgo captures the stdout of anything it spawns and populates that into the reports, which results in stdout
+		// being logged from these locations:
+		// 1. regular container stdout
+		// 2. ReportAfterEach
+		// 3. ReportAfterSuite
+		//suite.PrintLinesWithRunID(testRunID, strings.Split(r.CapturedGinkgoWriterOutput, "\n"), r.State)
+		//suite.PrintLinesWithRunID(testRunID, strings.Split(r.CapturedStdOutErr, "\n"), r.State)
 
 		r.CapturedGinkgoWriterOutput = testRunID
 		r.CapturedStdOutErr = testRunID
@@ -366,8 +372,14 @@ var _ = ReportAfterSuite("HumioCluster Controller Suite", func(suiteReport ginkg
 var _ = ReportAfterEach(func(specReport ginkgotypes.SpecReport) {
 	testRunID := fmt.Sprintf("ReportAfterEach-%s", kubernetes.RandomString())
 
-	suite.PrintLinesWithRunID(testRunID, strings.Split(specReport.CapturedGinkgoWriterOutput, "\n"), specReport.State)
-	suite.PrintLinesWithRunID(testRunID, strings.Split(specReport.CapturedStdOutErr, "\n"), specReport.State)
+	// Don't print CapturedGinkgoWriterOutput and CapturedStdOutErr for now as they end up being logged 3 times.
+	// Ginkgo captures the stdout of anything it spawns and populates that into the reports, which results in stdout
+	// being logged from these locations:
+	// 1. regular container stdout
+	// 2. ReportAfterEach
+	// 3. ReportAfterSuite
+	//suite.PrintLinesWithRunID(testRunID, strings.Split(specReport.CapturedGinkgoWriterOutput, "\n"), specReport.State)
+	//suite.PrintLinesWithRunID(testRunID, strings.Split(specReport.CapturedStdOutErr, "\n"), specReport.State)
 
 	specReport.CapturedGinkgoWriterOutput = testRunID
 	specReport.CapturedStdOutErr = testRunID
