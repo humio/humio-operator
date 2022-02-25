@@ -86,7 +86,7 @@ func getApiTokenForUserID(client *humio.Client, userID string) (string, string, 
 		return token, apiTokenMethodFromAPI, nil
 	}
 
-	return "", "", fmt.Errorf("could not find apiToken for userID: %s", userID)
+	return "", "", fmt.Errorf("could not rotate apiToken for userID %s, err: %w", userID, err)
 }
 
 type user struct {
