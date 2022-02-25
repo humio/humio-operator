@@ -219,6 +219,7 @@ func validateAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, n
 			humioClient.Token() != string(secret.Data["token"]) ||
 			humioClient.Address() == nil // Auth container uses pod name for the address, and pod names are immutable.
 		if clientNotReady {
+			fmt.Printf("Updating humioClient to use admin-token\n")
 			humioClient = humio.NewClient(humio.Config{
 				Address:   nodeURL,
 				UserAgent: fmt.Sprintf("humio-operator-helper/%s (%s on %s)", version, commit, date),
@@ -384,6 +385,7 @@ func authMode() {
 			humioClient.Token() != localAdminToken ||
 			humioClient.Address() == nil // Auth container uses pod name for the address, and pod names are immutable.
 		if clientNotReady {
+			fmt.Printf("Updating humioClient to use localAdminToken\n")
 			humioClient = humio.NewClient(humio.Config{
 				Address:   nodeURL,
 				UserAgent: fmt.Sprintf("humio-operator-helper/%s (%s on %s)", version, commit, date),
