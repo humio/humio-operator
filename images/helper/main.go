@@ -86,7 +86,7 @@ func getApiTokenForUserID(client *humio.Client, userID string) (string, string, 
 		return token, apiTokenMethodFromAPI, nil
 	}
 
-	return "", "", fmt.Errorf("could not find apiToken for userID: %s", userID)
+	return "", "", fmt.Errorf("could not rotate apiToken for userID %s, err: %w", userID, err)
 }
 
 type user struct {
@@ -219,6 +219,7 @@ func validateAdminSecretContent(ctx context.Context, clientset *k8s.Clientset, n
 			humioClient.Token() != string(secret.Data["token"]) ||
 			humioClient.Address() == nil // Auth container uses pod name for the address, and pod names are immutable.
 		if clientNotReady {
+			fmt.Printf("Updating humioClient to use admin-token\n")
 			humioClient = humio.NewClient(humio.Config{
 				Address:   nodeURL,
 				UserAgent: fmt.Sprintf("humio-operator-helper/%s (%s on %s)", version, commit, date),
@@ -384,6 +385,7 @@ func authMode() {
 			humioClient.Token() != localAdminToken ||
 			humioClient.Address() == nil // Auth container uses pod name for the address, and pod names are immutable.
 		if clientNotReady {
+			fmt.Printf("Updating humioClient to use localAdminToken\n")
 			humioClient = humio.NewClient(humio.Config{
 				Address:   nodeURL,
 				UserAgent: fmt.Sprintf("humio-operator-helper/%s (%s on %s)", version, commit, date),
