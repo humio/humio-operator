@@ -97,7 +97,7 @@ rules:
   - patch
   - update
   - watch
-{{- if .Values.operator.rbac.allowManageRoles }}
+{{- if $.Values.operator.rbac.allowManageRoles }}
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -124,7 +124,7 @@ rules:
   - patch
   - update
   - watch
-{{- if .Values.certmanager }}
+{{- if $.Values.certmanager }}
 - apiGroups:
   - cert-manager.io
   resources:
