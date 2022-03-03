@@ -1,27 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ include "operator.fullname" . }}
   namespace: {{ .Release.Namespace }}
   annotations:
     productID: "none"
     productName: "humio-operator"
     productVersion: {{ .Values.operator.image.tag | quote }}
   labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
-    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-    helm.sh/chart: '{{ template "humio.chart" . }}'
+    app: {{ .Chart.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ template "operator.chart" . }}
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: '{{ .Chart.Name }}'
-      app.kubernetes.io/name: '{{ .Chart.Name }}'
-      app.kubernetes.io/instance: '{{ .Release.Name }}'
+      app: {{ .Chart.Name }}
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       annotations:
@@ -32,11 +32,11 @@ spec:
         {{- toYaml .Values.operator.podAnnotations | nindent 8 }}
 {{- end }}
       labels:
-        app: '{{ .Chart.Name }}'
-        app.kubernetes.io/name: '{{ .Chart.Name }}'
-        app.kubernetes.io/instance: '{{ .Release.Name }}'
-        app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-        helm.sh/chart: '{{ template "humio.chart" . }}'
+        app: {{ .Chart.Name }}
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        helm.sh/chart: {{ template "operator.chart" . }}
     spec:
 {{- with .Values.operator.image.pullSecrets }}
       imagePullSecrets:
@@ -51,12 +51,11 @@ spec:
                 operator: In
                 values:
                 - amd64
-            - matchExpressions:
               - key: kubernetes.io/os
                 operator: In
                 values:
                 - linux
-      serviceAccountName: {{ .Release.Name }}
+      serviceAccountName: {{ include "operator.fullname" . }}
       containers:
       - name: humio-operator
         image: {{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag }}
@@ -70,13 +69,11 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        - name: OPERATOR_NAME
-          value: "humio-operator"
         - name: USE_CERTMANAGER
           value: {{ .Values.certmanager | quote }}
 {{- if .Values.openshift }}
         - name: OPENSHIFT_SCC_NAME
-          value: '{{ default "default" .Release.Namespace }}-{{ .Release.Name }}'
+          value: {{ include "operator.fullname" . }}-{{ default "default" .Release.Namespace }}
 {{- end }}
         livenessProbe:
           httpGet:

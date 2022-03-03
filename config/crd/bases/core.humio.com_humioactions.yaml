@@ -8,11 +8,11 @@ metadata:
   creationTimestamp: null
   name: humioactions.core.humio.com
   labels:
-    app: 'humio-operator'
-    app.kubernetes.io/name: 'humio-operator'
-    app.kubernetes.io/instance: 'humio-operator'
-    app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.14.1'
+    app: humio-operator
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/instance: humio-operator
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: humio-operator-0.14.1
 spec:
   group: core.humio.com
   names:

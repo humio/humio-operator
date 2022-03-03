@@ -9,11 +9,11 @@ metadata:
   creationTimestamp: null
   name: humioactions.core.humio.com
   labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
-    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-    helm.sh/chart: '{{ template "humio.chart" . }}'
+    app: {{ .Chart.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ template "operator.chart" . }}
 spec:
   group: core.humio.com
   names:
@@ -259,11 +259,11 @@ metadata:
   creationTimestamp: null
   name: humioalerts.core.humio.com
   labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
-    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-    helm.sh/chart: '{{ template "humio.chart" . }}'
+    app: {{ .Chart.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ template "operator.chart" . }}
 spec:
   group: core.humio.com
   names:
@@ -387,11 +387,11 @@ metadata:
   creationTimestamp: null
   name: humioclusters.core.humio.com
   labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
-    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-    helm.sh/chart: '{{ template "humio.chart" . }}'
+    app: {{ .Chart.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ template "operator.chart" . }}
 spec:
   group: core.humio.com
   names:
@@ -13956,11 +13956,11 @@ metadata:
   creationTimestamp: null
   name: humioexternalclusters.core.humio.com
   labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
-    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-    helm.sh/chart: '{{ template "humio.chart" . }}'
+    app: {{ .Chart.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ template "operator.chart" . }}
 spec:
   group: core.humio.com
   names:
@@ -14049,11 +14049,11 @@ metadata:
   creationTimestamp: null
   name: humioingesttokens.core.humio.com
   labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
-    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-    helm.sh/chart: '{{ template "humio.chart" . }}'
+    app: {{ .Chart.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ template "operator.chart" . }}
 spec:
   group: core.humio.com
   names:
@@ -14153,11 +14153,11 @@ metadata:
   creationTimestamp: null
   name: humioparsers.core.humio.com
   labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
-    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-    helm.sh/chart: '{{ template "humio.chart" . }}'
+    app: {{ .Chart.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ template "operator.chart" . }}
 spec:
   group: core.humio.com
   names:
@@ -14253,11 +14253,11 @@ metadata:
   creationTimestamp: null
   name: humiorepositories.core.humio.com
   labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
-    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-    helm.sh/chart: '{{ template "humio.chart" . }}'
+    app: {{ .Chart.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ template "operator.chart" . }}
 spec:
   group: core.humio.com
   names:
@@ -14360,11 +14360,11 @@ metadata:
   creationTimestamp: null
   name: humioviews.core.humio.com
   labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
-    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-    helm.sh/chart: '{{ template "humio.chart" . }}'
+    app: {{ .Chart.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ template "operator.chart" . }}
 spec:
   group: core.humio.com
   names:
