@@ -51,6 +51,8 @@ type HumioViewSpec struct {
 	// Name is the name of the view inside Humio
 	Name string `json:"name,omitempty"`
 	// Connections contains the connections to the Humio repositories which is accessible in this view
+	// Description contains the description that will be set on this view
+	Description string `json:"description,omitempty"`
 	Connections []HumioViewConnection `json:"connections,omitempty"`
 }
 

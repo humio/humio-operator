@@ -120,3 +120,32 @@ func TestViewConnectionsDiffer(t *testing.T) {
 		})
 	}
 }
+
+func TestViewDescriptionDiffer(t *testing.T) {
+	tt := []struct {
+		name         string
+		current, new string
+		differ       bool
+	}{
+		{
+			name:    "no changes",
+			current: "Group of logs from all repositories",
+			new:     "Group of logs from all repositories",
+			differ:  false,
+		},
+		{
+			name:    "update description",
+			current: "Group of logs from all repositories",
+			new:     "Group of logs from multiple repositories",
+			differ:  true,
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			result := viewDescriptionDiffer(tc.current, tc.new)
+			if result != tc.differ {
+				t.Errorf("viewDescriptionDiffer() got = %v, want %v", result, tc.differ)
+			}
+		})
+	}
+}
