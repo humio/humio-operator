@@ -14436,6 +14436,10 @@ spec:
               name:
                 description: Name is the name of the view inside Humio
                 type: string
+              description:
+                description: Description contains the description that will be set
+                  on this view
+                type: string
             type: object
           status:
             description: HumioViewStatus defines the observed state of HumioView
