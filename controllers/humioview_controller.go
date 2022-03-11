@@ -157,7 +157,7 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// Update
+	// Update View connections
 	if viewConnectionsDiffer(curView.Connections, hv.GetViewConnections()) {
 		r.Log.Info(fmt.Sprintf("view information differs, triggering update, expected %v, got: %v",
 			hv.Spec.Connections,
@@ -168,8 +168,26 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 		}
 	}
 
+	// Update View description
+	if viewDescriptionDiffer(curView.Description, hv.Description) {
+		r.Log.Info(fmt.Stringf("View description differs, triggering update."))
+		_, err := r.HumioClient.UpdateView(config, req, hv)
+		if err != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update view")
+		}
+	}
+
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
 	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+}
+
+// viewDescriptionDiffer returns whether view's description differ.
+func viewDescriptionDiffer(curDescription, newDescription string) bool {
+	if curDescription != newDescription {
+		return true
+	}
+
+	return false
 }
 
 // viewConnectionsDiffer returns whether two slices of connections differ.

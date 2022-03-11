@@ -5,6 +5,7 @@ metadata:
 spec:
   managedClusterName: example-humiocluster
   name: "example-view"
+  description: "This is a view of many repositories"
   connections:
     - repositoryName: "example-repository"
       filter: "*"
