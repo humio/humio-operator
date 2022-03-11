@@ -169,8 +169,8 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 	}
 
 	// Update View description
-	if viewDescriptionDiffer(curView.Description, hv.Description) {
-		r.Log.Info(fmt.Stringf("View description differs, triggering update."))
+	if viewDescriptionDiffer(curView.Description, hv.Spec.Description) {
+		r.Log.Info(fmt.Sprintf("View description differs, triggering update."))
 		_, err := r.HumioClient.UpdateView(config, req, hv)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update view")
