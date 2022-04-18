@@ -54,6 +54,9 @@ const (
 
 	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.34.2"
 	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.36.1"
+
+	imageSourceConfigmapOldVersion = "humio/humio-core:1.36.1"
+	imageSourceConfigmapNewVersion = "humio/humio-core:1.37.0"
 )
 
 var _ = Describe("HumioCluster Controller", func() {
@@ -1074,7 +1077,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = oldSupportedHumioVersion
+			toCreate.Spec.Image = imageSourceConfigmapOldVersion
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -1117,7 +1120,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Equal("failed to set imageFromSource: ConfigMap \"image-source-missing\" not found"))
 
 			suite.UsingClusterBy(key.Name, "Creating the imageSource configmap")
-			updatedImage := controllers.Image
+			updatedImage := imageSourceConfigmapNewVersion
 			envVarSourceConfigMap := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "image-source",

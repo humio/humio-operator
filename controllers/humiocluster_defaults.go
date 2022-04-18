@@ -230,8 +230,8 @@ func (hnp *HumioNodePool) SetImage(image string) {
 	hnp.humioNodeSpec.Image = image
 }
 
-func (hnp HumioNodePool) GetImage() string {
-	if hnp.humioNodeSpec.Image != "" && hnp.GetImageSource() == nil {
+func (hnp *HumioNodePool) GetImage() string {
+	if hnp.humioNodeSpec.Image != "" {
 		return hnp.humioNodeSpec.Image
 	}
 	return Image
