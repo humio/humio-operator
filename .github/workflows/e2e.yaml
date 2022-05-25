@@ -8,11 +8,11 @@ jobs:
       fail-fast: false
       matrix:
         kind-k8s-version:
-          - kindest/node:v1.20.15@sha256:393bb9096c6c4d723bb17bceb0896407d7db581532d11ea2839c80b28e5d8deb
-          - kindest/node:v1.21.10@sha256:84709f09756ba4f863769bdcabe5edafc2ada72d3c8c44d6515fc581b66b029c
-          - kindest/node:v1.22.7@sha256:1dfd72d193bf7da64765fd2f2898f78663b9ba366c2aa74be1fd7498a1873166
-          - kindest/node:v1.23.4@sha256:0e34f0d0fd448aa2f2819cfd74e99fe5793a6e4938b328f657c8e3f81ee0dfb9
-          - kindest/node:v1.24.0@sha256:428ccfe6c5857b277b6ad3131199779cabfa39b5201ab8bb35946fdff50b66a8
+          - kindest/node:v1.20.15@sha256:6f2d011dffe182bad80b85f6c00e8ca9d86b5b8922cdf433d53575c4c5212248
+          - kindest/node:v1.21.12@sha256:f316b33dd88f8196379f38feb80545ef3ed44d9197dca1bfd48bcb1583210207
+          - kindest/node:v1.22.9@sha256:8135260b959dfe320206eb36b3aeda9cffcb262f4b44cda6b33f7bb73f453105
+          - kindest/node:v1.23.6@sha256:b1fa224cc6c7ff32455e0b1fd9cbfd3d3bc87ecaa8fcb06961ed1afb3db0f9ae
+          - kindest/node:v1.24.0@sha256:0866296e693efe1fed79d5e6c7af8df71fc73ae45e3679af05342239cdc5bc8e
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
@@ -20,7 +20,7 @@ jobs:
         go-version: '1.17.7'
     - name: cleanup kind
       run: |
-        curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.11.1/kind-linux-amd64
+        curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.14.0/kind-linux-amd64
         chmod +x ./kind
         ./kind delete cluster || true
     - name: Login to DockerHub
@@ -30,7 +30,7 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
     - uses: engineerd/setup-kind@v0.5.0
       with:
-        version: "v0.12.0"
+        version: "v0.14.0"
         image: ${{ matrix.kind-k8s-version }}
     - name: Get temp bin dir
       id: bin_dir
@@ -50,6 +50,6 @@ jobs:
     - name: cleanup kind
       if: always()
       run: |
-        curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.11.1/kind-linux-amd64
+        curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.14.0/kind-linux-amd64
         chmod +x ./kind
         ./kind delete cluster || true
