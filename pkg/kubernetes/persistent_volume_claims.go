@@ -18,7 +18,9 @@ package kubernetes
 
 import (
 	"context"
+
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -32,4 +34,13 @@ func ListPersistentVolumeClaims(ctx context.Context, c client.Client, humioClust
 	}
 
 	return foundPersistentVolumeClaimList.Items, nil
+}
+
+func GetPersistentVolumeClaim(ctx context.Context, c client.Client, humioClusterNamespace string, persistentVolumeClaimName string) (*corev1.PersistentVolumeClaim, error) {
+	var foundPersistentVolumeClaim corev1.PersistentVolumeClaim
+	err := c.Get(ctx, types.NamespacedName{
+		Name:      persistentVolumeClaimName,
+		Namespace: humioClusterNamespace,
+	}, &foundPersistentVolumeClaim)
+	return &foundPersistentVolumeClaim, err
 }

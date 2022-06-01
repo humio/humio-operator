@@ -98,41 +98,42 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			Image:     hc.Spec.Image,
 			NodeCount: hc.Spec.NodeCount,
 			DataVolumePersistentVolumeClaimSpecTemplate: hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate,
-			DataVolumeSource:               hc.Spec.DataVolumeSource,
-			AuthServiceAccountName:         hc.Spec.AuthServiceAccountName,
-			DisableInitContainer:           hc.Spec.DisableInitContainer,
-			EnvironmentVariablesSource:     hc.Spec.EnvironmentVariablesSource,
-			PodAnnotations:                 hc.Spec.PodAnnotations,
-			ShareProcessNamespace:          hc.Spec.ShareProcessNamespace,
-			HumioServiceAccountName:        hc.Spec.HumioServiceAccountName,
-			ImagePullSecrets:               hc.Spec.ImagePullSecrets,
-			HelperImage:                    hc.Spec.HelperImage,
-			ImagePullPolicy:                hc.Spec.ImagePullPolicy,
-			ContainerSecurityContext:       hc.Spec.ContainerSecurityContext,
-			ContainerStartupProbe:          hc.Spec.ContainerStartupProbe,
-			ContainerLivenessProbe:         hc.Spec.ContainerLivenessProbe,
-			ContainerReadinessProbe:        hc.Spec.ContainerReadinessProbe,
-			PodSecurityContext:             hc.Spec.PodSecurityContext,
-			Resources:                      hc.Spec.Resources,
-			Tolerations:                    hc.Spec.Tolerations,
-			TerminationGracePeriodSeconds:  hc.Spec.TerminationGracePeriodSeconds,
-			Affinity:                       hc.Spec.Affinity,
-			SidecarContainers:              hc.Spec.SidecarContainers,
-			ExtraKafkaConfigs:              hc.Spec.ExtraKafkaConfigs,
-			NodeUUIDPrefix:                 hc.Spec.NodeUUIDPrefix,
-			ExtraHumioVolumeMounts:         hc.Spec.ExtraHumioVolumeMounts,
-			ExtraVolumes:                   hc.Spec.ExtraVolumes,
-			HumioServiceAccountAnnotations: hc.Spec.HumioServiceAccountAnnotations,
-			HumioServiceLabels:             hc.Spec.HumioServiceLabels,
-			EnvironmentVariables:           hc.Spec.EnvironmentVariables,
-			ImageSource:                    hc.Spec.ImageSource,
-			HumioESServicePort:             hc.Spec.HumioESServicePort,
-			HumioServicePort:               hc.Spec.HumioServicePort,
-			HumioServiceType:               hc.Spec.HumioServiceType,
-			HumioServiceAnnotations:        hc.Spec.HumioServiceAnnotations,
-			InitServiceAccountName:         hc.Spec.InitServiceAccountName,
-			PodLabels:                      hc.Spec.PodLabels,
-			UpdateStrategy:                 hc.Spec.UpdateStrategy,
+			DataVolumePersistentVolumeClaimPolicy:       hc.Spec.DataVolumePersistentVolumeClaimPolicy,
+			DataVolumeSource:                            hc.Spec.DataVolumeSource,
+			AuthServiceAccountName:                      hc.Spec.AuthServiceAccountName,
+			DisableInitContainer:                        hc.Spec.DisableInitContainer,
+			EnvironmentVariablesSource:                  hc.Spec.EnvironmentVariablesSource,
+			PodAnnotations:                              hc.Spec.PodAnnotations,
+			ShareProcessNamespace:                       hc.Spec.ShareProcessNamespace,
+			HumioServiceAccountName:                     hc.Spec.HumioServiceAccountName,
+			ImagePullSecrets:                            hc.Spec.ImagePullSecrets,
+			HelperImage:                                 hc.Spec.HelperImage,
+			ImagePullPolicy:                             hc.Spec.ImagePullPolicy,
+			ContainerSecurityContext:                    hc.Spec.ContainerSecurityContext,
+			ContainerStartupProbe:                       hc.Spec.ContainerStartupProbe,
+			ContainerLivenessProbe:                      hc.Spec.ContainerLivenessProbe,
+			ContainerReadinessProbe:                     hc.Spec.ContainerReadinessProbe,
+			PodSecurityContext:                          hc.Spec.PodSecurityContext,
+			Resources:                                   hc.Spec.Resources,
+			Tolerations:                                 hc.Spec.Tolerations,
+			TerminationGracePeriodSeconds:               hc.Spec.TerminationGracePeriodSeconds,
+			Affinity:                                    hc.Spec.Affinity,
+			SidecarContainers:                           hc.Spec.SidecarContainers,
+			ExtraKafkaConfigs:                           hc.Spec.ExtraKafkaConfigs,
+			NodeUUIDPrefix:                              hc.Spec.NodeUUIDPrefix,
+			ExtraHumioVolumeMounts:                      hc.Spec.ExtraHumioVolumeMounts,
+			ExtraVolumes:                                hc.Spec.ExtraVolumes,
+			HumioServiceAccountAnnotations:              hc.Spec.HumioServiceAccountAnnotations,
+			HumioServiceLabels:                          hc.Spec.HumioServiceLabels,
+			EnvironmentVariables:                        hc.Spec.EnvironmentVariables,
+			ImageSource:                                 hc.Spec.ImageSource,
+			HumioESServicePort:                          hc.Spec.HumioESServicePort,
+			HumioServicePort:                            hc.Spec.HumioServicePort,
+			HumioServiceType:                            hc.Spec.HumioServiceType,
+			HumioServiceAnnotations:                     hc.Spec.HumioServiceAnnotations,
+			InitServiceAccountName:                      hc.Spec.InitServiceAccountName,
+			PodLabels:                                   hc.Spec.PodLabels,
+			UpdateStrategy:                              hc.Spec.UpdateStrategy,
 		},
 		tls:                      hc.Spec.TLS,
 		idpCertificateSecretName: hc.Spec.IdpCertificateSecretName,
@@ -514,6 +515,13 @@ func (hnp HumioNodePool) DataVolumePersistentVolumeClaimSpecTemplateIsSetByUser(
 	return !reflect.DeepEqual(hnp.humioNodeSpec.DataVolumePersistentVolumeClaimSpecTemplate, corev1.PersistentVolumeClaimSpec{})
 }
 
+func (hnp HumioNodePool) GetDataVolumePersistentVolumeClaimPolicy() humiov1alpha1.HumioPersistentVolumeClaimPolicy {
+	if hnp.PVCsEnabled() {
+		return hnp.humioNodeSpec.DataVolumePersistentVolumeClaimPolicy
+	}
+	return humiov1alpha1.HumioPersistentVolumeClaimPolicy{}
+}
+
 func (hnp HumioNodePool) GetDataVolumeSource() corev1.VolumeSource {
 	return hnp.humioNodeSpec.DataVolumeSource
 }
@@ -840,6 +848,10 @@ func (hnp HumioNodePool) GetUpdateStrategy() *humiov1alpha1.HumioUpdateStrategy 
 		Type:            humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate,
 		MinReadySeconds: 0,
 	}
+}
+
+func (hnp HumioNodePool) OkToDeletePvc() bool {
+	return hnp.GetDataVolumePersistentVolumeClaimPolicy().ReclaimType == humiov1alpha1.HumioPersistentVolumeReclaimTypeOnNodeDelete
 }
 
 func viewGroupPermissionsOrDefault(hc *humiov1alpha1.HumioCluster) string {
