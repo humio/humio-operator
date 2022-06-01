@@ -1062,7 +1062,7 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 	}, nil
 }
 
-func (r *HumioClusterReconciler) getPodStatusList(ctx context.Context, hnps []*HumioNodePool) (humiov1alpha1.HumioPodStatusList, error) {
+func (r *HumioClusterReconciler) getPodStatusList(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnps []*HumioNodePool) (humiov1alpha1.HumioPodStatusList, error) {
 	podStatusList := humiov1alpha1.HumioPodStatusList{}
 
 	for _, pool := range hnps {
@@ -1072,8 +1072,21 @@ func (r *HumioClusterReconciler) getPodStatusList(ctx context.Context, hnps []*H
 		}
 
 		for _, pod := range pods {
+			nodeName := pod.Spec.NodeName
+
+			// When using pvcs and an OnNodeDelete claim policy, we don't want to lose track of which node the PVC was
+			// attached to.
+			if pod.Status.Phase != corev1.PodRunning && pool.PVCsEnabled() && pool.GetDataVolumePersistentVolumeClaimPolicy().ReclaimType == humiov1alpha1.HumioPersistentVolumeReclaimTypeOnNodeDelete {
+				for _, currentPodStatus := range hc.Status.PodStatus {
+					if currentPodStatus.PodName == pod.Name && currentPodStatus.NodeName != "" {
+						nodeName = currentPodStatus.NodeName
+					}
+				}
+			}
+
 			podStatus := humiov1alpha1.HumioPodStatus{
-				PodName: pod.Name,
+				PodName:  pod.Name,
+				NodeName: nodeName,
 			}
 			if nodeIdStr, ok := pod.Labels[kubernetes.NodeIdLabelName]; ok {
 				nodeId, err := strconv.Atoi(nodeIdStr)
@@ -1100,5 +1113,16 @@ func (r *HumioClusterReconciler) getPodStatusList(ctx context.Context, hnps []*H
 		}
 	}
 	sort.Sort(podStatusList)
+	r.Log.Info(fmt.Sprintf("updating pod status with %+v", podStatusList))
 	return podStatusList, nil
+}
+
+func findPodForPvc(podList []corev1.Pod, pvc corev1.PersistentVolumeClaim) (corev1.Pod, error) {
+	for _, pod := range podList {
+		if _, err := FindPvcForPod([]corev1.PersistentVolumeClaim{pvc}, pod); err != nil {
+			return pod, nil
+		}
+	}
+
+	return corev1.Pod{}, fmt.Errorf("could not find a pod for pvc %s", pvc.Name)
 }
