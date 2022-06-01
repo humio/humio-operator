@@ -151,6 +151,24 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			withState(humiov1alpha1.HumioClusterStateConfigError))
 	}
 
+	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
+		opts := statusOptions()
+		podStatusList, err := r.getPodStatusList(ctx, hc, humioNodePools)
+		if err != nil {
+			r.Log.Error(err, "unable to get pod status list")
+		}
+		_, _ = r.updateStatus(r.Client.Status(), hc, opts.
+			withPods(podStatusList).
+			withNodeCount(len(podStatusList)))
+	}(ctx, r.HumioClient, hc)
+
+	for _, pool := range humioNodePools {
+		if err := r.ensureOrphanedPvcsAreDeleted(ctx, hc, pool); err != nil {
+			return r.updateStatus(r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()))
+		}
+	}
+
 	for _, pool := range humioNodePools {
 		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools) {
 			// TODO: result should be controlled and returned by the status
@@ -343,15 +361,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			if err != nil {
 				r.Log.Error(err, "unable to get cluster status")
 			}
-			opts.withVersion(status.Version)
+			_, _ = r.updateStatus(r.Client.Status(), hc, opts.withVersion(status.Version))
 		}
-		podStatusList, err := r.getPodStatusList(ctx, humioNodePools)
-		if err != nil {
-			r.Log.Error(err, "unable to get pod status list")
-		}
-		_, _ = r.updateStatus(r.Client.Status(), hc, opts.
-			withPods(podStatusList).
-			withNodeCount(len(podStatusList)))
 	}(ctx, r.HumioClient, hc)
 
 	if len(r.nodePoolsInMaintenance(hc, humioNodePools)) == 0 {
@@ -443,7 +454,7 @@ func (r *HumioClusterReconciler) nodePoolPodsReady(hc *humiov1alpha1.HumioCluste
 	if err != nil {
 		return false, r.logErrorAndReturn(err, "failed to list pods")
 	}
-	podsStatus, err := r.getPodsStatus(hnp, foundPodList)
+	podsStatus, err := r.getPodsStatus(hc, hnp, foundPodList)
 	if err != nil {
 		return false, r.logErrorAndReturn(err, "failed to get pod status")
 	}
@@ -1450,6 +1461,86 @@ func (r *HumioClusterReconciler) ensurePvcLabels(ctx context.Context, hnp *Humio
 	return nil
 }
 
+func (r *HumioClusterReconciler) isPvcOrphaned(ctx context.Context, hnp *HumioNodePool, hc *humiov1alpha1.HumioCluster, pvc corev1.PersistentVolumeClaim) (bool, error) {
+	// first check the pods
+	podList, err := kubernetes.ListPods(ctx, r.Client, hnp.GetNamespace(), hnp.GetCommonClusterLabels())
+	if err != nil {
+		return false, r.logErrorAndReturn(err, "could not list pods")
+	}
+	if pod, err := findPodForPvc(podList, pvc); err != nil {
+		if pod.Spec.NodeName != "" {
+			_, err := kubernetes.GetNode(ctx, r.Client, pod.Spec.NodeName)
+			if k8serrors.IsNotFound(err) {
+				return true, nil
+			} else if err != nil {
+				return false, r.logErrorAndReturn(err, fmt.Sprintf("could not get node %s", pod.Spec.NodeName))
+			} else {
+				return false, nil
+			}
+		}
+	}
+	// if there is no pod running, check the latest pod status
+	for _, podStatus := range hc.Status.PodStatus {
+		if podStatus.PvcName == pvc.Name {
+			if podStatus.NodeName != "" {
+				_, err := kubernetes.GetNode(ctx, r.Client, podStatus.NodeName)
+				if k8serrors.IsNotFound(err) {
+					return true, nil
+				} else if err != nil {
+					return false, r.logErrorAndReturn(err, fmt.Sprintf("could not get node %s", podStatus.NodeName))
+				}
+			}
+		}
+	}
+
+	return false, nil
+}
+
+func (r *HumioClusterReconciler) isPodAttachedToOrphanedPvc(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, pod corev1.Pod) (bool, error) {
+	pvcList, err := r.pvcList(context.TODO(), hnp)
+	if err != nil {
+		return false, r.logErrorAndReturn(err, "failed to list pvcs")
+	}
+	pvc, err := FindPvcForPod(pvcList, pod)
+	if err != nil {
+		return true, r.logErrorAndReturn(err, "could find pvc for pod")
+	}
+	pvcOrphaned, err := r.isPvcOrphaned(context.TODO(), hnp, hc, pvc)
+	if err != nil {
+		return false, r.logErrorAndReturn(err, "could not check if pvc is orphaned")
+	}
+	return pvcOrphaned, nil
+}
+
+func (r *HumioClusterReconciler) ensureOrphanedPvcsAreDeleted(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
+	if hnp.OkToDeletePvc() {
+		r.Log.Info("checking for orphaned pvcs")
+		pvcList, err := kubernetes.ListPersistentVolumeClaims(ctx, r.Client, hc.Namespace, hnp.GetNodePoolLabels())
+		if err != nil {
+			return r.logErrorAndReturn(err, "failed to list pvcs")
+		}
+		for _, pvc := range pvcList {
+			pvcOrphaned, err := r.isPvcOrphaned(ctx, hnp, hc, pvc)
+			if err != nil {
+				return r.logErrorAndReturn(err, "could not check if pvc is orphaned")
+			}
+			if pvcOrphaned {
+				if pvc.DeletionTimestamp == nil {
+					r.Log.Info(fmt.Sprintf("node cannot be found for pvc. deleting pvc %s as "+
+						"dataVolumePersistentVolumeClaimPolicy is set to %s", pvc.Name,
+						humiov1alpha1.HumioPersistentVolumeReclaimTypeOnNodeDelete))
+					err = r.Client.Delete(ctx, &pvc)
+					if err != nil {
+						return r.logErrorAndReturn(err, fmt.Sprintf("cloud not delete pvc %s", pvc.Name))
+					}
+				}
+			}
+
+		}
+	}
+	return nil
+}
+
 func (r *HumioClusterReconciler) ensureLicenseIsValid(hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("ensuring license is valid")
 
@@ -2068,7 +2159,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		attachments.dataVolumeSource = hnp.GetDataVolumePersistentVolumeClaimSpecTemplate("")
 	}
 
-	podsStatus, err := r.getPodsStatus(hnp, foundPodList)
+	podsStatus, err := r.getPodsStatus(hc, hnp, foundPodList)
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to get pod status")
 	}
@@ -2340,10 +2431,19 @@ func (r *HumioClusterReconciler) ensureValidStorageConfiguration(hc *humiov1alph
 }
 
 func (r *HumioClusterReconciler) pvcList(ctx context.Context, hnp *HumioNodePool) ([]corev1.PersistentVolumeClaim, error) {
+	var pvcList []corev1.PersistentVolumeClaim
 	if hnp.PVCsEnabled() {
-		return kubernetes.ListPersistentVolumeClaims(ctx, r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
+		foundPvcList, err := kubernetes.ListPersistentVolumeClaims(ctx, r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
+		if err != nil {
+			return pvcList, err
+		}
+		for _, pvc := range foundPvcList {
+			if pvc.DeletionTimestamp == nil {
+				pvcList = append(pvcList, pvc)
+			}
+		}
 	}
-	return []corev1.PersistentVolumeClaim{}, nil
+	return pvcList, nil
 }
 
 func (r *HumioClusterReconciler) getLicenseString(ctx context.Context, hc *humiov1alpha1.HumioCluster) (string, error) {
