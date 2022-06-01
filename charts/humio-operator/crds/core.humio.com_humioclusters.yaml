@@ -1491,6 +1491,18 @@ spec:
                     format: int32
                     type: integer
                 type: object
+              dataVolumePersistentVolumeClaimPolicy:
+                description: DataVolumePersistentVolumeClaimPolicy is a policy which
+                  allows persistent volumes to be reclaimed
+                properties:
+                  reclaimType:
+                    description: HumioPersistentVolumeReclaimType is the type of reclaim
+                      which will occur on a persistent volume
+                    enum:
+                    - None
+                    - OnNodeDelete
+                    type: string
+                type: object
               dataVolumePersistentVolumeClaimSpecTemplate:
                 description: DataVolumePersistentVolumeClaimSpecTemplate is the PersistentVolumeClaimSpec
                   that will be used with for the humio data volume. This conflicts
@@ -6573,6 +6585,18 @@ spec:
                                 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                               format: int32
                               type: integer
+                          type: object
+                        dataVolumePersistentVolumeClaimPolicy:
+                          description: DataVolumePersistentVolumeClaimPolicy is a
+                            policy which allows persistent volumes to be reclaimed
+                          properties:
+                            reclaimType:
+                              description: HumioPersistentVolumeReclaimType is the
+                                type of reclaim which will occur on a persistent volume
+                              enum:
+                              - None
+                              - OnNodeDelete
+                              type: string
                           type: object
                         dataVolumePersistentVolumeClaimSpecTemplate:
                           description: DataVolumePersistentVolumeClaimSpecTemplate
@@ -13553,6 +13577,8 @@ spec:
                   properties:
                     nodeId:
                       type: integer
+                    nodeName:
+                      type: string
                     podName:
                       type: string
                     pvcName:

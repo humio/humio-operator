@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+
 	"github.com/humio/humio-operator/pkg/kubernetes"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,7 +32,7 @@ type podsStatusState struct {
 	podsReady               []corev1.Pod
 }
 
-func (r *HumioClusterReconciler) getPodsStatus(hnp *HumioNodePool, foundPodList []corev1.Pod) (*podsStatusState, error) {
+func (r *HumioClusterReconciler) getPodsStatus(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, foundPodList []corev1.Pod) (*podsStatusState, error) {
 	status := podsStatusState{
 		readyCount:          0,
 		notReadyCount:       len(foundPodList),
@@ -58,6 +60,15 @@ func (r *HumioClusterReconciler) getPodsStatus(hnp *HumioNodePool, foundPodList 
 				r.Log.Info(fmt.Sprintf("pod %s has errors, pod phase: %s, reason: %s", pod.Name, pod.Status.Phase, pod.Status.Reason))
 				status.podsRequiringDeletion = append(status.podsRequiringDeletion, pod)
 				continue
+			}
+			if pod.Status.Phase == corev1.PodPending {
+				deletePod, err := r.isPodAttachedToOrphanedPvc(hc, hnp, pod)
+				if !deletePod && err != nil {
+					r.logErrorAndReturn(err, "unable to determine whether pod should be deleted")
+				}
+				if deletePod && hnp.OkToDeletePvc() {
+					status.podsRequiringDeletion = append(status.podsRequiringDeletion, pod)
+				}
 			}
 			// If a pod is Pending but unschedulable, we want to consider this an error state so it will be replaced
 			// but only if the pod spec is updated (e.g. to lower the pod resources).
