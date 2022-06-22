@@ -53,6 +53,12 @@ type HumioClusterReconciler struct {
 	Namespace   string
 }
 
+const (
+	// MaximumMinReadyRequeue The maximum requeue time to set for the MinReadySeconds functionality - this is to avoid a scenario where we
+	// requeue for hours into the future.
+	MaximumMinReadyRequeue = time.Second * 300
+)
+
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/finalizers,verbs=update
@@ -2144,6 +2150,17 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 				podsStatus.waitingOnPods(), hc.Status.State))
 			return r.updateStatus(r.Client.Status(), hc, statusOptions().
 				withMessage("waiting for pods to become ready"))
+		}
+
+		var remainingMinReadyWaitTime = desiredLifecycleState.RemainingMinReadyWaitTime(podsStatus.podsReady)
+		if remainingMinReadyWaitTime > 0 {
+			if remainingMinReadyWaitTime > MaximumMinReadyRequeue {
+				// Only requeue after MaximumMinReadyRequeue if the remaining ready wait time is very high
+				r.Log.Info(fmt.Sprintf("Postponing pod %s deletion due to the MinReadySeconds setting - requeue time is very long at %s, setting to %s", desiredLifecycleState.pod.Name, remainingMinReadyWaitTime, MaximumMinReadyRequeue))
+				return reconcile.Result{RequeueAfter: MaximumMinReadyRequeue}, nil
+			}
+			r.Log.Info(fmt.Sprintf("Postponing pod %s deletion due to the MinReadySeconds setting - requeuing after %s", desiredLifecycleState.pod.Name, remainingMinReadyWaitTime))
+			return reconcile.Result{RequeueAfter: remainingMinReadyWaitTime}, nil
 		}
 
 		r.Log.Info(fmt.Sprintf("deleting pod %s", desiredLifecycleState.pod.Name))
