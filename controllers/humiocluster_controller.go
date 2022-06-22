@@ -2156,10 +2156,10 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		if remainingMinReadyWaitTime > 0 {
 			if remainingMinReadyWaitTime > MaximumMinReadyRequeue {
 				// Only requeue after MaximumMinReadyRequeue if the remaining ready wait time is very high
-				r.Log.Info(fmt.Sprintf("Postponing pod %s deletion due to the MinReadySeconds setting - requeue time is very long at %s, setting to %s", desiredLifecycleState.pod.Name, remainingMinReadyWaitTime, MaximumMinReadyRequeue))
+				r.Log.Info(fmt.Sprintf("Postponing pod=%s deletion due to the MinReadySeconds setting - requeue time is very long at %s seconds, setting to requeueSeconds=%s", desiredLifecycleState.pod.Name, remainingMinReadyWaitTime, MaximumMinReadyRequeue))
 				return reconcile.Result{RequeueAfter: MaximumMinReadyRequeue}, nil
 			}
-			r.Log.Info(fmt.Sprintf("Postponing pod %s deletion due to the MinReadySeconds setting - requeuing after %s", desiredLifecycleState.pod.Name, remainingMinReadyWaitTime))
+			r.Log.Info(fmt.Sprintf("Postponing pod=%s deletion due to the MinReadySeconds setting - requeuing after requeueSeconds=%s", desiredLifecycleState.pod.Name, remainingMinReadyWaitTime))
 			return reconcile.Result{RequeueAfter: remainingMinReadyWaitTime}, nil
 		}
 
