@@ -27,6 +27,7 @@ type podsStatusState struct {
 	podNames                []string
 	podErrors               []corev1.Pod
 	podsRequiringDeletion   []corev1.Pod
+	podsReady               []corev1.Pod
 }
 
 func (r *HumioClusterReconciler) getPodsStatus(hnp *HumioNodePool, foundPodList []corev1.Pod) (*podsStatusState, error) {
@@ -70,6 +71,7 @@ func (r *HumioClusterReconciler) getPodsStatus(hnp *HumioNodePool, foundPodList 
 				}
 				if condition.Type == corev1.PodReady {
 					if condition.Status == corev1.ConditionTrue {
+						status.podsReady = append(status.podsReady, pod)
 						podsReady = append(podsReady, pod.Name)
 						status.readyCount++
 						status.notReadyCount--
