@@ -245,6 +245,9 @@ type HumioUpdateStrategy struct {
 	// Humio pods can be updated in a rolling fashion or if they must be replaced at the same time.
 	// +kubebuilder:validation:Enum=OnDelete;RollingUpdate;ReplaceAllOnUpdate;RollingUpdateBestEffort
 	Type string `json:"type,omitempty"`
+
+	// The minimum time in seconds that a pod must be ready before the next pod can be deleted when doing rolling update.
+	MinReadySeconds *int `json:"minReadySeconds,omitempty"`
 }
 
 type HumioNodePoolSpec struct {
