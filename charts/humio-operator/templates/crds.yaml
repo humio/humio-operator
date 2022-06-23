@@ -12298,6 +12298,11 @@ spec:
                             updated when changes are made to the HumioCluster resource
                             that results in a change to the Humio pods
                           properties:
+                            minReadySeconds:
+                              description: The minimum time in seconds that a pod
+                                must be ready before the next pod can be deleted when
+                                doing rolling update.
+                              type: integer
                             type:
                               description: "Type controls how Humio pods are updated
                                 \ when changes are made to the HumioCluster resource
@@ -13844,6 +13849,10 @@ spec:
                   changes are made to the HumioCluster resource that results in a
                   change to the Humio pods
                 properties:
+                  minReadySeconds:
+                    description: The minimum time in seconds that a pod must be ready
+                      before the next pod can be deleted when doing rolling update.
+                    type: integer
                   type:
                     description: "Type controls how Humio pods are updated  when changes
                       are made to the HumioCluster resource that results in a change
