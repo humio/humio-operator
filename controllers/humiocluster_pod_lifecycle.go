@@ -96,7 +96,7 @@ func (p *podLifecycleState) RemainingMinReadyWaitTime(pods []corev1.Pod) time.Du
 	// then you may initially wait for the minReadySeconds timer on the first pod.
 	var latestTransitionTime = latestTransitionTime(conditions)
 	if !latestTransitionTime.Time.IsZero() {
-		var diff = time.Now().Sub(latestTransitionTime.Time).Milliseconds()
+		var diff = time.Since(latestTransitionTime.Time).Milliseconds()
 		var minRdy = (time.Second * time.Duration(minReadySeconds)).Milliseconds()
 		if diff <= minRdy {
 			return time.Second * time.Duration((minRdy-diff)/1000)
