@@ -247,7 +247,7 @@ type HumioUpdateStrategy struct {
 	Type string `json:"type,omitempty"`
 
 	// The minimum time in seconds that a pod must be ready before the next pod can be deleted when doing rolling update.
-	MinReadySeconds *int `json:"minReadySeconds,omitempty"`
+	MinReadySeconds int32 `json:"minReadySeconds,omitempty"`
 }
 
 type HumioNodePoolSpec struct {
