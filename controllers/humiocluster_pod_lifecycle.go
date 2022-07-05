@@ -71,12 +71,12 @@ func (p *podLifecycleState) ShouldRollingRestart() bool {
 }
 
 func (p *podLifecycleState) RemainingMinReadyWaitTime(pods []corev1.Pod) time.Duration {
-	// We will only try to wait if we are performing a rolling restart and have MinReadySeconds set.
+	// We will only try to wait if we are performing a rolling restart and have MinReadySeconds set above 0.
 	// Additionally, if we do a rolling restart and MinReadySeconds is unset, then we also do not want to wait.
-	if !p.ShouldRollingRestart() || p.nodePool.GetUpdateStrategy().MinReadySeconds == nil {
+	if !p.ShouldRollingRestart() || p.nodePool.GetUpdateStrategy().MinReadySeconds <= 0 {
 		return -1
 	}
-	var minReadySeconds = *p.nodePool.GetUpdateStrategy().MinReadySeconds
+	var minReadySeconds = p.nodePool.GetUpdateStrategy().MinReadySeconds
 	var conditions []corev1.PodCondition
 	for _, pod := range pods {
 		if pod.Name == p.pod.Name {
