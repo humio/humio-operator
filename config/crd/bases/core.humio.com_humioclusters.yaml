@@ -11923,6 +11923,7 @@ spec:
                               description: The minimum time in seconds that a pod
                                 must be ready before the next pod can be deleted when
                                 doing rolling update.
+                              format: int32
                               type: integer
                             type:
                               description: "Type controls how Humio pods are updated
@@ -13473,6 +13474,7 @@ spec:
                   minReadySeconds:
                     description: The minimum time in seconds that a pod must be ready
                       before the next pod can be deleted when doing rolling update.
+                    format: int32
                     type: integer
                   type:
                     description: "Type controls how Humio pods are updated  when changes
