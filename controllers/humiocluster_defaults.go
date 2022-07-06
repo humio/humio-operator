@@ -837,7 +837,8 @@ func (hnp HumioNodePool) GetUpdateStrategy() *humiov1alpha1.HumioUpdateStrategy 
 	}
 
 	return &humiov1alpha1.HumioUpdateStrategy{
-		Type: humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate,
+		Type:            humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate,
+		MinReadySeconds: 0,
 	}
 }
 
