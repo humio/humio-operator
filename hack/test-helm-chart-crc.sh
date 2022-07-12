@@ -59,7 +59,6 @@ $kubectl create namespace $operator_namespace
 helm upgrade --install humio-operator $helm_chart_dir \
   --namespace $operator_namespace \
   --set operator.image.tag=local-$git_rev \
-  --set installCRDs=true \
   --set openshift=true \
   --values $helm_chart_dir/$helm_chart_values_file
 

@@ -56,7 +56,6 @@ $kubectl create namespace $operator_namespace
 helm upgrade --install humio-operator $helm_chart_dir \
   --namespace $operator_namespace \
   --set operator.image.tag=${operator_image_tag} \
-  --set installCRDs=true \
   --values $helm_chart_dir/$helm_chart_values_file
 
 
