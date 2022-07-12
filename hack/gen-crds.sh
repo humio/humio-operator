@@ -6,7 +6,6 @@ echo "detected OSTYPE = $OSTYPE"
 
 export RELEASE_VERSION=$(cat VERSION)
 
-echo "{{- if .Values.installCRDs -}}" > charts/humio-operator/templates/crds.yaml
 for c in $(find config/crd/bases/ -iname '*.yaml' | sort); do
   # Write base CRD to helm chart file
   cat $c >> charts/humio-operator/templates/crds.yaml
@@ -30,7 +29,6 @@ for c in $(find config/crd/bases/ -iname '*.yaml' | sort); do
     exit 1
   fi
 done
-echo "{{- end }}" >> charts/humio-operator/templates/crds.yaml
 
 # Update helm chart CRD's with additional chart install values.
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
