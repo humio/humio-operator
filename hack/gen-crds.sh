@@ -8,7 +8,8 @@ export RELEASE_VERSION=$(cat VERSION)
 
 for c in $(find config/crd/bases/ -iname '*.yaml' | sort); do
   # Write base CRD to helm chart file
-  cat $c >> charts/humio-operator/templates/crds.yaml
+  mkdir -p charts/humio-operator/crds || true
+  cat $c >> charts/humio-operator/crds/crds.yaml
 
   # Update base CRD's in-place with static values
   if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -32,17 +33,17 @@ done
 
 # Update helm chart CRD's with additional chart install values.
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-	sed -i "/^spec:/i \  labels:\n    app: '{{ .Chart.Name }}'\n    app.kubernetes.io/name: '{{ .Chart.Name }}'\n    app.kubernetes.io/instance: '{{ .Release.Name }}'\n    app.kubernetes.io/managed-by: '{{ .Release.Service }}'\n    helm.sh/chart: '{{ template \"humio.chart\" . }}'" charts/humio-operator/templates/crds.yaml
+	sed -i "/^spec:/i \  labels:\n    app: '{{ .Chart.Name }}'\n    app.kubernetes.io/name: '{{ .Chart.Name }}'\n    app.kubernetes.io/instance: '{{ .Release.Name }}'\n    app.kubernetes.io/managed-by: '{{ .Release.Service }}'\n    helm.sh/chart: '{{ template \"humio.chart\" . }}'" charts/humio-operator/crds.yaml
 elif [[ "$OSTYPE" == "darwin"* ]]; then
   if [[ $(which gsed) ]]; then
-	  gsed -i "/^spec:/i \  labels:\n    app: '{{ .Chart.Name }}'\n    app.kubernetes.io/name: '{{ .Chart.Name }}'\n    app.kubernetes.io/instance: '{{ .Release.Name }}'\n    app.kubernetes.io/managed-by: '{{ .Release.Service }}'\n    helm.sh/chart: '{{ template \"humio.chart\" . }}'" charts/humio-operator/templates/crds.yaml
+	  gsed -i "/^spec:/i \  labels:\n    app: '{{ .Chart.Name }}'\n    app.kubernetes.io/name: '{{ .Chart.Name }}'\n    app.kubernetes.io/instance: '{{ .Release.Name }}'\n    app.kubernetes.io/managed-by: '{{ .Release.Service }}'\n    helm.sh/chart: '{{ template \"humio.chart\" . }}'" charts/humio-operator/crds.yaml
   else
-    sed -i '' -E '/^spec:/i\ '$'\n''\  labels:'$'\n' charts/humio-operator/templates/crds.yaml
-    sed -i '' -E '/^spec:/i\ '$'\n''\    app: '"'{{ .Chart.Name }}'"$'\n' charts/humio-operator/templates/crds.yaml
-    sed -i '' -E '/^spec:/i\ '$'\n''\    app.kubernetes.io/name: '"'{{ .Chart.Name }}'"$'\n' charts/humio-operator/templates/crds.yaml
-    sed -i '' -E '/^spec:/i\ '$'\n''\    app.kubernetes.io/instance: '"'{{ .Release.Name }}'"$'\n' charts/humio-operator/templates/crds.yaml
-    sed -i '' -E '/^spec:/i\ '$'\n''\    app.kubernetes.io/managed-by: '"'{{ .Release.Service }}'"$'\n' charts/humio-operator/templates/crds.yaml
-    sed -i '' -E '/^spec:/i\ '$'\n''\    helm.sh/chart: '"'{{ template \"humio.chart\" . }}'"$'\n' charts/humio-operator/templates/crds.yaml
+    sed -i '' -E '/^spec:/i\ '$'\n''\  labels:'$'\n' charts/humio-operator/crds/crds.yaml
+    sed -i '' -E '/^spec:/i\ '$'\n''\    app: '"'{{ .Chart.Name }}'"$'\n' charts/humio-operator/crds/crds.yaml
+    sed -i '' -E '/^spec:/i\ '$'\n''\    app.kubernetes.io/name: '"'{{ .Chart.Name }}'"$'\n' charts/humio-operator/crds/crds.yaml
+    sed -i '' -E '/^spec:/i\ '$'\n''\    app.kubernetes.io/instance: '"'{{ .Release.Name }}'"$'\n' charts/humio-operator/crds/crds.yaml
+    sed -i '' -E '/^spec:/i\ '$'\n''\    app.kubernetes.io/managed-by: '"'{{ .Release.Service }}'"$'\n' charts/humio-operator/crds/crds.yaml
+    sed -i '' -E '/^spec:/i\ '$'\n''\    helm.sh/chart: '"'{{ template \"humio.chart\" . }}'"$'\n' charts/humio-operator/crds/crds.yaml
   fi
 else
   echo "$OSTYPE not supported"
