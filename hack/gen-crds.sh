@@ -6,9 +6,10 @@ echo "detected OSTYPE = $OSTYPE"
 
 export RELEASE_VERSION=$(cat VERSION)
 
+mkdir -p charts/humio-operator/crds || true
+>charts/humio-operator/crds/crds.yaml
 for c in $(find config/crd/bases/ -iname '*.yaml' | sort); do
   # Write base CRD to helm chart file
-  mkdir -p charts/humio-operator/crds || true
   cat $c >> charts/humio-operator/crds/crds.yaml
 
   # Update base CRD's in-place with static values
@@ -33,10 +34,10 @@ done
 
 # Update helm chart CRD's with additional chart install values.
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-	sed -i "/^spec:/i \  labels:\n    app: '{{ .Chart.Name }}'\n    app.kubernetes.io/name: '{{ .Chart.Name }}'\n    app.kubernetes.io/instance: '{{ .Release.Name }}'\n    app.kubernetes.io/managed-by: '{{ .Release.Service }}'\n    helm.sh/chart: '{{ template \"humio.chart\" . }}'" charts/humio-operator/crds.yaml
+	sed -i "/^spec:/i \  labels:\n    app: '{{ .Chart.Name }}'\n    app.kubernetes.io/name: '{{ .Chart.Name }}'\n    app.kubernetes.io/instance: '{{ .Release.Name }}'\n    app.kubernetes.io/managed-by: '{{ .Release.Service }}'\n    helm.sh/chart: '{{ template \"humio.chart\" . }}'" charts/humio-operator/crds/crds.yaml
 elif [[ "$OSTYPE" == "darwin"* ]]; then
   if [[ $(which gsed) ]]; then
-	  gsed -i "/^spec:/i \  labels:\n    app: '{{ .Chart.Name }}'\n    app.kubernetes.io/name: '{{ .Chart.Name }}'\n    app.kubernetes.io/instance: '{{ .Release.Name }}'\n    app.kubernetes.io/managed-by: '{{ .Release.Service }}'\n    helm.sh/chart: '{{ template \"humio.chart\" . }}'" charts/humio-operator/crds.yaml
+	  gsed -i "/^spec:/i \  labels:\n    app: '{{ .Chart.Name }}'\n    app.kubernetes.io/name: '{{ .Chart.Name }}'\n    app.kubernetes.io/instance: '{{ .Release.Name }}'\n    app.kubernetes.io/managed-by: '{{ .Release.Service }}'\n    helm.sh/chart: '{{ template \"humio.chart\" . }}'" charts/humio-operator/crds/crds.yaml
   else
     sed -i '' -E '/^spec:/i\ '$'\n''\  labels:'$'\n' charts/humio-operator/crds/crds.yaml
     sed -i '' -E '/^spec:/i\ '$'\n''\    app: '"'{{ .Chart.Name }}'"$'\n' charts/humio-operator/crds/crds.yaml
