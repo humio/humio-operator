@@ -440,16 +440,6 @@ func (h *ClientConfig) UpdateView(config *humioapi.Config, req reconcile.Request
 		return &humioapi.View{}, err
 	}
 
-	if curView.Description != hv.Spec.Description {
-		err = h.GetHumioClient(config, req).Views().UpdateDescription(
-			hv.Spec.Name,
-			hv.Spec.Description,
-		)
-		if err != nil {
-			return &humioapi.View{}, err
-		}
-	}
-
 	connections := hv.GetViewConnections()
 	if reflect.DeepEqual(curView.Connections, connections) {
 		return h.GetView(config, req, hv)
