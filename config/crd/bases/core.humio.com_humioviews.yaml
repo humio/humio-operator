@@ -48,8 +48,6 @@ spec:
             description: HumioViewSpec defines the desired state of HumioView
             properties:
               connections:
-                description: Connections contains the connections to the Humio repositories
-                  which is accessible in this view
                 items:
                   properties:
                     filter:
@@ -62,6 +60,11 @@ spec:
                       type: string
                   type: object
                 type: array
+              description:
+                description: Connections contains the connections to the Humio repositories
+                  which is accessible in this view Description contains the description
+                  that will be set on this view
+                type: string
               externalClusterName:
                 description: ExternalClusterName refers to an object of type HumioExternalCluster
                   where the Humio resources should be created. This conflicts with
@@ -74,10 +77,6 @@ spec:
                 type: string
               name:
                 description: Name is the name of the view inside Humio
-                type: string
-              description:
-                description: Description contains the description that will be set
-                  on this view
                 type: string
             type: object
           status:
