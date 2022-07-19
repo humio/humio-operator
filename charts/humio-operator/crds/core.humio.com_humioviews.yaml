@@ -1,0 +1,96 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.6.2
+  creationTimestamp: null
+  name: humioviews.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.15.0'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioView
+    listKind: HumioViewList
+    plural: humioviews
+    singular: humioview
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The state of the view
+      jsonPath: .status.state
+      name: State
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioView is the Schema for the humioviews API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioViewSpec defines the desired state of HumioView
+            properties:
+              connections:
+                description: Connections contains the connections to the Humio repositories
+                  which is accessible in this view
+                items:
+                  properties:
+                    filter:
+                      description: Filter contains the prefix filter that will be
+                        applied for the given RepositoryName
+                      type: string
+                    repositoryName:
+                      description: RepositoryName contains the name of the target
+                        repository
+                      type: string
+                  type: object
+                type: array
+              externalClusterName:
+                description: ExternalClusterName refers to an object of type HumioExternalCluster
+                  where the Humio resources should be created. This conflicts with
+                  ManagedClusterName.
+                type: string
+              managedClusterName:
+                description: ManagedClusterName refers to an object of type HumioCluster
+                  that is managed by the operator where the Humio resources should
+                  be created. This conflicts with ExternalClusterName.
+                type: string
+              name:
+                description: Name is the name of the view inside Humio
+                type: string
+            type: object
+          status:
+            description: HumioViewStatus defines the observed state of HumioView
+            properties:
+              state:
+                description: State reflects the current state of the HumioView
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
