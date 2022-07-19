@@ -1,0 +1,250 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.6.2
+  creationTimestamp: null
+  name: humioactions.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.15.0'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioAction
+    listKind: HumioActionList
+    plural: humioactions
+    singular: humioaction
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioAction is the Schema for the humioactions API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioActionSpec defines the desired state of HumioAction
+            properties:
+              emailProperties:
+                description: EmailProperties indicates this is an Email Action, and
+                  contains the corresponding properties
+                properties:
+                  bodyTemplate:
+                    type: string
+                  recipients:
+                    items:
+                      type: string
+                    type: array
+                  subjectTemplate:
+                    type: string
+                  useProxy:
+                    type: boolean
+                type: object
+              externalClusterName:
+                description: ExternalClusterName refers to an object of type HumioExternalCluster
+                  where the Humio resources should be created. This conflicts with
+                  ManagedClusterName.
+                type: string
+              humioRepositoryProperties:
+                description: HumioRepositoryProperties indicates this is a Humio Repository
+                  Action, and contains the corresponding properties
+                properties:
+                  ingestToken:
+                    type: string
+                  ingestTokenSource:
+                    properties:
+                      secretKeyRef:
+                        description: SecretKeySelector selects a key of a Secret.
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                    type: object
+                type: object
+              managedClusterName:
+                description: ManagedClusterName refers to an object of type HumioCluster
+                  that is managed by the operator where the Humio resources should
+                  be created. This conflicts with ExternalClusterName.
+                type: string
+              name:
+                description: Name is the name of the Action
+                type: string
+              opsGenieProperties:
+                description: OpsGenieProperties indicates this is a Ops Genie Action,
+                  and contains the corresponding properties
+                properties:
+                  apiUrl:
+                    type: string
+                  genieKey:
+                    type: string
+                  genieKeySource:
+                    properties:
+                      secretKeyRef:
+                        description: SecretKeySelector selects a key of a Secret.
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                    type: object
+                  useProxy:
+                    type: boolean
+                type: object
+              pagerDutyProperties:
+                description: PagerDutyProperties indicates this is a PagerDuty Action,
+                  and contains the corresponding properties
+                properties:
+                  routingKey:
+                    type: string
+                  severity:
+                    type: string
+                  useProxy:
+                    type: boolean
+                type: object
+              slackPostMessageProperties:
+                description: SlackPostMessageProperties indicates this is a Slack
+                  Post Message Action, and contains the corresponding properties
+                properties:
+                  apiToken:
+                    type: string
+                  apiTokenSource:
+                    properties:
+                      secretKeyRef:
+                        description: SecretKeySelector selects a key of a Secret.
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                    type: object
+                  channels:
+                    items:
+                      type: string
+                    type: array
+                  fields:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  useProxy:
+                    type: boolean
+                type: object
+              slackProperties:
+                description: SlackProperties indicates this is a Slack Action, and
+                  contains the corresponding properties
+                properties:
+                  fields:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  url:
+                    type: string
+                  useProxy:
+                    type: boolean
+                type: object
+              victorOpsProperties:
+                description: VictorOpsProperties indicates this is a VictorOps Action,
+                  and contains the corresponding properties
+                properties:
+                  messageType:
+                    type: string
+                  notifyUrl:
+                    type: string
+                  useProxy:
+                    type: boolean
+                type: object
+              viewName:
+                description: ViewName is the name of the Humio View under which the
+                  Action will be managed. This can also be a Repository
+                type: string
+              webhookProperties:
+                description: WebhookProperties indicates this is a Webhook Action,
+                  and contains the corresponding properties
+                properties:
+                  bodyTemplate:
+                    type: string
+                  headers:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  ignoreSSL:
+                    type: boolean
+                  method:
+                    type: string
+                  url:
+                    type: string
+                  useProxy:
+                    type: boolean
+                type: object
+            required:
+            - name
+            - viewName
+            type: object
+          status:
+            description: HumioActionStatus defines the observed state of HumioAction
+            properties:
+              state:
+                description: State reflects the current state of the HumioAction
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
