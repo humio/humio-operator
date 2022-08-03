@@ -46,8 +46,8 @@ const (
 	ViewGroupPermissionsFilename = "view-group-permissions.json"
 	nodeUUIDPrefix               = "humio_"
 	HumioContainerName           = "humio"
-	AuthContainerName            = "auth"
-	InitContainerName            = "init"
+	AuthContainerName            = "humio-auth"
+	InitContainerName            = "humio-init"
 
 	// cluster-wide resources:
 	initClusterRoleSuffix        = "init"
