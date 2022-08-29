@@ -439,7 +439,6 @@ func (hnp HumioNodePool) GetContainerSecurityContext() *corev1.SecurityContext {
 			RunAsNonRoot:             helpers.BoolPtr(true),
 			Capabilities: &corev1.Capabilities{
 				Add: []corev1.Capability{
-					"NET_BIND_SERVICE",
 					"SYS_NICE",
 				},
 				Drop: []corev1.Capability{
