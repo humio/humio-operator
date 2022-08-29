@@ -290,7 +290,6 @@ var _ = BeforeSuite(func() {
 					"SETGID",
 				},
 				AllowedCapabilities: []corev1.Capability{
-					"NET_BIND_SERVICE",
 					"SYS_NICE",
 				},
 				AllowHostDirVolumePlugin: true,
