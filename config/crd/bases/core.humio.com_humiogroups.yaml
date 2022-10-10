@@ -67,7 +67,7 @@ spec:
                 type: string
               defaultRole:
                 description: 
-                  DefaultRole refers to a role this HumioGroup should assume as default
+                  DefaultRole refers to a Humio Role this HumioGroup should assume as default
                 type: object
                 properties:
                   displayName:
