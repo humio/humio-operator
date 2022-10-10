@@ -3179,7 +3179,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				_, err := controllers.FindPvcForPod(pvcList, pod)
 				Expect(err).ShouldNot(HaveOccurred())
 			}
-			_, err := controllers.FindNextAvailablePvc(pvcList, foundPodList)
+			_, err := controllers.FindNextAvailablePvc(pvcList, foundPodList, map[string]struct{}{})
 			Expect(err).Should(HaveOccurred())
 		})
 	})
