@@ -632,7 +632,7 @@ func (hnp HumioNodePool) GetContainerLivenessProbe() *corev1.Probe {
 			PeriodSeconds:       5,
 			TimeoutSeconds:      5,
 			SuccessThreshold:    1,
-			FailureThreshold:    10,
+			FailureThreshold:    80,
 		}
 	}
 	return hnp.humioNodeSpec.ContainerLivenessProbe
@@ -652,10 +652,10 @@ func (hnp HumioNodePool) GetContainerStartupProbe() *corev1.Probe {
 					Scheme: hnp.GetProbeScheme(),
 				},
 			},
-			PeriodSeconds:    10,
+			PeriodSeconds:    5,
 			TimeoutSeconds:   5,
 			SuccessThreshold: 1,
-			FailureThreshold: 30,
+			FailureThreshold: 120,
 		}
 	}
 	return hnp.humioNodeSpec.ContainerStartupProbe
