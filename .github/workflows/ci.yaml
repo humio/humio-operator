@@ -59,7 +59,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install six
     - name: CrowdStrike Container Image Scan Operator
-      uses: crowdstrike/container-image-scan-action@v0.4
+      uses: crowdstrike/container-image-scan-action@v0.7
       with:
         falcon_client_id: 1cd30708cb31442f85a6eec83279fe7b
         container_repository: humio/humio-operator
@@ -67,7 +67,7 @@ jobs:
       env:
         FALCON_CLIENT_SECRET: "${{ secrets.FALCON_CLIENT_SECRET }}"
     - name: CrowdStrike Container Image Scan Operator Helper
-      uses: crowdstrike/container-image-scan-action@v0.4
+      uses: crowdstrike/container-image-scan-action@v0.7
       with:
         falcon_client_id: 1cd30708cb31442f85a6eec83279fe7b
         container_repository: humio/humio-operator-helper
