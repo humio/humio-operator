@@ -64,7 +64,7 @@ func (r *HumioClusterReconciler) getPodsStatus(hc *humiov1alpha1.HumioCluster, h
 			if pod.Status.Phase == corev1.PodPending {
 				deletePod, err := r.isPodAttachedToOrphanedPvc(hc, hnp, pod)
 				if !deletePod && err != nil {
-					r.logErrorAndReturn(err, "unable to determine whether pod should be deleted")
+					return &status, r.logErrorAndReturn(err, "unable to determine whether pod should be deleted")
 				}
 				if deletePod && hnp.OkToDeletePvc() {
 					status.podsRequiringDeletion = append(status.podsRequiringDeletion, pod)
