@@ -73,9 +73,10 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			Annotations: humioHeadlessServiceAnnotationsOrDefault(hc),
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: "None",
-			Type:      corev1.ServiceTypeClusterIP,
-			Selector:  kubernetes.LabelsForHumio(hc.Name),
+			ClusterIP:                "None",
+			Type:                     corev1.ServiceTypeClusterIP,
+			Selector:                 kubernetes.LabelsForHumio(hc.Name),
+			PublishNotReadyAddresses: true,
 			Ports: []corev1.ServicePort{
 				{
 					Name: "http",
@@ -107,6 +108,12 @@ func servicesMatch(existingService *corev1.Service, service *corev1.Service) (bo
 		return false, fmt.Errorf("service annotations do not match: got %s, expected: %s", existingAnnotations, annotations)
 	}
 
+	if existingService.Spec.PublishNotReadyAddresses != service.Spec.PublishNotReadyAddresses {
+		return false, fmt.Errorf("service config for publishNotReadyAddresses isn't right: got %t, expected: %t",
+			existingService.Spec.PublishNotReadyAddresses,
+			service.Spec.PublishNotReadyAddresses)
+	}
+
 	existingSelector := helpers.MapToSortedString(existingService.Spec.Selector)
 	selector := helpers.MapToSortedString(service.Spec.Selector)
 	if existingSelector != selector {
@@ -119,4 +126,5 @@ func updateService(existingService *corev1.Service, service *corev1.Service) {
 	existingService.Annotations = service.Annotations
 	existingService.Labels = service.Labels
 	existingService.Spec.Selector = service.Spec.Selector
+	existingService.Spec.PublishNotReadyAddresses = service.Spec.PublishNotReadyAddresses
 }
