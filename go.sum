@@ -320,6 +320,8 @@ github.com/hashicorp/serf v0.8.2/go.mod h1:6hOLApaqBFA1NXqRQAsxw9QxuDEvNxSQRwA/J
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/humio/cli v0.28.12-0.20220208073027-4a83fcd97d5d h1:RLCLDshcdUi8supYvhjcEAPuOj6oyjzOTvCIL3buJ5w=
 github.com/humio/cli v0.28.12-0.20220208073027-4a83fcd97d5d/go.mod h1:PgicXQX6gOnJsEYUxPUHalJIAKyUs+U7iqrFzGynDPE=
+github.com/humio/cli v0.30.2 h1:yVS/p2V+vSv47GI4GT1Lkpi8z3PW7N697mj9Uh9kU28=
+github.com/humio/cli v0.30.2/go.mod h1:yz7z0E/NZsGHj/IAUGt2UaYXLt7EsmfYgsOdgX4x0eg=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/imdario/mergo v0.3.5/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
