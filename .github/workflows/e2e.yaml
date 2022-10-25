@@ -34,7 +34,7 @@ jobs:
         image: ${{ matrix.kind-k8s-version }}
     - name: Get temp bin dir
       id: bin_dir
-      run: echo ::set-output name=BIN_DIR::$(mktemp -d --tmpdir=${{ github.workspace }})
+      run: echo "BIN_DIR=$(mktemp -d --tmpdir=${{ github.workspace }})" >> $GITHUB_OUTPUT
     - name: run e2e tests
       env:
         BIN_DIR: ${{ steps.bin_dir.outputs.BIN_DIR }}
