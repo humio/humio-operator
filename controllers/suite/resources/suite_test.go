@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/humio/humio-operator/pkg/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/controllers/suite"
@@ -112,8 +113,14 @@ var _ = BeforeSuite(func() {
 		humioClient = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
 	}
 
-	cfg, err := testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
+	var cfg *rest.Config
+
+	Eventually(func() error {
+		// testEnv.Start() sporadically fails with "unable to grab random port for serving webhooks on", so let's
+		// retry a couple of times
+		cfg, err = testEnv.Start()
+		return err
+	}, 30*time.Second, 5*time.Second).Should(Succeed())
 	Expect(cfg).NotTo(BeNil())
 
 	if helpers.IsOpenShift() {
