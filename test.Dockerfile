@@ -9,7 +9,7 @@ RUN curl -s https://dl.google.com/go/go1.17.7.linux-amd64.tar.gz | tar -xz -C /u
 RUN ln -s /usr/local/go/bin/go /usr/bin/go
 
 # Install kind
-RUN curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.11.1/kind-linux-amd64 \
+RUN curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.16.0/kind-linux-amd64 \
  && chmod +x ./kind \
  && mv ./kind /usr/bin/kind
 
