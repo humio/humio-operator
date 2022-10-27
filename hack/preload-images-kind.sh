@@ -20,7 +20,7 @@ do
 done
 
 # Preload image we will run e2e tests from within
-docker build -t testcontainer -f test.Dockerfile .
+docker build --no-cache --pull -t testcontainer -f test.Dockerfile .
 kind load docker-image testcontainer
 
 end=$(date +%s)

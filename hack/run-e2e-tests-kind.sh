@@ -36,7 +36,7 @@ done
 make ginkgo
 
 # We skip the helpers package as those tests assumes the environment variable USE_CERT_MANAGER is not set.
-USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo --always-emit-ginkgo-writer -slow-spec-threshold=5s -timeout 90m -nodes=$ginkgo_nodes --skip-package helpers -race -v ./... -covermode=count -coverprofile cover.out -progress | tee /proc/1/fd/1
+USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo --always-emit-ginkgo-writer -slow-spec-threshold=5s --output-interceptor-mode=none -timeout 90m -nodes=$ginkgo_nodes --skip-package helpers -race -v ./... -covermode=count -coverprofile cover.out -progress | tee /proc/1/fd/1
 TEST_EXIT_CODE=$?
 
 end=$(date +%s)
