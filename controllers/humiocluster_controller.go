@@ -2337,25 +2337,30 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods")
 	}
+	var expectedPodsList []corev1.Pod
+	pvcClaimNamesInUse := make(map[string]struct{})
 
 	if len(foundPodList) < hnp.GetNodeCount() {
-		attachments, err := r.newPodAttachments(ctx, hnp, foundPodList)
-		if err != nil {
-			return reconcile.Result{RequeueAfter: time.Second * 5}, r.logErrorAndReturn(err, "failed to get pod attachments")
+		for i := 1; i+len(foundPodList) <= hnp.GetNodeCount(); i++ {
+			attachments, err := r.newPodAttachments(ctx, hnp, foundPodList, pvcClaimNamesInUse)
+			if err != nil {
+				return reconcile.Result{RequeueAfter: time.Second * 5}, r.logErrorAndReturn(err, "failed to get pod attachments")
+			}
+			pod, err := r.createPod(ctx, hc, hnp, attachments, expectedPodsList)
+			if err != nil {
+				return reconcile.Result{RequeueAfter: time.Second * 5}, r.logErrorAndReturn(err, "unable to create pod")
+			}
+			expectedPodsList = append(expectedPodsList, *pod)
+			humioClusterPrometheusMetrics.Counters.PodsCreated.Inc()
 		}
-		pod, err := r.createPod(ctx, hc, hnp, attachments)
-		if err != nil {
-			return reconcile.Result{RequeueAfter: time.Second * 5}, r.logErrorAndReturn(err, "unable to create pod")
-		}
-		humioClusterPrometheusMetrics.Counters.PodsCreated.Inc()
 
-		// check that we can list the new pod
+		// check that we can list the new pods
 		// this is to avoid issues where the requeue is faster than kubernetes
-		if err := r.waitForNewPod(ctx, hnp, foundPodList, pod); err != nil {
+		if err := r.waitForNewPods(ctx, hnp, foundPodList, expectedPodsList); err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "failed to validate new pod")
 		}
 
-		// We have created a pod. Requeue immediately even if the pod is not ready. We will check the readiness status on the next reconciliation.
+		// We have created all pods. Requeue immediately even if the pods are not ready. We will check the readiness status on the next reconciliation.
 		return reconcile.Result{Requeue: true}, nil
 	}
 

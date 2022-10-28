@@ -19,14 +19,9 @@ package resources
 import (
 	"context"
 	"fmt"
-	"github.com/humio/humio-operator/controllers/suite"
-	"github.com/humio/humio-operator/pkg/humio"
 	"net/http"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	humioapi "github.com/humio/cli/api"
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -34,6 +29,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	humioapi "github.com/humio/cli/api"
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/controllers/suite"
+	"github.com/humio/humio-operator/pkg/humio"
 )
 
 var _ = Describe("Humio Resources Controllers", func() {
@@ -70,7 +71,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ParserName:         initialParserName,
-					RepositoryName:     "humio",
+					RepositoryName:     testRepo.Spec.Name,
 					TokenSecretName:    "target-secret-1",
 				},
 			}
@@ -177,7 +178,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
 					ParserName:         "accesslog",
-					RepositoryName:     "humio",
+					RepositoryName:     testRepo.Spec.Name,
 				},
 			}
 
@@ -248,7 +249,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: "non-existent-managed-cluster",
 					Name:               "ingesttokenname",
 					ParserName:         "accesslog",
-					RepositoryName:     "humio",
+					RepositoryName:     testRepo.Spec.Name,
 					TokenSecretName:    "thissecretname",
 				},
 			}
@@ -282,7 +283,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ExternalClusterName: "non-existent-external-cluster",
 					Name:                "ingesttokenname",
 					ParserName:          "accesslog",
-					RepositoryName:      "humio",
+					RepositoryName:      testRepo.Spec.Name,
 					TokenSecretName:     "thissecretname",
 				},
 			}
@@ -495,7 +496,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioView: Updating the view successfully in k8s")
 			updatedConnections := []humiov1alpha1.HumioViewConnection{
 				{
-					RepositoryName: "humio",
+					RepositoryName: testRepo.Spec.Name,
 					Filter:         "*",
 				},
 			}
@@ -549,7 +550,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			spec := humiov1alpha1.HumioParserSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-parser",
-				RepositoryName:     "humio",
+				RepositoryName:     testRepo.Spec.Name,
 				ParserScript:       "kvParse()",
 				TagFields:          []string{"@somefield"},
 				TestData:           []string{"this is an example of rawstring"},
@@ -709,7 +710,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ManagedClusterName: "non-existent-managed-cluster",
 					Name:               "parsername",
 					ParserScript:       "kvParse()",
-					RepositoryName:     "humio",
+					RepositoryName:     testRepo.Spec.Name,
 				},
 			}
 			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
@@ -744,7 +745,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ExternalClusterName: "non-existent-external-cluster",
 					Name:                "parsername",
 					ParserScript:        "kvParse()",
-					RepositoryName:      "humio",
+					RepositoryName:      testRepo.Spec.Name,
 				},
 			}
 			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
@@ -846,7 +847,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Name:               "thisname",
 					Connections: []humiov1alpha1.HumioViewConnection{
 						{
-							RepositoryName: "humio",
+							RepositoryName: testRepo.Spec.Name,
 							Filter:         "*",
 						},
 					},
@@ -885,7 +886,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Name:                "thisname",
 					Connections: []humiov1alpha1.HumioViewConnection{
 						{
-							RepositoryName: "humio",
+							RepositoryName: testRepo.Spec.Name,
 							Filter:         "*",
 						},
 					},
@@ -916,7 +917,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			emailActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-action",
-				ViewName:           "humio",
+				ViewName:           testRepo.Spec.Name,
 				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
 					Recipients: []string{"example@example.com"},
 				},
@@ -1008,7 +1009,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			humioRepoActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-humio-repo-action",
-				ViewName:           "humio",
+				ViewName:           testRepo.Spec.Name,
 				HumioRepositoryProperties: &humiov1alpha1.HumioActionRepositoryProperties{
 					IngestToken: "some-token",
 				},
@@ -1097,7 +1098,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			opsGenieActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-ops-genie-action",
-				ViewName:           "humio",
+				ViewName:           testRepo.Spec.Name,
 				OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
 					GenieKey: "somegeniekey",
 					ApiUrl:   "https://humio.com",
@@ -1189,7 +1190,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			pagerDutyActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-pagerduty-action",
-				ViewName:           "humio",
+				ViewName:           testRepo.Spec.Name,
 				PagerDutyProperties: &humiov1alpha1.HumioActionPagerDutyProperties{
 					Severity:   "critical",
 					RoutingKey: "someroutingkey",
@@ -1281,7 +1282,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			slackPostMessageActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-slack-post-message-action",
-				ViewName:           "humio",
+				ViewName:           testRepo.Spec.Name,
 				SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
 					ApiToken: "some-token",
 					Channels: []string{"#some-channel"},
@@ -1380,7 +1381,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			slackActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-slack-action",
-				ViewName:           "humio",
+				ViewName:           testRepo.Spec.Name,
 				SlackProperties: &humiov1alpha1.HumioActionSlackProperties{
 					Url: "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
 					Fields: map[string]string{
@@ -1477,7 +1478,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			victorOpsActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-victor-ops-action",
-				ViewName:           "humio",
+				ViewName:           testRepo.Spec.Name,
 				VictorOpsProperties: &humiov1alpha1.HumioActionVictorOpsProperties{
 					MessageType: "critical",
 					NotifyUrl:   "https://alert.victorops.com/integrations/0000/alert/0000/routing_key",
@@ -1569,7 +1570,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			webHookActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-webhook-action",
-				ViewName:           "humio",
+				ViewName:           testRepo.Spec.Name,
 				WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
 					Headers:      map[string]string{"some": "header"},
 					BodyTemplate: "body template",
@@ -1676,7 +1677,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: clusterKey.Name,
 					Name:               "example-invalid-action",
-					ViewName:           "humio",
+					ViewName:           testRepo.Spec.Name,
 				},
 			}
 
@@ -1718,7 +1719,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: clusterKey.Name,
 					Name:               "example-invalid-action",
-					ViewName:           "humio",
+					ViewName:           testRepo.Spec.Name,
 					WebhookProperties:  &humiov1alpha1.HumioActionWebhookProperties{},
 					EmailProperties:    &humiov1alpha1.HumioActionEmailProperties{},
 				},
@@ -1763,7 +1764,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
-					ViewName:           "humio",
+					ViewName:           testRepo.Spec.Name,
 					HumioRepositoryProperties: &humiov1alpha1.HumioActionRepositoryProperties{
 						IngestTokenSource: humiov1alpha1.VarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
@@ -1824,7 +1825,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
-					ViewName:           "humio",
+					ViewName:           testRepo.Spec.Name,
 					OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
 						ApiUrl: "https://humio.com",
 						GenieKeySource: humiov1alpha1.VarSource{
@@ -1887,7 +1888,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
-					ViewName:           "humio",
+					ViewName:           testRepo.Spec.Name,
 					OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
 						GenieKey: "direct-token",
 						ApiUrl:   "https://humio.com",
@@ -1932,7 +1933,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
-					ViewName:           "humio",
+					ViewName:           testRepo.Spec.Name,
 					SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
 						ApiTokenSource: humiov1alpha1.VarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
@@ -1997,7 +1998,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
-					ViewName:           "humio",
+					ViewName:           testRepo.Spec.Name,
 					SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
 						ApiToken: "direct-token",
 						Channels: []string{"#some-channel"},
@@ -2037,7 +2038,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			dependentEmailActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-email-action",
-				ViewName:           "humio",
+				ViewName:           testRepo.Spec.Name,
 				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
 					Recipients: []string{"example@example.com"},
 				},
@@ -2068,7 +2069,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			alertSpec := humiov1alpha1.HumioAlertSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-alert",
-				ViewName:           "humio",
+				ViewName:           testRepo.Spec.Name,
 				Query: humiov1alpha1.HumioQuery{
 					QueryString: "#repo = test | count()",
 					Start:       "24h",
@@ -2199,7 +2200,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioAlertSpec{
 					ManagedClusterName: clusterKey.Name,
 					Name:               "example-invalid-alert",
-					ViewName:           "humio",
+					ViewName:           testRepo.Spec.Name,
 				},
 			}
 
