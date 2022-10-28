@@ -191,7 +191,7 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	docker build --no-cache --pull -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
 	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
@@ -202,12 +202,12 @@ fmt-simple:
 
 # Build the operator docker image
 docker-build-operator:
-	docker build --pull -t ${IMG} ${IMG_BUILD_ARGS} .
+	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} .
 
 # Build the helper docker image
 docker-build-helper:
 	cp LICENSE images/helper/
-	docker build --pull -t ${IMG} ${IMG_BUILD_ARGS} images/helper
+	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} images/helper
 
 install-e2e-dependencies:
 	hack/install-e2e-dependencies.sh
@@ -236,13 +236,14 @@ run-e2e-tests-local-crc:
 ginkgo:
 ifeq (,$(shell which ginkgo))
 	@{ \
-	set -e ;\
+	set -ex ;\
 	GINKGO_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CGINKGO_TMP_DIR ;\
+	cd $$GINKGO_TMP_DIR ;\
 	go mod init tmp ;\
 	go get github.com/onsi/ginkgo/v2/ginkgo ;\
+	go install github.com/onsi/ginkgo/v2/ginkgo ;\
 	go get github.com/onsi/gomega/... ;\
-	rm -rf $$CGINKGO_TMP_DIR ;\
+	rm -rf $$GINKGO_TMP_DIR ;\
 	}
 GINKGO=$(GOBIN)/ginkgo
 else

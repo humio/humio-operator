@@ -60,21 +60,25 @@ func FindPvcForPod(pvcList []corev1.PersistentVolumeClaim, pod corev1.Pod) (core
 	return corev1.PersistentVolumeClaim{}, fmt.Errorf("could not find a pvc for pod %s", pod.Name)
 }
 
-func FindNextAvailablePvc(pvcList []corev1.PersistentVolumeClaim, podList []corev1.Pod) (string, error) {
-	pvcLookup := make(map[string]struct{})
+func FindNextAvailablePvc(pvcList []corev1.PersistentVolumeClaim, podList []corev1.Pod, pvcClaimNamesInUse map[string]struct{}) (string, error) {
+	if pvcClaimNamesInUse == nil {
+		return "", fmt.Errorf("pvcClaimNamesInUse must not be nil")
+	}
+	// run through all pods and record PVC claim name for "humio-data" volume
 	for _, pod := range podList {
 		for _, volume := range pod.Spec.Volumes {
 			if volume.Name == "humio-data" {
 				if volume.PersistentVolumeClaim == nil {
 					continue
 				}
-				pvcLookup[volume.PersistentVolumeClaim.ClaimName] = struct{}{}
+				pvcClaimNamesInUse[volume.PersistentVolumeClaim.ClaimName] = struct{}{}
 			}
 		}
 	}
 
+	// return first PVC that is not used by any pods
 	for _, pvc := range pvcList {
-		if _, found := pvcLookup[pvc.Name]; !found {
+		if _, found := pvcClaimNamesInUse[pvc.Name]; !found {
 			return pvc.Name, nil
 		}
 	}

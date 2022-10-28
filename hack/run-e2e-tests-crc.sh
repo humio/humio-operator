@@ -43,4 +43,4 @@ do
 done
 
 # We skip the helpers package as those tests assumes the environment variable USE_CERT_MANAGER is not set.
-OPENSHIFT_SCC_NAME=default-humio-operator KUBECONFIG=$tmp_kubeconfig USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo -timeout 90m --skip-package helpers -v ./... -covermode=count -coverprofile cover.out -progress
+OPENSHIFT_SCC_NAME=default-humio-operator KUBECONFIG=$tmp_kubeconfig USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo --output-interceptor-mode=none -timeout 90m --skip-package helpers -v ./... -covermode=count -coverprofile cover.out -progress

@@ -620,12 +620,12 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 	return &pod, nil
 }
 
-func volumeSource(hnp *HumioNodePool, podList []corev1.Pod, pvcList []corev1.PersistentVolumeClaim) (corev1.VolumeSource, error) {
+func findAvailableVolumeSourceForPod(hnp *HumioNodePool, podList []corev1.Pod, pvcList []corev1.PersistentVolumeClaim, pvcClaimNamesInUse map[string]struct{}) (corev1.VolumeSource, error) {
 	if hnp.PVCsEnabled() && hnp.GetDataVolumeSource() != (corev1.VolumeSource{}) {
 		return corev1.VolumeSource{}, fmt.Errorf("cannot have both dataVolumePersistentVolumeClaimSpecTemplate and dataVolumeSource defined")
 	}
 	if hnp.PVCsEnabled() {
-		pvcName, err := FindNextAvailablePvc(pvcList, podList)
+		pvcName, err := FindNextAvailablePvc(pvcList, podList, pvcClaimNamesInUse)
 		if err != nil {
 			return corev1.VolumeSource{}, err
 		}
@@ -800,8 +800,8 @@ func podSpecAsSHA256(hnp *HumioNodePool, sourcePod corev1.Pod) string {
 	return helpers.AsSHA256(string(b))
 }
 
-func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, attachments *podAttachments) (*corev1.Pod, error) {
-	podName, err := findHumioNodeName(ctx, r, hnp)
+func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, attachments *podAttachments, newlyCreatedPods []corev1.Pod) (*corev1.Pod, error) {
+	podName, err := findHumioNodeName(ctx, r, hnp, newlyCreatedPods)
 	if err != nil {
 		return &corev1.Pod{}, r.logErrorAndReturn(err, "unable to find pod name")
 	}
@@ -841,20 +841,21 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 	return pod, nil
 }
 
-// waitForNewPod can be used to wait for a new pod to be created after the create call is issued. It is important that
-// the previousPodList contains the list of pods prior to when the new pod was created
-func (r *HumioClusterReconciler) waitForNewPod(ctx context.Context, hnp *HumioNodePool, previousPodList []corev1.Pod, expectedPod *corev1.Pod) error {
+// waitForNewPods can be used to wait for new pods to be created after the create call is issued. It is important that
+// the previousPodList contains the list of pods prior to when the new pods were created
+func (r *HumioClusterReconciler) waitForNewPods(ctx context.Context, hnp *HumioNodePool, previousPodList []corev1.Pod, expectedPods []corev1.Pod) error {
 	// We must check only pods that were running prior to the new pod being created, and we must only include pods that
-	// were running the same revision as the newly created pod. This is because there may be pods under the previous
+	// were running the same revision as the newly created pods. This is because there may be pods under the previous
 	// revision that were still terminating when the new pod was created
 	var expectedPodCount int
 	for _, pod := range previousPodList {
-		if pod.Annotations[podHashAnnotation] == expectedPod.Annotations[podHashAnnotation] {
+		if pod.Annotations[podHashAnnotation] == expectedPods[0].Annotations[podHashAnnotation] {
 			expectedPodCount++
 		}
 	}
-	// This will account for the newly created pod
-	expectedPodCount++
+
+	// This will account for the newly created pods
+	expectedPodCount += len(expectedPods)
 
 	for i := 0; i < waitForPodTimeoutSeconds; i++ {
 		var podsMatchingRevisionCount int
@@ -863,17 +864,17 @@ func (r *HumioClusterReconciler) waitForNewPod(ctx context.Context, hnp *HumioNo
 			return err
 		}
 		for _, pod := range latestPodList {
-			if pod.Annotations[podHashAnnotation] == expectedPod.Annotations[podHashAnnotation] {
+			if pod.Annotations[podHashAnnotation] == expectedPods[0].Annotations[podHashAnnotation] {
 				podsMatchingRevisionCount++
 			}
 		}
-		r.Log.Info(fmt.Sprintf("validating new pod was created. expected pod count %d, current pod count %d", expectedPodCount, podsMatchingRevisionCount))
+		r.Log.Info(fmt.Sprintf("validating new pods were created. expected pod count %d, current pod count %d", expectedPodCount, podsMatchingRevisionCount))
 		if podsMatchingRevisionCount >= expectedPodCount {
 			return nil
 		}
 		time.Sleep(time.Second * 1)
 	}
-	return fmt.Errorf("timed out waiting to validate new pod was created")
+	return fmt.Errorf("timed out waiting to validate new pods was created")
 }
 
 func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, desiredPod corev1.Pod) (bool, error) {
@@ -978,7 +979,7 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 	return podLifecycleState{}, nil
 }
 
-func findHumioNodeName(ctx context.Context, c client.Client, hnp *HumioNodePool) (string, error) {
+func findHumioNodeName(ctx context.Context, c client.Client, hnp *HumioNodePool, newlyCreatedPods []corev1.Pod) (string, error) {
 	// if we do not have TLS enabled, append a random suffix
 	if !hnp.TLSEnabled() {
 		return fmt.Sprintf("%s-core-%s", hnp.GetNodePoolName(), kubernetes.RandomString()), nil
@@ -990,6 +991,13 @@ func findHumioNodeName(ctx context.Context, c client.Client, hnp *HumioNodePool)
 		return "", err
 	}
 	for _, certificate := range certificates {
+		for _, newPod := range newlyCreatedPods {
+			if certificate.Name == newPod.Name {
+				// ignore any certificates that matches names of pods we've just created
+				continue
+			}
+		}
+
 		if certificate.Spec.Keystores == nil {
 			// ignore any certificates that does not hold a keystore bundle
 			continue
@@ -1016,15 +1024,18 @@ func findHumioNodeName(ctx context.Context, c client.Client, hnp *HumioNodePool)
 	return "", fmt.Errorf("found %d certificates but none of them are available to use", len(certificates))
 }
 
-func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *HumioNodePool, foundPodList []corev1.Pod) (*podAttachments, error) {
+func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *HumioNodePool, foundPodList []corev1.Pod, pvcClaimNamesInUse map[string]struct{}) (*podAttachments, error) {
 	pvcList, err := r.pvcList(ctx, hnp)
 	if err != nil {
 		return &podAttachments{}, fmt.Errorf("problem getting pvc list: %w", err)
 	}
 	r.Log.Info(fmt.Sprintf("attempting to get volume source, pvc count is %d, pod count is %d", len(pvcList), len(foundPodList)))
-	volumeSource, err := volumeSource(hnp, foundPodList, pvcList)
+	volumeSource, err := findAvailableVolumeSourceForPod(hnp, foundPodList, pvcList, pvcClaimNamesInUse)
 	if err != nil {
 		return &podAttachments{}, fmt.Errorf("unable to construct data volume source for HumioCluster: %w", err)
+	}
+	if volumeSource.PersistentVolumeClaim != nil {
+		pvcClaimNamesInUse[volumeSource.PersistentVolumeClaim.ClaimName] = struct{}{}
 	}
 	authSASecretName, err := r.getAuthServiceAccountSecretName(ctx, hnp)
 	if err != nil {

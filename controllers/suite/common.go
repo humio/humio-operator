@@ -456,15 +456,15 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		Expect(apiTokenSecret.Annotations).Should(HaveKeyWithValue(apiTokenMethodAnnotationName, apiTokenMethodFromAPI))
 	}
 
-	clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true)
-	Expect(err).To(BeNil())
-	Expect(clusterConfig).ToNot(BeNil())
-	Expect(clusterConfig.Config()).ToNot(BeNil())
-
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 		UsingClusterBy(key.Name, "Validating cluster nodes have ZONE configured correctly")
 		if updatedHumioCluster.Spec.DisableInitContainer {
 			Eventually(func() []string {
+				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true)
+				Expect(err).To(BeNil())
+				Expect(clusterConfig).ToNot(BeNil())
+				Expect(clusterConfig.Config()).ToNot(BeNil())
+
 				cluster, err := humioClient.GetClusters(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
 				UsingClusterBy(key.Name, fmt.Sprintf("Obtained the following cluster details: %#+v, err: %v", cluster, err))
 				if err != nil {
@@ -487,6 +487,11 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 			}, testTimeout, TestInterval).Should(BeEmpty())
 		} else {
 			Eventually(func() []string {
+				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true)
+				Expect(err).To(BeNil())
+				Expect(clusterConfig).ToNot(BeNil())
+				Expect(clusterConfig.Config()).ToNot(BeNil())
+
 				cluster, err := humioClient.GetClusters(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
 				UsingClusterBy(key.Name, fmt.Sprintf("Obtained the following cluster details: %#+v, err: %v", cluster, err))
 				if err != nil || len(cluster.Nodes) < 1 {

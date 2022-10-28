@@ -40,23 +40,23 @@ import (
 )
 
 const (
-	oldSupportedHumioVersion   = "humio/humio-core:1.30.7"
+	oldSupportedHumioVersion   = "humio/humio-core:1.56.2"
 	oldUnsupportedHumioVersion = "humio/humio-core:1.18.4"
 
-	upgradePatchBestEffortOldVersion = "humio/humio-core:1.36.0"
-	upgradePatchBestEffortNewVersion = "humio/humio-core:1.36.1"
+	upgradePatchBestEffortOldVersion = "humio/humio-core:1.56.2"
+	upgradePatchBestEffortNewVersion = "humio/humio-core:1.56.3"
 
-	upgradeRollingBestEffortPreviewOldVersion = "humio/humio-core:1.36.1"
-	upgradeRollingBestEffortPreviewNewVersion = "humio/humio-core:1.37.0"
+	upgradeRollingBestEffortPreviewOldVersion = "humio/humio-core:1.56.2"
+	upgradeRollingBestEffortPreviewNewVersion = "humio/humio-core:1.56.3"
 
-	upgradeRollingBestEffortStableOldVersion = "humio/humio-core:1.35.0"
-	upgradeRollingBestEffortStableNewVersion = "humio/humio-core:1.36.1"
+	upgradeRollingBestEffortStableOldVersion = "humio/humio-core:1.56.2"
+	upgradeRollingBestEffortStableNewVersion = "humio/humio-core:1.56.3"
 
-	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.34.2"
-	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.36.1"
+	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.56.2"
+	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.56.3"
 
-	imageSourceConfigmapOldVersion = "humio/humio-core:1.36.1"
-	imageSourceConfigmapNewVersion = "humio/humio-core:1.37.0"
+	imageSourceConfigmapOldVersion = "humio/humio-core:1.56.2"
+	imageSourceConfigmapNewVersion = "humio/humio-core:1.56.3"
 )
 
 var _ = Describe("HumioCluster Controller", func() {
@@ -3179,7 +3179,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				_, err := controllers.FindPvcForPod(pvcList, pod)
 				Expect(err).ShouldNot(HaveOccurred())
 			}
-			_, err := controllers.FindNextAvailablePvc(pvcList, foundPodList)
+			_, err := controllers.FindNextAvailablePvc(pvcList, foundPodList, map[string]struct{}{})
 			Expect(err).Should(HaveOccurred())
 		})
 	})
