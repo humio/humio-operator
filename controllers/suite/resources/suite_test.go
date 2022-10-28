@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/humio/humio-operator/pkg/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/controllers/suite"
@@ -68,6 +69,7 @@ var k8sManager ctrl.Manager
 var humioClient humio.Client
 var testTimeout time.Duration
 var testNamespace corev1.Namespace
+var testRepo corev1alpha1.HumioRepository
 var clusterKey types.NamespacedName
 var cluster = &corev1alpha1.HumioCluster{}
 var sharedCluster helpers.ClusterInterface
@@ -111,8 +113,14 @@ var _ = BeforeSuite(func() {
 		humioClient = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
 	}
 
-	cfg, err := testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
+	var cfg *rest.Config
+
+	Eventually(func() error {
+		// testEnv.Start() sporadically fails with "unable to grab random port for serving webhooks on", so let's
+		// retry a couple of times
+		cfg, err = testEnv.Start()
+		return err
+	}, 30*time.Second, 5*time.Second).Should(Succeed())
 	Expect(cfg).NotTo(BeNil())
 
 	if helpers.IsOpenShift() {
@@ -317,6 +325,18 @@ var _ = BeforeSuite(func() {
 	Expect(err).To(BeNil())
 	Expect(sharedCluster).ToNot(BeNil())
 	Expect(sharedCluster.Config()).ToNot(BeNil())
+
+	testRepo = corev1alpha1.HumioRepository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-repo",
+			Namespace: clusterKey.Namespace,
+		},
+		Spec: corev1alpha1.HumioRepositorySpec{
+			ManagedClusterName: clusterKey.Name,
+			Name:               "test-repo",
+		},
+	}
+	Expect(k8sClient.Create(context.TODO(), &testRepo)).To(Succeed())
 })
 
 var _ = AfterSuite(func() {
