@@ -1402,11 +1402,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 				{
 					Name:  "AUTHENTICATION_METHOD",
-					Value: "single-user",
-				},
-				{
-					Name:  "SINGLE_USER_PASSWORD",
-					Value: "password",
+					Value: "oauth",
 				},
 				{
 					Name:  "ENABLE_IOC_SERVICE",
@@ -1467,11 +1463,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 				{
 					Name:  "AUTHENTICATION_METHOD",
-					Value: "single-user",
-				},
-				{
-					Name:  "SINGLE_USER_PASSWORD",
-					Value: "password",
+					Value: "oauth",
 				},
 				{
 					Name:  "ENABLE_IOC_SERVICE",
@@ -1576,11 +1568,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 				{
 					Name:  "AUTHENTICATION_METHOD",
-					Value: "single-user",
-				},
-				{
-					Name:  "SINGLE_USER_PASSWORD",
-					Value: "password",
+					Value: "oauth",
 				},
 				{
 					Name:  "ENABLE_IOC_SERVICE",
@@ -1610,11 +1598,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 				{
 					Name:  "AUTHENTICATION_METHOD",
-					Value: "single-user",
-				},
-				{
-					Name:  "SINGLE_USER_PASSWORD",
-					Value: "password",
+					Value: "oauth",
 				},
 				{
 					Name:  "ENABLE_IOC_SERVICE",
@@ -1660,11 +1644,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 				{
 					Name:  "AUTHENTICATION_METHOD",
-					Value: "single-user",
-				},
-				{
-					Name:  "SINGLE_USER_PASSWORD",
-					Value: "password",
+					Value: "oauth",
 				},
 				{
 					Name:  "ENABLE_IOC_SERVICE",
@@ -1762,11 +1742,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 				{
 					Name:  "AUTHENTICATION_METHOD",
-					Value: "single-user",
-				},
-				{
-					Name:  "SINGLE_USER_PASSWORD",
-					Value: "password",
+					Value: "oauth",
 				},
 				{
 					Name:  "ENABLE_IOC_SERVICE",
