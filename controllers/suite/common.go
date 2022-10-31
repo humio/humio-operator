@@ -192,11 +192,7 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 			},
 			{
 				Name:  "AUTHENTICATION_METHOD",
-				Value: "single-user",
-			},
-			{
-				Name:  "SINGLE_USER_PASSWORD",
-				Value: "password",
+				Value: "oauth",
 			},
 			{
 				Name:  "ENABLE_IOC_SERVICE",
