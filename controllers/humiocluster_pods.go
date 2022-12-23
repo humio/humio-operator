@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"os"
 	"reflect"
 	"sort"
 	"strconv"
@@ -79,7 +80,11 @@ func ConstructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]s
 		if err != nil {
 			return []string{""}, fmt.Errorf("unable to construct node UUID: %w", err)
 		}
-		shellCommands = append(shellCommands, fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s", nodeUUIDPrefix))
+		//Starting with 1.70 this is not needed and should only be set if the URL is set
+		_, zk_url_present := os.LookupEnv("ZOOKEEPER_URL_FOR_NODE_UUID")
+		if zk_url_present {
+			shellCommands = append(shellCommands, fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s", nodeUUIDPrefix))
+		}
 	}
 
 	if !hnp.InitContainerDisabled() {
