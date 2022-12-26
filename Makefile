@@ -208,12 +208,12 @@ fmt-simple:
 
 # Build the operator docker image
 docker-build-operator:
-	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} .
+	docker buildx build --no-cache --pull --platform linux/arm64/v8,linux/amd64 -o type=image -t ${IMG} ${IMG_BUILD_ARGS} .
 
 # Build the helper docker image
 docker-build-helper:
 	cp LICENSE images/helper/
-	docker build --no-cache --pull -t ${IMG} ${IMG_BUILD_ARGS} images/helper
+	docker buildx build --no-cache --pull --platform linux/arm64/v8,linux/amd64 -o type=image -t ${IMG} ${IMG_BUILD_ARGS} images/helper
 
 install-e2e-dependencies:
 	hack/install-e2e-dependencies.sh
