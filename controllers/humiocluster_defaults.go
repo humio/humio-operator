@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -389,9 +388,8 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 		})
 	}
 
-	// Starting with 1.70 this is not needed and should only be set if the URL is set
-	_, zk_url_present := os.LookupEnv("ZOOKEEPER_URL")
-	if EnvVarHasValue(hnp.humioNodeSpec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") && zk_url_present {
+	if EnvVarHasValue(hnp.humioNodeSpec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") &&
+		EnvVarHasKey(hnp.humioNodeSpec.EnvironmentVariables, "ZOOKEEPER_URL") {
 		envDefaults = append(envDefaults, corev1.EnvVar{
 			Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
 			Value: "$(ZOOKEEPER_URL)",
