@@ -16,14 +16,14 @@ metadata:
 spec:
   group: core.humio.com
   names:
-    kind: HumioGroup
-    listKind: HumioGroupList
-    plural: humiogroup
-    singular: HumioGroup
+    kind: humiogroup
+    listKind: humiogrouplist
+    plural: humiogroups
+    singular: humiogroup
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: The state of the ingest token
+    - description: The state of the Humio group.
       jsonPath: .status.state
       name: State
       type: string
@@ -48,7 +48,7 @@ spec:
             description: HumioGroupSpec defines the desired state of HumioGroup
             properties:
               displayName:
-                description: DisplayName refers to an displayName of type HumioGroups. 
+                description: DisplayName is how the group is displayed throughout the Humio web interface.
                 Reconciler will try to find a HumioGroup with given displayName, and if there is no such instance, it will try to create it
                 type: string
               lookupName:
@@ -56,14 +56,7 @@ spec:
                 Reconciler will try to find a HumioGroup with given displayName, and if there is no such instance, it will try to create it
                 type: string
               defaultQueryString:
-                description: DefaultQueryString refers to an defaultQueryString of type HumioGroups. 
-                If, Humio Group with given displayName is found, Reconciler will reconcile it to this defaultQueryString. If reconciler create new HumioGroup, 
-                HumioGroup will be set to have this defaultQueryString value as defaultQueryString
-                type: string
-              reconcileSearchDomainQueryPrefix:
-                description: 
-                  :Optional This query prefix is in effect, when existing HumioGroup is found with displayName or lookupName.
-                  When this flag is set, Reconciler will try to reconcile 
+                description: DefaultQueryString is a string prefix added to all queries run as the role defined by DefaultRole on all search domains.
                 type: string
               defaultRole:
                 description: 
@@ -71,16 +64,27 @@ spec:
                 type: object
                 properties:
                   displayName:
+                    description: 
+                      displayName is how the role is displayed throughout the Humio web interface.
+                Reconciler will try to find a HumioRole with given displayName, and if there is no such instance, it will try to create it
                     type: string
                   viewPermissions:
+                    description: 
+                      viewPermissions are the Permissions set that this group have on existing HumioView objects.
                     type: array
                       items: 
                         type: string
                   systemPermissions:
+                    description: 
+                      systemPermissions are the Permissions set that this group have on existing Humio Instance. It grants power to group members to change settings in 
+                      Humio web interface on systems.
                     type: array
                       items: 
                         type: string
                   organizationPermissions:
+                    description: 
+                      organizationPermissions are the Permissions set that this group have on existing Humio Instance's organization. It grants power to group members to change settings in 
+                      Humio web interface on organizations.
                     type: array
                       items: 
                         type: string
