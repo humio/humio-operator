@@ -130,7 +130,7 @@ rules:
   resources:
   - certificates
   - issuers
-verbs:
+  verbs:
   - create
   - delete
   - get
