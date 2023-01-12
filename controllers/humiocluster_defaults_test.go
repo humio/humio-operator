@@ -194,12 +194,11 @@ func Test_constructContainerArgs(t *testing.T) {
 		fields fields
 	}{
 		{
-			"no cpu resource settings, ephemeral disks and init container, using zk and version 1.56.3",
+			"no cpu resource settings, ephemeral disks and init container, using zk",
 			fields{
 				&humiov1alpha1.HumioCluster{
 					Spec: humiov1alpha1.HumioClusterSpec{
 						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-							Image: "humio/humio-core:1.56.3",
 							EnvironmentVariables: []corev1.EnvVar{
 								{
 									Name:  "USING_EPHEMERAL_DISKS",
@@ -223,12 +222,11 @@ func Test_constructContainerArgs(t *testing.T) {
 			},
 		},
 		{
-			"no cpu resource settings, ephemeral disks and init container, without zk and version 1.70.0",
+			"no cpu resource settings, ephemeral disks and init container, without zk",
 			fields{
 				&humiov1alpha1.HumioCluster{
 					Spec: humiov1alpha1.HumioClusterSpec{
 						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-							Image: "humio/humio-core:1.70.0",
 							EnvironmentVariables: []corev1.EnvVar{
 								{
 									Name:  "USING_EPHEMERAL_DISKS",
@@ -246,35 +244,6 @@ func Test_constructContainerArgs(t *testing.T) {
 				[]string{
 					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 				},
-			},
-		},
-		{
-			"no cpu resource settings, ephemeral disks and init container, using zk and version 1.70.0",
-			fields{
-				&humiov1alpha1.HumioCluster{
-					Spec: humiov1alpha1.HumioClusterSpec{
-						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-							Image: "humio/humio-core:1.70.0",
-							EnvironmentVariables: []corev1.EnvVar{
-								{
-									Name:  "USING_EPHEMERAL_DISKS",
-									Value: "true",
-								},
-								{
-									Name:  "ZOOKEEPER_URL",
-									Value: "dummy",
-								},
-							},
-						},
-					},
-				},
-				[]string{
-					"export CORES=",
-					"export HUMIO_OPTS=",
-					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
-					"export ZONE=",
-				},
-				[]string{},
 			},
 		},
 		{

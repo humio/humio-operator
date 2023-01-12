@@ -1383,7 +1383,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
-			toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
+			toCreate.Spec.EnvironmentVariables = suite.FilterZookeeperURLIfNeeded(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "",
@@ -1408,7 +1408,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			}
+			})
 
 			humioVersion, _ := controllers.HumioVersionFromString(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage())
 			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithLauncherScript); ok {
@@ -1444,7 +1444,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Updating the environment variable successfully")
-			updatedEnvironmentVariables := []corev1.EnvVar{
+			updatedEnvironmentVariables := suite.FilterZookeeperURLIfNeeded(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "update",
@@ -1469,7 +1469,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			}
+			})
 
 			humioVersion, _ = controllers.HumioVersionFromString(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage())
 			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithLauncherScript); ok {
@@ -1545,7 +1545,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
 			toCreate.Spec.NodeCount = helpers.IntPtr(1)
 			toCreate.Spec.NodePools[0].NodeCount = helpers.IntPtr(1)
-			toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
+			toCreate.Spec.EnvironmentVariables = suite.FilterZookeeperURLIfNeeded(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "",
@@ -1574,8 +1574,8 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			}
-			toCreate.Spec.NodePools[0].EnvironmentVariables = []corev1.EnvVar{
+			})
+			toCreate.Spec.NodePools[0].EnvironmentVariables = suite.FilterZookeeperURLIfNeeded(controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0]).GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "",
@@ -1604,7 +1604,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			}
+			})
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
@@ -1621,7 +1621,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Updating the environment variable on main node pool successfully")
-			updatedEnvironmentVariables := []corev1.EnvVar{
+			updatedEnvironmentVariables := suite.FilterZookeeperURLIfNeeded(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "update",
@@ -1650,7 +1650,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			}
+			})
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -1719,7 +1719,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, additionalNodePoolManager.GetPodLabels())
 
 			suite.UsingClusterBy(key.Name, "Updating the environment variable on additional node pool successfully")
-			updatedEnvironmentVariables = []corev1.EnvVar{
+			updatedEnvironmentVariables = suite.FilterZookeeperURLIfNeeded(controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0]).GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "update",
@@ -1748,7 +1748,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			}
+			})
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)

@@ -177,7 +177,7 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 		Image:             controllers.Image,
 		ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 		NodeCount:         helpers.IntPtr(1),
-		EnvironmentVariables: []corev1.EnvVar{
+		EnvironmentVariables: FilterZookeeperURLIfNeeded(controllers.Image, []corev1.EnvVar{
 			{
 				Name:  "ZOOKEEPER_URL",
 				Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
@@ -202,7 +202,7 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 				Name:  "HUMIO_MEMORY_OPTS",
 				Value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g",
 			},
-		},
+		}),
 		DataVolumePersistentVolumeClaimSpecTemplate: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{
 				corev1.ReadWriteOnce,
@@ -221,7 +221,22 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 			{Name: DockerRegistryCredentialsSecretName},
 		}
 	}
+
 	return nodeSpec
+}
+
+func FilterZookeeperURLIfNeeded(image string, envVars []corev1.EnvVar) []corev1.EnvVar {
+	var filteredEnvVars []corev1.EnvVar
+	for _, envVar := range envVars {
+		humioVersion, _ := controllers.HumioVersionFromString(image)
+
+		if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithNewVhostSelection); ok &&
+			strings.HasPrefix(envVar.Name, "ZOOKEEPER_") {
+			continue
+		}
+		filteredEnvVars = append(filteredEnvVars, envVar)
+	}
+	return filteredEnvVars
 }
 
 func ConstructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreatedLicense bool) *humiov1alpha1.HumioCluster {
