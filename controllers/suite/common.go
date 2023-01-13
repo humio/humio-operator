@@ -177,7 +177,7 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 		Image:             controllers.Image,
 		ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 		NodeCount:         helpers.IntPtr(1),
-		EnvironmentVariables: FilterZookeeperURLIfNeeded(controllers.Image, []corev1.EnvVar{
+		EnvironmentVariables: FilterZookeeperURLIfVersionIsRecentEnough(controllers.Image, []corev1.EnvVar{
 			{
 				Name:  "ZOOKEEPER_URL",
 				Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
@@ -225,7 +225,7 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 	return nodeSpec
 }
 
-func FilterZookeeperURLIfNeeded(image string, envVars []corev1.EnvVar) []corev1.EnvVar {
+func FilterZookeeperURLIfVersionIsRecentEnough(image string, envVars []corev1.EnvVar) []corev1.EnvVar {
 	var filteredEnvVars []corev1.EnvVar
 	for _, envVar := range envVars {
 		humioVersion, _ := controllers.HumioVersionFromString(image)
