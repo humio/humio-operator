@@ -2267,7 +2267,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	Context("Humio Cluster Container Arguments", func() {
 		It("Should correctly configure container arguments and ephemeral disks env var with deprecated zk node uuid", func() {
 			key := types.NamespacedName{
-				Name:      "humiocluster-container-args-deprecated-zk-uuid",
+				Name:      "humiocluster-container-args-zk-uuid",
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
