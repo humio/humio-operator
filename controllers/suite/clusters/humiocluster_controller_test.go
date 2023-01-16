@@ -2378,10 +2378,17 @@ var _ = Describe("HumioCluster Controller", func() {
 			clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
 			Expect(err).ToNot(HaveOccurred())
 			humioIdx, _ := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
-			Expect(clusterPods[0].Spec.Containers[humioIdx].Env).To(ContainElement(corev1.EnvVar{
-				Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
-				Value: "$(ZOOKEEPER_URL)",
-			}))
+			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithNewVhostSelection); !ok {
+				Expect(clusterPods[0].Spec.Containers[humioIdx].Env).To(ContainElement(corev1.EnvVar{
+					Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
+					Value: "$(ZOOKEEPER_URL)",
+				}))
+			} else {
+				Expect(clusterPods[0].Spec.Containers[humioIdx].Env).ToNot(ContainElement(corev1.EnvVar{
+					Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
+					Value: "$(ZOOKEEPER_URL)",
+				}))
+			}
 		})
 	})
 
