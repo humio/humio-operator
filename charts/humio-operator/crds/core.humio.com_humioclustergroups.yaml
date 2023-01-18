@@ -1,0 +1,100 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.6.2
+  creationTimestamp: null
+  name: humioclustergroups.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.16.0'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioClusterGroup
+    listKind: HumioClusterGroupList
+    plural: humioclustergroups
+    singular: humioclustergroup
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The state of the cluster groups
+      jsonPath: .status.state
+      name: State
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioClusterGroup is the Schema for the humioclustergroupss API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioClusterGroupSepc defines the spec for the HumioClusterGroup
+            properties:
+              maxConcurrentRestarts:
+                type: integer
+              maxConcurrentUpgrades:
+                type: integer
+            type: object
+          status:
+            items:
+              description: HumioClusterGroupStatusHumioClusterStatusAggregate provides
+                an aggregate status of HumioCluster's who are members of this HumioClusterGroup
+                when they are in a state that is managed by a HumioClusterGroup
+              properties:
+                clusterList:
+                  items:
+                    description: HumioClusterGroupStatusHumioClusterStatus tracks
+                      each HumioCluster's status who are members of this HumioClusterGroup
+                      when they are in a state that is managed by a HumioClusterGroup
+                    properties:
+                      clusterName:
+                        type: string
+                      lastUpdateTime:
+                        format: date-time
+                        type: string
+                      state:
+                        type: string
+                    required:
+                    - clusterName
+                    - lastUpdateTime
+                    - state
+                    type: object
+                  type: array
+                inProgress:
+                  type: integer
+                type:
+                  type: string
+              required:
+              - clusterList
+              - inProgress
+              - type
+              type: object
+            type: array
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

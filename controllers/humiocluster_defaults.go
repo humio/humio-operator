@@ -915,3 +915,11 @@ func humioPathOrDefault(hc *humiov1alpha1.HumioCluster) string {
 func licenseSecretKeyRefOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.SecretKeySelector {
 	return hc.Spec.License.SecretKeyRef
 }
+
+func humioClusterGroupOrDefault(hc *humiov1alpha1.HumioCluster) humiov1alpha1.HumioClusterGroupConfiguration {
+	emptyHumioClusterGroupConfiguration := humiov1alpha1.HumioClusterGroupConfiguration{}
+	if reflect.DeepEqual(hc.Spec.ClusterGroup, emptyHumioClusterGroupConfiguration) {
+		return humiov1alpha1.HumioClusterGroupConfiguration{}
+	}
+	return hc.Spec.ClusterGroup
+}

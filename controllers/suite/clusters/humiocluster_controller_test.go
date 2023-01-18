@@ -755,6 +755,298 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster Update Image Multiple HumioCluster with HumioClusterGroup", func() {
+		It("Update should correctly replace pods to use new image in multiple humio clusters with humio cluster group", func() {
+			originalImage := oldSupportedHumioVersion
+			clusterGroupName := "my-cluster-group"
+			key := types.NamespacedName{
+				Name:      "humiocluster-update-image-mh1",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = originalImage
+			toCreate.Spec.NodeCount = helpers.IntPtr(1)
+			toCreate.Spec.ClusterGroup = humiov1alpha1.HumioClusterGroupConfiguration{Enabled: true, Name: clusterGroupName}
+
+			keySecondCluster := types.NamespacedName{
+				Name:      "humiocluster-update-image-mh2",
+				Namespace: testProcessNamespace,
+			}
+			toCreateSecondCluster := suite.ConstructBasicSingleNodeHumioCluster(keySecondCluster, true)
+			toCreateSecondCluster.Spec.Image = originalImage
+			toCreateSecondCluster.Spec.NodeCount = helpers.IntPtr(1)
+			toCreateSecondCluster.Spec.ClusterGroup = humiov1alpha1.HumioClusterGroupConfiguration{Enabled: true, Name: clusterGroupName}
+
+			ctx := context.Background()
+
+			suite.UsingClusterBy(key.Name, "Creating the first cluster successfully")
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(keySecondCluster.Name, "Creating the second cluster successfully")
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreateSecondCluster, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreateSecondCluster)
+
+			suite.UsingClusterBy(key.Name, "Validating the first cluster has correct pod revisions")
+			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetHumioClusterNodePoolRevisionAnnotation()
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster := humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
+
+			suite.UsingClusterBy(keySecondCluster.Name, "Validating the second cluster has correct pod revisions")
+			revisionKeySecondCluster, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreateSecondCluster).GetHumioClusterNodePoolRevisionAnnotation()
+			clusterPodsSecondCluster, _ := kubernetes.ListPods(ctx, k8sClient, keySecondCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreateSecondCluster).GetPodLabels())
+			for _, pod := range clusterPodsSecondCluster {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreateSecondCluster.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioClusterSecondCluster := humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, keySecondCluster, &updatedHumioClusterSecondCluster)).Should(Succeed())
+			Expect(updatedHumioClusterSecondCluster.Annotations).To(HaveKeyWithValue(revisionKeySecondCluster, "1"))
+
+			humioClusterGroupKey := types.NamespacedName{
+				Name:      clusterGroupName,
+				Namespace: key.Namespace,
+			}
+			humioClusterGroup := humiov1alpha1.HumioClusterGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      humioClusterGroupKey.Name,
+					Namespace: humioClusterGroupKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioClusterGroupSpec{
+					MaxConcurrentUpgrades: 1,
+				},
+			}
+			Expect(k8sClient.Create(ctx, &humioClusterGroup)).To(Succeed())
+			Eventually(func() error {
+				humioClusterGroup := humiov1alpha1.HumioClusterGroup{}
+				return k8sClient.Get(ctx, humioClusterGroupKey, &humioClusterGroup)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Updating the first cluster cluster image successfully")
+			updatedImage := controllers.Image
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
+
+			suite.UsingClusterBy(keySecondCluster.Name, "Updating the second cluster cluster image successfully")
+			updatedImage = controllers.Image
+			Eventually(func() error {
+				updatedHumioClusterSecondCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, keySecondCluster, &updatedHumioClusterSecondCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioClusterSecondCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioClusterSecondCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioClusterSecondCluster), 2, 1)
+
+			suite.UsingClusterBy(key.Name, "Confirming only one humio cluster is upgrading at a time")
+			Eventually(func() int {
+				var clustersOnNewVersion int
+				var clustersInUpgradingState int
+
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				if updatedHumioCluster.Status.State == humiov1alpha1.HumioClusterStateUpgrading {
+					clustersInUpgradingState++
+				}
+				updatedHumioClusterSecondCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, keySecondCluster, &updatedHumioClusterSecondCluster)).Should(Succeed())
+				if updatedHumioClusterSecondCluster.Status.State == humiov1alpha1.HumioClusterStateUpgrading {
+					clustersInUpgradingState++
+				}
+
+				updateHumioClusterPodReadyCount := podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
+				clustersOnNewVersion += updateHumioClusterPodReadyCount[2]
+
+				updateHumioClusterSecondClusterPodReadyCount := podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioClusterSecondCluster), 2, 1)
+				clustersOnNewVersion += updateHumioClusterSecondClusterPodReadyCount[2]
+
+				Expect(clustersInUpgradingState).Should(BeNumerically("<=", 1))
+				return clustersOnNewVersion
+			}, testTimeout, suite.TestInterval).Should(Equal(2))
+		})
+	})
+
+	Context("Humio Cluster Update Environment Variables Multiple HumioCluster with HumioClusterGroup", func() {
+		It("Update should correctly replace pods to use new environment variables in multiple humio clusters with humio cluster group", func() {
+			clusterGroupName := "my-cluster-group"
+			key := types.NamespacedName{
+				Name:      "humiocluster-update-image-mh1",
+				Namespace: testProcessNamespace,
+			}
+			environmentVariablesBase := []corev1.EnvVar{
+				{
+					Name:  "ZOOKEEPER_URL",
+					Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
+				},
+				{
+					Name:  "KAFKA_SERVERS",
+					Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+				},
+				{
+					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
+					Value: key.Name,
+				},
+				{
+					Name:  "AUTHENTICATION_METHOD",
+					Value: "oauth",
+				},
+				{
+					Name:  "ENABLE_IOC_SERVICE",
+					Value: "false",
+				},
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.NodeCount = helpers.IntPtr(1)
+			toCreate.Spec.ClusterGroup = humiov1alpha1.HumioClusterGroupConfiguration{Enabled: true, Name: clusterGroupName}
+			toCreate.Spec.EnvironmentVariables = append(environmentVariablesBase, corev1.EnvVar{
+				Name:  "test",
+				Value: "",
+			})
+			keySecondCluster := types.NamespacedName{
+				Name:      "humiocluster-update-image-mh2",
+				Namespace: testProcessNamespace,
+			}
+			toCreateSecondCluster := suite.ConstructBasicSingleNodeHumioCluster(keySecondCluster, true)
+			toCreateSecondCluster.Spec.NodeCount = helpers.IntPtr(1)
+			toCreateSecondCluster.Spec.ClusterGroup = humiov1alpha1.HumioClusterGroupConfiguration{Enabled: true, Name: clusterGroupName}
+			toCreate.Spec.EnvironmentVariables = append(environmentVariablesBase, corev1.EnvVar{
+				Name:  "test",
+				Value: "",
+			})
+
+			ctx := context.Background()
+
+			suite.UsingClusterBy(key.Name, "Creating the first cluster successfully")
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(keySecondCluster.Name, "Creating the second cluster successfully")
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreateSecondCluster, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreateSecondCluster)
+
+			suite.UsingClusterBy(key.Name, "Validating the first cluster has correct pod revisions")
+			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetHumioClusterNodePoolRevisionAnnotation()
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster := humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
+
+			suite.UsingClusterBy(keySecondCluster.Name, "Validating the second cluster has correct pod revisions")
+			revisionKeySecondCluster, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreateSecondCluster).GetHumioClusterNodePoolRevisionAnnotation()
+			clusterPodsSecondCluster, _ := kubernetes.ListPods(ctx, k8sClient, keySecondCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreateSecondCluster).GetPodLabels())
+			for _, pod := range clusterPodsSecondCluster {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreateSecondCluster.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioClusterSecondCluster := humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, keySecondCluster, &updatedHumioClusterSecondCluster)).Should(Succeed())
+			Expect(updatedHumioClusterSecondCluster.Annotations).To(HaveKeyWithValue(revisionKeySecondCluster, "1"))
+
+			humioClusterGroupKey := types.NamespacedName{
+				Name:      clusterGroupName,
+				Namespace: key.Namespace,
+			}
+			humioClusterGroup := humiov1alpha1.HumioClusterGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      humioClusterGroupKey.Name,
+					Namespace: humioClusterGroupKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioClusterGroupSpec{
+					MaxConcurrentRestarts: 1,
+				},
+			}
+			Expect(k8sClient.Create(ctx, &humioClusterGroup)).To(Succeed())
+			Eventually(func() error {
+				humioClusterGroup := humiov1alpha1.HumioClusterGroup{}
+				return k8sClient.Get(ctx, humioClusterGroupKey, &humioClusterGroup)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			updatedEnvironmentVariables := append(environmentVariablesBase, corev1.EnvVar{
+				Name:  "test",
+				Value: "updated",
+			})
+
+			suite.UsingClusterBy(key.Name, "Updating the first cluster environment variables  successfully")
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.EnvironmentVariables = updatedEnvironmentVariables
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
+
+			suite.UsingClusterBy(keySecondCluster.Name, "Updating the second cluster environment variables successfully")
+			Eventually(func() error {
+				updatedHumioClusterSecondCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, keySecondCluster, &updatedHumioClusterSecondCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioClusterSecondCluster.Spec.EnvironmentVariables = updatedEnvironmentVariables
+				return k8sClient.Update(ctx, &updatedHumioClusterSecondCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioClusterSecondCluster), 2, 1)
+
+			suite.UsingClusterBy(key.Name, "Confirming only one humio cluster is restarting at a time")
+			Eventually(func() int {
+				var clustersOnNewVersion int
+				var clustersInRestartingState int
+
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				if updatedHumioCluster.Status.State == humiov1alpha1.HumioClusterStateRestarting {
+					clustersInRestartingState++
+				}
+
+				updatedHumioClusterSecondCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, keySecondCluster, &updatedHumioClusterSecondCluster)).Should(Succeed())
+				if updatedHumioClusterSecondCluster.Status.State == humiov1alpha1.HumioClusterStateRestarting {
+					clustersInRestartingState++
+				}
+
+				updateHumioClusterPodReadyCount := podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
+				clustersOnNewVersion += updateHumioClusterPodReadyCount[2]
+
+				updateHumioClusterSecondClusterPodReadyCount := podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioClusterSecondCluster), 2, 1)
+				clustersOnNewVersion += updateHumioClusterSecondClusterPodReadyCount[2]
+
+				Expect(clustersInRestartingState).Should(BeNumerically("<=", 1))
+				return clustersOnNewVersion
+			}, testTimeout, suite.TestInterval).Should(Equal(2))
+		})
+	})
+
 	Context("Humio Cluster Update Image Multi Node Pool", func() {
 		It("Update should correctly replace pods to use new image in multiple node pools", func() {
 			key := types.NamespacedName{

@@ -893,6 +893,20 @@ spec:
                   zone, you must set DisableInitContainer to true to use auto rebalancing
                   of partitions.
                 type: boolean
+              clusterGroup:
+                description: ClusterGroup is the HumioClusterGroupConfiguration which
+                  defines which HumioClusterGroup the HumioCluster should be associated
+                  with. By default, if there is no ClusterGroupConfiguration defined,
+                  a HumioClusterGroup will not be used
+                properties:
+                  enabled:
+                    type: boolean
+                  name:
+                    type: string
+                required:
+                - enabled
+                - name
+                type: object
               containerLivenessProbe:
                 description: ContainerLivenessProbe is the liveness probe applied
                   to the Humio container If specified and non-empty, the user-specified
@@ -13530,6 +13544,8 @@ spec:
                 description: ViewGroupPermissions is a multi-line string containing
                   view-group-permissions.json
                 type: string
+            required:
+            - clusterGroup
             type: object
           status:
             description: HumioClusterStatus defines the observed state of HumioCluster

@@ -4,6 +4,7 @@
 resources:
 - bases/core.humio.com_humioexternalclusters.yaml
 - bases/core.humio.com_humioclusters.yaml
+- bases/core.humio.com_humioclustergroups.yaml
 - bases/core.humio.com_humioingesttokens.yaml
 - bases/core.humio.com_humioparsers.yaml
 - bases/core.humio.com_humiorepositories.yaml
