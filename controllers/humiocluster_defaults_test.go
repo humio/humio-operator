@@ -194,7 +194,35 @@ func Test_constructContainerArgs(t *testing.T) {
 		fields fields
 	}{
 		{
-			"no cpu resource settings, ephemeral disks and init container",
+			"no cpu resource settings, ephemeral disks and init container, using zk",
+			fields{
+				&humiov1alpha1.HumioCluster{
+					Spec: humiov1alpha1.HumioClusterSpec{
+						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+							EnvironmentVariables: []corev1.EnvVar{
+								{
+									Name:  "USING_EPHEMERAL_DISKS",
+									Value: "true",
+								},
+								{
+									Name:  "ZOOKEEPER_URL",
+									Value: "dummy",
+								},
+							},
+						},
+					},
+				},
+				[]string{
+					"export CORES=",
+					"export HUMIO_OPTS=",
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
+					"export ZONE=",
+				},
+				[]string{},
+			},
+		},
+		{
+			"no cpu resource settings, ephemeral disks and init container, without zk",
 			fields{
 				&humiov1alpha1.HumioCluster{
 					Spec: humiov1alpha1.HumioClusterSpec{
@@ -211,10 +239,11 @@ func Test_constructContainerArgs(t *testing.T) {
 				[]string{
 					"export CORES=",
 					"export HUMIO_OPTS=",
-					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 					"export ZONE=",
 				},
-				[]string{},
+				[]string{
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
+				},
 			},
 		},
 		{
@@ -227,6 +256,10 @@ func Test_constructContainerArgs(t *testing.T) {
 								{
 									Name:  "USING_EPHEMERAL_DISKS",
 									Value: "true",
+								},
+								{
+									Name:  "ZOOKEEPER_URL",
+									Value: "dummy",
 								},
 							},
 							Resources: corev1.ResourceRequirements{
@@ -258,6 +291,10 @@ func Test_constructContainerArgs(t *testing.T) {
 									Name:  "USING_EPHEMERAL_DISKS",
 									Value: "true",
 								},
+								{
+									Name:  "ZOOKEEPER_URL",
+									Value: "dummy",
+								},
 							},
 							DisableInitContainer: true,
 						},
@@ -283,6 +320,10 @@ func Test_constructContainerArgs(t *testing.T) {
 								{
 									Name:  "USING_EPHEMERAL_DISKS",
 									Value: "true",
+								},
+								{
+									Name:  "ZOOKEEPER_URL",
+									Value: "dummy",
 								},
 							},
 							DisableInitContainer: true,
@@ -400,6 +441,10 @@ func Test_constructContainerArgs(t *testing.T) {
 									Value: "true",
 								},
 								{
+									Name:  "ZOOKEEPER_URL",
+									Value: "dummy",
+								},
+								{
 									Name:  "CORES",
 									Value: "1",
 								},
@@ -427,6 +472,10 @@ func Test_constructContainerArgs(t *testing.T) {
 								{
 									Name:  "USING_EPHEMERAL_DISKS",
 									Value: "true",
+								},
+								{
+									Name:  "ZOOKEEPER_URL",
+									Value: "dummy",
 								},
 								{
 									Name:  "CORES",
