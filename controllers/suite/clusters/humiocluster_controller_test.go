@@ -1383,7 +1383,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
-			toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
+			toCreate.Spec.EnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "",
@@ -1408,7 +1408,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			}
+			})
 
 			humioVersion, _ := controllers.HumioVersionFromString(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage())
 			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithLauncherScript); ok {
@@ -1444,7 +1444,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Updating the environment variable successfully")
-			updatedEnvironmentVariables := []corev1.EnvVar{
+			updatedEnvironmentVariables := suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "update",
@@ -1469,7 +1469,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			}
+			})
 
 			humioVersion, _ = controllers.HumioVersionFromString(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage())
 			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithLauncherScript); ok {
@@ -1545,7 +1545,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
 			toCreate.Spec.NodeCount = helpers.IntPtr(1)
 			toCreate.Spec.NodePools[0].NodeCount = helpers.IntPtr(1)
-			toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
+			toCreate.Spec.EnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "",
@@ -1574,8 +1574,8 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			}
-			toCreate.Spec.NodePools[0].EnvironmentVariables = []corev1.EnvVar{
+			})
+			toCreate.Spec.NodePools[0].EnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0]).GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "",
@@ -1604,7 +1604,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			}
+			})
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
@@ -1621,7 +1621,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Updating the environment variable on main node pool successfully")
-			updatedEnvironmentVariables := []corev1.EnvVar{
+			updatedEnvironmentVariables := suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "update",
@@ -1650,7 +1650,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			}
+			})
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -1719,7 +1719,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, additionalNodePoolManager.GetPodLabels())
 
 			suite.UsingClusterBy(key.Name, "Updating the environment variable on additional node pool successfully")
-			updatedEnvironmentVariables = []corev1.EnvVar{
+			updatedEnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0]).GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "update",
@@ -1748,7 +1748,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			}
+			})
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -2265,19 +2265,25 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	Context("Humio Cluster Container Arguments", func() {
-		It("Should correctly configure container arguments and ephemeral disks env var", func() {
+		It("Should correctly configure container arguments and ephemeral disks env var with deprecated zk node uuid", func() {
 			key := types.NamespacedName{
-				Name:      "humiocluster-container-args",
+				Name:      "humiocluster-container-args-zk-uuid",
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			// ZOOKEEPER_URL gets filtered out by default in the call to ConstructBasicSingleNodeHumioCluster, so we add it back here
+			toCreate.Spec.EnvironmentVariables = append([]corev1.EnvVar{{
+				Name:  "ZOOKEEPER_URL",
+				Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
+			}}, toCreate.Spec.EnvironmentVariables...)
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully without ephemeral disks")
 			ctx := context.Background()
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].Args).To(Equal([]string{"-c", "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"}))
@@ -2300,8 +2306,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
+			hnp = controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)
 			Eventually(func() []string {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
 				if len(clusterPods) > 0 {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
 					return clusterPods[0].Spec.Containers[humioIdx].Args
@@ -2309,13 +2316,79 @@ var _ = Describe("HumioCluster Controller", func() {
 				return []string{}
 			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo([]string{"-c", "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat /shared/availability-zone)_ && exec bash /app/humio/run.sh"}))
 
-			clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
 			Expect(err).ToNot(HaveOccurred())
 			humioIdx, _ := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
 			Expect(clusterPods[0].Spec.Containers[humioIdx].Env).To(ContainElement(corev1.EnvVar{
 				Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
 				Value: "$(ZOOKEEPER_URL)",
 			}))
+		})
+		It("Should correctly configure container arguments and ephemeral disks env var with default vhost selection method", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-container-args",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully without ephemeral disks")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIdx].Args).To(Equal([]string{"-c", "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"}))
+				Expect(pod.Spec.Containers[humioIdx].Env).ToNot(ContainElement(corev1.EnvVar{
+					Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
+					Value: "$(ZOOKEEPER_URL)",
+				}))
+			}
+
+			suite.UsingClusterBy(key.Name, "Updating node uuid prefix which includes ephemeral disks and zone")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{Name: "USING_EPHEMERAL_DISKS", Value: "true"})
+				updatedHumioCluster.Spec.NodeUUIDPrefix = "humio_{{.Zone}}_"
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			hnp = controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)
+			expectedContainerArgString := "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"
+			humioVersion, _ := controllers.HumioVersionFromString(hnp.GetImage())
+			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithNewVhostSelection); !ok {
+				expectedContainerArgString = "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat /shared/availability-zone)_ && exec bash /app/humio/run.sh"
+			}
+			Eventually(func() []string {
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
+				if len(clusterPods) > 0 {
+					humioIdx, _ := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
+					return clusterPods[0].Spec.Containers[humioIdx].Args
+				}
+				return []string{}
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo([]string{"-c", expectedContainerArgString}))
+
+			clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
+			Expect(err).ToNot(HaveOccurred())
+			humioIdx, _ := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
+			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithNewVhostSelection); !ok {
+				Expect(clusterPods[0].Spec.Containers[humioIdx].Env).To(ContainElement(corev1.EnvVar{
+					Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
+					Value: "$(ZOOKEEPER_URL)",
+				}))
+			} else {
+				Expect(clusterPods[0].Spec.Containers[humioIdx].Env).ToNot(ContainElement(corev1.EnvVar{
+					Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
+					Value: "$(ZOOKEEPER_URL)",
+				}))
+			}
 		})
 	})
 
@@ -2331,8 +2404,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
-
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].Args).To(Equal([]string{"-c", "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"}))
@@ -2350,7 +2423,13 @@ var _ = Describe("HumioCluster Controller", func() {
 				updatedHumioCluster.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{Name: "USING_EPHEMERAL_DISKS", Value: "true"})
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
+			hnp = controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)
 
+			expectedContainerArgString := "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"
+			humioVersion, _ := controllers.HumioVersionFromString(hnp.GetImage())
+			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithNewVhostSelection); !ok {
+				expectedContainerArgString = "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_ && exec bash /app/humio/run.sh"
+			}
 			Eventually(func() []string {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 				if len(clusterPods) > 0 {
@@ -2358,7 +2437,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					return clusterPods[0].Spec.Containers[humioIdx].Args
 				}
 				return []string{}
-			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo([]string{"-c", "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_ && exec bash /app/humio/run.sh"}))
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo([]string{"-c", expectedContainerArgString}))
 		})
 	})
 
