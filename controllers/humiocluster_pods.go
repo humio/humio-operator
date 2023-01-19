@@ -79,7 +79,9 @@ func ConstructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]s
 		if err != nil {
 			return []string{""}, fmt.Errorf("unable to construct node UUID: %w", err)
 		}
-		shellCommands = append(shellCommands, fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s", nodeUUIDPrefix))
+		if EnvVarHasKey(podEnvVars, "ZOOKEEPER_URL") {
+			shellCommands = append(shellCommands, fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s", nodeUUIDPrefix))
+		}
 	}
 
 	if !hnp.InitContainerDisabled() {
