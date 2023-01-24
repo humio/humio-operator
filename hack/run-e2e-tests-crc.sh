@@ -31,16 +31,5 @@ $kubectl label node --overwrite --all topology.kubernetes.io/zone=az1
 # https://github.com/telepresenceio/telepresence/issues/1309
 oc adm policy add-scc-to-user anyuid -z default # default in this command refers to the service account name that is used
 
-iterations=0
-while ! curl -k https://kubernetes.default
-do
-  let "iterations+=1"
-  echo curl failed $iterations times
-  if [ $iterations -ge 30 ]; then
-    exit 1
-  fi
-  sleep 2
-done
-
 # We skip the helpers package as those tests assumes the environment variable USE_CERT_MANAGER is not set.
 OPENSHIFT_SCC_NAME=default-humio-operator KUBECONFIG=$tmp_kubeconfig USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo --output-interceptor-mode=none -timeout 90m --skip-package helpers -v ./... -covermode=count -coverprofile cover.out -progress

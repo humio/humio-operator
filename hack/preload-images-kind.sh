@@ -2,6 +2,9 @@
 
 set -x
 
+declare -r bin_dir=${BIN_DIR:-/usr/local/bin}
+export PATH="${bin_dir}:$PATH"
+
 start=$(date +%s)
 
 # Extract humio images and tags from go source
@@ -19,7 +22,19 @@ do
   kind load docker-image --name kind $image
 done
 
+# Install ginkgo
+mkdir /tmp/ginkgo
+pushd /tmp/ginkgo
+go mod init tmp
+go get github.com/onsi/ginkgo/v2/ginkgo
+go install github.com/onsi/ginkgo/v2/ginkgo
+popd
+
 # Preload image we will run e2e tests from within
+CGO_ENABLED=0 ~/go/bin/ginkgo build --skip-package helpers ./controllers/suite/... -covermode=count -coverprofile cover.out -progress
+rm -r testbindir
+mkdir testbindir
+find . -name "*.test" | xargs -I{} mv {} testbindir
 docker build --no-cache --pull -t testcontainer -f test.Dockerfile .
 kind load docker-image testcontainer
 

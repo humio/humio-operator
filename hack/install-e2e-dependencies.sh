@@ -2,10 +2,16 @@
 
 set -ex
 
+declare -r go_version=1.18.7
+declare -r ginkgo_version=2.7.0
 declare -r helm_version=3.8.0
 declare -r kubectl_version=1.23.3
-declare -r operator_sdk_version=1.17.0
 declare -r bin_dir=${BIN_DIR:-/usr/local/bin}
+
+install_go() {
+  curl -s https://dl.google.com/go/go${go_version}.linux-amd64.tar.gz | tar -xz -C /tmp
+  ln -s /tmp/go/bin/go ${bin_dir}/go
+}
 
 install_helm() {
   curl -L https://get.helm.sh/helm-v${helm_version}-linux-amd64.tar.gz -o /tmp/helm.tar.gz \
@@ -18,18 +24,11 @@ install_kubectl() {
     && chmod +x ${bin_dir}/kubectl
 }
 
-install_operator_sdk() {
-  curl -OJL https://github.com/operator-framework/operator-sdk/releases/download/v${operator_sdk_version}/operator-sdk-v${operator_sdk_version}-x86_64-linux-gnu \
-    && chmod +x operator-sdk-v${operator_sdk_version}-x86_64-linux-gnu \
-    && cp operator-sdk-v${operator_sdk_version}-x86_64-linux-gnu ${bin_dir}/operator-sdk \
-    && rm operator-sdk-v${operator_sdk_version}-x86_64-linux-gnu
-}
-
 start=$(date +%s)
 
+install_go
 install_helm
 install_kubectl
-install_operator_sdk
 
 end=$(date +%s)
 echo "Installed E2E dependencies took $((end-start)) seconds"
