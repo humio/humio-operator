@@ -94,7 +94,7 @@ while [[ $(kubectl get pods -n default humio-cp-zookeeper-0 -o 'jsonpath={..stat
 do
   echo "Waiting for humio-cp-zookeeper-0 pod to become Ready"
   kubectl get pods -A
-  kubectl describe pod humio-cp-zookeeper-0
+  kubectl describe pod -n default humio-cp-zookeeper-0
   sleep 10
 done
 
@@ -102,7 +102,7 @@ while [[ $(kubectl get pods -n default humio-cp-kafka-0 -o 'jsonpath={..status.c
 do
   echo "Waiting for humio-cp-kafka-0 pod to become Ready"
   kubectl get pods -A
-  kubectl describe pod humio-cp-kafka-0
+  kubectl describe pod -n default humio-cp-kafka-0
   sleep 10
 done
 
