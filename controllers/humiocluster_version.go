@@ -21,7 +21,8 @@ type HumioVersion struct {
 
 func HumioVersionFromString(image string) (*HumioVersion, error) {
 	var humioVersion HumioVersion
-	nodeImage := strings.SplitN(image, ":", 2)
+	nodeImage := strings.SplitN(image, "@", 2)
+	nodeImage = strings.SplitN(nodeImage[0], ":", 2)
 
 	// if there is no docker tag, then we can assume latest
 	if len(nodeImage) == 1 {
@@ -72,4 +73,8 @@ func (hv *HumioVersion) IsStable() bool {
 func (hv *HumioVersion) constraint(constraintStr string) (bool, error) {
 	constraint, err := semver.NewConstraint(constraintStr)
 	return constraint.Check(hv.version), err
+}
+
+func (hv *HumioVersion) String() string {
+	return hv.SemVer().String()
 }
