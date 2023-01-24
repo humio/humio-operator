@@ -90,7 +90,7 @@ fi
 
 $helm_install_command
 
-while [[ $(kubectl get pods humio-cp-zookeeper-0 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
+while [[ $(kubectl get pods -n default humio-cp-zookeeper-0 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
 do
   echo "Waiting for humio-cp-zookeeper-0 pod to become Ready"
   kubectl get pods -A
@@ -98,7 +98,7 @@ do
   sleep 10
 done
 
-while [[ $(kubectl get pods humio-cp-kafka-0 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
+while [[ $(kubectl get pods -n default humio-cp-kafka-0 -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]
 do
   echo "Waiting for humio-cp-kafka-0 pod to become Ready"
   kubectl get pods -A
