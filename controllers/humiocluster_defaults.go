@@ -359,7 +359,6 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 		{Name: "DEFAULT_PARTITION_COUNT", Value: strconv.Itoa(hnp.GetStoragePartitionsCount())},
 		{Name: "INGEST_QUEUE_INITIAL_PARTITIONS", Value: strconv.Itoa(hnp.GetDigestPartitionsCount())},
 		{Name: "KAFKA_MANAGED_BY_HUMIO", Value: "true"},
-		{Name: "AUTHENTICATION_METHOD", Value: "single-user"},
 		{Name: "HUMIO_LOG4J_CONFIGURATION", Value: "log4j2-json-stdout.xml"},
 		{
 			Name:  "EXTERNAL_URL", // URL used by other Humio hosts.
@@ -368,6 +367,13 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	}
 
 	humioVersion, _ := HumioVersionFromString(hnp.GetImage())
+	if ok, _ := humioVersion.AtLeast(HumioVersionWithDefaultSingleUserAuth); !ok {
+		envDefaults = append(envDefaults, corev1.EnvVar{
+			Name:  "AUTHENTICATION_METHOD",
+			Value: "single-user",
+		})
+	}
+
 	if ok, _ := humioVersion.AtLeast(HumioVersionWithLauncherScript); ok {
 		envDefaults = append(envDefaults, corev1.EnvVar{
 			Name:  "HUMIO_GC_OPTS",
