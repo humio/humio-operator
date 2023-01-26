@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	HumioVersionMinimumSupported      = "1.30.0"
-	HumioVersionWithLauncherScript    = "1.32.0"
-	HumioVersionWithNewTmpDir         = "1.33.0"
-	HumioVersionWithNewVhostSelection = "1.70.0"
+	HumioVersionMinimumSupported          = "1.30.0"
+	HumioVersionWithLauncherScript        = "1.32.0"
+	HumioVersionWithNewTmpDir             = "1.33.0"
+	HumioVersionWithDefaultSingleUserAuth = "1.68.0"
+	HumioVersionWithNewVhostSelection     = "1.70.0"
 )
 
 type HumioVersion struct {
