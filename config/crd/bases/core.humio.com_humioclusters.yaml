@@ -31,7 +31,7 @@ spec:
       jsonPath: .status.nodeCount
       name: Nodes
       type: string
-    - description: The version of humior
+    - description: The version of humio
       jsonPath: .status.version
       name: Version
       type: string
