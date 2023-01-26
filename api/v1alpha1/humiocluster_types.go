@@ -373,7 +373,7 @@ type HumioClusterStatus struct {
 //+kubebuilder:resource:path=humioclusters,scope=Namespaced
 //+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the cluster"
 //+kubebuilder:printcolumn:name="Nodes",type="string",JSONPath=".status.nodeCount",description="The number of nodes in the cluster"
-//+kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version",description="The version of humior"
+//+kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version",description="The version of humio"
 //+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Cluster"
 
 // HumioCluster is the Schema for the humioclusters API
