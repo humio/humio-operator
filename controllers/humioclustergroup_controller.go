@@ -79,22 +79,30 @@ func (r *HumioClusterGroupReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			if err := r.Get(ctx, clusterKey, &hc); err != nil {
 				if k8serrors.IsNotFound(err) {
 					r.Log.Info(fmt.Sprintf("cluster %s no longer exists. removing it from the cluster group lock...", clusterStatus.ClusterName))
-					decrementClusterGroupInProgress(hcg, clusterStatus.ClusterState, clusterStatus.ClusterName)
+					hc.Name = clusterStatus.ClusterName
+					hc.Namespace = hcg.Namespace
+					hc.Spec.ClusterGroup = humiov1alpha1.HumioClusterGroupConfiguration{
+						Enabled: true,
+						Name:    hcg.Name,
+					}
+					return newClusterGroupLock(r.Client, r.Client.Status(), &hc).tryClusterGroupLock(clusterStatus.ClusterState, HumioClusterGroupLockRelease)
 				}
 			}
 			timeSinceLastUpdate := time.Now().Sub(clusterStatus.LastUpdateTime.Time)
 			r.Log.Info(fmt.Sprintf("cluster %s has been in state %s for %d ms", clusterStatus.ClusterName, clusterStatus.ClusterState, timeSinceLastUpdate.Milliseconds()))
 		}
 	}
-	return reconcile.Result{RequeueAfter: time.Second * 60}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HumioClusterGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioClusterGroup{}).
+		Owns(&humiov1alpha1.HumioCluster{}).
 		Complete(r)
 }
+
 func (r *HumioClusterGroupReconciler) logErrorAndReturn(err error, msg string) error {
 	r.Log.Error(err, msg)
 	return fmt.Errorf("%s: %w", msg, err)

@@ -35,89 +35,69 @@ import (
 )
 
 const (
-	LockGet     = "Get"
-	LockRelease = "Release"
+	HumioClusterGroupLockGet     = "Get"
+	HumioClusterGroupLockRelease = "Release"
 )
 
-type ClusterGroupLock interface {
-	Get(string) (reconcile.Result, error)
-	Release(string) (reconcile.Result, error)
-}
-
 type clusterGroupLock struct {
-	reconciler   *HumioClusterReconciler
+	client       client.Client
 	statusWriter client.StatusWriter
 	humioCluster *humiov1alpha1.HumioCluster
 }
 
-func (r *HumioClusterReconciler) newClusterGroupLock(statusWriter client.StatusWriter, hc *humiov1alpha1.HumioCluster) ClusterGroupLock {
+func newClusterGroupLock(client client.Client, statusWriter client.StatusWriter, hc *humiov1alpha1.HumioCluster) *clusterGroupLock {
 	return &clusterGroupLock{
-		reconciler:   r,
+		client:       client,
 		statusWriter: statusWriter,
 		humioCluster: hc,
 	}
 }
 
-func (a *clusterGroupLock) Get(state string) (reconcile.Result, error) {
-	return a.reconciler.tryClusterGroupLock(
-		a.statusWriter,
-		a.humioCluster,
-		state, LockGet)
-}
-
-func (a *clusterGroupLock) Release(state string) (reconcile.Result, error) {
-	return a.reconciler.tryClusterGroupLock(
-		a.statusWriter,
-		a.humioCluster,
-		state, LockRelease)
-}
-
-func (r *HumioClusterReconciler) tryClusterGroupLock(statusWriter client.StatusWriter, hc *humiov1alpha1.HumioCluster, state string, lock string) (reconcile.Result, error) {
-	if !humioClusterGroupOrDefault(hc).Enabled {
+func (c *clusterGroupLock) tryClusterGroupLock(state string, lock string) (reconcile.Result, error) {
+	if !humioClusterGroupOrDefault(c.humioCluster).Enabled {
 		return reconcile.Result{}, nil
 	}
 	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		hcg := &humiov1alpha1.HumioClusterGroup{}
-		if err := r.getLatestHumioClusterGroup(context.TODO(), hc, hcg); err != nil {
+		if err := c.getLatestHumioClusterGroup(context.TODO(), c.humioCluster, hcg); err != nil {
 			if k8serrors.IsNotFound(err) {
-				r.Log.Error(err, fmt.Sprintf("no cluster group with name \"%s\", skipping", humioClusterGroupOrDefault(hc).Name))
-				return nil
+				return fmt.Errorf(fmt.Sprintf("no cluster group with name \"%s\"", humioClusterGroupOrDefault(c.humioCluster).Name))
 			}
 			return err
 		}
 		switch state {
 		case humiov1alpha1.HumioClusterStateUpgrading:
-			if lock == LockGet {
+			if lock == HumioClusterGroupLockGet {
 				if getClusterGroupInProgress(hcg, humiov1alpha1.HumioClusterStateUpgrading)+1 > hcg.Spec.MaxConcurrentUpgrades {
 					return fmt.Errorf("reached max concurrent upgrades (%d)", hcg.Spec.MaxConcurrentUpgrades)
 				}
-				incrementClusterGroupInProgress(hcg, humiov1alpha1.HumioClusterStateUpgrading, hc.Name)
+				incrementClusterGroupInProgress(hcg, humiov1alpha1.HumioClusterStateUpgrading, c.humioCluster.Name)
 			}
-			if lock == LockRelease {
-				decrementClusterGroupInProgress(hcg, humiov1alpha1.HumioClusterStateUpgrading, hc.Name)
+			if lock == HumioClusterGroupLockRelease {
+				decrementClusterGroupInProgress(hcg, humiov1alpha1.HumioClusterStateUpgrading, c.humioCluster.Name)
 			}
 		case humiov1alpha1.HumioClusterStateRestarting:
-			if lock == LockGet {
+			if lock == HumioClusterGroupLockGet {
 				if getClusterGroupInProgress(hcg, humiov1alpha1.HumioClusterStateRestarting)+1 > hcg.Spec.MaxConcurrentRestarts {
 					return fmt.Errorf("reached max concurrent restarts (%d)", hcg.Spec.MaxConcurrentRestarts)
 				}
-				incrementClusterGroupInProgress(hcg, humiov1alpha1.HumioClusterStateRestarting, hc.Name)
+				incrementClusterGroupInProgress(hcg, humiov1alpha1.HumioClusterStateRestarting, c.humioCluster.Name)
 			}
-			if lock == LockRelease {
-				decrementClusterGroupInProgress(hcg, humiov1alpha1.HumioClusterStateRestarting, hc.Name)
+			if lock == HumioClusterGroupLockRelease {
+				decrementClusterGroupInProgress(hcg, humiov1alpha1.HumioClusterStateRestarting, c.humioCluster.Name)
 			}
 		default:
 			return fmt.Errorf("unknown state %s", state)
 		}
-		return statusWriter.Update(context.TODO(), hcg)
+		return c.statusWriter.Update(context.TODO(), hcg)
 	}); err != nil {
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
 }
 
-func (r *HumioClusterReconciler) getLatestHumioClusterGroup(ctx context.Context, hc *humiov1alpha1.HumioCluster, hcg *humiov1alpha1.HumioClusterGroup) error {
-	return r.Get(ctx, types.NamespacedName{
+func (c *clusterGroupLock) getLatestHumioClusterGroup(ctx context.Context, hc *humiov1alpha1.HumioCluster, hcg *humiov1alpha1.HumioClusterGroup) error {
+	return c.client.Get(ctx, types.NamespacedName{
 		Name:      humioClusterGroupOrDefault(hc).Name,
 		Namespace: hc.Namespace,
 	}, hcg)

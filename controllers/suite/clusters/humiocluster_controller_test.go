@@ -758,7 +758,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	Context("Humio Cluster Update Image Multiple HumioCluster with HumioClusterGroup", func() {
 		It("Update should correctly replace pods to use new image in multiple humio clusters with humio cluster group", func() {
 			originalImage := oldSupportedHumioVersion
-			clusterGroupName := "my-cluster-group"
+			clusterGroupName := "my-cluster-group-updates-test"
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image-mh1",
 				Namespace: testProcessNamespace,
@@ -824,6 +824,9 @@ var _ = Describe("HumioCluster Controller", func() {
 					MaxConcurrentUpgrades: 1,
 				},
 			}
+
+			suite.UsingClusterBy(key.Name, "Creating the humioclustergroup")
+			defer k8sClient.Delete(ctx, &humioClusterGroup)
 			Expect(k8sClient.Create(ctx, &humioClusterGroup)).To(Succeed())
 			Eventually(func() error {
 				humioClusterGroup := humiov1alpha1.HumioClusterGroup{}
@@ -888,7 +891,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 	Context("Humio Cluster Update Environment Variables Multiple HumioCluster with HumioClusterGroup", func() {
 		It("Update should correctly replace pods to use new environment variables in multiple humio clusters with humio cluster group", func() {
-			clusterGroupName := "my-cluster-group"
+			clusterGroupName := "my-cluster-group-restarts-test"
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image-mh1",
 				Namespace: testProcessNamespace,
