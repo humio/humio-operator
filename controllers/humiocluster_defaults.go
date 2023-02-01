@@ -358,7 +358,6 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 		{Name: "STORAGE_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
 		{Name: "DEFAULT_PARTITION_COUNT", Value: strconv.Itoa(hnp.GetStoragePartitionsCount())},
 		{Name: "INGEST_QUEUE_INITIAL_PARTITIONS", Value: strconv.Itoa(hnp.GetDigestPartitionsCount())},
-		{Name: "KAFKA_MANAGED_BY_HUMIO", Value: "true"},
 		{Name: "HUMIO_LOG4J_CONFIGURATION", Value: "log4j2-json-stdout.xml"},
 		{
 			Name:  "EXTERNAL_URL", // URL used by other Humio hosts.
