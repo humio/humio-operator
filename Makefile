@@ -50,11 +50,14 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test: manifests generate fmt vet ginkgo ## Run tests.
-	mkdir -p ${ENVTEST_ASSETS_DIR}
-	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.8.3/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); USE_CERTMANAGER=false TEST_USE_EXISTING_CLUSTER=false $(GINKGO) -vv --procs 3 -slow-spec-threshold=5s -output-dir=${PWD} --output-interceptor-mode=none -keep-separate-reports --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m ./... -covermode=count -coverprofile cover.out
+	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	$(SHELL) -c "\
+		eval \$$($(GOBIN)/setup-envtest use -p env ${TEST_K8S_VERSION}); \
+		export USE_CERTMANAGER=false; \
+		export TEST_USE_EXISTING_CLUSTER=false; \
+		$(GINKGO) -vv --procs 3 -output-dir=${PWD} --output-interceptor-mode=none -keep-separate-reports --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m ./... -covermode=count -coverprofile cover.out \
+	"
 
 ##@ Build
 
