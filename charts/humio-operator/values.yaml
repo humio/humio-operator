@@ -20,5 +20,24 @@ operator:
       memory: 200Mi
   watchNamespaces: []
   podAnnotations: {}
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: 
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/arch
+            operator: In
+            values:
+            - amd64
+          - key: kubernetes.io/os
+            operator: In
+            values:
+            - linux
+  
 openshift: false
 certmanager: true
