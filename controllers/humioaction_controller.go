@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	humioapi "github.com/humio/cli/api"

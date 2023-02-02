@@ -19,12 +19,13 @@ package helpers
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strings"
+
 	"github.com/google/martian/log"
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"net/url"
-	"strings"
 
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	"k8s.io/apimachinery/pkg/types"
