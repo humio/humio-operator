@@ -10,7 +10,7 @@ require (
 	github.com/google/martian v2.1.0+incompatible
 	github.com/humio/cli v0.30.2
 	github.com/jetstack/cert-manager v1.7.1
-	github.com/onsi/ginkgo/v2 v2.7.0
+	github.com/onsi/ginkgo/v2 v2.8.0
 	github.com/onsi/gomega v1.26.0
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/prometheus/client_golang v1.12.1
