@@ -226,13 +226,6 @@ run-e2e-tests-local-kind:
 	make preload-images-kind
 	hack/run-e2e-tests-using-kubectl-kind.sh
 
-run-e2e-tests-local-crc:
-	echo "Needs rework since removing Telepresence. Aborting..."
-	exit 1
-	hack/start-crc-cluster.sh
-	hack/install-helm-chart-dependencies-crc.sh
-	hack/run-e2e-tests-crc.sh
-
 ginkgo:
 ifeq (,$(shell which ginkgo))
 	@{ \
