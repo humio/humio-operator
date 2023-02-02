@@ -116,6 +116,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			PodSecurityContext:                          hc.Spec.PodSecurityContext,
 			Resources:                                   hc.Spec.Resources,
 			Tolerations:                                 hc.Spec.Tolerations,
+			TopologySpreadConstraints:                   hc.Spec.TopologySpreadConstraints,
 			TerminationGracePeriodSeconds:               hc.Spec.TerminationGracePeriodSeconds,
 			Affinity:                                    hc.Spec.Affinity,
 			SidecarContainers:                           hc.Spec.SidecarContainers,
@@ -177,6 +178,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			PodSecurityContext:             hnp.PodSecurityContext,
 			Resources:                      hnp.Resources,
 			Tolerations:                    hnp.Tolerations,
+			TopologySpreadConstraints:      hnp.TopologySpreadConstraints,
 			TerminationGracePeriodSeconds:  hnp.TerminationGracePeriodSeconds,
 			Affinity:                       hnp.Affinity,
 			SidecarContainers:              hnp.SidecarContainers,
@@ -724,6 +726,10 @@ func (hnp HumioNodePool) GetSidecarContainers() []corev1.Container {
 
 func (hnp HumioNodePool) GetTolerations() []corev1.Toleration {
 	return hnp.humioNodeSpec.Tolerations
+}
+
+func (hnp HumioNodePool) GetTopologySpreadConstraints() []corev1.TopologySpreadConstraint {
+	return hnp.humioNodeSpec.TopologySpreadConstraints
 }
 
 func (hnp HumioNodePool) GetResources() corev1.ResourceRequirements {

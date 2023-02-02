@@ -303,6 +303,7 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 			},
 			Affinity:                      hnp.GetAffinity(),
 			Tolerations:                   hnp.GetTolerations(),
+			TopologySpreadConstraints:     hnp.GetTopologySpreadConstraints(),
 			SecurityContext:               hnp.GetPodSecurityContext(),
 			TerminationGracePeriodSeconds: hnp.GetTerminationGracePeriodSeconds(),
 		},
@@ -768,6 +769,8 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 	pod.Spec.PreemptionPolicy = nil
 	pod.Spec.DeprecatedServiceAccount = ""
 	pod.Spec.Tolerations = hnp.GetTolerations()
+	pod.Spec.TopologySpreadConstraints = hnp.GetTopologySpreadConstraints()
+
 	for i := range pod.Spec.InitContainers {
 		pod.Spec.InitContainers[i].ImagePullPolicy = hnp.GetImagePullPolicy()
 		pod.Spec.InitContainers[i].TerminationMessagePath = ""
