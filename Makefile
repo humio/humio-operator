@@ -215,7 +215,7 @@ install-e2e-dependencies:
 preload-images-kind:
 	hack/preload-images-kind.sh
 
-run-e2e-tests-ci-kind: install-e2e-dependencies
+run-e2e-tests-ci-kind: install-e2e-dependencies ginkgo
 	hack/install-helm-chart-dependencies-kind.sh
 	make preload-images-kind
 	hack/run-e2e-tests-using-kubectl-kind.sh
@@ -239,6 +239,7 @@ ifeq (,$(shell which ginkgo))
 	set -ex ;\
 	GINKGO_TMP_DIR=$$(mktemp -d) ;\
 	cd $$GINKGO_TMP_DIR ;\
+	export PATH=$$BIN_DIR:$$PATH ;\
 	go mod init tmp ;\
 	go get github.com/onsi/ginkgo/v2/ginkgo ;\
 	go install github.com/onsi/ginkgo/v2/ginkgo ;\
