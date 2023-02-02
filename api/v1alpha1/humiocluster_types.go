@@ -176,6 +176,9 @@ type HumioNodeSpec struct {
 	// Tolerations defines the tolerations that will be attached to the humio pods
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
+	// TopologySpreadConstraints defines the topologySpreadConstraints that will be attached to the humio pods
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+
 	// SidecarContainers can be used in advanced use-cases where you want one or more sidecar container added to the
 	// Humio pod to help out in debugging purposes.
 	SidecarContainers []corev1.Container `json:"sidecarContainer,omitempty"`
