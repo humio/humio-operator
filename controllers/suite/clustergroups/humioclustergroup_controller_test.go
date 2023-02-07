@@ -138,6 +138,12 @@ var _ = Describe("HumioClusterGroup Controller", func() {
 				return false
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
+			suite.UsingClusterBy(key.Name, "Forcing a reconcile of this HumioClusterGroup")
+			updatedHumioClusterGroup = &humiov1alpha1.HumioClusterGroup{}
+			Expect(k8sClient.Get(ctx, key, updatedHumioClusterGroup)).Should(Succeed())
+			updatedHumioClusterGroup.ObjectMeta.Annotations = map[string]string{"new-annotation": "reconcile"}
+			Expect(k8sClient.Update(ctx, updatedHumioClusterGroup)).Should(Succeed())
+
 			suite.UsingClusterBy(key.Name, "Ensuring the humioclustergroup releases the lock for the removed humioclusters")
 			Eventually(func() interface{} {
 				if err := k8sClient.Get(ctx, key, updatedHumioClusterGroup); err != nil {

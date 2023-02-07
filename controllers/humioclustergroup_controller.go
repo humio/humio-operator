@@ -92,7 +92,7 @@ func (r *HumioClusterGroupReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			r.Log.Info(fmt.Sprintf("cluster %s has been in state %s for %d ms", clusterStatus.ClusterName, clusterStatus.ClusterState, timeSinceLastUpdate.Milliseconds()))
 		}
 	}
-	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 60}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
