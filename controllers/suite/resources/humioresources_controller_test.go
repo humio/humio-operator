@@ -1101,7 +1101,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ViewName:           testRepo.Spec.Name,
 				OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
 					GenieKey: "somegeniekey",
-					ApiUrl:   "https://humio.com",
+					ApiUrl:   fmt.Sprintf("https://%s", testService1.Name),
 				},
 			}
 
@@ -1147,7 +1147,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the ops genie action successfully")
 			updatedAction := toCreateAction
 			updatedAction.Spec.OpsGenieProperties.GenieKey = "updatedgeniekey"
-			updatedAction.Spec.OpsGenieProperties.ApiUrl = "https://example.com"
+			updatedAction.Spec.OpsGenieProperties.ApiUrl = fmt.Sprintf("https://%s", testService2.Name)
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the ops genie action to be updated")
 			Eventually(func() error {
@@ -1383,7 +1383,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:               "example-slack-action",
 				ViewName:           testRepo.Spec.Name,
 				SlackProperties: &humiov1alpha1.HumioActionSlackProperties{
-					Url: "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
+					Url: fmt.Sprintf("https://%s/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX", testService1.Name),
 					Fields: map[string]string{
 						"some": "key",
 					},
@@ -1431,7 +1431,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the slack action successfully")
 			updatedAction := toCreateAction
-			updatedAction.Spec.SlackProperties.Url = "https://hooks.slack.com/services/T00000000/B00000000/YYYYYYYYYYYYYYYYYYYYYYYY"
+			updatedAction.Spec.SlackProperties.Url = fmt.Sprintf("https://%s/services/T00000000/B00000000/YYYYYYYYYYYYYYYYYYYYYYYY", testService1.Name)
 			updatedAction.Spec.SlackProperties.Fields = map[string]string{
 				"some": "updatedkey",
 			}
@@ -1481,7 +1481,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ViewName:           testRepo.Spec.Name,
 				VictorOpsProperties: &humiov1alpha1.HumioActionVictorOpsProperties{
 					MessageType: "critical",
-					NotifyUrl:   "https://alert.victorops.com/integrations/0000/alert/0000/routing_key",
+					NotifyUrl:   fmt.Sprintf("https://%s/integrations/0000/alert/0000/routing_key", testService1.Name),
 				},
 			}
 
@@ -1527,7 +1527,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the victor ops action successfully")
 			updatedAction := toCreateAction
 			updatedAction.Spec.VictorOpsProperties.MessageType = "recovery"
-			updatedAction.Spec.VictorOpsProperties.NotifyUrl = "https://alert.victorops.com/integrations/1111/alert/1111/routing_key"
+			updatedAction.Spec.VictorOpsProperties.NotifyUrl = fmt.Sprintf("https://%s/integrations/1111/alert/1111/routing_key", testService1.Name)
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the victor ops action to be updated")
 			Eventually(func() error {
@@ -1575,7 +1575,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Headers:      map[string]string{"some": "header"},
 					BodyTemplate: "body template",
 					Method:       http.MethodPost,
-					Url:          "https://example.com/some/api",
+					Url:          fmt.Sprintf("https://%s/some/api", testService1.Name),
 				},
 			}
 
@@ -1625,7 +1625,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			updatedAction.Spec.WebhookProperties.Headers = map[string]string{"updated": "header"}
 			updatedAction.Spec.WebhookProperties.BodyTemplate = "updated template"
 			updatedAction.Spec.WebhookProperties.Method = http.MethodPut
-			updatedAction.Spec.WebhookProperties.Url = "https://example.com/some/updated/api"
+			updatedAction.Spec.WebhookProperties.Url = fmt.Sprintf("https://%s/some/updated/api", testService1.Name)
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the web hook action to be updated")
 			Eventually(func() error {
@@ -1827,7 +1827,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Name:               key.Name,
 					ViewName:           testRepo.Spec.Name,
 					OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
-						ApiUrl: "https://humio.com",
+						ApiUrl: fmt.Sprintf("https://%s", testService1.Name),
 						GenieKeySource: humiov1alpha1.VarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
 								LocalObjectReference: corev1.LocalObjectReference{
@@ -1870,7 +1870,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
 			Expect(createdAction.Spec.OpsGenieProperties.GenieKey).To(Equal("secret-token"))
-			Expect(createdAction.Spec.OpsGenieProperties.ApiUrl).To(Equal("https://humio.com"))
+			Expect(createdAction.Spec.OpsGenieProperties.ApiUrl).To(Equal(fmt.Sprintf("https://%s", testService1.Name)))
 		})
 
 		It("HumioAction: OpsGenieProperties: Should support direct genie key", func() {
@@ -1891,7 +1891,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ViewName:           testRepo.Spec.Name,
 					OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
 						GenieKey: "direct-token",
-						ApiUrl:   "https://humio.com",
+						ApiUrl:   fmt.Sprintf("https://%s", testService1.Name),
 					},
 				},
 			}
@@ -1915,7 +1915,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
 			Expect(createdAction.Spec.OpsGenieProperties.GenieKey).To(Equal("direct-token"))
-			Expect(createdAction.Spec.OpsGenieProperties.ApiUrl).To(Equal("https://humio.com"))
+			Expect(createdAction.Spec.OpsGenieProperties.ApiUrl).To(Equal(fmt.Sprintf("https://%s", testService1.Name)))
 		})
 
 		It("HumioAction: SlackPostMessageProperties: Should support referencing secrets", func() {
