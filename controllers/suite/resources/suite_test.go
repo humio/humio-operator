@@ -70,6 +70,8 @@ var humioClient humio.Client
 var testTimeout time.Duration
 var testNamespace corev1.Namespace
 var testRepo corev1alpha1.HumioRepository
+var testService1 corev1.Service
+var testService2 corev1.Service
 var clusterKey types.NamespacedName
 var cluster = &corev1alpha1.HumioCluster{}
 var sharedCluster helpers.ClusterInterface
@@ -337,6 +339,62 @@ var _ = BeforeSuite(func() {
 		},
 	}
 	Expect(k8sClient.Create(context.TODO(), &testRepo)).To(Succeed())
+
+	testService1 = corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "service1",
+			Namespace: clusterKey.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: corev1.ClusterIPNone,
+		},
+	}
+	testEndpoint1 := corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testService1.Name,
+			Namespace: testService1.Namespace,
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: "100.64.1.1",
+					},
+				},
+			},
+		},
+	}
+	Expect(k8sClient.Create(context.TODO(), &testService1)).To(Succeed())
+	Expect(k8sClient.Create(context.TODO(), &testEndpoint1)).To(Succeed())
+
+	testService2 = corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "service2",
+			Namespace: clusterKey.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: corev1.ClusterIPNone,
+		},
+	}
+	testEndpoint2 := corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testService2.Name,
+			Namespace: testService2.Namespace,
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: "100.64.1.1",
+					},
+				},
+			},
+		},
+	}
+	Expect(k8sClient.Create(context.TODO(), &testService2)).To(Succeed())
+	Expect(k8sClient.Create(context.TODO(), &testEndpoint2)).To(Succeed())
 })
 
 var _ = AfterSuite(func() {
