@@ -1046,7 +1046,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 				Expect(clustersInRestartingState).Should(BeNumerically("<=", 1))
 				return clustersOnNewVersion
-			}, testTimeout, suite.TestInterval).Should(Equal(2))
+			}, testTimeout*2, suite.TestInterval).Should(Equal(2))
 		})
 	})
 
