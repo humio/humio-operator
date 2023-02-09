@@ -61,22 +61,25 @@ EOF
   $helm_install_command --set humio-fluentbit.customFluentBitConfig.e2eFilterTag="$E2E_FILTER_TAG"
 fi
 
-kubectl create namespace cert-manager
-helm repo add jetstack https://charts.jetstack.io
-helm repo update
-helm_install_command="helm install cert-manager jetstack/cert-manager --namespace cert-manager \
---version v1.7.1 \
---set installCRDs=true"
+if ! kubectl get namespace cert-manager &>/dev/null; then
+  kubectl create namespace cert-manager
+  helm repo add jetstack https://charts.jetstack.io && helm repo update
+  helm_install_command=(
+    helm install cert-manager jetstack/cert-manager
+      --namespace cert-manager
+      --version v1.7.1
+      --set installCRDs=true
+  )
+fi
 
 if [[ $DOCKER_USERNAME != "" ]] && [[ $DOCKER_PASSWORD != "" ]]; then
   kubectl create secret docker-registry regcred --docker-server="https://index.docker.io/v1/" --docker-username=$DOCKER_USERNAME --docker-password=$DOCKER_PASSWORD --namespace cert-manager
-  helm_install_command="${helm_install_command} \
-  --set global.imagePullSecrets[0].name=regcred"
+  helm_install_command+=(--set global.imagePullSecrets[0].name=regcred)
 fi
 
-$helm_install_command
+${helm_install_command[*]}
 
-helm repo add humio https://humio.github.io/cp-helm-charts
+helm repo add humio https://humio.github.io/cp-helm-charts && helm repo update
 helm_install_command="helm install humio humio/cp-helm-charts --namespace=default \
 --set cp-zookeeper.servers=1 --set cp-zookeeper.prometheus.jmx.enabled=false \
 --set cp-kafka.brokers=1 --set cp-kafka.prometheus.jmx.enabled=false \
@@ -136,3 +139,5 @@ done
 
 end=$(date +%s)
 echo "Installing Helm chart dependencies took $((end-start)) seconds"
+
+# vim:ts=2:sw=2:et:
