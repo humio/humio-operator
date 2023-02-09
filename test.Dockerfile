@@ -1,11 +1,11 @@
 FROM ubuntu:20.04
 
 # Install make and curl
-RUN apt update \
+RUN apt update -q \
  && apt install -y build-essential curl
 
 # Install go
-RUN curl -s https://dl.google.com/go/go1.18.7.linux-amd64.tar.gz | tar -xz -C /usr/local
+RUN curl -s https://dl.google.com/go/go1.18.7.linux-`dpkg-architecture -q DEB_HOST_ARCH`.tar.gz | tar -xz -C /usr/local
 RUN ln -s /usr/local/go/bin/go /usr/bin/go
 
 # Create and populate /var/src with the source code for the humio-operator repository
