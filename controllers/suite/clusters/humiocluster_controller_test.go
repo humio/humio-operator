@@ -862,8 +862,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioClusterSecondCluster), 2, 1)
 
 			suite.UsingClusterBy(key.Name, "Confirming only one humio cluster is upgrading at a time")
-			Eventually(func() int {
-				var clustersOnNewVersion int
+			Eventually(func() []int {
 				var clustersInUpgradingState int
 
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -877,15 +876,12 @@ var _ = Describe("HumioCluster Controller", func() {
 					clustersInUpgradingState++
 				}
 
-				updateHumioClusterPodReadyCount := podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
-				clustersOnNewVersion += updateHumioClusterPodReadyCount[2]
-
-				updateHumioClusterSecondClusterPodReadyCount := podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioClusterSecondCluster), 2, 1)
-				clustersOnNewVersion += updateHumioClusterSecondClusterPodReadyCount[2]
-
 				Expect(clustersInUpgradingState).Should(BeNumerically("<=", 1))
-				return clustersOnNewVersion
-			}, testTimeout, suite.TestInterval).Should(Equal(2))
+				_, clusterRevision := controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetHumioClusterNodePoolRevisionAnnotation()
+				_, secondClusterRevision := controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetHumioClusterNodePoolRevisionAnnotation()
+
+				return []int{clusterRevision, secondClusterRevision}
+			}, testTimeout, suite.TestInterval).Should(Equal([]int{2, 2}))
 		})
 	})
 
@@ -1022,7 +1018,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioClusterSecondCluster), 2, 1)
 
 			suite.UsingClusterBy(key.Name, "Confirming only one humio cluster is restarting at a time")
-			Eventually(func() map[string]map[int]int {
+			Eventually(func() []int {
 				var clustersInRestartingState int
 
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -1037,13 +1033,13 @@ var _ = Describe("HumioCluster Controller", func() {
 					clustersInRestartingState++
 				}
 
-				updateHumioClusterPodReadyCount := podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
-				updateHumioClusterSecondClusterPodReadyCount := podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioClusterSecondCluster), 2, 1)
-
 				Expect(clustersInRestartingState).Should(BeNumerically("<=", 1))
-				readyCount := map[string]map[int]int{updatedHumioCluster.Name: {2: updateHumioClusterPodReadyCount[2]}, updatedHumioClusterSecondCluster.Name: {2: updateHumioClusterSecondClusterPodReadyCount[2]}}
-				return readyCount
-			}, testTimeout, suite.TestInterval).Should(Equal(map[string]map[int]int{updatedHumioCluster.Name: {2: 1}, updatedHumioClusterSecondCluster.Name: {2: 1}}))
+
+				_, clusterRevision := controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetHumioClusterNodePoolRevisionAnnotation()
+				_, secondClusterRevision := controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetHumioClusterNodePoolRevisionAnnotation()
+
+				return []int{clusterRevision, secondClusterRevision}
+			}, testTimeout, suite.TestInterval).Should(Equal([]int{2, 2}))
 		})
 	})
 
