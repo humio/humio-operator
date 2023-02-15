@@ -473,7 +473,7 @@ func podReadyCountByRevision(ctx context.Context, hnp *controllers.HumioNodePool
 	revisionToReadyCount := map[int]int{}
 	clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, hnp.GetNamespace(), hnp.GetNodePoolLabels())
 	for nodeID, pod := range clusterPods {
-		revision, _ := strconv.Atoi(pod.Annotations[controllers.PodRevisionAnnotation])
+		_, revision := hnp.GetHumioClusterNodePoolRevisionAnnotation()
 		if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 			if pod.DeletionTimestamp == nil {
 				for _, condition := range pod.Status.Conditions {

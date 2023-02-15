@@ -446,7 +446,6 @@ func (r *HumioClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&networkingv1.Ingress{}).
-		Owns(&humiov1alpha1.HumioClusterGroup{}).
 		Complete(r)
 }
 

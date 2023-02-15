@@ -1022,8 +1022,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioClusterSecondCluster), 2, 1)
 
 			suite.UsingClusterBy(key.Name, "Confirming only one humio cluster is restarting at a time")
-			Eventually(func() int {
-				var clustersOnNewVersion int
+			Eventually(func() map[string]map[int]int {
 				var clustersInRestartingState int
 
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -1039,14 +1038,12 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 
 				updateHumioClusterPodReadyCount := podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
-				clustersOnNewVersion += updateHumioClusterPodReadyCount[2]
-
 				updateHumioClusterSecondClusterPodReadyCount := podReadyCountByRevision(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioClusterSecondCluster), 2, 1)
-				clustersOnNewVersion += updateHumioClusterSecondClusterPodReadyCount[2]
 
 				Expect(clustersInRestartingState).Should(BeNumerically("<=", 1))
-				return clustersOnNewVersion
-			}, testTimeout*2, suite.TestInterval).Should(Equal(2))
+				readyCount := map[string]map[int]int{updatedHumioCluster.Name: {2: updateHumioClusterPodReadyCount[2]}, updatedHumioClusterSecondCluster.Name: {2: updateHumioClusterSecondClusterPodReadyCount[2]}}
+				return readyCount
+			}, testTimeout, suite.TestInterval).Should(Equal(map[string]map[int]int{updatedHumioCluster.Name: {2: 1}, updatedHumioClusterSecondCluster.Name: {2: 1}}))
 		})
 	})
 
