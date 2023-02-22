@@ -21,6 +21,11 @@ jobs:
         echo "RELEASE_VERSION=master" >> $GITHUB_ENV
         echo "RELEASE_COMMIT=$(git rev-parse --verify HEAD)" >> $GITHUB_ENV
         echo "RELEASE_DATE=$(date --iso-8601=seconds)" >> $GITHUB_ENV
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v2
     - name: docker build
       run: make docker-build-operator IMG=humio/humio-operator:${{ env.RELEASE_VERSION }} IMG_BUILD_ARGS="--label version=${{ env.RELEASE_VERSION }} --label release=${{ github.run_id }} --build-arg RELEASE_VERSION=${{ env.RELEASE_VERSION }} --build-arg RELEASE_COMMIT=${{ env.RELEASE_COMMIT }} --build-arg RELEASE_DATE=${{ env.RELEASE_DATE }}"
     - name: Set up Python
