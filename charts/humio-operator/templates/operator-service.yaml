@@ -4,9 +4,7 @@ metadata:
   name: '{{ .Release.Name }}'
   namespace: '{{ .Release.Namespace }}'
   labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    {{- include "humio.labels" . | nindent 4 }}
 spec:
   ports:
   - name: metrics

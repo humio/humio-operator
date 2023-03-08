@@ -8,11 +8,7 @@ metadata:
     productName: "humio-operator"
     productVersion: {{ .Values.operator.image.tag | quote }}
   labels:
-    app: '{{ .Chart.Name }}'
-    app.kubernetes.io/name: '{{ .Chart.Name }}'
-    app.kubernetes.io/instance: '{{ .Release.Name }}'
-    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-    helm.sh/chart: '{{ template "humio.chart" . }}'
+    {{- include "humio.labels" . | nindent 4 }}
 spec:
   replicas: 1
   strategy:
@@ -32,11 +28,7 @@ spec:
         {{- toYaml .Values.operator.podAnnotations | nindent 8 }}
 {{- end }}
       labels:
-        app: '{{ .Chart.Name }}'
-        app.kubernetes.io/name: '{{ .Chart.Name }}'
-        app.kubernetes.io/instance: '{{ .Release.Name }}'
-        app.kubernetes.io/managed-by: '{{ .Release.Service }}'
-        helm.sh/chart: '{{ template "humio.chart" . }}'
+        {{- include "humio.labels" . | nindent 8 }}
     spec:
 {{- with .Values.operator.image.pullSecrets }}
       imagePullSecrets:
