@@ -2075,6 +2075,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Start:       "24h",
 				},
 				ThrottleTimeMillis: 60000,
+				ThrottleField:      "some field",
 				Silenced:           false,
 				Description:        "humio alert",
 				Actions:            []string{toCreateDependentAction.Spec.Name},
@@ -2123,6 +2124,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(alert.Actions).To(Equal(originalAlert.Actions))
 			Expect(alert.Labels).To(Equal(originalAlert.Labels))
 			Expect(alert.ThrottleTimeMillis).To(Equal(originalAlert.ThrottleTimeMillis))
+			Expect(alert.ThrottleField).To(Equal(originalAlert.ThrottleField))
 			Expect(alert.Enabled).To(Equal(originalAlert.Enabled))
 			Expect(alert.QueryString).To(Equal(originalAlert.QueryString))
 			Expect(alert.QueryStart).To(Equal(originalAlert.QueryStart))
@@ -2136,6 +2138,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			updatedAlert := toCreateAlert
 			updatedAlert.Spec.Query.QueryString = "#repo = test | updated=true | count()"
 			updatedAlert.Spec.ThrottleTimeMillis = 70000
+			updatedAlert.Spec.ThrottleField = "some other field"
 			updatedAlert.Spec.Silenced = true
 			updatedAlert.Spec.Description = "updated humio alert"
 			updatedAlert.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
@@ -2145,6 +2148,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				k8sClient.Get(ctx, key, fetchedAlert)
 				fetchedAlert.Spec.Query = updatedAlert.Spec.Query
 				fetchedAlert.Spec.ThrottleTimeMillis = updatedAlert.Spec.ThrottleTimeMillis
+				fetchedAlert.Spec.ThrottleField = updatedAlert.Spec.ThrottleField
 				fetchedAlert.Spec.Silenced = updatedAlert.Spec.Silenced
 				fetchedAlert.Spec.Description = updatedAlert.Spec.Description
 				return k8sClient.Update(ctx, fetchedAlert)
