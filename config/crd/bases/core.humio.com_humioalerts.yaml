@@ -94,6 +94,9 @@ spec:
               silenced:
                 description: Silenced will set the Alert to enabled when set to false
                 type: boolean
+              throttleField:
+                description: ThrottleField is the field on which to throttle
+                type: string
               throttleTimeMillis:
                 description: ThrottleTimeMillis is the throttle time in milliseconds.
                   An Alert is triggered at most once per the throttle time

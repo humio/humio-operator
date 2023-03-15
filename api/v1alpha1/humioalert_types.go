@@ -64,6 +64,8 @@ type HumioAlertSpec struct {
 	Description string `json:"description,omitempty"`
 	// ThrottleTimeMillis is the throttle time in milliseconds. An Alert is triggered at most once per the throttle time
 	ThrottleTimeMillis int `json:"throttleTimeMillis,omitempty"`
+	// ThrottleField is the field on which to throttle
+	ThrottleField string `json:"throttleField,omitempty"`
 	// Silenced will set the Alert to enabled when set to false
 	Silenced bool `json:"silenced,omitempty"`
 	// Actions is the list of Humio Actions by name that will be triggered by this Alert
