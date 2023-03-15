@@ -78,7 +78,21 @@ func MarkPodAsRunning(ctx context.Context, client client.Client, nodeID int, pod
 		return nil
 	}
 
-	UsingClusterBy(clusterName, fmt.Sprintf("Simulating Humio container starts up and is marked Ready (node %d, pod phase %s)", nodeID, pod.Status.Phase))
+	workerName := fmt.Sprintf("thisworker-%d", nodeID)
+	workerAZ := fmt.Sprintf("az%d", nodeID)
+	newNode := corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: workerName,
+			Labels: map[string]string{
+				corev1.LabelTopologyZone: workerAZ,
+			},
+		},
+	}
+	_ = client.Create(ctx, &newNode)
+
+	pod.Spec.NodeName = workerName // TODO: Does this even get applied since we do Status().Update()?
+
+	UsingClusterBy(clusterName, fmt.Sprintf("Simulating Humio container starts up and is marked Ready: podSpecNodeName=%s nodeAZ=%s nodeID=%d podPhase=%s", pod.Spec.NodeName, workerAZ, nodeID, pod.Status.Phase))
 	pod.Status.PodIP = fmt.Sprintf("192.168.0.%d", nodeID)
 	pod.Status.Conditions = []corev1.PodCondition{
 		{

@@ -2138,7 +2138,7 @@ func (r *HumioClusterReconciler) ensureHumioServiceAccountAnnotations(ctx contex
 // The behavior of this depends on what, if anything, was changed in the pod. If there are changes that fall under a
 // rolling update, then the pod restart policy is set to PodRestartPolicyRolling and the reconciliation will continue if
 // there are any pods not in a ready state. This is so replacement pods may be created.
-// If there are changes that fall under a recreate update, the the pod restart policy is set to PodRestartPolicyRecreate
+// If there are changes that fall under a recreate update, then the pod restart policy is set to PodRestartPolicyRecreate
 // and the reconciliation will requeue and the deletions will continue to be executed until all the pods have been
 // removed.
 func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (reconcile.Result, error) {
@@ -2183,10 +2183,6 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	} else {
 		podList = foundPodList
 	}
-	desiredLifecycleState, err := r.getPodDesiredLifecycleState(hnp, podList, attachments)
-	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "got error when getting pod desired lifecycle")
-	}
 
 	if podsStatus.havePodsRequiringDeletion() {
 		r.Log.Info(fmt.Sprintf("found %d humio pods requiring deletion", len(podsStatus.podsRequiringDeletion)))
@@ -2196,6 +2192,11 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 				withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s", podsStatus.podsRequiringDeletion[0].Name)).Error()))
 		}
 		return reconcile.Result{RequeueAfter: time.Second + 1}, nil
+	}
+
+	desiredLifecycleState, err := r.getPodDesiredLifecycleState(hnp, podList, attachments)
+	if err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "got error when getting pod desired lifecycle")
 	}
 
 	// If we are currently deleting pods, then check if the cluster state is Running or in a ConfigError state. If it
@@ -2228,16 +2229,16 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	}
 	if desiredLifecycleState.ShouldDeletePod() {
 		if hc.Status.State == humiov1alpha1.HumioClusterStateRestarting && podsStatus.waitingOnPods() && desiredLifecycleState.ShouldRollingRestart() {
-			r.Log.Info(fmt.Sprintf("pod %s should be deleted, but waiting because not all other pods are "+
-				"ready. waitingOnPods=%v, clusterState=%s", desiredLifecycleState.pod.Name,
+			r.Log.Info(fmt.Sprintf("pods %s should be deleted, but waiting because not all other pods are "+
+				"ready. waitingOnPods=%v, clusterState=%s", desiredLifecycleState.PodNamesWeWantToDelete(),
 				podsStatus.waitingOnPods(), hc.Status.State))
 			return r.updateStatus(r.Client.Status(), hc, statusOptions().
 				withMessage("waiting for pods to become ready"))
 		}
 
 		if hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading && podsStatus.waitingOnPods() && desiredLifecycleState.ShouldRollingRestart() {
-			r.Log.Info(fmt.Sprintf("pod %s should be deleted, but waiting because not all other pods are "+
-				"ready. waitingOnPods=%v, clusterState=%s", desiredLifecycleState.pod.Name,
+			r.Log.Info(fmt.Sprintf("pods %s should be deleted, but waiting because not all other pods are "+
+				"ready. waitingOnPods=%v, clusterState=%s", desiredLifecycleState.PodNamesWeWantToDelete(),
 				podsStatus.waitingOnPods(), hc.Status.State))
 			return r.updateStatus(r.Client.Status(), hc, statusOptions().
 				withMessage("waiting for pods to become ready"))
@@ -2247,25 +2248,27 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		if remainingMinReadyWaitTime > 0 {
 			if remainingMinReadyWaitTime > MaximumMinReadyRequeue {
 				// Only requeue after MaximumMinReadyRequeue if the remaining ready wait time is very high
-				r.Log.Info(fmt.Sprintf("Postponing pod=%s deletion due to the MinReadySeconds setting - requeue time is very long at %s seconds, setting to requeueSeconds=%s", desiredLifecycleState.pod.Name, remainingMinReadyWaitTime, MaximumMinReadyRequeue))
+				r.Log.Info(fmt.Sprintf("Postponing pods=%s deletion due to the MinReadySeconds setting - requeue time is very long at %s seconds, setting to requeueSeconds=%s", desiredLifecycleState.PodNamesWeWantToDelete(), remainingMinReadyWaitTime, MaximumMinReadyRequeue))
 				return reconcile.Result{RequeueAfter: MaximumMinReadyRequeue}, nil
 			}
-			r.Log.Info(fmt.Sprintf("Postponing pod=%s deletion due to the MinReadySeconds setting - requeuing after requeueSeconds=%s", desiredLifecycleState.pod.Name, remainingMinReadyWaitTime))
+			r.Log.Info(fmt.Sprintf("Postponing pods=%s deletion due to the MinReadySeconds setting - requeuing after requeueSeconds=%s", desiredLifecycleState.PodNamesWeWantToDelete(), remainingMinReadyWaitTime))
 			return reconcile.Result{RequeueAfter: remainingMinReadyWaitTime}, nil
 		}
 
-		r.Log.Info(fmt.Sprintf("deleting pod %s", desiredLifecycleState.pod.Name))
-		if err = r.Delete(ctx, &desiredLifecycleState.pod); err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
-				withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s", desiredLifecycleState.pod.Name)).Error()))
+		for _, p := range desiredLifecycleState.pod {
+			r.Log.Info(fmt.Sprintf("deleting pod %s", p.Name))
+			if err = r.Delete(ctx, &p); err != nil {
+				return r.updateStatus(r.Client.Status(), hc, statusOptions().
+					withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s", p.Name)).Error()))
+			}
 		}
 	} else {
 		if desiredLifecycleState.WantsUpgrade() {
-			r.Log.Info(fmt.Sprintf("pod %s should be deleted because cluster upgrade is wanted but refusing due to the configured upgrade strategy",
-				desiredLifecycleState.pod.Name))
+			r.Log.Info(fmt.Sprintf("pods %s should be deleted because cluster upgrade is wanted but refusing due to the configured upgrade strategy",
+				desiredLifecycleState.PodNamesWeWantToDelete()))
 		} else if desiredLifecycleState.WantsRestart() {
-			r.Log.Info(fmt.Sprintf("pod %s should be deleted because cluster restart is wanted but refusing due to the configured upgrade strategy",
-				desiredLifecycleState.pod.Name))
+			r.Log.Info(fmt.Sprintf("pods %s should be deleted because cluster restart is wanted but refusing due to the configured upgrade strategy",
+				desiredLifecycleState.PodNamesWeWantToDelete()))
 		}
 	}
 

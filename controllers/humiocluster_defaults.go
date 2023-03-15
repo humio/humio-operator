@@ -845,13 +845,23 @@ func (hnp HumioNodePool) GetProbeScheme() corev1.URIScheme {
 }
 
 func (hnp HumioNodePool) GetUpdateStrategy() *humiov1alpha1.HumioUpdateStrategy {
+	defaultMaxUnavailable := intstr.FromInt(1)
+	defaultZoneAwareness := true
+
 	if hnp.humioNodeSpec.UpdateStrategy != nil {
+		if hnp.humioNodeSpec.UpdateStrategy.MaxUnavailable == nil {
+			hnp.humioNodeSpec.UpdateStrategy.MaxUnavailable = &defaultMaxUnavailable
+		}
+		if hnp.humioNodeSpec.UpdateStrategy.EnableZoneAwareness == nil {
+			hnp.humioNodeSpec.UpdateStrategy.EnableZoneAwareness = &defaultZoneAwareness
+		}
 		return hnp.humioNodeSpec.UpdateStrategy
 	}
 
 	return &humiov1alpha1.HumioUpdateStrategy{
-		Type:            humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate,
-		MinReadySeconds: 0,
+		Type:                humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate,
+		MaxUnavailable:      &defaultMaxUnavailable,
+		EnableZoneAwareness: &defaultZoneAwareness,
 	}
 }
 

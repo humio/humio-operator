@@ -31,6 +31,7 @@ import (
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/controllers/suite"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/rest"
 
 	"github.com/humio/humio-operator/pkg/kubernetes"
@@ -89,6 +90,8 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	fmt.Println("BeforeSuite")
+
 	var log logr.Logger
 	zapLog, _ := helpers.NewLogger()
 	defer zapLog.Sync()
@@ -338,6 +341,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	fmt.Println("AfterSuite")
 	if testProcessNamespace != "" && k8sClient != nil {
 		By(fmt.Sprintf("Removing regcred secret for namespace: %s", testProcessNamespace))
 		_ = k8sClient.Delete(context.TODO(), &corev1.Secret{
@@ -357,11 +361,14 @@ var _ = AfterSuite(func() {
 		)
 		Expect(err).ToNot(HaveOccurred())
 	}
-	By("Tearing down the test environment")
-	_ = testEnv.Stop()
+	if testEnv != nil {
+		By("Tearing down the test environment")
+		_ = testEnv.Stop()
+	}
 })
 
 var _ = ReportAfterSuite("HumioCluster Controller Suite", func(suiteReport ginkgotypes.Report) {
+	fmt.Println("ReportAfterSuite")
 	for _, r := range suiteReport.SpecReports {
 		testRunID := fmt.Sprintf("ReportAfterSuite-%s", kubernetes.RandomString())
 
@@ -379,10 +386,15 @@ var _ = ReportAfterSuite("HumioCluster Controller Suite", func(suiteReport ginkg
 
 		u, _ := json.Marshal(r)
 		fmt.Println(string(u))
+		if r.Failed() {
+			fmt.Println("Test case failed with:")
+			fmt.Println(r.Failure)
+		}
 	}
 })
 
 var _ = ReportAfterEach(func(specReport ginkgotypes.SpecReport) {
+	fmt.Println("ReportAfterEach")
 	testRunID := fmt.Sprintf("ReportAfterEach-%s", kubernetes.RandomString())
 
 	// Don't print CapturedGinkgoWriterOutput and CapturedStdOutErr for now as they end up being logged 3 times.
@@ -542,10 +554,23 @@ func podPendingCountByRevision(ctx context.Context, hnp *controllers.HumioNodePo
 }
 
 func ensurePodsRollingRestart(ctx context.Context, hnp *controllers.HumioNodePool, expectedPodRevision int) {
-	suite.UsingClusterBy(hnp.GetClusterName(), "Ensuring replacement pods are ready one at a time")
+	// TODO: How do we make sure "podsReplacedSimultaneously" includes zone awareness in its calculations?
+	//       How do we want to look up what zones all the current pods are in? Maybe extend HumioNodePool with GetPodsAndZones()?
+	podsReplacedSimultaneously, err := intstr.GetScaledValueFromIntOrPercent(hnp.GetUpdateStrategy().MaxUnavailable, hnp.GetNodeCount(), false)
+	Expect(err).To(BeNil())
 
-	for expectedReadyCount := 1; expectedReadyCount < hnp.GetNodeCount()+1; expectedReadyCount++ {
+	suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("Ensuring replacement pods are ready %d at a time", podsReplacedSimultaneously))
+	for expectedReadyCount := podsReplacedSimultaneously; expectedReadyCount <= hnp.GetNodeCount(); expectedReadyCount += podsReplacedSimultaneously {
 		Eventually(func() map[int]int {
+
+			// If zone awareness is enabled, we should never see pods in different zones being terminated at the same time
+			if *hnp.GetUpdateStrategy().EnableZoneAwareness == true {
+				podsList, err := kubernetes.ListPods(ctx, k8sClient, hnp.GetNamespace(), hnp.GetPodLabels())
+				Expect(err).To(BeNil())
+				zoneInfo, err := kubernetes.GetZoneInfoForPods(ctx, k8sClient, podsList)
+				Expect(kubernetes.NumberOfZonesWithPodsBeingDeleted(zoneInfo)).ToNot(BeNumerically(">", 1))
+			}
+
 			return podReadyCountByRevision(ctx, hnp, expectedPodRevision, expectedReadyCount)
 		}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(expectedPodRevision, expectedReadyCount))
 	}

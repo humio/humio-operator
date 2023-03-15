@@ -879,12 +879,14 @@ func (r *HumioClusterReconciler) waitForNewPods(ctx context.Context, hnp *HumioN
 	return fmt.Errorf("timed out waiting to validate new pods was created")
 }
 
-func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, desiredPod corev1.Pod) (bool, error) {
+func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, desiredPod corev1.Pod) bool {
 	if _, ok := pod.Annotations[podHashAnnotation]; !ok {
-		return false, fmt.Errorf("did not find annotation with pod hash")
+		r.Log.Error(fmt.Errorf("did not find annotation"), "unable to compare pod hash annotations")
+		return false
 	}
 	if _, ok := pod.Annotations[PodRevisionAnnotation]; !ok {
-		return false, fmt.Errorf("did not find annotation with pod revision")
+		r.Log.Error(fmt.Errorf("did not find annotation"), "unable to compare pod revision annotations")
+		return false
 	}
 	var specMatches bool
 	var revisionMatches bool
@@ -917,56 +919,70 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 	podSpecDiff := cmp.Diff(sanitizedCurrentPod.Spec, sanitizedDesiredPod.Spec)
 	if !specMatches {
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", podHashAnnotation, pod.Annotations[podHashAnnotation], desiredPodHash), "podSpecDiff", podSpecDiff)
-		return false, nil
+		return false
 	}
 	if !revisionMatches {
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", PodRevisionAnnotation, pod.Annotations[PodRevisionAnnotation], desiredPod.Annotations[PodRevisionAnnotation]), "podSpecDiff", podSpecDiff)
-		return false, nil
+		return false
 	}
 	if !envVarSourceMatches {
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", envVarSourceHashAnnotation, pod.Annotations[envVarSourceHashAnnotation], desiredPod.Annotations[envVarSourceHashAnnotation]), "podSpecDiff", podSpecDiff)
-		return false, nil
+		return false
 	}
-	return true, nil
+	return true
 }
 
+// TODO: can we even return a list of pods from here where it "just works" to delete all entries in that list?
 func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool, foundPodList []corev1.Pod, attachments *podAttachments) (podLifecycleState, error) {
-	for _, pod := range foundPodList {
-		podLifecycleStateValue := NewPodLifecycleState(*hnp, pod)
+	podLifecycleStateValue := NewPodLifecycleState(*hnp)
 
-		// only consider pods not already being deleted
+	for _, pod := range foundPodList {
+		// ignore pods already marked for deletion
 		if pod.DeletionTimestamp != nil {
 			continue
 		}
 
-		// if pod spec differs, we want to delete it
+		// If we've already collected enough pods to replace, return early
+		if hnp.humioNodeSpec.UpdateStrategy != nil &&
+			hnp.humioNodeSpec.UpdateStrategy.MaxUnavailable != nil {
+			maxUnavailableAbsolute, _ := intstr.GetScaledValueFromIntOrPercent(hnp.humioNodeSpec.UpdateStrategy.MaxUnavailable, hnp.GetNodeCount(), false)
+			howManyPodsWeWant := maxUnavailableAbsolute - (hnp.GetNodeCount() - len(foundPodList))
+			if len(podLifecycleStateValue.pod) == howManyPodsWeWant {
+				return *podLifecycleStateValue, nil
+			}
+		}
+
 		desiredPod, err := ConstructPod(hnp, "", attachments)
 		if err != nil {
 			return podLifecycleState{}, r.logErrorAndReturn(err, "could not construct pod")
 		}
-
-		podsMatchTest, err := r.podsMatch(hnp, pod, *desiredPod)
+		desiredHumioContainerIdx, err := kubernetes.GetContainerIndexByName(*desiredPod, HumioContainerName)
 		if err != nil {
-			r.Log.Error(err, "failed to check if pods match")
+			return podLifecycleState{}, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
 		}
-		if !podsMatchTest {
+
+		// if pod spec differs, we want to delete it
+		if !r.podsMatch(hnp, pod, *desiredPod) {
+			// If pods doesn't match we know we have some sort of configuration difference since pod specs differs
 			podLifecycleStateValue.configurationDifference = &podLifecycleStateConfigurationDifference{}
+
+			// Add pod to list of pods we want to replace
+			podLifecycleStateValue.pod = append(podLifecycleStateValue.pod, pod)
+
 			humioContainerIdx, err := kubernetes.GetContainerIndexByName(pod, HumioContainerName)
 			if err != nil {
 				return podLifecycleState{}, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
 			}
-			desiredHumioContainerIdx, err := kubernetes.GetContainerIndexByName(*desiredPod, HumioContainerName)
-			if err != nil {
-				return podLifecycleState{}, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
-			}
+
+			// Version is getting updated, as current pods doesn't have the expected image
 			if pod.Spec.Containers[humioContainerIdx].Image != desiredPod.Spec.Containers[desiredHumioContainerIdx].Image {
 				fromVersion, err := HumioVersionFromString(pod.Spec.Containers[humioContainerIdx].Image)
 				if err != nil {
-					return *podLifecycleStateValue, r.logErrorAndReturn(err, "failed to read version")
+					return podLifecycleState{}, r.logErrorAndReturn(err, "failed to read version")
 				}
 				toVersion, err := HumioVersionFromString(desiredPod.Spec.Containers[desiredHumioContainerIdx].Image)
 				if err != nil {
-					return *podLifecycleStateValue, r.logErrorAndReturn(err, "failed to read version")
+					return podLifecycleState{}, r.logErrorAndReturn(err, "failed to read version")
 				}
 				podLifecycleStateValue.versionDifference = &podLifecycleStateVersionDifference{
 					from: fromVersion,
@@ -974,15 +990,13 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 				}
 			}
 
-			// Changes to EXTERNAL_URL means we've toggled TLS on/off and must restart all pods at the same time
+			// Toggling TLS on/off requires all pods to be restarted at the same time
 			if EnvVarValue(pod.Spec.Containers[humioContainerIdx].Env, "EXTERNAL_URL") != EnvVarValue(desiredPod.Spec.Containers[desiredHumioContainerIdx].Env, "EXTERNAL_URL") {
 				podLifecycleStateValue.configurationDifference.requiresSimultaneousRestart = true
 			}
-
-			return *podLifecycleStateValue, nil
 		}
 	}
-	return podLifecycleState{}, nil
+	return *podLifecycleStateValue, nil
 }
 
 func findHumioNodeName(ctx context.Context, c client.Client, hnp *HumioNodePool, newlyCreatedPods []corev1.Pod) (string, error) {

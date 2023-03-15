@@ -33,6 +33,7 @@ jobs:
       with:
         version: "v0.16.0"
         image: ${{ matrix.kind-k8s-version }}
+        config: hack/kind-config.yaml
     - name: Get temp bin dir
       id: bin_dir
       run: echo "BIN_DIR=$(mktemp -d --tmpdir=${{ github.workspace }})" >> $GITHUB_OUTPUT

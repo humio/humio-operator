@@ -111,6 +111,7 @@ func (r *HumioClusterReconciler) getPodsStatus(hc *humiov1alpha1.HumioCluster, h
 // waitingOnPods returns true when there are pods running that are not in a ready state. This does not include pods
 // that are not ready due to container errors.
 func (s *podsStatusState) waitingOnPods() bool {
+	// TODO: Can we just say ok if we have enough pods running vs what maxUnavailable & nodeCount allows us to?
 	return (s.readyCount < s.expectedRunningPods || s.notReadyCount > 0) && !s.havePodsWithErrors() && !s.havePodsRequiringDeletion()
 }
 

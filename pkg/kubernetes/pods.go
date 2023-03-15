@@ -21,12 +21,10 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ListPods grabs the list of all pods associated to a an instance of HumioCluster
+// ListPods grabs the list of all pods, or subset of pods, associated to an instance of HumioCluster
 func ListPods(ctx context.Context, c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]corev1.Pod, error) {
 	var foundPodList corev1.PodList
 	err := c.List(ctx, &foundPodList, client.InNamespace(humioClusterNamespace), matchingLabels)
@@ -35,6 +33,36 @@ func ListPods(ctx context.Context, c client.Client, humioClusterNamespace string
 	}
 
 	return foundPodList.Items, nil
+}
+
+type zoneToPods map[string][]corev1.Pod
+
+func GetZoneInfoForPods(ctx context.Context, c client.Client, pods []corev1.Pod) (zoneToPods, error) {
+	output := make(zoneToPods)
+	for _, p := range pods {
+		node, err := GetNode(ctx, c, p.Spec.NodeName)
+		if err != nil {
+			return nil, err
+		}
+		zone, found := node.Labels[corev1.LabelZoneFailureDomain]
+		if !found {
+			zone, _ = node.Labels[corev1.LabelZoneFailureDomainStable]
+		}
+		output[zone] = append(output[zone], p)
+	}
+	return output, nil
+}
+
+func NumberOfZonesWithPodsBeingDeleted(podInfos zoneToPods) int {
+	zonesWithPodsBeingDeleted := map[string]bool{}
+	for zone, podList := range podInfos {
+		for _, pod := range podList {
+			if pod.DeletionTimestamp != nil {
+				zonesWithPodsBeingDeleted[zone] = true
+			}
+		}
+	}
+	return len(zonesWithPodsBeingDeleted)
 }
 
 // GetContainerIndexByName returns the index of the container in the list of containers of a pod.
@@ -57,13 +85,4 @@ func GetInitContainerIndexByName(pod corev1.Pod, name string) (int, error) {
 		}
 	}
 	return 0, fmt.Errorf("initcontainer with name %s not found", name)
-}
-
-func GetPod(ctx context.Context, c client.Client, humioClusterNamespace string, podName string) (*corev1.Pod, error) {
-	var pod corev1.Pod
-	err := c.Get(ctx, types.NamespacedName{
-		Name:      podName,
-		Namespace: humioClusterNamespace,
-	}, &pod)
-	return &pod, err
 }

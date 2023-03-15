@@ -11943,10 +11943,25 @@ spec:
                             updated when changes are made to the HumioCluster resource
                             that results in a change to the Humio pods
                           properties:
+                            enableZoneAwareness:
+                              description: EnableZoneAwareness toggles zone awareness
+                                on or off during updates. Zone awareness is enabled
+                                by default.
+                              type: boolean
+                            maxUnavailable:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: 'MaxUnavailable is the maximum number of
+                                pods that can be unavailable during a rolling update.
+                                This can be configured to an absolute number or a
+                                percentage, e.g. "maxUnavailable: 5" or "maxUnavailable:
+                                25%". By default, the max unavailable pods is 1.'
+                              x-kubernetes-int-or-string: true
                             minReadySeconds:
-                              description: The minimum time in seconds that a pod
-                                must be ready before the next pod can be deleted when
-                                doing rolling update.
+                              description: MinReadySeconds is the minimum time in
+                                seconds that a pod must be ready before the next pod
+                                can be deleted when doing rolling update.
                               format: int32
                               type: integer
                             type:
@@ -13495,9 +13510,24 @@ spec:
                   changes are made to the HumioCluster resource that results in a
                   change to the Humio pods
                 properties:
+                  enableZoneAwareness:
+                    description: EnableZoneAwareness toggles zone awareness on or
+                      off during updates. Zone awareness is enabled by default.
+                    type: boolean
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: 'MaxUnavailable is the maximum number of pods that
+                      can be unavailable during a rolling update. This can be configured
+                      to an absolute number or a percentage, e.g. "maxUnavailable:
+                      5" or "maxUnavailable: 25%". By default, the max unavailable
+                      pods is 1.'
+                    x-kubernetes-int-or-string: true
                   minReadySeconds:
-                    description: The minimum time in seconds that a pod must be ready
-                      before the next pod can be deleted when doing rolling update.
+                    description: MinReadySeconds is the minimum time in seconds that
+                      a pod must be ready before the next pod can be deleted when
+                      doing rolling update.
                     format: int32
                     type: integer
                   type:
