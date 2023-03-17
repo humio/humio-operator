@@ -19,6 +19,7 @@ package controllers
 import (
 	"fmt"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -698,7 +699,7 @@ func (hnp HumioNodePool) GetAffinity() *corev1.Affinity {
 									Key:      corev1.LabelArchStable,
 									Operator: corev1.NodeSelectorOpIn,
 									Values: []string{
-										"amd64",
+										runtime.GOARCH,
 									},
 								},
 								{
