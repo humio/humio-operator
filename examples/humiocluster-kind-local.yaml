@@ -7,7 +7,7 @@ spec:
     secretKeyRef:
       name: example-humiocluster-license
       key: data
-  image: "humio/humio-core:1.70.0"
+  image: "humio/humio-core:1.76.2"
   nodeCount: 1
   tls:
     enabled: false
