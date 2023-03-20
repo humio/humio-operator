@@ -933,49 +933,53 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool, foundPodList []corev1.Pod, attachments *podAttachments) (podLifecycleState, error) {
 	for _, pod := range foundPodList {
 		podLifecycleStateValue := NewPodLifecycleState(*hnp, pod)
+
 		// only consider pods not already being deleted
-		if pod.DeletionTimestamp == nil {
-			// if pod spec differs, we want to delete it
-			desiredPod, err := ConstructPod(hnp, "", attachments)
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+
+		// if pod spec differs, we want to delete it
+		desiredPod, err := ConstructPod(hnp, "", attachments)
+		if err != nil {
+			return podLifecycleState{}, r.logErrorAndReturn(err, "could not construct pod")
+		}
+
+		podsMatchTest, err := r.podsMatch(hnp, pod, *desiredPod)
+		if err != nil {
+			r.Log.Error(err, "failed to check if pods match")
+		}
+		if !podsMatchTest {
+			podLifecycleStateValue.configurationDifference = &podLifecycleStateConfigurationDifference{}
+			humioContainerIdx, err := kubernetes.GetContainerIndexByName(pod, HumioContainerName)
 			if err != nil {
-				return podLifecycleState{}, r.logErrorAndReturn(err, "could not construct pod")
+				return podLifecycleState{}, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
 			}
-
-			podsMatchTest, err := r.podsMatch(hnp, pod, *desiredPod)
+			desiredHumioContainerIdx, err := kubernetes.GetContainerIndexByName(*desiredPod, HumioContainerName)
 			if err != nil {
-				r.Log.Error(err, "failed to check if pods match")
+				return podLifecycleState{}, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
 			}
-			if !podsMatchTest {
-				podLifecycleStateValue.configurationDifference = &podLifecycleStateConfigurationDifference{}
-				humioContainerIdx, err := kubernetes.GetContainerIndexByName(pod, HumioContainerName)
+			if pod.Spec.Containers[humioContainerIdx].Image != desiredPod.Spec.Containers[desiredHumioContainerIdx].Image {
+				fromVersion, err := HumioVersionFromString(pod.Spec.Containers[humioContainerIdx].Image)
 				if err != nil {
-					return podLifecycleState{}, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
+					return *podLifecycleStateValue, r.logErrorAndReturn(err, "failed to read version")
 				}
-				desiredHumioContainerIdx, err := kubernetes.GetContainerIndexByName(*desiredPod, HumioContainerName)
+				toVersion, err := HumioVersionFromString(desiredPod.Spec.Containers[desiredHumioContainerIdx].Image)
 				if err != nil {
-					return podLifecycleState{}, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
+					return *podLifecycleStateValue, r.logErrorAndReturn(err, "failed to read version")
 				}
-				if pod.Spec.Containers[humioContainerIdx].Image != desiredPod.Spec.Containers[desiredHumioContainerIdx].Image {
-					fromVersion, err := HumioVersionFromString(pod.Spec.Containers[humioContainerIdx].Image)
-					if err != nil {
-						return *podLifecycleStateValue, r.logErrorAndReturn(err, "failed to read version")
-					}
-					toVersion, err := HumioVersionFromString(desiredPod.Spec.Containers[desiredHumioContainerIdx].Image)
-					if err != nil {
-						return *podLifecycleStateValue, r.logErrorAndReturn(err, "failed to read version")
-					}
-					podLifecycleStateValue.versionDifference = &podLifecycleStateVersionDifference{
-						from: fromVersion,
-						to:   toVersion,
-					}
+				podLifecycleStateValue.versionDifference = &podLifecycleStateVersionDifference{
+					from: fromVersion,
+					to:   toVersion,
 				}
-
-				if EnvVarValue(pod.Spec.Containers[humioContainerIdx].Env, "EXTERNAL_URL") != EnvVarValue(desiredPod.Spec.Containers[desiredHumioContainerIdx].Env, "EXTERNAL_URL") {
-					podLifecycleStateValue.configurationDifference.requiresSimultaneousRestart = true
-				}
-
-				return *podLifecycleStateValue, nil
 			}
+
+			// Changes to EXTERNAL_URL means we've toggled TLS on/off and must restart all pods at the same time
+			if EnvVarValue(pod.Spec.Containers[humioContainerIdx].Env, "EXTERNAL_URL") != EnvVarValue(desiredPod.Spec.Containers[desiredHumioContainerIdx].Env, "EXTERNAL_URL") {
+				podLifecycleStateValue.configurationDifference.requiresSimultaneousRestart = true
+			}
+
+			return *podLifecycleStateValue, nil
 		}
 	}
 	return podLifecycleState{}, nil

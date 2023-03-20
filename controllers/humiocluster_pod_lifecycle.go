@@ -1,10 +1,11 @@
 package controllers
 
 import (
+	"time"
+
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 type podLifecycleState struct {
@@ -44,20 +45,6 @@ func (p *podLifecycleState) ShouldRollingRestart() bool {
 				// allow rolling upgrades and downgrades for patch releases
 				if p.versionDifference.from.SemVer().Minor() == p.versionDifference.to.SemVer().Minor() {
 					return true
-				}
-				// only allow rolling upgrades for stable releases (non-preview)
-				if p.versionDifference.to.IsStable() {
-					// only allow rolling upgrades that are changing by one minor version
-					if p.versionDifference.from.SemVer().Minor()+1 == p.versionDifference.to.SemVer().Minor() {
-						return true
-					}
-				}
-				// only allow rolling downgrades for stable versions (non-preview)
-				if p.versionDifference.from.IsStable() {
-					// only allow rolling downgrades that are changing by one minor version
-					if p.versionDifference.from.SemVer().Minor()-1 == p.versionDifference.to.SemVer().Minor() {
-						return true
-					}
 				}
 			}
 		}
