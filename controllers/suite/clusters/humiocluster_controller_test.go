@@ -43,20 +43,14 @@ const (
 	oldSupportedHumioVersion   = "humio/humio-core:1.56.2"
 	oldUnsupportedHumioVersion = "humio/humio-core:1.18.4"
 
-	upgradePatchBestEffortOldVersion = "humio/humio-core:1.56.2"
-	upgradePatchBestEffortNewVersion = "humio/humio-core:1.56.3"
+	upgradePatchBestEffortOldVersion = "humio/humio-core:1.76.1"
+	upgradePatchBestEffortNewVersion = "humio/humio-core:1.76.2"
 
-	upgradeRollingBestEffortPreviewOldVersion = "humio/humio-core:1.56.2"
-	upgradeRollingBestEffortPreviewNewVersion = "humio/humio-core:1.56.3"
+	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.56.3"
+	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.76.2"
 
-	upgradeRollingBestEffortStableOldVersion = "humio/humio-core:1.56.2"
-	upgradeRollingBestEffortStableNewVersion = "humio/humio-core:1.56.3"
-
-	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.56.2"
-	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.56.3"
-
-	imageSourceConfigmapOldVersion = "humio/humio-core:1.56.2"
-	imageSourceConfigmapNewVersion = "humio/humio-core:1.56.3"
+	imageSourceConfigmapOldVersion = upgradePatchBestEffortOldVersion
+	imageSourceConfigmapNewVersion = upgradePatchBestEffortNewVersion
 )
 
 var _ = Describe("HumioCluster Controller", func() {
@@ -206,14 +200,13 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
-			updatedImage := controllers.Image
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
 				if err != nil {
 					return err
 				}
-				updatedHumioCluster.Spec.Image = updatedImage
+				updatedHumioCluster.Spec.Image = controllers.Image
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -240,7 +233,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(controllers.Image))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
@@ -389,14 +382,13 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
-			updatedImage := controllers.Image
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
 				if err != nil {
 					return err
 				}
-				updatedHumioCluster.Spec.Image = updatedImage
+				updatedHumioCluster.Spec.Image = controllers.Image
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -406,6 +398,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return updatedHumioCluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
 
+			suite.UsingClusterBy(key.Name, "Pods upgrade in a rolling fashion because update strategy is explicitly set to rolling update")
 			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
 
 			Eventually(func() string {
@@ -423,7 +416,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(controllers.Image))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
@@ -538,6 +531,9 @@ var _ = Describe("HumioCluster Controller", func() {
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.Image = upgradePatchBestEffortOldVersion
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdateBestEffort,
+			}
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
@@ -557,14 +553,13 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
-			updatedImage := upgradePatchBestEffortNewVersion
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
 				if err != nil {
 					return err
 				}
-				updatedHumioCluster.Spec.Image = updatedImage
+				updatedHumioCluster.Spec.Image = upgradePatchBestEffortNewVersion
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -592,81 +587,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
-				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
-			}
-
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
-				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
-			}
-
-		})
-	})
-
-	Context("Humio Cluster Update Image Rolling Best Effort Preview", func() {
-		It("Update should correctly replace pods to use new image in a rolling fashion for preview updates", func() {
-			key := types.NamespacedName{
-				Name:      "humiocluster-update-image-rolling-preview",
-				Namespace: testProcessNamespace,
-			}
-			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = upgradeRollingBestEffortPreviewOldVersion
-			toCreate.Spec.NodeCount = helpers.IntPtr(2)
-
-			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
-			ctx := context.Background()
-			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
-			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
-
-			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetHumioClusterNodePoolRevisionAnnotation()
-			var updatedHumioCluster humiov1alpha1.HumioCluster
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-			for _, pod := range clusterPods {
-				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
-				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
-			}
-			updatedHumioCluster = humiov1alpha1.HumioCluster{}
-			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
-
-			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
-			Eventually(func() error {
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil {
-					return err
-				}
-				updatedHumioCluster.Spec.Image = upgradeRollingBestEffortPreviewNewVersion
-				return k8sClient.Update(ctx, &updatedHumioCluster)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-
-			Eventually(func() string {
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				return updatedHumioCluster.Status.State
-			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
-
-			suite.UsingClusterBy(key.Name, "Pods upgrade at the same time because the new version is preview")
-			ensurePodsSimultaneousRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
-
-			Eventually(func() string {
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				return updatedHumioCluster.Status.State
-			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
-
-			suite.UsingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
-			updatedHumioCluster = humiov1alpha1.HumioCluster{}
-			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "2"))
-
-			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
-			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
-			for _, pod := range updatedClusterPods {
-				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(upgradeRollingBestEffortPreviewNewVersion))
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(upgradePatchBestEffortNewVersion))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
@@ -677,89 +598,18 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Image Rolling Best Effort Stable", func() {
-		It("Update should correctly replace pods to use new image in a rolling fashion for stable updates", func() {
+	Context("Humio Cluster Update Image Best Effort Version Jump", func() {
+		It("Update should correctly replace pods in parallel to use new image for version jump updates", func() {
 			key := types.NamespacedName{
-				Name:      "humiocluster-update-image-rolling-stable",
-				Namespace: testProcessNamespace,
-			}
-			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = upgradeRollingBestEffortStableOldVersion
-			toCreate.Spec.NodeCount = helpers.IntPtr(2)
-
-			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
-			ctx := context.Background()
-			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
-			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
-
-			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetHumioClusterNodePoolRevisionAnnotation()
-			var updatedHumioCluster humiov1alpha1.HumioCluster
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-			for _, pod := range clusterPods {
-				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
-				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
-			}
-			updatedHumioCluster = humiov1alpha1.HumioCluster{}
-			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
-
-			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
-			Eventually(func() error {
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil {
-					return err
-				}
-				updatedHumioCluster.Spec.Image = upgradeRollingBestEffortStableNewVersion
-				return k8sClient.Update(ctx, &updatedHumioCluster)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-
-			Eventually(func() string {
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				return updatedHumioCluster.Status.State
-			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
-
-			suite.UsingClusterBy(key.Name, "Pods upgrade in a rolling fashion because the new version is stable and"+
-				"only one minor revision greater than the previous version")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
-
-			Eventually(func() string {
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				return updatedHumioCluster.Status.State
-			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
-
-			suite.UsingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
-			updatedHumioCluster = humiov1alpha1.HumioCluster{}
-			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "2"))
-
-			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
-			Expect(updatedClusterPods).To(HaveLen(*toCreate.Spec.NodeCount))
-			for _, pod := range updatedClusterPods {
-				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(upgradeRollingBestEffortStableNewVersion))
-				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
-			}
-
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
-				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
-			}
-		})
-	})
-
-	Context("Humio Cluster Update Image Rolling Best Effort Version Jump", func() {
-		It("Update should correctly replace pods to use new image in a rolling fashion for version jump updates", func() {
-			key := types.NamespacedName{
-				Name:      "humiocluster-update-image-rolling-vj",
+				Name:      "humiocluster-update-image-vj",
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.Image = upgradeRollingBestEffortVersionJumpOldVersion
 			toCreate.Spec.NodeCount = helpers.IntPtr(2)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdateBestEffort,
+			}
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
