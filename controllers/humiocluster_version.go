@@ -64,13 +64,6 @@ func (hv *HumioVersion) IsLatest() bool {
 	return hv.assumeLatest
 }
 
-func (hv *HumioVersion) IsStable() bool {
-	if hv.SemVer().Minor() == 0 {
-		return true
-	}
-	return hv.SemVer().Minor()%2 == 0
-}
-
 func (hv *HumioVersion) constraint(constraintStr string) (bool, error) {
 	constraint, err := semver.NewConstraint(constraintStr)
 	return constraint.Check(hv.version), err
