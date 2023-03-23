@@ -946,8 +946,15 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 		if hnp.humioNodeSpec.UpdateStrategy != nil &&
 			hnp.humioNodeSpec.UpdateStrategy.MaxUnavailable != nil {
 			maxUnavailableAbsolute, _ := intstr.GetScaledValueFromIntOrPercent(hnp.humioNodeSpec.UpdateStrategy.MaxUnavailable, hnp.GetNodeCount(), false)
-			howManyPodsWeWant := maxUnavailableAbsolute - (hnp.GetNodeCount() - len(foundPodList))
-			if len(podLifecycleStateValue.pod) == howManyPodsWeWant {
+			howManyPodsWeWantToReplaceInThisReconcile := maxUnavailableAbsolute - (hnp.GetNodeCount() - len(foundPodList))
+			r.Log.Info("this this this",
+				"howManyPodsWeWantToReplaceInThisReconcile", howManyPodsWeWantToReplaceInThisReconcile,
+				"hnp.humioNodeSpec.UpdateStrategy.MaxUnavailable", hnp.humioNodeSpec.UpdateStrategy.MaxUnavailable,
+				"hnp.GetNodeCount()", hnp.GetNodeCount(),
+				"maxUnavailableAbsolute", maxUnavailableAbsolute,
+				"len(foundPodList)", len(foundPodList),
+			)
+			if len(podLifecycleStateValue.pod) == howManyPodsWeWantToReplaceInThisReconcile { // TODO: Why do we add more here than we want?
 				return *podLifecycleStateValue, nil
 			}
 		}
