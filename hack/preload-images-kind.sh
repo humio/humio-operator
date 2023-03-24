@@ -31,7 +31,7 @@ go install github.com/onsi/ginkgo/v2/ginkgo
 popd
 
 # Preload image we will run e2e tests from within
-CGO_ENABLED=0 ~/go/bin/ginkgo build --skip-package helpers ./controllers/suite/... -covermode=count -coverprofile cover.out -progress
+GOOS=linux CGO_ENABLED=0 ~/go/bin/ginkgo build --skip-package helpers ./controllers/suite/... -covermode=count -coverprofile cover.out -progress
 rm -r testbindir
 mkdir testbindir
 find . -name "*.test" | xargs -I{} mv {} testbindir

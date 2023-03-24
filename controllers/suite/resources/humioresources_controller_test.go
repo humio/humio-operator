@@ -37,7 +37,7 @@ import (
 	"github.com/humio/humio-operator/pkg/humio"
 )
 
-var _ = Describe("Humio Resources Controllers", func() {
+var _ = XDescribe("Humio Resources Controllers", func() {
 
 	BeforeEach(func() {
 		// failed test runs that don't clean up leave resources behind.

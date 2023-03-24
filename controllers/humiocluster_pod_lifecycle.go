@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"strings"
 	"time"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -8,9 +9,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// podLifecycleState encapsulates details around the node pool being updated, including a slice of pods we want to replace and also information about why they must be replaced
 type podLifecycleState struct {
-	nodePool                HumioNodePool
-	pod                     corev1.Pod
+	nodePool HumioNodePool
+
+	// pod is the list of pods we want to replace // TODO: Figure of if we have to split this based on whether it is due to config or version
+	pod                     []corev1.Pod
 	versionDifference       *podLifecycleStateVersionDifference
 	configurationDifference *podLifecycleStateConfigurationDifference
 }
@@ -21,13 +25,12 @@ type podLifecycleStateVersionDifference struct {
 }
 
 type podLifecycleStateConfigurationDifference struct {
-	requiresSimultaneousRestart bool
+	requiresSimultaneousRestart bool // TODO: Right now, this only means all pods in the same node pool. This probably needs to be expanded to "ensure all pods in the entire cluster".
 }
 
-func NewPodLifecycleState(hnp HumioNodePool, pod corev1.Pod) *podLifecycleState {
+func NewPodLifecycleState(hnp HumioNodePool) *podLifecycleState {
 	return &podLifecycleState{
 		nodePool: hnp,
-		pod:      pod,
 	}
 }
 
@@ -66,8 +69,11 @@ func (p *podLifecycleState) RemainingMinReadyWaitTime(pods []corev1.Pod) time.Du
 	var minReadySeconds = p.nodePool.GetUpdateStrategy().MinReadySeconds
 	var conditions []corev1.PodCondition
 	for _, pod := range pods {
-		if pod.Name == p.pod.Name {
-			continue
+		// Ignore pod the pod we're planning on deleting/replacing
+		for _, podForDeletion := range p.pod {
+			if pod.Name == podForDeletion.Name {
+				continue
+			}
 		}
 		for _, condition := range pod.Status.Conditions {
 			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
@@ -90,6 +96,14 @@ func (p *podLifecycleState) RemainingMinReadyWaitTime(pods []corev1.Pod) time.Du
 		}
 	}
 	return -1
+}
+
+func (p *podLifecycleState) PodNamesWeWantToDelete() string {
+	var podNames []string
+	for _, p := range p.pod {
+		podNames = append(podNames, p.Name)
+	}
+	return strings.Join(podNames, ",")
 }
 
 func (p *podLifecycleState) ShouldDeletePod() bool {

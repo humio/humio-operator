@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -253,8 +254,21 @@ type HumioUpdateStrategy struct {
 	// +kubebuilder:validation:Enum=OnDelete;RollingUpdate;ReplaceAllOnUpdate;RollingUpdateBestEffort
 	Type string `json:"type,omitempty"`
 
-	// The minimum time in seconds that a pod must be ready before the next pod can be deleted when doing rolling update.
+	// MaxUnavailable is the maximum number of pods that can be unavailable during a rolling update.
+	// This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".
+	// By default, the max unavailable pods is 1.
+	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"` // `json:"maxUnavailable,omitempty" protobuf:"bytes,1,opt,name=maxUnavailable"`
+
+	// MinReadySeconds is the minimum time in seconds that a pod must be ready before the next pod can be deleted when doing rolling update.
 	MinReadySeconds int32 `json:"minReadySeconds,omitempty"`
+
+	// EnableZoneAwareness toggles zone awareness on or off during updates.
+	// Zone awareness is enabled by default.
+	EnableZoneAwareness *bool `json:"enableZoneAwareness,omitempty"`
+
+	// TODO: How do we handle if we ever need to upgrade using a complete cluster shutdown?
+	//       Aka. where all nodePools would need to be terminated before spinning anything up again.
+	//       This HumioUpdateStrategy type is used to define the strategy for a single node pool.
 }
 
 type HumioNodePoolSpec struct {

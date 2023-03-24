@@ -444,9 +444,10 @@ func initMode() {
 	if err != nil {
 		panic(err.Error())
 	} else {
-		zone, found := node.Labels[corev1.LabelZoneFailureDomainStable]
+		// TODO: move this elsewhere so operator logic can reuse?
+		zone, found := node.Labels[corev1.LabelZoneFailureDomain]
 		if !found {
-			zone, _ = node.Labels[corev1.LabelZoneFailureDomain]
+		        zone, _ = node.Labels[corev1.LabelZoneFailureDomainStable]
 		}
 		err := ioutil.WriteFile(targetFile, []byte(zone), 0644) // #nosec G306
 		if err != nil {

@@ -65,9 +65,9 @@ func ConstructServiceAccountSecret(humioClusterName, humioClusterNamespace, secr
 			Name:        fmt.Sprintf("%s-%s", secretName, RandomString()),
 			Namespace:   humioClusterNamespace,
 			Labels:      LabelsForSecret(humioClusterName, secretName, nil),
-			Annotations: map[string]string{"kubernetes.io/service-account.name": serviceAccountName},
+			Annotations: map[string]string{corev1.ServiceAccountNameKey: serviceAccountName},
 		},
-		Type: "kubernetes.io/service-account-token",
+		Type: corev1.SecretTypeServiceAccountToken,
 	}
 }
 
