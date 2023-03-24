@@ -943,20 +943,17 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 		}
 
 		// If we've already collected enough pods to replace, return early
-		if hnp.humioNodeSpec.UpdateStrategy != nil &&
-			hnp.humioNodeSpec.UpdateStrategy.MaxUnavailable != nil {
-			maxUnavailableAbsolute, _ := intstr.GetScaledValueFromIntOrPercent(hnp.humioNodeSpec.UpdateStrategy.MaxUnavailable, hnp.GetNodeCount(), false)
-			howManyPodsWeWantToReplaceInThisReconcile := maxUnavailableAbsolute - (hnp.GetNodeCount() - len(foundPodList))
-			r.Log.Info("this this this",
-				"howManyPodsWeWantToReplaceInThisReconcile", howManyPodsWeWantToReplaceInThisReconcile,
-				"hnp.humioNodeSpec.UpdateStrategy.MaxUnavailable", hnp.humioNodeSpec.UpdateStrategy.MaxUnavailable,
-				"hnp.GetNodeCount()", hnp.GetNodeCount(),
-				"maxUnavailableAbsolute", maxUnavailableAbsolute,
-				"len(foundPodList)", len(foundPodList),
-			)
-			if len(podLifecycleStateValue.pod) == howManyPodsWeWantToReplaceInThisReconcile { // TODO: Why do we add more here than we want?
-				return *podLifecycleStateValue, nil
-			}
+		maxUnavailableAbsolute, _ := intstr.GetScaledValueFromIntOrPercent(hnp.GetUpdateStrategy().MaxUnavailable, hnp.GetNodeCount(), false)
+		howManyPodsWeWantToReplaceInThisReconcile := maxUnavailableAbsolute - (hnp.GetNodeCount() - len(foundPodList))
+		r.Log.Info("this this this", // TODO: Apparently this is not logged?
+			"howManyPodsWeWantToReplaceInThisReconcile", howManyPodsWeWantToReplaceInThisReconcile,
+			"hnp.GetUpdateStrategy().MaxUnavailable", hnp.GetUpdateStrategy().MaxUnavailable,
+			"hnp.GetNodeCount()", hnp.GetNodeCount(),
+			"maxUnavailableAbsolute", maxUnavailableAbsolute,
+			"len(foundPodList)", len(foundPodList),
+		)
+		if len(podLifecycleStateValue.pod) == howManyPodsWeWantToReplaceInThisReconcile { // TODO: Why do we add more here than we want?
+			return *podLifecycleStateValue, nil
 		}
 
 		desiredPod, err := ConstructPod(hnp, "", attachments)

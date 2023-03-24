@@ -2256,7 +2256,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		}
 
 		for _, p := range desiredLifecycleState.pod {
-			r.Log.Info(fmt.Sprintf("deleting pod %s", p.Name))
+			r.Log.Info(fmt.Sprintf("deleting pod %s", p.Name)) // TODO: Figure out if "pod" should contain all pods we want to replace or just the ones we want to replace *this* reconciliation.
 			if err = r.Delete(ctx, &p); err != nil {
 				return r.updateStatus(r.Client.Status(), hc, statusOptions().
 					withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s", p.Name)).Error()))
