@@ -21,8 +21,6 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -57,13 +55,4 @@ func GetInitContainerIndexByName(pod corev1.Pod, name string) (int, error) {
 		}
 	}
 	return 0, fmt.Errorf("initcontainer with name %s not found", name)
-}
-
-func GetPod(ctx context.Context, c client.Client, humioClusterNamespace string, podName string) (*corev1.Pod, error) {
-	var pod corev1.Pod
-	err := c.Get(ctx, types.NamespacedName{
-		Name:      podName,
-		Namespace: humioClusterNamespace,
-	}, &pod)
-	return &pod, err
 }
