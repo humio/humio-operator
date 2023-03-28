@@ -3332,6 +3332,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+			suite.CreateLicenseSecret(ctx, key, k8sClient, toCreate)
+
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			suite.UsingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
@@ -3366,6 +3368,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+			suite.CreateLicenseSecret(ctx, key, k8sClient, toCreate)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			suite.UsingClusterBy(key.Name, "should indicate cluster configuration error")
@@ -3400,6 +3403,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+			suite.CreateLicenseSecret(ctx, key, k8sClient, toCreate)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			suite.UsingClusterBy(key.Name, "should indicate cluster configuration error")
@@ -3433,6 +3437,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+			suite.CreateLicenseSecret(ctx, key, k8sClient, toCreate)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			suite.UsingClusterBy(key.Name, "should indicate cluster configuration error")
@@ -3589,7 +3594,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully without any Hostnames defined")
 			ctx := context.Background()
-			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateConfigError, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Confirming we did not create any ingresses")

@@ -285,6 +285,20 @@ func ConstructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 	return humioCluster
 }
 
+func CreateLicenseSecret(ctx context.Context, clusterKey types.NamespacedName, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster) {
+	UsingClusterBy(cluster.Name, fmt.Sprintf("Creating the license secret %s", cluster.Spec.License.SecretKeyRef.Name))
+
+	licenseSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-license", clusterKey.Name),
+			Namespace: clusterKey.Namespace,
+		},
+		StringData: map[string]string{"license": os.Getenv("HUMIO_E2E_LICENSE")},
+		Type:       corev1.SecretTypeOpaque,
+	}
+	Expect(k8sClient.Create(ctx, &licenseSecret)).To(Succeed())
+}
+
 func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, humioClient humio.Client, cluster *humiov1alpha1.HumioCluster, autoCreateLicense bool, expectedState string, testTimeout time.Duration) {
 	key := types.NamespacedName{
 		Namespace: cluster.Namespace,
@@ -292,17 +306,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	}
 
 	if autoCreateLicense {
-		UsingClusterBy(cluster.Name, fmt.Sprintf("Creating the license secret %s", cluster.Spec.License.SecretKeyRef.Name))
-
-		licenseSecret := corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-license", key.Name),
-				Namespace: key.Namespace,
-			},
-			StringData: map[string]string{"license": os.Getenv("HUMIO_E2E_LICENSE")},
-			Type:       corev1.SecretTypeOpaque,
-		}
-		Expect(k8sClient.Create(ctx, &licenseSecret)).To(Succeed())
+		CreateLicenseSecret(ctx, key, k8sClient, cluster)
 	}
 
 	if cluster.Spec.HumioServiceAccountName != "" {
