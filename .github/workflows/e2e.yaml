@@ -3,7 +3,7 @@ name: e2e
 jobs:
   e2e:
     name: ${{ matrix.kind-k8s-version }}
-    runs-on: [self-hosted, ops]
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
