@@ -235,7 +235,7 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 							corev1.ResourceMemory: *resource.NewQuantity(750*1024*1024, resource.BinarySI),
 						},
 						Requests: corev1.ResourceList{
-							corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
+							corev1.ResourceCPU:    *resource.NewMilliQuantity(0, resource.DecimalSI),
 							corev1.ResourceMemory: *resource.NewQuantity(150*1024*1024, resource.BinarySI),
 						},
 					},
