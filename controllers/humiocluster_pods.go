@@ -75,11 +75,11 @@ type nodeUUIDTemplateVars struct {
 func ConstructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]string, error) {
 	var shellCommands []string
 	if EnvVarHasValue(podEnvVars, "USING_EPHEMERAL_DISKS", "true") {
-		nodeUUIDPrefix, err := constructNodeUUIDPrefix(hnp)
-		if err != nil {
-			return []string{""}, fmt.Errorf("unable to construct node UUID: %w", err)
-		}
 		if EnvVarHasKey(podEnvVars, "ZOOKEEPER_URL") {
+			nodeUUIDPrefix, err := constructNodeUUIDPrefix(hnp)
+			if err != nil {
+				return []string{""}, fmt.Errorf("unable to construct node UUID: %w", err)
+			}
 			shellCommands = append(shellCommands, fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s", nodeUUIDPrefix))
 		}
 	}
@@ -606,19 +606,6 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 		return &corev1.Pod{}, fmt.Errorf("unable to construct node container args: %w", err)
 	}
 	pod.Spec.Containers[humioIdx].Args = containerArgs
-
-	humioVersion, _ := HumioVersionFromString(hnp.GetImage())
-	if ok, _ := humioVersion.AtLeast(HumioVersionWithNewTmpDir); !ok {
-		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name:         "humio-tmp",
-			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
-		})
-		pod.Spec.Containers[humioIdx].VolumeMounts = append(pod.Spec.Containers[humioIdx].VolumeMounts, corev1.VolumeMount{
-			Name:      "humio-tmp",
-			MountPath: humioDataTmpPath,
-			ReadOnly:  false,
-		})
-	}
 
 	return &pod, nil
 }

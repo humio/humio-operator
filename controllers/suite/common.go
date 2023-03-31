@@ -202,6 +202,18 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 				Name:  "HUMIO_MEMORY_OPTS",
 				Value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g",
 			},
+			{
+				Name:  "HUMIO_GC_OPTS",
+				Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
+			},
+			{
+				Name:  "HUMIO_JVM_LOG_OPTS",
+				Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags",
+			},
+			{
+				Name:  "HUMIO_OPTS",
+				Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+			},
 		}),
 		DataVolumePersistentVolumeClaimSpecTemplate: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{
@@ -249,27 +261,6 @@ func ConstructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 			TargetReplicationFactor: 1,
 			HumioNodeSpec:           ConstructBasicNodeSpecForHumioCluster(key),
 		},
-	}
-
-	humioVersion, _ := controllers.HumioVersionFromString(controllers.NewHumioNodeManagerFromHumioCluster(humioCluster).GetImage())
-	if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithLauncherScript); ok {
-		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
-			Name:  "HUMIO_GC_OPTS",
-			Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
-		})
-		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
-			Name:  "HUMIO_JVM_LOG_OPTS",
-			Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags",
-		})
-		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
-			Name:  "HUMIO_OPTS",
-			Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-		})
-	} else {
-		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
-			Name:  "HUMIO_JVM_ARGS",
-			Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-		})
 	}
 
 	if useAutoCreatedLicense {
