@@ -216,7 +216,7 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 		},
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceCPU: resource.MustParse("500m"),
+				corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI),
 			},
 		},
 	}
