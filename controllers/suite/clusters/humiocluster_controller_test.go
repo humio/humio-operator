@@ -4218,13 +4218,13 @@ var _ = Describe("HumioCluster Controller", func() {
 	Context("Humio Cluster With Custom Topology Spread Constraints", func() {
 		It("Creating cluster with custom Topology Spread Constraints", func() {
 			key := types.NamespacedName{
-				Name:      "humiocluster-custom-topology-spread-constraints",
+				Name:      "humiocluster-custom-tsc",
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.TopologySpreadConstraints = []corev1.TopologySpreadConstraint{
 				{
-					MaxSkew:           1,
+					MaxSkew:           2,
 					TopologyKey:       "topology.kubernetes.io/zone",
 					WhenUnsatisfiable: corev1.ScheduleAnyway,
 				},
