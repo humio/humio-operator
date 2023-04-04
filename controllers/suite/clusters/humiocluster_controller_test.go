@@ -4226,7 +4226,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				{
 					MaxSkew:           1,
 					TopologyKey:       "topology.kubernetes.io/zone",
-					WhenUnsatisfiable: corev1.DoNotSchedule,
+					WhenUnsatisfiable: corev1.ScheduleAnyway,
 				},
 			}
 
