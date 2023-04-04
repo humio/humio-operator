@@ -4215,6 +4215,34 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster With Custom Topology Spread Constraints", func() {
+		It("Creating cluster with custom Topology Spread Constraints", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-custom-topology-spread-constraints",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.TopologySpreadConstraints = []corev1.TopologySpreadConstraint{
+				{
+					MaxSkew:           1,
+					TopologyKey:       "topology.kubernetes.io/zone",
+					WhenUnsatisfiable: corev1.DoNotSchedule,
+				},
+			}
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(key.Name, "Confirming the humio pods use the requested topology spread constraint")
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				Expect(pod.Spec.TopologySpreadConstraints).To(ContainElement(toCreate.Spec.TopologySpreadConstraints[0]))
+			}
+		})
+	})
+
 	Context("Humio Cluster With Service Labels", func() {
 		It("Creating cluster with custom service labels", func() {
 			key := types.NamespacedName{
