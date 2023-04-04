@@ -27,12 +27,10 @@ spec:
             operator: In
             values:
             - core
-        - matchExpressions:
           - key: kubernetes.io/arch
             operator: In
             values:
             - amd64
-        - matchExpressions:
           - key: kubernetes.io/os
             operator: In
             values:
