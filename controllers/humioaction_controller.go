@@ -196,6 +196,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1alpha1.HumioAction) error {
 	var err error
 
+	// TODO: Add logic here
 	if ha.Spec.SlackPostMessageProperties != nil {
 		ha.Spec.SlackPostMessageProperties.ApiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiToken, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
 		if err != nil {
