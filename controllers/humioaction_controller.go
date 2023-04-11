@@ -127,6 +127,8 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 
 			r.Log.Info("Action Deleted. Removing finalizer")
 			ha.SetFinalizers(helpers.RemoveElement(ha.GetFinalizers(), humioFinalizer))
+			// TODO: hack here
+			ha.Spec.SlackPostMessageProperties.ApiToken = ""
 			err := r.Update(ctx, ha)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -141,6 +143,8 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 	if !helpers.ContainsElement(ha.GetFinalizers(), humioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to Action")
 		ha.SetFinalizers(append(ha.GetFinalizers(), humioFinalizer))
+		// TODO: hack here
+		ha.Spec.SlackPostMessageProperties.ApiToken = ""
 		err := r.Update(ctx, ha)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -193,10 +197,11 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 	return reconcile.Result{}, nil
 }
 
+// TODO: Setting secrets in the ha spec exposes them to leakage with `kubectl describe`.
+// It should be handled such that the secret is retrieved for the HumioClient to use, but it shouldn't be set in plain-text on the Kubernetes side of things
 func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1alpha1.HumioAction) error {
 	var err error
 
-	// TODO: Add logic here
 	if ha.Spec.SlackPostMessageProperties != nil {
 		ha.Spec.SlackPostMessageProperties.ApiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiToken, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
 		if err != nil {

@@ -33,6 +33,7 @@ func (r *HumioActionReconciler) reconcileHumioActionAnnotations(ctx context.Cont
 	}
 
 	// TODO: Hack it here
+	ha.Spec.SlackPostMessageProperties.ApiToken = ""
 	err = r.Update(ctx, actionCR)
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to add ID annotation to action")
