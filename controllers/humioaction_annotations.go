@@ -32,6 +32,7 @@ func (r *HumioActionReconciler) reconcileHumioActionAnnotations(ctx context.Cont
 		actionCR.ObjectMeta.Annotations[k] = v
 	}
 
+	// TODO: Hack it here
 	err = r.Update(ctx, actionCR)
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to add ID annotation to action")

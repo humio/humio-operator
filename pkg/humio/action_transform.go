@@ -292,6 +292,7 @@ func slackAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return ifErrors(action, ActionTypeSlack, errorList)
 	}
 	action.Type = humioapi.ActionTypeSlack
+	// TODO: SlackProperties.Url should be a secret
 	action.SlackAction.Url = hn.Spec.SlackProperties.Url
 	action.SlackAction.UseProxy = hn.Spec.SlackProperties.UseProxy
 	action.SlackAction.Fields = []humioapi.SlackFieldEntryInput{}
