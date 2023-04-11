@@ -127,7 +127,8 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 
 			r.Log.Info("Action Deleted. Removing finalizer")
 			ha.SetFinalizers(helpers.RemoveElement(ha.GetFinalizers(), humioFinalizer))
-			// TODO: hack here
+
+			// Remove token to hide it from Kubernetes
 			ha.Spec.SlackPostMessageProperties.ApiToken = ""
 			err := r.Update(ctx, ha)
 			if err != nil {
@@ -143,7 +144,8 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 	if !helpers.ContainsElement(ha.GetFinalizers(), humioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to Action")
 		ha.SetFinalizers(append(ha.GetFinalizers(), humioFinalizer))
-		// TODO: hack here
+
+		// Remove token to hide it from Kubernetes
 		ha.Spec.SlackPostMessageProperties.ApiToken = ""
 		err := r.Update(ctx, ha)
 		if err != nil {

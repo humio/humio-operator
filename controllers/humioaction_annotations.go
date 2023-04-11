@@ -32,7 +32,7 @@ func (r *HumioActionReconciler) reconcileHumioActionAnnotations(ctx context.Cont
 		actionCR.ObjectMeta.Annotations[k] = v
 	}
 
-	// TODO: Hack it here
+	// Remove token to hide it from Kubernetes
 	ha.Spec.SlackPostMessageProperties.ApiToken = ""
 	err = r.Update(ctx, actionCR)
 	if err != nil {
