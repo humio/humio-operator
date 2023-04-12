@@ -8,11 +8,12 @@ jobs:
       fail-fast: false
       matrix:
         kind-k8s-version:
-          - kindest/node:v1.21.14@sha256:75047f07ef306beff928fdc1f171a8b81fae1628f7515bdabc4fc9c31b698d6b
-          - kindest/node:v1.22.17@sha256:ed0f6a1cd1dcc0ff8b66257b3867e4c9e6a54adeb9ca31005f62638ad555315c
-          - kindest/node:v1.23.17@sha256:f935044f60483d33648d8c13decd79557cf3e916363a3c9ba7e82332cb249cba
-          - kindest/node:v1.24.12@sha256:0bdca26bd7fe65c823640b14253ea7bac4baad9336b332c94850f84d8102f873
-          - kindest/node:v1.25.8@sha256:b5ce984f5651f44457edf263c1fe93459df8d5d63db7f108ccf5ea4b8d4d9820
+          - kindest/node:v1.22.17@sha256:c8a828709a53c25cbdc0790c8afe12f25538617c7be879083248981945c38693
+          - kindest/node:v1.23.17@sha256:e5fd1d9cd7a9a50939f9c005684df5a6d145e8d695e78463637b79464292e66c
+            #- kindest/node:v1.24.12@sha256:1e12918b8bc3d4253bc08f640a231bb0d3b2c5a9b28aa3f2ca1aee93e1e8db16
+          - kindest/node:v1.25.8@sha256:00d3f5314cc35327706776e95b2f8e504198ce59ac545d0200a89e69fce10b7f
+          - kindest/node:v1.26.3@sha256:61b92f38dff6ccc29969e7aa154d34e38b89443af1a2c14e6cfbd2df6419c66f
+          - kindest/node:v1.27.0@sha256:c6b22e613523b1af67d4bc8a0c38a4c3ea3a2b8fbc5b367ae36345c9cb844518
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
@@ -30,7 +31,7 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
     - uses: engineerd/setup-kind@v0.5.0
       with:
-        version: "v0.16.0"
+        version: "v0.18.0"
         image: ${{ matrix.kind-k8s-version }}
     - name: Get temp bin dir
       id: bin_dir
