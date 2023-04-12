@@ -384,7 +384,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}, testTimeout, TestInterval).Should(HaveLen(*pool.NodeCount))
 	}
 
-	clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+	clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetCommonClusterLabels())
 	humioIdx, err := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
 	Expect(err).ToNot(HaveOccurred())
 	humioContainerArgs := strings.Join(clusterPods[0].Spec.Containers[humioIdx].Args, " ")
@@ -439,7 +439,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 
 	UsingClusterBy(key.Name, "Waiting for the auth sidecar to populate the secret containing the API token")
 	Eventually(func() error {
-		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetCommonClusterLabels())
 		for idx := range clusterPods {
 			UsingClusterBy(key.Name, fmt.Sprintf("Pod status %s status: %v", clusterPods[idx].Name, clusterPods[idx].Status))
 		}

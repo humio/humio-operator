@@ -91,8 +91,8 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 	}
 }
 
-func headlessServiceName(prefix string) string {
-	return fmt.Sprintf("%s-headless", prefix)
+func headlessServiceName(clusterName string) string {
+	return fmt.Sprintf("%s-headless", clusterName)
 }
 
 func servicesMatch(existingService *corev1.Service, service *corev1.Service) (bool, error) {

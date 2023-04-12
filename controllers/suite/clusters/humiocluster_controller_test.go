@@ -100,6 +100,25 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster With Node Pools Only", func() {
+		It("Should bootstrap nodepools only cluster correctly", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-node-pool-only",
+				Namespace: testProcessNamespace,
+			}
+			nodeCount0 := 0
+			toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 2)
+			toCreate.Spec.NodeCount = &nodeCount0
+			toCreate.Spec.DataVolumeSource = corev1.VolumeSource{}
+			toCreate.Spec.DataVolumePersistentVolumeClaimSpecTemplate = corev1.PersistentVolumeClaimSpec{}
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+		})
+	})
+
 	Context("Humio Cluster Without Init Container", func() {
 		It("Should bootstrap cluster correctly", func() {
 			key := types.NamespacedName{
