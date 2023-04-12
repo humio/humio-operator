@@ -10526,7 +10526,8 @@ spec:
                               type: object
                           type: object
                         priorityClassName:
-                          description: PriorityClassName
+                          description: PriorityClassName is the name of the priority
+                            class that will be used by the Humio pods
                           type: string
                         resources:
                           description: Resources is the kubernetes resource limits
@@ -12281,7 +12282,8 @@ spec:
                     type: object
                 type: object
               priorityClassName:
-                description: PriorityClassName
+                description: PriorityClassName is the name of the priority class that
+                  will be used by the Humio pods
                 type: string
               resources:
                 description: Resources is the kubernetes resource limits for the humio
