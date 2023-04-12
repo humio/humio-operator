@@ -112,7 +112,7 @@ type HumioNodeSpec struct {
 	AuthServiceAccountName string `json:"authServiceAccountName,omitempty"`
 
 	// DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
-	// This is not recommended, unless you are using auto rebalancing partitions and are running in a single single availability zone.
+	// This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.
 	DisableInitContainer bool `json:"disableInitContainer,omitempty"`
 
 	// EnvironmentVariablesSource is the reference to an external source of environment variables that will be merged with environmentVariables
