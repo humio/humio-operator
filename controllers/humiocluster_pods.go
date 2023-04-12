@@ -590,6 +590,11 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 		})
 	}
 
+	priorityClassName := hnp.GetPriorityClassName()
+	if priorityClassName != "" {
+		pod.Spec.PriorityClassName = priorityClassName
+	}
+
 	if EnvVarHasValue(pod.Spec.Containers[humioIdx].Env, "ENABLE_ORGANIZATIONS", "true") && EnvVarHasKey(pod.Spec.Containers[humioIdx].Env, "ORGANIZATION_MODE") {
 		authIdx, err := kubernetes.GetContainerIndexByName(pod, AuthContainerName)
 		if err != nil {

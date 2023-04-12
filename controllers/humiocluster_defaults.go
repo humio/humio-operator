@@ -84,6 +84,7 @@ type HumioNodePool struct {
 	path                     string
 	ingress                  humiov1alpha1.HumioClusterIngressSpec
 	clusterAnnotations       map[string]string
+	priorityClassName        string
 }
 
 func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioNodePool {
@@ -135,6 +136,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			InitServiceAccountName:                      hc.Spec.InitServiceAccountName,
 			PodLabels:                                   hc.Spec.PodLabels,
 			UpdateStrategy:                              hc.Spec.UpdateStrategy,
+			PriorityClassName:                           hc.Spec.PriorityClassName,
 		},
 		tls:                      hc.Spec.TLS,
 		idpCertificateSecretName: hc.Spec.IdpCertificateSecretName,
@@ -197,6 +199,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			InitServiceAccountName:         hnp.InitServiceAccountName,
 			PodLabels:                      hnp.PodLabels,
 			UpdateStrategy:                 hnp.UpdateStrategy,
+			PriorityClassName:              hc.Spec.PriorityClassName,
 		},
 		tls:                      hc.Spec.TLS,
 		idpCertificateSecretName: hc.Spec.IdpCertificateSecretName,
@@ -859,6 +862,10 @@ func (hnp HumioNodePool) GetUpdateStrategy() *humiov1alpha1.HumioUpdateStrategy 
 		Type:            humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate,
 		MinReadySeconds: 0,
 	}
+}
+
+func (hnp HumioNodePool) GetPriorityClassName() string {
+	return hnp.humioNodeSpec.PriorityClassName
 }
 
 func (hnp HumioNodePool) OkToDeletePvc() bool {

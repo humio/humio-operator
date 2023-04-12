@@ -234,6 +234,9 @@ type HumioNodeSpec struct {
 	// UpdateStrategy controls how Humio pods are updated when changes are made to the HumioCluster resource that results
 	// in a change to the Humio pods
 	UpdateStrategy *HumioUpdateStrategy `json:"updateStrategy,omitempty"`
+
+	// PriorityClassName is the name of the priority class that will be used by the Humio pods
+	PriorityClassName string `json:"priorityClassName,omitempty"`
 }
 
 type HumioUpdateStrategy struct {

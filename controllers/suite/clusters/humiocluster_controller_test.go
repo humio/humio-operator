@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -4089,6 +4090,37 @@ var _ = Describe("HumioCluster Controller", func() {
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.TopologySpreadConstraints).To(ContainElement(toCreate.Spec.TopologySpreadConstraints[0]))
+			}
+		})
+	})
+
+	Context("Humio Cluster With Custom Priority Class Name", func() {
+		It("Creating cluster with custom Priority Class Name", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-custom-pcn",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.PriorityClassName = key.Name
+
+			ctx := context.Background()
+			suite.UsingClusterBy(key.Name, "Creating a priority class")
+			priorityClass := &schedulingv1.PriorityClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+			}
+			Expect(k8sClient.Create(ctx, priorityClass)).To(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(key.Name, "Confirming the humio pods use the requested priority class name")
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				Expect(pod.Spec.PriorityClassName).To(Equal(toCreate.Spec.PriorityClassName))
 			}
 		})
 	})
