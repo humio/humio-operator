@@ -19,14 +19,15 @@ package helpers
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"testing"
+
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 )
 
 func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
@@ -188,7 +189,7 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 			if !TLSEnabled(&tt.managedHumioCluster) {
 				protocol = "http"
 			}
-			expectedURL := fmt.Sprintf("%s://%s.%s:8080/", protocol, tt.managedHumioCluster.Name, tt.managedHumioCluster.Namespace)
+			expectedURL := fmt.Sprintf("%s://%s-headless.%s:8080/", protocol, tt.managedHumioCluster.Name, tt.managedHumioCluster.Namespace)
 			if cluster.Config().Address.String() != expectedURL {
 				t.Errorf("url not correct, expected: %s, got: %s", expectedURL, cluster.Config().Address)
 			}

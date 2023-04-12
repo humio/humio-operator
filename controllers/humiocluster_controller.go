@@ -123,12 +123,11 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				withMessage(err.Error()).
 				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName()))
 		}
-	}
-
-	if err := r.ensureValidStorageConfiguration(hc); err != nil {
-		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()).
-			withState(humiov1alpha1.HumioClusterStateConfigError))
+		if err := r.ensureValidStorageConfiguration(pool); err != nil {
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()).
+				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName()))
+		}
 	}
 
 	for _, fun := range []ctxHumioClusterFunc{
@@ -180,7 +179,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	for _, pool := range humioNodePools {
-		if err := r.validateInitialPodSpec(pool); err != nil {
+		if err := r.validateInitialPodSpec(hc, pool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName()))
@@ -279,7 +278,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if result, err := r.ensureLicense(ctx, hc, req); result != emptyResult || err != nil {
 			if err != nil {
 				_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-					withMessage(err.Error()))
+					withMessage(r.logErrorAndReturn(err, "unable to ensure license is installed").Error()))
 			}
 			// Usually if we fail to get the license, that means the cluster is not up. So wait a bit longer than usual to retry
 			return reconcile.Result{RequeueAfter: time.Second * 15}, nil
@@ -425,7 +424,7 @@ func (r *HumioClusterReconciler) ensurePodRevisionAnnotation(ctx context.Context
 	return hc.Status.State, nil
 }
 
-func (r *HumioClusterReconciler) validateInitialPodSpec(hnp *HumioNodePool) error {
+func (r *HumioClusterReconciler) validateInitialPodSpec(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
 	if _, err := ConstructPod(hnp, "", &podAttachments{}); err != nil {
 		return r.logErrorAndReturn(err, "failed to validate pod spec")
 	}
@@ -1087,16 +1086,9 @@ func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context
 		return r.logErrorAndReturn(err, "failed to get node certificate count")
 	}
 	for i := existingNodeCertCount; i < hnp.GetNodeCount(); i++ {
-		certificate := constructNodeCertificate(hc, hnp, kubernetes.RandomString())
+		certificate := ConstructNodeCertificate(hnp, kubernetes.RandomString())
 
-		certForHash := constructNodeCertificate(hc, hnp, "")
-		// Keystores will always contain a new pointer when constructing a certificate.
-		// To work around this, we override it to nil before calculating the hash,
-		// if we do not do this, the hash will always be different.
-		certForHash.Spec.Keystores = nil
-
-		certificateHash := helpers.AsSHA256(certForHash)
-		certificate.Annotations[certHashAnnotation] = certificateHash
+		certificate.Annotations[certHashAnnotation] = GetDesiredCertHash(hnp)
 		r.Log.Info(fmt.Sprintf("creating node TLS certificate with name %s", certificate.Name))
 		if err = controllerutil.SetControllerReference(hc, &certificate, r.Scheme()); err != nil {
 			return r.logErrorAndReturn(err, "could not set controller reference")
@@ -2343,19 +2335,23 @@ func (r *HumioClusterReconciler) ensureValidHumioVersion(hnp *HumioNodePool) err
 	return nil
 }
 
-func (r *HumioClusterReconciler) ensureValidStorageConfiguration(hc *humiov1alpha1.HumioCluster) error {
+func (r *HumioClusterReconciler) ensureValidStorageConfiguration(hnp *HumioNodePool) error {
+	if hnp.GetNodeCount() <= 0 {
+		return nil
+	}
+
 	errInvalidStorageConfiguration := fmt.Errorf("exactly one of dataVolumeSource and dataVolumePersistentVolumeClaimSpecTemplate must be set")
 
 	emptyVolumeSource := corev1.VolumeSource{}
 	emptyDataVolumePersistentVolumeClaimSpecTemplate := corev1.PersistentVolumeClaimSpec{}
 
-	if reflect.DeepEqual(hc.Spec.DataVolumeSource, emptyVolumeSource) &&
-		reflect.DeepEqual(hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate, emptyDataVolumePersistentVolumeClaimSpecTemplate) {
+	if reflect.DeepEqual(hnp.GetDataVolumeSource(), emptyVolumeSource) &&
+		reflect.DeepEqual(hnp.GetDataVolumePersistentVolumeClaimSpecTemplateRAW(), emptyDataVolumePersistentVolumeClaimSpecTemplate) {
 		return r.logErrorAndReturn(errInvalidStorageConfiguration, "no storage configuration provided")
 	}
 
-	if !reflect.DeepEqual(hc.Spec.DataVolumeSource, emptyVolumeSource) &&
-		!reflect.DeepEqual(hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate, emptyDataVolumePersistentVolumeClaimSpecTemplate) {
+	if !reflect.DeepEqual(hnp.GetDataVolumeSource(), emptyVolumeSource) &&
+		!reflect.DeepEqual(hnp.GetDataVolumePersistentVolumeClaimSpecTemplateRAW(), emptyDataVolumePersistentVolumeClaimSpecTemplate) {
 		return r.logErrorAndReturn(errInvalidStorageConfiguration, "conflicting storage configuration provided")
 	}
 
