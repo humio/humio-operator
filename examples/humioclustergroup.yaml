@@ -1,0 +1,7 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioClusterGroup
+metadata:
+  name: example-humioclustergroup
+spec:
+  maxConcurrentUpgrades: 1
+  maxConcurrentRestarts: 1

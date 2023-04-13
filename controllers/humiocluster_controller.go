@@ -2198,6 +2198,9 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		return reconcile.Result{RequeueAfter: time.Second + 1}, nil
 	}
 
+	// Operations on clusterGroupLock are no-ops if the cluster doesn't have a cluster group lock configured
+	clusterGroupLock := newClusterGroupLock(r.Client, r.Client.Status(), hc)
+
 	// If we are currently deleting pods, then check if the cluster state is Running or in a ConfigError state. If it
 	// is, then change to an appropriate state depending on the restart policy.
 	// If the cluster state is set as per the restart policy:
@@ -2206,6 +2209,9 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	if hc.Status.State == humiov1alpha1.HumioClusterStateRunning || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
 		if desiredLifecycleState.WantsUpgrade() {
 			r.Log.Info(fmt.Sprintf("changing cluster state from %s to %s", hc.Status.State, humiov1alpha1.HumioClusterStateUpgrading))
+			if result, err := clusterGroupLock.tryClusterGroupLock(humiov1alpha1.HumioClusterStateUpgrading, HumioClusterGroupLockGet); err != nil {
+				return result, err
+			}
 			if result, err := r.updateStatus(r.Client.Status(), hc, statusOptions().
 				withNodePoolState(humiov1alpha1.HumioClusterStateUpgrading, hnp.GetNodePoolName())); err != nil {
 				return result, err
@@ -2216,6 +2222,9 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 			}
 		}
 		if !desiredLifecycleState.WantsUpgrade() && desiredLifecycleState.WantsRestart() {
+			if result, err := clusterGroupLock.tryClusterGroupLock(humiov1alpha1.HumioClusterStateRestarting, HumioClusterGroupLockGet); err != nil {
+				return result, err
+			}
 			if result, err := r.updateStatus(r.Client.Status(), hc, statusOptions().
 				withNodePoolState(humiov1alpha1.HumioClusterStateRestarting, hnp.GetNodePoolName())); err != nil {
 				return result, err
@@ -2281,6 +2290,9 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	if !podsStatus.waitingOnPods() && !desiredLifecycleState.WantsUpgrade() && !desiredLifecycleState.WantsRestart() && podsStatus.podRevisionsInSync() {
 		if hc.Status.State == humiov1alpha1.HumioClusterStateRestarting || hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
 			r.Log.Info(fmt.Sprintf("no longer deleting pods. changing cluster state from %s to %s", hc.Status.State, humiov1alpha1.HumioClusterStateRunning))
+			if result, err := clusterGroupLock.tryClusterGroupLock(hc.Status.State, HumioClusterGroupLockRelease); err != nil {
+				return result, err
+			}
 			if result, err := r.updateStatus(r.Client.Status(), hc, statusOptions().
 				withNodePoolState(humiov1alpha1.HumioClusterStateRunning, hnp.GetNodePoolName())); err != nil {
 				return result, err

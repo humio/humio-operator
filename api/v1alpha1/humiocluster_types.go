@@ -90,6 +90,18 @@ type HumioClusterSpec struct {
 
 	// NodePools can be used to define additional groups of Humio cluster pods that share a set of configuration.
 	NodePools []HumioNodePoolSpec `json:"nodePools,omitempty"`
+
+	// ClusterGroup is the HumioClusterGroupConfiguration which defines which HumioClusterGroup the HumioCluster should
+	// be associated with. By default, if there is no ClusterGroupConfiguration defined, a HumioClusterGroup will not
+	// be used
+	ClusterGroup HumioClusterGroupConfiguration `json:"clusterGroup"`
+}
+
+// HumioClusterGroupConfiguration defines the HumioClusterGroup Name and whether it's enabled for this HumioCluster. By
+// default, HumioClusterGroup will be disabled, and if enabled, the default name will be "default"
+type HumioClusterGroupConfiguration struct {
+	Enabled bool   `json:"enabled"`
+	Name    string `json:"name"`
 }
 
 type HumioNodeSpec struct {

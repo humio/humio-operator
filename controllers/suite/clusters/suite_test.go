@@ -210,6 +210,13 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controllers.HumioClusterGroupReconciler{
+		Client:     k8sManager.GetClient(),
+		BaseLogger: log,
+		Namespace:  testProcessNamespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&controllers.HumioIngestTokenReconciler{
 		Client:      k8sManager.GetClient(),
 		HumioClient: humioClientForHumioIngestToken,
@@ -466,6 +473,7 @@ func podReadyCountByRevision(ctx context.Context, hnp *controllers.HumioNodePool
 	revisionToReadyCount := map[int]int{}
 	clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, hnp.GetNamespace(), hnp.GetNodePoolLabels())
 	for nodeID, pod := range clusterPods {
+		//_, revision := hnp.GetHumioClusterNodePoolRevisionAnnotation()
 		revision, _ := strconv.Atoi(pod.Annotations[controllers.PodRevisionAnnotation])
 		if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 			if pod.DeletionTimestamp == nil {
