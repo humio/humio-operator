@@ -217,6 +217,13 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 		}
 	}
 
+	if ha.Spec.PagerDutyProperties != nil {
+		ha.Spec.PagerDutyProperties.RoutingKey, err = r.resolveField(ctx, ha.Namespace, ha.Spec.PagerDutyProperties.RoutingKey, ha.Spec.PagerDutyProperties.RoutingKeySource)
+		if err != nil {
+			return fmt.Errorf("pagerDutyProperties.routingKeySource.%v", err)
+		}
+	}
+
 	return nil
 }
 
