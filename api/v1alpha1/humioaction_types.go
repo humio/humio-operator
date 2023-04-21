@@ -33,7 +33,7 @@ const (
 )
 
 const (
-	// TODO: Rethink naming here. Do we even need this keys?
+	// TODO: This won't work. Multiple resources of same type will overwrite each other.
 	HumioActionSlackPostMessagePropertiesSecretKey = "ApiToken"
 	HumioActionOpsGeniePropertiesSecretKey         = "GenieKey"
 	HumioActionRepositoryPropertiesSecretKey       = "IngestToken"
