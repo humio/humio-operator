@@ -145,8 +145,6 @@ spec:
                 description: SlackPostMessageProperties indicates this is a Slack
                   Post Message Action, and contains the corresponding properties
                 properties:
-                  apiToken:
-                    type: string
                   apiTokenSource:
                     properties:
                       secretKeyRef:

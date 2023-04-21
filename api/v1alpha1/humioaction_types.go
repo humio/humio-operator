@@ -80,7 +80,6 @@ type HumioActionSlackProperties struct {
 
 // HumioActionSlackPostMessageProperties defines the desired state of HumioActionSlackPostMessageProperties
 type HumioActionSlackPostMessageProperties struct {
-	ApiToken       string            `json:"apiToken,omitempty"`
 	ApiTokenSource VarSource         `json:"apiTokenSource,omitempty"`
 	Channels       []string          `json:"channels,omitempty"`
 	Fields         map[string]string `json:"fields,omitempty"`
