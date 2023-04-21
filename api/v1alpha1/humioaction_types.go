@@ -32,6 +32,13 @@ const (
 	HumioActionStateConfigError = "ConfigError"
 )
 
+const (
+	// TODO: Rethink naming here
+	HumioActionSlackPostMessagePropertiesSecretKey = "ApiToken"
+)
+
+var HaSecrets map[string]string
+
 // HumioActionWebhookProperties defines the desired state of HumioActionWebhookProperties
 type HumioActionWebhookProperties struct {
 	BodyTemplate string            `json:"bodyTemplate,omitempty"`

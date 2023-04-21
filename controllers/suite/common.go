@@ -47,6 +47,8 @@ const (
 
 const TestInterval = time.Second * 1
 
+var haSecrets map[string]string
+
 func UsingClusterBy(cluster, text string, callbacks ...func()) {
 	timestamp := time.Now().Format(time.RFC3339Nano)
 	fmt.Fprintln(GinkgoWriter, "STEP | "+timestamp+" | "+cluster+": "+text)

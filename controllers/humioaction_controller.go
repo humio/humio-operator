@@ -196,12 +196,11 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1alpha1.HumioAction) error {
 	var err error
 
-	// TODO: Add logic here
+	var secretKey string
+	var secretValue string
+	// TODO: Double check. These are mutually exclusive, right?
 	if ha.Spec.SlackPostMessageProperties != nil {
-		ha.Spec.SlackPostMessageProperties.ApiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiToken, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
-		if err != nil {
-			return fmt.Errorf("slackPostMessageProperties.ingestTokenSource.%v", err)
-		}
+		secretKey = humiov1alpha1.HumioActionSlackPostMessagePropertiesSecretKey
 	}
 
 	if ha.Spec.OpsGenieProperties != nil {
@@ -217,7 +216,14 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 			return fmt.Errorf("humioRepositoryProperties.ingestTokenSource.%v", err)
 		}
 	}
-
+	secretValue, err = r.resolveField(ctx, ha.Namespace, secretKey, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
+	if err != nil {
+		return fmt.Errorf("slackPostMessageProperties.ingestTokenSource.%v", err)
+	}
+	// TODO: Remove the if-condition here once the pattern is complete
+	if secretKey != "" {
+		humiov1alpha1.HaSecrets[secretKey] = secretValue
+	}
 	return nil
 }
 
