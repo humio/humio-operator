@@ -201,6 +201,7 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 	// TODO: Double check. These are mutually exclusive, right?
 	if ha.Spec.SlackPostMessageProperties != nil {
 		secretKey = humiov1alpha1.HumioActionSlackPostMessagePropertiesSecretKey
+		secretValue, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
 	}
 
 	if ha.Spec.OpsGenieProperties != nil {
@@ -216,7 +217,6 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 			return fmt.Errorf("humioRepositoryProperties.ingestTokenSource.%v", err)
 		}
 	}
-	secretValue, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
 	if err != nil {
 		return fmt.Errorf("slackPostMessageProperties.ingestTokenSource.%v", err)
 	}
@@ -224,7 +224,9 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 	if humiov1alpha1.HaSecrets == nil {
 		humiov1alpha1.HaSecrets = make(map[string]string)
 	}
-	humiov1alpha1.HaSecrets[secretKey] = secretValue
+	if secretValue != "" {
+		humiov1alpha1.HaSecrets[secretKey] = secretValue
+	}
 	return nil
 }
 
