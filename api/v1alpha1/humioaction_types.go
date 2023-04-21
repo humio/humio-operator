@@ -35,6 +35,8 @@ const (
 const (
 	// TODO: Rethink naming here. Do we even need this keys?
 	HumioActionSlackPostMessagePropertiesSecretKey = "ApiToken"
+	HumioActionOpsGeniePropertiesSecretKey         = "GenieKey"
+	HumioActionRepositoryPropertiesSecretKey       = "IngestToken"
 )
 
 var HaSecrets map[string]string
@@ -59,14 +61,12 @@ type HumioActionEmailProperties struct {
 
 // HumioActionRepositoryProperties defines the desired state of HumioActionRepositoryProperties
 type HumioActionRepositoryProperties struct {
-	IngestToken       string    `json:"ingestToken,omitempty"`
 	IngestTokenSource VarSource `json:"ingestTokenSource,omitempty"`
 }
 
 // HumioActionOpsGenieProperties defines the desired state of HumioActionOpsGenieProperties
 type HumioActionOpsGenieProperties struct {
 	ApiUrl         string    `json:"apiUrl,omitempty"`
-	GenieKey       string    `json:"genieKey,omitempty"`
 	GenieKeySource VarSource `json:"genieKeySource,omitempty"`
 	UseProxy       bool      `json:"useProxy,omitempty"`
 }

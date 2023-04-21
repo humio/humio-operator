@@ -66,8 +66,6 @@ spec:
                 description: HumioRepositoryProperties indicates this is a Humio Repository
                   Action, and contains the corresponding properties
                 properties:
-                  ingestToken:
-                    type: string
                   ingestTokenSource:
                     properties:
                       secretKeyRef:
@@ -103,8 +101,6 @@ spec:
                   and contains the corresponding properties
                 properties:
                   apiUrl:
-                    type: string
-                  genieKey:
                     type: string
                   genieKeySource:
                     properties:

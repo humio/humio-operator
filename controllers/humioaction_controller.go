@@ -202,23 +202,25 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 	if ha.Spec.SlackPostMessageProperties != nil {
 		secretKey = humiov1alpha1.HumioActionSlackPostMessagePropertiesSecretKey
 		secretValue, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
+		if err != nil {
+			return fmt.Errorf("SlackPostMessageProperties.ApiTokenSource.%v", err)
+		}
 	}
 
 	if ha.Spec.OpsGenieProperties != nil {
-		ha.Spec.OpsGenieProperties.GenieKey, err = r.resolveField(ctx, ha.Namespace, ha.Spec.OpsGenieProperties.GenieKeySource)
+		secretKey = humiov1alpha1.HumioActionOpsGeniePropertiesSecretKey
+		secretValue, err = r.resolveField(ctx, ha.Namespace, ha.Spec.OpsGenieProperties.GenieKeySource)
 		if err != nil {
 			return fmt.Errorf("opsGenieProperties.ingestTokenSource.%v", err)
 		}
 	}
 
 	if ha.Spec.HumioRepositoryProperties != nil {
-		ha.Spec.HumioRepositoryProperties.IngestToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.HumioRepositoryProperties.IngestTokenSource)
+		secretKey = humiov1alpha1.HumioActionRepositoryPropertiesSecretKey
+		secretValue, err = r.resolveField(ctx, ha.Namespace, ha.Spec.HumioRepositoryProperties.IngestTokenSource)
 		if err != nil {
 			return fmt.Errorf("humioRepositoryProperties.ingestTokenSource.%v", err)
 		}
-	}
-	if err != nil {
-		return fmt.Errorf("slackPostMessageProperties.ingestTokenSource.%v", err)
 	}
 	// TODO: Remove the if-condition here once the pattern is complete
 	if humiov1alpha1.HaSecrets == nil {

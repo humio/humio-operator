@@ -68,15 +68,13 @@ func CRActionFromAPIAction(action *humioapi.Action) (*humiov1alpha1.HumioAction,
 	}
 
 	if !reflect.ValueOf(action.HumioRepoAction).IsZero() {
-		ha.Spec.HumioRepositoryProperties = &humiov1alpha1.HumioActionRepositoryProperties{
-			IngestToken: action.HumioRepoAction.IngestToken,
-		}
+		//TODO: Remove this
+		ha.Spec.HumioRepositoryProperties = &humiov1alpha1.HumioActionRepositoryProperties{}
 	}
 
 	if !reflect.ValueOf(action.OpsGenieAction).IsZero() {
 		ha.Spec.OpsGenieProperties = &humiov1alpha1.HumioActionOpsGenieProperties{
 			ApiUrl:   action.OpsGenieAction.ApiUrl,
-			GenieKey: action.OpsGenieAction.GenieKey,
 			UseProxy: action.OpsGenieAction.UseProxy,
 		}
 	}
@@ -205,14 +203,14 @@ func humioRepoAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return action, err
 	}
 
-	if hn.Spec.HumioRepositoryProperties.IngestToken == "" {
+	if humiov1alpha1.HaSecrets[humiov1alpha1.HumioActionRepositoryPropertiesSecretKey] == "" {
 		errorList = append(errorList, "property humioRepositoryProperties.ingestToken is required")
 	}
 	if len(errorList) > 0 {
 		return ifErrors(action, ActionTypeHumioRepo, errorList)
 	}
 	action.Type = humioapi.ActionTypeHumioRepo
-	action.HumioRepoAction.IngestToken = hn.Spec.HumioRepositoryProperties.IngestToken
+	action.HumioRepoAction.IngestToken = humiov1alpha1.HaSecrets[humiov1alpha1.HumioActionRepositoryPropertiesSecretKey]
 
 	return action, nil
 }
@@ -224,7 +222,7 @@ func opsGenieAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return action, err
 	}
 
-	if hn.Spec.OpsGenieProperties.GenieKey == "" {
+	if humiov1alpha1.HaSecrets[humiov1alpha1.HumioActionOpsGeniePropertiesSecretKey] == "" {
 		errorList = append(errorList, "property opsGenieProperties.genieKey is required")
 	}
 	if hn.Spec.OpsGenieProperties.ApiUrl == "" {
@@ -234,7 +232,7 @@ func opsGenieAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return ifErrors(action, ActionTypeOpsGenie, errorList)
 	}
 	action.Type = humioapi.ActionTypeOpsGenie
-	action.OpsGenieAction.GenieKey = hn.Spec.OpsGenieProperties.GenieKey
+	action.OpsGenieAction.GenieKey = humiov1alpha1.HaSecrets[humiov1alpha1.HumioActionOpsGeniePropertiesSecretKey]
 	action.OpsGenieAction.ApiUrl = hn.Spec.OpsGenieProperties.ApiUrl
 	action.OpsGenieAction.UseProxy = hn.Spec.OpsGenieProperties.UseProxy
 
@@ -315,7 +313,7 @@ func slackPostMessageAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, er
 	}
 
 	if humiov1alpha1.HaSecrets[humiov1alpha1.HumioActionSlackPostMessagePropertiesSecretKey] == "" {
-		errorList = append(errorList, "property slackPostMessageProperties.apiTokenSource is required")
+		errorList = append(errorList, "property slackPostMessageProperties.apiToken is required")
 	}
 	if len(hn.Spec.SlackPostMessageProperties.Channels) == 0 {
 		errorList = append(errorList, "property slackPostMessageProperties.channels is required")
@@ -327,8 +325,8 @@ func slackPostMessageAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, er
 		return ifErrors(action, ActionTypeSlackPostMessage, errorList)
 	}
 	action.Type = humioapi.ActionTypeSlackPostMessage
-	// TODO: Do we need to set the secret here?
-	// action.SlackPostMessageAction.ApiToken = hn.Spec.SlackPostMessageProperties.ApiToken
+
+	action.SlackPostMessageAction.ApiToken = humiov1alpha1.HaSecrets[humiov1alpha1.HumioActionSlackPostMessagePropertiesSecretKey]
 	action.SlackPostMessageAction.Channels = hn.Spec.SlackPostMessageProperties.Channels
 	action.SlackPostMessageAction.UseProxy = hn.Spec.SlackPostMessageProperties.UseProxy
 	action.SlackPostMessageAction.Fields = []humioapi.SlackFieldEntryInput{}
