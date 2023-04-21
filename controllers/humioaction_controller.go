@@ -221,9 +221,10 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 		return fmt.Errorf("slackPostMessageProperties.ingestTokenSource.%v", err)
 	}
 	// TODO: Remove the if-condition here once the pattern is complete
-	if secretKey != "" {
-		humiov1alpha1.HaSecrets[secretKey] = secretValue
+	if humiov1alpha1.HaSecrets == nil {
+		humiov1alpha1.HaSecrets = make(map[string]string)
 	}
+	humiov1alpha1.HaSecrets[secretKey] = secretValue
 	return nil
 }
 

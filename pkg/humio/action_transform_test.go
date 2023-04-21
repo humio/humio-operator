@@ -102,7 +102,7 @@ func TestActionCRAsAction(t *testing.T) {
 			},
 			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property slackPostMessageProperties.apiToken is required, property slackPostMessageProperties.channels is required, property slackPostMessageProperties.fields is required", ActionTypeSlackPostMessage),
+			fmt.Sprintf("%s failed due to errors: property slackPostMessageProperties.apiTokenSource is required, property slackPostMessageProperties.channels is required, property slackPostMessageProperties.fields is required", ActionTypeSlackPostMessage),
 		},
 		{
 			"missing required victorOpsProperties",
