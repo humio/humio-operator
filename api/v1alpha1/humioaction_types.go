@@ -33,7 +33,7 @@ const (
 )
 
 const (
-	// TODO: Rethink naming here
+	// TODO: Rethink naming here. Do we even need this keys?
 	HumioActionSlackPostMessagePropertiesSecretKey = "ApiToken"
 )
 

@@ -204,19 +204,19 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 	}
 
 	if ha.Spec.OpsGenieProperties != nil {
-		ha.Spec.OpsGenieProperties.GenieKey, err = r.resolveField(ctx, ha.Namespace, ha.Spec.OpsGenieProperties.GenieKey, ha.Spec.OpsGenieProperties.GenieKeySource)
+		ha.Spec.OpsGenieProperties.GenieKey, err = r.resolveField(ctx, ha.Namespace, ha.Spec.OpsGenieProperties.GenieKeySource)
 		if err != nil {
 			return fmt.Errorf("opsGenieProperties.ingestTokenSource.%v", err)
 		}
 	}
 
 	if ha.Spec.HumioRepositoryProperties != nil {
-		ha.Spec.HumioRepositoryProperties.IngestToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.HumioRepositoryProperties.IngestToken, ha.Spec.HumioRepositoryProperties.IngestTokenSource)
+		ha.Spec.HumioRepositoryProperties.IngestToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.HumioRepositoryProperties.IngestTokenSource)
 		if err != nil {
 			return fmt.Errorf("humioRepositoryProperties.ingestTokenSource.%v", err)
 		}
 	}
-	secretValue, err = r.resolveField(ctx, ha.Namespace, secretKey, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
+	secretValue, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
 	if err != nil {
 		return fmt.Errorf("slackPostMessageProperties.ingestTokenSource.%v", err)
 	}
@@ -227,11 +227,7 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 	return nil
 }
 
-func (r *HumioActionReconciler) resolveField(ctx context.Context, namespace, value string, ref humiov1alpha1.VarSource) (string, error) {
-	if value != "" {
-		return value, nil
-	}
-
+func (r *HumioActionReconciler) resolveField(ctx context.Context, namespace string, ref humiov1alpha1.VarSource) (string, error) {
 	if ref.SecretKeyRef != nil {
 		secret, err := kubernetes.GetSecret(ctx, r, ref.SecretKeyRef.Name, namespace)
 		if err != nil {
