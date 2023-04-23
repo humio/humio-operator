@@ -54,13 +54,13 @@ type HumioActionEmailProperties struct {
 
 // HumioActionRepositoryProperties defines the desired state of HumioActionRepositoryProperties
 type HumioActionRepositoryProperties struct {
-	IngestTokenSource VarSource `json:"ingestTokenSource,omitempty"`
+	IngestTokenSource VarSource `json:"ingestTokenSource"`
 }
 
 // HumioActionOpsGenieProperties defines the desired state of HumioActionOpsGenieProperties
 type HumioActionOpsGenieProperties struct {
 	ApiUrl         string    `json:"apiUrl,omitempty"`
-	GenieKeySource VarSource `json:"genieKeySource,omitempty"`
+	GenieKeySource VarSource `json:"genieKeySource"`
 	UseProxy       bool      `json:"useProxy,omitempty"`
 }
 
@@ -80,7 +80,7 @@ type HumioActionSlackProperties struct {
 
 // HumioActionSlackPostMessageProperties defines the desired state of HumioActionSlackPostMessageProperties
 type HumioActionSlackPostMessageProperties struct {
-	ApiTokenSource VarSource         `json:"apiTokenSource,omitempty"`
+	ApiTokenSource VarSource         `json:"apiTokenSource"`
 	Channels       []string          `json:"channels,omitempty"`
 	Fields         map[string]string `json:"fields,omitempty"`
 	UseProxy       bool              `json:"useProxy,omitempty"`
