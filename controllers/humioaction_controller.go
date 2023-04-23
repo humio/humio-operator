@@ -195,12 +195,11 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 
 func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1alpha1.HumioAction) error {
 	var err error
-
 	var secretKey string
 	var secretValue string
-	// TODO: Double check. These are mutually exclusive, right?
+
 	if ha.Spec.SlackPostMessageProperties != nil && ha.Spec.SlackPostMessageProperties.ApiTokenSource.SecretKeyRef != nil {
-		secretKey = ha.Spec.SlackPostMessageProperties.ApiTokenSource.SecretKeyRef.Name
+		secretKey = fmt.Sprintf("%s-%s", ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiTokenSource.SecretKeyRef.Name)
 		secretValue, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
 		if err != nil {
 			return fmt.Errorf("SlackPostMessageProperties.ApiTokenSource.%v", err)
@@ -208,7 +207,7 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 	}
 
 	if ha.Spec.OpsGenieProperties != nil && ha.Spec.OpsGenieProperties.GenieKeySource.SecretKeyRef != nil {
-		secretKey = ha.Spec.OpsGenieProperties.GenieKeySource.SecretKeyRef.Name
+		secretKey = fmt.Sprintf("%s-%s", ha.Namespace, ha.Spec.OpsGenieProperties.GenieKeySource.SecretKeyRef.Name)
 		secretValue, err = r.resolveField(ctx, ha.Namespace, ha.Spec.OpsGenieProperties.GenieKeySource)
 		if err != nil {
 			return fmt.Errorf("opsGenieProperties.ingestTokenSource.%v", err)
@@ -216,7 +215,7 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 	}
 
 	if ha.Spec.HumioRepositoryProperties != nil && ha.Spec.HumioRepositoryProperties.IngestTokenSource.SecretKeyRef != nil {
-		secretKey = ha.Spec.HumioRepositoryProperties.IngestTokenSource.SecretKeyRef.Name
+		secretKey = fmt.Sprintf("%s-%s", ha.Namespace, ha.Spec.HumioRepositoryProperties.IngestTokenSource.SecretKeyRef.Name)
 		secretValue, err = r.resolveField(ctx, ha.Namespace, ha.Spec.HumioRepositoryProperties.IngestTokenSource)
 		if err != nil {
 			return fmt.Errorf("humioRepositoryProperties.ingestTokenSource.%v", err)
