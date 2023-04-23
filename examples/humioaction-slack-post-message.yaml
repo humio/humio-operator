@@ -7,7 +7,10 @@ spec:
   name: example-slack-post-message-action
   viewName: humio
   slackPostMessageProperties:
-    apiToken: some-oauth-token
+    apiToken:
+      secretKeyRef:
+        name: slack-api-token
+        key: token
     channels:
       - "#some-channel"
       - "#some-other-channel"
@@ -24,10 +27,21 @@ spec:
   name: example-slack-post-message-action
   viewName: humio
   slackPostMessageProperties:
-    apiToken: some-oauth-token
+    apiToken:
+      secretKeyRef:
+        name: slack-api-token
+        key: token
     channels:
       - "#some-channel"
       - "#some-other-channel"
     fields:
       query: "{query}"
       time-interval: "{query_time_interval}"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: slack-api-token 
+type: Opaque
+data:
+  token: c29tZS1mYWtlLXNsYWNrLXRva2Vu
