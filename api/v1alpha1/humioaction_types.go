@@ -32,13 +32,6 @@ const (
 	HumioActionStateConfigError = "ConfigError"
 )
 
-const (
-	// TODO: This won't work. Multiple resources of same type will overwrite each other.
-	HumioActionSlackPostMessagePropertiesSecretKey = "ApiToken"
-	HumioActionOpsGeniePropertiesSecretKey         = "GenieKey"
-	HumioActionRepositoryPropertiesSecretKey       = "IngestToken"
-)
-
 var HaSecrets map[string]string
 
 // HumioActionWebhookProperties defines the desired state of HumioActionWebhookProperties

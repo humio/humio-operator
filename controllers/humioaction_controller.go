@@ -199,24 +199,24 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 	var secretKey string
 	var secretValue string
 	// TODO: Double check. These are mutually exclusive, right?
-	if ha.Spec.SlackPostMessageProperties != nil {
-		secretKey = humiov1alpha1.HumioActionSlackPostMessagePropertiesSecretKey
+	if ha.Spec.SlackPostMessageProperties != nil && ha.Spec.SlackPostMessageProperties.ApiTokenSource.SecretKeyRef != nil {
+		secretKey = ha.Spec.SlackPostMessageProperties.ApiTokenSource.SecretKeyRef.Name
 		secretValue, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
 		if err != nil {
 			return fmt.Errorf("SlackPostMessageProperties.ApiTokenSource.%v", err)
 		}
 	}
 
-	if ha.Spec.OpsGenieProperties != nil {
-		secretKey = humiov1alpha1.HumioActionOpsGeniePropertiesSecretKey
+	if ha.Spec.OpsGenieProperties != nil && ha.Spec.OpsGenieProperties.GenieKeySource.SecretKeyRef != nil {
+		secretKey = ha.Spec.OpsGenieProperties.GenieKeySource.SecretKeyRef.Name
 		secretValue, err = r.resolveField(ctx, ha.Namespace, ha.Spec.OpsGenieProperties.GenieKeySource)
 		if err != nil {
 			return fmt.Errorf("opsGenieProperties.ingestTokenSource.%v", err)
 		}
 	}
 
-	if ha.Spec.HumioRepositoryProperties != nil {
-		secretKey = humiov1alpha1.HumioActionRepositoryPropertiesSecretKey
+	if ha.Spec.HumioRepositoryProperties != nil && ha.Spec.HumioRepositoryProperties.IngestTokenSource.SecretKeyRef != nil {
+		secretKey = ha.Spec.HumioRepositoryProperties.IngestTokenSource.SecretKeyRef.Name
 		secretValue, err = r.resolveField(ctx, ha.Namespace, ha.Spec.HumioRepositoryProperties.IngestTokenSource)
 		if err != nil {
 			return fmt.Errorf("humioRepositoryProperties.ingestTokenSource.%v", err)
