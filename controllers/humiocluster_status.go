@@ -22,15 +22,12 @@ import (
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"k8s.io/client-go/util/retry"
-
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 type Option interface {
@@ -223,17 +220,17 @@ func (observedGenerationOption) GetResult() (reconcile.Result, error) {
 	return reconcile.Result{}, nil
 }
 
-func (r *HumioClusterReconciler) updateStatus(statusWriter client.StatusWriter, hc *humiov1alpha1.HumioCluster, options StatusOptions) (reconcile.Result, error) {
+func (r *HumioClusterReconciler) updateStatus(ctx context.Context, statusWriter client.StatusWriter, hc *humiov1alpha1.HumioCluster, options StatusOptions) (reconcile.Result, error) {
 	opts := options.Get()
 	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		err := r.getLatestHumioCluster(context.TODO(), hc)
+		err := r.getLatestHumioCluster(ctx, hc)
 		if err != nil {
 			return err
 		}
 		for _, opt := range opts {
 			opt.Apply(hc)
 		}
-		return statusWriter.Update(context.TODO(), hc)
+		return statusWriter.Update(ctx, hc)
 	}); err != nil {
 		return reconcile.Result{}, err
 	}

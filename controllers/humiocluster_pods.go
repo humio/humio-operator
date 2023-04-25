@@ -75,11 +75,11 @@ type nodeUUIDTemplateVars struct {
 func ConstructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]string, error) {
 	var shellCommands []string
 	if EnvVarHasValue(podEnvVars, "USING_EPHEMERAL_DISKS", "true") {
-		nodeUUIDPrefix, err := constructNodeUUIDPrefix(hnp)
-		if err != nil {
-			return []string{""}, fmt.Errorf("unable to construct node UUID: %w", err)
-		}
 		if EnvVarHasKey(podEnvVars, "ZOOKEEPER_URL") {
+			nodeUUIDPrefix, err := constructNodeUUIDPrefix(hnp)
+			if err != nil {
+				return []string{""}, fmt.Errorf("unable to construct node UUID: %w", err)
+			}
 			shellCommands = append(shellCommands, fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s", nodeUUIDPrefix))
 		}
 	}
@@ -607,19 +607,6 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 	}
 	pod.Spec.Containers[humioIdx].Args = containerArgs
 
-	humioVersion, _ := HumioVersionFromString(hnp.GetImage())
-	if ok, _ := humioVersion.AtLeast(HumioVersionWithNewTmpDir); !ok {
-		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name:         "humio-tmp",
-			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
-		})
-		pod.Spec.Containers[humioIdx].VolumeMounts = append(pod.Spec.Containers[humioIdx].VolumeMounts, corev1.VolumeMount{
-			Name:      "humio-tmp",
-			MountPath: humioDataTmpPath,
-			ReadOnly:  false,
-		})
-	}
-
 	return &pod, nil
 }
 
@@ -948,42 +935,46 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 			return podLifecycleState{}, r.logErrorAndReturn(err, "could not construct pod")
 		}
 
-		podsMatchTest, err := r.podsMatch(hnp, pod, *desiredPod)
+		podsMatch, err := r.podsMatch(hnp, pod, *desiredPod)
 		if err != nil {
 			r.Log.Error(err, "failed to check if pods match")
 		}
-		if !podsMatchTest {
-			podLifecycleStateValue.configurationDifference = &podLifecycleStateConfigurationDifference{}
-			humioContainerIdx, err := kubernetes.GetContainerIndexByName(pod, HumioContainerName)
-			if err != nil {
-				return podLifecycleState{}, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
-			}
-			desiredHumioContainerIdx, err := kubernetes.GetContainerIndexByName(*desiredPod, HumioContainerName)
-			if err != nil {
-				return podLifecycleState{}, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
-			}
-			if pod.Spec.Containers[humioContainerIdx].Image != desiredPod.Spec.Containers[desiredHumioContainerIdx].Image {
-				fromVersion, err := HumioVersionFromString(pod.Spec.Containers[humioContainerIdx].Image)
-				if err != nil {
-					return *podLifecycleStateValue, r.logErrorAndReturn(err, "failed to read version")
-				}
-				toVersion, err := HumioVersionFromString(desiredPod.Spec.Containers[desiredHumioContainerIdx].Image)
-				if err != nil {
-					return *podLifecycleStateValue, r.logErrorAndReturn(err, "failed to read version")
-				}
-				podLifecycleStateValue.versionDifference = &podLifecycleStateVersionDifference{
-					from: fromVersion,
-					to:   toVersion,
-				}
-			}
 
-			// Changes to EXTERNAL_URL means we've toggled TLS on/off and must restart all pods at the same time
-			if EnvVarValue(pod.Spec.Containers[humioContainerIdx].Env, "EXTERNAL_URL") != EnvVarValue(desiredPod.Spec.Containers[desiredHumioContainerIdx].Env, "EXTERNAL_URL") {
-				podLifecycleStateValue.configurationDifference.requiresSimultaneousRestart = true
-			}
-
-			return *podLifecycleStateValue, nil
+		// ignore pod if it matches the desired pod
+		if podsMatch {
+			continue
 		}
+
+		podLifecycleStateValue.configurationDifference = &podLifecycleStateConfigurationDifference{}
+		humioContainerIdx, err := kubernetes.GetContainerIndexByName(pod, HumioContainerName)
+		if err != nil {
+			return podLifecycleState{}, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
+		}
+		desiredHumioContainerIdx, err := kubernetes.GetContainerIndexByName(*desiredPod, HumioContainerName)
+		if err != nil {
+			return podLifecycleState{}, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
+		}
+		if pod.Spec.Containers[humioContainerIdx].Image != desiredPod.Spec.Containers[desiredHumioContainerIdx].Image {
+			fromVersion, err := HumioVersionFromString(pod.Spec.Containers[humioContainerIdx].Image)
+			if err != nil {
+				return *podLifecycleStateValue, r.logErrorAndReturn(err, "failed to read version")
+			}
+			toVersion, err := HumioVersionFromString(desiredPod.Spec.Containers[desiredHumioContainerIdx].Image)
+			if err != nil {
+				return *podLifecycleStateValue, r.logErrorAndReturn(err, "failed to read version")
+			}
+			podLifecycleStateValue.versionDifference = &podLifecycleStateVersionDifference{
+				from: fromVersion,
+				to:   toVersion,
+			}
+		}
+
+		// Changes to EXTERNAL_URL means we've toggled TLS on/off and must restart all pods at the same time
+		if EnvVarValue(pod.Spec.Containers[humioContainerIdx].Env, "EXTERNAL_URL") != EnvVarValue(desiredPod.Spec.Containers[desiredHumioContainerIdx].Env, "EXTERNAL_URL") {
+			podLifecycleStateValue.configurationDifference.requiresSimultaneousRestart = true
+		}
+
+		return *podLifecycleStateValue, nil
 	}
 	return podLifecycleState{}, nil
 }

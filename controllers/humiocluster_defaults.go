@@ -365,6 +365,18 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 			Name:  "EXTERNAL_URL", // URL used by other Humio hosts.
 			Value: fmt.Sprintf("%s://$(POD_NAME).%s.$(POD_NAMESPACE):$(HUMIO_PORT)", strings.ToLower(scheme), headlessServiceName(hnp.GetClusterName())),
 		},
+		{
+			Name:  "HUMIO_GC_OPTS",
+			Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
+		},
+		{
+			Name:  "HUMIO_JVM_LOG_OPTS",
+			Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags",
+		},
+		{
+			Name:  "HUMIO_OPTS",
+			Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true",
+		},
 	}
 
 	humioVersion, _ := HumioVersionFromString(hnp.GetImage())
@@ -372,26 +384,6 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 		envDefaults = append(envDefaults, corev1.EnvVar{
 			Name:  "AUTHENTICATION_METHOD",
 			Value: "single-user",
-		})
-	}
-
-	if ok, _ := humioVersion.AtLeast(HumioVersionWithLauncherScript); ok {
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "HUMIO_GC_OPTS",
-			Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
-		})
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "HUMIO_JVM_LOG_OPTS",
-			Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags",
-		})
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "HUMIO_OPTS",
-			Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true",
-		})
-	} else {
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "HUMIO_JVM_ARGS",
-			Value: "-Xss2m -Xms256m -Xmx1536m -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
 		})
 	}
 
