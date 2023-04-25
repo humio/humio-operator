@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -32,7 +33,7 @@ type podsStatusState struct {
 	podsReady               []corev1.Pod
 }
 
-func (r *HumioClusterReconciler) getPodsStatus(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, foundPodList []corev1.Pod) (*podsStatusState, error) {
+func (r *HumioClusterReconciler) getPodsStatus(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, foundPodList []corev1.Pod) (*podsStatusState, error) {
 	status := podsStatusState{
 		readyCount:          0,
 		notReadyCount:       len(foundPodList),
@@ -62,7 +63,7 @@ func (r *HumioClusterReconciler) getPodsStatus(hc *humiov1alpha1.HumioCluster, h
 				continue
 			}
 			if pod.Status.Phase == corev1.PodPending {
-				deletePod, err := r.isPodAttachedToOrphanedPvc(hc, hnp, pod)
+				deletePod, err := r.isPodAttachedToOrphanedPvc(ctx, hc, hnp, pod)
 				if !deletePod && err != nil {
 					return &status, r.logErrorAndReturn(err, "unable to determine whether pod should be deleted")
 				}

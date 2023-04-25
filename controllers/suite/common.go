@@ -202,6 +202,18 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 				Name:  "HUMIO_MEMORY_OPTS",
 				Value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g",
 			},
+			{
+				Name:  "HUMIO_GC_OPTS",
+				Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
+			},
+			{
+				Name:  "HUMIO_JVM_LOG_OPTS",
+				Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags",
+			},
+			{
+				Name:  "HUMIO_OPTS",
+				Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+			},
 		}),
 		DataVolumePersistentVolumeClaimSpecTemplate: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{
@@ -251,27 +263,6 @@ func ConstructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 		},
 	}
 
-	humioVersion, _ := controllers.HumioVersionFromString(controllers.NewHumioNodeManagerFromHumioCluster(humioCluster).GetImage())
-	if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithLauncherScript); ok {
-		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
-			Name:  "HUMIO_GC_OPTS",
-			Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
-		})
-		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
-			Name:  "HUMIO_JVM_LOG_OPTS",
-			Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags",
-		})
-		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
-			Name:  "HUMIO_OPTS",
-			Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-		})
-	} else {
-		humioCluster.Spec.EnvironmentVariables = append(humioCluster.Spec.EnvironmentVariables, corev1.EnvVar{
-			Name:  "HUMIO_JVM_ARGS",
-			Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-		})
-	}
-
 	if useAutoCreatedLicense {
 		humioCluster.Spec.License = humiov1alpha1.HumioClusterLicenseSpec{
 			SecretKeyRef: &corev1.SecretKeySelector{
@@ -285,6 +276,20 @@ func ConstructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 	return humioCluster
 }
 
+func CreateLicenseSecret(ctx context.Context, clusterKey types.NamespacedName, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster) {
+	UsingClusterBy(cluster.Name, fmt.Sprintf("Creating the license secret %s", cluster.Spec.License.SecretKeyRef.Name))
+
+	licenseSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-license", clusterKey.Name),
+			Namespace: clusterKey.Namespace,
+		},
+		StringData: map[string]string{"license": os.Getenv("HUMIO_E2E_LICENSE")},
+		Type:       corev1.SecretTypeOpaque,
+	}
+	Expect(k8sClient.Create(ctx, &licenseSecret)).To(Succeed())
+}
+
 func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, humioClient humio.Client, cluster *humiov1alpha1.HumioCluster, autoCreateLicense bool, expectedState string, testTimeout time.Duration) {
 	key := types.NamespacedName{
 		Namespace: cluster.Namespace,
@@ -292,17 +297,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	}
 
 	if autoCreateLicense {
-		UsingClusterBy(cluster.Name, fmt.Sprintf("Creating the license secret %s", cluster.Spec.License.SecretKeyRef.Name))
-
-		licenseSecret := corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-license", key.Name),
-				Namespace: key.Namespace,
-			},
-			StringData: map[string]string{"license": os.Getenv("HUMIO_E2E_LICENSE")},
-			Type:       corev1.SecretTypeOpaque,
-		}
-		Expect(k8sClient.Create(ctx, &licenseSecret)).To(Succeed())
+		CreateLicenseSecret(ctx, key, k8sClient, cluster)
 	}
 
 	if cluster.Spec.HumioServiceAccountName != "" {
