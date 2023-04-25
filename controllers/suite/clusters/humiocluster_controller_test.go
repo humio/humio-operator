@@ -1053,7 +1053,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image unsuccessfully")
-			updatedImage := "humio/humio-operator:1.30.7-missing-image"
+			updatedImage := "humio/humio-operator:1.36.7-missing-image"
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -1258,28 +1258,19 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			})
-
-			humioVersion, _ := controllers.HumioVersionFromString(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage())
-			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithLauncherScript); ok {
-				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+				{
 					Name:  "HUMIO_GC_OPTS",
 					Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
-				})
-				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+				},
+				{
 					Name:  "HUMIO_JVM_LOG_OPTS",
 					Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags",
-				})
-				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+				},
+				{
 					Name:  "HUMIO_OPTS",
 					Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-				})
-			} else {
-				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
-					Name:  "HUMIO_JVM_ARGS",
-					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-				})
-			}
+				},
+			})
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
@@ -1319,28 +1310,19 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			})
-
-			humioVersion, _ = controllers.HumioVersionFromString(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage())
-			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithLauncherScript); ok {
-				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+				{
 					Name:  "HUMIO_GC_OPTS",
 					Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
-				})
-				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+				},
+				{
 					Name:  "HUMIO_JVM_LOG_OPTS",
 					Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags",
-				})
-				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
+				},
+				{
 					Name:  "HUMIO_OPTS",
 					Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-				})
-			} else {
-				toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
-					Name:  "HUMIO_JVM_ARGS",
-					Value: "-Xss2m -Xms256m -Xmx2g -server -XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-				})
-			}
+				},
+			})
 
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -3105,12 +3087,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			initialExpectedVolumesCount := 6
 			initialExpectedVolumeMountsCount := 4
 
-			humioVersion, _ := controllers.HumioVersionFromString(toCreate.Spec.Image)
-			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithNewTmpDir); !ok {
-				initialExpectedVolumesCount += 1
-				initialExpectedVolumeMountsCount += 1
-			}
-
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 				// if we run on a real cluster we have TLS enabled (using 2 volumes),
 				// and k8s will automatically inject a service account token adding one more
@@ -3332,6 +3308,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+			suite.CreateLicenseSecret(ctx, key, k8sClient, toCreate)
+
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			suite.UsingClusterBy(key.Name, "should indicate cluster configuration error")
 			Eventually(func() string {
@@ -3366,6 +3344,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+			suite.CreateLicenseSecret(ctx, key, k8sClient, toCreate)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			suite.UsingClusterBy(key.Name, "should indicate cluster configuration error")
@@ -3400,6 +3379,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+			suite.CreateLicenseSecret(ctx, key, k8sClient, toCreate)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			suite.UsingClusterBy(key.Name, "should indicate cluster configuration error")
@@ -3433,6 +3413,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+			suite.CreateLicenseSecret(ctx, key, k8sClient, toCreate)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			suite.UsingClusterBy(key.Name, "should indicate cluster configuration error")
@@ -3589,7 +3570,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully without any Hostnames defined")
 			ctx := context.Background()
-			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateConfigError, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Confirming we did not create any ingresses")

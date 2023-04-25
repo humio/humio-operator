@@ -53,6 +53,9 @@ type HumioClusterReconciler struct {
 	Namespace   string
 }
 
+type ctxHumioClusterPoolFunc func(context.Context, *humiov1alpha1.HumioCluster, *HumioNodePool) error
+type ctxHumioClusterFunc func(context.Context, *humiov1alpha1.HumioCluster) error
+
 const (
 	// MaximumMinReadyRequeue The maximum requeue time to set for the MinReadySeconds functionality - this is to avoid a scenario where we
 	// requeue for hours into the future.
@@ -105,48 +108,44 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	emptyResult := reconcile.Result{}
 
 	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
-		_, _ = r.updateStatus(r.Client.Status(), hc, statusOptions().
+		_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withObservedGeneration(hc.GetGeneration()))
 	}(ctx, r.HumioClient, hc)
 
 	for _, pool := range humioNodePools {
-		if err := r.setImageFromSource(context.TODO(), pool); err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
+		if err := r.setImageFromSource(ctx, pool); err != nil {
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName()))
 		}
-	}
-
-	for _, pool := range humioNodePools {
 		if err := r.ensureValidHumioVersion(pool); err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName()))
 		}
 	}
 
 	if err := r.ensureValidStorageConfiguration(hc); err != nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
+		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withMessage(err.Error()).
 			withState(humiov1alpha1.HumioClusterStateConfigError))
 	}
 
-	// Ensure we have a valid CA certificate to configure intra-cluster communication.
-	// Because generating the CA can take a while, we do this before we start tearing down mismatching pods
-	if err := r.ensureValidCASecret(ctx, hc); err != nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()).
-			withState(humiov1alpha1.HumioClusterStateConfigError))
-	}
-
-	if err := r.ensureHeadlessServiceExists(ctx, hc); err != nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()).
-			withState(humiov1alpha1.HumioClusterStateConfigError))
+	for _, fun := range []ctxHumioClusterFunc{
+		r.ensureLicenseIsValid,
+		r.ensureValidCASecret,
+		r.ensureHeadlessServiceExists,
+		r.validateUserDefinedServiceAccountsExists,
+	} {
+		if err := fun(ctx, hc); err != nil {
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()).
+				withState(humiov1alpha1.HumioClusterStateConfigError))
+		}
 	}
 
 	if err := r.ensureNodePoolSpecificResourcesHaveLabelWithNodePoolName(ctx, humioNodePools[0]); err != nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
+		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withMessage(err.Error()).
 			withState(humiov1alpha1.HumioClusterStateConfigError))
 	}
@@ -157,14 +156,14 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if err != nil {
 			r.Log.Error(err, "unable to get pod status list")
 		}
-		_, _ = r.updateStatus(r.Client.Status(), hc, opts.
+		_, _ = r.updateStatus(ctx, r.Client.Status(), hc, opts.
 			withPods(podStatusList).
 			withNodeCount(len(podStatusList)))
 	}(ctx, r.HumioClient, hc)
 
 	for _, pool := range humioNodePools {
 		if err := r.ensureOrphanedPvcsAreDeleted(ctx, hc, pool); err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()))
 		}
 	}
@@ -180,32 +179,16 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	if allServiceAccountsExists, err := r.validateUserDefinedServiceAccountsExists(ctx, hc); err != nil {
-		if !allServiceAccountsExists {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()).
-				withState(humiov1alpha1.HumioClusterStateConfigError))
-		}
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()))
-	}
-
 	for _, pool := range humioNodePools {
 		if err := r.validateInitialPodSpec(pool); err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName()))
 		}
 	}
 
 	if err := r.validateNodeCount(hc, humioNodePools); err != nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()).
-			withState(humiov1alpha1.HumioClusterStateConfigError))
-	}
-
-	if err := r.ensureLicenseIsValid(hc); err != nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
+		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withMessage(err.Error()).
 			withState(humiov1alpha1.HumioClusterStateConfigError))
 	}
@@ -219,8 +202,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	for _, pool := range humioNodePools {
-		if clusterState, err := r.ensurePodRevisionAnnotation(hc, pool); err != nil || clusterState != hc.Status.State {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
+		if clusterState, err := r.ensurePodRevisionAnnotation(ctx, hc, pool); err != nil || clusterState != hc.Status.State {
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withNodePoolState(clusterState, pool.GetNodePoolName()))
 		}
@@ -235,82 +218,38 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			if err != nil {
 				opts.withMessage(err.Error())
 			}
-			return r.updateStatus(r.Client.Status(), hc, opts.withState(hc.Status.State))
+			return r.updateStatus(ctx, r.Client.Status(), hc, opts.withState(hc.Status.State))
 		}
 	}
 
-	for _, pool := range humioNodePools {
-		if err := r.ensureService(ctx, hc, pool); err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
+	for _, fun := range []ctxHumioClusterFunc{
+		r.ensureValidCAIssuer,
+		r.ensureHumioClusterCACertBundle,
+		r.ensureHumioClusterKeystoreSecret,
+		r.ensureViewGroupPermissionsConfigMap,
+		r.ensureNoIngressesIfIngressNotEnabled,
+		r.ensureIngress,
+	} {
+		if err := fun(ctx, hc); err != nil {
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()))
 		}
 	}
 
 	for _, pool := range humioNodePools {
-		if err := r.ensureHumioPodPermissions(ctx, hc, pool); err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()))
+		for _, fun := range []ctxHumioClusterPoolFunc{
+			r.ensureService,
+			r.ensureHumioPodPermissions,
+			r.ensureInitContainerPermissions,
+			r.ensureAuthContainerPermissions,
+			r.ensureHumioNodeCertificates,
+			r.ensureExtraKafkaConfigsConfigMap,
+		} {
+			if err := fun(ctx, hc, pool); err != nil {
+				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+					withMessage(err.Error()))
+			}
 		}
-	}
-
-	for _, pool := range humioNodePools {
-		if err := r.ensureInitContainerPermissions(ctx, hc, pool); err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()))
-		}
-	}
-
-	for _, pool := range humioNodePools {
-		if err := r.ensureAuthContainerPermissions(ctx, hc, pool); err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()))
-		}
-	}
-
-	// Ensure the users in the SCC are cleaned up.
-	// This cleanup is only called as part of reconciling HumioCluster objects,
-	// this means that you can end up with the SCC listing the service accounts
-	// used for the last cluster to be deleted, in the case that all HumioCluster's are removed.
-	// TODO: Determine if we should move this to a finalizer to fix the situation described above.
-	if err := r.ensureCleanupUsersInSecurityContextConstraints(ctx); err != nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()))
-	}
-
-	// Ensure the CA Issuer is valid/ready
-	if err := r.ensureValidCAIssuer(ctx, hc); err != nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()))
-	}
-	// Ensure we have a k8s secret holding the ca.crt
-	// This can be used in reverse proxies talking to Humio.
-	if err := r.ensureHumioClusterCACertBundle(ctx, hc); err != nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()))
-	}
-
-	if err := r.ensureHumioClusterKeystoreSecret(ctx, hc); err != nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()))
-	}
-
-	for _, pool := range humioNodePools {
-		if err := r.ensureHumioNodeCertificates(ctx, hc, pool); err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()))
-		}
-	}
-
-	for _, pool := range humioNodePools {
-		if err := r.ensureExtraKafkaConfigsConfigMap(ctx, hc, pool); err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()))
-		}
-	}
-
-	if err := r.ensureViewGroupPermissionsConfigMap(ctx, hc); err != nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()))
 	}
 
 	for _, pool := range humioNodePools {
@@ -319,7 +258,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			if hc.Status.State != humiov1alpha1.HumioClusterStateRestarting && hc.Status.State != humiov1alpha1.HumioClusterStateUpgrading {
 				opts.withNodePoolState(humiov1alpha1.HumioClusterStatePending, pool.GetNodePoolName())
 			}
-			return r.updateStatus(r.Client.Status(), hc, opts.
+			return r.updateStatus(ctx, r.Client.Status(), hc, opts.
 				withMessage(err.Error()))
 		}
 	}
@@ -328,7 +267,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	for _, pool := range humioNodePools {
 		if result, err := r.ensurePodsExist(ctx, hc, pool); result != emptyResult || err != nil {
 			if err != nil {
-				_, _ = r.updateStatus(r.Client.Status(), hc, statusOptions().
+				_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 					withMessage(err.Error()))
 			}
 			return result, err
@@ -339,7 +278,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if len(r.nodePoolsInMaintenance(hc, humioNodePools)) == 0 {
 		if result, err := r.ensureLicense(ctx, hc, req); result != emptyResult || err != nil {
 			if err != nil {
-				_, _ = r.updateStatus(r.Client.Status(), hc, statusOptions().
+				_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 					withMessage(err.Error()))
 			}
 			// Usually if we fail to get the license, that means the cluster is not up. So wait a bit longer than usual to retry
@@ -349,7 +288,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
+		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withMessage(r.logErrorAndReturn(err, "unable to obtain humio client config").Error()).
 			withState(humiov1alpha1.HumioClusterStateConfigError))
 	}
@@ -361,78 +300,50 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			if err != nil {
 				r.Log.Error(err, "unable to get cluster status")
 			}
-			_, _ = r.updateStatus(r.Client.Status(), hc, opts.withVersion(status.Version))
+			_, _ = r.updateStatus(ctx, r.Client.Status(), hc, opts.withVersion(status.Version))
 		}
 	}(ctx, r.HumioClient, hc)
 
 	if len(r.nodePoolsInMaintenance(hc, humioNodePools)) == 0 {
 		for _, pool := range humioNodePools {
 			if err = r.ensureLabels(ctx, cluster.Config(), req, pool); err != nil {
-				return r.updateStatus(r.Client.Status(), hc, statusOptions().
+				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 					withMessage(err.Error()))
 			}
 		}
 	}
 
-	// Ensure ingress objects are deleted if ingress is disabled.
-	if err = r.ensureNoIngressesIfIngressNotEnabled(ctx, hc); err != nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()))
-	}
-
-	if err = r.ensureIngress(ctx, hc); err != nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()))
-	}
-
 	for _, pool := range humioNodePools {
-		if podsReady, err := r.nodePoolPodsReady(hc, pool); !podsReady || err != nil {
+		if podsReady, err := r.nodePoolPodsReady(ctx, hc, pool); !podsReady || err != nil {
 			msg := "waiting on all pods to be ready"
 			if err != nil {
 				msg = err.Error()
 			}
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withState(hc.Status.State).
 				withMessage(msg))
 		}
 	}
 
 	if err = r.ensurePartitionsAreBalanced(hc, cluster.Config(), req); err != nil {
-		return r.updateStatus(r.Client.Status(), hc, statusOptions().
+		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withMessage(err.Error()))
 	}
 
-	// TODO: result should be controlled and returned by the status
-	if result, err := r.cleanupUnusedTLSCertificates(ctx, hc); result != emptyResult || err != nil {
-		if err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
+	for _, fun := range []ctxHumioClusterFunc{
+		r.cleanupUsersInSecurityContextConstraints,
+		r.cleanupUnusedTLSCertificates,
+		r.cleanupUnusedTLSSecrets,
+		r.cleanupUnusedCAIssuer,
+	} {
+		if err := fun(ctx, hc); err != nil {
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()))
 		}
-		return result, err
-	}
-
-	// TODO: cleanup of unused TLS secrets only removes those that are related to the current HumioCluster,
-	//       which means we end up with orphaned secrets when deleting a HumioCluster.
-	// TODO: result should be controlled and returned by the status
-	if result, err := r.cleanupUnusedTLSSecrets(ctx, hc); result != emptyResult || err != nil {
-		if err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()))
-		}
-		return result, err
-	}
-
-	// TODO: result should be controlled and returned by the status
-	if result, err := r.cleanupUnusedCAIssuer(ctx, hc); result != emptyResult || err != nil {
-		if err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()))
-		}
-		return result, err
 	}
 
 	r.Log.Info("done reconciling")
-	return r.updateStatus(r.Client.Status(), hc, statusOptions().withState(hc.Status.State).withMessage(""))
+	return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().withState(hc.Status.State).withMessage(""))
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -449,12 +360,12 @@ func (r *HumioClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *HumioClusterReconciler) nodePoolPodsReady(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (bool, error) {
-	foundPodList, err := kubernetes.ListPods(context.TODO(), r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
+func (r *HumioClusterReconciler) nodePoolPodsReady(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (bool, error) {
+	foundPodList, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
 	if err != nil {
 		return false, r.logErrorAndReturn(err, "failed to list pods")
 	}
-	podsStatus, err := r.getPodsStatus(hc, hnp, foundPodList)
+	podsStatus, err := r.getPodsStatus(ctx, hc, hnp, foundPodList)
 	if err != nil {
 		return false, r.logErrorAndReturn(err, "failed to get pod status")
 	}
@@ -496,7 +407,7 @@ func (r *HumioClusterReconciler) nodePoolsInMaintenance(hc *humiov1alpha1.HumioC
 	return poolsInMaintenance
 }
 
-func (r *HumioClusterReconciler) ensurePodRevisionAnnotation(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (string, error) {
+func (r *HumioClusterReconciler) ensurePodRevisionAnnotation(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (string, error) {
 	revisionKey, revisionValue := hnp.GetHumioClusterNodePoolRevisionAnnotation()
 	if revisionValue == 0 {
 		revisionValue = 1
@@ -507,7 +418,7 @@ func (r *HumioClusterReconciler) ensurePodRevisionAnnotation(hc *humiov1alpha1.H
 		hc.Annotations[revisionKey] = strconv.Itoa(revisionValue)
 		hnp.SetHumioClusterNodePoolRevisionAnnotation(revisionValue)
 
-		if err := r.Update(context.TODO(), hc); err != nil {
+		if err := r.Update(ctx, hc); err != nil {
 			return humiov1alpha1.HumioClusterStatePending, r.logErrorAndReturn(err, fmt.Sprintf("unable to set pod revision annotation %s", revisionKey))
 		}
 	}
@@ -655,6 +566,7 @@ func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context
 	return nil
 }
 
+// Ensure ingress objects are deleted if ingress is disabled.
 func (r *HumioClusterReconciler) ensureNoIngressesIfIngressNotEnabled(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if hc.Spec.Ingress.Enabled {
 		return nil
@@ -704,7 +616,7 @@ func (r *HumioClusterReconciler) ensureIngress(ctx context.Context, hc *humiov1a
 	return nil
 }
 
-func (r *HumioClusterReconciler) humioHostnames(ctx context.Context, hc *humiov1alpha1.HumioCluster) (string, string, error) {
+func (r *HumioClusterReconciler) getHumioHostnames(ctx context.Context, hc *humiov1alpha1.HumioCluster) (string, string, error) {
 	var hostname string
 	var esHostname string
 
@@ -766,9 +678,9 @@ func (r *HumioClusterReconciler) humioHostnames(ctx context.Context, hc *humiov1
 func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("ensuring ingress")
 
-	hostname, esHostname, err := r.humioHostnames(ctx, hc)
+	hostname, esHostname, err := r.getHumioHostnames(ctx, hc)
 	if err != nil {
-		return r.logErrorAndReturn(err, "could not managed ingress")
+		return r.logErrorAndReturn(err, "could not get hostnames for ingress resources")
 	}
 
 	// Due to ingress-ingress relying on ingress object annotations to enable/disable/adjust certain features we create multiple ingress objects.
@@ -977,7 +889,12 @@ func (r *HumioClusterReconciler) ensureSecurityContextConstraintsContainsService
 	return nil
 }
 
-func (r *HumioClusterReconciler) ensureCleanupUsersInSecurityContextConstraints(ctx context.Context) error {
+// Ensure the users in the SCC are cleaned up.
+// This cleanup is only called as part of reconciling HumioCluster objects,
+// this means that you can end up with the SCC listing the service accounts
+// used for the last cluster to be deleted, in the case that all HumioCluster's are removed.
+// TODO: Determine if we should move this to a finalizer to fix the situation described above.
+func (r *HumioClusterReconciler) cleanupUsersInSecurityContextConstraints(ctx context.Context, _ *humiov1alpha1.HumioCluster) error {
 	if !helpers.IsOpenShift() {
 		return nil
 	}
@@ -998,7 +915,7 @@ func (r *HumioClusterReconciler) ensureCleanupUsersInSecurityContextConstraints(
 			continue
 		}
 		if k8serrors.IsNotFound(err) {
-			// If we have an error and it reflects that the service account does not exist, we remove the entry from the list.
+			// Remove the entry from the list if the servicea doesn't exist
 			scc.Users = helpers.RemoveElement(scc.Users, fmt.Sprintf("system:serviceaccount:%s:%s", sccUserNamespace, sccUserName))
 			if err = r.Update(ctx, scc); err != nil {
 				return r.logErrorAndReturn(err, "unable to update SecurityContextConstraints")
@@ -1011,6 +928,7 @@ func (r *HumioClusterReconciler) ensureCleanupUsersInSecurityContextConstraints(
 	return nil
 }
 
+// Ensure the CA Issuer is valid/ready
 func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
 		return nil
@@ -1049,6 +967,8 @@ func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *hu
 	return nil
 }
 
+// Ensure we have a valid CA certificate to configure intra-cluster communication.
+// Because generating the CA can take a while, we do this before we start tearing down mismatching pods
 func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
 		return nil
@@ -1124,6 +1044,8 @@ func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Co
 	return nil
 }
 
+// Ensure we have a k8s secret holding the ca.crt
+// This can be used in reverse proxies talking to Humio.
 func (r *HumioClusterReconciler) ensureHumioClusterCACertBundle(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
 		return nil
@@ -1286,37 +1208,37 @@ func (r *HumioClusterReconciler) ensureAuthRoleBinding(ctx context.Context, hc *
 }
 
 // validateUserDefinedServiceAccountsExists confirms that the user-defined service accounts all exist as they should.
-// If any of the service account names explicitly set does not exist, or that we get an error, we return false and the error.
-// In case the user does not define any service accounts or that all user-defined service accounts already exists, we return true.
-func (r *HumioClusterReconciler) validateUserDefinedServiceAccountsExists(ctx context.Context, hc *humiov1alpha1.HumioCluster) (bool, error) {
+// If any of the service account names explicitly set does not exist, or that we get an error, we return an error.
+// In case the user does not define any service accounts or that all user-defined service accounts already exists, we return nil.
+func (r *HumioClusterReconciler) validateUserDefinedServiceAccountsExists(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if hc.Spec.HumioServiceAccountName != "" {
 		_, err := kubernetes.GetServiceAccount(ctx, r, hc.Spec.HumioServiceAccountName, hc.Namespace)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				return false, r.logErrorAndReturn(err, "not all referenced service accounts exists")
+				return r.logErrorAndReturn(err, "not all referenced service accounts exists")
 			}
-			return true, r.logErrorAndReturn(err, "could not get service accounts")
+			return r.logErrorAndReturn(err, "could not get service accounts")
 		}
 	}
 	if hc.Spec.InitServiceAccountName != "" {
 		_, err := kubernetes.GetServiceAccount(ctx, r, hc.Spec.InitServiceAccountName, hc.Namespace)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				return false, r.logErrorAndReturn(err, "not all referenced service accounts exists")
+				return r.logErrorAndReturn(err, "not all referenced service accounts exists")
 			}
-			return true, r.logErrorAndReturn(err, "could not get service accounts")
+			return r.logErrorAndReturn(err, "could not get service accounts")
 		}
 	}
 	if hc.Spec.AuthServiceAccountName != "" {
 		_, err := kubernetes.GetServiceAccount(ctx, r, hc.Spec.AuthServiceAccountName, hc.Namespace)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				return false, r.logErrorAndReturn(err, "not all referenced service accounts exists")
+				return r.logErrorAndReturn(err, "not all referenced service accounts exists")
 			}
-			return true, r.logErrorAndReturn(err, "could not get service accounts")
+			return r.logErrorAndReturn(err, "could not get service accounts")
 		}
 	}
-	return true, nil
+	return nil
 }
 
 func (r *HumioClusterReconciler) ensureServiceAccountExists(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, serviceAccountName string, serviceAccountAnnotations map[string]string) error {
@@ -1496,8 +1418,8 @@ func (r *HumioClusterReconciler) isPvcOrphaned(ctx context.Context, hnp *HumioNo
 	return false, nil
 }
 
-func (r *HumioClusterReconciler) isPodAttachedToOrphanedPvc(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, pod corev1.Pod) (bool, error) {
-	pvcList, err := r.pvcList(context.TODO(), hnp)
+func (r *HumioClusterReconciler) isPodAttachedToOrphanedPvc(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, pod corev1.Pod) (bool, error) {
+	pvcList, err := r.pvcList(ctx, hnp)
 	if err != nil {
 		return false, r.logErrorAndReturn(err, "failed to list pvcs")
 	}
@@ -1505,7 +1427,7 @@ func (r *HumioClusterReconciler) isPodAttachedToOrphanedPvc(hc *humiov1alpha1.Hu
 	if err != nil {
 		return true, r.logErrorAndReturn(err, "could find pvc for pod")
 	}
-	pvcOrphaned, err := r.isPvcOrphaned(context.TODO(), hnp, hc, pvc)
+	pvcOrphaned, err := r.isPvcOrphaned(ctx, hnp, hc, pvc)
 	if err != nil {
 		return false, r.logErrorAndReturn(err, "could not check if pvc is orphaned")
 	}
@@ -1541,7 +1463,7 @@ func (r *HumioClusterReconciler) ensureOrphanedPvcsAreDeleted(ctx context.Contex
 	return nil
 }
 
-func (r *HumioClusterReconciler) ensureLicenseIsValid(hc *humiov1alpha1.HumioCluster) error {
+func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("ensuring license is valid")
 
 	licenseSecretKeySelector := licenseSecretKeyRefOrDefault(hc)
@@ -1549,7 +1471,7 @@ func (r *HumioClusterReconciler) ensureLicenseIsValid(hc *humiov1alpha1.HumioClu
 		return fmt.Errorf("no license secret key selector provided")
 	}
 
-	licenseSecret, err := kubernetes.GetSecret(context.TODO(), r, licenseSecretKeySelector.Name, hc.Namespace)
+	licenseSecret, err := kubernetes.GetSecret(ctx, r, licenseSecretKeySelector.Name, hc.Namespace)
 	if err != nil {
 		return err
 	}
@@ -1588,14 +1510,14 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 				Type:       "onprem",
 				Expiration: existingLicense.ExpiresAt(),
 			}
-			_, _ = r.updateStatus(r.Client.Status(), hc, statusOptions().
+			_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withLicense(licenseStatus))
 		}
 	}(ctx, hc)
 
 	licenseStr, err := r.getLicenseString(ctx, hc)
 	if err != nil {
-		_, _ = r.updateStatus(r.Client.Status(), hc, statusOptions().
+		_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withMessage(err.Error()).
 			withState(humiov1alpha1.HumioClusterStateConfigError))
 		return reconcile.Result{}, err
@@ -1646,6 +1568,11 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 }
 
 func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(hc *humiov1alpha1.HumioCluster, config *humioapi.Config, req reconcile.Request) error {
+	humioVersion, _ := HumioVersionFromString(NewHumioNodeManagerFromHumioCluster(hc).GetImage())
+	if ok, _ := humioVersion.AtLeast(HumioVersionWithAutomaticPartitionManagement); ok {
+		return nil
+	}
+
 	if !hc.Spec.AutoRebalancePartitions {
 		r.Log.Info("partition auto-rebalancing not enabled, skipping")
 		return nil
@@ -1890,18 +1817,18 @@ func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNod
 
 // cleanupUnusedTLSCertificates finds all existing per-node certificates for a specific HumioCluster
 // and cleans them up if we have no use for them anymore.
-func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
+func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.UseCertManager() {
-		return reconcile.Result{}, nil
+		return nil
 	}
 
 	// because these secrets are created by cert-manager we cannot use our typical label selector
 	foundSecretList, err := kubernetes.ListSecrets(ctx, r, hc.Namespace, client.MatchingLabels{})
 	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to list secrets")
+		return r.logErrorAndReturn(err, "unable to list secrets")
 	}
 	if len(foundSecretList) == 0 {
-		return reconcile.Result{}, nil
+		return nil
 	}
 
 	for idx, secret := range foundSecretList {
@@ -1911,7 +1838,7 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc
 					secret.Name == fmt.Sprintf("%s-%s", hc.Name, "keystore-passphrase") {
 					r.Log.Info(fmt.Sprintf("TLS is not enabled for cluster, removing unused secret: %s", secret.Name))
 					if err := r.Delete(ctx, &foundSecretList[idx]); err != nil {
-						return reconcile.Result{}, r.logErrorAndReturn(err, "could not delete TLS secret")
+						return r.logErrorAndReturn(err, "could not delete TLS secret")
 					}
 				}
 			}
@@ -1948,32 +1875,32 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc
 				// this is the per-node secret
 				inUse, err = r.tlsCertSecretInUse(ctx, secret.Namespace, secret.Name)
 				if err != nil {
-					return reconcile.Result{}, r.logErrorAndReturn(err, "unable to determine if secret is in use")
+					return r.logErrorAndReturn(err, "unable to determine if secret is in use")
 				}
 			}
 			if !inUse {
 				r.Log.Info(fmt.Sprintf("deleting secret %s", secret.Name))
 				if err = r.Delete(ctx, &foundSecretList[idx]); err != nil {
-					return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("could not delete secret %s", secret.Name))
+					return r.logErrorAndReturn(err, fmt.Sprintf("could not delete secret %s", secret.Name))
 
 				}
-				return reconcile.Result{Requeue: true}, nil
+				return nil
 			}
 		}
 	}
 
 	// return empty result and no error indicating that everything was in the state we wanted it to be
-	return reconcile.Result{}, nil
+	return nil
 }
 
-// cleanupUnusedCAIssuer deletes the the CA Issuer for a cluster if TLS has been disabled
-func (r *HumioClusterReconciler) cleanupUnusedCAIssuer(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
+// cleanupUnusedCAIssuer deletes the CA Issuer for a cluster if TLS has been disabled
+func (r *HumioClusterReconciler) cleanupUnusedCAIssuer(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if helpers.TLSEnabled(hc) {
-		return reconcile.Result{}, nil
+		return nil
 	}
 
 	if !helpers.UseCertManager() {
-		return reconcile.Result{}, nil
+		return nil
 	}
 
 	var existingCAIssuer cmapi.Issuer
@@ -1983,31 +1910,31 @@ func (r *HumioClusterReconciler) cleanupUnusedCAIssuer(ctx context.Context, hc *
 	}, &existingCAIssuer)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return reconcile.Result{}, nil
+			return nil
 		}
-		return reconcile.Result{Requeue: true}, r.logErrorAndReturn(err, "could not get CA Issuer")
+		return r.logErrorAndReturn(err, "could not get CA Issuer")
 	}
 
 	r.Log.Info("found existing CA Issuer but cluster is configured without TLS, deleting CA Issuer")
 	if err = r.Delete(ctx, &existingCAIssuer); err != nil {
-		return reconcile.Result{Requeue: true}, r.logErrorAndReturn(err, "unable to delete CA Issuer")
+		return r.logErrorAndReturn(err, "unable to delete CA Issuer")
 	}
 
-	return reconcile.Result{}, nil
+	return nil
 }
 
 // cleanupUnusedTLSCertificates finds all existing per-node certificates and cleans them up if we have no matching pod for them
-func (r *HumioClusterReconciler) cleanupUnusedTLSCertificates(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
+func (r *HumioClusterReconciler) cleanupUnusedTLSCertificates(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.UseCertManager() {
-		return reconcile.Result{}, nil
+		return nil
 	}
 
 	foundCertificateList, err := kubernetes.ListCertificates(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to list certificates")
+		return r.logErrorAndReturn(err, "unable to list certificates")
 	}
 	if len(foundCertificateList) == 0 {
-		return reconcile.Result{}, nil
+		return nil
 	}
 
 	for idx, certificate := range foundCertificateList {
@@ -2033,21 +1960,21 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSCertificates(ctx context.Contex
 				// this is the per-node secret
 				inUse, err = r.tlsCertSecretInUse(ctx, certificate.Namespace, certificate.Name)
 				if err != nil {
-					return reconcile.Result{}, r.logErrorAndReturn(err, "unable to determine if certificate is in use")
+					return r.logErrorAndReturn(err, "unable to determine if certificate is in use")
 				}
 			}
 			if !inUse {
 				r.Log.Info(fmt.Sprintf("deleting certificate %s", certificate.Name))
 				if err = r.Delete(ctx, &foundCertificateList[idx]); err != nil {
-					return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("could not delete certificate %s", certificate.Name))
+					return r.logErrorAndReturn(err, fmt.Sprintf("could not delete certificate %s", certificate.Name))
 				}
-				return reconcile.Result{Requeue: true}, nil
+				return nil
 			}
 		}
 	}
 
 	// return empty result and no error indicating that everything was in the state we wanted it to be
-	return reconcile.Result{}, nil
+	return nil
 }
 
 func (r *HumioClusterReconciler) tlsCertSecretInUse(ctx context.Context, secretNamespace, secretName string) (bool, error) {
@@ -2159,14 +2086,14 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		attachments.dataVolumeSource = hnp.GetDataVolumePersistentVolumeClaimSpecTemplate("")
 	}
 
-	podsStatus, err := r.getPodsStatus(hc, hnp, foundPodList)
+	podsStatus, err := r.getPodsStatus(ctx, hc, hnp, foundPodList)
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to get pod status")
 	}
 
 	envVarSourceData, err := r.getEnvVarSource(ctx, hnp)
 	if err != nil {
-		result, _ := r.updateStatus(r.Client.Status(), hc, statusOptions().
+		result, _ := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withMessage(r.logErrorAndReturn(err, "got error when getting pod envVarSource").Error()).
 			withState(humiov1alpha1.HumioClusterStateConfigError))
 		return result, err
@@ -2192,7 +2119,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		r.Log.Info(fmt.Sprintf("found %d humio pods requiring deletion", len(podsStatus.podsRequiringDeletion)))
 		r.Log.Info(fmt.Sprintf("deleting pod %s", podsStatus.podsRequiringDeletion[0].Name))
 		if err = r.Delete(ctx, &podsStatus.podsRequiringDeletion[0]); err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s", podsStatus.podsRequiringDeletion[0].Name)).Error()))
 		}
 		return reconcile.Result{RequeueAfter: time.Second + 1}, nil
@@ -2206,22 +2133,22 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	if hc.Status.State == humiov1alpha1.HumioClusterStateRunning || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
 		if desiredLifecycleState.WantsUpgrade() {
 			r.Log.Info(fmt.Sprintf("changing cluster state from %s to %s", hc.Status.State, humiov1alpha1.HumioClusterStateUpgrading))
-			if result, err := r.updateStatus(r.Client.Status(), hc, statusOptions().
+			if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withNodePoolState(humiov1alpha1.HumioClusterStateUpgrading, hnp.GetNodePoolName())); err != nil {
 				return result, err
 			}
 			if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, hnp); err != nil {
-				return r.updateStatus(r.Client.Status(), hc, statusOptions().
+				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 					withMessage(r.logErrorAndReturn(err, fmt.Sprintf("failed to increment pod revision to %d", revision)).Error()))
 			}
 		}
 		if !desiredLifecycleState.WantsUpgrade() && desiredLifecycleState.WantsRestart() {
-			if result, err := r.updateStatus(r.Client.Status(), hc, statusOptions().
+			if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withNodePoolState(humiov1alpha1.HumioClusterStateRestarting, hnp.GetNodePoolName())); err != nil {
 				return result, err
 			}
 			if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, hnp); err != nil {
-				return r.updateStatus(r.Client.Status(), hc, statusOptions().
+				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 					withMessage(r.logErrorAndReturn(err, fmt.Sprintf("failed to increment pod revision to %d", revision)).Error()))
 			}
 		}
@@ -2231,7 +2158,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 			r.Log.Info(fmt.Sprintf("pod %s should be deleted, but waiting because not all other pods are "+
 				"ready. waitingOnPods=%v, clusterState=%s", desiredLifecycleState.pod.Name,
 				podsStatus.waitingOnPods(), hc.Status.State))
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage("waiting for pods to become ready"))
 		}
 
@@ -2239,7 +2166,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 			r.Log.Info(fmt.Sprintf("pod %s should be deleted, but waiting because not all other pods are "+
 				"ready. waitingOnPods=%v, clusterState=%s", desiredLifecycleState.pod.Name,
 				podsStatus.waitingOnPods(), hc.Status.State))
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage("waiting for pods to become ready"))
 		}
 
@@ -2256,7 +2183,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 
 		r.Log.Info(fmt.Sprintf("deleting pod %s", desiredLifecycleState.pod.Name))
 		if err = r.Delete(ctx, &desiredLifecycleState.pod); err != nil {
-			return r.updateStatus(r.Client.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s", desiredLifecycleState.pod.Name)).Error()))
 		}
 	} else {
@@ -2281,7 +2208,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	if !podsStatus.waitingOnPods() && !desiredLifecycleState.WantsUpgrade() && !desiredLifecycleState.WantsRestart() && podsStatus.podRevisionsInSync() {
 		if hc.Status.State == humiov1alpha1.HumioClusterStateRestarting || hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
 			r.Log.Info(fmt.Sprintf("no longer deleting pods. changing cluster state from %s to %s", hc.Status.State, humiov1alpha1.HumioClusterStateRunning))
-			if result, err := r.updateStatus(r.Client.Status(), hc, statusOptions().
+			if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withNodePoolState(humiov1alpha1.HumioClusterStateRunning, hnp.GetNodePoolName())); err != nil {
 				return result, err
 			}
@@ -2466,7 +2393,7 @@ func (r *HumioClusterReconciler) getLicenseString(ctx context.Context, hc *humio
 	}
 
 	if hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
-		if _, err := r.updateStatus(r.Client.Status(), hc, statusOptions().
+		if _, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withState(humiov1alpha1.HumioClusterStateRunning)); err != nil {
 			r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning))
 		}
