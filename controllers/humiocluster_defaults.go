@@ -199,7 +199,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			InitServiceAccountName:         hnp.InitServiceAccountName,
 			PodLabels:                      hnp.PodLabels,
 			UpdateStrategy:                 hnp.UpdateStrategy,
-			PriorityClassName:              hc.Spec.PriorityClassName,
+			PriorityClassName:              hnp.PriorityClassName,
 		},
 		tls:                      hc.Spec.TLS,
 		idpCertificateSecretName: hc.Spec.IdpCertificateSecretName,
