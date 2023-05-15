@@ -26,6 +26,8 @@ done
 mkdir /tmp/ginkgo
 pushd /tmp/ginkgo
 go mod init tmp
+which go
+go version
 go get github.com/onsi/ginkgo/v2/ginkgo
 go install github.com/onsi/ginkgo/v2/ginkgo
 popd

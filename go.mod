@@ -1,16 +1,16 @@
 module github.com/humio/humio-operator
 
-go 1.18
+go 1.19
 
 require (
 	github.com/Masterminds/semver v1.5.0
-	github.com/go-logr/logr v1.2.3
+	github.com/go-logr/logr v1.2.4
 	github.com/go-logr/zapr v1.2.3
 	github.com/google/go-cmp v0.5.9
 	github.com/google/martian v2.1.0+incompatible
 	github.com/humio/cli v0.30.3-0.20230515103945-543af54a35c6
 	github.com/jetstack/cert-manager v1.7.1
-	github.com/onsi/ginkgo/v2 v2.9.2
+	github.com/onsi/ginkgo/v2 v2.9.4
 	github.com/onsi/gomega v1.27.6
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/prometheus/client_golang v1.12.1
@@ -65,7 +65,7 @@ require (
 	golang.org/x/term v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
-	golang.org/x/tools v0.7.0 // indirect
+	golang.org/x/tools v0.8.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
