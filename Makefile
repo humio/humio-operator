@@ -240,6 +240,8 @@ ifeq (,$(shell which ginkgo))
 	cd $$GINKGO_TMP_DIR ;\
 	export PATH=$$BIN_DIR:$$PATH ;\
 	go mod init tmp ;\
+	which go ;\
+	go version ;\
 	go get github.com/onsi/ginkgo/v2/ginkgo ;\
 	go install github.com/onsi/ginkgo/v2/ginkgo ;\
 	go get github.com/onsi/gomega/... ;\
