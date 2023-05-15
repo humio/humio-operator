@@ -1,9 +1,14 @@
 # Build the manager binary
-FROM golang:1.18 as builder
+FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.18 as builder
 
 ARG RELEASE_VERSION=master
 ARG RELEASE_COMMIT=none
 ARG RELEASE_DATE=unknown
+
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -20,10 +25,10 @@ COPY controllers/ controllers/
 COPY pkg/ pkg/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -ldflags="-s -w -X 'main.version=$RELEASE_VERSION' -X 'main.commit=$RELEASE_COMMIT' -X 'main.date=$RELEASE_DATE'" -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -ldflags="-s -w -X 'main.version=$RELEASE_VERSION' -X 'main.commit=$RELEASE_COMMIT' -X 'main.date=$RELEASE_DATE'" -a -o manager main.go
 
 # Use ubi8 as base image to package the manager binary to comply with Red Hat image certification requirements
-FROM scratch
+FROM --platform=${TARGETPLATFORM:-linux/amd64} scratch
 LABEL "name"="humio-operator"
 LABEL "vendor"="humio"
 LABEL "summary"="Humio Kubernetes Operator"

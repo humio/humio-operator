@@ -1,14 +1,19 @@
-FROM golang:1.18 as builder
+FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.18 as builder
 
 ARG RELEASE_VERSION=master
 ARG RELEASE_COMMIT=none
 ARG RELEASE_DATE=unknown
 
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
+
 WORKDIR /src
 COPY . /src
-RUN CGO_ENABLED=0 go build -ldflags="-s -w -X 'main.version=$RELEASE_VERSION' -X 'main.commit=$RELEASE_COMMIT' -X 'main.date=$RELEASE_DATE'" -o /app /src/*.go
+RUN CGO_ENABLED=0  GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-s -w -X 'main.version=$RELEASE_VERSION' -X 'main.commit=$RELEASE_COMMIT' -X 'main.date=$RELEASE_DATE'" -o /app /src/*.go
 
-FROM scratch
+FROM --platform=${TARGETPLATFORM:-linux/amd64} scratch
 
 LABEL "name"="humio-operator-helper"
 LABEL "vendor"="humio"
