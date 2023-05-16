@@ -366,10 +366,6 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 			Value: fmt.Sprintf("%s://$(POD_NAME).%s.$(POD_NAMESPACE):$(HUMIO_PORT)", strings.ToLower(scheme), headlessServiceName(hnp.GetClusterName())),
 		},
 		{
-			Name:  "HUMIO_GC_OPTS",
-			Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
-		},
-		{
 			Name:  "HUMIO_JVM_LOG_OPTS",
 			Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags",
 		},
