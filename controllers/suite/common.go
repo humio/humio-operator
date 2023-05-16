@@ -203,10 +203,6 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 				Value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g",
 			},
 			{
-				Name:  "HUMIO_GC_OPTS",
-				Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
-			},
-			{
 				Name:  "HUMIO_JVM_LOG_OPTS",
 				Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags",
 			},
