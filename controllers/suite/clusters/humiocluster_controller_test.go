@@ -1259,10 +1259,6 @@ var _ = Describe("HumioCluster Controller", func() {
 					Value: "false",
 				},
 				{
-					Name:  "HUMIO_GC_OPTS",
-					Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
-				},
-				{
 					Name:  "HUMIO_JVM_LOG_OPTS",
 					Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags",
 				},
@@ -1309,10 +1305,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				{
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
-				},
-				{
-					Name:  "HUMIO_GC_OPTS",
-					Value: "-XX:+UseParallelGC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC",
 				},
 				{
 					Name:  "HUMIO_JVM_LOG_OPTS",
