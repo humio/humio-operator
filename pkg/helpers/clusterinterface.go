@@ -97,7 +97,7 @@ func (c Cluster) Url(ctx context.Context, k8sClient client.Client) (*url.URL, er
 			log.Infof("humio managed cluster configured as insecure, using http")
 			protocol = "http"
 		}
-		baseURL, _ := url.Parse(fmt.Sprintf("%s://%s.%s:%d/", protocol, c.managedClusterName, c.namespace, 8080))
+		baseURL, _ := url.Parse(fmt.Sprintf("%s://%s-headless.%s:%d/", protocol, c.managedClusterName, c.namespace, 8080))
 		return baseURL, nil
 	}
 

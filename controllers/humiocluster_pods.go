@@ -502,6 +502,7 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 	}
 
 	if hnp.TLSEnabled() {
+		pod.Annotations[certHashAnnotation] = GetDesiredCertHash(hnp)
 		pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
 			Name:  "TLS_TRUSTSTORE_LOCATION",
 			Value: fmt.Sprintf("/var/lib/humio/tls-certificate-secret/%s", "truststore.jks"),
@@ -793,12 +794,12 @@ func podSpecAsSHA256(hnp *HumioNodePool, sourcePod corev1.Pod) string {
 }
 
 func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, attachments *podAttachments, newlyCreatedPods []corev1.Pod) (*corev1.Pod, error) {
-	podName, err := findHumioNodeName(ctx, r, hnp, newlyCreatedPods)
+	podNameAndCertHash, err := findHumioNodeNameAndCertHash(ctx, r, hnp, newlyCreatedPods)
 	if err != nil {
 		return &corev1.Pod{}, r.logErrorAndReturn(err, "unable to find pod name")
 	}
 
-	pod, err := ConstructPod(hnp, podName, attachments)
+	pod, err := ConstructPod(hnp, podNameAndCertHash.podName, attachments)
 	if err != nil {
 		return &corev1.Pod{}, r.logErrorAndReturn(err, "unable to construct pod")
 	}
@@ -808,9 +809,6 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 	}
 	r.Log.Info(fmt.Sprintf("pod %s will use attachments %+v", pod.Name, attachments))
 	pod.Annotations[podHashAnnotation] = podSpecAsSHA256(hnp, *pod)
-	if err := controllerutil.SetControllerReference(hc, pod, r.Scheme()); err != nil {
-		return &corev1.Pod{}, r.logErrorAndReturn(err, "could not set controller reference")
-	}
 
 	if attachments.envVarSourceData != nil {
 		b, err := json.Marshal(attachments.envVarSourceData)
@@ -818,6 +816,10 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 			return &corev1.Pod{}, fmt.Errorf("error trying to JSON encode envVarSourceData: %w", err)
 		}
 		pod.Annotations[envVarSourceHashAnnotation] = helpers.AsSHA256(string(b))
+	}
+
+	if hnp.TLSEnabled() {
+		pod.Annotations[certHashAnnotation] = podNameAndCertHash.certificateHash
 	}
 
 	_, podRevision := hnp.GetHumioClusterNodePoolRevisionAnnotation()
@@ -876,9 +878,11 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 	if _, ok := pod.Annotations[PodRevisionAnnotation]; !ok {
 		return false, fmt.Errorf("did not find annotation with pod revision")
 	}
+
 	var specMatches bool
 	var revisionMatches bool
 	var envVarSourceMatches bool
+	var certHasAnnotationMatches bool
 
 	desiredPodHash := podSpecAsSHA256(hnp, desiredPod)
 	_, existingPodRevision := hnp.GetHumioClusterNodePoolRevisionAnnotation()
@@ -899,6 +903,16 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 			envVarSourceMatches = true
 		}
 	}
+	if _, ok := pod.Annotations[certHashAnnotation]; ok {
+		if pod.Annotations[certHashAnnotation] == desiredPod.Annotations[certHashAnnotation] {
+			certHasAnnotationMatches = true
+		}
+	} else {
+		// Ignore certHashAnnotation if it's not in either the current pod or the desired pod
+		if _, ok := desiredPod.Annotations[certHashAnnotation]; !ok {
+			certHasAnnotationMatches = true
+		}
+	}
 
 	currentPodCopy := pod.DeepCopy()
 	desiredPodCopy := desiredPod.DeepCopy()
@@ -917,6 +931,10 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", envVarSourceHashAnnotation, pod.Annotations[envVarSourceHashAnnotation], desiredPod.Annotations[envVarSourceHashAnnotation]), "podSpecDiff", podSpecDiff)
 		return false, nil
 	}
+	if !certHasAnnotationMatches {
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", certHashAnnotation, pod.Annotations[certHashAnnotation], desiredPod.Annotations[certHashAnnotation]), "podSpecDiff", podSpecDiff)
+		return false, nil
+	}
 	return true, nil
 }
 
@@ -933,6 +951,9 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 		desiredPod, err := ConstructPod(hnp, "", attachments)
 		if err != nil {
 			return podLifecycleState{}, r.logErrorAndReturn(err, "could not construct pod")
+		}
+		if hnp.TLSEnabled() {
+			desiredPod.Annotations[certHashAnnotation] = GetDesiredCertHash(hnp)
 		}
 
 		podsMatch, err := r.podsMatch(hnp, pod, *desiredPod)
@@ -979,16 +1000,23 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 	return podLifecycleState{}, nil
 }
 
-func findHumioNodeName(ctx context.Context, c client.Client, hnp *HumioNodePool, newlyCreatedPods []corev1.Pod) (string, error) {
+type podNameAndCertificateHash struct {
+	podName, certificateHash string
+}
+
+// findHumioNodeNameAndCertHash looks up the name of a free node certificate to use and the hash of the certificate specification
+func findHumioNodeNameAndCertHash(ctx context.Context, c client.Client, hnp *HumioNodePool, newlyCreatedPods []corev1.Pod) (podNameAndCertificateHash, error) {
 	// if we do not have TLS enabled, append a random suffix
 	if !hnp.TLSEnabled() {
-		return fmt.Sprintf("%s-core-%s", hnp.GetNodePoolName(), kubernetes.RandomString()), nil
+		return podNameAndCertificateHash{
+			podName: fmt.Sprintf("%s-core-%s", hnp.GetNodePoolName(), kubernetes.RandomString()),
+		}, nil
 	}
 
 	// if TLS is enabled, use the first available TLS certificate
 	certificates, err := kubernetes.ListCertificates(ctx, c, hnp.GetNamespace(), hnp.GetNodePoolLabels())
 	if err != nil {
-		return "", err
+		return podNameAndCertificateHash{}, err
 	}
 	for _, certificate := range certificates {
 		for _, newPod := range newlyCreatedPods {
@@ -1008,20 +1036,23 @@ func findHumioNodeName(ctx context.Context, c client.Client, hnp *HumioNodePool,
 		}
 
 		existingPod := &corev1.Pod{}
-		err := c.Get(ctx, types.NamespacedName{
+		err = c.Get(ctx, types.NamespacedName{
 			Namespace: hnp.GetNamespace(),
 			Name:      certificate.Name,
 		}, existingPod)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				// reuse the certificate if we know we do not have a pod that uses it
-				return certificate.Name, nil
+				return podNameAndCertificateHash{
+					podName:         certificate.Name,
+					certificateHash: certificate.Annotations[certHashAnnotation],
+				}, nil
 			}
-			return "", err
+			return podNameAndCertificateHash{}, err
 		}
 	}
 
-	return "", fmt.Errorf("found %d certificates but none of them are available to use", len(certificates))
+	return podNameAndCertificateHash{}, fmt.Errorf("found %d certificates but none of them are available to use", len(certificates))
 }
 
 func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *HumioNodePool, foundPodList []corev1.Pod, pvcClaimNamesInUse map[string]struct{}) (*podAttachments, error) {
