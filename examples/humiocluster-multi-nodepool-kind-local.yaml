@@ -6,7 +6,7 @@ spec:
   nodePools:
     - name: ingest-only
       spec:
-        image: "humio/humio-core:1.76.2"
+        image: "humio/humio-core:1.82.1"
         nodeCount: 1
         dataVolumePersistentVolumeClaimSpecTemplate:
           storageClassName: standard
@@ -32,7 +32,7 @@ spec:
     secretKeyRef:
       name: example-humiocluster-license
       key: data
-  image: "humio/humio-core:1.76.2"
+  image: "humio/humio-core:1.82.1"
   nodeCount: 1
   tls:
     enabled: false

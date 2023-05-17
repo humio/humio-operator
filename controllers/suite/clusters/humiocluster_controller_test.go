@@ -43,8 +43,8 @@ const (
 	oldSupportedHumioVersion   = "humio/humio-core:1.56.2"
 	oldUnsupportedHumioVersion = "humio/humio-core:1.18.4"
 
-	upgradePatchBestEffortOldVersion = "humio/humio-core:1.76.1"
-	upgradePatchBestEffortNewVersion = "humio/humio-core:1.76.2"
+	upgradePatchBestEffortOldVersion = "humio/humio-core:1.82.0"
+	upgradePatchBestEffortNewVersion = "humio/humio-core:1.82.1"
 
 	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.56.3"
 	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.76.2"
