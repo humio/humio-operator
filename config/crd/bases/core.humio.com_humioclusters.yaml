@@ -3108,7 +3108,7 @@ spec:
                 description: DisableInitContainer is used to disable the init container
                   completely which collects the availability zone from the Kubernetes
                   worker node. This is not recommended, unless you are using auto
-                  rebalancing partitions and are running in a single single availability
+                  rebalancing partitions and are running in a single availability
                   zone.
                 type: boolean
               environmentVariables:
@@ -8375,7 +8375,7 @@ spec:
                             init container completely which collects the availability
                             zone from the Kubernetes worker node. This is not recommended,
                             unless you are using auto rebalancing partitions and are
-                            running in a single single availability zone.
+                            running in a single availability zone.
                           type: boolean
                         environmentVariables:
                           description: EnvironmentVariables that will be merged with
