@@ -5,6 +5,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: helm v3 lint
-        run: docker run --rm --volume $GITHUB_WORKSPACE:/workspace --workdir /workspace alpine/helm:3.4.2 lint charts/humio-operator
+        run: docker run --rm --volume $GITHUB_WORKSPACE:/workspace --workdir /workspace alpine/helm:3.12.0 lint charts/humio-operator
