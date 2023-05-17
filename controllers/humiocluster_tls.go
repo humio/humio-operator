@@ -174,6 +174,7 @@ func constructClusterCACertificateBundle(hc *humiov1alpha1.HumioCluster) cmapi.C
 		Spec: cmapi.CertificateSpec{
 			DNSNames: []string{
 				fmt.Sprintf("%s.%s", hc.Name, hc.Namespace),
+				fmt.Sprintf("%s-headless.%s", hc.Name, hc.Namespace),
 			},
 			IssuerRef: cmmeta.ObjectReference{
 				Name: constructCAIssuer(hc).Name,
@@ -183,7 +184,7 @@ func constructClusterCACertificateBundle(hc *humiov1alpha1.HumioCluster) cmapi.C
 	}
 }
 
-func constructNodeCertificate(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, nodeSuffix string) cmapi.Certificate {
+func ConstructNodeCertificate(hnp *HumioNodePool, nodeSuffix string) cmapi.Certificate {
 	return cmapi.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{},
@@ -196,9 +197,10 @@ func constructNodeCertificate(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool
 				fmt.Sprintf("%s-core-%s.%s.%s", hnp.GetNodePoolName(), nodeSuffix, headlessServiceName(hnp.GetClusterName()), hnp.GetNamespace()), // Used for intra-cluster communication
 				fmt.Sprintf("%s-core-%s", hnp.GetNodePoolName(), nodeSuffix),                                                                      // Used for auth sidecar
 				fmt.Sprintf("%s.%s", hnp.GetNodePoolName(), hnp.GetNamespace()),                                                                   // Used by humio-operator and ingress controllers to reach the Humio API
+				fmt.Sprintf("%s-headless.%s", hnp.GetClusterName(), hnp.GetNamespace()),                                                           // Used by humio-operator and ingress controllers to reach the Humio API
 			},
 			IssuerRef: cmmeta.ObjectReference{
-				Name: constructCAIssuer(hc).Name,
+				Name: hnp.GetClusterName(),
 			},
 			SecretName: fmt.Sprintf("%s-core-%s", hnp.GetNodePoolName(), nodeSuffix),
 			Keystores: &cmapi.CertificateKeystores{
@@ -214,6 +216,19 @@ func constructNodeCertificate(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool
 			},
 		},
 	}
+}
+
+func GetDesiredCertHash(hnp *HumioNodePool) string {
+	certForHash := ConstructNodeCertificate(hnp, "")
+
+	// Keystores will always contain a new pointer when constructing a certificate.
+	// To work around this, we override it to nil before calculating the hash,
+	// if we do not do this, the hash will always be different.
+	certForHash.Spec.Keystores = nil
+
+	b, _ := json.Marshal(certForHash)
+	desiredCertificateHash := helpers.AsSHA256(string(b))
+	return desiredCertificateHash
 }
 
 func (r *HumioClusterReconciler) waitForNewNodeCertificate(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, expectedCertCount int) error {
@@ -245,15 +260,7 @@ func (r *HumioClusterReconciler) updateNodeCertificates(ctx context.Context, hc 
 			existingNodeCertCount++
 
 			// Check if we should update the existing certificate
-			certForHash := constructNodeCertificate(hc, hnp, "")
-
-			// Keystores will always contain a new pointer when constructing a certificate.
-			// To work around this, we override it to nil before calculating the hash,
-			// if we do not do this, the hash will always be different.
-			certForHash.Spec.Keystores = nil
-
-			b, _ := json.Marshal(certForHash)
-			desiredCertificateHash := helpers.AsSHA256(string(b))
+			desiredCertificateHash := GetDesiredCertHash(hnp)
 
 			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				currentCertificate := &cmapi.Certificate{}
@@ -270,7 +277,7 @@ func (r *HumioClusterReconciler) updateNodeCertificates(ctx context.Context, hc 
 					currentCertificateNameSubstrings := strings.Split(currentCertificate.Name, "-")
 					currentCertificateSuffix := currentCertificateNameSubstrings[len(currentCertificateNameSubstrings)-1]
 
-					desiredCertificate := constructNodeCertificate(hc, hnp, currentCertificateSuffix)
+					desiredCertificate := ConstructNodeCertificate(hnp, currentCertificateSuffix)
 					desiredCertificate.ResourceVersion = currentCertificate.ResourceVersion
 					desiredCertificate.Annotations[certHashAnnotation] = desiredCertificateHash
 					r.Log.Info(fmt.Sprintf("updating node TLS certificate with name %s", desiredCertificate.Name))
