@@ -8,7 +8,7 @@ jobs:
     name: Build and Publish Operator
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 # Disable olm checks until we have a new bundle we want to validate against
 #    - name: operator-sdk lint
 #      env:
@@ -24,13 +24,13 @@ jobs:
     - name: docker build
       run: make docker-build-operator IMG=humio/humio-operator:${{ env.RELEASE_VERSION }} IMG_BUILD_ARGS="--label version=${{ env.RELEASE_VERSION }} --label release=${{ github.run_id }} --build-arg RELEASE_VERSION=${{ env.RELEASE_VERSION }} --build-arg RELEASE_COMMIT=${{ env.RELEASE_COMMIT }} --build-arg RELEASE_DATE=${{ env.RELEASE_DATE }}"
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install six
     - name: CrowdStrike Container Image Scan Operator
-      uses: crowdstrike/container-image-scan-action@v0.7
+      uses: crowdstrike/container-image-scan-action@v1
       with:
         falcon_client_id: 1cd30708cb31442f85a6eec83279fe7b
         container_repository: humio/humio-operator
@@ -38,7 +38,7 @@ jobs:
       env:
         FALCON_CLIENT_SECRET: "${{ secrets.FALCON_CLIENT_SECRET }}"
     - name: Login to DockerHub
-      uses: docker/login-action@v1
+      uses: docker/login-action@v2
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
@@ -52,7 +52,7 @@ jobs:
     name: Build and Publish Helperimage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set version information
         run: |
           echo "RELEASE_VERSION=master" >> $GITHUB_ENV
@@ -61,13 +61,13 @@ jobs:
       - name: docker build
         run: make docker-build-helper IMG=humio/humio-operator-helper:${{ env.RELEASE_VERSION }} IMG_BUILD_ARGS="--label version=${{ env.RELEASE_VERSION }} --label release=${{ github.run_id }} --build-arg RELEASE_VERSION=${{ env.RELEASE_VERSION }} --build-arg RELEASE_COMMIT=${{ env.RELEASE_COMMIT }} --build-arg RELEASE_DATE=${{ env.RELEASE_DATE }}"
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install six
       - name: CrowdStrike Container Image Scan Operator Helper
-        uses: crowdstrike/container-image-scan-action@v0.7
+        uses: crowdstrike/container-image-scan-action@v1
         with:
           falcon_client_id: 1cd30708cb31442f85a6eec83279fe7b
           container_repository: humio/humio-operator-helper
@@ -75,7 +75,7 @@ jobs:
         env:
           FALCON_CLIENT_SECRET: "${{ secrets.FALCON_CLIENT_SECRET }}"
       - name: Login to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
