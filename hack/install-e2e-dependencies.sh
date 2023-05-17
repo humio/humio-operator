@@ -2,13 +2,15 @@
 
 set -ex
 
-declare -r go_version=1.18.7
-declare -r ginkgo_version=2.7.0
-declare -r helm_version=3.8.0
+declare -r go_version=1.19.9
+declare -r ginkgo_version=2.9.4
+declare -r helm_version=3.12.0
 declare -r kubectl_version=1.23.3
 declare -r bin_dir=${BIN_DIR:-/usr/local/bin}
 
 install_go() {
+  # Remove any leftover old temp go installation, so we don't unpack on top of an existing installation
+  rm -rf /tmp/go
   curl -s https://dl.google.com/go/go${go_version}.linux-amd64.tar.gz | tar -xz -C /tmp
   ln -s /tmp/go/bin/go ${bin_dir}/go
 }

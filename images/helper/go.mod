@@ -1,6 +1,6 @@
 module github.com/humio/humio-operator/images/helper
 
-go 1.18
+go 1.19
 
 require (
 	github.com/humio/cli v0.30.3-0.20230515103945-543af54a35c6
