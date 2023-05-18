@@ -1,0 +1,94 @@
+/*
+Copyright 2020 Humio https://humio.com
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package v1alpha1
+
+import (
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+// HumioExternalClusterStateUnknown is the Unknown state of the external cluster
+//HumioExternalClusterStateUnknown = "Unknown"
+// HumioExternalClusterStateReady is the Ready state of the external cluster
+//HumioExternalClusterStateReady = "Ready"
+)
+
+// HumioBootstrapTokenSpec defines the bootstrap token that Humio will use to bootstrap authentication
+type HumioBootstrapTokenSpec struct {
+	// ManagedClusterName
+	ManagedClusterName string `json:"managedClusterName,omitempty"`
+	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+	// This conflicts with ManagedClusterName.
+	ExternalClusterName string `json:"externalClusterName,omitempty"`
+
+	Image             string                     `json:"image,omitempty"`
+	TokenSecret       HumioTokenSecretSpec       `json:"tokenSecret,omitempty"`
+	HashedTokenSecret HumioHashedTokenSecretSpec `json:"hashedTokenSecret,omitempty"`
+}
+
+type HumioTokenSecretSpec struct {
+	CreateIfMissing bool                      `json:"createIfMissing"`
+	SecretKeyRef    *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
+}
+
+type HumioHashedTokenSecretSpec struct {
+	CreateIfMissing bool                      `json:"createIfMissing"`
+	SecretKeyRef    *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
+}
+
+type HumioBootstrapTokenStatus struct {
+	Created                 bool                         `json:"created,omitempty"`
+	TokenSecretKeyRef       HumioTokenSecretStatus       `json:"tokenSecretStatus,omitempty"`
+	HashedTokenSecretKeyRef HumioHashedTokenSecretStatus `json:"hashedTokenSecretStatus,omitempty"`
+}
+
+type HumioTokenSecretStatus struct {
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
+}
+
+type HumioHashedTokenSecretStatus struct {
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
+}
+
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+//+kubebuilder:resource:path=humiobootstraptokens,scope=Namespaced
+//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the bootstrap token"
+//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Bootstrap Token"
+
+// HumioBootstrapToken defines the bootstrap token that Humio will use to bootstrap authentication
+type HumioBootstrapToken struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   HumioBootstrapTokenSpec   `json:"spec,omitempty"`
+	Status HumioBootstrapTokenStatus `json:"status,omitempty"`
+}
+
+//+kubebuilder:object:root=true
+
+// HumioBootstrapTokenList contains a list of HumioBootstrapTokens
+type HumioBootstrapTokenList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []HumioBootstrapToken `json:"items"`
+}
+
+func init() {
+	SchemeBuilder.Register(&HumioBootstrapToken{}, &HumioBootstrapTokenList{})
+}
