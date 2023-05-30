@@ -10,8 +10,6 @@ spec:
   targetReplicationFactor: 2
   storagePartitionsCount: 720
   digestPartitionsCount: 720
-  nodeCount: 0
-
   nodePools:
     - name: "segments"
       spec:
