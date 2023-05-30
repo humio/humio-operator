@@ -226,6 +226,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.ensureHumioClusterCACertBundle,
 		r.ensureHumioClusterKeystoreSecret,
 		r.ensureViewGroupPermissionsConfigMap,
+		r.ensureRolePermissionsConfigMap,
 		r.ensureNoIngressesIfIngressNotEnabled,
 		r.ensureIngress,
 	} {
@@ -559,6 +560,44 @@ func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context
 				return r.logErrorAndReturn(err, "unable to create view group permissions configmap")
 			}
 			r.Log.Info(fmt.Sprintf("successfully created view group permissions configmap name %s", configMap.Name))
+			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
+		}
+	}
+	return nil
+}
+
+// ensureRolePermissionsConfigMap creates a configmap containing configs specified in rolePermissions which will be mounted
+// into the Humio container and used by Humio's configuration option READ_GROUP_PERMISSIONS_FROM_FILE
+func (r *HumioClusterReconciler) ensureRolePermissionsConfigMap(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	rolePermissionsConfigMapData := rolePermissionsOrDefault(hc)
+	if rolePermissionsConfigMapData == "" {
+		rolePermissionsConfigMap, err := kubernetes.GetConfigMap(ctx, r, RolePermissionsConfigMapName(hc), hc.Namespace)
+		if err == nil {
+			if err = r.Delete(ctx, rolePermissionsConfigMap); err != nil {
+				r.Log.Error(err, "unable to delete role permissions config map")
+			}
+		}
+		return nil
+	}
+	_, err := kubernetes.GetConfigMap(ctx, r, RolePermissionsConfigMapName(hc), hc.Namespace)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			configMap := kubernetes.ConstructRolePermissionsConfigMap(
+				RolePermissionsConfigMapName(hc),
+				RolePermissionsFilename,
+				rolePermissionsConfigMapData,
+				hc.Name,
+				hc.Namespace,
+			)
+			if err := controllerutil.SetControllerReference(hc, configMap, r.Scheme()); err != nil {
+				return r.logErrorAndReturn(err, "could not set controller reference")
+			}
+
+			r.Log.Info(fmt.Sprintf("creating configMap: %s", configMap.Name))
+			if err = r.Create(ctx, configMap); err != nil {
+				return r.logErrorAndReturn(err, "unable to create role permissions configmap")
+			}
+			r.Log.Info(fmt.Sprintf("successfully created role permissions configmap name %s", configMap.Name))
 			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
 		}
 	}
