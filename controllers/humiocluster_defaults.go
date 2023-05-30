@@ -44,6 +44,7 @@ const (
 	idpCertificateFilename       = "idp-certificate.pem"
 	ExtraKafkaPropertiesFilename = "extra-kafka-properties.properties"
 	ViewGroupPermissionsFilename = "view-group-permissions.json"
+	RolePermissionsFilename      = "role-permissions.json"
 	nodeUUIDPrefix               = "humio_"
 	HumioContainerName           = "humio"
 	AuthContainerName            = "humio-auth"
@@ -63,6 +64,7 @@ const (
 	authRoleBindingSuffix                   = "auth"
 	extraKafkaConfigsConfigMapNameSuffix    = "extra-kafka-configs"
 	viewGroupPermissionsConfigMapNameSuffix = "view-group-permissions"
+	rolePermissionsConfigMapNameSuffix      = "role-permissions"
 	idpCertificateSecretNameSuffix          = "idp-certificate"
 )
 
@@ -78,6 +80,7 @@ type HumioNodePool struct {
 	tls                      *humiov1alpha1.HumioClusterTLSSpec
 	idpCertificateSecretName string
 	viewGroupPermissions     string
+	rolePermissions          string
 	targetReplicationFactor  int
 	storagePartitionsCount   int
 	digestPartitionsCount    int
@@ -141,6 +144,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 		tls:                      hc.Spec.TLS,
 		idpCertificateSecretName: hc.Spec.IdpCertificateSecretName,
 		viewGroupPermissions:     hc.Spec.ViewGroupPermissions,
+		rolePermissions:          hc.Spec.RolePermissions,
 		targetReplicationFactor:  hc.Spec.TargetReplicationFactor,
 		storagePartitionsCount:   hc.Spec.StoragePartitionsCount,
 		digestPartitionsCount:    hc.Spec.DigestPartitionsCount,
@@ -204,6 +208,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 		tls:                      hc.Spec.TLS,
 		idpCertificateSecretName: hc.Spec.IdpCertificateSecretName,
 		viewGroupPermissions:     hc.Spec.ViewGroupPermissions,
+		rolePermissions:          hc.Spec.RolePermissions,
 		targetReplicationFactor:  hc.Spec.TargetReplicationFactor,
 		storagePartitionsCount:   hc.Spec.StoragePartitionsCount,
 		digestPartitionsCount:    hc.Spec.DigestPartitionsCount,
@@ -743,6 +748,14 @@ func (hnp HumioNodePool) GetViewGroupPermissionsConfigMapName() string {
 	return fmt.Sprintf("%s-%s", hnp.GetClusterName(), viewGroupPermissionsConfigMapNameSuffix)
 }
 
+func (hnp HumioNodePool) GetRolePermissions() string {
+	return hnp.rolePermissions
+}
+
+func (hnp HumioNodePool) GetRolePermissionsConfigMapName() string {
+	return fmt.Sprintf("%s-%s", hnp.GetClusterName(), rolePermissionsConfigMapNameSuffix)
+}
+
 func (hnp HumioNodePool) GetPath() string {
 	if hnp.path != "" {
 		if strings.HasPrefix(hnp.path, "/") {
@@ -866,6 +879,14 @@ func viewGroupPermissionsOrDefault(hc *humiov1alpha1.HumioCluster) string {
 
 func ViewGroupPermissionsConfigMapName(hc *humiov1alpha1.HumioCluster) string {
 	return fmt.Sprintf("%s-%s", hc.Name, viewGroupPermissionsConfigMapNameSuffix)
+}
+
+func rolePermissionsOrDefault(hc *humiov1alpha1.HumioCluster) string {
+	return hc.Spec.RolePermissions
+}
+
+func RolePermissionsConfigMapName(hc *humiov1alpha1.HumioCluster) string {
+	return fmt.Sprintf("%s-%s", hc.Name, rolePermissionsConfigMapNameSuffix)
 }
 
 func AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars []corev1.EnvVar, defaultEnvVar corev1.EnvVar) []corev1.EnvVar {

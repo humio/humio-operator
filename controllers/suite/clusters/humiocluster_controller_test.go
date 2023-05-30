@@ -3013,6 +3013,176 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster Role Permissions", func() {
+		It("Should correctly handle role permissions", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-rp",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.RolePermissions = `
+{
+  "roles": {
+    "Admin": {
+      "permissions": [
+        "ChangeUserAccess",
+        "ChangeDashboards",
+        "ChangeFiles",
+        "ChangeParsers",
+        "ChangeSavedQueries",
+        "ChangeDataDeletionPermissions",
+        "ChangeDefaultSearchSettings",
+        "ChangeS3ArchivingSettings",
+        "ConnectView",
+        "ReadAccess",
+        "ChangeIngestTokens",
+        "EventForwarding",
+        "ChangeFdrFeeds"
+      ]
+    },
+    "Searcher": {
+      "permissions": [
+        "ChangeTriggersAndActions",
+        "ChangeFiles",
+        "ChangeDashboards",
+        "ChangeSavedQueries",
+        "ReadAccess"
+      ]
+    }
+  },
+  "views": {
+    "Audit Log": {
+      "Devs DK": {
+        "role": "Searcher",
+        "queryPrefix": "secret=false"
+      },
+      "Support UK": {
+        "role": "Admin",
+        "queryPrefix": "*"
+      }
+    },
+    "Web Log": {
+      "Devs DK": {
+        "role": "Admin",
+        "queryPrefix": "*"
+      },
+      "Support UK": {
+        "role": "Searcher",
+        "queryPrefix": "*"
+      }
+    }
+  }
+}
+`
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully with role permissions")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(key.Name, "Confirming config map was created")
+			Eventually(func() error {
+				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.RolePermissionsConfigMapName(toCreate), toCreate.Namespace)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Confirming pods have the expected environment variable, volume and volume mounts")
+			mode := int32(420)
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElement(corev1.EnvVar{
+					Name:  "READ_GROUP_PERMISSIONS_FROM_FILE",
+					Value: "true",
+				}))
+				Expect(pod.Spec.Containers[humioIdx].VolumeMounts).To(ContainElement(corev1.VolumeMount{
+					Name:      "role-permissions",
+					ReadOnly:  true,
+					MountPath: fmt.Sprintf("%s/%s", controllers.HumioDataPath, controllers.RolePermissionsFilename),
+					SubPath:   controllers.RolePermissionsFilename,
+				}))
+				Expect(pod.Spec.Volumes).To(ContainElement(corev1.Volume{
+					Name: "role-permissions",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: controllers.RolePermissionsConfigMapName(toCreate),
+							},
+							DefaultMode: &mode,
+						},
+					},
+				}))
+			}
+
+			suite.UsingClusterBy(key.Name, "Confirming config map contains desired role permissions")
+			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.RolePermissionsConfigMapName(toCreate), key.Namespace)
+			Expect(configMap.Data[controllers.RolePermissionsFilename]).To(Equal(toCreate.Spec.RolePermissions))
+
+			suite.UsingClusterBy(key.Name, "Removing role permissions")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.RolePermissions = ""
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Confirming pods do not have environment variable enabling role permissions")
+			Eventually(func() []corev1.EnvVar {
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				for _, pod := range clusterPods {
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+					return pod.Spec.Containers[humioIdx].Env
+				}
+				return []corev1.EnvVar{}
+			}, testTimeout, suite.TestInterval).ShouldNot(ContainElement(corev1.EnvVar{
+				Name:  "READ_GROUP_PERMISSIONS_FROM_FILE",
+				Value: "true",
+			}))
+
+			suite.UsingClusterBy(key.Name, "Confirming pods do not have additional volume mounts for role permissions")
+			Eventually(func() []corev1.VolumeMount {
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				for _, pod := range clusterPods {
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+					return pod.Spec.Containers[humioIdx].VolumeMounts
+				}
+				return []corev1.VolumeMount{}
+			}, testTimeout, suite.TestInterval).ShouldNot(ContainElement(corev1.VolumeMount{
+				Name:      "role-permissions",
+				ReadOnly:  true,
+				MountPath: fmt.Sprintf("%s/%s", controllers.HumioDataPath, controllers.RolePermissionsFilename),
+				SubPath:   controllers.RolePermissionsFilename,
+			}))
+
+			suite.UsingClusterBy(key.Name, "Confirming pods do not have additional volumes for role permissions")
+			Eventually(func() []corev1.Volume {
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				for _, pod := range clusterPods {
+					return pod.Spec.Volumes
+				}
+				return []corev1.Volume{}
+			}, testTimeout, suite.TestInterval).ShouldNot(ContainElement(corev1.Volume{
+				Name: "role-permissions",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: controllers.RolePermissionsConfigMapName(toCreate),
+						},
+						DefaultMode: &mode,
+					},
+				},
+			}))
+
+			suite.UsingClusterBy(key.Name, "Confirming config map was cleaned up")
+			Eventually(func() bool {
+				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.RolePermissionsConfigMapName(toCreate), toCreate.Namespace)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+	})
+
 	Context("Humio Cluster Persistent Volumes", func() {
 		It("Should correctly handle persistent volumes", func() {
 			key := types.NamespacedName{
