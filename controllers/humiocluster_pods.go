@@ -470,6 +470,30 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 		})
 	}
 
+	if hnp.GetRolePermissions() != "" {
+		pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
+			Name:  "READ_GROUP_PERMISSIONS_FROM_FILE",
+			Value: "true",
+		})
+		pod.Spec.Containers[humioIdx].VolumeMounts = append(pod.Spec.Containers[humioIdx].VolumeMounts, corev1.VolumeMount{
+			Name:      "role-permissions",
+			ReadOnly:  true,
+			MountPath: fmt.Sprintf("%s/%s", HumioDataPath, RolePermissionsFilename),
+			SubPath:   RolePermissionsFilename,
+		})
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: "role-permissions",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: hnp.GetRolePermissionsConfigMapName(),
+					},
+					DefaultMode: &mode,
+				},
+			},
+		})
+	}
+
 	for _, sidecar := range hnp.GetSidecarContainers() {
 		for _, existingContainer := range pod.Spec.Containers {
 			if sidecar.Name == existingContainer.Name {
