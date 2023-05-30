@@ -12312,6 +12312,9 @@ spec:
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
                 type: object
+              rolePermissions:
+                description: RolePermissions is a multi-line string containing role-permissions.json
+                type: string
               shareProcessNamespace:
                 description: ShareProcessNamespace can be useful in combination with
                   SidecarContainers to be able to inspect the main Humio process.
@@ -13746,8 +13749,8 @@ spec:
                     type: string
                 type: object
               viewGroupPermissions:
-                description: ViewGroupPermissions is a multi-line string containing
-                  view-group-permissions.json
+                description: 'ViewGroupPermissions is a multi-line string containing
+                  view-group-permissions.json. Deprecated: Use RolePermissions instead.'
                 type: string
             type: object
           status:
