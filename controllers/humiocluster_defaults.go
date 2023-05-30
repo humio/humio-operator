@@ -38,7 +38,6 @@ const (
 	targetReplicationFactor      = 2
 	storagePartitionsCount       = 24
 	digestPartitionsCount        = 24
-	nodeCount                    = 3
 	HumioPort                    = 8080
 	elasticPort                  = 9200
 	idpCertificateFilename       = "idp-certificate.pem"
@@ -493,10 +492,7 @@ func (hnp HumioNodePool) GetLabelsForSecret(secretName string) map[string]string
 }
 
 func (hnp HumioNodePool) GetNodeCount() int {
-	if hnp.humioNodeSpec.NodeCount == nil {
-		return nodeCount
-	}
-	return *hnp.humioNodeSpec.NodeCount
+	return hnp.humioNodeSpec.NodeCount
 }
 
 func (hnp HumioNodePool) GetDataVolumePersistentVolumeClaimSpecTemplate(pvcName string) corev1.VolumeSource {
