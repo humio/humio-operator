@@ -62,8 +62,11 @@ type HumioClusterSpec struct {
 	License HumioClusterLicenseSpec `json:"license,omitempty"`
 	// IdpCertificateSecretName is the name of the secret that contains the IDP Certificate when using SAML authentication
 	IdpCertificateSecretName string `json:"idpCertificateSecretName,omitempty"`
-	// ViewGroupPermissions is a multi-line string containing view-group-permissions.json
+	// ViewGroupPermissions is a multi-line string containing view-group-permissions.json.
+	// Deprecated: Use RolePermissions instead.
 	ViewGroupPermissions string `json:"viewGroupPermissions,omitempty"`
+	// RolePermissions is a multi-line string containing role-permissions.json
+	RolePermissions string `json:"rolePermissions,omitempty"`
 	// Hostname is the public hostname used by clients to access Humio
 	Hostname string `json:"hostname,omitempty"`
 	// ESHostname is the public hostname used by log shippers with support for ES bulk API to access Humio
