@@ -63,4 +63,5 @@ jobs:
           release_name: Operator Release ${{ env.RELEASE_VERSION }}
           body: |
             **Image:** `humio/humio-operator:${{ env.RELEASE_VERSION }}`
+            **Upgrade notes:** https://library.humio.com/falcon-logscale/installation-kubernetes-operator-upgrade.html#installation-containers-kubernetes-operator-upgrade-notes
           prerelease: true
