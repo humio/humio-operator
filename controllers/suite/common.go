@@ -176,7 +176,7 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 	nodeSpec := humiov1alpha1.HumioNodeSpec{
 		Image:             controllers.Image,
 		ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
-		NodeCount:         helpers.IntPtr(1),
+		NodeCount:         1,
 		EnvironmentVariables: FilterZookeeperURLIfVersionIsRecentEnough(controllers.Image, []corev1.EnvVar{
 			{
 				Name:  "ZOOKEEPER_URL",
@@ -369,7 +369,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
 		_ = MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
 		return clusterPods
-	}, testTimeout, TestInterval).Should(HaveLen(*cluster.Spec.NodeCount))
+	}, testTimeout, TestInterval).Should(HaveLen(cluster.Spec.NodeCount))
 
 	for idx, pool := range cluster.Spec.NodePools {
 		Eventually(func() []corev1.Pod {
@@ -377,7 +377,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &cluster.Spec.NodePools[idx]).GetPodLabels())
 			_ = MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
 			return clusterPods
-		}, testTimeout, TestInterval).Should(HaveLen(*pool.NodeCount))
+		}, testTimeout, TestInterval).Should(HaveLen(pool.NodeCount))
 	}
 
 	clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetCommonClusterLabels())
