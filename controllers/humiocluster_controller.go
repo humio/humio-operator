@@ -1356,7 +1356,6 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, config *humio
 		return r.logErrorAndReturn(err, "failed to list pvcs to assign labels")
 	}
 
-	r.Log.Info(fmt.Sprintf("cluster node details: %#+v", cluster.Nodes))
 	for idx, pod := range foundPodList {
 		// Skip pods that already have a label. Check that the pvc also has the label if applicable
 		if kubernetes.LabelListContainsLabel(pod.GetLabels(), kubernetes.NodeIdLabelName) {
