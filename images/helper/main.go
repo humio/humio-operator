@@ -19,14 +19,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
 
 	humio "github.com/humio/cli/api"
-	"github.com/shurcooL/graphql"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,7 +57,7 @@ var (
 
 // getFileContent returns the content of a file as a string
 func getFileContent(filePath string) string {
-	data, err := ioutil.ReadFile(filePath) // #nosec G304
+	data, err := os.ReadFile(filePath) // #nosec G304
 	if err != nil {
 		fmt.Printf("Got an error while trying to read file %s: %s\n", filePath, err)
 		return ""
@@ -120,7 +118,7 @@ func listAllHumioUsersMultiOrg(client *humio.Client) ([]OrganizationSearchResult
 	}
 
 	variables := map[string]interface{}{
-		"username": graphql.String(adminAccountUserName),
+		"username": adminAccountUserName,
 	}
 
 	err := client.Query(&q, variables)
@@ -448,7 +446,7 @@ func initMode() {
 		if !found {
 			zone, _ = node.Labels[corev1.LabelZoneFailureDomain]
 		}
-		err := ioutil.WriteFile(targetFile, []byte(zone), 0644) // #nosec G306
+		err := os.WriteFile(targetFile, []byte(zone), 0644) // #nosec G306
 		if err != nil {
 			panic(fmt.Sprintf("unable to write file with availability zone information: %s", err))
 		}
