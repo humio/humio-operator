@@ -115,6 +115,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
 			createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
+
+			_, err := kubernetes.GetService(ctx, k8sClient, key.Name, key.Namespace)
+			Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
+
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 		})
 	})
