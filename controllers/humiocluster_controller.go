@@ -100,9 +100,15 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	var humioNodePools []*HumioNodePool
-	humioNodePools = append(humioNodePools, NewHumioNodeManagerFromHumioCluster(hc))
+	nodeMgrFromHumioCluster := NewHumioNodeManagerFromHumioCluster(hc)
+	if nodeMgrFromHumioCluster.GetNodeCount() > 0 {
+		humioNodePools = append(humioNodePools, NewHumioNodeManagerFromHumioCluster(hc))
+	}
 	for idx := range hc.Spec.NodePools {
-		humioNodePools = append(humioNodePools, NewHumioNodeManagerFromHumioNodePool(hc, &hc.Spec.NodePools[idx]))
+		nodeMgrFromHumioNodePool := NewHumioNodeManagerFromHumioNodePool(hc, &hc.Spec.NodePools[idx])
+		if nodeMgrFromHumioNodePool.GetNodeCount() > 0 {
+			humioNodePools = append(humioNodePools, nodeMgrFromHumioNodePool)
+		}
 	}
 
 	emptyResult := reconcile.Result{}

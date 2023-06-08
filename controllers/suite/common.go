@@ -426,12 +426,15 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	}, testTimeout, TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 
 	UsingClusterBy(key.Name, "Validating cluster has expected pod revision annotation")
-	revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetHumioClusterNodePoolRevisionAnnotation()
-	Eventually(func() map[string]string {
-		updatedHumioCluster = humiov1alpha1.HumioCluster{}
-		Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-		return updatedHumioCluster.Annotations
-	}, testTimeout, TestInterval).Should(HaveKeyWithValue(revisionKey, "1"))
+	nodeMgrFromHumioCluster := controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)
+	if nodeMgrFromHumioCluster.GetNodeCount() > 0 {
+		revisionKey, _ := nodeMgrFromHumioCluster.GetHumioClusterNodePoolRevisionAnnotation()
+		Eventually(func() map[string]string {
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			return updatedHumioCluster.Annotations
+		}, testTimeout, TestInterval).Should(HaveKeyWithValue(revisionKey, "1"))
+	}
 
 	UsingClusterBy(key.Name, "Waiting for the auth sidecar to populate the secret containing the API token")
 	Eventually(func() error {
