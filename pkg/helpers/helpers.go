@@ -24,7 +24,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/shurcooL/graphql"
 	uberzap "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -72,11 +71,11 @@ func MapStoragePartition(vs []humioapi.StoragePartition, f func(partition humioa
 
 func ToStoragePartitionInput(line humioapi.StoragePartition) humioapi.StoragePartitionInput {
 	var input humioapi.StoragePartitionInput
-	nodeIds := make([]graphql.Int, len(line.NodeIds))
+	nodeIds := make([]int32, len(line.NodeIds))
 	for i, v := range line.NodeIds {
-		nodeIds[i] = graphql.Int(v)
+		nodeIds[i] = int32(v)
 	}
-	input.ID = graphql.Int(line.Id)
+	input.ID = int32(line.Id)
 	input.NodeIDs = nodeIds
 
 	return input
@@ -92,11 +91,11 @@ func MapIngestPartition(vs []humioapi.IngestPartition, f func(partition humioapi
 
 func ToIngestPartitionInput(line humioapi.IngestPartition) humioapi.IngestPartitionInput {
 	var input humioapi.IngestPartitionInput
-	nodeIds := make([]graphql.Int, len(line.NodeIds))
+	nodeIds := make([]int32, len(line.NodeIds))
 	for i, v := range line.NodeIds {
-		nodeIds[i] = graphql.Int(v)
+		nodeIds[i] = int32(v)
 	}
-	input.ID = graphql.Int(line.Id)
+	input.ID = int32(line.Id)
 	input.NodeIDs = nodeIds
 
 	return input
