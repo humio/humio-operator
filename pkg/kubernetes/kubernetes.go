@@ -58,7 +58,7 @@ func LabelListContainsLabel(labelList map[string]string, label string) bool {
 
 // RandomString returns a string of fixed length. The random strings are valid to use in Kubernetes object names.
 func RandomString() string {
-	rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
 	chars := []rune("abcdefghijklmnopqrstuvwxyz")
 	length := 6
 	var b strings.Builder
