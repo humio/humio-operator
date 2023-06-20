@@ -47,10 +47,11 @@ import (
 // HumioClusterReconciler reconciles a HumioCluster object
 type HumioClusterReconciler struct {
 	client.Client
-	BaseLogger  logr.Logger
-	Log         logr.Logger
-	HumioClient humio.Client
-	Namespace   string
+	BaseLogger      logr.Logger
+	Log             logr.Logger
+	HumioClient     humio.Client
+	Namespace       string
+	OperatorVersion string
 }
 
 type ctxHumioClusterPoolFunc func(context.Context, *humiov1alpha1.HumioCluster, *HumioNodePool) error
@@ -100,9 +101,9 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	var humioNodePools []*HumioNodePool
-	humioNodePools = append(humioNodePools, NewHumioNodeManagerFromHumioCluster(hc))
+	humioNodePools = append(humioNodePools, NewHumioNodeManagerFromHumioCluster(hc, r.OperatorVersion))
 	for idx := range hc.Spec.NodePools {
-		humioNodePools = append(humioNodePools, NewHumioNodeManagerFromHumioNodePool(hc, &hc.Spec.NodePools[idx]))
+		humioNodePools = append(humioNodePools, NewHumioNodeManagerFromHumioNodePool(hc, &hc.Spec.NodePools[idx], r.OperatorVersion))
 	}
 
 	emptyResult := reconcile.Result{}
@@ -438,7 +439,7 @@ func (r *HumioClusterReconciler) validateNodeCount(hc *humiov1alpha1.HumioCluste
 		totalNodeCount += pool.GetNodeCount()
 	}
 
-	if totalNodeCount < NewHumioNodeManagerFromHumioCluster(hc).GetTargetReplicationFactor() {
+	if totalNodeCount < NewHumioNodeManagerFromHumioCluster(hc, "").GetTargetReplicationFactor() {
 		return r.logErrorAndReturn(fmt.Errorf("nodeCount is too low"), "node count must be equal to or greater than the target replication factor")
 	}
 	return nil
@@ -1598,7 +1599,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 }
 
 func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(hc *humiov1alpha1.HumioCluster, config *humioapi.Config, req reconcile.Request) error {
-	humioVersion, _ := HumioVersionFromString(NewHumioNodeManagerFromHumioCluster(hc).GetImage())
+	humioVersion, _ := HumioVersionFromString(NewHumioNodeManagerFromHumioCluster(hc, "").GetImage())
 	if ok, _ := humioVersion.AtLeast(HumioVersionWithAutomaticPartitionManagement); ok {
 		return nil
 	}

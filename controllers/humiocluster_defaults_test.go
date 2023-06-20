@@ -58,7 +58,7 @@ var _ = Describe("HumioCluster Defaults", func() {
 			}
 
 			By("Confirming the humio node manager configures default PUBLIC_URL")
-			hnp := NewHumioNodeManagerFromHumioCluster(toCreate)
+			hnp := NewHumioNodeManagerFromHumioCluster(toCreate, "")
 			Expect(hnp.GetEnvironmentVariables()).Should(ContainElements([]corev1.EnvVar{
 				{
 					Name:  "PUBLIC_URL",
@@ -73,7 +73,7 @@ var _ = Describe("HumioCluster Defaults", func() {
 					Value: "test",
 				},
 			)
-			hnp = NewHumioNodeManagerFromHumioCluster(toCreate)
+			hnp = NewHumioNodeManagerFromHumioCluster(toCreate, "")
 			Expect(hnp.GetEnvironmentVariables()).To(ContainElement(
 				corev1.EnvVar{
 					Name:  "test",
@@ -87,7 +87,7 @@ var _ = Describe("HumioCluster Defaults", func() {
 					Name:  "PUBLIC_URL",
 					Value: "test",
 				})
-			hnp = NewHumioNodeManagerFromHumioCluster(toCreate)
+			hnp = NewHumioNodeManagerFromHumioCluster(toCreate, "")
 			Expect(hnp.GetEnvironmentVariables()).To(ContainElement(
 				corev1.EnvVar{
 					Name:  "PUBLIC_URL",
@@ -124,7 +124,7 @@ var _ = Describe("HumioCluster Defaults", func() {
 					Name:  "PUBLIC_URL",
 					Value: "test",
 				})
-			hnp := NewHumioNodeManagerFromHumioCluster(toCreate)
+			hnp := NewHumioNodeManagerFromHumioCluster(toCreate, "")
 			Expect(hnp.GetEnvironmentVariables()).To(ContainElement(
 				corev1.EnvVar{
 					Name:  "PUBLIC_URL",
@@ -145,7 +145,7 @@ var _ = Describe("HumioCluster Defaults", func() {
 				}
 			}
 			toCreate.Spec.EnvironmentVariables = updatedEnvVars
-			hnp = NewHumioNodeManagerFromHumioCluster(toCreate)
+			hnp = NewHumioNodeManagerFromHumioCluster(toCreate, "")
 			Expect(hnp.GetEnvironmentVariables()).To(ContainElement(
 				corev1.EnvVar{
 					Name:  "PUBLIC_URL",
@@ -171,7 +171,7 @@ var _ = Describe("HumioCluster Defaults", func() {
 					},
 				}
 
-				hnp := NewHumioNodeManagerFromHumioCluster(toCreate)
+				hnp := NewHumioNodeManagerFromHumioCluster(toCreate, "")
 				Expect(hnp.GetEnvironmentVariables()).Should(ContainElements([]corev1.EnvVar{
 					{
 						Name:  "HUMIO_LOG4J_CONFIGURATION",
@@ -577,7 +577,7 @@ func Test_constructContainerArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hnp := NewHumioNodeManagerFromHumioCluster(tt.fields.humioCluster)
+			hnp := NewHumioNodeManagerFromHumioCluster(tt.fields.humioCluster, "")
 			pod, _ := ConstructPod(hnp, "", &podAttachments{})
 			humioIdx, _ := kubernetes.GetContainerIndexByName(*pod, HumioContainerName)
 

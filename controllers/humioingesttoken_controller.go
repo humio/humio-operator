@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
@@ -29,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/humio"
@@ -40,10 +41,11 @@ const humioFinalizer = "core.humio.com/finalizer" // TODO: Not only used for ing
 // HumioIngestTokenReconciler reconciles a HumioIngestToken object
 type HumioIngestTokenReconciler struct {
 	client.Client
-	BaseLogger  logr.Logger
-	Log         logr.Logger
-	HumioClient humio.Client
-	Namespace   string
+	BaseLogger      logr.Logger
+	Log             logr.Logger
+	HumioClient     humio.Client
+	Namespace       string
+	OperatorVersion string
 }
 
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioingesttokens,verbs=get;list;watch;create;update;patch;delete

@@ -206,9 +206,9 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetHumioClusterNodePoolRevisionAnnotation()
+			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetHumioClusterNodePoolRevisionAnnotation()
 			var updatedHumioCluster humiov1alpha1.HumioCluster
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
@@ -235,7 +235,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return updatedHumioCluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
 
-			ensurePodsSimultaneousRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsSimultaneousRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -248,7 +248,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "2"))
 
-			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -287,7 +287,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return nil
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				Expect(pod.Status.Phase).To(BeIdenticalTo(corev1.PodRunning))
@@ -326,11 +326,11 @@ var _ = Describe("HumioCluster Controller", func() {
 				return updatedHumioCluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
 
-			ensurePodsGoPending(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
+			ensurePodsGoPending(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2, 1)
 
 			Eventually(func() int {
 				var pendingPodsCount int
-				updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+				updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 				for _, pod := range updatedClusterPods {
 					if pod.Status.Phase == corev1.PodPending {
 						for _, condition := range pod.Status.Conditions {
@@ -361,7 +361,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 3)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 3)
 
 			Eventually(func() string {
 				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
@@ -388,9 +388,9 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetHumioClusterNodePoolRevisionAnnotation()
+			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetHumioClusterNodePoolRevisionAnnotation()
 			var updatedHumioCluster humiov1alpha1.HumioCluster
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
@@ -418,7 +418,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
 
 			suite.UsingClusterBy(key.Name, "Pods upgrade in a rolling fashion because update strategy is explicitly set to rolling update")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -431,7 +431,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "2"))
 
-			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -464,9 +464,9 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetHumioClusterNodePoolRevisionAnnotation()
+			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetHumioClusterNodePoolRevisionAnnotation()
 			var updatedHumioCluster humiov1alpha1.HumioCluster
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
@@ -495,7 +495,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
 
 			suite.UsingClusterBy(key.Name, "Confirming pods have not been recreated")
-			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -510,7 +510,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			Eventually(func() []corev1.Pod {
 				var clusterPods []corev1.Pod
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 				_ = suite.MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
 				return clusterPods
 			}, testTimeout, suite.TestInterval).Should(HaveLen(toCreate.Spec.NodeCount))
@@ -526,7 +526,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "2"))
 
-			updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -559,9 +559,9 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetHumioClusterNodePoolRevisionAnnotation()
+			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetHumioClusterNodePoolRevisionAnnotation()
 			var updatedHumioCluster humiov1alpha1.HumioCluster
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
@@ -589,7 +589,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
 
 			suite.UsingClusterBy(key.Name, "Pods upgrade in a rolling fashion because the new version is a patch release")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -602,7 +602,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "2"))
 
-			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -635,9 +635,9 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetHumioClusterNodePoolRevisionAnnotation()
+			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetHumioClusterNodePoolRevisionAnnotation()
 			var updatedHumioCluster humiov1alpha1.HumioCluster
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
@@ -666,7 +666,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Pods upgrade at the same time because the new version is more than one"+
 				"minor revision greater than the previous version")
-			ensurePodsSimultaneousRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsSimultaneousRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -679,7 +679,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "2"))
 
-			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -709,9 +709,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 				defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-				revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetHumioClusterNodePoolRevisionAnnotation()
+				revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetHumioClusterNodePoolRevisionAnnotation()
 				var updatedHumioCluster humiov1alpha1.HumioCluster
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					Expect(pod.Spec.Containers[humioIndex].Env).To(ContainElement(corev1.EnvVar{
@@ -727,7 +727,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				suite.UsingClusterBy(key.Name, "Waiting for pods to be Running")
 				Eventually(func() int {
 					var runningPods int
-					clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+					clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 					for _, pod := range clusterPods {
 						if pod.Status.Phase == corev1.PodRunning {
 							runningPods++
@@ -747,7 +747,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					return k8sClient.Update(ctx, &updatedHumioCluster)
 				}, testTimeout, suite.TestInterval).Should(Succeed())
 
-				ensurePodsSimultaneousRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+				ensurePodsSimultaneousRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 				Eventually(func() string {
 					updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -760,7 +760,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "2"))
 
-				updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+				updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 				Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 				for _, pod := range updatedClusterPods {
 					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -792,7 +792,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			mainNodePoolManager := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
+			mainNodePoolManager := controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "")
 			revisionKey, _ := mainNodePoolManager.GetHumioClusterNodePoolRevisionAnnotation()
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -859,7 +859,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Confirming pod revision did not change for the other node pool")
-			additionalNodePoolManager := controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[0])
+			additionalNodePoolManager := controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[0], "")
 
 			nonUpdatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
 			Expect(nonUpdatedClusterPods).To(HaveLen(toCreate.Spec.NodePools[0].NodeCount))
@@ -954,7 +954,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 
 			suite.UsingClusterBy(key.Name, "Adding missing imageSource to pod spec")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -1017,7 +1017,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			ensurePodsSimultaneousRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsSimultaneousRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -1028,10 +1028,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.UsingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
 			updatedHumioCluster = humiov1alpha1.HumioCluster{}
 			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetHumioClusterNodePoolRevisionAnnotation()
+			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetHumioClusterNodePoolRevisionAnnotation()
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "2"))
 
-			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -1061,14 +1061,14 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
 			}
 			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetHumioClusterNodePoolRevisionAnnotation()
+			revisionKey, _ := controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetHumioClusterNodePoolRevisionAnnotation()
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image unsuccessfully")
@@ -1092,7 +1092,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.UsingClusterBy(key.Name, "Waiting until pods are started with the bad image")
 			Eventually(func() int {
 				var badPodCount int
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					if pod.Spec.Containers[humioIndex].Image == updatedImage && pod.Annotations[controllers.PodRevisionAnnotation] == "2" {
@@ -1103,7 +1103,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(toCreate.Spec.NodeCount))
 
 			suite.UsingClusterBy(key.Name, "Simulating mock pods to be scheduled")
-			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			_ = suite.MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
 
 			suite.UsingClusterBy(key.Name, "Waiting for humio cluster state to be Running")
@@ -1131,7 +1131,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return updatedHumioCluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
 
-			ensurePodsSimultaneousRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 3)
+			ensurePodsSimultaneousRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 3)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -1144,7 +1144,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 			Expect(updatedHumioCluster.Annotations[revisionKey]).To(Equal("3"))
 
-			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -1176,7 +1176,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Validating pod uses default helper image as init container")
 			Eventually(func() string {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				_ = suite.MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
 
 				for _, pod := range clusterPods {
@@ -1186,11 +1186,11 @@ var _ = Describe("HumioCluster Controller", func() {
 				return ""
 			}, testTimeout, suite.TestInterval).Should(Equal(controllers.HelperImage))
 
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 
 			suite.UsingClusterBy(key.Name, "Validating pod uses default helper image as auth sidecar container")
 			Eventually(func() string {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				_ = suite.MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
 
 				for _, pod := range clusterPods {
@@ -1213,11 +1213,11 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			suite.UsingClusterBy(key.Name, "Validating pod is recreated using the explicitly defined helper image as init container")
 			Eventually(func() string {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					initIdx, _ := kubernetes.GetInitContainerIndexByName(pod, controllers.InitContainerName)
 					return pod.Spec.InitContainers[initIdx].Image
@@ -1227,7 +1227,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Validating pod is recreated using the explicitly defined helper image as auth sidecar container")
 			Eventually(func() string {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					authIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.AuthContainerName)
 					return pod.Spec.InitContainers[authIdx].Image
@@ -1235,7 +1235,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return ""
 			}, testTimeout, suite.TestInterval).Should(Equal(customHelperImage))
 
-			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
@@ -1252,7 +1252,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.NodeCount = 2
-			toCreate.Spec.EnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
+			toCreate.Spec.EnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "",
@@ -1293,14 +1293,14 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIndex].Env).Should(ContainElement(toCreate.Spec.EnvironmentVariables[0]))
 			}
 
 			suite.UsingClusterBy(key.Name, "Updating the environment variable successfully")
-			updatedEnvironmentVariables := suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
+			updatedEnvironmentVariables := suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "update",
@@ -1352,7 +1352,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -1361,7 +1361,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 
 			Eventually(func() bool {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 				Expect(len(clusterPods)).To(BeIdenticalTo(toCreate.Spec.NodeCount))
 
 				for _, pod := range clusterPods {
@@ -1371,7 +1371,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return true
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
-			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
@@ -1388,7 +1388,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
 			toCreate.Spec.NodeCount = 1
 			toCreate.Spec.NodePools[0].NodeCount = 1
-			toCreate.Spec.EnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
+			toCreate.Spec.EnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "",
@@ -1418,7 +1418,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Value: "false",
 				},
 			})
-			toCreate.Spec.NodePools[0].EnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0]).GetImage(), []corev1.EnvVar{
+			toCreate.Spec.NodePools[0].EnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0], "").GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "",
@@ -1454,7 +1454,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			mainNodePoolManager := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
+			mainNodePoolManager := controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "")
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, mainNodePoolManager.GetPodLabels())
@@ -1464,7 +1464,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Updating the environment variable on main node pool successfully")
-			updatedEnvironmentVariables := suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
+			updatedEnvironmentVariables := suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "update",
@@ -1550,7 +1550,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Confirming pod revision did not change for the other node pool")
-			additionalNodePoolManager := controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[0])
+			additionalNodePoolManager := controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[0], "")
 
 			nonUpdatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
 			Expect(nonUpdatedClusterPods).To(HaveLen(toCreate.Spec.NodePools[0].NodeCount))
@@ -1562,7 +1562,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, additionalNodePoolManager.GetPodLabels())
 
 			suite.UsingClusterBy(key.Name, "Updating the environment variable on additional node pool successfully")
-			updatedEnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0]).GetImage(), []corev1.EnvVar{
+			updatedEnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0], "").GetImage(), []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "update",
@@ -1836,7 +1836,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			Eventually(func() bool {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, toCreate.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, toCreate.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				Expect(len(clusterPods)).To(BeIdenticalTo(toCreate.Spec.NodeCount))
 
 				for _, pod := range clusterPods {
@@ -1863,7 +1863,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			Eventually(func() bool {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, toCreate.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, toCreate.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				Expect(len(clusterPods)).To(BeIdenticalTo(toCreate.Spec.NodeCount))
 
 				for _, pod := range clusterPods {
@@ -1913,7 +1913,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
 			// conditions where the HumioCluster is updated and service is deleted midway through reconciliation.
 			suite.IncrementGenerationAndWaitForReconcileToSync(ctx, key, k8sClient, testTimeout)
-			Expect(k8sClient.Delete(ctx, controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)))).To(Succeed())
+			Expect(k8sClient.Delete(ctx, controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "")))).To(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Confirming we can see the updated HumioCluster object")
 			Eventually(func() corev1.ServiceType {
@@ -1949,7 +1949,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
 			// conditions where the HumioCluster is updated and service is deleted mid-way through a reconcile.
 			suite.IncrementGenerationAndWaitForReconcileToSync(ctx, key, k8sClient, testTimeout)
-			Expect(k8sClient.Delete(ctx, controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)))).To(Succeed())
+			Expect(k8sClient.Delete(ctx, controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "")))).To(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Confirming service gets recreated with correct Humio port")
 			Eventually(func() types.UID {
@@ -1981,7 +1981,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
 			// conditions where the HumioCluster is updated and service is deleted mid-way through a reconcile.
 			suite.IncrementGenerationAndWaitForReconcileToSync(ctx, key, k8sClient, testTimeout)
-			Expect(k8sClient.Delete(ctx, controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)))).To(Succeed())
+			Expect(k8sClient.Delete(ctx, controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "")))).To(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Confirming service gets recreated with correct ES port")
 			Eventually(func() types.UID {
@@ -2017,7 +2017,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming we can see the updated service annotations")
 			Eventually(func() map[string]string {
-				service := controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster))
+				service := controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""))
 				Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
 				return service.Annotations
 			}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(updatedAnnotationKey, updatedAnnotationValue))
@@ -2036,7 +2036,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming we can see the updated service labels")
 			Eventually(func() map[string]string {
-				service := controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster))
+				service := controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""))
 				Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
 				return service.Labels
 			}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(updatedLabelsKey, updatedLabelsValue))
@@ -2045,7 +2045,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			// a new selector. This test confirms the operator will be able to migrate to different selectors on the
 			// service.
 			suite.UsingClusterBy(key.Name, "Updating service selector for migration to node pools")
-			service := controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster))
+			service := controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""))
 			Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
 			delete(service.Spec.Selector, "humio.com/node-pool")
 			Expect(k8sClient.Update(ctx, service)).To(Succeed())
@@ -2053,7 +2053,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.IncrementGenerationAndWaitForReconcileToSync(ctx, key, k8sClient, testTimeout)
 
 			Eventually(func() map[string]string {
-				service := controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster))
+				service := controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""))
 				Expect(k8sClient.Get(ctx, key, service)).To(Succeed())
 				return service.Spec.Selector
 			}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue("humio.com/node-pool", key.Name))
@@ -2125,7 +2125,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
+			hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "")
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -2149,7 +2149,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			hnp = controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)
+			hnp = controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "")
 			Eventually(func() []string {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
 				if len(clusterPods) > 0 {
@@ -2179,7 +2179,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
+			hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "")
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -2203,7 +2203,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			hnp = controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)
+			hnp = controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "")
 			expectedContainerArgString := "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"
 			humioVersion, _ := controllers.HumioVersionFromString(hnp.GetImage())
 			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithNewVhostSelection); !ok {
@@ -2247,7 +2247,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
-			hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
+			hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "")
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -2266,7 +2266,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				updatedHumioCluster.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{Name: "USING_EPHEMERAL_DISKS", Value: "true"})
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
-			hnp = controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)
+			hnp = controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "")
 
 			expectedContainerArgString := "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"
 			humioVersion, _ := controllers.HumioVersionFromString(hnp.GetImage())
@@ -2274,7 +2274,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				expectedContainerArgString = "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_ && exec bash /app/humio/run.sh"
 			}
 			Eventually(func() []string {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				if len(clusterPods) > 0 {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
 					return clusterPods[0].Spec.Containers[humioIdx].Args
@@ -2352,9 +2352,9 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
-				Expect(pod.Spec.SecurityContext).To(Equal(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodSecurityContext()))
+				Expect(pod.Spec.SecurityContext).To(Equal(controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodSecurityContext()))
 			}
 			suite.UsingClusterBy(key.Name, "Updating Pod Security Context to be empty")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -2367,7 +2367,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Eventually(func() bool {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					if !reflect.DeepEqual(pod.Spec.SecurityContext, &corev1.PodSecurityContext{}) {
 						return false
@@ -2376,7 +2376,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return true
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
-			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.SecurityContext).To(Equal(&corev1.PodSecurityContext{}))
 			}
@@ -2393,17 +2393,17 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			Eventually(func() corev1.PodSecurityContext {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					return *pod.Spec.SecurityContext
 				}
 				return corev1.PodSecurityContext{}
 			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(corev1.PodSecurityContext{RunAsNonRoot: helpers.BoolPtr(true)}))
 
-			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.SecurityContext).To(Equal(&corev1.PodSecurityContext{RunAsNonRoot: helpers.BoolPtr(true)}))
 			}
@@ -2423,10 +2423,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIdx].SecurityContext).To(Equal(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetContainerSecurityContext()))
+				Expect(pod.Spec.Containers[humioIdx].SecurityContext).To(Equal(controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetContainerSecurityContext()))
 			}
 			suite.UsingClusterBy(key.Name, "Updating Container Security Context to be empty")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -2439,7 +2439,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Eventually(func() bool {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					if !reflect.DeepEqual(pod.Spec.Containers[humioIdx].SecurityContext, &corev1.SecurityContext{}) {
@@ -2449,7 +2449,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return true
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
-			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].SecurityContext).To(Equal(&corev1.SecurityContext{}))
@@ -2473,10 +2473,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			Eventually(func() corev1.SecurityContext {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -2491,7 +2491,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 			}))
 
-			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].SecurityContext).To(Equal(&corev1.SecurityContext{
@@ -2518,12 +2518,12 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIdx].ReadinessProbe).To(Equal(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetContainerReadinessProbe()))
-				Expect(pod.Spec.Containers[humioIdx].LivenessProbe).To(Equal(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetContainerLivenessProbe()))
-				Expect(pod.Spec.Containers[humioIdx].StartupProbe).To(Equal(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetContainerStartupProbe()))
+				Expect(pod.Spec.Containers[humioIdx].ReadinessProbe).To(Equal(controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetContainerReadinessProbe()))
+				Expect(pod.Spec.Containers[humioIdx].LivenessProbe).To(Equal(controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetContainerLivenessProbe()))
+				Expect(pod.Spec.Containers[humioIdx].StartupProbe).To(Equal(controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetContainerStartupProbe()))
 			}
 			suite.UsingClusterBy(key.Name, "Updating Container probes to be empty")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -2539,11 +2539,11 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Confirming pods have the updated revision")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			suite.UsingClusterBy(key.Name, "Confirming pods do not have a readiness probe set")
 			Eventually(func() *corev1.Probe {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					return pod.Spec.Containers[humioIdx].ReadinessProbe
@@ -2557,7 +2557,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods do not have a liveness probe set")
 			Eventually(func() *corev1.Probe {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					return pod.Spec.Containers[humioIdx].LivenessProbe
@@ -2571,7 +2571,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods do not have a startup probe set")
 			Eventually(func() *corev1.Probe {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					return pod.Spec.Containers[humioIdx].StartupProbe
@@ -2635,10 +2635,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			Eventually(func() *corev1.Probe {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -2661,7 +2661,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}))
 
 			Eventually(func() *corev1.Probe {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -2684,7 +2684,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}))
 
 			Eventually(func() *corev1.Probe {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -2705,7 +2705,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				FailureThreshold: 30,
 			}))
 
-			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].ReadinessProbe).To(Equal(&corev1.Probe{
@@ -2766,7 +2766,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElement(corev1.EnvVar{
@@ -2777,7 +2777,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods have additional volume mounts for extra kafka configs")
 			Eventually(func() []corev1.VolumeMount {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					return pod.Spec.Containers[humioIdx].VolumeMounts
@@ -2792,7 +2792,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.UsingClusterBy(key.Name, "Confirming pods have additional volumes for extra kafka configs")
 			mode := int32(420)
 			Eventually(func() []corev1.Volume {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					return pod.Spec.Volumes
 				}
@@ -2802,7 +2802,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetExtraKafkaConfigsConfigMapName(),
+							Name: controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetExtraKafkaConfigsConfigMapName(),
 						},
 						DefaultMode: &mode,
 					},
@@ -2810,7 +2810,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}))
 
 			suite.UsingClusterBy(key.Name, "Confirming config map contains desired extra kafka configs")
-			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetExtraKafkaConfigsConfigMapName(), key.Namespace)
+			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetExtraKafkaConfigsConfigMapName(), key.Namespace)
 			Expect(configMap.Data[controllers.ExtraKafkaPropertiesFilename]).To(Equal(toCreate.Spec.ExtraKafkaConfigs))
 
 			suite.UsingClusterBy(key.Name, "Removing extra kafka configs")
@@ -2826,7 +2826,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods do not have environment variable enabling extra kafka configs")
 			Eventually(func() []corev1.EnvVar {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					return pod.Spec.Containers[humioIdx].Env
@@ -2839,7 +2839,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods do not have additional volume mounts for extra kafka configs")
 			Eventually(func() []corev1.VolumeMount {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					return pod.Spec.Containers[humioIdx].VolumeMounts
@@ -2853,7 +2853,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods do not have additional volumes for extra kafka configs")
 			Eventually(func() []corev1.Volume {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					return pod.Spec.Volumes
 				}
@@ -2863,7 +2863,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetExtraKafkaConfigsConfigMapName(),
+							Name: controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetExtraKafkaConfigsConfigMapName(),
 						},
 						DefaultMode: &mode,
 					},
@@ -2916,7 +2916,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods have the expected environment variable, volume and volume mounts")
 			mode := int32(420)
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElement(corev1.EnvVar{
@@ -2959,7 +2959,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods do not have environment variable enabling view group permissions")
 			Eventually(func() []corev1.EnvVar {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					return pod.Spec.Containers[humioIdx].Env
@@ -2972,7 +2972,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods do not have additional volume mounts for view group permissions")
 			Eventually(func() []corev1.VolumeMount {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					return pod.Spec.Containers[humioIdx].VolumeMounts
@@ -2987,7 +2987,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods do not have additional volumes for view group permissions")
 			Eventually(func() []corev1.Volume {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					return pod.Spec.Volumes
 				}
@@ -3086,7 +3086,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods have the expected environment variable, volume and volume mounts")
 			mode := int32(420)
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElement(corev1.EnvVar{
@@ -3129,7 +3129,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods do not have environment variable enabling role permissions")
 			Eventually(func() []corev1.EnvVar {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					return pod.Spec.Containers[humioIdx].Env
@@ -3142,7 +3142,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods do not have additional volume mounts for role permissions")
 			Eventually(func() []corev1.VolumeMount {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					return pod.Spec.Containers[humioIdx].VolumeMounts
@@ -3157,7 +3157,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods do not have additional volumes for role permissions")
 			Eventually(func() []corev1.Volume {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					return pod.Spec.Volumes
 				}
@@ -3200,7 +3200,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			Expect(kubernetes.ListPersistentVolumeClaims(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())).To(HaveLen(0))
+			Expect(kubernetes.ListPersistentVolumeClaims(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())).To(HaveLen(0))
 
 			suite.UsingClusterBy(key.Name, "Updating cluster to use persistent volumes")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -3222,7 +3222,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}).Should(Succeed())
 
 			Eventually(func() ([]corev1.PersistentVolumeClaim, error) {
-				return kubernetes.ListPersistentVolumeClaims(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				return kubernetes.ListPersistentVolumeClaims(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			}, testTimeout, suite.TestInterval).Should(HaveLen(toCreate.Spec.NodeCount))
 
 			Eventually(func() string {
@@ -3232,7 +3232,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -3241,8 +3241,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 
 			suite.UsingClusterBy(key.Name, "Confirming pods are using PVC's and no PVC is left unused")
-			pvcList, _ := kubernetes.ListPersistentVolumeClaims(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-			foundPodList, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			pvcList, _ := kubernetes.ListPersistentVolumeClaims(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
+			foundPodList, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range foundPodList {
 				_, err := controllers.FindPvcForPod(pvcList, pod)
 				Expect(err).ShouldNot(HaveOccurred())
@@ -3275,7 +3275,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				initialExpectedVolumeMountsCount += 2
 			}
 
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.Volumes).To(HaveLen(initialExpectedVolumesCount))
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -3311,21 +3311,21 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Eventually(func() []corev1.Volume {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					return pod.Spec.Volumes
 				}
 				return []corev1.Volume{}
 			}, testTimeout, suite.TestInterval).Should(HaveLen(initialExpectedVolumesCount + 1))
 			Eventually(func() []corev1.VolumeMount {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					return pod.Spec.Containers[humioIdx].VolumeMounts
 				}
 				return []corev1.VolumeMount{}
 			}, testTimeout, suite.TestInterval).Should(HaveLen(initialExpectedVolumeMountsCount + 1))
-			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.Volumes).Should(ContainElement(extraVolume))
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -3352,7 +3352,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Confirming PUBLIC_URL is set to default value and PROXY_PREFIX_URL is not set")
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(controllers.EnvVarValue(pod.Spec.Containers[humioIdx].Env, "PUBLIC_URL")).Should(Equal(fmt.Sprintf("%s://$(THIS_POD_IP):$(HUMIO_PORT)", protocol)))
@@ -3372,7 +3372,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming PROXY_PREFIX_URL have been configured on all pods")
 			Eventually(func() bool {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					if !controllers.EnvVarHasKey(pod.Spec.Containers[humioIdx].Env, "PROXY_PREFIX_URL") {
@@ -3383,7 +3383,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
 			suite.UsingClusterBy(key.Name, "Confirming PUBLIC_URL and PROXY_PREFIX_URL have been correctly configured")
-			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(controllers.EnvVarValue(pod.Spec.Containers[humioIdx].Env, "PUBLIC_URL")).Should(Equal(fmt.Sprintf("%s://$(THIS_POD_IP):$(HUMIO_PORT)/logs", protocol)))
@@ -3391,11 +3391,11 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			suite.UsingClusterBy(key.Name, "Confirming cluster returns to Running state")
 			Eventually(func() string {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
@@ -3422,7 +3422,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Confirming PUBLIC_URL is set to default value and PROXY_PREFIX_URL is not set")
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(controllers.EnvVarValue(pod.Spec.Containers[humioIdx].Env, "PUBLIC_URL")).Should(Equal("https://test-cluster.humio.com"))
@@ -3442,7 +3442,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming PROXY_PREFIX_URL have been configured on all pods")
 			Eventually(func() bool {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					if !controllers.EnvVarHasKey(pod.Spec.Containers[humioIdx].Env, "PROXY_PREFIX_URL") {
@@ -3453,7 +3453,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
 			suite.UsingClusterBy(key.Name, "Confirming PUBLIC_URL and PROXY_PREFIX_URL have been correctly configured")
-			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(controllers.EnvVarValue(pod.Spec.Containers[humioIdx].Env, "PUBLIC_URL")).Should(Equal("https://test-cluster.humio.com/logs"))
@@ -3461,11 +3461,11 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			suite.UsingClusterBy(key.Name, "Confirming cluster returns to Running state")
 			Eventually(func() string {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, "").GetPodLabels())
 
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
@@ -4060,7 +4060,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Confirming init container is using the correct service account")
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetInitContainerIndexByName(pod, controllers.InitContainerName)
 				var serviceAccountSecretVolumeName string
@@ -4118,7 +4118,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Confirming init container is using the correct service account")
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetInitContainerIndexByName(pod, controllers.InitContainerName)
 				var serviceAccountSecretVolumeName string
@@ -4223,7 +4223,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Confirming the humio pods use the requested tolerations")
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.Tolerations).To(ContainElement(toCreate.Spec.Tolerations[0]))
 			}
@@ -4251,7 +4251,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Confirming the humio pods use the requested topology spread constraint")
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.TopologySpreadConstraints).To(ContainElement(toCreate.Spec.TopologySpreadConstraints[0]))
 			}
@@ -4282,7 +4282,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Confirming the humio pods use the requested priority class name")
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.PriorityClassName).To(Equal(toCreate.Spec.PriorityClassName))
 			}
@@ -4339,7 +4339,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Confirming the humio pods are not using shared process namespace nor additional sidecars")
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			for _, pod := range clusterPods {
 				if pod.Spec.ShareProcessNamespace != nil {
 					Expect(*pod.Spec.ShareProcessNamespace).To(BeFalse())
@@ -4389,7 +4389,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming the humio pods use shared process namespace")
 			Eventually(func() bool {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					if pod.Spec.ShareProcessNamespace != nil {
 						return *pod.Spec.ShareProcessNamespace
@@ -4400,7 +4400,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming pods contain the new sidecar")
 			Eventually(func() string {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					for _, container := range pod.Spec.Containers {
 						if container.Name == controllers.HumioContainerName {
@@ -4433,7 +4433,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Validating pod is created with the default grace period")
 			Eventually(func() int64 {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				_ = suite.MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
 
 				for _, pod := range clusterPods {
@@ -4457,7 +4457,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Validating pod is recreated using the explicitly defined grace period")
 			Eventually(func() int64 {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				for _, pod := range clusterPods {
 					if pod.Spec.TerminationGracePeriodSeconds != nil {
 						return *pod.Spec.TerminationGracePeriodSeconds
@@ -4644,7 +4644,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Confirming the humio pods are not using env var source")
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			humioIdx, err := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(clusterPods[0].Spec.Containers[humioIdx].EnvFrom).To(BeNil())
@@ -4709,11 +4709,11 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			suite.UsingClusterBy(key.Name, "Confirming pods contain the new env vars")
 			Eventually(func() int {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				var podsContainingEnvFrom int
 				for _, pod := range clusterPods {
 					humioIdx, err := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -4745,7 +4745,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Confirming the humio pods are not using env var source")
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			humioIdx, err := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(clusterPods[0].Spec.Containers[humioIdx].EnvFrom).To(BeNil())
@@ -4810,11 +4810,11 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster, ""), 2)
 
 			suite.UsingClusterBy(key.Name, "Confirming pods contain the new env vars")
 			Eventually(func() int {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 				var podsContainingEnvFrom int
 				for _, pod := range clusterPods {
 					humioIdx, err := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
@@ -4846,7 +4846,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Removing the node pool label from the pod")
-			clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate, "").GetPodLabels())
 			Expect(err).Should(BeNil())
 			Expect(clusterPods).To(HaveLen(1))
 			labelsWithoutNodePoolName := map[string]string{}

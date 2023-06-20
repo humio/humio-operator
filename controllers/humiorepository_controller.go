@@ -39,10 +39,11 @@ import (
 // HumioRepositoryReconciler reconciles a HumioRepository object
 type HumioRepositoryReconciler struct {
 	client.Client
-	BaseLogger  logr.Logger
-	Log         logr.Logger
-	HumioClient humio.Client
-	Namespace   string
+	BaseLogger      logr.Logger
+	Log             logr.Logger
+	HumioClient     humio.Client
+	Namespace       string
+	OperatorVersion string
 }
 
 //+kubebuilder:rbac:groups=core.humio.com,resources=humiorepositories,verbs=get;list;watch;create;update;patch;delete

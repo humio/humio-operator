@@ -19,11 +19,12 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,10 +37,11 @@ import (
 // HumioExternalClusterReconciler reconciles a HumioExternalCluster object
 type HumioExternalClusterReconciler struct {
 	client.Client
-	BaseLogger  logr.Logger
-	Log         logr.Logger
-	HumioClient humio.Client
-	Namespace   string
+	BaseLogger      logr.Logger
+	Log             logr.Logger
+	HumioClient     humio.Client
+	Namespace       string
+	OperatorVersion string
 }
 
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioexternalclusters,verbs=get;list;watch;create;update;patch;delete

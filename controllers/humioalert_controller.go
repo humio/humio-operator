@@ -20,8 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	"reflect"
+
+	"github.com/humio/humio-operator/pkg/kubernetes"
 
 	humioapi "github.com/humio/cli/api"
 
@@ -40,10 +41,11 @@ import (
 // HumioAlertReconciler reconciles a HumioAlert object
 type HumioAlertReconciler struct {
 	client.Client
-	BaseLogger  logr.Logger
-	Log         logr.Logger
-	HumioClient humio.Client
-	Namespace   string
+	BaseLogger      logr.Logger
+	Log             logr.Logger
+	HumioClient     humio.Client
+	Namespace       string
+	OperatorVersion string
 }
 
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioalerts,verbs=get;list;watch;create;update;patch;delete

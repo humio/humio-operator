@@ -31,6 +31,7 @@ import (
 )
 
 const (
+	operatorVersionAnnotation  = "app.kubernetes.io/version"
 	certHashAnnotation         = "humio.com/certificate-hash"
 	podHashAnnotation          = "humio.com/pod-hash"
 	PodRevisionAnnotation      = "humio.com/pod-revision"

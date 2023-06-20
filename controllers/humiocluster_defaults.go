@@ -68,6 +68,7 @@ const (
 )
 
 type HumioNodePool struct {
+	operatorVersion          string
 	clusterName              string
 	nodePoolName             string
 	namespace                string
@@ -89,8 +90,9 @@ type HumioNodePool struct {
 	priorityClassName        string
 }
 
-func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioNodePool {
+func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster, operatorVersion string) *HumioNodePool {
 	return &HumioNodePool{
+		operatorVersion:  operatorVersion,
 		namespace:        hc.Namespace,
 		clusterName:      hc.Name,
 		hostname:         hc.Spec.Hostname,
@@ -153,8 +155,9 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 	}
 }
 
-func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *humiov1alpha1.HumioNodePoolSpec) *HumioNodePool {
+func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *humiov1alpha1.HumioNodePoolSpec, operatorVersion string) *HumioNodePool {
 	return &HumioNodePool{
+		operatorVersion:  operatorVersion,
 		namespace:        hc.Namespace,
 		clusterName:      hc.Name,
 		nodePoolName:     hnp.Name,
@@ -526,7 +529,12 @@ func (hnp HumioNodePool) GetDataVolumeSource() corev1.VolumeSource {
 }
 
 func (hnp HumioNodePool) GetPodAnnotations() map[string]string {
-	return hnp.humioNodeSpec.PodAnnotations
+	annotations := map[string]string{}
+	for k, v := range hnp.humioNodeSpec.PodAnnotations {
+		annotations[k] = v
+	}
+	annotations[operatorVersionAnnotation] = hnp.operatorVersion
+	return annotations
 }
 
 func (hnp HumioNodePool) GetAuthServiceAccountSecretName() string {

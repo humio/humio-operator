@@ -142,7 +142,7 @@ func constructIngress(hc *humiov1alpha1.HumioCluster, name string, hostname stri
 			PathType: &pathTypeImplementationSpecific,
 			Backend: networkingv1.IngressBackend{
 				Service: &networkingv1.IngressServiceBackend{
-					Name: (*ConstructService(NewHumioNodeManagerFromHumioCluster(hc))).Name,
+					Name: (*ConstructService(NewHumioNodeManagerFromHumioCluster(hc, ""))).Name,
 					Port: networkingv1.ServiceBackendPort{
 						Number: int32(port),
 					},
