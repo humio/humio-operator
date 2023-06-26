@@ -99,16 +99,10 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconcile.Result{}, err
 	}
 
-	var humioNodePools []*HumioNodePool
-	nodeMgrFromHumioCluster := NewHumioNodeManagerFromHumioCluster(hc)
-	if nodeMgrFromHumioCluster.GetNodeCount() > 0 {
-		humioNodePools = append(humioNodePools, NewHumioNodeManagerFromHumioCluster(hc))
-	}
+	var humioNodePools HumioNodePoolList
+	humioNodePools.Add(NewHumioNodeManagerFromHumioCluster(hc))
 	for idx := range hc.Spec.NodePools {
-		nodeMgrFromHumioNodePool := NewHumioNodeManagerFromHumioNodePool(hc, &hc.Spec.NodePools[idx])
-		if nodeMgrFromHumioNodePool.GetNodeCount() > 0 {
-			humioNodePools = append(humioNodePools, nodeMgrFromHumioNodePool)
-		}
+		humioNodePools.Add(NewHumioNodeManagerFromHumioNodePool(hc, &hc.Spec.NodePools[idx]))
 	}
 
 	emptyResult := reconcile.Result{}
@@ -118,7 +112,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			withObservedGeneration(hc.GetGeneration()))
 	}(ctx, r.HumioClient, hc)
 
-	for _, pool := range humioNodePools {
+	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if err := r.setImageFromSource(ctx, pool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
@@ -149,15 +143,17 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	if err := r.ensureNodePoolSpecificResourcesHaveLabelWithNodePoolName(ctx, humioNodePools[0]); err != nil {
-		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()).
-			withState(humiov1alpha1.HumioClusterStateConfigError))
+	if len(humioNodePools.Filter(NodePoolFilterHasNode)) > 0 {
+		if err := r.ensureNodePoolSpecificResourcesHaveLabelWithNodePoolName(ctx, humioNodePools.Filter(NodePoolFilterHasNode)[0]); err != nil {
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()).
+				withState(humiov1alpha1.HumioClusterStateConfigError))
+		}
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
 		opts := statusOptions()
-		podStatusList, err := r.getPodStatusList(ctx, hc, humioNodePools)
+		podStatusList, err := r.getPodStatusList(ctx, hc, humioNodePools.Filter(NodePoolFilterHasNode))
 		if err != nil {
 			r.Log.Error(err, "unable to get pod status list")
 		}
@@ -166,15 +162,15 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			withNodeCount(len(podStatusList)))
 	}(ctx, r.HumioClient, hc)
 
-	for _, pool := range humioNodePools {
+	for _, pool := range humioNodePools.Items {
 		if err := r.ensureOrphanedPvcsAreDeleted(ctx, hc, pool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()))
 		}
 	}
 
-	for _, pool := range humioNodePools {
-		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools) {
+	for _, pool := range humioNodePools.Items {
+		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
 			// TODO: result should be controlled and returned by the status
 			// Ensure pods that does not run the desired version are deleted.
 			result, err := r.ensureMismatchedPodsAreDeleted(ctx, hc, pool)
@@ -184,7 +180,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	for _, pool := range humioNodePools {
+	for _, pool := range humioNodePools.Items {
 		if err := r.validateInitialPodSpec(hc, pool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
@@ -192,7 +188,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	if err := r.validateNodeCount(hc, humioNodePools); err != nil {
+	if err := r.validateNodeCount(hc, humioNodePools.Items); err != nil {
 		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withMessage(err.Error()).
 			withState(humiov1alpha1.HumioClusterStateConfigError))
@@ -206,7 +202,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	for _, pool := range humioNodePools {
+	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if clusterState, err := r.ensurePodRevisionAnnotation(ctx, hc, pool); err != nil || clusterState != hc.Status.State {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
@@ -214,7 +210,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	for _, pool := range humioNodePools {
+	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if issueRestart, err := r.ensureHumioServiceAccountAnnotations(ctx, pool); err != nil || issueRestart {
 			opts := statusOptions()
 			if issueRestart {
@@ -242,7 +238,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	for _, pool := range humioNodePools {
+	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		for _, fun := range []ctxHumioClusterPoolFunc{
 			r.ensureService,
 			r.ensureHumioPodPermissions,
@@ -258,7 +254,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	for _, pool := range humioNodePools {
+	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if err := r.ensurePersistentVolumeClaimsExist(ctx, hc, pool); err != nil {
 			opts := statusOptions()
 			if hc.Status.State != humiov1alpha1.HumioClusterStateRestarting && hc.Status.State != humiov1alpha1.HumioClusterStateUpgrading {
@@ -270,7 +266,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// TODO: result should be controlled and returned by the status
-	for _, pool := range humioNodePools {
+	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if result, err := r.ensurePodsExist(ctx, hc, pool); result != emptyResult || err != nil {
 			if err != nil {
 				_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
@@ -280,8 +276,15 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
+	for _, nodePool := range humioNodePools.Filter(NodePoolFilterDoesNotHaveNodes) {
+		if err := r.cleanupUnusedServices(ctx, nodePool); err != nil {
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()))
+		}
+	}
+
 	// TODO: result should be controlled and returned by the status
-	if len(r.nodePoolsInMaintenance(hc, humioNodePools)) == 0 {
+	if len(r.nodePoolsInMaintenance(hc, humioNodePools.Filter(NodePoolFilterHasNode))) == 0 {
 		if result, err := r.ensureLicense(ctx, hc, req); result != emptyResult || err != nil {
 			if err != nil {
 				_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
@@ -310,8 +313,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}(ctx, r.HumioClient, hc)
 
-	if len(r.nodePoolsInMaintenance(hc, humioNodePools)) == 0 {
-		for _, pool := range humioNodePools {
+	if len(r.nodePoolsInMaintenance(hc, humioNodePools.Filter(NodePoolFilterHasNode))) == 0 {
+		for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 			if err = r.ensureLabels(ctx, cluster.Config(), req, pool); err != nil {
 				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 					withMessage(err.Error()))
@@ -319,7 +322,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	for _, pool := range humioNodePools {
+	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if podsReady, err := r.nodePoolPodsReady(ctx, hc, pool); !podsReady || err != nil {
 			msg := "waiting on all pods to be ready"
 			if err != nil {
@@ -1930,6 +1933,27 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc
 	}
 
 	// return empty result and no error indicating that everything was in the state we wanted it to be
+	return nil
+}
+
+func (r *HumioClusterReconciler) cleanupUnusedServices(ctx context.Context, hnp *HumioNodePool) error {
+	var existingService corev1.Service
+	err := r.Get(ctx, types.NamespacedName{
+		Namespace: hnp.namespace,
+		Name:      hnp.GetServiceName(),
+	}, &existingService)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return r.logErrorAndReturn(err, "could not get node pool service")
+	}
+
+	r.Log.Info(fmt.Sprintf("found existing node pool service but not pool does not have nodes. Deleting node pool service %s", existingService.Name))
+	if err = r.Delete(ctx, &existingService); err != nil {
+		return r.logErrorAndReturn(err, "unable to delete node pool service")
+	}
+
 	return nil
 }
 

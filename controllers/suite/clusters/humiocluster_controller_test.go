@@ -97,6 +97,32 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
 			createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
+
+			Eventually(func() error {
+				_, err := kubernetes.GetService(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetServiceName(), key.Namespace)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			updatedHumioCluster := humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Scaling down the cluster node count successfully")
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.NodeCount = 0
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Verifying the main service is deleted")
+			Eventually(func() bool {
+				_, err := kubernetes.GetService(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetServiceName(), key.Namespace)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 		})
 	})
@@ -116,7 +142,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 
-			_, err := kubernetes.GetService(ctx, k8sClient, key.Name, key.Namespace)
+			_, err := kubernetes.GetService(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetServiceName(), key.Namespace)
 			Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
 
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)

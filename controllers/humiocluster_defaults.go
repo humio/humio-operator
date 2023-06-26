@@ -821,6 +821,13 @@ func (hnp HumioNodePool) GetServiceType() corev1.ServiceType {
 	return corev1.ServiceTypeClusterIP
 }
 
+func (hnp HumioNodePool) GetServiceName() string {
+	if hnp.nodePoolName == "" {
+		return hnp.clusterName
+	}
+	return fmt.Sprintf("%s-%s", hnp.clusterName, hnp.nodePoolName)
+}
+
 func (hnp HumioNodePool) InitContainerDisabled() bool {
 	return hnp.humioNodeSpec.DisableInitContainer
 }
@@ -932,4 +939,30 @@ func humioPathOrDefault(hc *humiov1alpha1.HumioCluster) string {
 
 func licenseSecretKeyRefOrDefault(hc *humiov1alpha1.HumioCluster) *corev1.SecretKeySelector {
 	return hc.Spec.License.SecretKeyRef
+}
+
+type HumioNodePoolList struct {
+	Items []*HumioNodePool
+}
+
+func (n *HumioNodePoolList) Filter(f func(*HumioNodePool) bool) []*HumioNodePool {
+	var filteredNodePools []*HumioNodePool
+	for _, nodePool := range n.Items {
+		if f(nodePool) {
+			filteredNodePools = append(filteredNodePools, nodePool)
+		}
+	}
+	return filteredNodePools
+}
+
+func (n *HumioNodePoolList) Add(hnp *HumioNodePool) {
+	n.Items = append(n.Items, hnp)
+}
+
+func NodePoolFilterHasNode(nodePool *HumioNodePool) bool {
+	return nodePool.GetNodeCount() > 0
+}
+
+func NodePoolFilterDoesNotHaveNodes(nodePool *HumioNodePool) bool {
+	return !NodePoolFilterHasNode(nodePool)
 }
