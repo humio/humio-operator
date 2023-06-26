@@ -12,13 +12,7 @@ metadata:
     app.kubernetes.io/name: 'humio-operator'
     app.kubernetes.io/instance: 'humio-operator'
     app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.18.0'
-  labels:
-    app: 'humio-operator'
-    app.kubernetes.io/name: 'humio-operator'
-    app.kubernetes.io/instance: 'humio-operator'
-    app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.18.0'
+    helm.sh/chart: 'humio-operator-0.19.0'
 spec:
   group: core.humio.com
   names:
@@ -60,9 +54,61 @@ spec:
                   where the Humio resources should be created. This conflicts with
                   ManagedClusterName.
                 type: string
+              hashedTokenSecret:
+                properties:
+                  createIfMissing:
+                    type: boolean
+                  secretKeyRef:
+                    description: SecretKeySelector selects a key of a Secret.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                required:
+                - createIfMissing
+                type: object
+              image:
+                type: string
               managedClusterName:
                 description: ManagedClusterName
                 type: string
+              tokenSecret:
+                properties:
+                  createIfMissing:
+                    type: boolean
+                  secretKeyRef:
+                    description: SecretKeySelector selects a key of a Secret.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                required:
+                - createIfMissing
+                type: object
             type: object
           status:
             properties:
