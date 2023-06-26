@@ -70,6 +70,24 @@ func (r *HumioBootstrapTokenReconciler) Reconcile(ctx context.Context, req ctrl.
 		return reconcile.Result{}, err
 	}
 
+	hc := &humiov1alpha1.HumioCluster{}
+	hcRequest := types.NamespacedName{
+		Name:      hbt.Spec.ManagedClusterName,
+		Namespace: hbt.Namespace,
+	}
+	if err := r.Get(ctx, hcRequest, hc); err != nil {
+		if k8serrors.IsNotFound(err) {
+			r.Log.Error(err, fmt.Sprintf("humiocluster %s not found", hcRequest.Name))
+			return reconcile.Result{}, err
+		}
+		r.Log.Error(err, fmt.Sprintf("problem fetching humiocluster %s", hcRequest.Name))
+		return reconcile.Result{}, err
+	}
+
+	if err := r.ensureBootstrapTokenSecret(ctx, hbt, hc); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	return reconcile.Result{RequeueAfter: time.Second * 60}, nil
 }
 
@@ -109,9 +127,9 @@ func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humi
 	return nil
 }
 
-func (r *HumioBootstrapTokenReconciler) deletePod(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken) error {
+func (r *HumioBootstrapTokenReconciler) deletePod(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, hc *humiov1alpha1.HumioCluster) error {
 	existingPod := &corev1.Pod{}
-	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt)
+	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, hc)
 	pod, err := ConstructBootstrapPod(&humioBootstrapTokenConfig)
 	if err != nil {
 		return r.logErrorAndReturn(err, "could not construct pod")
@@ -129,19 +147,22 @@ func (r *HumioBootstrapTokenReconciler) deletePod(ctx context.Context, hbt *humi
 	return nil
 }
 
-func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken) error {
-	if !hbt.Spec.TokenSecret.CreateIfMissing {
-		return nil
-	}
+func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, hc *humiov1alpha1.HumioCluster) error {
+	r.Log.Info("ensuring bootstrap token")
+	// TODO: default is true here
+	//if !hbt.Spec.TokenSecret.CreateIfMissing {
+	//	return nil
+	//}
 
 	existingSecret := &corev1.Secret{}
-	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt)
+	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, hc)
 
 	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: hbt.Namespace,
 		Name:      humioBootstrapTokenConfig.bootstrapTokenName(),
 	}, existingSecret); err != nil {
 		if k8serrors.IsNotFound(err) {
+			// TODO: something better
 			randomPass := kubernetes.RandomString()
 			secretData := map[string][]byte{
 				"passphrase": []byte(randomPass),
