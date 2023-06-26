@@ -22,10 +22,10 @@ import (
 )
 
 const (
-// HumioExternalClusterStateUnknown is the Unknown state of the external cluster
-//HumioExternalClusterStateUnknown = "Unknown"
-// HumioExternalClusterStateReady is the Ready state of the external cluster
-//HumioExternalClusterStateReady = "Ready"
+	// HumioBootstrapTokenStateMissing is the Missing state of the bootstrap token
+	HumioBootstrapTokenStateMissing = "Missing"
+	// HumioBootstrapTokenStateReady is the Ready state of the bootstrap token
+	HumioBootstrapTokenStateReady = "Ready"
 )
 
 // HumioBootstrapTokenSpec defines the bootstrap token that Humio will use to bootstrap authentication
