@@ -99,6 +99,11 @@ var _ = Describe("HumioCluster Controller", func() {
 			createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 
 			Eventually(func() error {
+				_, err := kubernetes.GetService(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0]).GetServiceName(), key.Namespace)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() error {
 				_, err := kubernetes.GetService(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetServiceName(), key.Namespace)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
