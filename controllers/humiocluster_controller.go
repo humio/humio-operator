@@ -277,7 +277,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	for _, nodePool := range humioNodePools.Filter(NodePoolFilterDoesNotHaveNodes) {
-		if err := r.cleanupUnusedServices(ctx, nodePool); err != nil {
+		if err := r.cleanupUnusedService(ctx, nodePool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()))
 		}
@@ -1936,7 +1936,7 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSSecrets(ctx context.Context, hc
 	return nil
 }
 
-func (r *HumioClusterReconciler) cleanupUnusedServices(ctx context.Context, hnp *HumioNodePool) error {
+func (r *HumioClusterReconciler) cleanupUnusedService(ctx context.Context, hnp *HumioNodePool) error {
 	var existingService corev1.Service
 	err := r.Get(ctx, types.NamespacedName{
 		Namespace: hnp.namespace,
