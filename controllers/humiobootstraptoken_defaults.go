@@ -35,6 +35,13 @@ func (b *HumioBootstrapTokenConfig) hashedBootstrapTokenName() string {
 	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, HashedBootstrapTokenSuffix)
 }
 
+func (b *HumioBootstrapTokenConfig) tokenSecretCreateIfMissing() bool {
+	if b.BootstrapToken.Spec.TokenSecret.CreateIfMissing != nil {
+		return *b.BootstrapToken.Spec.TokenSecret.CreateIfMissing
+	}
+	return true
+}
+
 func (b *HumioBootstrapTokenConfig) image() string {
 	if b.BootstrapToken.Spec.Image != "" {
 		return b.BootstrapToken.Spec.Image

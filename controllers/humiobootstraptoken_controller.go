@@ -14,9 +14,17 @@ limitations under the License.
 package controllers
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
+
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/clientcmd"
+
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,6 +48,11 @@ type HumioBootstrapTokenReconciler struct {
 	BaseLogger logr.Logger
 	Log        logr.Logger
 	Namespace  string
+}
+
+type HumioBootstrapTokenSecretData struct {
+	Secret      string `json:"secret"`
+	HashedToken string `json:"hashedToken"`
 }
 
 //+kubebuilder:rbac:groups=core.humio.com,resources=HumioBootstrapTokens,verbs=get;list;watch;create;update;patch;delete
@@ -88,14 +101,68 @@ func (r *HumioBootstrapTokenReconciler) Reconcile(ctx context.Context, req ctrl.
 		return reconcile.Result{}, err
 	}
 
+	if err := r.ensureBootstrapTokenHashedToken(ctx, hbt, hc); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	return reconcile.Result{RequeueAfter: time.Second * 60}, nil
 }
 
-func (r *HumioBootstrapTokenReconciler) execCommand(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken) error {
-	return nil
+func (r *HumioBootstrapTokenReconciler) execCommand(pod *corev1.Pod, args []string) (string, error) {
+	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		&clientcmd.ConfigOverrides{},
+	)
+
+	// create the Config object
+	cfg, err := configLoader.ClientConfig()
+	if err != nil {
+		return "", err
+	}
+
+	// we want to use the core API (namespaces lives here)
+	cfg.APIPath = "/api"
+	cfg.GroupVersion = &corev1.SchemeGroupVersion
+	cfg.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+
+	// create a RESTClient
+	rc, err := rest.RESTClientFor(cfg)
+	if err != nil {
+		return "", err
+	}
+
+	req := rc.Post().
+		Resource("pods").
+		Name(pod.Name).
+		Namespace(pod.Namespace).
+		SubResource("exec")
+	req.VersionedParams(&corev1.PodExecOptions{
+		Container: "humio", // TODO: changeme
+		Command:   args,
+		Stdin:     false,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       false,
+	}, scheme.ParameterCodec)
+
+	exec, err := remotecommand.NewSPDYExecutor(cfg, "POST", req.URL())
+	if err != nil {
+		return "", err
+	}
+	var stdout, stderr bytes.Buffer
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdin:  nil,
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Tty:    false,
+	})
+	if err != nil {
+		return "", err
+	}
+	return stdout.String(), nil
 }
 
-func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken) error {
+func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken) (*corev1.Pod, error) {
 	existingPod := &corev1.Pod{}
 	humioCluster := &humiov1alpha1.HumioCluster{}
 	if err := r.Get(ctx, types.NamespacedName{
@@ -109,7 +176,7 @@ func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humi
 	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, humioCluster)
 	pod, err := ConstructBootstrapPod(&humioBootstrapTokenConfig)
 	if err != nil {
-		return r.logErrorAndReturn(err, "could not construct pod")
+		return &corev1.Pod{}, r.logErrorAndReturn(err, "could not construct pod")
 	}
 	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: pod.Namespace,
@@ -117,14 +184,16 @@ func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humi
 	}, existingPod); err != nil {
 		if k8serrors.IsNotFound(err) {
 			if err := controllerutil.SetControllerReference(hbt, pod, r.Scheme()); err != nil {
-				return r.logErrorAndReturn(err, "could not set controller reference")
+				return &corev1.Pod{}, r.logErrorAndReturn(err, "could not set controller reference")
 			}
+			r.Log.Info("creating onetime pod")
 			if err := r.Create(ctx, pod); err != nil {
-				return r.logErrorAndReturn(err, "could not create pod")
+				return &corev1.Pod{}, r.logErrorAndReturn(err, "could not create pod")
 			}
+			return pod, nil
 		}
 	}
-	return nil
+	return existingPod, nil
 }
 
 func (r *HumioBootstrapTokenReconciler) deletePod(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, hc *humiov1alpha1.HumioCluster) error {
@@ -139,6 +208,7 @@ func (r *HumioBootstrapTokenReconciler) deletePod(ctx context.Context, hbt *humi
 		Name:      pod.Name,
 	}, existingPod); err != nil {
 		if !k8serrors.IsNotFound(err) {
+			r.Log.Info("deleting onetime pod")
 			if err := r.Delete(ctx, pod); err != nil {
 				return r.logErrorAndReturn(err, "could not delete pod")
 			}
@@ -148,24 +218,27 @@ func (r *HumioBootstrapTokenReconciler) deletePod(ctx context.Context, hbt *humi
 }
 
 func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, hc *humiov1alpha1.HumioCluster) error {
-	r.Log.Info("ensuring bootstrap token")
-	// TODO: default is true here
-	//if !hbt.Spec.TokenSecret.CreateIfMissing {
-	//	return nil
-	//}
-
-	existingSecret := &corev1.Secret{}
+	r.Log.Info("ensuring bootstrap token secret")
 	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, hc)
-
-	if err := r.Get(ctx, types.NamespacedName{
-		Namespace: hbt.Namespace,
-		Name:      humioBootstrapTokenConfig.bootstrapTokenName(),
-	}, existingSecret); err != nil {
+	if !humioBootstrapTokenConfig.tokenSecretCreateIfMissing() {
+		return nil
+	}
+	if _, err := r.getBootstrapTokenSecret(ctx, hbt, hc); err != nil {
 		if k8serrors.IsNotFound(err) {
 			// TODO: something better
-			randomPass := kubernetes.RandomString()
+			//randomPass := kubernetes.RandomString()
 			secretData := map[string][]byte{
-				"passphrase": []byte(randomPass),
+				//"passphrase": []byte(randomPass),
+			}
+			// TODO: make passphrase constant
+			if hbt.Spec.TokenSecret.SecretKeyRef != nil {
+				secret, err := kubernetes.GetSecret(ctx, r, hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Namespace)
+				if err != nil {
+					return r.logErrorAndReturn(err, fmt.Sprintf("could not get secret %s", hbt.Spec.TokenSecret.SecretKeyRef.Name))
+				}
+				if passphrase, ok := secret.Data["passphrase"]; ok {
+					secretData["passphrase"] = passphrase
+				}
 			}
 			secret := kubernetes.ConstructSecret(hbt.Name, hbt.Namespace, humioBootstrapTokenConfig.bootstrapTokenName(), secretData, nil)
 			if err := controllerutil.SetControllerReference(hbt, secret, r.Scheme()); err != nil {
@@ -182,6 +255,72 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.C
 	}
 
 	return nil
+}
+
+func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, hc *humiov1alpha1.HumioCluster) error {
+	r.Log.Info("ensuring bootstrap hashed token")
+	bootstrapTokenSecret, err := r.getBootstrapTokenSecret(ctx, hbt, hc)
+	if err != nil {
+		return r.logErrorAndReturn(err, "could not get bootstrap token secret")
+	}
+	// TODO: make tokenHash constant
+	if _, ok := bootstrapTokenSecret.Data["hashedToken"]; ok {
+		return nil
+	}
+
+	commandArgs := []string{"/bin/bash", "/app/humio/humio/bin/humio-run-class.sh", "com.humio.main.TokenHashing", "--json"}
+
+	if tokenSecret, ok := bootstrapTokenSecret.Data["secret"]; ok {
+		commandArgs = append(commandArgs, string(tokenSecret))
+	}
+
+	pod, err := r.createPod(ctx, hbt)
+	if err != nil {
+		return err
+	}
+
+	// TODO: wait for pod to start
+	time.Sleep(time.Second * 10)
+
+	defer func(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, hc *humiov1alpha1.HumioCluster) {
+		if err := r.deletePod(ctx, hbt, hc); err != nil {
+			r.Log.Error(err, "failed to delete pod")
+		}
+	}(ctx, hbt, hc)
+
+	r.Log.Info("execing onetime pod")
+	output, err := r.execCommand(pod, commandArgs)
+	if err != nil {
+		return r.logErrorAndReturn(err, "failed to exec pod")
+	}
+
+	var secretData HumioBootstrapTokenSecretData
+	err = json.Unmarshal([]byte(output), &secretData)
+	if err != nil {
+		r.Log.Error(fmt.Errorf("failed to read output from exec command"), "omitting output")
+	}
+
+	updatedSecret, err := r.getBootstrapTokenSecret(ctx, hbt, hc)
+	if err != nil {
+		return err
+	}
+	// TODO: make tokenHash constant
+	updatedSecret.Data = map[string][]byte{"hashedToken": []byte(secretData.HashedToken), "secret": []byte(secretData.Secret)}
+
+	if err = r.Update(ctx, updatedSecret); err != nil {
+		return r.logErrorAndReturn(err, "failed to update secret with hashedToken data")
+	}
+	return nil
+}
+
+func (r *HumioBootstrapTokenReconciler) getBootstrapTokenSecret(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, hc *humiov1alpha1.HumioCluster) (*corev1.Secret, error) {
+	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, hc)
+	existingSecret := &corev1.Secret{}
+	err := r.Get(ctx, types.NamespacedName{
+		Namespace: hbt.Namespace,
+		Name:      humioBootstrapTokenConfig.bootstrapTokenName(),
+	}, existingSecret)
+	return existingSecret, err
 }
 
 // SetupWithManager sets up the controller with the Manager.
