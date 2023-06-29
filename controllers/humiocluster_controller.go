@@ -481,6 +481,7 @@ func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Co
 func (r *HumioClusterReconciler) getEnvVarSource(ctx context.Context, hnp *HumioNodePool) (*map[string]string, error) {
 	var envVarConfigMapName string
 	var envVarSecretName string
+	fullEnvVarKeyValues := map[string]string{}
 	for _, envVarSource := range hnp.GetEnvironmentVariablesSource() {
 		if envVarSource.ConfigMapRef != nil {
 			envVarConfigMapName = envVarSource.ConfigMapRef.Name
@@ -491,11 +492,12 @@ func (r *HumioClusterReconciler) getEnvVarSource(ctx context.Context, hnp *Humio
 				}
 				return nil, fmt.Errorf("unable to get configMap with name %s in namespace %s", envVarConfigMapName, hnp.GetNamespace())
 			}
-			return &configMap.Data, nil
+			for k, v := range configMap.Data {
+				fullEnvVarKeyValues[k] = v
+			}
 		}
 		if envVarSource.SecretRef != nil {
 			envVarSecretName = envVarSource.SecretRef.Name
-			secretData := map[string]string{}
 			secret, err := kubernetes.GetSecret(ctx, r, envVarSecretName, hnp.GetNamespace())
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
@@ -504,12 +506,14 @@ func (r *HumioClusterReconciler) getEnvVarSource(ctx context.Context, hnp *Humio
 				return nil, fmt.Errorf("unable to get secret with name %s in namespace %s", envVarSecretName, hnp.GetNamespace())
 			}
 			for k, v := range secret.Data {
-				secretData[k] = string(v)
+				fullEnvVarKeyValues[k] = string(v)
 			}
-			return &secretData, nil
 		}
 	}
-	return nil, nil
+	if len(fullEnvVarKeyValues) == 0 {
+		return nil, nil
+	}
+	return &fullEnvVarKeyValues, nil
 }
 
 // setImageFromSource will check if imageSource is defined and if it is, it will update spec.Image with the image value
