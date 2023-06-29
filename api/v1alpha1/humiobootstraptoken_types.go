@@ -42,12 +42,12 @@ type HumioBootstrapTokenSpec struct {
 }
 
 type HumioTokenSecretSpec struct {
-	CreateIfMissing bool                      `json:"createIfMissing"`
+	CreateIfMissing *bool                     `json:"createIfMissing"`
 	SecretKeyRef    *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 type HumioHashedTokenSecretSpec struct {
-	CreateIfMissing bool                      `json:"createIfMissing"`
+	CreateIfMissing *bool                     `json:"createIfMissing"`
 	SecretKeyRef    *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
