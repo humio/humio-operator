@@ -31,7 +31,8 @@ func ConstructBootstrapPod(bootstrapConfig *HumioBootstrapTokenConfig) (*corev1.
 					Name:  HumioContainerName,
 					Image: bootstrapConfig.image(),
 					////ImagePullPolicy: hnp.GetImagePullPolicy(),
-					Command: []string{"/bin/sh", "/bin/sleep", "900"},
+					//Command: []string{"/bin/sh"},
+					Command: []string{"/bin/sleep", "900"},
 					Env: []corev1.EnvVar{
 						{
 							Name:  "HUMIO_LOG4J_CONFIGURATION",
