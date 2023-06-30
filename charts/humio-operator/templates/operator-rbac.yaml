@@ -76,6 +76,9 @@ rules:
   - humiorepositories
   - humiorepositories/finalizers
   - humiorepositories/status
+  - humiousers
+  - humiousers/finalizers
+  - humiousers/status
   - humioviews
   - humioviews/finalizers
   - humioviews/status
@@ -225,6 +228,9 @@ rules:
   - humiorepositories
   - humiorepositories/finalizers
   - humiorepositories/status
+  - humiousers
+  - humiousers/finalizers
+  - humiousers/status
   - humioviews
   - humioviews/finalizers
   - humioviews/status

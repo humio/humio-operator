@@ -27,6 +27,7 @@ import (
 	humioapi "github.com/humio/cli/api"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -166,6 +167,14 @@ func main() {
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioRepository")
+		os.Exit(1)
+	}
+	if err = (&controllers.HumioUserReconciler{
+		Client:      mgr.GetClient(),
+		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioUser")
 		os.Exit(1)
 	}
 	if err = (&controllers.HumioViewReconciler{

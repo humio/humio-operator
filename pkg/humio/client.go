@@ -28,6 +28,7 @@ import (
 
 	"github.com/go-logr/logr"
 
+	"github.com/humio/cli/api"
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
@@ -39,6 +40,7 @@ type Client interface {
 	IngestTokensClient
 	ParsersClient
 	RepositoriesClient
+	UsersClient
 	ViewsClient
 	LicenseClient
 	ActionsClient
@@ -77,6 +79,13 @@ type RepositoriesClient interface {
 	GetRepository(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioRepository) (*humioapi.Repository, error)
 	UpdateRepository(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioRepository) (*humioapi.Repository, error)
 	DeleteRepository(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioRepository) error
+}
+
+type UsersClient interface {
+	AddUser(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioUser) (*humioapi.User, error)
+	GetUser(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioUser) (*humioapi.User, error)
+	UpdateUser(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioUser) (*humioapi.User, error)
+	DeleteUser(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioUser) error
 }
 
 type ViewsClient interface {
@@ -650,4 +659,72 @@ func (h *ClientConfig) GetActionIDsMapForAlerts(config *humioapi.Config, req rec
 
 	}
 	return actionIdMap, nil
+}
+
+func (h *ClientConfig) AddUser(config *humioapi.Config, req reconcile.Request, hu *humiov1alpha1.HumioUser) (*humioapi.User, error) {
+	user := humioapi.User{Username: hu.Spec.Username}
+	_, err := h.GetHumioClient(config, req).Users().Add(hu.Spec.Username, api.UserChangeSet{
+		IsRoot:      &hu.Spec.IsRoot,
+		FullName:    &hu.Spec.FullName,
+		Company:     &hu.Spec.Company,
+		CountryCode: &hu.Spec.CountryCode,
+		Email:       &hu.Spec.Email,
+		Picture:     &hu.Spec.Picture,
+	})
+	return &user, err
+}
+
+func (h *ClientConfig) GetUser(config *humioapi.Config, req reconcile.Request, hu *humiov1alpha1.HumioUser) (*humioapi.User, error) {
+	// userList, err := h.GetHumioClient(config, req).Users().List()
+	// if err != nil {
+	// 	return &humioapi.User{}, fmt.Errorf("could not list users: %w", err)
+	// }
+	// for _, user := range userList {
+	// 	if user.Username == hu.Spec.Username {
+	// 		// we now know the user exists
+	// 		user, err := h.GetHumioClient(config, req).Users().Get(hu.Spec.Username)
+	// 		return &user, err
+	// 	}
+	// }
+	user, err := h.GetHumioClient(config, req).Users().Get(hu.Spec.Username)
+	return &user, err
+}
+
+func (h *ClientConfig) UpdateUser(config *humioapi.Config, req reconcile.Request, hu *humiov1alpha1.HumioUser) (*humioapi.User, error) {
+	curUser, err := h.GetUser(config, req, hu)
+	if err != nil {
+		return &humioapi.User{}, err
+	}
+
+	if curUser.Email != hu.Spec.Email ||
+		curUser.FullName != hu.Spec.FullName ||
+		curUser.Company != hu.Spec.Company ||
+		curUser.CountryCode != hu.Spec.CountryCode ||
+		curUser.Picture != hu.Spec.Picture ||
+		curUser.IsRoot != hu.Spec.IsRoot {
+		_, err = h.GetHumioClient(config, req).Users().Update(
+			hu.Spec.Username,
+			api.UserChangeSet{
+				Email:       &hu.Spec.Email,
+				FullName:    &hu.Spec.FullName,
+				Company:     &hu.Spec.Company,
+				CountryCode: &hu.Spec.CountryCode,
+				Picture:     &hu.Spec.Picture,
+				IsRoot:      &hu.Spec.IsRoot,
+			},
+		)
+		if err != nil {
+			return &humioapi.User{}, err
+		}
+	}
+
+	return h.GetUser(config, req, hu)
+}
+
+func (h *ClientConfig) DeleteUser(config *humioapi.Config, req reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+	_, err := h.GetHumioClient(config, req).Users().Remove(hu.Spec.Username)
+	if err != nil {
+		return fmt.Errorf("could not delete user: %w", err)
+	}
+	return err
 }

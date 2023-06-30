@@ -1,0 +1,24 @@
+# permissions for end users to edit humiousers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: humiouser-editor-role
+rules:
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiousers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiousers/status
+  verbs:
+  - get

@@ -42,6 +42,7 @@ type ClientMock struct {
 	OnPremLicense                     humioapi.OnPremLicense
 	Action                            humioapi.Action
 	Alert                             humioapi.Alert
+	User                              humioapi.User
 }
 
 type MockClientConfig struct {
@@ -212,6 +213,34 @@ func (h *MockClientConfig) UpdateRepository(config *humioapi.Config, req reconci
 
 func (h *MockClientConfig) DeleteRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
 	h.apiClient.Repository = humioapi.Repository{}
+	return nil
+}
+
+func (h *MockClientConfig) AddUser(config *humioapi.Config, req reconcile.Request, hu *humiov1alpha1.HumioUser) (*humioapi.User, error) {
+	h.apiClient.User = humioapi.User{
+		Username:    hu.Spec.Username,
+		ID:          kubernetes.RandomString(),
+		FullName:    hu.Spec.FullName,
+		Email:       hu.Spec.Email,
+		Company:     hu.Spec.Company,
+		CountryCode: hu.Spec.CountryCode,
+		Picture:     hu.Spec.Picture,
+		IsRoot:      hu.Spec.IsRoot,
+		CreatedAt:   hu.Spec.CreatedAt,
+	}
+	return &h.apiClient.User, nil
+}
+
+func (h *MockClientConfig) GetUser(config *humioapi.Config, req reconcile.Request, hu *humiov1alpha1.HumioUser) (*humioapi.User, error) {
+	return &h.apiClient.User, nil
+}
+
+func (h *MockClientConfig) UpdateUser(config *humioapi.Config, req reconcile.Request, hu *humiov1alpha1.HumioUser) (*humioapi.User, error) {
+	return h.AddUser(config, req, hu)
+}
+
+func (h *MockClientConfig) DeleteUser(config *humioapi.Config, req reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+	h.apiClient.User = humioapi.User{}
 	return nil
 }
 
