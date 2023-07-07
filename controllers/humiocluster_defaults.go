@@ -78,7 +78,7 @@ type HumioNodePool struct {
 	humioNodeSpec            humiov1alpha1.HumioNodeSpec
 	tls                      *humiov1alpha1.HumioClusterTLSSpec
 	idpCertificateSecretName string
-	viewGroupPermissions     string
+	viewGroupPermissions     string // Deprecated: Replaced by rolePermissions
 	rolePermissions          string
 	targetReplicationFactor  int
 	storagePartitionsCount   int
@@ -390,12 +390,14 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 		})
 	}
 
-	if EnvVarHasValue(hnp.humioNodeSpec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") &&
-		EnvVarHasKey(hnp.humioNodeSpec.EnvironmentVariables, "ZOOKEEPER_URL") {
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
-			Value: "$(ZOOKEEPER_URL)",
-		})
+	if ok, _ := humioVersion.AtLeast(HumioVersionWithoutOldVhostSelection); !ok {
+		if EnvVarHasValue(hnp.humioNodeSpec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") &&
+			EnvVarHasKey(hnp.humioNodeSpec.EnvironmentVariables, "ZOOKEEPER_URL") {
+			envDefaults = append(envDefaults, corev1.EnvVar{
+				Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
+				Value: "$(ZOOKEEPER_URL)",
+			})
+		}
 	}
 
 	for _, defaultEnvVar := range envDefaults {
@@ -763,6 +765,7 @@ func (hnp HumioNodePool) GetPath() string {
 	return "/"
 }
 
+// Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in LogScale 1.80.0
 func (hnp HumioNodePool) GetNodeUUIDPrefix() string {
 	if hnp.humioNodeSpec.NodeUUIDPrefix != "" {
 		return hnp.humioNodeSpec.NodeUUIDPrefix
