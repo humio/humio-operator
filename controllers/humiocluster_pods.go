@@ -74,13 +74,17 @@ type nodeUUIDTemplateVars struct {
 // For this reason, we rely on the USING_EPHEMERAL_DISKS environment variable.
 func ConstructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]string, error) {
 	var shellCommands []string
-	if EnvVarHasValue(podEnvVars, "USING_EPHEMERAL_DISKS", "true") {
-		if EnvVarHasKey(podEnvVars, "ZOOKEEPER_URL") {
-			nodeUUIDPrefix, err := constructNodeUUIDPrefix(hnp)
-			if err != nil {
-				return []string{""}, fmt.Errorf("unable to construct node UUID: %w", err)
+
+	humioVersion, _ := HumioVersionFromString(hnp.GetImage())
+	if ok, _ := humioVersion.AtLeast(HumioVersionWithoutOldVhostSelection); !ok {
+		if EnvVarHasValue(podEnvVars, "USING_EPHEMERAL_DISKS", "true") {
+			if EnvVarHasKey(podEnvVars, "ZOOKEEPER_URL") {
+				nodeUUIDPrefix, err := constructNodeUUIDPrefix(hnp)
+				if err != nil {
+					return []string{""}, fmt.Errorf("unable to construct node UUID: %w", err)
+				}
+				shellCommands = append(shellCommands, fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s", nodeUUIDPrefix))
 			}
-			shellCommands = append(shellCommands, fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s", nodeUUIDPrefix))
 		}
 	}
 
@@ -102,6 +106,7 @@ func ConstructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]s
 // constructNodeUUIDPrefix checks the value of the nodeUUID prefix and attempts to render it as a template. If the template
 // renders {{.Zone}} as the string set to containsZoneIdentifier, then we can be assured that the desired outcome is
 // that the zone in included inside the nodeUUID prefix.
+// Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in LogScale 1.80.0
 func constructNodeUUIDPrefix(hnp *HumioNodePool) (string, error) {
 	prefix := hnp.GetNodeUUIDPrefix()
 	containsZoneIdentifier := "containsZone"
