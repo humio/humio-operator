@@ -10326,12 +10326,14 @@ spec:
                             nodes
                           type: integer
                         nodeUUIDPrefix:
-                          description: NodeUUIDPrefix is the prefix for the Humio
-                            Node's UUID. By default this does not include the zone.
-                            If it's necessary to include zone, there is a special
+                          description: 'NodeUUIDPrefix is the prefix for the Humio
+                            Node''s UUID. By default this does not include the zone.
+                            If it''s necessary to include zone, there is a special
                             `Zone` variable that can be used. To use this, set `{{.Zone}}`.
                             For compatibility with pre-0.0.14 spec defaults, this
-                            should be set to `humio_{{.Zone}}`
+                            should be set to `humio_{{.Zone}}` Deprecated: LogScale
+                            1.70.0 deprecated this option, and was later removed in
+                            LogScale 1.80.0'
                           type: string
                         podAnnotations:
                           additionalProperties:
@@ -12096,11 +12098,13 @@ spec:
                   type: object
                 type: array
               nodeUUIDPrefix:
-                description: NodeUUIDPrefix is the prefix for the Humio Node's UUID.
-                  By default this does not include the zone. If it's necessary to
+                description: 'NodeUUIDPrefix is the prefix for the Humio Node''s UUID.
+                  By default this does not include the zone. If it''s necessary to
                   include zone, there is a special `Zone` variable that can be used.
                   To use this, set `{{.Zone}}`. For compatibility with pre-0.0.14
-                  spec defaults, this should be set to `humio_{{.Zone}}`
+                  spec defaults, this should be set to `humio_{{.Zone}}` Deprecated:
+                  LogScale 1.70.0 deprecated this option, and was later removed in
+                  LogScale 1.80.0'
                 type: string
               path:
                 description: Path is the root URI path of the Humio cluster
