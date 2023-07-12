@@ -10,6 +10,7 @@ resources:
 - bases/core.humio.com_humioviews.yaml
 - bases/core.humio.com_humioactions.yaml
 - bases/core.humio.com_humioalerts.yaml
+- bases/core.humio.com_humioviewtokens.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
@@ -23,6 +24,7 @@ patchesStrategicMerge:
 #- patches/webhook_in_humioviews.yaml
 #- patches/webhook_in_humioactions.yaml
 #- patches/webhook_in_humioalerts.yaml
+#- patches/webhook_in_humioviewtokens.yaml
 # +kubebuilder:scaffold:crdkustomizewebhookpatch
 
 # [CERTMANAGER] To enable webhook, uncomment all the sections with [CERTMANAGER] prefix.
@@ -35,6 +37,7 @@ patchesStrategicMerge:
 #- patches/cainjection_in_humioviews.yaml
 #- patches/cainjection_in_humioactions.yaml
 #- patches/cainjection_in_humioalerts.yaml
+#- patches/cainjection_in_humioviewtokens.yaml
 # +kubebuilder:scaffold:crdkustomizecainjectionpatch
 
 # the following config is for teaching kustomize how to do kustomization for CRDs.

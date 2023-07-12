@@ -1,0 +1,27 @@
+# permissions for end users to view humioviewtokens.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: humioviewtoken-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: humio-operator
+    app.kubernetes.io/part-of: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humioviewtoken-viewer-role
+rules:
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioviewtokens
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioviewtokens/status
+  verbs:
+  - get

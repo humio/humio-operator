@@ -27,6 +27,7 @@ import (
 	humioapi "github.com/humio/cli/api"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -41,6 +42,7 @@ import (
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 
+	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
 	//+kubebuilder:scaffold:imports
@@ -59,6 +61,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(humiov1alpha1.AddToScheme(scheme))
+	utilruntime.Must(corev1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -190,6 +193,13 @@ func main() {
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioAlert")
+		os.Exit(1)
+	}
+	if err = (&controllers.HumioViewTokenReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HumioViewToken")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

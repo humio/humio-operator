@@ -1,0 +1,12 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioViewToken
+metadata:
+  labels:
+    app.kubernetes.io/name: humioviewtoken
+    app.kubernetes.io/instance: humioviewtoken-sample
+    app.kubernetes.io/part-of: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: humio-operator
+  name: humioviewtoken-sample
+spec:
+  # TODO(user): Add fields here
