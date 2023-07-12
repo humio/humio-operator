@@ -35,7 +35,7 @@ type ClusterInterface interface {
 	Url(context.Context, client.Client) (*url.URL, error)
 	Name() string
 	Config() *humioapi.Config
-	constructHumioConfig(context.Context, client.Client, bool) (*humioapi.Config, error)
+	constructHumioConfig(context.Context, client.Client, bool, bool) (*humioapi.Config, error)
 }
 
 type Cluster struct {
@@ -44,10 +44,11 @@ type Cluster struct {
 	namespace           string
 	certManagerEnabled  bool
 	withAPIToken        bool
+	withBootstrapToken  bool
 	humioConfig         *humioapi.Config
 }
 
-func NewCluster(ctx context.Context, k8sClient client.Client, managedClusterName, externalClusterName, namespace string, certManagerEnabled bool, withAPIToken bool) (ClusterInterface, error) {
+func NewCluster(ctx context.Context, k8sClient client.Client, managedClusterName, externalClusterName, namespace string, certManagerEnabled bool, withAPIToken bool, withBootstrapToken bool) (ClusterInterface, error) {
 	// Return error immediately if we do not have exactly one of the cluster names configured
 	if managedClusterName != "" && externalClusterName != "" {
 		return nil, fmt.Errorf("cannot have both ManagedClusterName and ExternalClusterName set at the same time")
@@ -64,9 +65,10 @@ func NewCluster(ctx context.Context, k8sClient client.Client, managedClusterName
 		namespace:           namespace,
 		certManagerEnabled:  certManagerEnabled,
 		withAPIToken:        withAPIToken,
+		withBootstrapToken:  withBootstrapToken,
 	}
 
-	humioConfig, err := cluster.constructHumioConfig(ctx, k8sClient, withAPIToken)
+	humioConfig, err := cluster.constructHumioConfig(ctx, k8sClient, withAPIToken, withBootstrapToken)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +131,7 @@ func (c Cluster) Config() *humioapi.Config {
 }
 
 // constructHumioConfig returns a config to use with Humio API client with the necessary CA and API token.
-func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Client, withAPIToken bool) (*humioapi.Config, error) {
+func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Client, withAPIToken bool, withBootstrapToken bool) (*humioapi.Config, error) {
 	if c.managedClusterName != "" {
 		// Lookup ManagedHumioCluster resource to figure out if we expect to use TLS or not
 		var humioManagedCluster humiov1alpha1.HumioCluster
@@ -159,9 +161,27 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 				Name:      fmt.Sprintf("%s-%s", c.managedClusterName, kubernetes.ServiceTokenSecretNameSuffix),
 			}, &apiToken)
 			if err != nil {
-				return nil, fmt.Errorf("unable to get secret containing api token: %w", err)
+				return nil, fmt.Errorf("unable to get admin secret containing api token: %w", err)
 			}
 			config.Token = string(apiToken.Data["token"])
+		}
+
+		var bootstrapToken corev1.Secret
+		if withBootstrapToken {
+			// Get API token
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Namespace: c.namespace,
+				//Name:      fmt.Sprintf("%s-%s", c.managedClusterName, kubernetes.ServiceTokenSecretNameSuffix),
+				// TODO: pass in BootstrapTokenSuffix
+				Name: fmt.Sprintf("%s-bootstrap-token", c.managedClusterName),
+			}, &bootstrapToken)
+			if err != nil {
+				return nil, fmt.Errorf("unable to get bootstrap secret containing api token: %w", err)
+			}
+			if _, ok := bootstrapToken.Data["secret"]; !ok {
+				return nil, fmt.Errorf("unable to get bootstrap secret containing api token. secret does not contain key named \"secret\"")
+			}
+			config.Token = fmt.Sprintf("localroot~%s", string(bootstrapToken.Data["secret"]))
 		}
 
 		// If we do not use TLS, return a client without CA certificate

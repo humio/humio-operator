@@ -40,6 +40,7 @@ type ClientMock struct {
 	OnPremLicense humioapi.OnPremLicense
 	Action        humioapi.Action
 	Alert         humioapi.Alert
+	User          humioapi.User
 }
 
 type MockClientConfig struct {
@@ -58,6 +59,7 @@ func NewMockClient(cluster humioapi.Cluster, clusterError error) *MockClientConf
 			OnPremLicense: humioapi.OnPremLicense{},
 			Action:        humioapi.Action{},
 			Alert:         humioapi.Alert{},
+			User:          humioapi.User{},
 		},
 	}
 
@@ -301,4 +303,29 @@ func (h *MockClientConfig) ClearHumioClientConnections() {
 	h.apiClient.OnPremLicense = humioapi.OnPremLicense{}
 	h.apiClient.Action = humioapi.Action{}
 	h.apiClient.Alert = humioapi.Alert{}
+}
+
+func (h *MockClientConfig) ListAllHumioUsersSingleOrg(config *humioapi.Config, req reconcile.Request) ([]user, error) {
+	return []user{}, nil
+}
+
+func (h *MockClientConfig) ListAllHumioUsersMultiOrg(config *humioapi.Config, req reconcile.Request, username string, organization string) ([]OrganizationSearchResultEntry, error) {
+	return []OrganizationSearchResultEntry{}, nil
+}
+
+func (h *MockClientConfig) ExtractExistingHumioAdminUserID(config *humioapi.Config, req reconcile.Request, organizationMode string, username string, organization string) (string, error) {
+	return "", nil
+}
+
+func (h *MockClientConfig) RotateUserApiTokenAndGet(config *humioapi.Config, req reconcile.Request, userID string) (string, error) {
+	return "", nil
+}
+
+func (h *MockClientConfig) AddUser(config *humioapi.Config, req reconcile.Request, username string, isRoot bool) (*humioapi.User, error) {
+	h.apiClient.User = humioapi.User{
+		ID:       "id",
+		Username: username,
+		IsRoot:   isRoot,
+	}
+	return &h.apiClient.User, nil
 }

@@ -7,12 +7,6 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.6.2
   creationTimestamp: null
   name: humiobootstraptokens.core.humio.com
-  labels:
-    app: 'humio-operator'
-    app.kubernetes.io/name: 'humio-operator'
-    app.kubernetes.io/instance: 'humio-operator'
-    app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.19.0'
 spec:
   group: core.humio.com
   names:
@@ -57,6 +51,7 @@ spec:
               hashedTokenSecret:
                 properties:
                   createIfMissing:
+                    description: 'TODO: maybe remove CreateIfMissing'
                     type: boolean
                   secretKeyRef:
                     description: SecretKeySelector selects a key of a Secret.
@@ -76,17 +71,19 @@ spec:
                     required:
                     - key
                     type: object
-                required:
-                - createIfMissing
                 type: object
               image:
                 type: string
               managedClusterName:
-                description: ManagedClusterName
+                description: 'TODO: determine if we even want to reference the cluster
+                  here ManagedClusterName'
                 type: string
               tokenSecret:
                 properties:
                   createIfMissing:
+                    description: 'TODO: we could clean this up by removing the "CreateIfMissing"
+                      and in docs explain if you want to use your own secret then
+                      create the secret before the bootstraptoken resource'
                     type: boolean
                   secretKeyRef:
                     description: SecretKeySelector selects a key of a Secret.
@@ -106,13 +103,15 @@ spec:
                     required:
                     - key
                     type: object
-                required:
-                - createIfMissing
                 type: object
             type: object
           status:
             properties:
               created:
+                description: TODO set the status. This is used by the HumioCluster
+                  resource to get the secret reference and load the secret. We don't
+                  want to rely on the spec here as the spec could be empty. Or do
+                  we want to
                 type: boolean
               hashedTokenSecretStatus:
                 properties:
