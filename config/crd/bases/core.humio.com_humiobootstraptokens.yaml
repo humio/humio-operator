@@ -5,12 +5,6 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
   name: humiobootstraptokens.core.humio.com
-  labels:
-    app: 'humio-operator'
-    app.kubernetes.io/name: 'humio-operator'
-    app.kubernetes.io/instance: 'humio-operator'
-    app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.24.0'
 spec:
   group: core.humio.com
   names:
@@ -60,6 +54,7 @@ spec:
               hashedTokenSecret:
                 properties:
                   createIfMissing:
+                    description: 'TODO: maybe remove CreateIfMissing'
                     type: boolean
                   secretKeyRef:
                     description: SecretKeySelector selects a key of a Secret.
@@ -82,44 +77,20 @@ spec:
                     - key
                     type: object
                     x-kubernetes-map-type: atomic
-                required:
-                - createIfMissing
-                type: object
-              image:
-                type: string
-              hashedTokenSecret:
-                properties:
-                  createIfMissing:
-                    type: boolean
-                  secretKeyRef:
-                    description: SecretKeySelector selects a key of a Secret.
-                    properties:
-                      key:
-                        description: The key of the secret to select from.  Must be
-                          a valid secret key.
-                        type: string
-                      name:
-                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?'
-                        type: string
-                      optional:
-                        description: Specify whether the Secret or its key must be
-                          defined
-                        type: boolean
-                    required:
-                    - key
-                    type: object
-                required:
-                - createIfMissing
                 type: object
               image:
                 type: string
               managedClusterName:
-                description: ManagedClusterName
+                description: |-
+                  TODO: determine if we even want to reference the cluster here
+                  ManagedClusterName
                 type: string
               tokenSecret:
                 properties:
                   createIfMissing:
+                    description: |-
+                      TODO: we could clean this up by removing the "CreateIfMissing" and in docs explain if you want to use your own secret
+                      then create the secret before the bootstraptoken resource
                     type: boolean
                   secretKeyRef:
                     description: SecretKeySelector selects a key of a Secret.
@@ -142,13 +113,14 @@ spec:
                     - key
                     type: object
                     x-kubernetes-map-type: atomic
-                required:
-                - createIfMissing
                 type: object
             type: object
           status:
             properties:
               created:
+                description: |-
+                  TODO set the status. This is used by the HumioCluster resource to get the secret reference and load the secret. We don't want to rely on the spec
+                  here as the spec could be empty. Or do we want to
                 type: boolean
               hashedTokenSecretStatus:
                 properties:

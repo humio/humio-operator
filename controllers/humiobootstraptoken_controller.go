@@ -105,6 +105,35 @@ func (r *HumioBootstrapTokenReconciler) Reconcile(ctx context.Context, req ctrl.
 		return reconcile.Result{}, err
 	}
 
+	if err := r.Get(ctx, req.NamespacedName, hbt); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// TODO: rather than status, should we set a default in the spec instead?
+	hbt.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
+		SecretKeyRef: &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: fmt.Sprintf("%s-bootstrap-token", hbt.Name),
+			},
+			Key: "secret",
+		},
+	}
+	hbt.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
+		SecretKeyRef: &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: fmt.Sprintf("%s-bootstrap-token", hbt.Name),
+			},
+			Key: "hashedToken",
+		},
+	}
+	if err := r.Client.Status().Update(ctx, hbt); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// TODO: take code from images/helper/main.go and use "secret" to create an admin user and store the token in a k8s secret. Update the
+	// HumioBootstrapToken Status to also include the admin token.
+	// Alternatively, the creation of the admin user could be handled by the humiocluster controller. Perhaps that is a better place for it?
+
 	return reconcile.Result{RequeueAfter: time.Second * 60}, nil
 }
 
@@ -207,12 +236,14 @@ func (r *HumioBootstrapTokenReconciler) deletePod(ctx context.Context, hbt *humi
 		Namespace: pod.Namespace,
 		Name:      pod.Name,
 	}, existingPod); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			r.Log.Info("deleting onetime pod")
-			if err := r.Delete(ctx, pod); err != nil {
-				return r.logErrorAndReturn(err, "could not delete pod")
-			}
+		if k8serrors.IsNotFound(err) {
+			return nil
 		}
+		return r.logErrorAndReturn(err, "could not delete pod")
+	}
+	r.Log.Info("deleting onetime pod")
+	if err := r.Delete(ctx, pod); err != nil {
+		return r.logErrorAndReturn(err, "could not delete pod")
 	}
 	return nil
 }
@@ -263,6 +294,13 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 	if err != nil {
 		return r.logErrorAndReturn(err, "could not get bootstrap token secret")
 	}
+
+	defer func(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, hc *humiov1alpha1.HumioCluster) {
+		if err := r.deletePod(ctx, hbt, hc); err != nil {
+			r.Log.Error(err, "failed to delete pod")
+		}
+	}(ctx, hbt, hc)
+
 	// TODO: make tokenHash constant
 	if _, ok := bootstrapTokenSecret.Data["hashedToken"]; ok {
 		return nil
@@ -281,12 +319,6 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 
 	// TODO: wait for pod to start
 	time.Sleep(time.Second * 10)
-
-	defer func(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, hc *humiov1alpha1.HumioCluster) {
-		if err := r.deletePod(ctx, hbt, hc); err != nil {
-			r.Log.Error(err, "failed to delete pod")
-		}
-	}(ctx, hbt, hc)
 
 	r.Log.Info("execing onetime pod")
 	output, err := r.execCommand(pod, commandArgs)

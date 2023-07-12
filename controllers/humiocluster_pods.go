@@ -41,7 +41,6 @@ import (
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -53,10 +52,10 @@ const (
 )
 
 type podAttachments struct {
-	dataVolumeSource             corev1.VolumeSource
-	initServiceAccountSecretName string
-	authServiceAccountSecretName string
-	envVarSourceData             *map[string]string
+	dataVolumeSource              corev1.VolumeSource
+	initServiceAccountSecretName  string
+	envVarSourceData              *map[string]string
+	bootstrapTokenSecretReference *corev1.SecretKeySelector
 }
 
 // ConstructContainerArgs returns the container arguments for the Humio pods. We want to grab a UUID from zookeeper
@@ -105,96 +104,6 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 			Subdomain:             headlessServiceName(hnp.GetClusterName()),
 			Hostname:              humioNodeName,
 			Containers: []corev1.Container{
-				{
-					Name:            AuthContainerName,
-					Image:           hnp.GetHelperImage(),
-					ImagePullPolicy: hnp.GetImagePullPolicy(),
-					Env: []corev1.EnvVar{
-						{
-							Name: "NAMESPACE",
-							ValueFrom: &corev1.EnvVarSource{
-								FieldRef: &corev1.ObjectFieldSelector{
-									APIVersion: "v1",
-									FieldPath:  "metadata.namespace",
-								},
-							},
-						},
-						{
-							Name: "POD_NAME",
-							ValueFrom: &corev1.EnvVarSource{
-								FieldRef: &corev1.ObjectFieldSelector{
-									APIVersion: "v1",
-									FieldPath:  "metadata.name",
-								},
-							},
-						},
-						{
-							Name:  "MODE",
-							Value: "auth",
-						},
-						{
-							Name:  "ADMIN_SECRET_NAME_SUFFIX",
-							Value: kubernetes.ServiceTokenSecretNameSuffix,
-						},
-						{
-							Name:  "CLUSTER_NAME",
-							Value: hnp.GetClusterName(),
-						},
-						{
-							Name:  "HUMIO_NODE_URL",
-							Value: fmt.Sprintf("%s://$(POD_NAME):%d/", strings.ToLower(string(hnp.GetProbeScheme())), HumioPort),
-						},
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "humio-data",
-							MountPath: HumioDataPath,
-							ReadOnly:  true,
-						},
-						{
-							Name:      "auth-service-account-secret",
-							MountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
-							ReadOnly:  true,
-						},
-					},
-					ReadinessProbe: &corev1.Probe{
-						FailureThreshold: 3,
-						ProbeHandler: corev1.ProbeHandler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path:   "/",
-								Port:   intstr.IntOrString{IntVal: 8180},
-								Scheme: corev1.URISchemeHTTP,
-							},
-						},
-						PeriodSeconds:    10,
-						SuccessThreshold: 1,
-						TimeoutSeconds:   1,
-					},
-					LivenessProbe: &corev1.Probe{
-						FailureThreshold: 3,
-						ProbeHandler: corev1.ProbeHandler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path:   "/",
-								Port:   intstr.IntOrString{IntVal: 8180},
-								Scheme: corev1.URISchemeHTTP,
-							},
-						},
-						PeriodSeconds:    10,
-						SuccessThreshold: 1,
-						TimeoutSeconds:   1,
-					},
-					Resources: corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{
-							corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
-							corev1.ResourceMemory: *resource.NewQuantity(750*1024*1024, resource.BinarySI),
-						},
-						Requests: corev1.ResourceList{
-							corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
-							corev1.ResourceMemory: *resource.NewQuantity(150*1024*1024, resource.BinarySI),
-						},
-					},
-					SecurityContext: hnp.GetContainerSecurityContext(),
-				},
 				{
 					Name:            HumioContainerName,
 					Image:           hnp.GetImage(),
@@ -245,15 +154,6 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 					Name:         "tmp",
 					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 				},
-				{
-					Name: "auth-service-account-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName:  attachments.authServiceAccountSecretName,
-							DefaultMode: &mode,
-						},
-					},
-				},
 			},
 			Affinity:                      hnp.GetAffinity(),
 			Tolerations:                   hnp.GetTolerations(),
@@ -285,6 +185,9 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 			pod.Annotations[envVarSourceHashAnnotation] = helpers.AsSHA256(string(b))
 		}
 	}
+
+	// TODO: restart pods when bootstrap token changes?
+	//attachments.bootstrapTokenSecretReference.Key
 
 	if EnvVarHasValue(pod.Spec.Containers[humioIdx].Env, "AUTHENTICATION_METHOD", "saml") {
 		pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
@@ -373,6 +276,15 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 					SecretName:  attachments.initServiceAccountSecretName,
 					DefaultMode: &mode,
 				},
+			},
+		})
+	}
+
+	if attachments.bootstrapTokenSecretReference != nil {
+		pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
+			Name: "BOOTSTRAP_ROOT_TOKEN_HASHED",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: attachments.bootstrapTokenSecretReference,
 			},
 		})
 	}
@@ -528,19 +440,6 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 			MountPath: "/var/lib/humio/tls-certificate-secret",
 		})
 
-		// Configuration specific to auth container
-		authIdx, err := kubernetes.GetContainerIndexByName(pod, AuthContainerName)
-		if err != nil {
-			return &corev1.Pod{}, err
-		}
-		// We mount in the certificate on top of default system root certs so auth container automatically uses it:
-		// https://golang.org/src/crypto/x509/root_linux.go
-		pod.Spec.Containers[authIdx].VolumeMounts = append(pod.Spec.Containers[authIdx].VolumeMounts, corev1.VolumeMount{
-			Name:      "ca-cert",
-			ReadOnly:  true,
-			MountPath: "/etc/pki/tls",
-		})
-
 		// Common configuration for all containers
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 			Name: "tls-cert",
@@ -572,17 +471,6 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 	priorityClassName := hnp.GetPriorityClassName()
 	if priorityClassName != "" {
 		pod.Spec.PriorityClassName = priorityClassName
-	}
-
-	if EnvVarHasValue(pod.Spec.Containers[humioIdx].Env, "ENABLE_ORGANIZATIONS", "true") && EnvVarHasKey(pod.Spec.Containers[humioIdx].Env, "ORGANIZATION_MODE") {
-		authIdx, err := kubernetes.GetContainerIndexByName(pod, AuthContainerName)
-		if err != nil {
-			return &corev1.Pod{}, err
-		}
-		pod.Spec.Containers[authIdx].Env = append(pod.Spec.Containers[authIdx].Env, corev1.EnvVar{
-			Name:  "ORGANIZATION_MODE",
-			Value: EnvVarValue(pod.Spec.Containers[humioIdx].Env, "ORGANIZATION_MODE"),
-		})
 	}
 
 	containerArgs, err := ConstructContainerArgs(hnp, pod.Spec.Containers[humioIdx].Env)
@@ -660,17 +548,6 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 				}
 			}
 			container.Env = sanitizedEnvVars
-		} else if container.Name == AuthContainerName {
-			for _, envVar := range container.Env {
-				if envVar.Name == "HUMIO_NODE_URL" {
-					sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
-						Name:  "HUMIO_NODE_URL",
-						Value: fmt.Sprintf("%s://%s-core-%s.%s:%d/", strings.ToLower(string(hnp.GetProbeScheme())), hnp.GetNodePoolName(), "", hnp.GetNamespace(), HumioPort),
-					})
-				} else {
-					sanitizedEnvVars = append(sanitizedEnvVars, envVar)
-				}
-			}
 		} else {
 			sanitizedEnvVars = container.Env
 		}
@@ -1046,18 +923,10 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 	if volumeSource.PersistentVolumeClaim != nil {
 		pvcClaimNamesInUse[volumeSource.PersistentVolumeClaim.ClaimName] = struct{}{}
 	}
-	authSASecretName, err := r.getAuthServiceAccountSecretName(ctx, hnp)
-	if err != nil {
-		return &podAttachments{}, fmt.Errorf("unable get auth service account secret for HumioCluster: %w", err)
 
-	}
-	if authSASecretName == "" {
-		return &podAttachments{}, errors.New("unable to create Pod for HumioCluster: the auth service account secret does not exist")
-	}
 	if hnp.InitContainerDisabled() {
 		return &podAttachments{
-			dataVolumeSource:             volumeSource,
-			authServiceAccountSecretName: authSASecretName,
+			dataVolumeSource: volumeSource,
 		}, nil
 	}
 
@@ -1074,11 +943,25 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster: %w", err)
 	}
 
+	key := types.NamespacedName{
+		Namespace: hnp.GetNamespace(),
+		Name:      hnp.GetBootstrapTokenName(),
+	}
+	hbt := &humiov1alpha1.HumioBootstrapToken{}
+	err = r.Client.Get(ctx, key, hbt)
+	if err != nil {
+		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster: %w", err)
+	}
+
+	if hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef == nil {
+		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster: %w", fmt.Errorf("bootstraptoken %s does not contain a status for the hashed token secret reference", hnp.GetBootstrapTokenName()))
+	}
+
 	return &podAttachments{
-		dataVolumeSource:             volumeSource,
-		initServiceAccountSecretName: initSASecretName,
-		authServiceAccountSecretName: authSASecretName,
-		envVarSourceData:             envVarSourceData,
+		dataVolumeSource:              volumeSource,
+		initServiceAccountSecretName:  initSASecretName,
+		envVarSourceData:              envVarSourceData,
+		bootstrapTokenSecretReference: hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef,
 	}, nil
 }
 

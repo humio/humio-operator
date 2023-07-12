@@ -44,7 +44,6 @@ const (
 	ViewGroupPermissionsFilename = "view-group-permissions.json"
 	RolePermissionsFilename      = "role-permissions.json"
 	HumioContainerName           = "humio"
-	AuthContainerName            = "humio-auth"
 	InitContainerName            = "humio-init"
 
 	// cluster-wide resources:
@@ -55,10 +54,6 @@ const (
 	HumioServiceAccountNameSuffix           = "humio"
 	initServiceAccountNameSuffix            = "init"
 	initServiceAccountSecretNameIdentifier  = "init"
-	authServiceAccountNameSuffix            = "auth"
-	authServiceAccountSecretNameIdentifier  = "auth"
-	authRoleSuffix                          = "auth"
-	authRoleBindingSuffix                   = "auth"
 	extraKafkaConfigsConfigMapNameSuffix    = "extra-kafka-configs"
 	viewGroupPermissionsConfigMapNameSuffix = "view-group-permissions"
 	rolePermissionsConfigMapNameSuffix      = "role-permissions"
@@ -102,7 +97,6 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			DataVolumePersistentVolumeClaimSpecTemplate: hc.Spec.DataVolumePersistentVolumeClaimSpecTemplate,
 			DataVolumePersistentVolumeClaimPolicy:       hc.Spec.DataVolumePersistentVolumeClaimPolicy,
 			DataVolumeSource:                            hc.Spec.DataVolumeSource,
-			AuthServiceAccountName:                      hc.Spec.AuthServiceAccountName,
 			DisableInitContainer:                        hc.Spec.DisableInitContainer,
 			EnvironmentVariablesSource:                  hc.Spec.EnvironmentVariablesSource,
 			PodAnnotations:                              hc.Spec.PodAnnotations,
@@ -164,7 +158,6 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			NodeCount: hnp.NodeCount,
 			DataVolumePersistentVolumeClaimSpecTemplate: hnp.DataVolumePersistentVolumeClaimSpecTemplate,
 			DataVolumeSource:               hnp.DataVolumeSource,
-			AuthServiceAccountName:         hnp.AuthServiceAccountName,
 			DisableInitContainer:           hnp.DisableInitContainer,
 			EnvironmentVariablesSource:     hnp.EnvironmentVariablesSource,
 			PodAnnotations:                 hnp.PodAnnotations,
@@ -306,6 +299,10 @@ func (hnp *HumioNodePool) GetHumioClusterNodePoolRevisionAnnotation() (string, i
 
 func (hnp *HumioNodePool) GetIngress() humiov1alpha1.HumioClusterIngressSpec {
 	return hnp.ingress
+}
+
+func (hnp HumioNodePool) GetBootstrapTokenName() string {
+	return hnp.clusterName
 }
 
 func (hnp *HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
@@ -502,11 +499,7 @@ func (hnp *HumioNodePool) GetPodAnnotations() map[string]string {
 	return hnp.humioNodeSpec.PodAnnotations
 }
 
-func (hnp *HumioNodePool) GetAuthServiceAccountSecretName() string {
-	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), authServiceAccountSecretNameIdentifier)
-}
-
-func (hnp *HumioNodePool) GetInitServiceAccountSecretName() string {
+func (hnp HumioNodePool) GetInitServiceAccountSecretName() string {
 	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), initServiceAccountSecretNameIdentifier)
 }
 
@@ -521,31 +514,12 @@ func (hnp *HumioNodePool) InitServiceAccountIsSetByUser() bool {
 	return hnp.humioNodeSpec.InitServiceAccountName != ""
 }
 
-func (hnp *HumioNodePool) GetAuthServiceAccountName() string {
-	if hnp.humioNodeSpec.AuthServiceAccountName != "" {
-		return hnp.humioNodeSpec.AuthServiceAccountName
-	}
-	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), authServiceAccountNameSuffix)
-}
-
-func (hnp *HumioNodePool) AuthServiceAccountIsSetByUser() bool {
-	return hnp.humioNodeSpec.AuthServiceAccountName != ""
-}
-
 func (hnp *HumioNodePool) GetInitClusterRoleName() string {
 	return fmt.Sprintf("%s-%s-%s", hnp.GetNamespace(), hnp.GetNodePoolName(), initClusterRoleSuffix)
 }
 
 func (hnp *HumioNodePool) GetInitClusterRoleBindingName() string {
 	return fmt.Sprintf("%s-%s-%s", hnp.GetNamespace(), hnp.GetNodePoolName(), initClusterRoleBindingSuffix)
-}
-
-func (hnp *HumioNodePool) GetAuthRoleName() string {
-	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), authRoleSuffix)
-}
-
-func (hnp *HumioNodePool) GetAuthRoleBindingName() string {
-	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), authRoleBindingSuffix)
 }
 
 func (hnp *HumioNodePool) GetShareProcessNamespace() *bool {

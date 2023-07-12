@@ -30,6 +30,7 @@ const (
 
 // HumioBootstrapTokenSpec defines the bootstrap token that Humio will use to bootstrap authentication
 type HumioBootstrapTokenSpec struct {
+	// TODO: determine if we even want to reference the cluster here
 	// ManagedClusterName
 	ManagedClusterName string `json:"managedClusterName,omitempty"`
 	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
@@ -42,16 +43,21 @@ type HumioBootstrapTokenSpec struct {
 }
 
 type HumioTokenSecretSpec struct {
-	CreateIfMissing *bool                     `json:"createIfMissing"`
+	// TODO: we could clean this up by removing the "CreateIfMissing" and in docs explain if you want to use your own secret
+	// then create the secret before the bootstraptoken resource
+	CreateIfMissing *bool                     `json:"createIfMissing,omitempty"`
 	SecretKeyRef    *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 type HumioHashedTokenSecretSpec struct {
-	CreateIfMissing *bool                     `json:"createIfMissing"`
+	// TODO: maybe remove CreateIfMissing
+	CreateIfMissing *bool                     `json:"createIfMissing,omitempty"`
 	SecretKeyRef    *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 type HumioBootstrapTokenStatus struct {
+	// TODO set the status. This is used by the HumioCluster resource to get the secret reference and load the secret. We don't want to rely on the spec
+	// here as the spec could be empty. Or do we want to
 	Created                 bool                         `json:"created,omitempty"`
 	TokenSecretKeyRef       HumioTokenSecretStatus       `json:"tokenSecretStatus,omitempty"`
 	HashedTokenSecretKeyRef HumioHashedTokenSecretStatus `json:"hashedTokenSecretStatus,omitempty"`

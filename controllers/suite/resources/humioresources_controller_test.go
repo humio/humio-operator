@@ -673,7 +673,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioExternalClusterSpec{
 					Url:                fmt.Sprintf("%s://%s.%s:8080/", protocol, clusterKey.Name, clusterKey.Namespace),
-					APITokenSecretName: fmt.Sprintf("%s-admin-token", clusterKey.Name),
+					APITokenSecretName: fmt.Sprintf("%s-bootstrap-token", clusterKey.Name),
 				},
 			}
 

@@ -19,11 +19,12 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -79,7 +80,7 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 	}
 
-	cluster, err := helpers.NewCluster(ctx, r, "", hec.Name, hec.Namespace, helpers.UseCertManager(), true)
+	cluster, err := helpers.NewCluster(ctx, r, "", hec.Name, hec.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster.Config() == nil {
 		return reconcile.Result{}, r.logErrorAndReturn(fmt.Errorf("unable to obtain humio client config: %w", err), "unable to obtain humio client config")
 	}

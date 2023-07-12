@@ -27,8 +27,9 @@ import (
 )
 
 const (
-	ServiceTokenSecretNameSuffix = "admin-token"
-	SecretNameLabelName          = "humio.com/secret-identifier" // #nosec G101
+	ServiceTokenSecretNameSuffix   = "admin-token"
+	BootstrapTokenSecretNameSuffix = "bootstrap-token"
+	SecretNameLabelName            = "humio.com/secret-identifier" // #nosec G101
 )
 
 // LabelsForSecret returns a map of labels which contains a common set of labels and additional user-defined secret labels.

@@ -20,9 +20,10 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
-	"github.com/humio/humio-operator/pkg/helpers"
 	"net/url"
 	"sync"
+
+	"github.com/humio/humio-operator/pkg/helpers"
 
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -59,6 +60,8 @@ type ClientMock struct {
 	FilterAlert     map[resourceKey]humioapi.FilterAlert
 	AggregateAlert  map[resourceKey]humioapi.AggregateAlert
 	ScheduledSearch map[resourceKey]humioapi.ScheduledSearch
+
+	User humioapi.User
 }
 
 type MockClientConfig struct {
@@ -80,6 +83,8 @@ func NewMockClient() *MockClientConfig {
 			FilterAlert:     make(map[resourceKey]humioapi.FilterAlert),
 			AggregateAlert:  make(map[resourceKey]humioapi.AggregateAlert),
 			ScheduledSearch: make(map[resourceKey]humioapi.ScheduledSearch),
+
+			User: humioapi.User{},
 		},
 	}
 
@@ -964,4 +969,29 @@ func (h *MockClientConfig) searchDomainNameExists(clusterName, searchDomainName 
 	}
 
 	return false
+}
+
+func (h *MockClientConfig) ListAllHumioUsersSingleOrg(config *humioapi.Config, req reconcile.Request) ([]user, error) {
+	return []user{}, nil
+}
+
+func (h *MockClientConfig) ListAllHumioUsersMultiOrg(config *humioapi.Config, req reconcile.Request, username string, organization string) ([]OrganizationSearchResultEntry, error) {
+	return []OrganizationSearchResultEntry{}, nil
+}
+
+func (h *MockClientConfig) ExtractExistingHumioAdminUserID(config *humioapi.Config, req reconcile.Request, organizationMode string, username string, organization string) (string, error) {
+	return "", nil
+}
+
+func (h *MockClientConfig) RotateUserApiTokenAndGet(config *humioapi.Config, req reconcile.Request, userID string) (string, error) {
+	return "", nil
+}
+
+func (h *MockClientConfig) AddUser(config *humioapi.Config, req reconcile.Request, username string, isRoot bool) (*humioapi.User, error) {
+	h.apiClient.User = humioapi.User{
+		ID:       "id",
+		Username: username,
+		IsRoot:   isRoot,
+	}
+	return &h.apiClient.User, nil
 }
