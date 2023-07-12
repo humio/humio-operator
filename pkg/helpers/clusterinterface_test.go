@@ -152,8 +152,18 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 					Name:      fmt.Sprintf("%s-admin-token", tt.managedHumioCluster.Name),
 					Namespace: tt.managedHumioCluster.Namespace,
 				},
-				StringData: map[string]string{
-					"token": "secret-api-token",
+				Data: map[string][]byte{
+					"token": []byte("secret-api-token"),
+				},
+			}
+			bootstrapTokenSecret := corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-bootstrap-token", tt.managedHumioCluster.Name),
+					Namespace: tt.managedHumioCluster.Namespace,
+				},
+				Data: map[string][]byte{
+					"hashedToken": []byte("hashed-token"),
+					"secret":      []byte("secret-api-token"),
 				},
 			}
 			caCertificateSecret := corev1.Secret{
@@ -168,6 +178,7 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 			objs := []runtime.Object{
 				&tt.managedHumioCluster,
 				&apiTokenSecret,
+				&bootstrapTokenSecret,
 				&caCertificateSecret,
 			}
 			// Register operator types with the runtime scheme.
@@ -176,7 +187,7 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 
 			cl := fake.NewClientBuilder().WithRuntimeObjects(objs...).Build()
 
-			cluster, err := NewCluster(context.Background(), cl, tt.managedHumioCluster.Name, "", tt.managedHumioCluster.Namespace, tt.certManagerEnabled, true)
+			cluster, err := NewCluster(context.Background(), cl, tt.managedHumioCluster.Name, "", tt.managedHumioCluster.Namespace, tt.certManagerEnabled, true, false)
 			if err != nil || cluster.Config() == nil {
 				t.Errorf("unable to obtain humio client config: %s", err)
 			}
@@ -338,7 +349,7 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			apiTokenSecretName := tt.externalHumioCluster.Spec.APITokenSecretName
 			if apiTokenSecretName == "" {
-				apiTokenSecretName = fmt.Sprintf("%s-unspecified-api-token", tt.externalHumioCluster.Name)
+				apiTokenSecretName = fmt.Sprintf("%s-unspecified-admin-token", tt.externalHumioCluster.Name)
 			}
 			apiTokenSecret := corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -373,7 +384,7 @@ func TestCluster_HumioConfig_externalHumioCluster(t *testing.T) {
 
 			cl := fake.NewClientBuilder().WithRuntimeObjects(objs...).Build()
 
-			cluster, err := NewCluster(context.Background(), cl, "", tt.externalHumioCluster.Name, tt.externalHumioCluster.Namespace, false, true)
+			cluster, err := NewCluster(context.Background(), cl, "", tt.externalHumioCluster.Name, tt.externalHumioCluster.Namespace, false, true, false)
 			if tt.expectedConfigFailure && (err == nil) {
 				t.Errorf("unable to get a valid config: %s", err)
 			}
@@ -483,8 +494,9 @@ func TestCluster_NewCluster(t *testing.T) {
 					Name:      "managed-admin-token",
 					Namespace: "default",
 				},
-				StringData: map[string]string{
-					"token": "secret-api-token",
+				Data: map[string][]byte{
+					"hashedToken": []byte("secret-api-token"),
+					"secret":      []byte("secret-api-token"),
 				},
 			}
 
@@ -500,7 +512,7 @@ func TestCluster_NewCluster(t *testing.T) {
 
 			cl := fake.NewClientBuilder().WithRuntimeObjects(objs...).Build()
 
-			_, err := NewCluster(context.Background(), cl, tt.managedClusterName, tt.externalClusterName, tt.namespace, false, true)
+			_, err := NewCluster(context.Background(), cl, tt.managedClusterName, tt.externalClusterName, tt.namespace, false, true, false)
 			if tt.expectError == (err == nil) {
 				t.Fatalf("expectError: %+v but got=%+v", tt.expectError, err)
 			}

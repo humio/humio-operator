@@ -35,6 +35,7 @@ func (b *HumioBootstrapTokenConfig) hashedBootstrapTokenName() string {
 	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, HashedBootstrapTokenSuffix)
 }
 
+// TODO: remove this?
 func (b *HumioBootstrapTokenConfig) tokenSecretCreateIfMissing() bool {
 	if b.BootstrapToken.Spec.TokenSecret.CreateIfMissing != nil {
 		return *b.BootstrapToken.Spec.TokenSecret.CreateIfMissing
