@@ -68,7 +68,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	// your API definition.
 	// Avoid adding tests for vanilla CRUD operations because they would
 	// test Kubernetes API server, which isn't the goal here.
-	Context("Humio Cluster Simple", func() {
+	FContext("Humio Cluster Simple", func() {
 		It("Should bootstrap cluster correctly", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-simple",
@@ -1239,18 +1239,6 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 
-			suite.UsingClusterBy(key.Name, "Validating pod uses default helper image as auth sidecar container")
-			Eventually(func() string {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-				_ = suite.MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
-
-				for _, pod := range clusterPods {
-					authIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.AuthContainerName)
-					return pod.Spec.InitContainers[authIdx].Image
-				}
-				return ""
-			}, testTimeout, suite.TestInterval).Should(Equal(controllers.HelperImage))
-
 			suite.UsingClusterBy(key.Name, "Overriding helper image")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			customHelperImage := "humio/humio-operator-helper:master"
@@ -1272,16 +1260,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				for _, pod := range clusterPods {
 					initIdx, _ := kubernetes.GetInitContainerIndexByName(pod, controllers.InitContainerName)
 					return pod.Spec.InitContainers[initIdx].Image
-				}
-				return ""
-			}, testTimeout, suite.TestInterval).Should(Equal(customHelperImage))
-
-			suite.UsingClusterBy(key.Name, "Validating pod is recreated using the explicitly defined helper image as auth sidecar container")
-			Eventually(func() string {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-				for _, pod := range clusterPods {
-					authIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.AuthContainerName)
-					return pod.Spec.InitContainers[authIdx].Image
 				}
 				return ""
 			}, testTimeout, suite.TestInterval).Should(Equal(customHelperImage))
@@ -4103,7 +4081,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.InitServiceAccountName = "init-custom-service-account"
-			toCreate.Spec.AuthServiceAccountName = "auth-custom-service-account"
 			toCreate.Spec.HumioServiceAccountName = "humio-custom-service-account"
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -4130,24 +4107,6 @@ var _ = Describe("HumioCluster Controller", func() {
 					}
 				}
 			}
-			suite.UsingClusterBy(key.Name, "Confirming auth container is using the correct service account")
-			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.AuthContainerName)
-				var serviceAccountSecretVolumeName string
-				for _, volumeMount := range pod.Spec.Containers[humioIdx].VolumeMounts {
-					if volumeMount.MountPath == "/var/run/secrets/kubernetes.io/serviceaccount" {
-						serviceAccountSecretVolumeName = volumeMount.Name
-					}
-				}
-				Expect(serviceAccountSecretVolumeName).To(Not(BeEmpty()))
-				for _, volume := range pod.Spec.Volumes {
-					if volume.Name == serviceAccountSecretVolumeName {
-						secret, err := kubernetes.GetSecret(ctx, k8sClient, volume.Secret.SecretName, key.Namespace)
-						Expect(err).ShouldNot(HaveOccurred())
-						Expect(secret.ObjectMeta.Annotations[corev1.ServiceAccountNameKey]).To(Equal(toCreate.Spec.AuthServiceAccountName))
-					}
-				}
-			}
 			suite.UsingClusterBy(key.Name, "Confirming humio pod is using the correct service account")
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.ServiceAccountName).To(Equal(toCreate.Spec.HumioServiceAccountName))
@@ -4161,7 +4120,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.InitServiceAccountName = "custom-service-account"
-			toCreate.Spec.AuthServiceAccountName = "custom-service-account"
 			toCreate.Spec.HumioServiceAccountName = "custom-service-account"
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -4185,24 +4143,6 @@ var _ = Describe("HumioCluster Controller", func() {
 						secret, err := kubernetes.GetSecret(ctx, k8sClient, volume.Secret.SecretName, key.Namespace)
 						Expect(err).ShouldNot(HaveOccurred())
 						Expect(secret.ObjectMeta.Annotations[corev1.ServiceAccountNameKey]).To(Equal(toCreate.Spec.InitServiceAccountName))
-					}
-				}
-			}
-			suite.UsingClusterBy(key.Name, "Confirming auth container is using the correct service account")
-			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.AuthContainerName)
-				var serviceAccountSecretVolumeName string
-				for _, volumeMount := range pod.Spec.Containers[humioIdx].VolumeMounts {
-					if volumeMount.MountPath == "/var/run/secrets/kubernetes.io/serviceaccount" {
-						serviceAccountSecretVolumeName = volumeMount.Name
-					}
-				}
-				Expect(serviceAccountSecretVolumeName).To(Not(BeEmpty()))
-				for _, volume := range pod.Spec.Volumes {
-					if volume.Name == serviceAccountSecretVolumeName {
-						secret, err := kubernetes.GetSecret(ctx, k8sClient, volume.Secret.SecretName, key.Namespace)
-						Expect(err).ShouldNot(HaveOccurred())
-						Expect(secret.ObjectMeta.Annotations[corev1.ServiceAccountNameKey]).To(Equal(toCreate.Spec.AuthServiceAccountName))
 					}
 				}
 			}
@@ -4456,9 +4396,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				for _, pod := range clusterPods {
 					for _, container := range pod.Spec.Containers {
 						if container.Name == controllers.HumioContainerName {
-							continue
-						}
-						if container.Name == controllers.AuthContainerName {
 							continue
 						}
 						return container.Name

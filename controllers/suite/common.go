@@ -33,10 +33,6 @@ import (
 )
 
 const (
-	// apiTokenMethodAnnotationName is used to signal what mechanism was used to obtain the API token
-	apiTokenMethodAnnotationName = "humio.com/api-token-method" // #nosec G101
-	// apiTokenMethodFromAPI is used to indicate that the API token was obtained using an API call
-	apiTokenMethodFromAPI = "api"
 	// dockerUsernameEnvVar is used to login to docker when pulling images
 	dockerUsernameEnvVar = "DOCKER_USERNAME"
 	// dockerPasswordEnvVar is used to login to docker when pulling images
@@ -114,22 +110,6 @@ func CleanupCluster(ctx context.Context, k8sClient client.Client, hc *humiov1alp
 		}
 
 		serviceAccount, err := kubernetes.GetServiceAccount(ctx, k8sClient, cluster.Spec.InitServiceAccountName, cluster.Namespace)
-		if err == nil {
-			Expect(k8sClient.Delete(ctx, serviceAccount)).To(Succeed())
-		}
-	}
-	if cluster.Spec.AuthServiceAccountName != "" {
-		roleBinding, err := kubernetes.GetRoleBinding(ctx, k8sClient, cluster.Spec.AuthServiceAccountName, cluster.Namespace)
-		if err == nil {
-			Expect(k8sClient.Delete(ctx, roleBinding)).To(Succeed())
-		}
-
-		role, err := kubernetes.GetRole(ctx, k8sClient, cluster.Spec.AuthServiceAccountName, cluster.Namespace)
-		if err == nil {
-			Expect(k8sClient.Delete(ctx, role)).To(Succeed())
-		}
-
-		serviceAccount, err := kubernetes.GetServiceAccount(ctx, k8sClient, cluster.Spec.AuthServiceAccountName, cluster.Namespace)
 		if err == nil {
 			Expect(k8sClient.Delete(ctx, serviceAccount)).To(Succeed())
 		}
@@ -376,33 +356,186 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}
 	}
 
-	if cluster.Spec.AuthServiceAccountName != "" {
-		if cluster.Spec.AuthServiceAccountName != cluster.Spec.HumioServiceAccountName {
-			UsingClusterBy(key.Name, "Creating service account for auth container")
-			authServiceAccount := kubernetes.ConstructServiceAccount(cluster.Spec.AuthServiceAccountName, cluster.Namespace, map[string]string{}, map[string]string{})
-			Expect(k8sClient.Create(ctx, authServiceAccount)).To(Succeed())
-		}
-
-		UsingClusterBy(key.Name, "Creating role for auth container")
-		authRole := kubernetes.ConstructAuthRole(cluster.Spec.AuthServiceAccountName, key.Namespace, map[string]string{})
-		Expect(k8sClient.Create(ctx, authRole)).To(Succeed())
-
-		UsingClusterBy(key.Name, "Creating role binding for auth container")
-		authRoleBinding := kubernetes.ConstructRoleBinding(cluster.Spec.AuthServiceAccountName, authRole.Name, key.Namespace, cluster.Spec.AuthServiceAccountName, map[string]string{})
-		Expect(k8sClient.Create(ctx, authRoleBinding)).To(Succeed())
-	}
-
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
 		// Simulate sidecar creating the secret which contains the admin token used to authenticate with humio
 		secretData := map[string][]byte{"token": []byte("")}
-		adminTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
-		UsingClusterBy(key.Name, "Simulating the auth container creating the secret containing the API token")
-		desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, adminTokenSecretName, secretData, nil)
+		authTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
+		UsingClusterBy(key.Name, "Simulating the auth token secret containing the API token")
+		desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, authTokenSecretName, secretData, nil)
 		Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
+
+		UsingClusterBy(key.Name, "Creating HumioBootstrapToken resource")
+		humioBootstrapToken := &humiov1alpha1.HumioBootstrapToken{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      key.Name,
+				Namespace: key.Namespace,
+			},
+			//Spec: humiov1alpha1.HumioBootstrapTokenSpec{
+			//	HashedTokenSecret: humiov1alpha1.HumioHashedTokenSecretSpec{
+			//		SecretKeyRef: &corev1.SecretKeySelector{
+			//			LocalObjectReference: corev1.LocalObjectReference{
+			//				Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+			//			},
+			//			Key: "hashedToken",
+			//		},
+			//	},
+			//},
+			Status: humiov1alpha1.HumioBootstrapTokenStatus{
+				TokenSecretKeyRef: humiov1alpha1.HumioTokenSecretStatus{SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+					},
+					Key: "secret",
+				},
+				},
+				HashedTokenSecretKeyRef: humiov1alpha1.HumioHashedTokenSecretStatus{SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+					},
+					Key: "hashedToken",
+				}},
+			},
+		}
+		UsingClusterBy(key.Name, "Creating HumioBootstrapToken resource")
+		Expect(k8sClient.Create(ctx, humioBootstrapToken)).Should(Succeed())
 	}
+
+	UsingClusterBy(key.Name, "Simulating the humio bootstrap token controller creating the secret containing the API token")
+	secretData := map[string][]byte{"hashedToken": []byte("P2HS9.20.r+ZbMqd0pHF65h3yQiOt8n1xNytv/4ePWKIj3cElP7gt8YD+gOtdGGvJYmG229kyFWLs6wXx9lfSDiRGGu/xuQ"), "secret": []byte("cYsrKi6IeyOJVzVIdmVK3M6RGl4y9GpgduYKXk4qWvvj")}
+	bootstrapTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix)
+	desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, bootstrapTokenSecretName, secretData, nil)
+	Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
+
+	//UsingClusterBy(key.Name, "Creating HumioBootstrapToken resource")
+	//humioBootstrapToken := &humiov1alpha1.HumioBootstrapToken{
+	//	ObjectMeta: metav1.ObjectMeta{
+	//		Name:      fmt.Sprintf(key.Name),
+	//		Namespace: key.Namespace,
+	//	},
+	//	Spec: humiov1alpha1.HumioBootstrapTokenSpec{
+	//		HashedTokenSecret: humiov1alpha1.HumioHashedTokenSecretSpec{
+	//			SecretKeyRef: &corev1.SecretKeySelector{
+	//				LocalObjectReference: corev1.LocalObjectReference{
+	//					Name: fmt.Sprintf("%s-bootstrap-token-test", key.Name),
+	//				},
+	//				Key: "hashedToken",
+	//			},
+	//		},
+	//	},
+	//	//Status: humiov1alpha1.HumioBootstrapTokenStatus{
+	//	//	TokenSecretKeyRef: humiov1alpha1.HumioTokenSecretStatus{&corev1.SecretKeySelector{
+	//	//		LocalObjectReference: corev1.LocalObjectReference{
+	//	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+	//	//		},
+	//	//		Key: "secret",
+	//	//	},
+	//	//	},
+	//	//	HashedTokenSecretKeyRef: humiov1alpha1.HumioHashedTokenSecretStatus{&corev1.SecretKeySelector{
+	//	//		LocalObjectReference: corev1.LocalObjectReference{
+	//	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+	//	//		},
+	//	//		Key: "hashedToken",
+	//	//	}},
+	//	//},
+	//}
+
+	//UsingClusterBy(key.Name, "Creating HumioBootstrapToken resource")
+	//Expect(k8sClient.Create(ctx, humioBootstrapToken)).Should(Succeed())
+
+	//UsingClusterBy(key.Name, "Updating HumioBootstrapToken status")
+	//updatedHumioBootstrapToken := &humiov1alpha1.HumioBootstrapToken{}
+	//humioBootstrapTokenKey := types.NamespacedName{
+	//	Namespace: humioBootstrapToken.Namespace,
+	//	Name:      humioBootstrapToken.Name,
+	//}
+	//Expect(k8sClient.Get(ctx, humioBootstrapTokenKey, updatedHumioBootstrapToken)).Should(Succeed())
+	//
+	//updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
+	//	SecretKeyRef: &corev1.SecretKeySelector{
+	//		LocalObjectReference: corev1.LocalObjectReference{
+	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+	//		},
+	//		Key: "secret",
+	//	},
+	//}
+	//updatedHumioBootstrapToken.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
+	//	SecretKeyRef: &corev1.SecretKeySelector{
+	//		LocalObjectReference: corev1.LocalObjectReference{
+	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+	//		},
+	//		Key: "hashedToken",
+	//	},
+	//}
+	//Expect(k8sClient.Status().Update(ctx, updatedHumioBootstrapToken)).Should(Succeed())
+	//
+	//Expect(k8sClient.Get(ctx, humioBootstrapTokenKey, updatedHumioBootstrapToken)).Should(Succeed())
+	//
+	//updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
+	//	SecretKeyRef: &corev1.SecretKeySelector{
+	//		LocalObjectReference: corev1.LocalObjectReference{
+	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+	//		},
+	//		Key: "secret",
+	//	},
+	//}
+	//updatedHumioBootstrapToken.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
+	//	SecretKeyRef: &corev1.SecretKeySelector{
+	//		LocalObjectReference: corev1.LocalObjectReference{
+	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+	//		},
+	//		Key: "hashedToken",
+	//	},
+	//}
+	//Expect(k8sClient.Status().Update(ctx, updatedHumioBootstrapToken)).Should(Succeed())
+	//
+	//Expect(k8sClient.Get(ctx, humioBootstrapTokenKey, updatedHumioBootstrapToken)).Should(Succeed())
+	//
+	//updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
+	//	SecretKeyRef: &corev1.SecretKeySelector{
+	//		LocalObjectReference: corev1.LocalObjectReference{
+	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+	//		},
+	//		Key: "secret",
+	//	},
+	//}
+	//updatedHumioBootstrapToken.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
+	//	SecretKeyRef: &corev1.SecretKeySelector{
+	//		LocalObjectReference: corev1.LocalObjectReference{
+	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+	//		},
+	//		Key: "hashedToken",
+	//	},
+	//}
+	//Expect(k8sClient.Status().Update(ctx, updatedHumioBootstrapToken)).Should(Succeed())
 
 	UsingClusterBy(key.Name, "Creating HumioCluster resource")
 	Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
+
+	UsingClusterBy(key.Name, "Simulating HumioBootstrapToken Controller running and adding the secret and status")
+	Eventually(func() error {
+		var updatedHumioBootstrapToken humiov1alpha1.HumioBootstrapToken
+		err := k8sClient.Get(ctx, key, &updatedHumioBootstrapToken)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			Expect(err).Should(Succeed())
+		}
+		updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+				},
+				Key: "secret",
+			},
+		}
+		updatedHumioBootstrapToken.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+				},
+				Key: "hashedToken",
+			},
+		}
+		return k8sClient.Status().Update(ctx, &updatedHumioBootstrapToken)
+	}, testTimeout, TestInterval).Should(Succeed())
 
 	if expectedState != humiov1alpha1.HumioClusterStateRunning {
 		return
@@ -492,7 +625,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}, testTimeout, TestInterval).Should(HaveKeyWithValue(revisionKey, "1"))
 	}
 
-	UsingClusterBy(key.Name, "Waiting for the auth sidecar to populate the secret containing the API token")
+	UsingClusterBy(key.Name, "Waiting for the bootstrap token controller to populate the secret containing the API token")
 	Eventually(func() error {
 		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetCommonClusterLabels())
 		for idx := range clusterPods {
@@ -501,33 +634,23 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 
 		return k8sClient.Get(ctx, types.NamespacedName{
 			Namespace: key.Namespace,
-			Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix),
+			Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix),
 		}, &corev1.Secret{})
 	}, testTimeout, TestInterval).Should(Succeed())
-
-	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-		UsingClusterBy(key.Name, "Validating API token was obtained using the API method")
-		var apiTokenSecret corev1.Secret
-		Eventually(func() error {
-			return k8sClient.Get(ctx, types.NamespacedName{
-				Namespace: key.Namespace,
-				Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix),
-			}, &apiTokenSecret)
-		}, testTimeout, TestInterval).Should(Succeed())
-		Expect(apiTokenSecret.Annotations).Should(HaveKeyWithValue(apiTokenMethodAnnotationName, apiTokenMethodFromAPI))
-	}
 
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 		UsingClusterBy(key.Name, "Validating cluster nodes have ZONE configured correctly")
 		if updatedHumioCluster.Spec.DisableInitContainer {
 			Eventually(func() []string {
-				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true)
+				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), false, true)
 				Expect(err).To(BeNil())
 				Expect(clusterConfig).ToNot(BeNil())
 				Expect(clusterConfig.Config()).ToNot(BeNil())
 
+				//Expect(fmt.Sprintf("%+v", clusterConfig.Config())).To(Equal(""))
+
 				cluster, err := humioClient.GetClusters(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
-				UsingClusterBy(key.Name, fmt.Sprintf("Obtained the following cluster details: %#+v, err: %v", cluster, err))
+				UsingClusterBy(key.Name, fmt.Sprintf("Obtained the following cluster details: %#+v, err: %v, config: %v", cluster, err, clusterConfig.Config()))
 				if err != nil {
 					return []string{fmt.Sprintf("got err: %s", err)}
 				}
@@ -548,13 +671,15 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 			}, testTimeout, TestInterval).Should(BeEmpty())
 		} else {
 			Eventually(func() []string {
-				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true)
+				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), false, true)
 				Expect(err).To(BeNil())
 				Expect(clusterConfig).ToNot(BeNil())
 				Expect(clusterConfig.Config()).ToNot(BeNil())
 
 				cluster, err := humioClient.GetClusters(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
-				UsingClusterBy(key.Name, fmt.Sprintf("Obtained the following cluster details: %#+v, err: %v", cluster, err))
+				//UsingClusterBy(key.Name, fmt.Sprintf("Obtained the following cluster details: %#+v, err: %v", cluster, err))
+				UsingClusterBy(key.Name, fmt.Sprintf("Obtained the following cluster details: %#+v, err: %v, config: %v", cluster, err, clusterConfig.Config()))
+
 				if err != nil || len(cluster.Nodes) < 1 {
 					return []string{}
 				}

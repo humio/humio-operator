@@ -243,7 +243,7 @@ var _ = BeforeSuite(func() {
 	cluster = suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
 	suite.CreateAndBootstrapCluster(context.TODO(), k8sClient, humioClient, cluster, true, corev1alpha1.HumioClusterStateRunning, testTimeout)
 
-	sharedCluster, err = helpers.NewCluster(context.TODO(), k8sClient, clusterKey.Name, "", clusterKey.Namespace, helpers.UseCertManager(), true)
+	sharedCluster, err = helpers.NewCluster(context.TODO(), k8sClient, clusterKey.Name, "", clusterKey.Namespace, helpers.UseCertManager(), true, false)
 	Expect(err).To(BeNil())
 	Expect(sharedCluster).ToNot(BeNil())
 	Expect(sharedCluster.Config()).ToNot(BeNil())
