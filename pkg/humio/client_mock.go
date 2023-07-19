@@ -226,7 +226,6 @@ func (h *MockClientConfig) AddUser(config *humioapi.Config, req reconcile.Reques
 		CountryCode: hu.Spec.CountryCode,
 		Picture:     hu.Spec.Picture,
 		IsRoot:      hu.Spec.IsRoot,
-		CreatedAt:   hu.Spec.CreatedAt,
 	}
 	return &h.apiClient.User, nil
 }
