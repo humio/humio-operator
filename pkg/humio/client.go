@@ -28,7 +28,6 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/humio/cli/api"
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/helpers"
