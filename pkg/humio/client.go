@@ -662,7 +662,7 @@ func (h *ClientConfig) GetActionIDsMapForAlerts(config *humioapi.Config, req rec
 
 func (h *ClientConfig) AddUser(config *humioapi.Config, req reconcile.Request, hu *humiov1alpha1.HumioUser) (*humioapi.User, error) {
 	user := humioapi.User{Username: hu.Spec.Username}
-	_, err := h.GetHumioClient(config, req).Users().Add(hu.Spec.Username, api.UserChangeSet{
+	_, err := h.GetHumioClient(config, req).Users().Add(hu.Spec.Username, humioapi.UserChangeSet{
 		IsRoot:      &hu.Spec.IsRoot,
 		FullName:    &hu.Spec.FullName,
 		Company:     &hu.Spec.Company,
