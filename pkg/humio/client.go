@@ -692,7 +692,7 @@ func (h *ClientConfig) UpdateUser(config *humioapi.Config, req reconcile.Request
 		curUser.IsRoot != hu.Spec.IsRoot {
 		_, err = h.GetHumioClient(config, req).Users().Update(
 			hu.Spec.Username,
-			api.UserChangeSet{
+			humioapi.UserChangeSet{
 				Email:       &hu.Spec.Email,
 				FullName:    &hu.Spec.FullName,
 				Company:     &hu.Spec.Company,
