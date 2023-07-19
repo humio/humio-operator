@@ -674,17 +674,6 @@ func (h *ClientConfig) AddUser(config *humioapi.Config, req reconcile.Request, h
 }
 
 func (h *ClientConfig) GetUser(config *humioapi.Config, req reconcile.Request, hu *humiov1alpha1.HumioUser) (*humioapi.User, error) {
-	// userList, err := h.GetHumioClient(config, req).Users().List()
-	// if err != nil {
-	// 	return &humioapi.User{}, fmt.Errorf("could not list users: %w", err)
-	// }
-	// for _, user := range userList {
-	// 	if user.Username == hu.Spec.Username {
-	// 		// we now know the user exists
-	// 		user, err := h.GetHumioClient(config, req).Users().Get(hu.Spec.Username)
-	// 		return &user, err
-	// 	}
-	// }
 	user, err := h.GetHumioClient(config, req).Users().Get(hu.Spec.Username)
 	return &user, err
 }
