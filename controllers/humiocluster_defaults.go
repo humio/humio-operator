@@ -374,7 +374,7 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 		},
 		{
 			Name:  "HUMIO_JVM_LOG_OPTS",
-			Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags",
+			Value: "-Xlog:gc+jni=debug:stdout -Xlog:gc*:stdout:time,tags -Xlog:jit*=debug:stdout:time,tags",
 		},
 		{
 			Name:  "HUMIO_OPTS",
