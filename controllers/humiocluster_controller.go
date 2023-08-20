@@ -1468,7 +1468,7 @@ func (r *HumioClusterReconciler) isPodAttachedToOrphanedPvc(ctx context.Context,
 	}
 	pvc, err := FindPvcForPod(pvcList, pod)
 	if err != nil {
-		return true, r.logErrorAndReturn(err, "could find pvc for pod")
+		return true, r.logErrorAndReturn(err, "could not find pvc for pod")
 	}
 	pvcOrphaned, err := r.isPvcOrphaned(ctx, hnp, hc, pvc)
 	if err != nil {
