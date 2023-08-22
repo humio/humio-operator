@@ -189,6 +189,7 @@ type HumioNodeSpec struct {
 	// NodeUUIDPrefix is the prefix for the Humio Node's UUID. By default this does not include the zone. If it's
 	// necessary to include zone, there is a special `Zone` variable that can be used. To use this, set `{{.Zone}}`. For
 	// compatibility with pre-0.0.14 spec defaults, this should be set to `humio_{{.Zone}}`
+	// Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in LogScale 1.80.0
 	NodeUUIDPrefix string `json:"nodeUUIDPrefix,omitempty"`
 
 	// ExtraKafkaConfigs is a multi-line string containing kafka properties
