@@ -2149,6 +2149,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = oldSupportedHumioVersion
 			// ZOOKEEPER_URL gets filtered out by default in the call to ConstructBasicSingleNodeHumioCluster, so we add it back here
 			toCreate.Spec.EnvironmentVariables = append([]corev1.EnvVar{{
 				Name:  "ZOOKEEPER_URL",
