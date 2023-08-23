@@ -68,7 +68,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	// your API definition.
 	// Avoid adding tests for vanilla CRUD operations because they would
 	// test Kubernetes API server, which isn't the goal here.
-	FContext("Humio Cluster Simple", func() {
+	Context("Humio Cluster Simple", func() {
 		It("Should bootstrap cluster correctly", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-simple",
@@ -3268,7 +3268,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			initialExpectedVolumesCount := 6
+			initialExpectedVolumesCount := 5
 			initialExpectedVolumeMountsCount := 4
 
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
@@ -4315,7 +4315,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				if pod.Spec.ShareProcessNamespace != nil {
 					Expect(*pod.Spec.ShareProcessNamespace).To(BeFalse())
 				}
-				Expect(pod.Spec.Containers).Should(HaveLen(2))
+				Expect(pod.Spec.Containers).Should(HaveLen(1))
 			}
 
 			suite.UsingClusterBy(key.Name, "Enabling shared process namespace and sidecars")

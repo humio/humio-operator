@@ -364,7 +364,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, authTokenSecretName, secretData, nil)
 		Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
 
-		UsingClusterBy(key.Name, "Creating HumioBootstrapToken resource")
+		UsingClusterBy(key.Name, "Simulating the creation of the HumioBootstrapToken resource")
 		humioBootstrapToken := &humiov1alpha1.HumioBootstrapToken{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      key.Name,
@@ -625,7 +625,20 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}, testTimeout, TestInterval).Should(HaveKeyWithValue(revisionKey, "1"))
 	}
 
-	UsingClusterBy(key.Name, "Waiting for the bootstrap token controller to populate the secret containing the API token")
+	//UsingClusterBy(key.Name, "Waiting for the bootstrap token controller to populate the secret containing the bootstrap token")
+	//Eventually(func() error {
+	//	clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetCommonClusterLabels())
+	//	for idx := range clusterPods {
+	//		UsingClusterBy(key.Name, fmt.Sprintf("Pod status %s status: %v", clusterPods[idx].Name, clusterPods[idx].Status))
+	//	}
+	//
+	//	return k8sClient.Get(ctx, types.NamespacedName{
+	//		Namespace: key.Namespace,
+	//		Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix),
+	//	}, &corev1.Secret{})
+	//}, testTimeout, TestInterval).Should(Succeed())
+
+	UsingClusterBy(key.Name, "Waiting for the controller to populate the secret containing the admin token")
 	Eventually(func() error {
 		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetCommonClusterLabels())
 		for idx := range clusterPods {
@@ -634,7 +647,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 
 		return k8sClient.Get(ctx, types.NamespacedName{
 			Namespace: key.Namespace,
-			Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix),
+			Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix),
 		}, &corev1.Secret{})
 	}, testTimeout, TestInterval).Should(Succeed())
 
@@ -642,7 +655,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		UsingClusterBy(key.Name, "Validating cluster nodes have ZONE configured correctly")
 		if updatedHumioCluster.Spec.DisableInitContainer {
 			Eventually(func() []string {
-				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), false, true)
+				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true, false)
 				Expect(err).To(BeNil())
 				Expect(clusterConfig).ToNot(BeNil())
 				Expect(clusterConfig.Config()).ToNot(BeNil())
@@ -671,7 +684,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 			}, testTimeout, TestInterval).Should(BeEmpty())
 		} else {
 			Eventually(func() []string {
-				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), false, true)
+				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true, false)
 				Expect(err).To(BeNil())
 				Expect(clusterConfig).ToNot(BeNil())
 				Expect(clusterConfig.Config()).ToNot(BeNil())
