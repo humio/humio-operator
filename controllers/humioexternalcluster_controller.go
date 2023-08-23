@@ -87,7 +87,7 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 
 	err = r.HumioClient.TestAPIToken(cluster.Config(), req)
 	if err != nil {
-		r.Log.Error(err, "unable to test if the API token is works")
+		r.Log.Error(err, fmt.Sprintf("unable to test if the API token is works. client: %+v", cluster.Config()))
 		err = r.Client.Get(ctx, req.NamespacedName, hec)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to get cluster state")
