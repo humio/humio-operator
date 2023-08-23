@@ -497,7 +497,9 @@ func (r *HumioClusterReconciler) ensureHumioClusterBootstrapToken(ctx context.Co
 			if err := controllerutil.SetControllerReference(hc, hbt, r.Scheme()); err != nil {
 				return r.logErrorAndReturn(err, "could not set controller reference")
 			}
+			return nil
 		}
+		return r.logErrorAndReturn(err, "could not get bootstrap token resource")
 	}
 	return nil
 }
@@ -1394,6 +1396,11 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	// At this point we know a non-empty license has been returned by the Humio API,
 	// so we can continue to parse the license and issue a license update if needed.
 	if existingLicense == nil || existingLicense == noLicense {
+		cluster, err = helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), false, true)
+		if err != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not install initial license")
+		}
+
 		if err = r.HumioClient.InstallLicense(cluster.Config(), req, licenseStr); err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not install initial license")
 		}
@@ -1404,8 +1411,11 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	}
 
 	cluster, err = helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), false, true)
-	if err = r.HumioClient.InstallLicense(cluster.Config(), req, licenseStr); err != nil {
+	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not authenticate with bootstrap token")
+	}
+	if err = r.HumioClient.InstallLicense(cluster.Config(), req, licenseStr); err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not install license")
 	}
 
 	// TODO: ensureLicense should be broken into multiple steps
@@ -1439,6 +1449,11 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (r *HumioClusterReconciler) ensurePermissionTokens(ctx context.Context, config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) error {
+	r.Log.Info("ensuring permission tokens")
+	return r.createPermissionToken(ctx, config, req, hc, "admin", "RootOrg")
 }
 
 func (r *HumioClusterReconciler) ensureService(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {

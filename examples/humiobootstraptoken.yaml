@@ -1,0 +1,6 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioBootstrapToken
+metadata:
+  name: example-bootstraptoken
+spec:
+  managedClusterName: example-humiocluster

@@ -981,7 +981,6 @@ func (h *ClientConfig) ExtractExistingHumioAdminUserID(config *humioapi.Config, 
 	}
 	for _, user := range allUsers {
 		if user.Username == username {
-			fmt.Printf("Found user ID using single-organization query.\n")
 			return user.Id, nil
 		}
 	}

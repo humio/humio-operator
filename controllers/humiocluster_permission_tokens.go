@@ -5,17 +5,20 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/humio/humio-operator/pkg/helpers"
+
+	"github.com/humio/humio-operator/pkg/kubernetes"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/humio/humio-operator/api/v1alpha1"
 
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	humioapi "github.com/humio/cli/api"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -135,7 +138,6 @@ func (r *HumioClusterReconciler) extractExistingHumioAdminUserID(config *humioap
 	}
 	for _, user := range allUsers {
 		if user.Username == username {
-			fmt.Printf("Found user ID using single-organization query.\n")
 			return user.Id, nil
 		}
 	}
@@ -177,69 +179,76 @@ func (r *HumioClusterReconciler) createAndGetAdminAccountUserID(ctx context.Cont
 	return "", fmt.Errorf("could not obtain user ID")
 }
 
-//validateAdminSecretContent grabs the current token stored in kubernetes and returns nil if it is valid
-//func (r *HumioClusterReconciler) validateAdminSecretContent(ctx context.Context, hc *v1alpha1.HumioCluster, req reconcile.Request, adminSecretNameSuffix string, nodeURL *url.URL) error {
-//	// Get existing Kubernetes secret
-//	adminSecretName := fmt.Sprintf("%s-%s", hc.Name, adminSecretNameSuffix)
-//	secret := &corev1.Secret{}
-//	key := types.NamespacedName{
-//		Name:      adminSecretName,
-//		Namespace: hc.Namespace,
-//	}
-//	if err := r.Client.Get(ctx, key, secret); err != nil {
-//		return fmt.Errorf("got err while trying to get existing secret from k8s: %w", err)
-//	}
-//
-//	// Check if secret currently holds a valid humio api token
-//	if adminToken, ok := secret.Data["token"]; ok {
-//		cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
-//		clientNotReady :=
-//			cluster.Config().Token != string(secret.Data["token"]) ||
-//				cluster.Config().Address == nil
-//		if clientNotReady {
-//			cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
-//			if err != nil {
-//				return err
-//			}
-//		}
-//
-//		_, err = r.HumioClient.GetClusters(cluster.Config(), req)
-//		if err != nil {
-//			return fmt.Errorf("got err while trying to use apiToken: %w", err)
-//		}
-//
-//		// We could successfully get information about the cluster, so the token must be valid
-//		return nil
-//	}
-//	return fmt.Errorf("Unable to validate if kubernetes secret %s holds a valid humio API token", adminSecretName)
-//}
+// validateAdminSecretContent grabs the current token stored in kubernetes and returns nil if it is valid
+func (r *HumioClusterReconciler) validateAdminSecretContent(ctx context.Context, hc *v1alpha1.HumioCluster, req reconcile.Request) error {
+	// Get existing Kubernetes secret
+	adminSecretName := fmt.Sprintf("%s-%s", hc.Name, kubernetes.ServiceTokenSecretNameSuffix)
+	secret := &corev1.Secret{}
+	key := types.NamespacedName{
+		Name:      adminSecretName,
+		Namespace: hc.Namespace,
+	}
+	if err := r.Client.Get(ctx, key, secret); err != nil {
+		return fmt.Errorf("got err while trying to get existing secret from k8s: %w", err)
+	}
+
+	// Check if secret currently holds a valid humio api token
+	if _, ok := secret.Data["token"]; ok {
+		cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
+		if err != nil {
+			return fmt.Errorf("got err while trying to authenticate using apiToken: %w", err)
+		}
+		clientNotReady :=
+			cluster.Config().Token != string(secret.Data["token"]) ||
+				cluster.Config().Address == nil
+		if clientNotReady {
+			_, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
+			if err != nil {
+				return fmt.Errorf("got err while trying to authenticate using apiToken: %w", err)
+			}
+		}
+
+		_, err = r.HumioClient.GetClusters(cluster.Config(), req)
+		if err != nil {
+			return fmt.Errorf("got err while trying to use apiToken: %w", err)
+		}
+
+		// We could successfully get information about the cluster, so the token must be valid
+		return nil
+	}
+	return fmt.Errorf("Unable to validate if kubernetes secret %s holds a valid humio API token", adminSecretName)
+}
 
 // ensureAdminSecretContent ensures the target Kubernetes secret contains the desired API token
-func (r *HumioClusterReconciler) ensureAdminSecretContent(ctx context.Context, hc *v1alpha1.HumioCluster, adminSecretNameSuffix string, desiredAPIToken string) error {
+func (r *HumioClusterReconciler) ensureAdminSecretContent(ctx context.Context, hc *v1alpha1.HumioCluster, desiredAPIToken string) error {
 	// Get existing Kubernetes secret
-	adminSecretName := fmt.Sprintf("%s-%s", hc.Name, adminSecretNameSuffix)
+	adminSecretName := fmt.Sprintf("%s-%s", hc.Name, kubernetes.ServiceTokenSecretNameSuffix)
 	key := types.NamespacedName{
 		Name:      adminSecretName,
 		Namespace: hc.Namespace,
 	}
 	adminSecret := &corev1.Secret{}
 	err := r.Client.Get(ctx, key, adminSecret)
-	if k8serrors.IsNotFound(err) {
-		// If the secret doesn't exist, create it
-		desiredSecret := corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      key.Name,
-				Namespace: key.Namespace,
-				Labels:    kubernetes.LabelsForHumio(hc.Name),
-			},
-			StringData: map[string]string{
-				"token": desiredAPIToken,
-			},
-			Type: corev1.SecretTypeOpaque,
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			// If the secret doesn't exist, create it
+			desiredSecret := corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+					Labels:    kubernetes.LabelsForHumio(hc.Name),
+				},
+				StringData: map[string]string{
+					"token": desiredAPIToken,
+				},
+				Type: corev1.SecretTypeOpaque,
+			}
+			if err := r.Client.Create(ctx, &desiredSecret); err != nil {
+				return r.logErrorAndReturn(err, "unable to create secret")
+			}
+			return nil
 		}
-		if err := r.Client.Create(ctx, &desiredSecret); err != nil {
-			return r.logErrorAndReturn(err, "unable to create secret")
-		}
+		return r.logErrorAndReturn(err, "unable to get secret")
 	}
 
 	// If we got no error, we compare current token with desired token and update if needed.
@@ -287,7 +296,7 @@ func fileExists(path string) bool {
 //}
 
 func (r *HumioClusterReconciler) createPermissionToken(ctx context.Context, config *humioapi.Config, req reconcile.Request, hc *v1alpha1.HumioCluster, username string, organization string) error {
-	adminSecretNameSuffix := "admin-secret"
+	//adminSecretNameSuffix := "admin-token"
 
 	// TODO: contstant? Run this in a separate function?
 	organizationMode := "single"
@@ -344,6 +353,10 @@ func (r *HumioClusterReconciler) createPermissionToken(ctx context.Context, conf
 		return fmt.Errorf("Got err trying to obtain user ID of admin user: %s\n", err)
 	}
 
+	if err := r.validateAdminSecretContent(ctx, hc, req); err == nil {
+		return nil
+	}
+
 	// Get API token for user ID of admin account
 	apiToken, err := r.HumioClient.RotateUserApiTokenAndGet(config, req, userID)
 	if err != nil {
@@ -351,7 +364,7 @@ func (r *HumioClusterReconciler) createPermissionToken(ctx context.Context, conf
 	}
 
 	// Update Kubernetes secret if needed
-	err = r.ensureAdminSecretContent(ctx, hc, adminSecretNameSuffix, apiToken)
+	err = r.ensureAdminSecretContent(ctx, hc, apiToken)
 	if err != nil {
 		return r.logErrorAndReturn(err, "unable to ensure admin secret")
 

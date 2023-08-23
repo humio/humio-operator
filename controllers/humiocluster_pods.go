@@ -585,16 +585,7 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 					},
 				},
 			})
-		} else if volume.Name == "auth-service-account-secret" {
-			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
-				Name: "auth-service-account-secret",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName:  fmt.Sprintf("%s-auth-%s", hnp.GetNodePoolName(), ""),
-						DefaultMode: &mode,
-					},
-				},
-			})
+
 		} else if strings.HasPrefix("kube-api-access-", volume.Name) {
 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
 				Name:         "kube-api-access-",
@@ -924,20 +915,6 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 		pvcClaimNamesInUse[volumeSource.PersistentVolumeClaim.ClaimName] = struct{}{}
 	}
 
-	if hnp.InitContainerDisabled() {
-		return &podAttachments{
-			dataVolumeSource: volumeSource,
-		}, nil
-	}
-
-	initSASecretName, err := r.getInitServiceAccountSecretName(ctx, hnp)
-	if err != nil {
-		return &podAttachments{}, fmt.Errorf("unable get init service account secret for HumioCluster: %w", err)
-	}
-	if initSASecretName == "" {
-		return &podAttachments{}, errors.New("unable to create Pod for HumioCluster: the init service account secret does not exist")
-	}
-
 	envVarSourceData, err := r.getEnvVarSource(ctx, hnp)
 	if err != nil {
 		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster: %w", err)
@@ -950,11 +927,27 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 	hbt := &humiov1alpha1.HumioBootstrapToken{}
 	err = r.Client.Get(ctx, key, hbt)
 	if err != nil {
-		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster: %w", err)
+		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster. could not find HumioBootstrapToken: %w", err)
 	}
 
 	if hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef == nil {
 		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster: %w", fmt.Errorf("bootstraptoken %s does not contain a status for the hashed token secret reference", hnp.GetBootstrapTokenName()))
+	}
+
+	if hnp.InitContainerDisabled() {
+		return &podAttachments{
+			dataVolumeSource:              volumeSource,
+			envVarSourceData:              envVarSourceData,
+			bootstrapTokenSecretReference: hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef,
+		}, nil
+	}
+
+	initSASecretName, err := r.getInitServiceAccountSecretName(ctx, hnp)
+	if err != nil {
+		return &podAttachments{}, fmt.Errorf("unable get init service account secret for HumioCluster: %w", err)
+	}
+	if initSASecretName == "" {
+		return &podAttachments{}, errors.New("unable to create Pod for HumioCluster: the init service account secret does not exist")
 	}
 
 	return &podAttachments{
