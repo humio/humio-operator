@@ -2211,6 +2211,72 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the invalid alert")
 			Expect(k8sClient.Create(ctx, toCreateInvalidAlert)).Should(Not(Succeed()))
 		})
+
+		It("HumioUser: Creating user non-existent managed cluster", func() {
+			ctx := context.Background()
+			keyErr := types.NamespacedName{
+				Name:      "humiouser-non-existent-managed-cluster",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateUser := &humiov1alpha1.HumioUser{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      keyErr.Name,
+					Namespace: keyErr.Namespace,
+				},
+				Spec: humiov1alpha1.HumioUserSpec{
+					ManagedClusterName: "non-existent-managed-cluster",
+					Email:              "user@example.com",
+				},
+			}
+			Expect(k8sClient.Create(ctx, toCreateUser)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioUser: Validates resource enters state %s", humiov1alpha1.HumioUserStateConfigError))
+			fetchedUser := &humiov1alpha1.HumioUser{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, keyErr, fetchedUser)
+				return fetchedUser.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioUserStateConfigError))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioUser: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedUser)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, keyErr, fetchedUser)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("HumioUser: Creating user pointing to non-existent external cluster", func() {
+			ctx := context.Background()
+			keyErr := types.NamespacedName{
+				Name:      "humiouser-non-existent-external-cluster",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateUser := &humiov1alpha1.HumioUser{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      keyErr.Name,
+					Namespace: keyErr.Namespace,
+				},
+				Spec: humiov1alpha1.HumioUserSpec{
+					ExternalClusterName: "non-existent-external-cluster",
+					Email:               "user@example.com",
+				},
+			}
+			Expect(k8sClient.Create(ctx, toCreateUser)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioUser: Validates resource enters state %s", humiov1alpha1.HumioUserStateConfigError))
+			fetchedUser := &humiov1alpha1.HumioUser{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, keyErr, fetchedUser)
+				return fetchedUser.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioUserStateConfigError))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioUser: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedUser)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, keyErr, fetchedUser)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
 	})
 })
 
