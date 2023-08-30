@@ -82,6 +82,12 @@ rules:
   - humioexternalclusters
   - humioexternalclusters/finalizers
   - humioexternalclusters/status
+  - humioactions
+  - humioactions/finalizers
+  - humioactions/status
+  - humioalerts
+  - humioalerts/finalizers
+  - humioalerts/status
   verbs:
   - create
   - delete
