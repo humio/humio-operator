@@ -42,6 +42,13 @@ import (
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
 
+const (
+	// BootstrapTokenSecretHashedTokenName is the name of the hashed token key inside the bootstrap token secret
+	BootstrapTokenSecretHashedTokenName = "hashedToken"
+	// BootstrapTokenSecretName is the name of the secret key inside the bootstrap token secret
+	BootstrapTokenSecretName = "secret"
+)
+
 // HumioBootstrapTokenReconciler reconciles a HumioBootstrapToken object
 type HumioBootstrapTokenReconciler struct {
 	client.Client
@@ -301,14 +308,13 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 		}
 	}(ctx, hbt, hc)
 
-	// TODO: make tokenHash constant
-	if _, ok := bootstrapTokenSecret.Data["hashedToken"]; ok {
+	if _, ok := bootstrapTokenSecret.Data[BootstrapTokenSecretHashedTokenName]; ok {
 		return nil
 	}
 
 	commandArgs := []string{"/bin/bash", "/app/humio/humio/bin/humio-run-class.sh", "com.humio.main.TokenHashing", "--json"}
 
-	if tokenSecret, ok := bootstrapTokenSecret.Data["secret"]; ok {
+	if tokenSecret, ok := bootstrapTokenSecret.Data[BootstrapTokenSecretName]; ok {
 		commandArgs = append(commandArgs, string(tokenSecret))
 	}
 
@@ -317,8 +323,24 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 		return err
 	}
 
-	// TODO: wait for pod to start
-	time.Sleep(time.Second * 10)
+	var podRunning bool
+	for i := 0; i < waitForPodTimeoutSeconds; i++ {
+		latestPodList, err := kubernetes.ListPods(ctx, r, hbt.GetNamespace(), hbt.GetLabels())
+		if err != nil {
+			return err
+		}
+		for _, pod := range latestPodList {
+			if pod.Status.Phase == corev1.PodRunning {
+				podRunning = true
+				break
+			}
+		}
+		r.Log.Info("waiting for bootstrap token pod to start")
+		time.Sleep(time.Second * 1)
+	}
+	if !podRunning {
+		return r.logErrorAndReturn(err, "failed to start bootstrap token pod")
+	}
 
 	r.Log.Info("execing onetime pod")
 	output, err := r.execCommand(pod, commandArgs)
@@ -337,7 +359,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 		return err
 	}
 	// TODO: make tokenHash constant
-	updatedSecret.Data = map[string][]byte{"hashedToken": []byte(secretData.HashedToken), "secret": []byte(secretData.Secret)}
+	updatedSecret.Data = map[string][]byte{BootstrapTokenSecretHashedTokenName: []byte(secretData.HashedToken), BootstrapTokenSecretName: []byte(secretData.Secret)}
 
 	if err = r.Update(ctx, updatedSecret); err != nil {
 		return r.logErrorAndReturn(err, "failed to update secret with hashedToken data")
