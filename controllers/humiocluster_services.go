@@ -69,7 +69,7 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        headlessServiceName(hc.Name),
 			Namespace:   hc.Namespace,
-			Labels:      mergeHumioServiceLabels(hc.GetClusterName(), hc.Spec.HumioHeadlessServiceLabels),
+			Labels:      mergeHumioServiceLabels(hc.Name, hc.Spec.HumioHeadlessServiceLabels),
 			Annotations: humioHeadlessServiceAnnotationsOrDefault(hc),
 		},
 		Spec: corev1.ServiceSpec{
