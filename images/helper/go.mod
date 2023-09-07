@@ -4,9 +4,9 @@ go 1.20
 
 require (
 	github.com/humio/cli v0.31.2-0.20230907075308-556012080752
-	k8s.io/api v0.27.2
-	k8s.io/apimachinery v0.27.2
-	k8s.io/client-go v0.27.2
+	k8s.io/api v0.25.13
+	k8s.io/apimachinery v0.25.13
+	k8s.io/client-go v0.25.13
 )
 
 require (
