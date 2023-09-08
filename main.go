@@ -22,10 +22,10 @@ import (
 	"os"
 	"strings"
 
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
-	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
