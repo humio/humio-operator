@@ -5,11 +5,12 @@ go 1.20
 require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/cert-manager/cert-manager v1.11.5
+	github.com/cli/shurcooL-graphql v0.0.3
 	github.com/go-logr/logr v1.2.4
 	github.com/go-logr/zapr v1.2.3
 	github.com/google/go-cmp v0.5.9
 	github.com/google/martian v2.1.0+incompatible
-	github.com/humio/cli v0.31.2-0.20230908121429-a9543de089d0
+	github.com/humio/cli v0.31.2-0.20230908130710-8b07e8c22f4e
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.11-0.20230807134635-babe25fc5472
 	github.com/openshift/api v3.9.0+incompatible
@@ -25,7 +26,6 @@ require (
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/cli/shurcooL-graphql v0.0.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
