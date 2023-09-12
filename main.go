@@ -26,7 +26,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
-	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -110,13 +109,6 @@ func main() {
 	if err != nil {
 		ctrl.Log.Error(err, "unable to start manager")
 		os.Exit(1)
-	}
-
-	if helpers.IsOpenShift() {
-		if err = openshiftsecurityv1.AddToScheme(mgr.GetScheme()); err != nil {
-			ctrl.Log.Error(err, "unable to add cert-manager to scheme")
-			os.Exit(2)
-		}
 	}
 
 	if helpers.UseCertManager() {

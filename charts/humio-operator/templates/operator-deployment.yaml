@@ -37,15 +37,15 @@ spec:
 {{- with .Values.operator.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
-{{- end }}  
+{{- end }}
 {{- with .Values.operator.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
-{{- end }}        
+{{- end }}
 {{- with .Values.operator.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
-{{- end }}  
+{{- end }}
       serviceAccountName: {{ .Release.Name }}
       containers:
       - name: humio-operator
@@ -64,10 +64,6 @@ spec:
           value: "humio-operator"
         - name: USE_CERTMANAGER
           value: {{ .Values.certmanager | quote }}
-{{- if .Values.openshift }}
-        - name: OPENSHIFT_SCC_NAME
-          value: '{{ default "default" .Release.Namespace }}-{{ .Release.Name }}'
-{{- end }}
         livenessProbe:
           httpGet:
             path: /metrics
