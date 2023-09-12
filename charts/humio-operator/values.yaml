@@ -39,5 +39,4 @@ operator:
             values:
             - linux
 
-openshift: false
 certmanager: true
