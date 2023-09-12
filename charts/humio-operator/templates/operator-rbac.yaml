@@ -317,25 +317,6 @@ rules:
   - get
   - list
   - watch
-{{- if .Values.openshift }}
-- apiGroups:
-  - security.openshift.io
-  resourceNames:
-  - '{{ default "default" .Release.Namespace }}-{{ .Release.Name }}'
-  resources:
-  - securitycontextconstraints
-  verbs:
-  - use
-  - update
-- apiGroups:
-  - security.openshift.io
-  resources:
-  - securitycontextconstraints
-  verbs:
-  - get
-  - list
-  - watch
-{{- end }}
 
 ---
 
@@ -353,48 +334,5 @@ roleRef:
   kind: ClusterRole
   name: '{{ default "default" .Release.Namespace }}-{{ .Release.Name }}'
   apiGroup: rbac.authorization.k8s.io
-
-{{- if .Values.openshift }}
----
-apiVersion: security.openshift.io/v1
-kind: SecurityContextConstraints
-metadata:
-  name: '{{ default "default" .Release.Namespace }}-{{ .Release.Name }}'
-  labels:
-    {{- $commonLabels | nindent 4 }}
-allowPrivilegedContainer: true
-allowHostDirVolumePlugin: true
-allowHostIPC: false
-allowHostNetwork: false
-allowHostPID: false
-allowHostPorts: false
-priority: 0
-allowedCapabilities:
-- SYS_NICE
-readOnlyRootFilesystem: true
-requiredDropCapabilities:
-- KILL
-- MKNOD
-- SETUID
-- SETGID
-defaultAddCapabilities: []
-runAsUser:
-  type: RunAsAny
-seLinuxContext:
-  type: MustRunAs
-fsGroup:
-  type: RunAsAny
-supplementalGroups:
-  type: RunAsAny
-volumes:
-- configMap
-- downwardAPI
-- emptyDir
-- hostPath
-- persistentVolumeClaim
-- projected
-- secret
-users: []
-{{- end }}
 
 {{- end }}

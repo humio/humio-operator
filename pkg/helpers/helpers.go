@@ -102,12 +102,6 @@ func ToIngestPartitionInput(line humioapi.IngestPartition) humioapi.IngestPartit
 	return input
 }
 
-// IsOpenShift returns whether the operator is running in OpenShift-mode
-func IsOpenShift() bool {
-	sccName, found := os.LookupEnv("OPENSHIFT_SCC_NAME")
-	return found && sccName != ""
-}
-
 // UseCertManager returns whether the operator will use cert-manager
 func UseCertManager() bool {
 	certmanagerEnabled, found := os.LookupEnv("USE_CERTMANAGER")

@@ -38,9 +38,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
-	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -48,7 +46,6 @@ import (
 
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
-	"github.com/humio/humio-operator/pkg/openshift"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -126,11 +123,6 @@ var _ = BeforeSuite(func() {
 		return err
 	}, 30*time.Second, 5*time.Second).Should(Succeed())
 	Expect(cfg).NotTo(BeNil())
-
-	if helpers.IsOpenShift() {
-		err = openshiftsecurityv1.AddToScheme(scheme.Scheme)
-		Expect(err).NotTo(HaveOccurred())
-	}
 
 	if helpers.UseCertManager() {
 		err = cmapi.AddToScheme(scheme.Scheme)
@@ -247,81 +239,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	suite.CreateDockerRegredSecret(context.TODO(), testNamespace, k8sClient)
-
-	if helpers.IsOpenShift() {
-		var err error
-		ctx := context.Background()
-		Eventually(func() bool {
-			_, err = openshift.GetSecurityContextConstraints(ctx, k8sClient)
-			if k8serrors.IsNotFound(err) {
-				// Object has not been created yet
-				return true
-			}
-			if err != nil {
-				// Some other error happened. Typically:
-				//   <*cache.ErrCacheNotStarted | 0x31fc738>: {}
-				//         the cache is not started, can not read objects occurred
-				return false
-			}
-			// At this point we know the object already exists.
-			return true
-		}, testTimeout, suite.TestInterval).Should(BeTrue())
-		if k8serrors.IsNotFound(err) {
-			By("Simulating helm chart installation of the SecurityContextConstraints object")
-			sccName := os.Getenv("OPENSHIFT_SCC_NAME")
-			priority := int32(0)
-			scc := openshiftsecurityv1.SecurityContextConstraints{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      sccName,
-					Namespace: clusterKey.Namespace,
-				},
-				Priority:                 &priority,
-				AllowPrivilegedContainer: true,
-				DefaultAddCapabilities:   []corev1.Capability{},
-				RequiredDropCapabilities: []corev1.Capability{
-					"KILL",
-					"MKNOD",
-					"SETUID",
-					"SETGID",
-				},
-				AllowedCapabilities: []corev1.Capability{
-					"SYS_NICE",
-				},
-				AllowHostDirVolumePlugin: true,
-				Volumes: []openshiftsecurityv1.FSType{
-					openshiftsecurityv1.FSTypeConfigMap,
-					openshiftsecurityv1.FSTypeDownwardAPI,
-					openshiftsecurityv1.FSTypeEmptyDir,
-					openshiftsecurityv1.FSTypeHostPath,
-					openshiftsecurityv1.FSTypePersistentVolumeClaim,
-					openshiftsecurityv1.FSProjected,
-					openshiftsecurityv1.FSTypeSecret,
-				},
-				AllowedFlexVolumes: nil,
-				AllowHostNetwork:   false,
-				AllowHostPorts:     false,
-				AllowHostPID:       false,
-				AllowHostIPC:       false,
-				SELinuxContext: openshiftsecurityv1.SELinuxContextStrategyOptions{
-					Type: openshiftsecurityv1.SELinuxStrategyMustRunAs,
-				},
-				RunAsUser: openshiftsecurityv1.RunAsUserStrategyOptions{
-					Type: openshiftsecurityv1.RunAsUserStrategyRunAsAny,
-				},
-				SupplementalGroups: openshiftsecurityv1.SupplementalGroupsStrategyOptions{
-					Type: openshiftsecurityv1.SupplementalGroupsStrategyRunAsAny,
-				},
-				FSGroup: openshiftsecurityv1.FSGroupStrategyOptions{
-					Type: openshiftsecurityv1.FSGroupStrategyRunAsAny,
-				},
-				ReadOnlyRootFilesystem: false,
-				Users:                  []string{},
-				Groups:                 nil,
-				SeccompProfiles:        nil,
-			}
-			Expect(k8sClient.Create(ctx, &scc)).To(Succeed())
-		}
-	}
 
 	suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioCluster: Creating shared test cluster in namespace %s", clusterKey.Namespace))
 	cluster = suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)

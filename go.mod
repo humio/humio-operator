@@ -13,7 +13,6 @@ require (
 	github.com/humio/cli v0.31.2-0.20230911075931-d3fdd33d16ed
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.11-0.20230807134635-babe25fc5472
-	github.com/openshift/api v3.9.0+incompatible
 	github.com/prometheus/client_golang v1.14.0
 	go.uber.org/zap v1.24.0
 	gopkg.in/square/go-jose.v2 v2.6.0
