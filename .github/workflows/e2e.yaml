@@ -8,11 +8,13 @@ jobs:
       fail-fast: false
       matrix:
         kind-k8s-version:
-          - kindest/node:v1.21.14@sha256:75047f07ef306beff928fdc1f171a8b81fae1628f7515bdabc4fc9c31b698d6b
-          - kindest/node:v1.22.17@sha256:ed0f6a1cd1dcc0ff8b66257b3867e4c9e6a54adeb9ca31005f62638ad555315c
-          - kindest/node:v1.23.17@sha256:f935044f60483d33648d8c13decd79557cf3e916363a3c9ba7e82332cb249cba
-          - kindest/node:v1.24.12@sha256:0bdca26bd7fe65c823640b14253ea7bac4baad9336b332c94850f84d8102f873
-          - kindest/node:v1.25.8@sha256:b5ce984f5651f44457edf263c1fe93459df8d5d63db7f108ccf5ea4b8d4d9820
+          - kindest/node:v1.21.14@sha256:220cfafdf6e3915fbce50e13d1655425558cb98872c53f802605aa2fb2d569cf
+          - kindest/node:v1.22.17@sha256:9af784f45a584f6b28bce2af84c494d947a05bd709151466489008f80a9ce9d5
+          - kindest/node:v1.23.17@sha256:f77f8cf0b30430ca4128cc7cfafece0c274a118cd0cdb251049664ace0dee4ff
+          - kindest/node:v1.24.13@sha256:cea86276e698af043af20143f4bf0509e730ec34ed3b7fa790cc0bea091bc5dd
+          - kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161
+          - kindest/node:v1.26.4@sha256:f4c0d87be03d6bea69f5e5dc0adb678bb498a190ee5c38422bf751541cebe92e
+          - kindest/node:v1.27.1@sha256:b7d12ed662b873bd8510879c1846e87c7e676a79fefc93e17b2a52989d3ff42b
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-go@v4
@@ -20,7 +22,7 @@ jobs:
         go-version: '1.20.8'
     - name: cleanup kind
       run: |
-        curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.16.0/kind-linux-amd64
+        curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.19.0/kind-linux-amd64
         chmod +x ./kind
         ./kind delete cluster || true
     - name: Login to DockerHub
@@ -30,7 +32,7 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
     - uses: engineerd/setup-kind@v0.5.0
       with:
-        version: "v0.16.0"
+        version: "v0.19.0"
         image: ${{ matrix.kind-k8s-version }}
     - name: Get temp bin dir
       id: bin_dir
@@ -52,7 +54,7 @@ jobs:
     - name: cleanup kind
       if: always()
       run: |
-        curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.16.0/kind-linux-amd64
+        curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.19.0/kind-linux-amd64
         chmod +x ./kind
         ./kind delete cluster || true
         docker image prune -f
