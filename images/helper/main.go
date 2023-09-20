@@ -24,6 +24,7 @@ import (
 	"os"
 	"time"
 
+	graphql "github.com/cli/shurcooL-graphql"
 	humio "github.com/humio/cli/api"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -118,7 +119,7 @@ func listAllHumioUsersMultiOrg(client *humio.Client) ([]OrganizationSearchResult
 	}
 
 	variables := map[string]interface{}{
-		"username": adminAccountUserName,
+		"username": graphql.String(adminAccountUserName),
 	}
 
 	err := client.Query(&q, variables)
