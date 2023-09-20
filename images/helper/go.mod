@@ -3,7 +3,7 @@ module github.com/humio/humio-operator/images/helper
 go 1.20
 
 require (
-	github.com/humio/cli v0.31.2-0.20230911075931-d3fdd33d16ed
+	github.com/humio/cli v0.32.1
 	k8s.io/api v0.26.8
 	k8s.io/apimachinery v0.26.8
 	k8s.io/client-go v0.26.8
