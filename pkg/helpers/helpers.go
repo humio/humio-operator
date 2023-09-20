@@ -19,12 +19,12 @@ package helpers
 import (
 	"crypto/sha256"
 	"fmt"
-	graphql "github.com/cli/shurcooL-graphql"
 	"os"
 	"reflect"
 	"sort"
 	"strings"
 
+	graphql "github.com/cli/shurcooL-graphql"
 	uberzap "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
