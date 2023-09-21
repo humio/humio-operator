@@ -56,7 +56,12 @@ type podAttachments struct {
 	dataVolumeSource              corev1.VolumeSource
 	initServiceAccountSecretName  string
 	envVarSourceData              *map[string]string
-	bootstrapTokenSecretReference *corev1.SecretKeySelector
+	bootstrapTokenSecretReference bootstrapTokenSecret
+}
+
+type bootstrapTokenSecret struct {
+	hash            string
+	secretReference *corev1.SecretKeySelector
 }
 
 // ConstructContainerArgs returns the container arguments for the Humio pods. We want to grab a UUID from zookeeper
@@ -187,9 +192,6 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 		}
 	}
 
-	// TODO: restart pods when bootstrap token changes?
-	//attachments.bootstrapTokenSecretReference.Key
-
 	if EnvVarHasValue(pod.Spec.Containers[humioIdx].Env, "AUTHENTICATION_METHOD", "saml") {
 		pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
 			Name:  "SAML_IDP_CERTIFICATE",
@@ -281,11 +283,11 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 		})
 	}
 
-	if attachments.bootstrapTokenSecretReference != nil {
+	if attachments.bootstrapTokenSecretReference.secretReference != nil {
 		pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
 			Name: "BOOTSTRAP_ROOT_TOKEN_HASHED",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: attachments.bootstrapTokenSecretReference,
+				SecretKeyRef: attachments.bootstrapTokenSecretReference.secretReference,
 			},
 		})
 	}
@@ -469,6 +471,11 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 		})
 	}
 
+	if attachments.bootstrapTokenSecretReference.hash != "" {
+		pod.Annotations[bootstrapTokenHashAnnotation] = attachments.bootstrapTokenSecretReference.hash
+		//pod.Annotations[bootstrapTokenHashAnnotation] = "asdf"
+	}
+	//pod.Annotations[bootstrapTokenHashAnnotation] = "asdf"
 	priorityClassName := hnp.GetPriorityClassName()
 	if priorityClassName != "" {
 		pod.Spec.PriorityClassName = priorityClassName
@@ -653,6 +660,15 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 		return &corev1.Pod{}, r.logErrorAndReturn(err, "unable to find pod name")
 	}
 
+	//var bootstrapTokenHash string
+	//if attachments.bootstrapTokenSecretReference.secretReference != nil {
+	bootstrapTokenHash, err := r.getDesiredBootstrapTokenHash(ctx, hnp)
+	if err != nil {
+		return &corev1.Pod{}, r.logErrorAndReturn(err, "unable to find bootstrap token secret")
+	}
+	attachments.bootstrapTokenSecretReference.hash = bootstrapTokenHash
+	//}
+
 	pod, err := ConstructPod(hnp, podNameAndCertHash.podName, attachments)
 	if err != nil {
 		return &corev1.Pod{}, r.logErrorAndReturn(err, "unable to construct pod")
@@ -675,6 +691,11 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 	if hnp.TLSEnabled() {
 		pod.Annotations[certHashAnnotation] = podNameAndCertHash.certificateHash
 	}
+
+	//if attachments.bootstrapTokenSecretReference.secretReference != nil {
+	//	pod.Annotations[bootstrapTokenHashAnnotation] = bootstrapTokenHash
+	//	//pod.Annotations[bootstrapTokenHashAnnotation] = "asdf2"
+	//}
 
 	_, podRevision := hnp.GetHumioClusterNodePoolRevisionAnnotation()
 	r.Log.Info(fmt.Sprintf("setting pod %s revision to %d", pod.Name, podRevision))
@@ -737,6 +758,7 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 	var revisionMatches bool
 	var envVarSourceMatches bool
 	var certHasAnnotationMatches bool
+	var bootstrapTokenAnootationMatches bool
 
 	desiredPodHash := podSpecAsSHA256(hnp, desiredPod)
 	_, existingPodRevision := hnp.GetHumioClusterNodePoolRevisionAnnotation()
@@ -767,6 +789,16 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 			certHasAnnotationMatches = true
 		}
 	}
+	if _, ok := pod.Annotations[bootstrapTokenHashAnnotation]; ok {
+		if pod.Annotations[bootstrapTokenHashAnnotation] == desiredPod.Annotations[bootstrapTokenHashAnnotation] {
+			bootstrapTokenAnootationMatches = true
+		}
+	} else {
+		// Ignore bootstrapTokenHashAnnotation if it's not in either the current pod or the desired pod
+		if _, ok := desiredPod.Annotations[bootstrapTokenHashAnnotation]; !ok {
+			bootstrapTokenAnootationMatches = true
+		}
+	}
 
 	currentPodCopy := pod.DeepCopy()
 	desiredPodCopy := desiredPod.DeepCopy()
@@ -789,6 +821,10 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", certHashAnnotation, pod.Annotations[certHashAnnotation], desiredPod.Annotations[certHashAnnotation]), "podSpecDiff", podSpecDiff)
 		return false, nil
 	}
+	if !bootstrapTokenAnootationMatches {
+		r.Log.Info(fmt.Sprintf("pod annotation %s bootstrapTokenAnootationMatches not match desired pod: got %+v, expected %+v", bootstrapTokenHashAnnotation, pod.Annotations[bootstrapTokenHashAnnotation], desiredPod.Annotations[bootstrapTokenHashAnnotation]), "podSpecDiff", podSpecDiff)
+		return false, nil
+	}
 	return true, nil
 }
 
@@ -808,6 +844,10 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 		}
 		if hnp.TLSEnabled() {
 			desiredPod.Annotations[certHashAnnotation] = GetDesiredCertHash(hnp)
+		}
+
+		if attachments.bootstrapTokenSecretReference.secretReference != nil {
+			desiredPod.Annotations[bootstrapTokenHashAnnotation] = attachments.bootstrapTokenSecretReference.hash
 		}
 
 		podsMatch, err := r.podsMatch(hnp, pod, *desiredPod)
@@ -850,6 +890,27 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 
 type podNameAndCertificateHash struct {
 	podName, certificateHash string
+}
+
+func (r *HumioClusterReconciler) getDesiredBootstrapTokenHash(ctx context.Context, hnp *HumioNodePool) (string, error) {
+
+	existingSecret := &corev1.Secret{}
+	err := r.Get(ctx, types.NamespacedName{
+		Namespace: hnp.GetNamespace(),
+		Name:      fmt.Sprintf("%s-%s", hnp.GetClusterName(), kubernetes.BootstrapTokenSecretNameSuffix),
+	}, existingSecret)
+
+	//return fmt.Sprintf("+%v", existingSecret), nil
+	if err != nil {
+		return fmt.Sprintf("%v", err), err
+	}
+
+	if ok := string(existingSecret.Data[BootstrapTokenSecretHashedTokenName]); ok != "" {
+		return helpers.AsSHA256(string(existingSecret.Data[BootstrapTokenSecretHashedTokenName])), nil
+	}
+
+	//// TODO: Should we error here?
+	return fmt.Sprintf("%v", err), fmt.Errorf("secret does not contain key %s", BootstrapTokenSecretHashedTokenName)
 }
 
 // findHumioNodeNameAndCertHash looks up the name of a free node certificate to use and the hash of the certificate specification
@@ -938,9 +999,11 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 
 	if hnp.InitContainerDisabled() {
 		return &podAttachments{
-			dataVolumeSource:              volumeSource,
-			envVarSourceData:              envVarSourceData,
-			bootstrapTokenSecretReference: hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef,
+			dataVolumeSource: volumeSource,
+			envVarSourceData: envVarSourceData,
+			bootstrapTokenSecretReference: bootstrapTokenSecret{
+				secretReference: hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef,
+			},
 		}, nil
 	}
 
@@ -953,10 +1016,12 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 	}
 
 	return &podAttachments{
-		dataVolumeSource:              volumeSource,
-		initServiceAccountSecretName:  initSASecretName,
-		envVarSourceData:              envVarSourceData,
-		bootstrapTokenSecretReference: hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef,
+		dataVolumeSource:             volumeSource,
+		initServiceAccountSecretName: initSASecretName,
+		envVarSourceData:             envVarSourceData,
+		bootstrapTokenSecretReference: bootstrapTokenSecret{
+			secretReference: hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef,
+		},
 	}, nil
 }
 
