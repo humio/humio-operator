@@ -41,13 +41,13 @@ import (
 )
 
 const (
-	oldSupportedHumioVersion   = "humio/humio-core:1.56.2"
+	oldSupportedHumioVersion   = "humio/humio-core:1.70.0"
 	oldUnsupportedHumioVersion = "humio/humio-core:1.18.4"
 
 	upgradePatchBestEffortOldVersion = "humio/humio-core:1.82.0"
 	upgradePatchBestEffortNewVersion = "humio/humio-core:1.82.1"
 
-	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.56.3"
+	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.70.0"
 	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.76.2"
 
 	imageSourceConfigmapOldVersion = upgradePatchBestEffortOldVersion
@@ -1107,7 +1107,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image unsuccessfully")
-			updatedImage := "humio/humio-operator:1.36.7-missing-image"
+			updatedImage := "humio/humio-operator:1.70.7-missing-image"
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -1287,7 +1287,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.NodeCount = 2
-			toCreate.Spec.EnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
+			toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "",
@@ -1320,7 +1320,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "HUMIO_OPTS",
 					Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
 				},
-			})
+			}
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
@@ -1335,7 +1335,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Updating the environment variable successfully")
-			updatedEnvironmentVariables := suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
+			updatedEnvironmentVariables := []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "update",
@@ -1368,7 +1368,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "HUMIO_OPTS",
 					Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
 				},
-			})
+			}
 
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -1423,7 +1423,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
 			toCreate.Spec.NodeCount = 1
 			toCreate.Spec.NodePools[0].NodeCount = 1
-			toCreate.Spec.EnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
+			toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "",
@@ -1452,8 +1452,8 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			})
-			toCreate.Spec.NodePools[0].EnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0]).GetImage(), []corev1.EnvVar{
+			}
+			toCreate.Spec.NodePools[0].EnvironmentVariables = []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "",
@@ -1482,7 +1482,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			})
+			}
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
@@ -1499,7 +1499,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Updating the environment variable on main node pool successfully")
-			updatedEnvironmentVariables := suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetImage(), []corev1.EnvVar{
+			updatedEnvironmentVariables := []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "update",
@@ -1528,7 +1528,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			})
+			}
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -1597,7 +1597,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, additionalNodePoolManager.GetPodLabels())
 
 			suite.UsingClusterBy(key.Name, "Updating the environment variable on additional node pool successfully")
-			updatedEnvironmentVariables = suite.FilterZookeeperURLIfVersionIsRecentEnough(controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0]).GetImage(), []corev1.EnvVar{
+			updatedEnvironmentVariables = []corev1.EnvVar{
 				{
 					Name:  "test",
 					Value: "update",
@@ -1626,7 +1626,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Name:  "ENABLE_IOC_SERVICE",
 					Value: "false",
 				},
-			})
+			}
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -2241,10 +2241,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			hnp = controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)
 			expectedContainerArgString := "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"
-			humioVersion, _ := controllers.HumioVersionFromString(hnp.GetImage())
-			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithNewVhostSelection); !ok {
-				expectedContainerArgString = "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat /shared/availability-zone)_ && exec bash /app/humio/run.sh"
-			}
+
 			Eventually(func() []string {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
 				if len(clusterPods) > 0 {
@@ -2257,17 +2254,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
 			Expect(err).ToNot(HaveOccurred())
 			humioIdx, _ := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
-			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithNewVhostSelection); !ok {
-				Expect(clusterPods[0].Spec.Containers[humioIdx].Env).To(ContainElement(corev1.EnvVar{
-					Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
-					Value: "$(ZOOKEEPER_URL)",
-				}))
-			} else {
-				Expect(clusterPods[0].Spec.Containers[humioIdx].Env).ToNot(ContainElement(corev1.EnvVar{
-					Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
-					Value: "$(ZOOKEEPER_URL)",
-				}))
-			}
+			Expect(clusterPods[0].Spec.Containers[humioIdx].Env).ToNot(ContainElement(corev1.EnvVar{
+				Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
+				Value: "$(ZOOKEEPER_URL)",
+			}))
 		})
 	})
 
@@ -2305,10 +2295,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			hnp = controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)
 
 			expectedContainerArgString := "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"
-			humioVersion, _ := controllers.HumioVersionFromString(hnp.GetImage())
-			if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithNewVhostSelection); !ok {
-				expectedContainerArgString = "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_ && exec bash /app/humio/run.sh"
-			}
 			Eventually(func() []string {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 				if len(clusterPods) > 0 {
