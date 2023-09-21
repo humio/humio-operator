@@ -126,8 +126,8 @@ github.com/googleapis/gax-go/v2 v2.0.4/go.mod h1:0Wqv26UfaUD9n4G6kQubkQ+KchISgw+
 github.com/googleapis/gax-go/v2 v2.0.5/go.mod h1:DWXyrwAJ9X0FpwwEdw+IPEYBICEFu5mhpdKc/us6bOk=
 github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
-github.com/humio/cli v0.32.1 h1:0jLc6+i4Ur/9vrsdQQnj2mjhwSECk3x6xzZ8I9irfHU=
-github.com/humio/cli v0.32.1/go.mod h1:I4yilQO5wI6uc7NMLmKSGFATY3AZddCbehIvjESK8WQ=
+github.com/humio/cli v0.32.3 h1:iBodQTpwGuadyg9zwCc5zXWNvFELxNxH6M08MO1Y+Ho=
+github.com/humio/cli v0.32.3/go.mod h1:I4yilQO5wI6uc7NMLmKSGFATY3AZddCbehIvjESK8WQ=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
