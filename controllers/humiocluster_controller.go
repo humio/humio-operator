@@ -1941,8 +1941,15 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to get bootstrap token")
 	}
+
 	if hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef != nil {
-		attachments.bootstrapTokenSecretReference = hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef
+		attachments.bootstrapTokenSecretReference.secretReference = hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef
+
+		bootstrapTokenHash, err := r.getDesiredBootstrapTokenHash(ctx, hnp)
+		if err != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to find bootstrap token secret")
+		}
+		attachments.bootstrapTokenSecretReference.hash = bootstrapTokenHash
 	}
 
 	// prioritize deleting the pods with errors

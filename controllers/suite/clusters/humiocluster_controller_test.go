@@ -1276,6 +1276,72 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Context("Humio Cluster Rotate Bootstrap Token", func() {
+		It("Update should correctly replace pods to use new bootstrap token", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-rotate-bootstrap-token",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.NodeCount = 2
+
+			suite.UsingClusterBy(key.Name, "Creating a cluster")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(key.Name, "Validating pod bootstrap token annotation hash")
+			//var bootstrapTokenHash string
+			Eventually(func() string {
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				_ = suite.MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
+
+				if len(clusterPods) > 0 {
+					return clusterPods[0].Annotations["humio.com/bootstrap-token-hash"]
+				}
+				return ""
+			}, testTimeout, suite.TestInterval).Should(Not(Equal("")))
+
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			bootstrapTokenHashValue := clusterPods[0].Annotations["humio.com/bootstrap-token-hash"]
+
+			suite.UsingClusterBy(key.Name, "Rotating bootstrap token")
+			var bootstrapTokenSecret corev1.Secret
+
+			bootstrapTokenSecretKey := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix),
+				Namespace: key.Namespace,
+			}
+			Expect(k8sClient.Get(ctx, bootstrapTokenSecretKey, &bootstrapTokenSecret)).To(BeNil())
+			bootstrapTokenSecret.Data["hashedToken"] = []byte("some new token")
+			Expect(k8sClient.Update(ctx, &bootstrapTokenSecret)).To(BeNil())
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).To(BeNil())
+
+			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+
+			suite.UsingClusterBy(key.Name, "Validating pod is recreated with the new bootstrap token hash annotation")
+			Eventually(func() string {
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				_ = suite.MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
+
+				if len(clusterPods) > 0 {
+					return clusterPods[0].Annotations["humio.com/bootstrap-token-hash"]
+				}
+				return ""
+			}, testTimeout, suite.TestInterval).Should(Not(Equal(bootstrapTokenHashValue)))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+		})
+	})
+
 	Context("Humio Cluster Update Environment Variable", func() {
 		It("Should correctly replace pods to use new environment variable", func() {
 			key := types.NamespacedName{
