@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	Image                        = "humio/humio-core:1.82.1"
+	Image                        = "humio/humio-core:1.100.0"
 	HelperImage                  = "humio/humio-operator-helper:6f11f218c1ff386537d63a3ee0f003249604f131"
 	targetReplicationFactor      = 2
 	storagePartitionsCount       = 24
@@ -383,13 +383,6 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	}
 
 	humioVersion, _ := HumioVersionFromString(hnp.GetImage())
-	if ok, _ := humioVersion.AtLeast(HumioVersionWithDefaultSingleUserAuth); !ok {
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "AUTHENTICATION_METHOD",
-			Value: "single-user",
-		})
-	}
-
 	if ok, _ := humioVersion.AtLeast(HumioVersionWithoutOldVhostSelection); !ok {
 		if EnvVarHasValue(hnp.humioNodeSpec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") &&
 			EnvVarHasKey(hnp.humioNodeSpec.EnvironmentVariables, "ZOOKEEPER_URL") {
