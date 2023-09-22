@@ -989,7 +989,7 @@ func (h *ClientConfig) ExtractExistingHumioAdminUserID(config *humioapi.Config, 
 }
 
 func (h *ClientConfig) RotateUserApiTokenAndGet(config *humioapi.Config, req reconcile.Request, userID string) (string, error) {
-	token, err := h.GetHumioClient(config, req).Users().RotateUserApiTokenAndGet(userID)
+	token, err := h.GetHumioClient(config, req).Users().RotateToken(userID)
 	if err != nil {
 		return "", fmt.Errorf("could not rotate apiToken for userID %s, err: %w", userID, err)
 	}
