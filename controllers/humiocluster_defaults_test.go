@@ -200,7 +200,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				&humiov1alpha1.HumioCluster{
 					Spec: humiov1alpha1.HumioClusterSpec{
 						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
-							Image: fmt.Sprintf("humio/humio-core:%s", HumioVersionWithNewVhostSelection),
+							Image: fmt.Sprintf("humio/humio-core:%s", HumioVersionMinimumSupported),
 							EnvironmentVariables: []corev1.EnvVar{
 								{
 									Name:  "USING_EPHEMERAL_DISKS",
