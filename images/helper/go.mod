@@ -3,14 +3,14 @@ module github.com/humio/humio-operator/images/helper
 go 1.20
 
 require (
-	github.com/humio/cli v0.32.1
+	github.com/cli/shurcooL-graphql v0.0.3
+	github.com/humio/cli v0.32.3
 	k8s.io/api v0.26.8
 	k8s.io/apimachinery v0.26.8
 	k8s.io/client-go v0.26.8
 )
 
 require (
-	github.com/cli/shurcooL-graphql v0.0.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
