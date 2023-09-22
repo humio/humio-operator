@@ -8,4 +8,4 @@ This chart bootstraps a humio-operator deployment on a [Kubernetes](http://kuber
 
 ## Installation
 
-See the [Installation Guide](https://docs.humio.com/installation/kubernetes/operator/installation).
+See the [Installation Guide](https://library.humio.com/falcon-logscale-self-hosted/installation-containers-kubernetes-operator-install.html).
