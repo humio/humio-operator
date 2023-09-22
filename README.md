@@ -14,11 +14,11 @@ The Humio operator is a Kubernetes operator to automate provisioning, management
 
 ## Installation
 
-See the [Installation Guide](https://library.humio.com/humio-server/installation-containers-kubernetes-operator-install.html). There is also a step-by-step [Quick Start](https://library.humio.com/humio-server/installation-containers-kubernetes-operator-aws-install.html) guide that walks through creating a cluster on AWS.
+See the [Installation Guide](https://library.humio.com/falcon-logscale-self-hosted/installation-containers-kubernetes-operator-install.html). There is also a step-by-step [Quick Start](https://library.humio.com/falcon-logscale-self-hosted/installation-containers-kubernetes-operator-aws-install.html) guide that walks through creating a cluster on AWS.
 
 ## Running a Humio Cluster
 
-See instructions and examples in the [Humio Operator Resources](https://library.humio.com/humio-server/installation-containers-kubernetes-operator-resources.html) section of the docs.
+See instructions and examples in the [Humio Operator Resources](https://library.humio.com/falcon-logscale-self-hosted/installation-containers-kubernetes-operator-resources.html) section of the docs.
 
 ## Development
 
