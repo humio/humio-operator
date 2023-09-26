@@ -155,17 +155,8 @@ var _ = BeforeSuite(func() {
 	options := ctrl.Options{
 		Scheme:             scheme.Scheme,
 		MetricsBindAddress: "0",
-		Namespace:          watchNamespace,
+		Cache:              cache.Options{Namespaces: strings.Split(watchNamespace, ",")},
 		Logger:             log,
-	}
-
-	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
-	if strings.Contains(watchNamespace, ",") {
-		log.Info(fmt.Sprintf("manager will be watching namespace %q", watchNamespace))
-		// configure cluster-scoped with MultiNamespacedCacheBuilder
-		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(watchNamespace, ","))
-		// TODO: Get rid of Namespace property on Reconciler objects and instead use a custom cache implementation as this cache doesn't support watching a subset of namespace while still allowing to watch cluster-scoped resources. https://github.com/kubernetes-sigs/controller-runtime/issues/934
 	}
 
 	k8sManager, err = ctrl.NewManager(cfg, options)
