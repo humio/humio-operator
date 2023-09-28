@@ -45,8 +45,10 @@ import (
 const (
 	// BootstrapTokenSecretHashedTokenName is the name of the hashed token key inside the bootstrap token secret
 	BootstrapTokenSecretHashedTokenName = "hashedToken"
-	// BootstrapTokenSecretName is the name of the secret key inside the bootstrap token secret
-	BootstrapTokenSecretName = "secret"
+	// BootstrapTokenSecretSecretName is the name of the secret key inside the bootstrap token secret
+	BootstrapTokenSecretSecretName = "secret"
+	// BootstrapTokenSecretPassphraseKey is the key name for the passphrase set in the bootstrap token secret
+	BootstrapTokenSecretPassphraseKey = "passphrase"
 )
 
 // HumioBootstrapTokenReconciler reconciles a HumioBootstrapToken object
@@ -112,36 +114,31 @@ func (r *HumioBootstrapTokenReconciler) Reconcile(ctx context.Context, req ctrl.
 		return reconcile.Result{}, err
 	}
 
-	if err := r.Get(ctx, req.NamespacedName, hbt); err != nil {
+	if err := r.updateStatus(ctx, hbt); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// TODO: rather than status, should we set a default in the spec instead?
+	return reconcile.Result{RequeueAfter: time.Second * 60}, nil
+}
+
+func (r *HumioBootstrapTokenReconciler) updateStatus(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken) error {
 	hbt.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
 		SecretKeyRef: &corev1.SecretKeySelector{
 			LocalObjectReference: corev1.LocalObjectReference{
-				Name: fmt.Sprintf("%s-bootstrap-token", hbt.Name),
+				Name: fmt.Sprintf("%s-%s", hbt.Name, kubernetes.BootstrapTokenSecretNameSuffix),
 			},
-			Key: "secret",
+			Key: BootstrapTokenSecretSecretName,
 		},
 	}
 	hbt.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
 		SecretKeyRef: &corev1.SecretKeySelector{
 			LocalObjectReference: corev1.LocalObjectReference{
-				Name: fmt.Sprintf("%s-bootstrap-token", hbt.Name),
+				Name: fmt.Sprintf("%s-%s", hbt.Name, kubernetes.BootstrapTokenSecretNameSuffix),
 			},
-			Key: "hashedToken",
+			Key: BootstrapTokenSecretHashedTokenName,
 		},
 	}
-	if err := r.Client.Status().Update(ctx, hbt); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// TODO: take code from images/helper/main.go and use "secret" to create an admin user and store the token in a k8s secret. Update the
-	// HumioBootstrapToken Status to also include the admin token.
-	// Alternatively, the creation of the admin user could be handled by the humiocluster controller. Perhaps that is a better place for it?
-
-	return reconcile.Result{RequeueAfter: time.Second * 60}, nil
+	return r.Client.Status().Update(ctx, hbt)
 }
 
 func (r *HumioBootstrapTokenReconciler) execCommand(pod *corev1.Pod, args []string) (string, error) {
@@ -186,7 +183,7 @@ func (r *HumioBootstrapTokenReconciler) execCommand(pod *corev1.Pod, args []stri
 		return "", err
 	}
 	var stdout, stderr bytes.Buffer
-	err = exec.Stream(remotecommand.StreamOptions{
+	err = exec.StreamWithContext(context.TODO(), remotecommand.StreamOptions{
 		Stdin:  nil,
 		Stdout: &stdout,
 		Stderr: &stderr,
@@ -258,35 +255,46 @@ func (r *HumioBootstrapTokenReconciler) deletePod(ctx context.Context, hbt *humi
 func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("ensuring bootstrap token secret")
 	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, hc)
-	if !humioBootstrapTokenConfig.tokenSecretCreateIfMissing() {
-		return nil
-	}
 	if _, err := r.getBootstrapTokenSecret(ctx, hbt, hc); err != nil {
 		if k8serrors.IsNotFound(err) {
-			// TODO: something better
-			//randomPass := kubernetes.RandomString()
-			secretData := map[string][]byte{
-				//"passphrase": []byte(randomPass),
-			}
-			// TODO: make passphrase constant
+			secretData := map[string][]byte{}
 			if hbt.Spec.TokenSecret.SecretKeyRef != nil {
 				secret, err := kubernetes.GetSecret(ctx, r, hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Namespace)
 				if err != nil {
 					return r.logErrorAndReturn(err, fmt.Sprintf("could not get secret %s", hbt.Spec.TokenSecret.SecretKeyRef.Name))
 				}
-				if passphrase, ok := secret.Data["passphrase"]; ok {
-					secretData["passphrase"] = passphrase
+				if secretValue, ok := secret.Data[hbt.Spec.TokenSecret.SecretKeyRef.Key]; ok {
+					secretData[BootstrapTokenSecretSecretName] = secretValue
+				} else {
+					return r.logErrorAndReturn(err, fmt.Sprintf("could not get value from secret %s. "+
+						"secret does not contain value for key \"%s\"", hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Spec.TokenSecret.SecretKeyRef.Key))
+				}
+
+			}
+			if hbt.Spec.HashedTokenSecret.SecretKeyRef != nil {
+				secret, err := kubernetes.GetSecret(ctx, r, hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Namespace)
+				if err != nil {
+					return r.logErrorAndReturn(err, fmt.Sprintf("could not get secret %s", hbt.Spec.TokenSecret.SecretKeyRef.Name))
+				}
+				if hashedTokenValue, ok := secret.Data[hbt.Spec.HashedTokenSecret.SecretKeyRef.Key]; ok {
+					secretData[BootstrapTokenSecretHashedTokenName] = hashedTokenValue
+				} else {
+					return r.logErrorAndReturn(err, fmt.Sprintf("could not get value from secret %s. "+
+						"secret does not contain value for key \"%s\"", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name, hbt.Spec.HashedTokenSecret.SecretKeyRef.Key))
 				}
 			}
-			secret := kubernetes.ConstructSecret(hbt.Name, hbt.Namespace, humioBootstrapTokenConfig.bootstrapTokenName(), secretData, nil)
-			if err := controllerutil.SetControllerReference(hbt, secret, r.Scheme()); err != nil {
-				return r.logErrorAndReturn(err, "could not set controller reference")
+			// TODO: do we really need autocreate option, or just assume create  if there is no hbt.Spec.TokenSecret.SecretKeyRef set?
+			if humioBootstrapTokenConfig.autoCreate() {
+				secret := kubernetes.ConstructSecret(hbt.Name, hbt.Namespace, humioBootstrapTokenConfig.bootstrapTokenName(), secretData, nil)
+				if err := controllerutil.SetControllerReference(hbt, secret, r.Scheme()); err != nil {
+					return r.logErrorAndReturn(err, "could not set controller reference")
+				}
+				r.Log.Info(fmt.Sprintf("creating secret: %s", secret.Name))
+				if err := r.Create(ctx, secret); err != nil {
+					return r.logErrorAndReturn(err, "could not create secret")
+				}
+				return nil
 			}
-			r.Log.Info(fmt.Sprintf("creating secret: %s", secret.Name))
-			if err := r.Create(ctx, secret); err != nil {
-				return r.logErrorAndReturn(err, "could not create secret")
-			}
-			return nil
 		} else {
 			return r.logErrorAndReturn(err, "could not get secret")
 		}
@@ -314,7 +322,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 
 	commandArgs := []string{"/bin/bash", "/app/humio/humio/bin/humio-run-class.sh", "com.humio.main.TokenHashing", "--json"}
 
-	if tokenSecret, ok := bootstrapTokenSecret.Data[BootstrapTokenSecretName]; ok {
+	if tokenSecret, ok := bootstrapTokenSecret.Data[BootstrapTokenSecretSecretName]; ok {
 		commandArgs = append(commandArgs, string(tokenSecret))
 	}
 
@@ -359,7 +367,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 		return err
 	}
 	// TODO: make tokenHash constant
-	updatedSecret.Data = map[string][]byte{BootstrapTokenSecretHashedTokenName: []byte(secretData.HashedToken), BootstrapTokenSecretName: []byte(secretData.Secret)}
+	updatedSecret.Data = map[string][]byte{BootstrapTokenSecretHashedTokenName: []byte(secretData.HashedToken), BootstrapTokenSecretSecretName: []byte(secretData.Secret)}
 
 	if err = r.Update(ctx, updatedSecret); err != nil {
 		return r.logErrorAndReturn(err, "failed to update secret with hashedToken data")

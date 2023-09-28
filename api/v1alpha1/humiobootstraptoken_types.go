@@ -43,22 +43,22 @@ type HumioBootstrapTokenSpec struct {
 }
 
 type HumioTokenSecretSpec struct {
-	// TODO: we could clean this up by removing the "CreateIfMissing" and in docs explain if you want to use your own secret
+	// TODO: we could clean this up by removing the "AutoCreate" and in docs explain if you want to use your own secret
 	// then create the secret before the bootstraptoken resource
-	CreateIfMissing *bool                     `json:"createIfMissing,omitempty"`
-	SecretKeyRef    *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
+	AutoCreate   *bool                     `json:"autoCreate,omitempty"`
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 type HumioHashedTokenSecretSpec struct {
-	// TODO: maybe remove CreateIfMissing
-	CreateIfMissing *bool                     `json:"createIfMissing,omitempty"`
-	SecretKeyRef    *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
+	// TODO: maybe remove AutoCreate
+	AutoCreate   *bool                     `json:"autoCreate,omitempty"`
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 type HumioBootstrapTokenStatus struct {
 	// TODO set the status. This is used by the HumioCluster resource to get the secret reference and load the secret. We don't want to rely on the spec
 	// here as the spec could be empty. Or do we want to
-	Created                 bool                         `json:"created,omitempty"`
+	//Created                 bool                         `json:"created,omitempty"`
 	TokenSecretKeyRef       HumioTokenSecretStatus       `json:"tokenSecretStatus,omitempty"`
 	HashedTokenSecretKeyRef HumioHashedTokenSecretStatus `json:"hashedTokenSecretStatus,omitempty"`
 }
