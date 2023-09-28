@@ -4,3 +4,13 @@ metadata:
   name: example-bootstraptoken
 spec:
   managedClusterName: example-humiocluster
+  tokenSecret:
+    autoCreate: false
+    secretKeyRef:
+      name: example-bootstraptoken-token-secret
+      key: secret
+  hashedTokenSecret:
+    autoCreate: false
+    secretKeyRef:
+      name: example-bootstraptoken-token-secret
+      key: hashedToken
