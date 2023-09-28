@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	BootstrapTokenSuffix       = "bootstrap-token"
-	HashedBootstrapTokenSuffix = "hashed-bootstrap-token"
+	BootstrapTokenSuffix = "bootstrap-token"
+	//HashedBootstrapTokenSuffix = "hashed-bootstrap-token"
 )
 
 type HumioBootstrapTokenConfig struct {
@@ -28,17 +28,17 @@ func (b *HumioBootstrapTokenConfig) bootstrapTokenName() string {
 	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, BootstrapTokenSuffix)
 }
 
-func (b *HumioBootstrapTokenConfig) hashedBootstrapTokenName() string {
-	if b.BootstrapToken.Spec.HashedTokenSecret.SecretKeyRef != nil {
-		return b.BootstrapToken.Spec.HashedTokenSecret.SecretKeyRef.Name
-	}
-	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, HashedBootstrapTokenSuffix)
-}
+//func (b *HumioBootstrapTokenConfig) hashedBootstrapTokenName() string {
+//	if b.BootstrapToken.Spec.HashedTokenSecret.SecretKeyRef != nil {
+//		return b.BootstrapToken.Spec.HashedTokenSecret.SecretKeyRef.Name
+//	}
+//	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, HashedBootstrapTokenSuffix)
+//}
 
 // TODO: remove this?
-func (b *HumioBootstrapTokenConfig) tokenSecretCreateIfMissing() bool {
-	if b.BootstrapToken.Spec.TokenSecret.CreateIfMissing != nil {
-		return *b.BootstrapToken.Spec.TokenSecret.CreateIfMissing
+func (b *HumioBootstrapTokenConfig) autoCreate() bool {
+	if b.BootstrapToken.Spec.TokenSecret.AutoCreate != nil {
+		return *b.BootstrapToken.Spec.TokenSecret.AutoCreate
 	}
 	return true
 }

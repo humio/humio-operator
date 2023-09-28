@@ -461,8 +461,19 @@ func (r *HumioClusterReconciler) ensureHumioClusterBootstrapToken(ctx context.Co
 		Namespace: hc.Namespace,
 		Name:      hc.Name,
 	}
-	hbt := &humiov1alpha1.HumioBootstrapToken{}
-	err := r.Client.Get(ctx, key, hbt)
+	//hbt := &humiov1alpha1.HumioBootstrapToken{}
+	hbtList := &humiov1alpha1.HumioBootstrapTokenList{}
+	var matchedHbt humiov1alpha1.HumioBootstrapToken
+	err := r.Client.List(ctx, hbtList)
+	if err != nil {
+		return r.logErrorAndReturn(err, "could not list HumioBootstrapToken")
+	}
+	for _, hbt := range hbtList.Items {
+		if hbt.Spec.ManagedClusterName == hc.Name {
+			matchedHbt = hbt
+		}
+	}
+	err = r.Client.Get(ctx, key, &matchedHbt)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			hbt := &humiov1alpha1.HumioBootstrapToken{
@@ -490,12 +501,12 @@ func (r *HumioClusterReconciler) ensureHumioClusterBootstrapToken(ctx context.Co
 					//	},
 				},
 			}
+			if err := controllerutil.SetControllerReference(hc, hbt, r.Scheme()); err != nil {
+				return r.logErrorAndReturn(err, "could not set controller reference")
+			}
 			err = r.Create(ctx, hbt)
 			if err != nil {
 				return r.logErrorAndReturn(err, "could not create bootstrap token resource")
-			}
-			if err := controllerutil.SetControllerReference(hc, hbt, r.Scheme()); err != nil {
-				return r.logErrorAndReturn(err, "could not set controller reference")
 			}
 			return nil
 		}

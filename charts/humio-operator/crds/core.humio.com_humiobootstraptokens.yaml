@@ -56,8 +56,8 @@ spec:
                 type: string
               hashedTokenSecret:
                 properties:
-                  createIfMissing:
-                    description: 'TODO: maybe remove CreateIfMissing'
+                  autoCreate:
+                    description: 'TODO: maybe remove AutoCreate'
                     type: boolean
                   secretKeyRef:
                     description: SecretKeySelector selects a key of a Secret.
@@ -86,8 +86,8 @@ spec:
                 type: string
               tokenSecret:
                 properties:
-                  createIfMissing:
-                    description: 'TODO: we could clean this up by removing the "CreateIfMissing"
+                  autoCreate:
+                    description: 'TODO: we could clean this up by removing the "AutoCreate"
                       and in docs explain if you want to use your own secret then
                       create the secret before the bootstraptoken resource'
                     type: boolean
@@ -113,12 +113,6 @@ spec:
             type: object
           status:
             properties:
-              created:
-                description: TODO set the status. This is used by the HumioCluster
-                  resource to get the secret reference and load the secret. We don't
-                  want to rely on the spec here as the spec could be empty. Or do
-                  we want to
-                type: boolean
               hashedTokenSecretStatus:
                 properties:
                   secretKeyRef:
@@ -141,6 +135,10 @@ spec:
                     type: object
                 type: object
               tokenSecretStatus:
+                description: TODO set the status. This is used by the HumioCluster
+                  resource to get the secret reference and load the secret. We don't
+                  want to rely on the spec here as the spec could be empty. Or do
+                  we want to Created                 bool                         `json:"created,omitempty"`
                 properties:
                   secretKeyRef:
                     description: SecretKeySelector selects a key of a Secret.

@@ -1,9 +1,11 @@
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.6.2
+  creationTimestamp: null
   name: humiobootstraptokens.core.humio.com
   labels:
     app: 'humio-operator'
@@ -32,19 +34,14 @@ spec:
           use to bootstrap authentication
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -53,14 +50,14 @@ spec:
               Humio will use to bootstrap authentication
             properties:
               externalClusterName:
-                description: |-
-                  ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
-                  This conflicts with ManagedClusterName.
+                description: ExternalClusterName refers to an object of type HumioExternalCluster
+                  where the Humio resources should be created. This conflicts with
+                  ManagedClusterName.
                 type: string
               hashedTokenSecret:
                 properties:
-                  createIfMissing:
-                    description: 'TODO: maybe remove CreateIfMissing'
+                  autoCreate:
+                    description: 'TODO: maybe remove AutoCreate'
                     type: boolean
                   secretKeyRef:
                     description: SecretKeySelector selects a key of a Secret.
@@ -70,10 +67,8 @@ spec:
                           a valid secret key.
                         type: string
                       name:
-                        description: |-
-                          Name of the referent.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
                         type: string
                       optional:
                         description: Specify whether the Secret or its key must be
@@ -82,21 +77,19 @@ spec:
                     required:
                     - key
                     type: object
-                    x-kubernetes-map-type: atomic
                 type: object
               image:
                 type: string
               managedClusterName:
-                description: |-
-                  TODO: determine if we even want to reference the cluster here
-                  ManagedClusterName
+                description: 'TODO: determine if we even want to reference the cluster
+                  here ManagedClusterName'
                 type: string
               tokenSecret:
                 properties:
-                  createIfMissing:
-                    description: |-
-                      TODO: we could clean this up by removing the "CreateIfMissing" and in docs explain if you want to use your own secret
-                      then create the secret before the bootstraptoken resource
+                  autoCreate:
+                    description: 'TODO: we could clean this up by removing the "AutoCreate"
+                      and in docs explain if you want to use your own secret then
+                      create the secret before the bootstraptoken resource'
                     type: boolean
                   secretKeyRef:
                     description: SecretKeySelector selects a key of a Secret.
@@ -106,10 +99,8 @@ spec:
                           a valid secret key.
                         type: string
                       name:
-                        description: |-
-                          Name of the referent.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
                         type: string
                       optional:
                         description: Specify whether the Secret or its key must be
@@ -118,16 +109,10 @@ spec:
                     required:
                     - key
                     type: object
-                    x-kubernetes-map-type: atomic
                 type: object
             type: object
           status:
             properties:
-              created:
-                description: |-
-                  TODO set the status. This is used by the HumioCluster resource to get the secret reference and load the secret. We don't want to rely on the spec
-                  here as the spec could be empty. Or do we want to
-                type: boolean
               hashedTokenSecretStatus:
                 properties:
                   secretKeyRef:
@@ -138,10 +123,8 @@ spec:
                           a valid secret key.
                         type: string
                       name:
-                        description: |-
-                          Name of the referent.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
                         type: string
                       optional:
                         description: Specify whether the Secret or its key must be
@@ -150,9 +133,12 @@ spec:
                     required:
                     - key
                     type: object
-                    x-kubernetes-map-type: atomic
                 type: object
               tokenSecretStatus:
+                description: TODO set the status. This is used by the HumioCluster
+                  resource to get the secret reference and load the secret. We don't
+                  want to rely on the spec here as the spec could be empty. Or do
+                  we want to Created                 bool                         `json:"created,omitempty"`
                 properties:
                   secretKeyRef:
                     description: SecretKeySelector selects a key of a Secret.
@@ -162,10 +148,8 @@ spec:
                           a valid secret key.
                         type: string
                       name:
-                        description: |-
-                          Name of the referent.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
                         type: string
                       optional:
                         description: Specify whether the Secret or its key must be
@@ -174,7 +158,6 @@ spec:
                     required:
                     - key
                     type: object
-                    x-kubernetes-map-type: atomic
                 type: object
             type: object
         type: object
@@ -182,3 +165,9 @@ spec:
     storage: true
     subresources:
       status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
