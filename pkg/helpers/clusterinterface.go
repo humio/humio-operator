@@ -168,20 +168,33 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 
 		var bootstrapToken corev1.Secret
 		if withBootstrapToken {
-			// Get API token
-			err = k8sClient.Get(ctx, types.NamespacedName{
-				Namespace: c.namespace,
-				//Name:      fmt.Sprintf("%s-%s", c.managedClusterName, kubernetes.ServiceTokenSecretNameSuffix),
-				// TODO: pass in BootstrapTokenSuffix
-				Name: fmt.Sprintf("%s-bootstrap-token", c.managedClusterName),
-			}, &bootstrapToken)
+			hbtList := &humiov1alpha1.HumioBootstrapTokenList{}
+			var matchedHbt humiov1alpha1.HumioBootstrapToken
+			err := k8sClient.List(ctx, hbtList)
 			if err != nil {
-				return nil, fmt.Errorf("unable to get bootstrap secret containing api token: %w", err)
+				return nil, fmt.Errorf("unable to get bootstrap token: %w", err)
 			}
-			if _, ok := bootstrapToken.Data["secret"]; !ok {
-				return nil, fmt.Errorf("unable to get bootstrap secret containing api token. secret does not contain key named \"secret\"")
+			for _, hbt := range hbtList.Items {
+				if hbt.Spec.ManagedClusterName == c.managedClusterName {
+					matchedHbt = hbt
+				}
 			}
-			config.Token = fmt.Sprintf("localroot~%s", string(bootstrapToken.Data["secret"]))
+
+			// Get API token
+			if matchedHbt.Status.TokenSecretKeyRef.SecretKeyRef != nil {
+				err = k8sClient.Get(ctx, types.NamespacedName{
+					Namespace: c.namespace,
+					Name:      matchedHbt.Status.TokenSecretKeyRef.SecretKeyRef.Name,
+				}, &bootstrapToken)
+				if err != nil {
+					return nil, fmt.Errorf("unable to get bootstrap secret containing api token: %w", err)
+				}
+				if _, ok := bootstrapToken.Data[matchedHbt.Status.TokenSecretKeyRef.SecretKeyRef.Key]; !ok {
+					return nil, fmt.Errorf("unable to get bootstrap secret containing api token. secret does not contain key named \"%s\"", matchedHbt.Status.TokenSecretKeyRef.SecretKeyRef.Key)
+				}
+				config.Token = fmt.Sprintf("localroot~%s", string(bootstrapToken.Data[matchedHbt.Status.TokenSecretKeyRef.SecretKeyRef.Key]))
+			}
+			return nil, fmt.Errorf("unable to find bootstrap token with ManagedClusterName %s", c.managedClusterName)
 		}
 
 		// If we do not use TLS, return a client without CA certificate
