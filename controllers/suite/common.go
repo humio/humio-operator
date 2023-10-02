@@ -370,6 +370,9 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 				Name:      key.Name,
 				Namespace: key.Namespace,
 			},
+			Spec: humiov1alpha1.HumioBootstrapTokenSpec{
+				ManagedClusterName: key.Name,
+			},
 			//Spec: humiov1alpha1.HumioBootstrapTokenSpec{
 			//	HashedTokenSecret: humiov1alpha1.HumioHashedTokenSecretSpec{
 			//		SecretKeyRef: &corev1.SecretKeySelector{
@@ -406,118 +409,13 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, bootstrapTokenSecretName, secretData, nil)
 	Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
 
-	//UsingClusterBy(key.Name, "Creating HumioBootstrapToken resource")
-	//humioBootstrapToken := &humiov1alpha1.HumioBootstrapToken{
-	//	ObjectMeta: metav1.ObjectMeta{
-	//		Name:      fmt.Sprintf(key.Name),
-	//		Namespace: key.Namespace,
-	//	},
-	//	Spec: humiov1alpha1.HumioBootstrapTokenSpec{
-	//		HashedTokenSecret: humiov1alpha1.HumioHashedTokenSecretSpec{
-	//			SecretKeyRef: &corev1.SecretKeySelector{
-	//				LocalObjectReference: corev1.LocalObjectReference{
-	//					Name: fmt.Sprintf("%s-bootstrap-token-test", key.Name),
-	//				},
-	//				Key: "hashedToken",
-	//			},
-	//		},
-	//	},
-	//	//Status: humiov1alpha1.HumioBootstrapTokenStatus{
-	//	//	TokenSecretKeyRef: humiov1alpha1.HumioTokenSecretStatus{&corev1.SecretKeySelector{
-	//	//		LocalObjectReference: corev1.LocalObjectReference{
-	//	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
-	//	//		},
-	//	//		Key: "secret",
-	//	//	},
-	//	//	},
-	//	//	HashedTokenSecretKeyRef: humiov1alpha1.HumioHashedTokenSecretStatus{&corev1.SecretKeySelector{
-	//	//		LocalObjectReference: corev1.LocalObjectReference{
-	//	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
-	//	//		},
-	//	//		Key: "hashedToken",
-	//	//	}},
-	//	//},
-	//}
-
-	//UsingClusterBy(key.Name, "Creating HumioBootstrapToken resource")
-	//Expect(k8sClient.Create(ctx, humioBootstrapToken)).Should(Succeed())
-
-	//UsingClusterBy(key.Name, "Updating HumioBootstrapToken status")
-	//updatedHumioBootstrapToken := &humiov1alpha1.HumioBootstrapToken{}
-	//humioBootstrapTokenKey := types.NamespacedName{
-	//	Namespace: humioBootstrapToken.Namespace,
-	//	Name:      humioBootstrapToken.Name,
-	//}
-	//Expect(k8sClient.Get(ctx, humioBootstrapTokenKey, updatedHumioBootstrapToken)).Should(Succeed())
-	//
-	//updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
-	//	SecretKeyRef: &corev1.SecretKeySelector{
-	//		LocalObjectReference: corev1.LocalObjectReference{
-	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
-	//		},
-	//		Key: "secret",
-	//	},
-	//}
-	//updatedHumioBootstrapToken.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
-	//	SecretKeyRef: &corev1.SecretKeySelector{
-	//		LocalObjectReference: corev1.LocalObjectReference{
-	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
-	//		},
-	//		Key: "hashedToken",
-	//	},
-	//}
-	//Expect(k8sClient.Status().Update(ctx, updatedHumioBootstrapToken)).Should(Succeed())
-	//
-	//Expect(k8sClient.Get(ctx, humioBootstrapTokenKey, updatedHumioBootstrapToken)).Should(Succeed())
-	//
-	//updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
-	//	SecretKeyRef: &corev1.SecretKeySelector{
-	//		LocalObjectReference: corev1.LocalObjectReference{
-	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
-	//		},
-	//		Key: "secret",
-	//	},
-	//}
-	//updatedHumioBootstrapToken.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
-	//	SecretKeyRef: &corev1.SecretKeySelector{
-	//		LocalObjectReference: corev1.LocalObjectReference{
-	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
-	//		},
-	//		Key: "hashedToken",
-	//	},
-	//}
-	//Expect(k8sClient.Status().Update(ctx, updatedHumioBootstrapToken)).Should(Succeed())
-	//
-	//Expect(k8sClient.Get(ctx, humioBootstrapTokenKey, updatedHumioBootstrapToken)).Should(Succeed())
-	//
-	//updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
-	//	SecretKeyRef: &corev1.SecretKeySelector{
-	//		LocalObjectReference: corev1.LocalObjectReference{
-	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
-	//		},
-	//		Key: "secret",
-	//	},
-	//}
-	//updatedHumioBootstrapToken.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
-	//	SecretKeyRef: &corev1.SecretKeySelector{
-	//		LocalObjectReference: corev1.LocalObjectReference{
-	//			Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
-	//		},
-	//		Key: "hashedToken",
-	//	},
-	//}
-	//Expect(k8sClient.Status().Update(ctx, updatedHumioBootstrapToken)).Should(Succeed())
-
 	UsingClusterBy(key.Name, "Creating HumioCluster resource")
 	Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
 
 	UsingClusterBy(key.Name, "Simulating HumioBootstrapToken Controller running and adding the secret and status")
 	Eventually(func() error {
 		var updatedHumioBootstrapToken humiov1alpha1.HumioBootstrapToken
-		err := k8sClient.Get(ctx, key, &updatedHumioBootstrapToken)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			Expect(err).Should(Succeed())
-		}
+		Expect(k8sClient.Get(ctx, key, &updatedHumioBootstrapToken)).Should(Succeed())
 		updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{

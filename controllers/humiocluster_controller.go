@@ -31,7 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -457,46 +456,15 @@ func (r *HumioClusterReconciler) ensurePodRevisionAnnotation(ctx context.Context
 	return hc.Status.State, nil
 }
 func (r *HumioClusterReconciler) ensureHumioClusterBootstrapToken(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	key := types.NamespacedName{
-		Namespace: hc.Namespace,
-		Name:      hc.Name,
-	}
-	hbtList := &humiov1alpha1.HumioBootstrapTokenList{}
-	err := r.Client.List(ctx, hbtList)
+	hbtList, err := kubernetes.ListHumioBootstrapTokens(ctx, r.Client, hc.GetNamespace(), kubernetes.LabelsForHumioBootstrapToken(hc.GetName()))
 	if err != nil {
 		return r.logErrorAndReturn(err, "could not list HumioBootstrapToken")
 	}
-	for _, hbt := range hbtList.Items {
-		if hbt.Spec.ManagedClusterName == hc.Name {
-			return nil
-		}
+	if len(hbtList) > 0 {
+		return nil
 	}
 
-	hbt := &humiov1alpha1.HumioBootstrapToken{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      key.Name,
-			Namespace: key.Namespace,
-		},
-		Spec: humiov1alpha1.HumioBootstrapTokenSpec{
-			ManagedClusterName: hc.Name,
-			//	TokenSecret: humiov1alpha1.HumioTokenSecretSpec{
-			//		SecretKeyRef: &corev1.SecretKeySelector{
-			//			LocalObjectReference: corev1.LocalObjectReference{
-			//				Name: fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix),
-			//			},
-			//			Key: "secret",
-			//		},
-			//	},
-			//	HashedTokenSecret: humiov1alpha1.HumioHashedTokenSecretSpec{
-			//		SecretKeyRef: &corev1.SecretKeySelector{
-			//			LocalObjectReference: corev1.LocalObjectReference{
-			//				Name: fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix),
-			//			},
-			//			Key: "hashedToken",
-			//		},
-			//	},
-		},
-	}
+	hbt := kubernetes.ConstructHumioBootstrapToken(hc.GetName(), hc.GetNamespace())
 	if err := controllerutil.SetControllerReference(hc, hbt, r.Scheme()); err != nil {
 		return r.logErrorAndReturn(err, "could not set controller reference")
 	}
