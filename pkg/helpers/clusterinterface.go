@@ -169,6 +169,7 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 			config.Token = string(apiToken.Data["token"])
 		}
 
+		var bootstrapToken corev1.Secret
 		if withBootstrapToken {
 			hbtList := &humiov1alpha1.HumioBootstrapTokenList{}
 			var hasMatch bool
@@ -189,7 +190,6 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 			}
 
 			// Get API token
-			var bootstrapToken corev1.Secret
 			if matchedHbt.Status.TokenSecretKeyRef.SecretKeyRef != nil {
 				err = k8sClient.Get(ctx, types.NamespacedName{
 					Namespace: c.namespace,
@@ -202,8 +202,6 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 					return nil, fmt.Errorf("unable to get bootstrap secret containing api token. secret does not contain key named \"%s\"", matchedHbt.Status.TokenSecretKeyRef.SecretKeyRef.Key)
 				}
 				config.Token = fmt.Sprintf("localroot~%s", string(bootstrapToken.Data[matchedHbt.Status.TokenSecretKeyRef.SecretKeyRef.Key]))
-			} else {
-				return nil, fmt.Errorf("unable to get bootstrap secret containing api token: bootstraptoken %s does not have a status for tokenSecretKeyRef", matchedHbt.Name)
 			}
 
 		}

@@ -47,8 +47,6 @@ const (
 	BootstrapTokenSecretHashedTokenName = "hashedToken"
 	// BootstrapTokenSecretSecretName is the name of the secret key inside the bootstrap token secret
 	BootstrapTokenSecretSecretName = "secret"
-	// BootstrapTokenSecretPassphraseKey is the key name for the passphrase set in the bootstrap token secret
-	BootstrapTokenSecretPassphraseKey = "passphrase"
 )
 
 // HumioBootstrapTokenReconciler reconciles a HumioBootstrapToken object
@@ -256,50 +254,47 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.C
 	r.Log.Info("ensuring bootstrap token secret")
 	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, hc)
 	if _, err := r.getBootstrapTokenSecret(ctx, hbt, hc); err != nil {
-		if k8serrors.IsNotFound(err) {
-			secretData := map[string][]byte{}
-			if hbt.Spec.TokenSecret.SecretKeyRef != nil {
-				secret, err := kubernetes.GetSecret(ctx, r, hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Namespace)
-				if err != nil {
-					return r.logErrorAndReturn(err, fmt.Sprintf("could not get secret %s", hbt.Spec.TokenSecret.SecretKeyRef.Name))
-				}
-				if secretValue, ok := secret.Data[hbt.Spec.TokenSecret.SecretKeyRef.Key]; ok {
-					secretData[BootstrapTokenSecretSecretName] = secretValue
-				} else {
-					return r.logErrorAndReturn(err, fmt.Sprintf("could not get value from secret %s. "+
-						"secret does not contain value for key \"%s\"", hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Spec.TokenSecret.SecretKeyRef.Key))
-				}
-
-			}
-			if hbt.Spec.HashedTokenSecret.SecretKeyRef != nil {
-				secret, err := kubernetes.GetSecret(ctx, r, hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Namespace)
-				if err != nil {
-					return r.logErrorAndReturn(err, fmt.Sprintf("could not get secret %s", hbt.Spec.TokenSecret.SecretKeyRef.Name))
-				}
-				if hashedTokenValue, ok := secret.Data[hbt.Spec.HashedTokenSecret.SecretKeyRef.Key]; ok {
-					secretData[BootstrapTokenSecretHashedTokenName] = hashedTokenValue
-				} else {
-					return r.logErrorAndReturn(err, fmt.Sprintf("could not get value from secret %s. "+
-						"secret does not contain value for key \"%s\"", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name, hbt.Spec.HashedTokenSecret.SecretKeyRef.Key))
-				}
-			}
-			// TODO: do we really need autocreate option, or just assume create  if there is no hbt.Spec.TokenSecret.SecretKeyRef set?
-			if humioBootstrapTokenConfig.autoCreate() {
-				secret := kubernetes.ConstructSecret(hbt.Name, hbt.Namespace, humioBootstrapTokenConfig.bootstrapTokenName(), secretData, nil)
-				if err := controllerutil.SetControllerReference(hbt, secret, r.Scheme()); err != nil {
-					return r.logErrorAndReturn(err, "could not set controller reference")
-				}
-				r.Log.Info(fmt.Sprintf("creating secret: %s", secret.Name))
-				if err := r.Create(ctx, secret); err != nil {
-					return r.logErrorAndReturn(err, "could not create secret")
-				}
-				return nil
-			}
-		} else {
+		if !k8serrors.IsNotFound(err) {
 			return r.logErrorAndReturn(err, "could not get secret")
 		}
+		secretData := map[string][]byte{}
+		if hbt.Spec.TokenSecret.SecretKeyRef != nil {
+			secret, err := kubernetes.GetSecret(ctx, r, hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Namespace)
+			if err != nil {
+				return r.logErrorAndReturn(err, fmt.Sprintf("could not get secret %s", hbt.Spec.TokenSecret.SecretKeyRef.Name))
+			}
+			if secretValue, ok := secret.Data[hbt.Spec.TokenSecret.SecretKeyRef.Key]; ok {
+				secretData[BootstrapTokenSecretSecretName] = secretValue
+			} else {
+				return r.logErrorAndReturn(err, fmt.Sprintf("could not get value from secret %s. "+
+					"secret does not contain value for key \"%s\"", hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Spec.TokenSecret.SecretKeyRef.Key))
+			}
+		}
+		if hbt.Spec.HashedTokenSecret.SecretKeyRef != nil {
+			secret, err := kubernetes.GetSecret(ctx, r, hbt.Spec.TokenSecret.SecretKeyRef.Name, hbt.Namespace)
+			if err != nil {
+				return r.logErrorAndReturn(err, fmt.Sprintf("could not get secret %s", hbt.Spec.TokenSecret.SecretKeyRef.Name))
+			}
+			if hashedTokenValue, ok := secret.Data[hbt.Spec.HashedTokenSecret.SecretKeyRef.Key]; ok {
+				secretData[BootstrapTokenSecretHashedTokenName] = hashedTokenValue
+			} else {
+				return r.logErrorAndReturn(err, fmt.Sprintf("could not get value from secret %s. "+
+					"secret does not contain value for key \"%s\"", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name, hbt.Spec.HashedTokenSecret.SecretKeyRef.Key))
+			}
+		}
+		// TODO: do we really need autocreate option, or just assume create if there is no hbt.Spec.TokenSecret.SecretKeyRef set?
+		// I think we do since it's confusing if we only have the conditional based on one or both of hbt.Spec.TokenSecret.SecretKeyRef and hbt.Spec.HashedTokenSecret.SecretKeyRef.Key
+		if humioBootstrapTokenConfig.autoCreate() {
+			secret := kubernetes.ConstructSecret(hbt.Name, hbt.Namespace, humioBootstrapTokenConfig.bootstrapTokenName(), secretData, nil)
+			if err := controllerutil.SetControllerReference(hbt, secret, r.Scheme()); err != nil {
+				return r.logErrorAndReturn(err, "could not set controller reference")
+			}
+			r.Log.Info(fmt.Sprintf("creating secret: %s", secret.Name))
+			if err := r.Create(ctx, secret); err != nil {
+				return r.logErrorAndReturn(err, "could not create secret")
+			}
+		}
 	}
-
 	return nil
 }
 
