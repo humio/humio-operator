@@ -105,36 +105,41 @@ func (r *HumioBootstrapTokenReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	if err := r.ensureBootstrapTokenSecret(ctx, hbt, hc); err != nil {
+		_ = r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateNotReady)
 		return reconcile.Result{}, err
 	}
 
 	if err := r.ensureBootstrapTokenHashedToken(ctx, hbt, hc); err != nil {
+		_ = r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateNotReady)
 		return reconcile.Result{}, err
 	}
 
-	if err := r.updateStatus(ctx, hbt); err != nil {
+	if err := r.updateStatus(ctx, hbt, humiov1alpha1.HumioBootstrapTokenStateReady); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{RequeueAfter: time.Second * 60}, nil
 }
 
-func (r *HumioBootstrapTokenReconciler) updateStatus(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken) error {
-	hbt.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
-		SecretKeyRef: &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: fmt.Sprintf("%s-%s", hbt.Name, kubernetes.BootstrapTokenSecretNameSuffix),
+func (r *HumioBootstrapTokenReconciler) updateStatus(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, state string) error {
+	hbt.Status.State = state
+	if state == humiov1alpha1.HumioBootstrapTokenStateReady {
+		hbt.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-%s", hbt.Name, kubernetes.BootstrapTokenSecretNameSuffix),
+				},
+				Key: BootstrapTokenSecretSecretName,
 			},
-			Key: BootstrapTokenSecretSecretName,
-		},
-	}
-	hbt.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
-		SecretKeyRef: &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: fmt.Sprintf("%s-%s", hbt.Name, kubernetes.BootstrapTokenSecretNameSuffix),
+		}
+		hbt.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-%s", hbt.Name, kubernetes.BootstrapTokenSecretNameSuffix),
+				},
+				Key: BootstrapTokenSecretHashedTokenName,
 			},
-			Key: BootstrapTokenSecretHashedTokenName,
-		},
+		}
 	}
 	return r.Client.Status().Update(ctx, hbt)
 }

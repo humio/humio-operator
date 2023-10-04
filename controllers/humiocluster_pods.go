@@ -661,7 +661,7 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 
 	//var bootstrapTokenHash string
 	//if attachments.bootstrapTokenSecretReference.secretReference != nil {
-	bootstrapTokenHash, err := r.getDesiredBootstrapTokenHash(ctx, hnp)
+	bootstrapTokenHash, err := r.getDesiredBootstrapTokenHash(ctx, hc)
 	if err != nil {
 		return &corev1.Pod{}, r.logErrorAndReturn(err, "unable to find bootstrap token secret")
 	}
@@ -890,25 +890,44 @@ type podNameAndCertificateHash struct {
 	podName, certificateHash string
 }
 
-func (r *HumioClusterReconciler) getDesiredBootstrapTokenHash(ctx context.Context, hnp *HumioNodePool) (string, error) {
-
-	existingSecret := &corev1.Secret{}
-	err := r.Get(ctx, types.NamespacedName{
-		Namespace: hnp.GetNamespace(),
-		Name:      fmt.Sprintf("%s-%s", hnp.GetClusterName(), kubernetes.BootstrapTokenSecretNameSuffix),
-	}, existingSecret)
-
-	//return fmt.Sprintf("+%v", existingSecret), nil
+func (r *HumioClusterReconciler) getDesiredBootstrapTokenHash(ctx context.Context, hc *humiov1alpha1.HumioCluster) (string, error) {
+	humioBootstrapTokens, err := kubernetes.ListHumioBootstrapTokens(ctx, r.Client, hc.GetNamespace(), kubernetes.LabelsForHumioBootstrapToken(hc.GetName()))
 	if err != nil {
-		return fmt.Sprintf("%v", err), err
+		return "", r.logErrorAndReturn(err, "failed to get bootstrap token")
 	}
 
-	if ok := string(existingSecret.Data[BootstrapTokenSecretHashedTokenName]); ok != "" {
-		return helpers.AsSHA256(string(existingSecret.Data[BootstrapTokenSecretHashedTokenName])), nil
+	if len(humioBootstrapTokens) > 0 {
+		if humioBootstrapTokens[0].Status.State == humiov1alpha1.HumioBootstrapTokenStateReady {
+			existingSecret := &corev1.Secret{}
+			err := r.Get(ctx, types.NamespacedName{
+				Namespace: hc.GetNamespace(),
+				Name:      humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef.Name,
+			}, existingSecret)
+			if err != nil {
+				return "", r.logErrorAndReturn(err, fmt.Sprintf("failed to get bootstrap token secret %s",
+					humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef.Name))
+			}
+
+			if ok := string(existingSecret.Data[humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef.Key]); ok != "" {
+				return helpers.AsSHA256(string(existingSecret.Data[humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef.Key])), nil
+			}
+		}
+	}
+	return "", r.logErrorAndReturn(err, fmt.Sprintf("could not find bootstrap token secret matching labels %+v", kubernetes.LabelsForHumioBootstrapToken(hc.GetName())))
+}
+
+func (r *HumioClusterReconciler) bootstrapTokenReady(ctx context.Context, hc *humiov1alpha1.HumioCluster) (bool, error) {
+	humioBootstrapTokens, err := kubernetes.ListHumioBootstrapTokens(ctx, r.Client, hc.GetNamespace(), kubernetes.LabelsForHumioBootstrapToken(hc.GetName()))
+	if err != nil {
+		return false, r.logErrorAndReturn(err, "failed to get bootstrap token")
 	}
 
-	//// TODO: Should we error here?
-	return fmt.Sprintf("%v", err), fmt.Errorf("secret does not contain key %s", BootstrapTokenSecretHashedTokenName)
+	if len(humioBootstrapTokens) > 0 {
+		if humioBootstrapTokens[0].Status.State == humiov1alpha1.HumioBootstrapTokenStateReady {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // findHumioNodeNameAndCertHash looks up the name of a free node certificate to use and the hash of the certificate specification

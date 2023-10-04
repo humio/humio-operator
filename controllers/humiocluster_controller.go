@@ -1902,25 +1902,19 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		attachments.envVarSourceData = envVarSourceData
 	}
 
-	// asdf
-	key := types.NamespacedName{
-		Namespace: hc.Namespace,
-		Name:      hc.Name,
-	}
-	hbt := &humiov1alpha1.HumioBootstrapToken{}
-	err = r.Client.Get(ctx, key, hbt)
+	humioBootstrapTokens, err := kubernetes.ListHumioBootstrapTokens(ctx, r.Client, hc.GetNamespace(), kubernetes.LabelsForHumioBootstrapToken(hc.GetName()))
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to get bootstrap token")
 	}
-
-	if hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef != nil {
-		attachments.bootstrapTokenSecretReference.secretReference = hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef
-
-		bootstrapTokenHash, err := r.getDesiredBootstrapTokenHash(ctx, hnp)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to find bootstrap token secret")
+	if len(humioBootstrapTokens) > 0 {
+		if humioBootstrapTokens[0].Status.State == humiov1alpha1.HumioBootstrapTokenStateReady {
+			attachments.bootstrapTokenSecretReference.secretReference = humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef
+			bootstrapTokenHash, err := r.getDesiredBootstrapTokenHash(ctx, hc)
+			if err != nil {
+				return reconcile.Result{}, r.logErrorAndReturn(err, "unable to find bootstrap token secret")
+			}
+			attachments.bootstrapTokenSecretReference.hash = bootstrapTokenHash
 		}
-		attachments.bootstrapTokenSecretReference.hash = bootstrapTokenHash
 	}
 
 	// prioritize deleting the pods with errors
