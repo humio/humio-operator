@@ -79,19 +79,3 @@ func ListHumioBootstrapTokens(ctx context.Context, c client.Client, humioCluster
 
 	return foundHumioBootstrapTokenList.Items, nil
 }
-
-// GetHumioBootstrapToken retrieves the HumioBootstrapToken given the humio cluster name and namespace
-func GetHumioBootstrapToken(ctx context.Context, c client.Client, humioClusterName string, humioClusterNamespace string) (humiov1alpha1.HumioBootstrapToken, error) {
-	matchingLabels := LabelsForHumio(humioClusterName)
-	humioBootstrapTokenList, err := ListHumioBootstrapTokens(ctx, c, humioClusterNamespace, matchingLabels)
-	if err != nil {
-		return humiov1alpha1.HumioBootstrapToken{}, err
-	}
-
-	if len(humioBootstrapTokenList) == 0 {
-		return humiov1alpha1.HumioBootstrapToken{}, fmt.Errorf("no HumioBootstrapTokens found with name %s in namespace %s", humioClusterName, humioClusterNamespace)
-	} else if len(humioBootstrapTokenList) > 1 {
-		return humiov1alpha1.HumioBootstrapToken{}, fmt.Errorf("too many HumioBootstrapTokens found with name %s in namespace %s (count %d)", humioClusterName, humioClusterNamespace, len(humioBootstrapTokenList))
-	}
-	return humioBootstrapTokenList[0], nil
-}

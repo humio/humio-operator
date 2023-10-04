@@ -314,6 +314,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 			//	},
 			//},
 			Status: humiov1alpha1.HumioBootstrapTokenStatus{
+				State: humiov1alpha1.HumioBootstrapTokenStateReady,
 				TokenSecretKeyRef: humiov1alpha1.HumioTokenSecretStatus{SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
@@ -346,6 +347,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	Eventually(func() error {
 		var updatedHumioBootstrapToken humiov1alpha1.HumioBootstrapToken
 		Expect(k8sClient.Get(ctx, key, &updatedHumioBootstrapToken)).Should(Succeed())
+		updatedHumioBootstrapToken.Status.State = humiov1alpha1.HumioBootstrapTokenStateReady
 		updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
