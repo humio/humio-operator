@@ -134,11 +134,14 @@ spec:
                     - key
                     type: object
                 type: object
-              tokenSecretStatus:
+              state:
                 description: TODO set the status. This is used by the HumioCluster
                   resource to get the secret reference and load the secret. We don't
                   want to rely on the spec here as the spec could be empty. Or do
                   we want to Created                 bool                         `json:"created,omitempty"`
+                  State can be "NotReady" or "Ready"
+                type: string
+              tokenSecretStatus:
                 properties:
                   secretKeyRef:
                     description: SecretKeySelector selects a key of a Secret.
