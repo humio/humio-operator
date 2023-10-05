@@ -328,6 +328,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 						IngestSizeInGB:  5,
 						StorageSizeInGB: 1,
 					},
+					AllowDataDeletion: true,
 				},
 			}
 
@@ -434,6 +435,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 						IngestSizeInGB:  5,
 						StorageSizeInGB: 1,
 					},
+					AllowDataDeletion: true,
 				},
 			}
 
@@ -779,6 +781,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioRepositorySpec{
 					ManagedClusterName: "non-existent-managed-cluster",
 					Name:               "parsername",
+					AllowDataDeletion:  true,
 				},
 			}
 			Expect(k8sClient.Create(ctx, toCreateRepository)).Should(Succeed())
@@ -812,6 +815,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioRepositorySpec{
 					ExternalClusterName: "non-existent-external-cluster",
 					Name:                "parsername",
+					AllowDataDeletion:   true,
 				},
 			}
 			Expect(k8sClient.Create(ctx, toCreateRepository)).Should(Succeed())

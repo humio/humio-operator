@@ -20,13 +20,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"strings"
 
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
-	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -90,33 +90,17 @@ func main() {
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		WebhookServer:          webhook.NewServer(webhook.Options{Port: 9443}),
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "d7845218.humio.com",
-		Namespace:              watchNamespace,
-	}
-
-	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
-	if strings.Contains(watchNamespace, ",") {
-		ctrl.Log.Info(fmt.Sprintf("manager will be watching namespace %q", watchNamespace))
-		// configure cluster-scoped with MultiNamespacedCacheBuilder
-		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(watchNamespace, ","))
-		// TODO: Get rid of Namespace property on Reconciler objects and instead use a custom cache implementation as this cache doesn't support watching a subset of namespace while still allowing to watch cluster-scoped resources. https://github.com/kubernetes-sigs/controller-runtime/issues/934
+		Cache:                  cache.Options{Namespaces: strings.Split(watchNamespace, ",")},
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
 		ctrl.Log.Error(err, "unable to start manager")
 		os.Exit(1)
-	}
-
-	if helpers.IsOpenShift() {
-		if err = openshiftsecurityv1.AddToScheme(mgr.GetScheme()); err != nil {
-			ctrl.Log.Error(err, "unable to add cert-manager to scheme")
-			os.Exit(2)
-		}
 	}
 
 	if helpers.UseCertManager() {

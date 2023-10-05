@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strings"
 
+	graphql "github.com/cli/shurcooL-graphql"
 	uberzap "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -71,11 +72,11 @@ func MapStoragePartition(vs []humioapi.StoragePartition, f func(partition humioa
 
 func ToStoragePartitionInput(line humioapi.StoragePartition) humioapi.StoragePartitionInput {
 	var input humioapi.StoragePartitionInput
-	nodeIds := make([]int32, len(line.NodeIds))
+	nodeIds := make([]graphql.Int, len(line.NodeIds))
 	for i, v := range line.NodeIds {
-		nodeIds[i] = int32(v)
+		nodeIds[i] = graphql.Int(v)
 	}
-	input.ID = int32(line.Id)
+	input.ID = graphql.Int(line.Id)
 	input.NodeIDs = nodeIds
 
 	return input
@@ -91,20 +92,14 @@ func MapIngestPartition(vs []humioapi.IngestPartition, f func(partition humioapi
 
 func ToIngestPartitionInput(line humioapi.IngestPartition) humioapi.IngestPartitionInput {
 	var input humioapi.IngestPartitionInput
-	nodeIds := make([]int32, len(line.NodeIds))
+	nodeIds := make([]graphql.Int, len(line.NodeIds))
 	for i, v := range line.NodeIds {
-		nodeIds[i] = int32(v)
+		nodeIds[i] = graphql.Int(v)
 	}
-	input.ID = int32(line.Id)
+	input.ID = graphql.Int(line.Id)
 	input.NodeIDs = nodeIds
 
 	return input
-}
-
-// IsOpenShift returns whether the operator is running in OpenShift-mode
-func IsOpenShift() bool {
-	sccName, found := os.LookupEnv("OPENSHIFT_SCC_NAME")
-	return found && sccName != ""
 }
 
 // UseCertManager returns whether the operator will use cert-manager

@@ -33,8 +33,8 @@ import (
 )
 
 const (
-	Image                        = "humio/humio-core:1.82.1"
-	HelperImage                  = "humio/humio-operator-helper:94ba9fb0bdff2ce538e2a7566319d446ff226f46"
+	Image                        = "humio/humio-core:1.100.0"
+	HelperImage                  = "humio/humio-operator-helper:3568eb1e7041beaf70d48e71a3d5fc6c8cfb9a6f"
 	targetReplicationFactor      = 2
 	storagePartitionsCount       = 24
 	digestPartitionsCount        = 24
@@ -78,7 +78,7 @@ type HumioNodePool struct {
 	humioNodeSpec            humiov1alpha1.HumioNodeSpec
 	tls                      *humiov1alpha1.HumioClusterTLSSpec
 	idpCertificateSecretName string
-	viewGroupPermissions     string
+	viewGroupPermissions     string // Deprecated: Replaced by rolePermissions
 	rolePermissions          string
 	targetReplicationFactor  int
 	storagePartitionsCount   int
@@ -383,19 +383,14 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	}
 
 	humioVersion, _ := HumioVersionFromString(hnp.GetImage())
-	if ok, _ := humioVersion.AtLeast(HumioVersionWithDefaultSingleUserAuth); !ok {
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "AUTHENTICATION_METHOD",
-			Value: "single-user",
-		})
-	}
-
-	if EnvVarHasValue(hnp.humioNodeSpec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") &&
-		EnvVarHasKey(hnp.humioNodeSpec.EnvironmentVariables, "ZOOKEEPER_URL") {
-		envDefaults = append(envDefaults, corev1.EnvVar{
-			Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
-			Value: "$(ZOOKEEPER_URL)",
-		})
+	if ok, _ := humioVersion.AtLeast(HumioVersionWithoutOldVhostSelection); !ok {
+		if EnvVarHasValue(hnp.humioNodeSpec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") &&
+			EnvVarHasKey(hnp.humioNodeSpec.EnvironmentVariables, "ZOOKEEPER_URL") {
+			envDefaults = append(envDefaults, corev1.EnvVar{
+				Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
+				Value: "$(ZOOKEEPER_URL)",
+			})
+		}
 	}
 
 	for _, defaultEnvVar := range envDefaults {
@@ -763,6 +758,7 @@ func (hnp HumioNodePool) GetPath() string {
 	return "/"
 }
 
+// Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in LogScale 1.80.0
 func (hnp HumioNodePool) GetNodeUUIDPrefix() string {
 	if hnp.humioNodeSpec.NodeUUIDPrefix != "" {
 		return hnp.humioNodeSpec.NodeUUIDPrefix

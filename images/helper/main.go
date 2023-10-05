@@ -24,6 +24,7 @@ import (
 	"os"
 	"time"
 
+	graphql "github.com/cli/shurcooL-graphql"
 	humio "github.com/humio/cli/api"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -77,7 +78,7 @@ func createNewAdminUser(client *humio.Client) error {
 // getApiTokenForUserID returns the API token for the given user ID
 func getApiTokenForUserID(client *humio.Client, userID string) (string, string, error) {
 	// Try using the API to rotate and get the API token
-	token, err := client.Users().RotateUserApiTokenAndGet(userID)
+	token, err := client.Users().RotateToken(userID)
 	if err == nil {
 		// If API works, return the token
 		fmt.Printf("Successfully rotated and extracted API token using the API.\n")
@@ -118,7 +119,7 @@ func listAllHumioUsersMultiOrg(client *humio.Client) ([]OrganizationSearchResult
 	}
 
 	variables := map[string]interface{}{
-		"username": adminAccountUserName,
+		"username": graphql.String(adminAccountUserName),
 	}
 
 	err := client.Query(&q, variables)

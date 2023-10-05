@@ -36,7 +36,7 @@ const (
 	HumioClusterUpdateStrategyOnDelete = "OnDelete"
 	// HumioClusterUpdateStrategyRollingUpdate is the update strategy that will always cause pods to be replaced one at a time
 	HumioClusterUpdateStrategyRollingUpdate = "RollingUpdate"
-	// HumioClusterUpdateStrategyReplaceAllOnUpdate is the update strategy that will replace all pods at the same time during an update.
+	// HumioClusterUpdateStrategyReplaceAllOnUpdate is the update strategy that will replace all pods at the same time during an update of either image or configuration.
 	HumioClusterUpdateStrategyReplaceAllOnUpdate = "ReplaceAllOnUpdate"
 	// HumioClusterUpdateStrategyRollingUpdateBestEffort is the update strategy where the operator will evaluate the Humio version change and determine if the
 	// Humio pods can be updated in a rolling fashion or if they must be replaced at the same time
@@ -189,6 +189,7 @@ type HumioNodeSpec struct {
 	// NodeUUIDPrefix is the prefix for the Humio Node's UUID. By default this does not include the zone. If it's
 	// necessary to include zone, there is a special `Zone` variable that can be used. To use this, set `{{.Zone}}`. For
 	// compatibility with pre-0.0.14 spec defaults, this should be set to `humio_{{.Zone}}`
+	// Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in LogScale 1.80.0
 	NodeUUIDPrefix string `json:"nodeUUIDPrefix,omitempty"`
 
 	// ExtraKafkaConfigs is a multi-line string containing kafka properties

@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -199,6 +200,7 @@ func Test_constructContainerArgs(t *testing.T) {
 				&humiov1alpha1.HumioCluster{
 					Spec: humiov1alpha1.HumioClusterSpec{
 						HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+							Image: fmt.Sprintf("humio/humio-core:%s", HumioVersionMinimumSupported),
 							EnvironmentVariables: []corev1.EnvVar{
 								{
 									Name:  "USING_EPHEMERAL_DISKS",
@@ -271,12 +273,12 @@ func Test_constructContainerArgs(t *testing.T) {
 					},
 				},
 				[]string{
-					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 					"export ZONE=",
 				},
 				[]string{
 					"export CORES=",
 					"export HUMIO_OPTS=",
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 				},
 			},
 		},
@@ -303,10 +305,10 @@ func Test_constructContainerArgs(t *testing.T) {
 				[]string{
 					"export CORES=",
 					"export HUMIO_OPTS=",
-					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 				},
 				[]string{
 					"export ZONE=",
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 				},
 			},
 		},
@@ -335,13 +337,12 @@ func Test_constructContainerArgs(t *testing.T) {
 						},
 					},
 				},
-				[]string{
-					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
-				},
+				[]string{},
 				[]string{
 					"export CORES=",
 					"export HUMIO_OPTS=",
 					"export ZONE=",
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 				},
 			},
 		},
@@ -453,12 +454,12 @@ func Test_constructContainerArgs(t *testing.T) {
 					},
 				},
 				[]string{
-					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 					"export ZONE=",
 				},
 				[]string{
 					"export CORES=",
 					"export HUMIO_OPTS=",
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 				},
 			},
 		},
@@ -486,13 +487,12 @@ func Test_constructContainerArgs(t *testing.T) {
 						},
 					},
 				},
-				[]string{
-					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
-				},
+				[]string{},
 				[]string{
 					"export CORES=",
 					"export HUMIO_OPTS=",
 					"export ZONE=",
+					"export ZOOKEEPER_PREFIX_FOR_NODE_UUID=",
 				},
 			},
 		},

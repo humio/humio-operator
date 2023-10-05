@@ -61,11 +61,14 @@ EOF
   $helm_install_command --set humio-fluentbit.customFluentBitConfig.e2eFilterTag="$E2E_FILTER_TAG"
 fi
 
+K8S_VERSION=$(kubectl version --short=true | grep "Server Version:" | awk '{print $NF}' | sed 's/v//' | cut -d. -f1-2)
+CERT_MANAGER_VERSION=v1.12.4
+if [[ ${K8S_VERSION} < 1.27 ]] ; then CERT_MANAGER_VERSION=v1.11.5 ; fi
 kubectl create namespace cert-manager
 helm repo add jetstack https://charts.jetstack.io
 helm repo update
 helm_install_command="helm install cert-manager jetstack/cert-manager --namespace cert-manager \
---version v1.7.1 \
+--version $CERT_MANAGER_VERSION \
 --set installCRDs=true"
 
 if [[ $DOCKER_USERNAME != "" ]] && [[ $DOCKER_PASSWORD != "" ]]; then

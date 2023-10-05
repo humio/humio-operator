@@ -8,9 +8,8 @@ import (
 )
 
 const (
-	HumioVersionMinimumSupported                 = "1.36.0"
-	HumioVersionWithDefaultSingleUserAuth        = "1.68.0"
-	HumioVersionWithNewVhostSelection            = "1.70.0"
+	HumioVersionMinimumSupported                 = "1.70.0"
+	HumioVersionWithoutOldVhostSelection         = "1.80.0"
 	HumioVersionWithAutomaticPartitionManagement = "1.89.0"
 )
 

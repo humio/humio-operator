@@ -8,7 +8,7 @@ jobs:
     - uses: actions/checkout@v3
     - uses: actions/setup-go@v4
       with:
-        go-version: '1.19.9'
+        go-version: '1.20.8'
     - shell: bash
       run: |
         make manifests
@@ -50,7 +50,7 @@ jobs:
     - uses: actions/checkout@v3
     - uses: actions/setup-go@v4
       with:
-        go-version: '1.19.9'
+        go-version: '1.20.8'
     - name: operator image
       run: make docker-build-operator IMG=humio/humio-operator:${{ github.sha }}
     - name: helper image
@@ -61,6 +61,8 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install six
+        python -m pip install --upgrade retry
+        pip install retry
     - name: CrowdStrike Container Image Scan Operator
       uses: crowdstrike/container-image-scan-action@v1
       with:
