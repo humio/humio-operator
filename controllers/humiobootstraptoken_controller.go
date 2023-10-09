@@ -62,7 +62,7 @@ type HumioBootstrapTokenSecretData struct {
 	HashedToken string `json:"hashedToken"`
 }
 
-//+kubebuilder:rbac:groups=core.humio.com,resources=HumioBootstrapTokens,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=HumioBootstrapTokens,verbs=get;list;watch;allowsCreate;update;patch;delete
 //+kubebuilder:rbac:groups=core.humio.com,resources=HumioBootstrapTokens/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core.humio.com,resources=HumioBootstrapTokens/finalizers,verbs=update
 
@@ -150,7 +150,7 @@ func (r *HumioBootstrapTokenReconciler) execCommand(pod *corev1.Pod, args []stri
 		&clientcmd.ConfigOverrides{},
 	)
 
-	// create the Config object
+	// allowsCreate the Config object
 	cfg, err := configLoader.ClientConfig()
 	if err != nil {
 		return "", err
@@ -161,7 +161,7 @@ func (r *HumioBootstrapTokenReconciler) execCommand(pod *corev1.Pod, args []stri
 	cfg.GroupVersion = &corev1.SchemeGroupVersion
 	cfg.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 
-	// create a RESTClient
+	// allowsCreate a RESTClient
 	rc, err := rest.RESTClientFor(cfg)
 	if err != nil {
 		return "", err
@@ -210,10 +210,7 @@ func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humi
 		}
 	}
 	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, humioCluster)
-	pod, err := ConstructBootstrapPod(&humioBootstrapTokenConfig)
-	if err != nil {
-		return &corev1.Pod{}, r.logErrorAndReturn(err, "could not construct pod")
-	}
+	pod := ConstructBootstrapPod(&humioBootstrapTokenConfig)
 	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: pod.Namespace,
 		Name:      pod.Name,
@@ -224,7 +221,7 @@ func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humi
 			}
 			r.Log.Info("creating onetime pod")
 			if err := r.Create(ctx, pod); err != nil {
-				return &corev1.Pod{}, r.logErrorAndReturn(err, "could not create pod")
+				return &corev1.Pod{}, r.logErrorAndReturn(err, "could not allowsCreate pod")
 			}
 			return pod, nil
 		}
@@ -235,10 +232,7 @@ func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humi
 func (r *HumioBootstrapTokenReconciler) deletePod(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, hc *humiov1alpha1.HumioCluster) error {
 	existingPod := &corev1.Pod{}
 	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, hc)
-	pod, err := ConstructBootstrapPod(&humioBootstrapTokenConfig)
-	if err != nil {
-		return r.logErrorAndReturn(err, "could not construct pod")
-	}
+	pod := ConstructBootstrapPod(&humioBootstrapTokenConfig)
 	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: pod.Namespace,
 		Name:      pod.Name,
@@ -287,16 +281,21 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.C
 					"secret does not contain value for key \"%s\"", hbt.Spec.HashedTokenSecret.SecretKeyRef.Name, hbt.Spec.HashedTokenSecret.SecretKeyRef.Key))
 			}
 		}
-		// TODO: do we really need autocreate option, or just assume create if there is no hbt.Spec.TokenSecret.SecretKeyRef set?
-		// I think we do since it's confusing if we only have the conditional based on one or both of hbt.Spec.TokenSecret.SecretKeyRef and hbt.Spec.HashedTokenSecret.SecretKeyRef.Key
-		if humioBootstrapTokenConfig.autoCreate() {
+		if err := humioBootstrapTokenConfig.validate(); err != nil {
+			return r.logErrorAndReturn(err, fmt.Sprintf("could not validate bootstrap config for %s", hbt.Name))
+		}
+		okayToCreate, err := humioBootstrapTokenConfig.allowsCreate()
+		if err != nil {
+			return r.logErrorAndReturn(err, "cannot allowsCreate bootstrap token")
+		}
+		if okayToCreate {
 			secret := kubernetes.ConstructSecret(hbt.Name, hbt.Namespace, humioBootstrapTokenConfig.bootstrapTokenName(), secretData, nil)
 			if err := controllerutil.SetControllerReference(hbt, secret, r.Scheme()); err != nil {
 				return r.logErrorAndReturn(err, "could not set controller reference")
 			}
 			r.Log.Info(fmt.Sprintf("creating secret: %s", secret.Name))
 			if err := r.Create(ctx, secret); err != nil {
-				return r.logErrorAndReturn(err, "could not create secret")
+				return r.logErrorAndReturn(err, "could not allowsCreate secret")
 			}
 		}
 	}
