@@ -3,13 +3,17 @@ package controllers
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+
 	"github.com/humio/humio-operator/api/v1alpha1"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
 
 const (
 	BootstrapTokenSuffix = "bootstrap-token"
-	//HashedBootstrapTokenSuffix = "hashed-bootstrap-token"
 )
 
 type HumioBootstrapTokenConfig struct {
@@ -28,19 +32,24 @@ func (b *HumioBootstrapTokenConfig) bootstrapTokenName() string {
 	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, BootstrapTokenSuffix)
 }
 
-//func (b *HumioBootstrapTokenConfig) hashedBootstrapTokenName() string {
-//	if b.BootstrapToken.Spec.HashedTokenSecret.SecretKeyRef != nil {
-//		return b.BootstrapToken.Spec.HashedTokenSecret.SecretKeyRef.Name
-//	}
-//	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, HashedBootstrapTokenSuffix)
-//}
-
-// TODO: remove this?
-func (b *HumioBootstrapTokenConfig) autoCreate() bool {
-	if b.BootstrapToken.Spec.TokenSecret.AutoCreate != nil {
-		return *b.BootstrapToken.Spec.TokenSecret.AutoCreate
+func (b *HumioBootstrapTokenConfig) allowsCreate() (bool, error) {
+	if err := b.validate(); err != nil {
+		return false, err
 	}
-	return true
+	if b.BootstrapToken.Spec.TokenSecret.SecretKeyRef == nil && b.BootstrapToken.Spec.HashedTokenSecret.SecretKeyRef == nil {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (b *HumioBootstrapTokenConfig) validate() error {
+	if b.BootstrapToken.Spec.TokenSecret.SecretKeyRef == nil && b.BootstrapToken.Spec.HashedTokenSecret.SecretKeyRef == nil {
+		return nil
+	}
+	if b.BootstrapToken.Spec.TokenSecret.SecretKeyRef != nil && b.BootstrapToken.Spec.HashedTokenSecret.SecretKeyRef != nil {
+		return nil
+	}
+	return fmt.Errorf("must set both tokenSecret.secretKeyRef as well as hashedTokenSecret.secretKeyRef")
 }
 
 func (b *HumioBootstrapTokenConfig) image() string {
@@ -56,6 +65,39 @@ func (b *HumioBootstrapTokenConfig) image() string {
 		}
 	}
 	return Image
+}
+
+func (b *HumioBootstrapTokenConfig) imagePullSecrets() []v1.LocalObjectReference {
+	if len(b.BootstrapToken.Spec.ImagePullSecrets) > 0 {
+		return b.BootstrapToken.Spec.ImagePullSecrets
+	}
+	if len(b.ManagedHumioCluster.Spec.ImagePullSecrets) > 0 {
+		return b.ManagedHumioCluster.Spec.ImagePullSecrets
+	}
+	if b.ManagedHumioCluster != nil {
+		if len(b.ManagedHumioCluster.Spec.NodePools) > 0 {
+			if len(b.ManagedHumioCluster.Spec.NodePools[0].ImagePullSecrets) > 0 {
+				return b.ManagedHumioCluster.Spec.NodePools[0].ImagePullSecrets
+			}
+		}
+	}
+	return []v1.LocalObjectReference{}
+}
+
+func (b *HumioBootstrapTokenConfig) resources() corev1.ResourceRequirements {
+	if b.BootstrapToken.Spec.Resources != nil {
+		return *b.BootstrapToken.Spec.Resources
+	}
+	return corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
+			corev1.ResourceMemory: *resource.NewQuantity(50*1024*1024, resource.BinarySI),
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
+			corev1.ResourceMemory: *resource.NewQuantity(50*1024*1024, resource.BinarySI),
+		},
+	}
 }
 
 func (b *HumioBootstrapTokenConfig) name() string {

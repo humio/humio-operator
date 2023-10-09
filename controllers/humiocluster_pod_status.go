@@ -59,7 +59,7 @@ func (r *HumioClusterReconciler) getPodsStatus(ctx context.Context, hc *humiov1a
 		// pods that were just deleted may still have a status of Ready, but we should not consider them ready
 		if pod.DeletionTimestamp == nil {
 			// If a pod is evicted, we don't want to wait for a new pod spec since the eviction could happen for a
-			// number of reasons. If we delete the pod then we will re-create it on the next reconcile. Adding the pod
+			// number of reasons. If we delete the pod then we will re-allowsCreate it on the next reconcile. Adding the pod
 			// to the podsRequiringDeletion list will cause it to be deleted.
 			if pod.Status.Phase == corev1.PodFailed && pod.Status.Reason == podConditionReasonEvicted {
 				r.Log.Info(fmt.Sprintf("pod %s has errors, pod phase: %s, reason: %s", pod.Name, pod.Status.Phase, pod.Status.Reason))

@@ -48,7 +48,7 @@ type HumioIngestTokenReconciler struct {
 	Namespace   string
 }
 
-//+kubebuilder:rbac:groups=core.humio.com,resources=humioingesttokens,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioingesttokens,verbs=get;list;watch;allowsCreate;update;patch;delete
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioingesttokens/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioingesttokens/finalizers,verbs=update
 
@@ -141,10 +141,10 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	curToken, err := r.HumioClient.GetIngestToken(cluster.Config(), req, hit)
 	if errors.As(err, &humioapi.EntityNotFound{}) {
 		r.Log.Info("ingest token doesn't exist. Now adding ingest token")
-		// create token
+		// allowsCreate token
 		_, err := r.HumioClient.AddIngestToken(cluster.Config(), req, hit)
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create ingest token")
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not allowsCreate ingest token")
 		}
 		r.Log.Info("created ingest token")
 		return reconcile.Result{Requeue: true}, nil
@@ -167,10 +167,10 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, fmt.Errorf("could not ensure token secret exists: %w", err)
 	}
 
-	// TODO: handle updates to ingest token name and repositoryName. Right now we just create the new ingest token,
+	// TODO: handle updates to ingest token name and repositoryName. Right now we just allowsCreate the new ingest token,
 	// and "leak/leave behind" the old token.
 	// A solution could be to add an annotation that includes the "old name" so we can see if it was changed.
-	// A workaround for now is to delete the ingest token CR and create it again.
+	// A workaround for now is to delete the ingest token CR and allowsCreate it again.
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
 	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
@@ -229,7 +229,7 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 		if k8serrors.IsNotFound(err) {
 			err = r.Create(ctx, desiredSecret)
 			if err != nil {
-				return fmt.Errorf("unable to create ingest token secret for HumioIngestToken: %w", err)
+				return fmt.Errorf("unable to allowsCreate ingest token secret for HumioIngestToken: %w", err)
 			}
 			r.Log.Info("successfully created ingest token secret", "TokenSecretName", hit.Spec.TokenSecretName)
 			humioIngestTokenPrometheusMetrics.Counters.ServiceAccountSecretsCreated.Inc()

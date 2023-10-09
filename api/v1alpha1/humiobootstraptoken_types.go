@@ -30,46 +30,61 @@ const (
 
 // HumioBootstrapTokenSpec defines the bootstrap token that Humio will use to bootstrap authentication
 type HumioBootstrapTokenSpec struct {
-	// TODO: determine if we even want to reference the cluster here
-	// ManagedClusterName
+	// ManagedClusterName refers to the name of the HumioCluster which will use this bootstrap token
 	ManagedClusterName string `json:"managedClusterName,omitempty"`
-	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+	// ExternalClusterName refers to the name of the HumioExternalCluster which will use this bootstrap token for authentication
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
-
-	Image             string                     `json:"image,omitempty"`
-	TokenSecret       HumioTokenSecretSpec       `json:"tokenSecret,omitempty"`
+	// Image can be set to override the image used to run when generating a bootstrap token. This will default to the image
+	// that is used by either the HumioCluster resource or the first NodePool resource if ManagedClusterName is set on the HumioBootstrapTokenSpec
+	Image string `json:"bootstrapImage,omitempty"`
+	// ImagePullSecrets defines the imagepullsecrets for the bootstrap image onetime pod. These secrets are not created by the operator. This will default to the imagePullSecrets
+	// that are used by either the HumioCluster resource or the first NodePool resource if ManagedClusterName is set on the HumioBootstrapTokenSpec
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	// Resources is the kubernetes resource limits for the bootstrap onetime pod
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	// TokenSecret is the secret reference that contains the token to use for this HumioBootstrapToken. This is used if one wants to use an existing
+	// token for the BootstrapToken rather than letting the operator create one by running a bootstrap token onetime pod
+	TokenSecret HumioTokenSecretSpec `json:"tokenSecret,omitempty"`
+	// HashedTokenSecret is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is used if one wants to use an existing
+	// hashed token for the BootstrapToken rather than letting the operator create one by running a bootstrap token onetime pod
 	HashedTokenSecret HumioHashedTokenSecretSpec `json:"hashedTokenSecret,omitempty"`
 }
 
 type HumioTokenSecretSpec struct {
-	// TODO: we could clean this up by removing the "AutoCreate" and in docs explain if you want to use your own secret
-	// then create the secret before the bootstraptoken resource
-	AutoCreate   *bool                     `json:"autoCreate,omitempty"`
+	// SecretKeyRef is the secret key reference to a kubernetes secret containing the bootstrap token secret
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 type HumioHashedTokenSecretSpec struct {
-	// TODO: maybe remove AutoCreate
-	AutoCreate   *bool                     `json:"autoCreate,omitempty"`
+	// SecretKeyRef is the secret key reference to a kubernetes secret containing the bootstrap hashed token secret
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 type HumioBootstrapTokenStatus struct {
-	// TODO set the status. This is used by the HumioCluster resource to get the secret reference and load the secret. We don't want to rely on the spec
-	// here as the spec could be empty. Or do we want to
-	//Created                 bool                         `json:"created,omitempty"`
 	// State can be "NotReady" or "Ready"
-	State                   string                       `json:"state,omitempty"`
-	TokenSecretKeyRef       HumioTokenSecretStatus       `json:"tokenSecretStatus,omitempty"`
+	State string `json:"state,omitempty"`
+	// TokenSecretKeyRef contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
+	// in the spec or automatically created
+	TokenSecretKeyRef HumioTokenSecretStatus `json:"tokenSecretStatus,omitempty"`
+	// HashedTokenSecret is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
+	// in the spec or automatically created
 	HashedTokenSecretKeyRef HumioHashedTokenSecretStatus `json:"hashedTokenSecretStatus,omitempty"`
 }
 
+// HumioTokenSecretStatus contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
+// in the spec or automatically created
 type HumioTokenSecretStatus struct {
+	// SecretKeyRef contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
+	// in the spec or automatically created
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
+// HumioTokenSecretStatus contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
+// in the spec or automatically created
 type HumioHashedTokenSecretStatus struct {
+	// SecretKeyRef is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
+	// in the spec or automatically created
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 

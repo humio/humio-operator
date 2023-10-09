@@ -47,7 +47,7 @@ type HumioParserReconciler struct {
 	Namespace   string
 }
 
-//+kubebuilder:rbac:groups=core.humio.com,resources=humioparsers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioparsers,verbs=get;list;watch;allowsCreate;update;patch;delete
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioparsers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioparsers/finalizers,verbs=update
 
@@ -140,10 +140,10 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	curParser, err := r.HumioClient.GetParser(cluster.Config(), req, hp)
 	if errors.As(err, &humioapi.EntityNotFound{}) {
 		r.Log.Info("parser doesn't exist. Now adding parser")
-		// create parser
+		// allowsCreate parser
 		_, err := r.HumioClient.AddParser(cluster.Config(), req, hp)
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create parser")
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not allowsCreate parser")
 		}
 		r.Log.Info("created parser")
 		return reconcile.Result{Requeue: true}, nil
@@ -184,10 +184,10 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	// TODO: handle updates to parser name and repositoryName. Right now we just create the new parser,
+	// TODO: handle updates to parser name and repositoryName. Right now we just allowsCreate the new parser,
 	// and "leak/leave behind" the old parser.
 	// A solution could be to add an annotation that includes the "old name" so we can see if it was changed.
-	// A workaround for now is to delete the parser CR and create it again.
+	// A workaround for now is to delete the parser CR and allowsCreate it again.
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
 	return reconcile.Result{RequeueAfter: time.Second * 15}, nil

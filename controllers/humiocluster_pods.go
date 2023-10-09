@@ -472,9 +472,7 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 
 	if attachments.bootstrapTokenSecretReference.hash != "" {
 		pod.Annotations[bootstrapTokenHashAnnotation] = attachments.bootstrapTokenSecretReference.hash
-		//pod.Annotations[bootstrapTokenHashAnnotation] = "asdf"
 	}
-	//pod.Annotations[bootstrapTokenHashAnnotation] = "asdf"
 	priorityClassName := hnp.GetPriorityClassName()
 	if priorityClassName != "" {
 		pod.Spec.PriorityClassName = priorityClassName
@@ -708,7 +706,7 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 	return pod, nil
 }
 
-// waitForNewPods can be used to wait for new pods to be created after the create call is issued. It is important that
+// waitForNewPods can be used to wait for new pods to be created after the allowsCreate call is issued. It is important that
 // the previousPodList contains the list of pods prior to when the new pods were created
 func (r *HumioClusterReconciler) waitForNewPods(ctx context.Context, hnp *HumioNodePool, previousPodList []corev1.Pod, expectedPods []corev1.Pod) error {
 	// We must check only pods that were running prior to the new pod being created, and we must only include pods that
@@ -997,7 +995,7 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 
 	envVarSourceData, err := r.getEnvVarSource(ctx, hnp)
 	if err != nil {
-		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster: %w", err)
+		return &podAttachments{}, fmt.Errorf("unable to allowsCreate Pod for HumioCluster: %w", err)
 	}
 
 	key := types.NamespacedName{
@@ -1007,11 +1005,11 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 	hbt := &humiov1alpha1.HumioBootstrapToken{}
 	err = r.Client.Get(ctx, key, hbt)
 	if err != nil {
-		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster. could not find HumioBootstrapToken: %w", err)
+		return &podAttachments{}, fmt.Errorf("unable to allowsCreate Pod for HumioCluster. could not find HumioBootstrapToken: %w", err)
 	}
 
 	if hbt.Status.HashedTokenSecretKeyRef.SecretKeyRef == nil {
-		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster: %w", fmt.Errorf("bootstraptoken %s does not contain a status for the hashed token secret reference", hnp.GetBootstrapTokenName()))
+		return &podAttachments{}, fmt.Errorf("unable to allowsCreate Pod for HumioCluster: %w", fmt.Errorf("bootstraptoken %s does not contain a status for the hashed token secret reference", hnp.GetBootstrapTokenName()))
 	}
 
 	if hnp.InitContainerDisabled() {
@@ -1029,7 +1027,7 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 		return &podAttachments{}, fmt.Errorf("unable get init service account secret for HumioCluster: %w", err)
 	}
 	if initSASecretName == "" {
-		return &podAttachments{}, errors.New("unable to create Pod for HumioCluster: the init service account secret does not exist")
+		return &podAttachments{}, errors.New("unable to allowsCreate Pod for HumioCluster: the init service account secret does not exist")
 	}
 
 	return &podAttachments{
