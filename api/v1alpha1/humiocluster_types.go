@@ -36,7 +36,7 @@ const (
 	HumioClusterUpdateStrategyOnDelete = "OnDelete"
 	// HumioClusterUpdateStrategyRollingUpdate is the update strategy that will always cause pods to be replaced one at a time
 	HumioClusterUpdateStrategyRollingUpdate = "RollingUpdate"
-	// HumioClusterUpdateStrategyReplaceAllOnUpdate is the update strategy that will replace all pods at the same time during an update.
+	// HumioClusterUpdateStrategyReplaceAllOnUpdate is the update strategy that will replace all pods at the same time during an update of either image or configuration.
 	HumioClusterUpdateStrategyReplaceAllOnUpdate = "ReplaceAllOnUpdate"
 	// HumioClusterUpdateStrategyRollingUpdateBestEffort is the update strategy where the operator will evaluate the Humio version change and determine if the
 	// Humio pods can be updated in a rolling fashion or if they must be replaced at the same time

@@ -32,6 +32,9 @@ func NewPodLifecycleState(hnp HumioNodePool, pod corev1.Pod) *podLifecycleState 
 }
 
 func (p *podLifecycleState) ShouldRollingRestart() bool {
+	if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate {
+		return false
+	}
 	if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate {
 		return true
 	}
