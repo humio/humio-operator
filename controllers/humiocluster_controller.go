@@ -209,19 +209,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
-		if issueRestart, err := r.ensureHumioServiceAccountAnnotations(ctx, pool); err != nil || issueRestart {
-			opts := statusOptions()
-			if issueRestart {
-				_, err = r.incrementHumioClusterPodRevision(ctx, hc, pool)
-			}
-			if err != nil {
-				opts.withMessage(err.Error())
-			}
-			return r.updateStatus(ctx, r.Client.Status(), hc, opts.withState(hc.Status.State))
-		}
-	}
-
 	for _, fun := range []ctxHumioClusterFunc{
 		r.ensureValidCAIssuer,
 		r.ensureHumioClusterCACertBundle,
@@ -250,6 +237,19 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 					withMessage(err.Error()))
 			}
+		}
+	}
+
+	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
+		if issueRestart, err := r.ensureHumioServiceAccountAnnotations(ctx, pool); err != nil || issueRestart {
+			opts := statusOptions()
+			if issueRestart {
+				_, err = r.incrementHumioClusterPodRevision(ctx, hc, pool)
+			}
+			if err != nil {
+				opts.withMessage(err.Error())
+			}
+			return r.updateStatus(ctx, r.Client.Status(), hc, opts.withState(hc.Status.State))
 		}
 	}
 
