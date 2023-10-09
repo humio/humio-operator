@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/humio/humio-operator/pkg/helpers"
 
@@ -20,94 +19,6 @@ import (
 	humioapi "github.com/humio/cli/api"
 	corev1 "k8s.io/api/core/v1"
 )
-
-const (
-	// apiTokenMethodAnnotationName is used to signal what mechanism was used to obtain the API token
-	apiTokenMethodAnnotationName = "humio.com/api-token-method" // #nosec G101
-	// apiTokenMethodFromAPI is used to indicate that the API token was obtained using an API call
-	apiTokenMethodFromAPI = "api"
-)
-
-// getFileContent returns the content of a file as a string
-func getFileContent(filePath string) string {
-	data, err := os.ReadFile(filePath) // #nosec G304
-	if err != nil {
-		fmt.Printf("Got an error while trying to read file %s: %s\n", filePath, err)
-		return ""
-	}
-	return string(data)
-}
-
-//// createNewAdminUser creates a new Humio admin user
-//func (r *HumioClusterReconciler)  createNewAdminUser(ctx context.Context, config *humioapi.Config, req reconcile.Request,, username string) error {
-//	isRoot := true
-//	return r.HumioClient.AddAdminUser(config, req)
-//
-//}
-
-// getApiTokenForUserID returns the API token for the given user ID
-//func (r *HumioClusterReconciler) getApiTokenForUserID(config *humioapi.Config, req reconcile.Request, userID string) (string, string, error) {
-//	// Try using the API to rotate and get the API token
-//	r.HumioClient.RotateUserApiTokenAndGet(userID)
-//	if err == nil {
-//		// If API works, return the token
-//		fmt.Printf("Successfully rotated and extracted API token using the API.\n")
-//		return token, apiTokenMethodFromAPI, nil
-//	}
-//
-//	return "", "", fmt.Errorf("could not rotate apiToken for userID %s, err: %w", userID, err)
-//}
-
-//type user struct {
-//	Id       string
-//	Username string
-//}
-
-// listAllHumioUsersSingleOrg returns a list of all Humio users when running in single org mode with user ID and username
-//func listAllHumioUsersSingleOrg(client *humio.Client) ([]user, error) {
-//	var q struct {
-//		Users []user `graphql:"users"`
-//	}
-//	err := client.Query(&q, nil)
-//	return q.Users, err
-//}
-
-type OrganizationSearchResultEntry struct {
-	EntityId         string `graphql:"entityId"`
-	SearchMatch      string `graphql:"searchMatch"`
-	OrganizationName string `graphql:"organizationName"`
-}
-
-type OrganizationSearchResultSet struct {
-	Results []OrganizationSearchResultEntry `graphql:"results"`
-}
-
-// listAllHumioUsersMultiOrg returns a list of all Humio users when running in multi org mode with user ID and username
-// TODO: move this to client api
-//func listAllHumioUsersMultiOrg(username string, organization string, client *humio.Client) ([]OrganizationSearchResultEntry, error) {
-//	var q struct {
-//		OrganizationSearchResultSet `graphql:"searchOrganizations(searchFilter: $username, typeFilter: User, sortBy: Name, orderBy: ASC, limit: 1000000, skip: 0)"`
-//	}
-//
-//	variables := map[string]interface{}{
-//		"username": username,
-//	}
-//
-//	err := client.Query(&q, variables)
-//	if err != nil {
-//		return []OrganizationSearchResultEntry{}, err
-//	}
-//
-//	var allUserResultEntries []OrganizationSearchResultEntry
-//	for _, result := range q.OrganizationSearchResultSet.Results {
-//		//if result.OrganizationName == "RecoveryRootOrg" {
-//		if result.OrganizationName == organization {
-//			allUserResultEntries = append(allUserResultEntries, result)
-//		}
-//	}
-//
-//	return allUserResultEntries, nil
-//}
 
 // extractExistingHumioAdminUserID finds the user ID of the Humio user for the admin account, and returns
 // empty string and no error if the user doesn't exist
@@ -262,43 +173,9 @@ func (r *HumioClusterReconciler) ensureAdminSecretContent(ctx context.Context, h
 	return nil
 }
 
-// labelsForHumio returns the set of common labels for Humio resources.
-// NB: There is a copy of this function in pkg/kubernetes/kubernetes.go to work around helper depending on main project.
-//func labelsForHumio(clusterName string) map[string]string {
-//	labels := map[string]string{
-//		"app.kubernetes.io/instance":   clusterName,
-//		"app.kubernetes.io/managed-by": "humio-operator",
-//		"app.kubernetes.io/name":       "humio",
-//	}
-//	return labels
-//}
-
-// fileExists returns true if the specified path exists and is not a directory
-func fileExists(path string) bool {
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-	return !fileInfo.IsDir()
-}
-
-//func newKubernetesClientset() *k8s.Clientset {
-//	config, err := rest.InClusterConfig()
-//	if err != nil {
-//		panic(err.Error())
-//	}
-//
-//	clientset, err := k8s.NewForConfig(config)
-//	if err != nil {
-//		panic(err.Error())
-//	}
-//	return clientset
-//}
-
 func (r *HumioClusterReconciler) createPermissionToken(ctx context.Context, config *humioapi.Config, req reconcile.Request, hc *v1alpha1.HumioCluster, username string, organization string) error {
-	//adminSecretNameSuffix := "admin-token"
+	r.Log.Info("ensuring admin user")
 
-	// TODO: contstant? Run this in a separate function?
 	organizationMode := "single"
 	if EnvVarHasKey(hc.Spec.EnvironmentVariables, "ORGANIZATION_MODE") {
 		organizationMode = EnvVarValue(hc.Spec.EnvironmentVariables, "ORGANIZATION_MODE")
@@ -308,45 +185,6 @@ func (r *HumioClusterReconciler) createPermissionToken(ctx context.Context, conf
 			organizationMode = EnvVarValue(pool.EnvironmentVariables, "ORGANIZATION_MODE")
 		}
 	}
-
-	//	kubernetesClient := r.Client
-
-	//for {
-	//	// Check required files exist before we continue
-	//	if !fileExists(localAdminTokenFile) {
-	//		fmt.Printf("Waiting on the Humio container to allowsCreate the files %s. Retrying in 5 seconds.\n", localAdminTokenFile)
-	//		time.Sleep(5 * time.Second)
-	//		continue
-	//	}
-	//
-	//	// Get local admin token and allowsCreate humio client with it
-	//	localAdminToken := getFileContent(localAdminTokenFile)
-	//	if localAdminToken == "" {
-	//		fmt.Printf("Local admin token file is empty. This might be due to Humio not being fully started up yet. Retrying in 5 seconds.\n")
-	//		time.Sleep(5 * time.Second)
-	//		continue
-	//	}
-	//
-	//	nodeURL, err := url.Parse(humioNodeURL)
-	//	if err != nil {
-	//		fmt.Printf("Unable to parse URL %s: %s\n", humioNodeURL, err)
-	//		time.Sleep(5 * time.Second)
-	//		continue
-	//	}
-
-	//humioClient := r.HumioClient.GetHumioClient(cluster.Config(), req)
-	//r.HumioClient.ListAllHumioUsersSingleOrg(config, req)
-
-	//err := r.validateAdminSecretContent(ctx, config, req, namespace, clusterName, adminSecretNameSuffix)
-	//if err == nil {
-	//	fmt.Printf("Existing token is still valid, thus no changes required. Will confirm again in 30 seconds.\n")
-	//	time.Sleep(30 * time.Second)
-	//	continue
-	//}
-
-	//fmt.Printf("Could not validate existing admin secret: %s\n", err)
-	r.Log.Info("ensuring admin user")
-
 	// Get user ID of admin account
 	userID, err := r.createAndGetAdminAccountUserID(ctx, config, req, organizationMode, username, organization)
 	if err != nil {
