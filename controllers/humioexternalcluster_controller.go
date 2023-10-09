@@ -43,7 +43,7 @@ type HumioExternalClusterReconciler struct {
 	Namespace   string
 }
 
-//+kubebuilder:rbac:groups=core.humio.com,resources=humioexternalclusters,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioexternalclusters,verbs=get;list;watch;allowsCreate;update;patch;delete
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioexternalclusters/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioexternalclusters/finalizers,verbs=update
 
