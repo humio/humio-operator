@@ -158,7 +158,7 @@ func (r *HumioClusterReconciler) createAndGetAdminAccountUserID(ctx context.Cont
 		return userID, nil
 	}
 
-	// If we didn't find a user ID, create a user, extract the user ID and return it
+	// If we didn't find a user ID, allowsCreate a user, extract the user ID and return it
 	user, err := r.HumioClient.AddUser(config, req, username, true)
 	if err != nil {
 		return "", err
@@ -231,7 +231,7 @@ func (r *HumioClusterReconciler) ensureAdminSecretContent(ctx context.Context, h
 	err := r.Client.Get(ctx, key, adminSecret)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			// If the secret doesn't exist, create it
+			// If the secret doesn't exist, allowsCreate it
 			desiredSecret := corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      key.Name,
@@ -244,7 +244,7 @@ func (r *HumioClusterReconciler) ensureAdminSecretContent(ctx context.Context, h
 				Type: corev1.SecretTypeOpaque,
 			}
 			if err := r.Client.Create(ctx, &desiredSecret); err != nil {
-				return r.logErrorAndReturn(err, "unable to create secret")
+				return r.logErrorAndReturn(err, "unable to allowsCreate secret")
 			}
 			return nil
 		}
@@ -314,12 +314,12 @@ func (r *HumioClusterReconciler) createPermissionToken(ctx context.Context, conf
 	//for {
 	//	// Check required files exist before we continue
 	//	if !fileExists(localAdminTokenFile) {
-	//		fmt.Printf("Waiting on the Humio container to create the files %s. Retrying in 5 seconds.\n", localAdminTokenFile)
+	//		fmt.Printf("Waiting on the Humio container to allowsCreate the files %s. Retrying in 5 seconds.\n", localAdminTokenFile)
 	//		time.Sleep(5 * time.Second)
 	//		continue
 	//	}
 	//
-	//	// Get local admin token and create humio client with it
+	//	// Get local admin token and allowsCreate humio client with it
 	//	localAdminToken := getFileContent(localAdminTokenFile)
 	//	if localAdminToken == "" {
 	//		fmt.Printf("Local admin token file is empty. This might be due to Humio not being fully started up yet. Retrying in 5 seconds.\n")
