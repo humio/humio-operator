@@ -13,7 +13,7 @@ const (
 	waitForSecretTimeoutSeconds = 30
 )
 
-// waitForNewSecret can be used to wait for a new secret to be created after the allowsCreate call is issued. It is important
+// waitForNewSecret can be used to wait for a new secret to be created after the create call is issued. It is important
 // that the previousSecretList contains the list of secrets prior to when the new secret was created
 func (r *HumioClusterReconciler) waitForNewSecret(ctx context.Context, hnp *HumioNodePool, previousSecretList []corev1.Secret, expectedSecretName string) error {
 	// We must check only secrets that existed prior to the new secret being created

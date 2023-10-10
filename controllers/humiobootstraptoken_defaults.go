@@ -32,7 +32,7 @@ func (b *HumioBootstrapTokenConfig) bootstrapTokenName() string {
 	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, BootstrapTokenSuffix)
 }
 
-func (b *HumioBootstrapTokenConfig) allowsCreate() (bool, error) {
+func (b *HumioBootstrapTokenConfig) create() (bool, error) {
 	if err := b.validate(); err != nil {
 		return false, err
 	}
