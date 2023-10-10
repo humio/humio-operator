@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	ginkgotypes "github.com/onsi/ginkgo/v2/types"
-
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/pkg/helpers"
@@ -359,9 +357,9 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
 		// Simulate sidecar creating the secret which contains the admin token used to authenticate with humio
 		secretData := map[string][]byte{"token": []byte("")}
-		authTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
-		UsingClusterBy(key.Name, "Simulating the auth token secret containing the API token")
-		desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, authTokenSecretName, secretData, nil)
+		adminTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
+		UsingClusterBy(key.Name, "Simulating the admin token secret containing the API token")
+		desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, adminTokenSecretName, secretData, nil)
 		Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
 
 		UsingClusterBy(key.Name, "Simulating the creation of the HumioBootstrapToken resource")
@@ -373,16 +371,6 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 			Spec: humiov1alpha1.HumioBootstrapTokenSpec{
 				ManagedClusterName: key.Name,
 			},
-			//Spec: humiov1alpha1.HumioBootstrapTokenSpec{
-			//	HashedTokenSecret: humiov1alpha1.HumioHashedTokenSecretSpec{
-			//		SecretKeyRef: &corev1.SecretKeySelector{
-			//			LocalObjectReference: corev1.LocalObjectReference{
-			//				Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
-			//			},
-			//			Key: "hashedToken",
-			//		},
-			//	},
-			//},
 			Status: humiov1alpha1.HumioBootstrapTokenStatus{
 				State: humiov1alpha1.HumioBootstrapTokenStateReady,
 				TokenSecretKeyRef: humiov1alpha1.HumioTokenSecretStatus{SecretKeyRef: &corev1.SecretKeySelector{
@@ -525,19 +513,6 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}, testTimeout, TestInterval).Should(HaveKeyWithValue(revisionKey, "1"))
 	}
 
-	//UsingClusterBy(key.Name, "Waiting for the bootstrap token controller to populate the secret containing the bootstrap token")
-	//Eventually(func() error {
-	//	clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetCommonClusterLabels())
-	//	for idx := range clusterPods {
-	//		UsingClusterBy(key.Name, fmt.Sprintf("Pod status %s status: %v", clusterPods[idx].Name, clusterPods[idx].Status))
-	//	}
-	//
-	//	return k8sClient.Get(ctx, types.NamespacedName{
-	//		Namespace: key.Namespace,
-	//		Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix),
-	//	}, &corev1.Secret{})
-	//}, testTimeout, TestInterval).Should(Succeed())
-
 	UsingClusterBy(key.Name, "Waiting for the controller to populate the secret containing the admin token")
 	Eventually(func() error {
 		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetCommonClusterLabels())
@@ -560,10 +535,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 				Expect(clusterConfig).ToNot(BeNil())
 				Expect(clusterConfig.Config()).ToNot(BeNil())
 
-				//Expect(fmt.Sprintf("%+v", clusterConfig.Config())).To(Equal(""))
-
 				cluster, err := humioClient.GetClusters(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
-				UsingClusterBy(key.Name, fmt.Sprintf("Obtained the following cluster details: %#+v, err: %v, config: %v", cluster, err, clusterConfig.Config()))
 				if err != nil {
 					return []string{fmt.Sprintf("got err: %s", err)}
 				}
@@ -590,9 +562,6 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 				Expect(clusterConfig.Config()).ToNot(BeNil())
 
 				cluster, err := humioClient.GetClusters(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
-				//UsingClusterBy(key.Name, fmt.Sprintf("Obtained the following cluster details: %#+v, err: %v", cluster, err))
-				UsingClusterBy(key.Name, fmt.Sprintf("Obtained the following cluster details: %#+v, err: %v, config: %v", cluster, err, clusterConfig.Config()))
-
 				if err != nil || len(cluster.Nodes) < 1 {
 					return []string{}
 				}
@@ -662,34 +631,6 @@ func WaitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sCl
 		}
 		return int64(observedGen)
 	}, testTimeout, TestInterval).Should(BeNumerically("==", beforeGeneration))
-}
-
-type stdoutErrLine struct {
-	// We reuse the same names as Ginkgo so when we print out the relevant log lines we have a common field and value to jump from the test result to the relevant log lines by simply searching for the ID shown in the result.
-	CapturedGinkgoWriterOutput, CapturedStdOutErr string
-
-	// Line contains either the CapturedGinkgoWriterOutput or CapturedStdOutErr we get in the spec/suite report.
-	Line string
-
-	// LineNumber represents the index of line in the provided slice of lines. This may help to understand what order things were output in case two lines mention the same timestamp.
-	LineNumber int
-
-	// State includes information about if a given report passed or failed
-	State ginkgotypes.SpecState
-}
-
-func PrintLinesWithRunID(runID string, lines []string, specState ginkgotypes.SpecState) {
-	for idx, line := range lines {
-		output := stdoutErrLine{
-			CapturedGinkgoWriterOutput: runID,
-			CapturedStdOutErr:          runID,
-			Line:                       line,
-			LineNumber:                 idx,
-			State:                      specState,
-		}
-		u, _ := json.Marshal(output)
-		fmt.Println(string(u))
-	}
 }
 
 func useDockerCredentials() bool {
