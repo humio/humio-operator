@@ -69,7 +69,7 @@ func (r *HumioClusterReconciler) createAndGetAdminAccountUserID(ctx context.Cont
 		return userID, nil
 	}
 
-	// If we didn't find a user ID, allowsCreate a user, extract the user ID and return it
+	// If we didn't find a user ID, create a user, extract the user ID and return it
 	user, err := r.HumioClient.AddUser(config, req, username, true)
 	if err != nil {
 		return "", err
@@ -142,7 +142,7 @@ func (r *HumioClusterReconciler) ensureAdminSecretContent(ctx context.Context, h
 	err := r.Client.Get(ctx, key, adminSecret)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			// If the secret doesn't exist, allowsCreate it
+			// If the secret doesn't exist, create it
 			desiredSecret := corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      key.Name,
@@ -155,7 +155,7 @@ func (r *HumioClusterReconciler) ensureAdminSecretContent(ctx context.Context, h
 				Type: corev1.SecretTypeOpaque,
 			}
 			if err := r.Client.Create(ctx, &desiredSecret); err != nil {
-				return r.logErrorAndReturn(err, "unable to allowsCreate secret")
+				return r.logErrorAndReturn(err, "unable to create secret")
 			}
 			return nil
 		}

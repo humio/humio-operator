@@ -61,19 +61,19 @@ const (
 	MaximumMinReadyRequeue = time.Second * 300
 )
 
-//+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;allowsCreate;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters/finalizers,verbs=update
-//+kubebuilder:rbac:groups=core,resources=pods,verbs=allowsCreate;delete;get;list;patch;update;watch
-//+kubebuilder:rbac:groups=core,resources=services,verbs=allowsCreate;delete;get;list;patch;update;watch
-//+kubebuilder:rbac:groups=core,resources=services/finalizers,verbs=allowsCreate;delete;get;list;patch;update;watch
-//+kubebuilder:rbac:groups=core,resources=endpoints,verbs=allowsCreate;delete;get;list;patch;update;watch
-//+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=allowsCreate;delete;get;list;patch;update;watch
-//+kubebuilder:rbac:groups=core,resources=events,verbs=allowsCreate;delete;get;list;patch;update;watch
-//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=allowsCreate;delete;get;list;patch;update;watch
-//+kubebuilder:rbac:groups=core,resources=secrets,verbs=allowsCreate;delete;get;list;patch;update;watch
-//+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=allowsCreate;delete;get;list;patch;update;watch
-//+kubebuilder:rbac:groups=networking.k8s.io,resources=ingress,verbs=allowsCreate;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=pods,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=services,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=services/finalizers,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=endpoints,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=events,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=secrets,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=create;delete;get;list;patch;update;watch
+//+kubebuilder:rbac:groups=networking.k8s.io,resources=ingress,verbs=create;delete;get;list;patch;update;watch
 
 func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	if r.Namespace != "" {
@@ -470,7 +470,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterBootstrapToken(ctx context.Co
 	}
 	err = r.Create(ctx, hbt)
 	if err != nil {
-		return r.logErrorAndReturn(err, "could not allowsCreate bootstrap token resource")
+		return r.logErrorAndReturn(err, "could not create bootstrap token resource")
 	}
 	return nil
 }
@@ -516,7 +516,7 @@ func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Co
 			}
 			r.Log.Info(fmt.Sprintf("creating configMap: %s", configMap.Name))
 			if err = r.Create(ctx, configMap); err != nil {
-				return r.logErrorAndReturn(err, "unable to allowsCreate extra kafka configs configmap")
+				return r.logErrorAndReturn(err, "unable to create extra kafka configs configmap")
 			}
 			r.Log.Info(fmt.Sprintf("successfully created extra kafka configs configmap name %s", configMap.Name))
 			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
@@ -611,7 +611,7 @@ func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context
 
 			r.Log.Info(fmt.Sprintf("creating configMap: %s", configMap.Name))
 			if err = r.Create(ctx, configMap); err != nil {
-				return r.logErrorAndReturn(err, "unable to allowsCreate view group permissions configmap")
+				return r.logErrorAndReturn(err, "unable to create view group permissions configmap")
 			}
 			r.Log.Info(fmt.Sprintf("successfully created view group permissions configmap name %s", configMap.Name))
 			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
@@ -649,7 +649,7 @@ func (r *HumioClusterReconciler) ensureRolePermissionsConfigMap(ctx context.Cont
 
 			r.Log.Info(fmt.Sprintf("creating configMap: %s", configMap.Name))
 			if err = r.Create(ctx, configMap); err != nil {
-				return r.logErrorAndReturn(err, "unable to allowsCreate role permissions configmap")
+				return r.logErrorAndReturn(err, "unable to create role permissions configmap")
 			}
 			r.Log.Info(fmt.Sprintf("successfully created role permissions configmap name %s", configMap.Name))
 			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
@@ -775,7 +775,7 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 		return r.logErrorAndReturn(err, "could not get hostnames for ingress resources")
 	}
 
-	// Due to ingress-ingress relying on ingress object annotations to enable/disable/adjust certain features we allowsCreate multiple ingress objects.
+	// Due to ingress-ingress relying on ingress object annotations to enable/disable/adjust certain features we create multiple ingress objects.
 	ingresses := []*networkingv1.Ingress{
 		ConstructGeneralIngress(hc, hostname),
 		ConstructStreamingQueryIngress(hc, hostname),
@@ -785,7 +785,7 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 	for _, desiredIngress := range ingresses {
 		// After constructing ingress objects, the rule's host attribute should be set to that which is defined in
 		// the humiocluster spec. If the rule host is not set, then it means the hostname or esHostname was not set in
-		// the spec, so we do not allowsCreate the ingress resource
+		// the spec, so we do not create the ingress resource
 		var createIngress bool
 		for _, rule := range desiredIngress.Spec.Rules {
 			if rule.Host != "" {
@@ -803,7 +803,7 @@ func (r *HumioClusterReconciler) ensureNginxIngress(ctx context.Context, hc *hum
 					r.Log.Info(fmt.Sprintf("creating ingress: %s", desiredIngress.Name))
 					err = r.Create(ctx, desiredIngress)
 					if err != nil {
-						return r.logErrorAndReturn(err, "unable to allowsCreate ingress")
+						return r.logErrorAndReturn(err, "unable to create ingress")
 					}
 					r.Log.Info(fmt.Sprintf("successfully created ingress with name %s", desiredIngress.Name))
 					humioClusterPrometheusMetrics.Counters.IngressesCreated.Inc()
@@ -926,10 +926,10 @@ func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *hu
 			if err := controllerutil.SetControllerReference(hc, &caIssuer, r.Scheme()); err != nil {
 				return r.logErrorAndReturn(err, "could not set controller reference")
 			}
-			// should only allowsCreate it if it doesn't exist
+			// should only create it if it doesn't exist
 			r.Log.Info(fmt.Sprintf("creating CA Issuer: %s", caIssuer.Name))
 			if err = r.Create(ctx, &caIssuer); err != nil {
-				return r.logErrorAndReturn(err, "could not allowsCreate CA Issuer")
+				return r.logErrorAndReturn(err, "could not create CA Issuer")
 			}
 			return nil
 		}
@@ -980,7 +980,7 @@ func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *hu
 	r.Log.Info(fmt.Sprintf("creating CA secret: %s", caSecret.Name))
 	err = r.Create(ctx, caSecret)
 	if err != nil {
-		return r.logErrorAndReturn(err, "could not allowsCreate secret with CA")
+		return r.logErrorAndReturn(err, "could not create secret with CA")
 	}
 
 	return nil
@@ -1007,7 +1007,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Co
 			}
 			r.Log.Info(fmt.Sprintf("creating secret: %s", secret.Name))
 			if err := r.Create(ctx, secret); err != nil {
-				return r.logErrorAndReturn(err, "could not allowsCreate secret")
+				return r.logErrorAndReturn(err, "could not create secret")
 			}
 			return nil
 		} else {
@@ -1040,7 +1040,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterCACertBundle(ctx context.Cont
 		}
 		r.Log.Info(fmt.Sprintf("creating certificate: %s", cert.Name))
 		if err := r.Create(ctx, &cert); err != nil {
-			return r.logErrorAndReturn(err, "could not allowsCreate certificate")
+			return r.logErrorAndReturn(err, "could not create certificate")
 		}
 		return nil
 	}
@@ -1070,7 +1070,7 @@ func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context
 		}
 		r.Log.Info(fmt.Sprintf("creating node certificate: %s", certificate.Name))
 		if err = r.Create(ctx, &certificate); err != nil {
-			return r.logErrorAndReturn(err, "could allowsCreate node certificate")
+			return r.logErrorAndReturn(err, "could create node certificate")
 		}
 
 		if err = r.waitForNewNodeCertificate(ctx, hc, hnp, existingNodeCertCount+1); err != nil {
@@ -1091,7 +1091,7 @@ func (r *HumioClusterReconciler) ensureInitClusterRole(ctx context.Context, hnp 
 			r.Log.Info(fmt.Sprintf("creating cluster role: %s", clusterRole.Name))
 			err = r.Create(ctx, clusterRole)
 			if err != nil {
-				return r.logErrorAndReturn(err, "unable to allowsCreate init cluster role")
+				return r.logErrorAndReturn(err, "unable to create init cluster role")
 			}
 			r.Log.Info(fmt.Sprintf("successfully created init cluster role %s", clusterRoleName))
 			humioClusterPrometheusMetrics.Counters.ClusterRolesCreated.Inc()
@@ -1117,7 +1117,7 @@ func (r *HumioClusterReconciler) ensureInitClusterRoleBinding(ctx context.Contex
 			r.Log.Info(fmt.Sprintf("creating cluster role: %s", clusterRole.Name))
 			err = r.Create(ctx, clusterRole)
 			if err != nil {
-				return r.logErrorAndReturn(err, "unable to allowsCreate init cluster role binding")
+				return r.logErrorAndReturn(err, "unable to create init cluster role binding")
 			}
 			r.Log.Info(fmt.Sprintf("successfully created init cluster role binding %s", clusterRoleBindingName))
 			humioClusterPrometheusMetrics.Counters.ClusterRoleBindingsCreated.Inc()
@@ -1164,7 +1164,7 @@ func (r *HumioClusterReconciler) ensureServiceAccountExists(ctx context.Context,
 		r.Log.Info(fmt.Sprintf("creating service account: %s", serviceAccount.Name))
 		err = r.Create(ctx, serviceAccount)
 		if err != nil {
-			return r.logErrorAndReturn(err, fmt.Sprintf("unable to allowsCreate service account %s", serviceAccount.Name))
+			return r.logErrorAndReturn(err, fmt.Sprintf("unable to create service account %s", serviceAccount.Name))
 		}
 		r.Log.Info(fmt.Sprintf("successfully created service account %s", serviceAccount.Name))
 		humioClusterPrometheusMetrics.Counters.ServiceAccountsCreated.Inc()
@@ -1194,7 +1194,7 @@ func (r *HumioClusterReconciler) ensureServiceAccountSecretExists(ctx context.Co
 		r.Log.Info(fmt.Sprintf("creating secret: %s", secret.Name))
 		err = r.Create(ctx, secret)
 		if err != nil {
-			return r.logErrorAndReturn(err, fmt.Sprintf("unable to allowsCreate service account secret %s", secret.Name))
+			return r.logErrorAndReturn(err, fmt.Sprintf("unable to create service account secret %s", secret.Name))
 		}
 		// check that we can list the new secret
 		// this is to avoid issues where the requeue is faster than kubernetes
@@ -1437,7 +1437,7 @@ func (r *HumioClusterReconciler) ensureService(ctx context.Context, hc *humiov1a
 		}
 		r.Log.Info(fmt.Sprintf("creating service %s of type %s with Humio port %d and ES port %d", service.Name, service.Spec.Type, hnp.GetHumioServicePort(), hnp.GetHumioESServicePort()))
 		if err = r.Create(ctx, service); err != nil {
-			return r.logErrorAndReturn(err, "unable to allowsCreate service for HumioCluster")
+			return r.logErrorAndReturn(err, "unable to create service for HumioCluster")
 		}
 		return nil
 	}
@@ -1462,7 +1462,7 @@ func (r *HumioClusterReconciler) ensureHeadlessServiceExists(ctx context.Context
 		}
 		err = r.Create(ctx, service)
 		if err != nil {
-			return r.logErrorAndReturn(err, "unable to allowsCreate headless service for HumioCluster")
+			return r.logErrorAndReturn(err, "unable to create headless service for HumioCluster")
 		}
 		return nil
 	}
@@ -2092,7 +2092,7 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 			}
 			pod, err := r.createPod(ctx, hc, hnp, attachments, expectedPodsList)
 			if err != nil {
-				return reconcile.Result{RequeueAfter: time.Second * 5}, r.logErrorAndReturn(err, "unable to allowsCreate pod")
+				return reconcile.Result{RequeueAfter: time.Second * 5}, r.logErrorAndReturn(err, "unable to create pod")
 			}
 			expectedPodsList = append(expectedPodsList, *pod)
 			humioClusterPrometheusMetrics.Counters.PodsCreated.Inc()
@@ -2134,13 +2134,13 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 		}
 		r.Log.Info(fmt.Sprintf("creating pvc: %s", pvc.Name))
 		if err = r.Create(ctx, pvc); err != nil {
-			return r.logErrorAndReturn(err, "unable to allowsCreate pvc")
+			return r.logErrorAndReturn(err, "unable to create pvc")
 		}
 		r.Log.Info(fmt.Sprintf("successfully created pvc %s for HumioCluster %s", pvc.Name, hnp.GetNodePoolName()))
 		humioClusterPrometheusMetrics.Counters.PvcsCreated.Inc()
 
 		if err = r.waitForNewPvc(ctx, hnp, pvc); err != nil {
-			return r.logErrorAndReturn(err, "unable to allowsCreate pvc")
+			return r.logErrorAndReturn(err, "unable to create pvc")
 		}
 		return nil
 	}

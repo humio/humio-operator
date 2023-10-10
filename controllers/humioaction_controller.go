@@ -44,7 +44,7 @@ type HumioActionReconciler struct {
 	Namespace   string
 }
 
-//+kubebuilder:rbac:groups=core.humio.com,resources=humioactions,verbs=get;list;watch;allowsCreate;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioactions,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioactions/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioactions/finalizers,verbs=update
 
@@ -158,7 +158,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 		r.Log.Info("Action doesn't exist. Now adding action")
 		addedAction, err := r.HumioClient.AddAction(config, req, ha)
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not allowsCreate action")
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create action")
 		}
 		r.Log.Info("Created action", "Action", ha.Spec.Name, "ID", addedAction.ID)
 		return reconcile.Result{Requeue: true}, nil

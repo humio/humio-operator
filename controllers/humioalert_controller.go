@@ -48,7 +48,7 @@ type HumioAlertReconciler struct {
 	Namespace   string
 }
 
-//+kubebuilder:rbac:groups=core.humio.com,resources=humioalerts,verbs=get;list;watch;allowsCreate;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioalerts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioalerts/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioalerts/finalizers,verbs=update
 
@@ -148,7 +148,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, config *
 		r.Log.Info("Alert doesn't exist. Now adding alert")
 		addedAlert, err := r.HumioClient.AddAlert(config, req, ha)
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not allowsCreate alert")
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create alert")
 		}
 		r.Log.Info("Created alert", "Alert", ha.Spec.Name, "ID", addedAlert.ID)
 		return reconcile.Result{Requeue: true}, nil

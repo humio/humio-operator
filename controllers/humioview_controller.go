@@ -45,7 +45,7 @@ type HumioViewReconciler struct {
 	Namespace   string
 }
 
-//+kubebuilder:rbac:groups=core.humio.com,resources=humioviews,verbs=get;list;watch;allowsCreate;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioviews,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioviews/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioviews/finalizers,verbs=update
 
@@ -144,7 +144,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.Log.Info("View doesn't exist. Now adding view")
 		_, err := r.HumioClient.AddView(cluster.Config(), req, hv)
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not allowsCreate view")
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create view")
 		}
 		r.Log.Info("created view", "ViewName", hv.Spec.Name)
 		return reconcile.Result{Requeue: true}, nil

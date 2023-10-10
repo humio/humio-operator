@@ -45,7 +45,7 @@ type HumioRepositoryReconciler struct {
 	Namespace   string
 }
 
-//+kubebuilder:rbac:groups=core.humio.com,resources=humiorepositories,verbs=get;list;watch;allowsCreate;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humiorepositories,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core.humio.com,resources=humiorepositories/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core.humio.com,resources=humiorepositories/finalizers,verbs=update
 
@@ -142,10 +142,10 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	curRepository, err := r.HumioClient.GetRepository(cluster.Config(), req, hr)
 	if errors.As(err, &humioapi.EntityNotFound{}) {
 		r.Log.Info("repository doesn't exist. Now adding repository")
-		// allowsCreate repository
+		// create repository
 		_, err := r.HumioClient.AddRepository(cluster.Config(), req, hr)
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not allowsCreate repository")
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create repository")
 		}
 		r.Log.Info("created repository", "RepositoryName", hr.Spec.Name)
 		return reconcile.Result{Requeue: true}, nil
@@ -176,10 +176,10 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 
-	// TODO: handle updates to repositoryName. Right now we just allowsCreate the new repository,
+	// TODO: handle updates to repositoryName. Right now we just create the new repository,
 	// and "leak/leave behind" the old repository.
 	// A solution could be to add an annotation that includes the "old name" so we can see if it was changed.
-	// A workaround for now is to delete the repository CR and allowsCreate it again.
+	// A workaround for now is to delete the repository CR and create it again.
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
 	return reconcile.Result{RequeueAfter: time.Second * 15}, nil

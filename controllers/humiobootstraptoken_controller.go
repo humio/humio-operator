@@ -62,7 +62,7 @@ type HumioBootstrapTokenSecretData struct {
 	HashedToken string `json:"hashedToken"`
 }
 
-//+kubebuilder:rbac:groups=core.humio.com,resources=HumioBootstrapTokens,verbs=get;list;watch;allowsCreate;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=HumioBootstrapTokens,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core.humio.com,resources=HumioBootstrapTokens/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core.humio.com,resources=HumioBootstrapTokens/finalizers,verbs=update
 
@@ -150,7 +150,7 @@ func (r *HumioBootstrapTokenReconciler) execCommand(pod *corev1.Pod, args []stri
 		&clientcmd.ConfigOverrides{},
 	)
 
-	// allowsCreate the Config object
+	// create the Config object
 	cfg, err := configLoader.ClientConfig()
 	if err != nil {
 		return "", err
@@ -161,7 +161,7 @@ func (r *HumioBootstrapTokenReconciler) execCommand(pod *corev1.Pod, args []stri
 	cfg.GroupVersion = &corev1.SchemeGroupVersion
 	cfg.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 
-	// allowsCreate a RESTClient
+	// create a RESTClient
 	rc, err := rest.RESTClientFor(cfg)
 	if err != nil {
 		return "", err
@@ -221,7 +221,7 @@ func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humi
 			}
 			r.Log.Info("creating onetime pod")
 			if err := r.Create(ctx, pod); err != nil {
-				return &corev1.Pod{}, r.logErrorAndReturn(err, "could not allowsCreate pod")
+				return &corev1.Pod{}, r.logErrorAndReturn(err, "could not create pod")
 			}
 			return pod, nil
 		}
@@ -284,9 +284,9 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.C
 		if err := humioBootstrapTokenConfig.validate(); err != nil {
 			return r.logErrorAndReturn(err, fmt.Sprintf("could not validate bootstrap config for %s", hbt.Name))
 		}
-		okayToCreate, err := humioBootstrapTokenConfig.allowsCreate()
+		okayToCreate, err := humioBootstrapTokenConfig.create()
 		if err != nil {
-			return r.logErrorAndReturn(err, "cannot allowsCreate bootstrap token")
+			return r.logErrorAndReturn(err, "cannot create bootstrap token")
 		}
 		if okayToCreate {
 			secret := kubernetes.ConstructSecret(hbt.Name, hbt.Namespace, humioBootstrapTokenConfig.bootstrapTokenName(), secretData, nil)
@@ -295,7 +295,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.C
 			}
 			r.Log.Info(fmt.Sprintf("creating secret: %s", secret.Name))
 			if err := r.Create(ctx, secret); err != nil {
-				return r.logErrorAndReturn(err, "could not allowsCreate secret")
+				return r.logErrorAndReturn(err, "could not create secret")
 			}
 		}
 	}
