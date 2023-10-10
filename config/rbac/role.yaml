@@ -11,7 +11,7 @@ rules:
   resources:
   - configmaps
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -23,7 +23,7 @@ rules:
   resources:
   - endpoints
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -35,7 +35,7 @@ rules:
   resources:
   - events
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -47,7 +47,7 @@ rules:
   resources:
   - persistentvolumeclaims
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -59,7 +59,7 @@ rules:
   resources:
   - pods
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -71,7 +71,7 @@ rules:
   resources:
   - secrets
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -83,7 +83,7 @@ rules:
   resources:
   - serviceaccounts
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -95,7 +95,7 @@ rules:
   resources:
   - services
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -107,7 +107,7 @@ rules:
   resources:
   - services/finalizers
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -119,7 +119,7 @@ rules:
   resources:
   - HumioBootstrapTokens
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -145,7 +145,7 @@ rules:
   resources:
   - humioactions
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -171,7 +171,7 @@ rules:
   resources:
   - humioalerts
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -197,7 +197,7 @@ rules:
   resources:
   - humioclusters
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -223,7 +223,7 @@ rules:
   resources:
   - humioexternalclusters
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -249,7 +249,7 @@ rules:
   resources:
   - humioingesttokens
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -275,7 +275,7 @@ rules:
   resources:
   - humioparsers
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -301,7 +301,7 @@ rules:
   resources:
   - humiorepositories
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -327,7 +327,7 @@ rules:
   resources:
   - humioviews
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
@@ -353,7 +353,7 @@ rules:
   resources:
   - ingress
   verbs:
-  - allowsCreate
+  - create
   - delete
   - get
   - list
