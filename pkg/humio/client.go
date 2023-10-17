@@ -428,9 +428,8 @@ func (h *ClientConfig) AddView(config *humioapi.Config, req reconcile.Request, h
 	}
 
 	description := ""
-	connectionMap := getConnectionMap(viewConnections)
 
-	err := h.GetHumioClient(config, req).Views().Create(hv.Spec.Name, description, connectionMap)
+	err := h.GetHumioClient(config, req).Views().Create(hv.Spec.Name, description, getConnectionMap(viewConnections))
 	return &view, err
 }
 
@@ -534,10 +533,10 @@ func (h *ClientConfig) DeleteAction(config *humioapi.Config, req reconcile.Reque
 	return h.GetHumioClient(config, req).Actions().Delete(ha.Spec.ViewName, ha.Spec.Name)
 }
 
-func getConnectionMap(viewConnections []humioapi.ViewConnection) map[string]string {
-	connectionMap := make(map[string]string)
+func getConnectionMap(viewConnections []humioapi.ViewConnection) map[string][]string {
+	connectionMap := make(map[string][]string)
 	for _, connection := range viewConnections {
-		connectionMap[connection.RepoName] = connection.Filter
+		connectionMap[connection.RepoName] = append(connectionMap[connection.RepoName], connection.Filter)
 	}
 	return connectionMap
 }
