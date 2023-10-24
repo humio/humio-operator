@@ -16,7 +16,7 @@ type HumioVersion struct {
 	version      *semver.Version
 }
 
-func HumioVersionFromString(image string) (*HumioVersion, error) {
+func HumioVersionFromString(image string) *HumioVersion {
 	var humioVersion HumioVersion
 	nodeImage := strings.SplitN(image, "@", 2)
 	nodeImage = strings.SplitN(nodeImage[0], ":", 2)
@@ -24,24 +24,21 @@ func HumioVersionFromString(image string) (*HumioVersion, error) {
 	// if there is no docker tag, then we can assume latest
 	if len(nodeImage) == 1 {
 		humioVersion.assumeLatest = true
-		return &humioVersion, nil
-	}
-
-	if nodeImage[1] == "latest" || nodeImage[1] == "master" {
-		humioVersion.assumeLatest = true
-		return &humioVersion, nil
+		return &humioVersion
 	}
 
 	// strip commit SHA if it exists
 	nodeImage = strings.SplitN(nodeImage[1], "-", 2)
 
 	nodeImageVersion, err := semver.NewVersion(nodeImage[0])
+	humioVersion.version = nodeImageVersion
 	if err != nil {
-		return &humioVersion, err
+		// since image does not include any version hints, we assume bleeding edge version
+		humioVersion.assumeLatest = true
+		return &humioVersion
 	}
 
-	humioVersion.version = nodeImageVersion
-	return &humioVersion, err
+	return &humioVersion
 }
 
 func (hv *HumioVersion) AtLeast(version string) (bool, error) {
@@ -62,7 +59,11 @@ func (hv *HumioVersion) IsLatest() bool {
 
 func (hv *HumioVersion) constraint(constraintStr string) (bool, error) {
 	constraint, err := semver.NewConstraint(constraintStr)
-	return constraint.Check(hv.version), err
+	if err != nil {
+		return false, fmt.Errorf("could not parse constraint of `%s`: %w", constraintStr, err)
+	}
+
+	return constraint.Check(hv.version), nil
 }
 
 func (hv *HumioVersion) String() string {

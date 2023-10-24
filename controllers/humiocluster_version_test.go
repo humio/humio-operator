@@ -8,7 +8,7 @@ func Test_HumioVersionFromString(t *testing.T) {
 	type fields struct {
 		userDefinedImageVersion string
 		expectedImageVersion    string
-		expectedErr             bool
+		expectedAssumeLatest    bool
 	}
 	tests := []struct {
 		name   string
@@ -19,7 +19,7 @@ func Test_HumioVersionFromString(t *testing.T) {
 			fields{
 				userDefinedImageVersion: "humio/humio-core-dev:1.70.0--build-1023123--uaihdasiuhdiuahd23792f@sha256:4d545bbd0dc3a22d40188947f569566737657c42e4bd14327598299db2b5a38a",
 				expectedImageVersion:    "1.70.0",
-				expectedErr:             false,
+				expectedAssumeLatest:    false,
 			},
 		},
 		{
@@ -27,7 +27,7 @@ func Test_HumioVersionFromString(t *testing.T) {
 			fields{
 				userDefinedImageVersion: "humio/humio-core-dev:1.70.0--build-1023123--uaihdasiuhdiuahd23792f",
 				expectedImageVersion:    "1.70.0",
-				expectedErr:             false,
+				expectedAssumeLatest:    false,
 			},
 		},
 		{
@@ -35,7 +35,7 @@ func Test_HumioVersionFromString(t *testing.T) {
 			fields{
 				userDefinedImageVersion: "humio/humio-core:1.34.0@sha256:38c78710107dc76f4f809b457328ff1c6764ae4244952a5fa7d76f6e67ea2390",
 				expectedImageVersion:    "1.34.0",
-				expectedErr:             false,
+				expectedAssumeLatest:    false,
 			},
 		},
 		{
@@ -43,19 +43,43 @@ func Test_HumioVersionFromString(t *testing.T) {
 			fields{
 				userDefinedImageVersion: "humio/humio-core:1.34.0",
 				expectedImageVersion:    "1.34.0",
-				expectedErr:             false,
+				expectedAssumeLatest:    false,
+			},
+		},
+		{
+			"master image tag",
+			fields{
+				userDefinedImageVersion: "humio/humio-core:master",
+				expectedImageVersion:    "",
+				expectedAssumeLatest:    true,
+			},
+		},
+		{
+			"preview image tag",
+			fields{
+				userDefinedImageVersion: "humio/humio-core:preview",
+				expectedImageVersion:    "",
+				expectedAssumeLatest:    true,
+			},
+		},
+		{
+			"latest image tag",
+			fields{
+				userDefinedImageVersion: "humio/humio-core:latest",
+				expectedImageVersion:    "",
+				expectedAssumeLatest:    true,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotVersion, err := HumioVersionFromString(tt.fields.userDefinedImageVersion)
+			gotVersion := HumioVersionFromString(tt.fields.userDefinedImageVersion)
 
-			if (err != nil) != tt.fields.expectedErr {
-				t.Errorf("HumioVersionFromString(%s) = got err %v, expected err %v", tt.fields.userDefinedImageVersion, err, tt.fields.expectedErr)
+			if gotVersion.IsLatest() != tt.fields.expectedAssumeLatest {
+				t.Errorf("HumioVersionFromString(%s) = got IsLatest %t, expected IsLatest %t", tt.fields.userDefinedImageVersion, gotVersion.IsLatest(), tt.fields.expectedAssumeLatest)
 			}
 
-			if gotVersion.String() != tt.fields.expectedImageVersion {
+			if !tt.fields.expectedAssumeLatest && gotVersion.String() != tt.fields.expectedImageVersion {
 				t.Errorf("HumioVersionFromString(%s) = got image %s, expected image %s", tt.fields.userDefinedImageVersion, gotVersion.String(), tt.fields.expectedImageVersion)
 			}
 		})
@@ -117,7 +141,7 @@ func Test_humioVersion_AtLeast(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			humioVersion, _ := HumioVersionFromString(tt.fields.userDefinedImageVersion)
+			humioVersion := HumioVersionFromString(tt.fields.userDefinedImageVersion)
 			if humioVersion.String() != tt.fields.imageVersionExact {
 				t.Errorf("HumioVersion.AtLeast(%s) = got %s, expected %s", tt.fields.userDefinedImageVersion, humioVersion.String(), tt.fields.userDefinedImageVersion)
 			}
