@@ -29,6 +29,8 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install six
+        python -m pip install --upgrade retry
+        pip install retry
     - name: CrowdStrike Container Image Scan Operator
       uses: crowdstrike/container-image-scan-action@v1
       with:
