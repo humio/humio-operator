@@ -26,6 +26,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	graphql "github.com/cli/shurcooL-graphql"
 	"github.com/go-logr/logr"
 
 	humioapi "github.com/humio/cli/api"
@@ -533,10 +534,13 @@ func (h *ClientConfig) DeleteAction(config *humioapi.Config, req reconcile.Reque
 	return h.GetHumioClient(config, req).Actions().Delete(ha.Spec.ViewName, ha.Spec.Name)
 }
 
-func getConnectionMap(viewConnections []humioapi.ViewConnection) map[string][]string {
-	connectionMap := make(map[string][]string)
+func getConnectionMap(viewConnections []humioapi.ViewConnection) []humioapi.ViewConnectionInput {
+	connectionMap := make([]humioapi.ViewConnectionInput, 0)
 	for _, connection := range viewConnections {
-		connectionMap[connection.RepoName] = append(connectionMap[connection.RepoName], connection.Filter)
+		connectionMap = append(connectionMap, humioapi.ViewConnectionInput{
+			RepositoryName: graphql.String(connection.RepoName),
+			Filter:         graphql.String(connection.Filter),
+		})
 	}
 	return connectionMap
 }
