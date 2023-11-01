@@ -4,21 +4,21 @@ go 1.20
 
 require (
 	github.com/Masterminds/semver v1.5.0
-	github.com/cert-manager/cert-manager v1.12.4
-	github.com/cli/shurcooL-graphql v0.0.3
+	github.com/cert-manager/cert-manager v1.12.6
+	github.com/cli/shurcooL-graphql v0.0.4
 	github.com/go-logr/logr v1.2.4
 	github.com/go-logr/zapr v1.2.4
 	github.com/google/go-cmp v0.5.9
 	github.com/google/martian v2.1.0+incompatible
-	github.com/humio/cli v0.32.3
+	github.com/humio/cli v0.32.4-0.20231101094820-40bf0a90a907
 	github.com/onsi/ginkgo/v2 v2.12.0
 	github.com/onsi/gomega v1.27.11-0.20230807134635-babe25fc5472
 	github.com/prometheus/client_golang v1.16.0
 	go.uber.org/zap v1.25.0
 	gopkg.in/square/go-jose.v2 v2.6.0
-	k8s.io/api v0.28.2
-	k8s.io/apimachinery v0.28.2
-	k8s.io/client-go v0.28.2
+	k8s.io/api v0.28.3
+	k8s.io/apimachinery v0.28.3
+	k8s.io/client-go v0.28.3
 	sigs.k8s.io/controller-runtime v0.15.2
 )
 
