@@ -10,7 +10,7 @@ require (
 	github.com/go-logr/zapr v1.2.4
 	github.com/google/go-cmp v0.5.9
 	github.com/google/martian v2.1.0+incompatible
-	github.com/humio/cli v0.32.3
+	github.com/humio/cli v0.32.4-0.20231025112913-b4dceeab38b6
 	github.com/onsi/ginkgo/v2 v2.12.0
 	github.com/onsi/gomega v1.27.11-0.20230807134635-babe25fc5472
 	github.com/prometheus/client_golang v1.16.0
