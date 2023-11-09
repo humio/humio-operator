@@ -2029,6 +2029,112 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
 			Expect(createdAction.Spec.SlackPostMessageProperties.ApiToken).To(Equal("direct-token"))
 		})
+
+		It("HumioAction: PagerDutyProperties: Should support referencing secrets", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-pagerduty-action-secret",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               key.Name,
+					ViewName:           testRepo.Spec.Name,
+					PagerDutyProperties: &humiov1alpha1.HumioActionPagerDutyProperties{
+						RoutingKeySource: humiov1alpha1.VarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "action-pagerduty-secret",
+								},
+								Key: "key",
+							},
+						},
+						Severity: "critical",
+					},
+				},
+			}
+
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "action-pagerduty-secret",
+					Namespace: clusterKey.Namespace,
+				},
+				Data: map[string][]byte{
+					"key": []byte("secret-key"),
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			var action *humioapi.Action
+			Eventually(func() error {
+				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(action).ToNot(BeNil())
+
+			createdAction, err := humio.CRActionFromAPIAction(action)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.PagerDutyProperties.RoutingKey).To(Equal("secret-key"))
+		})
+
+		It("HumioAction: PagerDutyProperties: Should support direct api token", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-pagerduty-action-direct",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               key.Name,
+					ViewName:           testRepo.Spec.Name,
+					PagerDutyProperties: &humiov1alpha1.HumioActionPagerDutyProperties{
+						RoutingKey: "direct-routing-key",
+						Severity:   "critical",
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			var action *humioapi.Action
+			Eventually(func() error {
+				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(action).ToNot(BeNil())
+
+			createdAction, err := humio.CRActionFromAPIAction(action)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.PagerDutyProperties.RoutingKey).To(Equal("direct-routing-key"))
+		})
 	})
 
 	Context("Humio Alert", func() {
