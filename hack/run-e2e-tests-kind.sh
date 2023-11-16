@@ -30,3 +30,4 @@ end=$(date +%s)
 echo "Running e2e tests took $((end-start)) seconds"
 
 exit "$TEST_EXIT_CODE"
+
