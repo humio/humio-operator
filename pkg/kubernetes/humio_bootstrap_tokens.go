@@ -2,7 +2,6 @@ package kubernetes
 
 import (
 	"context"
-	"fmt"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +42,7 @@ func LabelsForHumioBootstrapToken(clusterName string) map[string]string {
 func ConstructHumioBootstrapToken(humioClusterName string, humioClusterNamespace string) *humiov1alpha1.HumioBootstrapToken {
 	return &humiov1alpha1.HumioBootstrapToken{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", humioClusterName, BootstrapTokenNameSuffix),
+			Name:      humioClusterName,
 			Namespace: humioClusterNamespace,
 			Labels:    LabelsForHumioBootstrapToken(humioClusterName),
 		},
