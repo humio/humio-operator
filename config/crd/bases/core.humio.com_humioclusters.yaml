@@ -873,11 +873,6 @@ spec:
                         type: array
                     type: object
                 type: object
-              authServiceAccountName:
-                description: AuthServiceAccountName is the name of the Kubernetes
-                  Service Account that will be attached to the auth container in the
-                  humio pod.
-                type: string
               autoRebalancePartitions:
                 description: AutoRebalancePartitions will enable auto-rebalancing
                   of both digest and storage partitions assigned to humio cluster
@@ -6098,11 +6093,6 @@ spec:
                                   type: array
                               type: object
                           type: object
-                        authServiceAccountName:
-                          description: AuthServiceAccountName is the name of the Kubernetes
-                            Service Account that will be attached to the auth container
-                            in the humio pod.
-                          type: string
                         containerLivenessProbe:
                           description: ContainerLivenessProbe is the liveness probe
                             applied to the Humio container If specified and non-empty,
