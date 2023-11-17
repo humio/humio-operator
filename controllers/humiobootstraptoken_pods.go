@@ -1,8 +1,6 @@
 package controllers
 
 import (
-	"fmt"
-
 	"github.com/humio/humio-operator/pkg/helpers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,7 +10,7 @@ func ConstructBootstrapPod(bootstrapConfig *HumioBootstrapTokenConfig) *corev1.P
 	userID := int64(65534)
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-bootstrap-token-onetime", bootstrapConfig.name()),
+			Name:      bootstrapConfig.podName(),
 			Namespace: bootstrapConfig.namespace(),
 		},
 		Spec: corev1.PodSpec{
