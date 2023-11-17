@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	BootstrapTokenSuffix = "bootstrap-token"
+	bootstrapTokenSuffix        = "bootstrap-token"
+	bootstrapTokenPodNameSuffix = "bootstrap-token-onetime"
 )
 
 type HumioBootstrapTokenConfig struct {
@@ -29,7 +30,7 @@ func (b *HumioBootstrapTokenConfig) bootstrapTokenName() string {
 	if b.BootstrapToken.Spec.TokenSecret.SecretKeyRef != nil {
 		return b.BootstrapToken.Spec.TokenSecret.SecretKeyRef.Name
 	}
-	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, BootstrapTokenSuffix)
+	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, bootstrapTokenSuffix)
 }
 
 func (b *HumioBootstrapTokenConfig) create() (bool, error) {
@@ -100,8 +101,8 @@ func (b *HumioBootstrapTokenConfig) resources() corev1.ResourceRequirements {
 	}
 }
 
-func (b *HumioBootstrapTokenConfig) name() string {
-	return b.BootstrapToken.Name
+func (b *HumioBootstrapTokenConfig) podName() string {
+	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, bootstrapTokenPodNameSuffix)
 }
 
 func (b *HumioBootstrapTokenConfig) namespace() string {
