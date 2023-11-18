@@ -999,8 +999,8 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 	}
 
 	key := types.NamespacedName{
+		Name:      hnp.GetClusterName(),
 		Namespace: hnp.GetNamespace(),
-		Name:      hnp.GetBootstrapTokenName(),
 	}
 	hbt := &humiov1alpha1.HumioBootstrapToken{}
 	err = r.Client.Get(ctx, key, hbt)
