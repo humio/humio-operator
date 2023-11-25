@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ListPods grabs the list of all pods associated to a an instance of HumioCluster
+// ListPods grabs the list of all pods associated with an instance of HumioCluster
 func ListPods(ctx context.Context, c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]corev1.Pod, error) {
 	var foundPodList corev1.PodList
 	err := c.List(ctx, &foundPodList, client.InNamespace(humioClusterNamespace), matchingLabels)

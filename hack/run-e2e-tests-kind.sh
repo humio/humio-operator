@@ -22,7 +22,7 @@ export PATH=$BIN_DIR:$PATH
 kubectl create -k config/crd/
 kubectl label node --overwrite --all topology.kubernetes.io/zone=az1
 
-# We skip the helpers package as those tests assumes the environment variable USE_CERT_MANAGER is not set.
+# We skip the helpers package as those tests assume the environment variable USE_CERT_MANAGER is not set.
 USE_CERTMANAGER=true TEST_USE_EXISTING_CLUSTER=true $ginkgo --always-emit-ginkgo-writer -slow-spec-threshold=5s -timeout 90m -nodes=$ginkgo_nodes --skip-package helpers -race -v ./testbindir/* -covermode=count -coverprofile cover.out -progress | tee /proc/1/fd/1
 TEST_EXIT_CODE=$?
 

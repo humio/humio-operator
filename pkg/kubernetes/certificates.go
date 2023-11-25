@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ListCertificates grabs the list of all certificates associated to a an instance of HumioCluster
+// ListCertificates grabs the list of all certificates associated with an instance of HumioCluster
 func ListCertificates(ctx context.Context, c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]cmapi.Certificate, error) {
 	var foundCertificateList cmapi.CertificateList
 	err := c.List(ctx, &foundCertificateList, client.InNamespace(humioClusterNamespace), matchingLabels)

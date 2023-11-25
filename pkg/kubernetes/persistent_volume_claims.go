@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ListPersistentVolumeClaims grabs the list of all persistent volume claims associated to a an instance of HumioCluster
+// ListPersistentVolumeClaims grabs the list of all persistent volume claims associated with an instance of HumioCluster
 func ListPersistentVolumeClaims(ctx context.Context, c client.Client, humioClusterNamespace string, matchingLabels client.MatchingLabels) ([]corev1.PersistentVolumeClaim, error) {
 	var foundPersistentVolumeClaimList corev1.PersistentVolumeClaimList
 	err := c.List(ctx, &foundPersistentVolumeClaimList, client.InNamespace(humioClusterNamespace), matchingLabels)
