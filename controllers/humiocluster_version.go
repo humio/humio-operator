@@ -64,7 +64,11 @@ func (hv *HumioVersion) IsLatest() bool {
 
 func (hv *HumioVersion) constraint(constraintStr string) (bool, error) {
 	constraint, err := semver.NewConstraint(constraintStr)
-	return constraint.Check(hv.version), err
+	if err != nil {
+		return false, fmt.Errorf("could not parse constraint of `%s`: %w", constraintStr, err)
+	}
+
+	return constraint.Check(hv.version), nil
 }
 
 func (hv *HumioVersion) String() string {
