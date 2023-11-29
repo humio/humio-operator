@@ -92,7 +92,7 @@ func (b *HumioBootstrapTokenConfig) resources() corev1.ResourceRequirements {
 	return corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),
-			corev1.ResourceMemory: *resource.NewQuantity(50*1024*1024, resource.BinarySI),
+			corev1.ResourceMemory: *resource.NewQuantity(500*1024*1024, resource.BinarySI),
 		},
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI),

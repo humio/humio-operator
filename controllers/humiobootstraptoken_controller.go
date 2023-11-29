@@ -331,13 +331,14 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 	}
 
 	var podRunning bool
+	var foundPod corev1.Pod
 	for i := 0; i < waitForPodTimeoutSeconds; i++ {
-		latestPodList, err := kubernetes.ListPods(ctx, r, hbt.GetNamespace(), hbt.GetLabels())
-		if err != nil {
-			return err
-		}
-		for _, pod := range latestPodList {
-			if pod.Status.Phase == corev1.PodRunning {
+		err := r.Get(ctx, types.NamespacedName{
+			Namespace: pod.Namespace,
+			Name:      pod.Name,
+		}, &foundPod)
+		if err == nil {
+			if foundPod.Status.Phase == corev1.PodRunning {
 				podRunning = true
 				break
 			}
@@ -350,7 +351,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 	}
 
 	r.Log.Info("execing onetime pod")
-	output, err := r.execCommand(pod, commandArgs)
+	output, err := r.execCommand(&foundPod, commandArgs)
 	if err != nil {
 		return r.logErrorAndReturn(err, "failed to exec pod")
 	}
