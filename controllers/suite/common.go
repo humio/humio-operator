@@ -410,7 +410,10 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	UsingClusterBy(key.Name, "Simulating HumioBootstrapToken Controller running and adding the secret and status")
 	Eventually(func() error {
 		var updatedHumioBootstrapToken humiov1alpha1.HumioBootstrapToken
-		Expect(k8sClient.Get(ctx, bootstrapTokenKey, &updatedHumioBootstrapToken)).Should(Succeed())
+		err := k8sClient.Get(ctx, bootstrapTokenKey, &updatedHumioBootstrapToken)
+		if err != nil {
+			return err
+		}
 		updatedHumioBootstrapToken.Status.State = humiov1alpha1.HumioBootstrapTokenStateReady
 		updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
 			SecretKeyRef: &corev1.SecretKeySelector{
