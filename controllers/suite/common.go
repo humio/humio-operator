@@ -354,6 +354,12 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}
 	}
 
+	bootstrapToken := kubernetes.ConstructHumioBootstrapToken(key.Name, key.Namespace)
+	bootstrapTokenKey := types.NamespacedName{
+		Namespace: bootstrapToken.Namespace,
+		Name:      bootstrapToken.Name,
+	}
+
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
 		// Simulate sidecar creating the secret which contains the admin token used to authenticate with humio
 		secretData := map[string][]byte{"token": []byte("")}
@@ -365,8 +371,8 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		UsingClusterBy(key.Name, "Simulating the creation of the HumioBootstrapToken resource")
 		humioBootstrapToken := &humiov1alpha1.HumioBootstrapToken{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      key.Name,
-				Namespace: key.Namespace,
+				Name:      bootstrapTokenKey.Name,
+				Namespace: bootstrapTokenKey.Namespace,
 			},
 			Spec: humiov1alpha1.HumioBootstrapTokenSpec{
 				ManagedClusterName: key.Name,
@@ -404,7 +410,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	UsingClusterBy(key.Name, "Simulating HumioBootstrapToken Controller running and adding the secret and status")
 	Eventually(func() error {
 		var updatedHumioBootstrapToken humiov1alpha1.HumioBootstrapToken
-		Expect(k8sClient.Get(ctx, key, &updatedHumioBootstrapToken)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, bootstrapTokenKey, &updatedHumioBootstrapToken)).Should(Succeed())
 		updatedHumioBootstrapToken.Status.State = humiov1alpha1.HumioBootstrapTokenStateReady
 		updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
 			SecretKeyRef: &corev1.SecretKeySelector{
