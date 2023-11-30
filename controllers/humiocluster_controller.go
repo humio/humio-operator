@@ -456,11 +456,13 @@ func (r *HumioClusterReconciler) ensurePodRevisionAnnotation(ctx context.Context
 	return hc.Status.State, nil
 }
 func (r *HumioClusterReconciler) ensureHumioClusterBootstrapToken(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	r.Log.Info("ensuring humiobootstraptoken")
 	hbtList, err := kubernetes.ListHumioBootstrapTokens(ctx, r.Client, hc.GetNamespace(), kubernetes.LabelsForHumioBootstrapToken(hc.GetName()))
 	if err != nil {
 		return r.logErrorAndReturn(err, "could not list HumioBootstrapToken")
 	}
 	if len(hbtList) > 0 {
+		r.Log.Info("humiobootstraptoken already exists")
 		return nil
 	}
 
@@ -468,6 +470,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterBootstrapToken(ctx context.Co
 	if err := controllerutil.SetControllerReference(hc, hbt, r.Scheme()); err != nil {
 		return r.logErrorAndReturn(err, "could not set controller reference")
 	}
+	r.Log.Info(fmt.Sprintf("creating humiobootstraptoken %s", hbt.Name))
 	err = r.Create(ctx, hbt)
 	if err != nil {
 		return r.logErrorAndReturn(err, "could not create bootstrap token resource")
