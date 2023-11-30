@@ -354,12 +354,6 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}
 	}
 
-	bootstrapToken := kubernetes.ConstructHumioBootstrapToken(key.Name, key.Namespace)
-	bootstrapTokenKey := types.NamespacedName{
-		Namespace: bootstrapToken.Namespace,
-		Name:      bootstrapToken.Name,
-	}
-
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
 		// Simulate sidecar creating the secret which contains the admin token used to authenticate with humio
 		secretData := map[string][]byte{"token": []byte("")}
@@ -411,7 +405,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		if len(hbtList) == 0 {
 			return fmt.Errorf("no humiobootstraptokens for cluster %s", key.Name)
 		}
-		if len(hbtList) > 0 {
+		if len(hbtList) > 1 {
 			return fmt.Errorf("too many humiobootstraptokens for cluster %s. found list : %+v", key.Name, hbtList)
 		}
 
