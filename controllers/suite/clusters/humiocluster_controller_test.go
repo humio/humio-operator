@@ -181,7 +181,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			})
 			toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
 				Name:  "ORGANIZATION_MODE",
-				Value: "multi",
+				Value: "multiv2",
 			})
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
