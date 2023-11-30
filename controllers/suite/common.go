@@ -360,19 +360,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		Name:      bootstrapToken.Name,
 	}
 
-	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-		UsingClusterBy(key.Name, "Wait for HumioCluster Controller to create the HumioBootstrapToken")
-		Eventually(func() error {
-			hbtList, err := kubernetes.ListHumioBootstrapTokens(ctx, k8sClient, key.Namespace, kubernetes.LabelsForHumioBootstrapToken(key.Name))
-			if err != nil {
-				return err
-			}
-			if len(hbtList) > 0 {
-				return nil
-			}
-			return fmt.Errorf("no humiobootstraptokens for cluster %s", key.Name)
-		}, testTimeout, TestInterval).Should(Succeed())
-	} else {
+	if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
 		// Simulate sidecar creating the secret which contains the admin token used to authenticate with humio
 		secretData := map[string][]byte{"token": []byte("")}
 		adminTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
@@ -423,12 +411,11 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		if len(hbtList) == 0 {
 			return fmt.Errorf("no humiobootstraptokens for cluster %s", key.Name)
 		}
+		if len(hbtList) > 0 {
+			return fmt.Errorf("too many humiobootstraptokens for cluster %s. found list : %+v", key.Name, hbtList)
+		}
 
 		updatedHumioBootstrapToken := hbtList[0]
-		err = k8sClient.Get(ctx, bootstrapTokenKey, &updatedHumioBootstrapToken)
-		if err != nil {
-			return err
-		}
 		updatedHumioBootstrapToken.Status.State = humiov1alpha1.HumioBootstrapTokenStateReady
 		updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
 			SecretKeyRef: &corev1.SecretKeySelector{
