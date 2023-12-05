@@ -29,21 +29,18 @@ func HumioVersionFromString(image string) (*HumioVersion, error) {
 		return &humioVersion, nil
 	}
 
-	if nodeImage[1] == "latest" || nodeImage[1] == "master" {
-		humioVersion.assumeLatest = true
-		return &humioVersion, nil
-	}
-
 	// strip commit SHA if it exists
 	nodeImage = strings.SplitN(nodeImage[1], "-", 2)
 
 	nodeImageVersion, err := semver.NewVersion(nodeImage[0])
 	if err != nil {
-		return &humioVersion, err
+		// since image does not include any version hints, we assume bleeding edge version
+		humioVersion.assumeLatest = true
+		return &humioVersion, nil
 	}
 
 	humioVersion.version = nodeImageVersion
-	return &humioVersion, err
+	return &humioVersion, nil
 }
 
 func (hv *HumioVersion) AtLeast(version string) (bool, error) {
