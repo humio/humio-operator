@@ -657,14 +657,11 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 		return &corev1.Pod{}, r.logErrorAndReturn(err, "unable to find pod name")
 	}
 
-	//var bootstrapTokenHash string
-	//if attachments.bootstrapTokenSecretReference.secretReference != nil {
 	bootstrapTokenHash, err := r.getDesiredBootstrapTokenHash(ctx, hc)
 	if err != nil {
 		return &corev1.Pod{}, r.logErrorAndReturn(err, "unable to find bootstrap token secret")
 	}
 	attachments.bootstrapTokenSecretReference.hash = bootstrapTokenHash
-	//}
 
 	pod, err := ConstructPod(hnp, podNameAndCertHash.podName, attachments)
 	if err != nil {
@@ -688,11 +685,6 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 	if hnp.TLSEnabled() {
 		pod.Annotations[certHashAnnotation] = podNameAndCertHash.certificateHash
 	}
-
-	//if attachments.bootstrapTokenSecretReference.secretReference != nil {
-	//	pod.Annotations[bootstrapTokenHashAnnotation] = bootstrapTokenHash
-	//	//pod.Annotations[bootstrapTokenHashAnnotation] = "asdf2"
-	//}
 
 	_, podRevision := hnp.GetHumioClusterNodePoolRevisionAnnotation()
 	r.setPodRevision(pod, podRevision)

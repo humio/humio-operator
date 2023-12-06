@@ -23,15 +23,12 @@ import (
 // extractExistingHumioAdminUserID finds the user ID of the Humio user for the admin account, and returns
 // empty string and no error if the user doesn't exist
 func (r *HumioClusterReconciler) extractExistingHumioAdminUserID(config *humioapi.Config, req reconcile.Request, organizationMode string, username string, organization string) (string, error) {
-	if organizationMode == "multi" {
-		//var allUserResults []OrganizationSearchResultEntry
-
-		allUserResults, err := r.HumioClient.ListAllHumioUsersMultiOrg(config, req, username, organization) // client.Users().List(username, organization, client)
+	if organizationMode == "multi" || organizationMode == "multiv2" {
+		allUserResults, err := r.HumioClient.ListAllHumioUsersMultiOrg(config, req, username, organization)
 		if err != nil {
 			// unable to list all users
 			return "", err
 		}
-		// TODO: cleanup/remove duplicate code
 		for _, userResult := range allUserResults {
 			if userResult.OrganizationName == "RecoveryRootOrg" {
 				if userResult.SearchMatch == fmt.Sprintf(" | %s () ()", username) {

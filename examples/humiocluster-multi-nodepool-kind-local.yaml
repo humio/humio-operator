@@ -30,16 +30,12 @@ spec:
             value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181"
           - name: "KAFKA_SERVERS"
             value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092"
-              #          - name: "STATIC_USERS"
-              #            value: "user:user"
-          - name: "AUTHENTICATION_METHOD"
-            value: "static"
   license:
     secretKeyRef:
       name: example-humiocluster-license
       key: data
   image: "humio/humio-core:1.82.1"
-  nodeCount: 0
+  nodeCount: 1
   tls:
     enabled: false
   targetReplicationFactor: 1
@@ -65,3 +61,7 @@ spec:
       value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181"
     - name: "KAFKA_SERVERS"
       value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092"
+    - name: "STATIC_USERS"
+      value: "user:user"
+    - name: "AUTHENTICATION_METHOD"
+      value: "static"

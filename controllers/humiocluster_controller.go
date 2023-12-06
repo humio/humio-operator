@@ -1394,8 +1394,6 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 
 	// TODO: ensureLicense should be broken into multiple steps
 	if err = r.ensurePermissionTokens(ctx, cluster.Config(), req, hc); err != nil {
-		// It's failing here due to: Got err trying to obtain user ID of admin user: Message: License does not allow adding users. Please contact Humio support
-		// I'm thinking the user may need to be added to the org, or if single org is enabled then we need to do something differently?
 		return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("config: %+v", cluster.Config()))
 	}
 
