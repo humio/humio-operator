@@ -693,7 +693,7 @@ func (h *ClientConfig) ListAllHumioUsersMultiOrg(config *humioapi.Config, req re
 	}
 
 	variables := map[string]interface{}{
-		"username": username,
+		"username": graphql.String(username),
 	}
 
 	err := h.GetHumioClient(config, req).Query(&q, variables)
@@ -703,7 +703,6 @@ func (h *ClientConfig) ListAllHumioUsersMultiOrg(config *humioapi.Config, req re
 
 	var allUserResultEntries []OrganizationSearchResultEntry
 	for _, result := range q.OrganizationSearchResultSet.Results {
-		//if result.OrganizationName == "RecoveryRootOrg" {
 		if result.OrganizationName == organization {
 			allUserResultEntries = append(allUserResultEntries, result)
 		}
@@ -713,7 +712,7 @@ func (h *ClientConfig) ListAllHumioUsersMultiOrg(config *humioapi.Config, req re
 }
 
 func (h *ClientConfig) ExtractExistingHumioAdminUserID(config *humioapi.Config, req reconcile.Request, organizationMode string, username string, organization string) (string, error) {
-	if organizationMode == "multi" {
+	if organizationMode == "multi" || organizationMode == "multiv2" {
 		var allUserResults []OrganizationSearchResultEntry
 		allUserResults, err := h.ListAllHumioUsersMultiOrg(config, req, username, organization)
 		if err != nil {
@@ -721,7 +720,7 @@ func (h *ClientConfig) ExtractExistingHumioAdminUserID(config *humioapi.Config, 
 			return "", err
 		}
 		for _, userResult := range allUserResults {
-			if userResult.OrganizationName == "RecoveryRootOrg" {
+			if userResult.OrganizationName == organization {
 				if userResult.SearchMatch == fmt.Sprintf(" | %s () ()", username) {
 					fmt.Printf("Found user ID using multi-organization query.\n")
 					return userResult.EntityId, nil
