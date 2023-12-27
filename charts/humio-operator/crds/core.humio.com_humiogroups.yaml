@@ -1,0 +1,120 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.6.2
+  creationTimestamp: null
+  name: humiogroups.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.15.0'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioGroup
+    listKind: HumioGroupList
+    plural: humiogroup
+    singular: HumioGroup
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The state of the ingest token
+      jsonPath: .status.state
+      name: State
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioGroup is the Schema for the humiogroup API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioGroupSpec defines the desired state of HumioGroup
+            properties:
+              displayName:
+                description: DisplayName refers to an displayName of type HumioGroups. 
+                Reconciler will try to find a HumioGroup with given displayName, and if there is no such instance, it will try to create it
+                type: string
+              lookupName:
+                description: lookupName refers to an displayName of type HumioGroups. 
+                Reconciler will try to find a HumioGroup with given displayName, and if there is no such instance, it will try to create it
+                type: string
+              defaultQueryString:
+                description: DefaultQueryString refers to an defaultQueryString of type HumioGroups. 
+                If, Humio Group with given displayName is found, Reconciler will reconcile it to this defaultQueryString. If reconciler create new HumioGroup, 
+                HumioGroup will be set to have this defaultQueryString value as defaultQueryString
+                type: string
+              reconcileSearchDomainQueryPrefix:
+                description: 
+                  :Optional This query prefix is in effect, when existing HumioGroup is found with displayName or lookupName.
+                  When this flag is set, Reconciler will try to reconcile 
+                type: string
+              defaultRole:
+                description: 
+                  DefaultRole refers to a role this HumioGroup should assume as default
+                type: object
+                properties:
+                  displayName:
+                    type: string
+                  viewPermissions:
+                    type: array
+                      items: 
+                        type: string
+                  systemPermissions:
+                    type: array
+                      items: 
+                        type: string
+                  organizationPermissions:
+                    type: array
+                      items: 
+                        type: string
+                type: object
+              searchDomainRoles:
+                description:
+                  SearchDomainRoles refer to a role this HumioGroup posess on various searchDomains
+                properties:
+                  type: array
+                    items:
+                      type: object
+                        properites:
+                          domainName: 
+                            type: string
+                          roleName:
+                            type: string
+            required:
+            - displayName
+            type: object
+          status:
+            description: humiogrouptatus defines the observed state of HumioGroup
+            properties:
+              state:
+                description: State reflects the current state of the HumioGroup
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
