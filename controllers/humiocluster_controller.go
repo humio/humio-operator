@@ -100,7 +100,9 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	var humioNodePools HumioNodePoolList
 	humioNodePools.Add(NewHumioNodeManagerFromHumioCluster(hc))
+	defaultEnvVars := hc.Spec.EnvironmentVariables
 	for idx := range hc.Spec.NodePools {
+		hc.Spec.NodePools[idx].EnvironmentVariables = append(hc.Spec.NodePools[idx].EnvironmentVariables, defaultEnvVars...)
 		humioNodePools.Add(NewHumioNodeManagerFromHumioNodePool(hc, &hc.Spec.NodePools[idx]))
 	}
 
