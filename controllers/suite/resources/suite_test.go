@@ -248,6 +248,7 @@ var _ = BeforeSuite(func() {
 		Spec: corev1alpha1.HumioRepositorySpec{
 			ManagedClusterName: clusterKey.Name,
 			Name:               "test-repo",
+			AllowDataDeletion:  true,
 		},
 	}
 	Expect(k8sClient.Create(context.TODO(), &testRepo)).To(Succeed())
