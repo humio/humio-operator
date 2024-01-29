@@ -32,8 +32,6 @@ const (
 	HumioActionStateConfigError = "ConfigError"
 )
 
-var HaSecrets map[string]string
-
 // HumioActionWebhookProperties defines the desired state of HumioActionWebhookProperties
 type HumioActionWebhookProperties struct {
 	BodyTemplate string            `json:"bodyTemplate,omitempty"`
@@ -54,13 +52,15 @@ type HumioActionEmailProperties struct {
 
 // HumioActionRepositoryProperties defines the desired state of HumioActionRepositoryProperties
 type HumioActionRepositoryProperties struct {
-	IngestTokenSource VarSource `json:"ingestTokenSource"`
+	IngestToken       string    `json:"ingestToken,omitempty"`
+	IngestTokenSource VarSource `json:"ingestTokenSource,omitempty"`
 }
 
 // HumioActionOpsGenieProperties defines the desired state of HumioActionOpsGenieProperties
 type HumioActionOpsGenieProperties struct {
 	ApiUrl         string    `json:"apiUrl,omitempty"`
-	GenieKeySource VarSource `json:"genieKeySource"`
+	GenieKey       string    `json:"genieKey,omitempty"`
+	GenieKeySource VarSource `json:"genieKeySource,omitempty"`
 	UseProxy       bool      `json:"useProxy,omitempty"`
 }
 
@@ -80,7 +80,8 @@ type HumioActionSlackProperties struct {
 
 // HumioActionSlackPostMessageProperties defines the desired state of HumioActionSlackPostMessageProperties
 type HumioActionSlackPostMessageProperties struct {
-	ApiTokenSource VarSource         `json:"apiTokenSource"`
+	ApiToken       string            `json:"apiToken,omitempty"`
+	ApiTokenSource VarSource         `json:"apiTokenSource,omitempty"`
 	Channels       []string          `json:"channels,omitempty"`
 	Fields         map[string]string `json:"fields,omitempty"`
 	UseProxy       bool              `json:"useProxy,omitempty"`

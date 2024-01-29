@@ -66,6 +66,8 @@ spec:
                 description: HumioRepositoryProperties indicates this is a Humio Repository
                   Action, and contains the corresponding properties
                 properties:
+                  ingestToken:
+                    type: string
                   ingestTokenSource:
                     properties:
                       secretKeyRef:
@@ -87,8 +89,6 @@ spec:
                         - key
                         type: object
                     type: object
-                required:
-                - ingestTokenSource
                 type: object
               managedClusterName:
                 description: ManagedClusterName refers to an object of type HumioCluster
@@ -103,6 +103,8 @@ spec:
                   and contains the corresponding properties
                 properties:
                   apiUrl:
+                    type: string
+                  genieKey:
                     type: string
                   genieKeySource:
                     properties:
@@ -127,8 +129,6 @@ spec:
                     type: object
                   useProxy:
                     type: boolean
-                required:
-                - genieKeySource
                 type: object
               pagerDutyProperties:
                 description: PagerDutyProperties indicates this is a PagerDuty Action,
@@ -145,6 +145,8 @@ spec:
                 description: SlackPostMessageProperties indicates this is a Slack
                   Post Message Action, and contains the corresponding properties
                 properties:
+                  apiToken:
+                    type: string
                   apiTokenSource:
                     properties:
                       secretKeyRef:
@@ -176,8 +178,6 @@ spec:
                     type: object
                   useProxy:
                     type: boolean
-                required:
-                - apiTokenSource
                 type: object
               slackProperties:
                 description: SlackProperties indicates this is a Slack Action, and

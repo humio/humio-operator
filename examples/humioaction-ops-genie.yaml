@@ -7,10 +7,7 @@ spec:
   name: example-ops-genie-action
   viewName: humio
   opsGenieProperties:
-    genieKey: 
-      secretKeyRef:
-        name: example-ops-genie-key
-        key: key
+    genieKey: "some-genie-key"
 ---
 apiVersion: core.humio.com/v1alpha1
 kind: HumioAction
@@ -21,15 +18,4 @@ spec:
   name: example-ops-genie-action
   viewName: humio
   opsGenieProperties:
-    genieKey:
-      secretKeyRef:
-        name: example-ops-genie-key
-        key: key
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: example-ops-genie-key 
-type: Opaque
-data:
-  key: c29tZS1nZW5pZS1rZXkK 
+    genieKey: "some-genie-key"

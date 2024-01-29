@@ -38,7 +38,6 @@ import (
 )
 
 var _ = Describe("Humio Resources Controllers", func() {
-
 	BeforeEach(func() {
 		// failed test runs that don't clean up leave resources behind.
 		humioClient.ClearHumioClientConnections()
@@ -231,7 +230,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				err := k8sClient.Get(ctx, key, fetchedIngestToken)
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
-
 		})
 
 		It("Creating ingest token pointing to non-existent managed cluster", func() {
@@ -542,7 +540,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Waiting for repo to get deleted. Current status: %#+v", fetchedRepo.Status))
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
-
 		})
 	})
 
@@ -642,7 +639,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				err := k8sClient.Get(ctx, key, fetchedParser)
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
-
 		})
 	})
 
@@ -672,7 +668,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			if protocol == "https" {
 				toCreateExternalCluster.Spec.CASecretName = clusterKey.Name
-
 			} else {
 				toCreateExternalCluster.Spec.Insecure = true
 			}
@@ -1007,6 +1002,187 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
+		It("should handle humio repo action correctly", func() {
+			ctx := context.Background()
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle humio repo action correctly")
+			humioRepoActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               "example-humio-repo-action",
+				ViewName:           testRepo.Spec.Name,
+				HumioRepositoryProperties: &humiov1alpha1.HumioActionRepositoryProperties{
+					IngestToken: "some-token",
+				},
+			}
+
+			key := types.NamespacedName{
+				Name:      "humioaction",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humioRepoActionSpec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the humio repo action successfully")
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			action := &humioapi.Action{}
+			Eventually(func() error {
+				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(action).ToNot(BeNil())
+
+			originalAction, err := humio.ActionFromActionCR(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(action.Name).To(Equal(originalAction.Name))
+
+			createdAction, err := humio.CRActionFromAPIAction(action)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.HumioRepositoryProperties.IngestToken).To(Equal(toCreateAction.Spec.HumioRepositoryProperties.IngestToken))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the humio repo action successfully")
+			updatedAction := toCreateAction
+			updatedAction.Spec.HumioRepositoryProperties.IngestToken = "updated-token"
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the humio repo action to be updated")
+			Eventually(func() error {
+				k8sClient.Get(ctx, key, fetchedAction)
+				fetchedAction.Spec.HumioRepositoryProperties = updatedAction.Spec.HumioRepositoryProperties
+				return k8sClient.Update(ctx, fetchedAction)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the humio repo action update succeeded")
+			var expectedUpdatedAction *humioapi.Action
+			Eventually(func() error {
+				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(expectedUpdatedAction).ToNot(BeNil())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the humio repo action matches the expected")
+			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
+			Expect(err).To(BeNil())
+			Expect(verifiedAction).ToNot(BeNil())
+			Eventually(func() humioapi.HumioRepoAction {
+				updatedAction, err := humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				if err != nil {
+					return humioapi.HumioRepoAction{}
+				}
+				return updatedAction.HumioRepoAction
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.HumioRepoAction))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("should handle ops genie action correctly", func() {
+			ctx := context.Background()
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle ops genie action correctly")
+			opsGenieActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               "example-ops-genie-action",
+				ViewName:           testRepo.Spec.Name,
+				OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
+					GenieKey: "somegeniekey",
+					ApiUrl:   fmt.Sprintf("https://%s", testService1.Name),
+				},
+			}
+
+			key := types.NamespacedName{
+				Name:      "humio-ops-genie-action",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: opsGenieActionSpec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the ops genie action successfully")
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			var action *humioapi.Action
+			Eventually(func() error {
+				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(action).ToNot(BeNil())
+
+			originalAction, err := humio.ActionFromActionCR(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(action.Name).To(Equal(originalAction.Name))
+
+			createdAction, err := humio.CRActionFromAPIAction(action)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.OpsGenieProperties.GenieKey).To(Equal(toCreateAction.Spec.OpsGenieProperties.GenieKey))
+			Expect(createdAction.Spec.OpsGenieProperties.ApiUrl).To(Equal(toCreateAction.Spec.OpsGenieProperties.ApiUrl))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the ops genie action successfully")
+			updatedAction := toCreateAction
+			updatedAction.Spec.OpsGenieProperties.GenieKey = "updatedgeniekey"
+			updatedAction.Spec.OpsGenieProperties.ApiUrl = fmt.Sprintf("https://%s", testService2.Name)
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the ops genie action to be updated")
+			Eventually(func() error {
+				k8sClient.Get(ctx, key, fetchedAction)
+				fetchedAction.Spec.OpsGenieProperties = updatedAction.Spec.OpsGenieProperties
+				return k8sClient.Update(ctx, fetchedAction)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the ops genie action update succeeded")
+			var expectedUpdatedAction *humioapi.Action
+			Eventually(func() error {
+				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(expectedUpdatedAction).ToNot(BeNil())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the ops genie action matches the expected")
+			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
+			Expect(err).To(BeNil())
+			Expect(verifiedAction).ToNot(BeNil())
+			Eventually(func() humioapi.OpsGenieAction {
+				updatedAction, err := humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				if err != nil {
+					return humioapi.OpsGenieAction{}
+				}
+				return updatedAction.OpsGenieAction
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.OpsGenieAction))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
 		It("should handle pagerduty action correctly", func() {
 			ctx := context.Background()
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle pagerduty action correctly")
@@ -1090,6 +1266,110 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}
 				return updatedAction.PagerDutyAction
 			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.PagerDutyAction))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("should handle slack post message action correctly", func() {
+			ctx := context.Background()
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle slack post message action correctly")
+			slackPostMessageActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               "example-slack-post-message-action",
+				ViewName:           testRepo.Spec.Name,
+				SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
+					ApiToken: "some-token",
+					Channels: []string{"#some-channel"},
+					Fields: map[string]string{
+						"some": "key",
+					},
+				},
+			}
+
+			key := types.NamespacedName{
+				Name:      "humio-slack-post-message-action",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: slackPostMessageActionSpec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the slack post message action successfully")
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			var action *humioapi.Action
+			Eventually(func() error {
+				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(action).ToNot(BeNil())
+
+			originalAction, err := humio.ActionFromActionCR(toCreateAction)
+			Expect(err).To(BeNil())
+			Expect(action.Name).To(Equal(originalAction.Name))
+
+			createdAction, err := humio.CRActionFromAPIAction(action)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+
+			// Check the secretMap rather than the apiToken in the ha.
+			apiToken, found := humiov1alpha1.HaHasSecret(createdAction)
+			Expect(found).To(BeTrue())
+			Expect(apiToken).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.ApiToken))
+
+			Expect(createdAction.Spec.SlackPostMessageProperties.Channels).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.Channels))
+			Expect(createdAction.Spec.SlackPostMessageProperties.Fields).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.Fields))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the slack post message action successfully")
+			updatedAction := toCreateAction
+			updatedAction.Spec.SlackPostMessageProperties.ApiToken = "updated-token"
+			updatedAction.Spec.SlackPostMessageProperties.Channels = []string{"#some-channel", "#other-channel"}
+			updatedAction.Spec.SlackPostMessageProperties.Fields = map[string]string{
+				"some": "updatedkey",
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the slack post message action to be updated")
+			Eventually(func() error {
+				k8sClient.Get(ctx, key, fetchedAction)
+				fetchedAction.Spec.SlackPostMessageProperties = updatedAction.Spec.SlackPostMessageProperties
+				return k8sClient.Update(ctx, fetchedAction)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack post message action update succeeded")
+			var expectedUpdatedAction *humioapi.Action
+			Eventually(func() error {
+				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(expectedUpdatedAction).ToNot(BeNil())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack post message action matches the expected")
+			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
+			Expect(err).To(BeNil())
+			Expect(verifiedAction).ToNot(BeNil())
+			Eventually(func() humioapi.SlackPostMessageAction {
+				updatedAction, err := humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				if err != nil {
+					return humioapi.SlackPostMessageAction{}
+				}
+				return updatedAction.SlackPostMessageAction
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.SlackPostMessageAction))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
@@ -1193,7 +1473,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				err := k8sClient.Get(ctx, key, fetchedAction)
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
-
 		})
 
 		It("should handle victor ops action correctly", func() {
@@ -1531,6 +1810,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			createdAction, err := humio.CRActionFromAPIAction(action)
 			Expect(err).To(BeNil())
 			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.HumioRepositoryProperties.IngestToken).To(Equal("secret-token"))
 		})
 
 		It("HumioAction: OpsGenieProperties: Should support referencing secrets", func() {
@@ -1592,6 +1872,52 @@ var _ = Describe("Humio Resources Controllers", func() {
 			createdAction, err := humio.CRActionFromAPIAction(action)
 			Expect(err).To(BeNil())
 			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.OpsGenieProperties.GenieKey).To(Equal("secret-token"))
+			Expect(createdAction.Spec.OpsGenieProperties.ApiUrl).To(Equal(fmt.Sprintf("https://%s", testService1.Name)))
+		})
+
+		It("HumioAction: OpsGenieProperties: Should support direct genie key", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "genie-action-direct",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               key.Name,
+					ViewName:           testRepo.Spec.Name,
+					OpsGenieProperties: &humiov1alpha1.HumioActionOpsGenieProperties{
+						GenieKey: "direct-token",
+						ApiUrl:   fmt.Sprintf("https://%s", testService1.Name),
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			var action *humioapi.Action
+			Eventually(func() error {
+				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(action).ToNot(BeNil())
+
+			createdAction, err := humio.CRActionFromAPIAction(action)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.OpsGenieProperties.GenieKey).To(Equal("direct-token"))
 			Expect(createdAction.Spec.OpsGenieProperties.ApiUrl).To(Equal(fmt.Sprintf("https://%s", testService1.Name)))
 		})
 
@@ -1657,6 +1983,63 @@ var _ = Describe("Humio Resources Controllers", func() {
 			createdAction, err := humio.CRActionFromAPIAction(action)
 			Expect(err).To(BeNil())
 			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+
+			// Should not be setting the API token in this case, but the secretMap should have the value
+			Expect(createdAction.Spec.SlackPostMessageProperties.ApiToken).To(Equal(""))
+			apiToken, found := humiov1alpha1.HaHasSecret(createdAction)
+			Expect(found).To(BeTrue())
+			Expect(apiToken).To(Equal("secret-token"))
+		})
+
+		It("HumioAction: SlackPostMessageProperties: Should support direct api token", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-slack-post-message-action-direct",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               key.Name,
+					ViewName:           testRepo.Spec.Name,
+					SlackPostMessageProperties: &humiov1alpha1.HumioActionSlackPostMessageProperties{
+						ApiToken: "direct-token",
+						Channels: []string{"#some-channel"},
+						Fields: map[string]string{
+							"some": "key",
+						},
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			var action *humioapi.Action
+			Eventually(func() error {
+				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(action).ToNot(BeNil())
+
+			createdAction, err := humio.CRActionFromAPIAction(action)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+
+			// Check the SecretMap rather than the ApiToken on the action
+			apiToken, found := humiov1alpha1.HaHasSecret(createdAction)
+			Expect(found).To(BeTrue())
+			Expect(apiToken).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.ApiToken))
 		})
 	})
 

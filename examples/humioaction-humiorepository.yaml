@@ -7,10 +7,7 @@ spec:
   name: example-humio-repository-action
   viewName: humio
   humioRepositoryProperties:
-    ingestToken: 
-      secretKeyRef:
-        name: humio-ingest-token
-        key: token
+    ingestToken: some-humio-ingest-token
 ---
 apiVersion: core.humio.com/v1alpha1
 kind: HumioAction
@@ -21,15 +18,4 @@ spec:
   name: example-humio-repository-action
   viewName: humio
   humioRepositoryProperties:
-    ingestToken:
-      secretKeyRef:
-        name: humio-ingest-token
-        key: token
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: humio-ingest-token 
-type: Opaque
-data:
-  token: c29tZS1odW1pby1pbmdlc3QtdG9rZW4K
+    ingestToken: some-humio-ingest-token
