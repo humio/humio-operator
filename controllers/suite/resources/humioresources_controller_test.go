@@ -1329,7 +1329,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
 
 			// Check the secretMap rather than the apiToken in the ha.
-			apiToken, found := humiov1alpha1.HaHasSecret(createdAction)
+			apiToken, found := humiov1alpha1.GetSecretForHa(createdAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.ApiToken))
 
@@ -1986,7 +1986,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			// Should not be setting the API token in this case, but the secretMap should have the value
 			Expect(createdAction.Spec.SlackPostMessageProperties.ApiToken).To(Equal(""))
-			apiToken, found := humiov1alpha1.HaHasSecret(createdAction)
+			apiToken, found := humiov1alpha1.GetSecretForHa(createdAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal("secret-token"))
 		})
@@ -2037,7 +2037,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
 
 			// Check the SecretMap rather than the ApiToken on the action
-			apiToken, found := humiov1alpha1.HaHasSecret(createdAction)
+			apiToken, found := humiov1alpha1.GetSecretForHa(createdAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.ApiToken))
 		})

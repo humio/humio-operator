@@ -111,7 +111,7 @@ func CRActionFromAPIAction(action *humioapi.Action) (*humiov1alpha1.HumioAction,
 			Fields:   fields,
 			UseProxy: action.SlackPostMessageAction.UseProxy,
 		}
-		humiov1alpha1.SecretFromHa(ha, action.SlackPostMessageAction.ApiToken)
+		humiov1alpha1.SetSecretForHa(ha, action.SlackPostMessageAction.ApiToken)
 	}
 
 	if !reflect.ValueOf(action.VictorOpsAction).IsZero() {
@@ -314,7 +314,7 @@ func slackPostMessageAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, er
 		return action, err
 	}
 
-	apiToken, found := humiov1alpha1.HaHasSecret(hn)
+	apiToken, found := humiov1alpha1.GetSecretForHa(hn)
 	if hn.Spec.SlackPostMessageProperties.ApiToken == "" && !found {
 		errorList = append(errorList, "property slackPostMessageProperties.apiToken is required")
 	}

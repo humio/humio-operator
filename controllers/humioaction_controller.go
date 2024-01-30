@@ -220,7 +220,7 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 		}
 	}
 
-	humiov1alpha1.SecretFromHa(ha, apiToken)
+	humiov1alpha1.SetSecretForHa(ha, apiToken)
 
 	return nil
 }
