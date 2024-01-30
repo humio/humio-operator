@@ -70,6 +70,8 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, err
 	}
 
+	r.Log = r.Log.WithValues("Request.UID", hec.UID)
+
 	if hec.Status.State == "" {
 		err := r.setState(ctx, humiov1alpha1.HumioExternalClusterStateUnknown, hec)
 		if err != nil {
