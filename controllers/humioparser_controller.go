@@ -75,6 +75,8 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, err
 	}
 
+	r.Log = r.Log.WithValues("Request.UID", hp.UID)
+
 	cluster, err := helpers.NewCluster(ctx, r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
@@ -193,8 +195,11 @@ func (r *HumioParserReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *HumioParserReconciler) finalize(ctx context.Context, config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) error {
 	_, err := helpers.NewCluster(ctx, r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager(), true)
-	if k8serrors.IsNotFound(err) {
-		return nil
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
 	}
 
 	return r.HumioClient.DeleteParser(config, req, hp)

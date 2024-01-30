@@ -98,6 +98,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconcile.Result{}, err
 	}
 
+	r.Log = r.Log.WithValues("Request.UID", hc.UID)
+
 	var humioNodePools HumioNodePoolList
 	humioNodePools.Add(NewHumioNodeManagerFromHumioCluster(hc))
 	for idx := range hc.Spec.NodePools {
