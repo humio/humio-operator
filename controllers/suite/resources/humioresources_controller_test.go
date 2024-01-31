@@ -1954,13 +1954,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
+			expectedSecretValue := "secret-token"
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "action-slack-post-secret",
 					Namespace: clusterKey.Namespace,
 				},
 				Data: map[string][]byte{
-					"key": []byte("secret-token"),
+					"key": []byte(expectedSecretValue),
 				},
 			}
 
@@ -1988,7 +1989,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(createdAction.Spec.SlackPostMessageProperties.ApiToken).To(Equal(""))
 			apiToken, found := humiov1alpha1.GetSecretForHa(createdAction)
 			Expect(found).To(BeTrue())
-			Expect(apiToken).To(Equal("secret-token"))
+			Expect(apiToken).To(Equal(expectedSecretValue))
 		})
 
 		It("HumioAction: SlackPostMessageProperties: Should support direct api token", func() {
