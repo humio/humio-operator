@@ -38,7 +38,6 @@ import (
 )
 
 var _ = Describe("Humio Resources Controllers", func() {
-
 	BeforeEach(func() {
 		// failed test runs that don't clean up leave resources behind.
 		humioClient.ClearHumioClientConnections()
@@ -231,7 +230,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				err := k8sClient.Get(ctx, key, fetchedIngestToken)
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
-
 		})
 
 		It("Creating ingest token pointing to non-existent managed cluster", func() {
@@ -542,7 +540,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Waiting for repo to get deleted. Current status: %#+v", fetchedRepo.Status))
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
-
 		})
 	})
 
@@ -642,7 +639,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				err := k8sClient.Get(ctx, key, fetchedParser)
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
-
 		})
 	})
 
@@ -672,7 +668,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			if protocol == "https" {
 				toCreateExternalCluster.Spec.CASecretName = clusterKey.Name
-
 			} else {
 				toCreateExternalCluster.Spec.Insecure = true
 			}
@@ -1332,7 +1327,12 @@ var _ = Describe("Humio Resources Controllers", func() {
 			createdAction, err := humio.CRActionFromAPIAction(action)
 			Expect(err).To(BeNil())
 			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
-			Expect(createdAction.Spec.SlackPostMessageProperties.ApiToken).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.ApiToken))
+
+			// Check the secretMap rather than the apiToken in the ha.
+			apiToken, found := humiov1alpha1.GetSecretForHa(createdAction)
+			Expect(found).To(BeTrue())
+			Expect(apiToken).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.ApiToken))
+
 			Expect(createdAction.Spec.SlackPostMessageProperties.Channels).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.Channels))
 			Expect(createdAction.Spec.SlackPostMessageProperties.Fields).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.Fields))
 
@@ -1473,7 +1473,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				err := k8sClient.Get(ctx, key, fetchedAction)
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
-
 		})
 
 		It("should handle victor ops action correctly", func() {
@@ -1955,13 +1954,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
+			expectedSecretValue := "secret-token"
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "action-slack-post-secret",
 					Namespace: clusterKey.Namespace,
 				},
 				Data: map[string][]byte{
-					"key": []byte("secret-token"),
+					"key": []byte(expectedSecretValue),
 				},
 			}
 
@@ -1984,7 +1984,12 @@ var _ = Describe("Humio Resources Controllers", func() {
 			createdAction, err := humio.CRActionFromAPIAction(action)
 			Expect(err).To(BeNil())
 			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
-			Expect(createdAction.Spec.SlackPostMessageProperties.ApiToken).To(Equal("secret-token"))
+
+			// Should not be setting the API token in this case, but the secretMap should have the value
+			Expect(createdAction.Spec.SlackPostMessageProperties.ApiToken).To(Equal(""))
+			apiToken, found := humiov1alpha1.GetSecretForHa(createdAction)
+			Expect(found).To(BeTrue())
+			Expect(apiToken).To(Equal(expectedSecretValue))
 		})
 
 		It("HumioAction: SlackPostMessageProperties: Should support direct api token", func() {
@@ -2031,7 +2036,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 			createdAction, err := humio.CRActionFromAPIAction(action)
 			Expect(err).To(BeNil())
 			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
-			Expect(createdAction.Spec.SlackPostMessageProperties.ApiToken).To(Equal("direct-token"))
+
+			// Check the SecretMap rather than the ApiToken on the action
+			apiToken, found := humiov1alpha1.GetSecretForHa(createdAction)
+			Expect(found).To(BeTrue())
+			Expect(apiToken).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.ApiToken))
 		})
 	})
 

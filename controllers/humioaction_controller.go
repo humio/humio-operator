@@ -197,11 +197,12 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 
 func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1alpha1.HumioAction) error {
 	var err error
+	var apiToken string
 
 	if ha.Spec.SlackPostMessageProperties != nil {
-		ha.Spec.SlackPostMessageProperties.ApiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiToken, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
+		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiToken, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
 		if err != nil {
-			return fmt.Errorf("slackPostMessageProperties.ingestTokenSource.%v", err)
+			return fmt.Errorf("slackPostMessageProperties.ApiTokenSource.%v", err)
 		}
 	}
 
@@ -218,6 +219,8 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 			return fmt.Errorf("humioRepositoryProperties.ingestTokenSource.%v", err)
 		}
 	}
+
+	humiov1alpha1.SetSecretForHa(ha, apiToken)
 
 	return nil
 }
