@@ -1,7 +1,7 @@
 apiVersion: v1
 name: humio-operator
-version: 0.20.1
-appVersion: 0.20.1
+version: 0.20.2
+appVersion: 0.20.2
 home: https://github.com/humio/humio-operator
 description: |
   Kubernetes Operator for running Humio on top of Kubernetes
