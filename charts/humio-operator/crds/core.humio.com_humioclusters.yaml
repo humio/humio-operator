@@ -14182,12 +14182,16 @@ spec:
                   type: object
                 type: array
               storagePartitionsCount:
-                description: StoragePartitionsCount is the desired number of storage
-                  partitions
+                description: 'StoragePartitionsCount is the desired number of storage
+                  partitions Deprecated: No longer necessary since LogScale 1.89.0.'
                 type: integer
               targetReplicationFactor:
-                description: TargetReplicationFactor is the desired number of replicas
-                  of both storage and ingest partitions
+                description: 'TargetReplicationFactor appends DIGEST_REPLICATION_FACTOR
+                  and STORAGE_REPLICATION_FACTOR to pod environment variables based
+                  on TargetReplicationFactor for LogScale versions prior to 1.89.0.
+                  Deprecated: No longer automatically appends DIGEST_REPLICATION_FACTOR
+                  and STORAGE_REPLICATION_FACTOR, but replaced by user requiring to
+                  append replication configurations to EnvironmentVariables in HumioNodeSpec.'
                 type: integer
               terminationGracePeriodSeconds:
                 description: TerminationGracePeriodSeconds defines the amount of time

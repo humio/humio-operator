@@ -503,20 +503,23 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}
 	}
 
-	UsingClusterBy(key.Name, "Confirming replication factor environment variables are set correctly")
-	for _, pod := range clusterPods {
-		humioIdx, err = kubernetes.GetContainerIndexByName(pod, "humio")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElements([]corev1.EnvVar{
-			{
-				Name:  "DIGEST_REPLICATION_FACTOR",
-				Value: strconv.Itoa(cluster.Spec.TargetReplicationFactor),
-			},
-			{
-				Name:  "STORAGE_REPLICATION_FACTOR",
-				Value: strconv.Itoa(cluster.Spec.TargetReplicationFactor),
-			},
-		}))
+	humioVersion, _ := controllers.HumioVersionFromString(controllers.NewHumioNodeManagerFromHumioCluster(cluster).GetImage())
+	if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithAutomaticPartitionManagement); !ok {
+		UsingClusterBy(key.Name, "Confirming replication factor environment variables are set correctly")
+		for _, pod := range clusterPods {
+			humioIdx, err = kubernetes.GetContainerIndexByName(pod, "humio")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElements([]corev1.EnvVar{
+				{
+					Name:  "DIGEST_REPLICATION_FACTOR",
+					Value: strconv.Itoa(cluster.Spec.TargetReplicationFactor),
+				},
+				{
+					Name:  "STORAGE_REPLICATION_FACTOR",
+					Value: strconv.Itoa(cluster.Spec.TargetReplicationFactor),
+				},
+			}))
+		}
 	}
 
 	Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
