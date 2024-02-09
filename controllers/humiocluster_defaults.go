@@ -363,9 +363,6 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 
 		{Name: "HUMIO_PORT", Value: strconv.Itoa(HumioPort)},
 		{Name: "ELASTIC_PORT", Value: strconv.Itoa(elasticPort)},
-		{Name: "DIGEST_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
-		{Name: "STORAGE_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
-		{Name: "DEFAULT_PARTITION_COUNT", Value: strconv.Itoa(hnp.GetStoragePartitionsCount())},
 		{Name: "INGEST_QUEUE_INITIAL_PARTITIONS", Value: strconv.Itoa(hnp.GetDigestPartitionsCount())},
 		{Name: "HUMIO_LOG4J_CONFIGURATION", Value: "log4j2-json-stdout.xml"},
 		{
@@ -391,6 +388,21 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 				Value: "$(ZOOKEEPER_URL)",
 			})
 		}
+	}
+
+	if ok, _ := humioVersion.AtLeast(HumioVersionWithAutomaticPartitionManagement); !ok {
+		envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
+			Name:  "DIGEST_REPLICATION_FACTOR",
+			Value: strconv.Itoa(hnp.GetTargetReplicationFactor()),
+		})
+		envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
+			Name:  "STORAGE_REPLICATION_FACTOR",
+			Value: strconv.Itoa(hnp.GetTargetReplicationFactor()),
+		})
+		envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
+			Name:  "DEFAULT_PARTITION_COUNT",
+			Value: strconv.Itoa(hnp.GetStoragePartitionsCount()),
+		})
 	}
 
 	for _, defaultEnvVar := range envDefaults {

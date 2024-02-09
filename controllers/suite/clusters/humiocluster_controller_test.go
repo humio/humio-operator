@@ -3609,6 +3609,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = controllers.HumioVersionMinimumSupported
 			toCreate.Spec.TargetReplicationFactor = 2
 			toCreate.Spec.HumioNodeSpec.NodeCount = 1
 
