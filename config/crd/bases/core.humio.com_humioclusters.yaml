@@ -885,6 +885,116 @@ spec:
                   zone, you must set DisableInitContainer to true to use auto rebalancing
                   of partitions.
                 type: boolean
+              commonEnvironmentVariables:
+                description: CommonEnvironmentVariables is the set of variables that
+                  will be applied to all nodes regardless of the node pool types.
+                  See spec.nodePools.environmentVariables to override or append variables
+                  for a node pool. New installations should prefer setting this variable
+                  instead of spec.environmentVariables as the latter will be deprecated
+                  in the future.
+                items:
+                  description: EnvVar represents an environment variable present in
+                    a Container.
+                  properties:
+                    name:
+                      description: Name of the environment variable. Must be a C_IDENTIFIER.
+                      type: string
+                    value:
+                      description: 'Variable references $(VAR_NAME) are expanded using
+                        the previously defined environment variables in the container
+                        and any service environment variables. If a variable cannot
+                        be resolved, the reference in the input string will be unchanged.
+                        Double $$ are reduced to a single $, which allows for escaping
+                        the $(VAR_NAME) syntax: i.e. "$$(VAR_NAME)" will produce the
+                        string literal "$(VAR_NAME)". Escaped references will never
+                        be expanded, regardless of whether the variable exists or
+                        not. Defaults to "".'
+                      type: string
+                    valueFrom:
+                      description: Source for the environment variable's value. Cannot
+                        be used if value is not empty.
+                      properties:
+                        configMapKeyRef:
+                          description: Selects a key of a ConfigMap.
+                          properties:
+                            key:
+                              description: The key to select.
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                            optional:
+                              description: Specify whether the ConfigMap or its key
+                                must be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                        fieldRef:
+                          description: 'Selects a field of the pod: supports metadata.name,
+                            metadata.namespace, `metadata.labels[''<KEY>'']`, `metadata.annotations[''<KEY>'']`,
+                            spec.nodeName, spec.serviceAccountName, status.hostIP,
+                            status.podIP, status.podIPs.'
+                          properties:
+                            apiVersion:
+                              description: Version of the schema the FieldPath is
+                                written in terms of, defaults to "v1".
+                              type: string
+                            fieldPath:
+                              description: Path of the field to select in the specified
+                                API version.
+                              type: string
+                          required:
+                          - fieldPath
+                          type: object
+                        resourceFieldRef:
+                          description: 'Selects a resource of the container: only
+                            resources limits and requests (limits.cpu, limits.memory,
+                            limits.ephemeral-storage, requests.cpu, requests.memory
+                            and requests.ephemeral-storage) are currently supported.'
+                          properties:
+                            containerName:
+                              description: 'Container name: required for volumes,
+                                optional for env vars'
+                              type: string
+                            divisor:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: Specifies the output format of the exposed
+                                resources, defaults to "1"
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            resource:
+                              description: 'Required: resource to select'
+                              type: string
+                          required:
+                          - resource
+                          type: object
+                        secretKeyRef:
+                          description: Selects a key of a secret in the pod's namespace
+                          properties:
+                            key:
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                            optional:
+                              description: Specify whether the Secret or its key must
+                                be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                      type: object
+                  required:
+                  - name
+                  type: object
+                type: array
               containerLivenessProbe:
                 description: ContainerLivenessProbe is the liveness probe applied
                   to the Humio container If specified and non-empty, the user-specified
@@ -3215,8 +3325,12 @@ spec:
                   zone.
                 type: boolean
               environmentVariables:
-                description: EnvironmentVariables that will be merged with default
-                  environment variables then set on the humio container
+                description: EnvironmentVariables is the set of variables that will
+                  be supplied to all Pods. This set is merged with fallback environment
+                  variables (for defaults in case they are not supplied in the Custom
+                  Resource), and spec.CommonEnvironmentVariables (for variables that
+                  should be applied to all node types). Precedence is given to the
+                  more environment-specific variables.
                 items:
                   description: EnvVar represents an environment variable present in
                     a Container.
@@ -3323,6 +3437,7 @@ spec:
               environmentVariablesSource:
                 description: EnvironmentVariablesSource is the reference to an external
                   source of environment variables that will be merged with environmentVariables
+                  New installations should prefer defining common variables in spec.NodePools.[].EnvironmentVariables
                 items:
                   description: EnvFromSource represents the source of a set of ConfigMaps
                   properties:
@@ -5176,6 +5291,121 @@ spec:
                   Humio cluster pods that share a set of configuration.
                 items:
                   properties:
+                    environmentVariables:
+                      description: EnvironmentVariables is the set of variables specific
+                        to this node pool.
+                      items:
+                        description: EnvVar represents an environment variable present
+                          in a Container.
+                        properties:
+                          name:
+                            description: Name of the environment variable. Must be
+                              a C_IDENTIFIER.
+                            type: string
+                          value:
+                            description: 'Variable references $(VAR_NAME) are expanded
+                              using the previously defined environment variables in
+                              the container and any service environment variables.
+                              If a variable cannot be resolved, the reference in the
+                              input string will be unchanged. Double $$ are reduced
+                              to a single $, which allows for escaping the $(VAR_NAME)
+                              syntax: i.e. "$$(VAR_NAME)" will produce the string
+                              literal "$(VAR_NAME)". Escaped references will never
+                              be expanded, regardless of whether the variable exists
+                              or not. Defaults to "".'
+                            type: string
+                          valueFrom:
+                            description: Source for the environment variable's value.
+                              Cannot be used if value is not empty.
+                            properties:
+                              configMapKeyRef:
+                                description: Selects a key of a ConfigMap.
+                                properties:
+                                  key:
+                                    description: The key to select.
+                                    type: string
+                                  name:
+                                    description: 'Name of the referent. More info:
+                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Add other useful fields. apiVersion, kind,
+                                      uid?'
+                                    type: string
+                                  optional:
+                                    description: Specify whether the ConfigMap or
+                                      its key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                              fieldRef:
+                                description: 'Selects a field of the pod: supports
+                                  metadata.name, metadata.namespace, `metadata.labels[''<KEY>'']`,
+                                  `metadata.annotations[''<KEY>'']`, spec.nodeName,
+                                  spec.serviceAccountName, status.hostIP, status.podIP,
+                                  status.podIPs.'
+                                properties:
+                                  apiVersion:
+                                    description: Version of the schema the FieldPath
+                                      is written in terms of, defaults to "v1".
+                                    type: string
+                                  fieldPath:
+                                    description: Path of the field to select in the
+                                      specified API version.
+                                    type: string
+                                required:
+                                - fieldPath
+                                type: object
+                              resourceFieldRef:
+                                description: 'Selects a resource of the container:
+                                  only resources limits and requests (limits.cpu,
+                                  limits.memory, limits.ephemeral-storage, requests.cpu,
+                                  requests.memory and requests.ephemeral-storage)
+                                  are currently supported.'
+                                properties:
+                                  containerName:
+                                    description: 'Container name: required for volumes,
+                                      optional for env vars'
+                                    type: string
+                                  divisor:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    description: Specifies the output format of the
+                                      exposed resources, defaults to "1"
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  resource:
+                                    description: 'Required: resource to select'
+                                    type: string
+                                required:
+                                - resource
+                                type: object
+                              secretKeyRef:
+                                description: Selects a key of a secret in the pod's
+                                  namespace
+                                properties:
+                                  key:
+                                    description: The key of the secret to select from.  Must
+                                      be a valid secret key.
+                                    type: string
+                                  name:
+                                    description: 'Name of the referent. More info:
+                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Add other useful fields. apiVersion, kind,
+                                      uid?'
+                                    type: string
+                                  optional:
+                                    description: Specify whether the Secret or its
+                                      key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                            type: object
+                        required:
+                        - name
+                        type: object
+                      type: array
                     name:
                       description: 'TODO: Mark name as required and non-empty, perhaps
                         even confirm the content somehow'
@@ -8658,8 +8888,12 @@ spec:
                             running in a single availability zone.
                           type: boolean
                         environmentVariables:
-                          description: EnvironmentVariables that will be merged with
-                            default environment variables then set on the humio container
+                          description: EnvironmentVariables is the set of variables
+                            that will be supplied to all Pods. This set is merged
+                            with fallback environment variables (for defaults in case
+                            they are not supplied in the Custom Resource), and spec.CommonEnvironmentVariables
+                            (for variables that should be applied to all node types).
+                            Precedence is given to the more environment-specific variables.
                           items:
                             description: EnvVar represents an environment variable
                               present in a Container.
@@ -8776,7 +9010,8 @@ spec:
                         environmentVariablesSource:
                           description: EnvironmentVariablesSource is the reference
                             to an external source of environment variables that will
-                            be merged with environmentVariables
+                            be merged with environmentVariables New installations
+                            should prefer defining common variables in spec.NodePools.[].EnvironmentVariables
                           items:
                             description: EnvFromSource represents the source of a
                               set of ConfigMaps
