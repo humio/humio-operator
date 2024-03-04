@@ -321,11 +321,8 @@ func (hnp HumioNodePool) GetIngress() humiov1alpha1.HumioClusterIngressSpec {
 }
 
 func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
-	var envVar []corev1.EnvVar
-
-	for _, env := range hnp.humioNodeSpec.EnvironmentVariables {
-		envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, env)
-	}
+	envVars := make([]corev1.EnvVar, len(hnp.humioNodeSpec.EnvironmentVariables))
+	copy(envVars, hnp.humioNodeSpec.EnvironmentVariables)
 
 	scheme := "https"
 	if !hnp.TLSEnabled() {
@@ -382,6 +379,10 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 		},
 	}
 
+	for _, defaultEnvVar := range envDefaults {
+		envVars = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, defaultEnvVar)
+	}
+
 	humioVersion, _ := HumioVersionFromString(hnp.GetImage())
 	if ok, _ := humioVersion.AtLeast(HumioVersionWithoutOldVhostSelection); !ok {
 		if EnvVarHasValue(hnp.humioNodeSpec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") &&
@@ -393,10 +394,6 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 		}
 	}
 
-	for _, defaultEnvVar := range envDefaults {
-		envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, defaultEnvVar)
-	}
-
 	// Allow overriding PUBLIC_URL. This may be useful when other methods of exposing the cluster are used other than
 	// ingress
 	if !EnvVarHasKey(envDefaults, "PUBLIC_URL") {
@@ -406,12 +403,12 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 			pathSuffix = hnp.GetPath()
 		}
 		if hnp.GetIngress().Enabled {
-			envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
+			envVars = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, corev1.EnvVar{
 				Name:  "PUBLIC_URL", // URL used by users/browsers.
 				Value: fmt.Sprintf("https://%s%s", hnp.GetHostname(), pathSuffix),
 			})
 		} else {
-			envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
+			envVars = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, corev1.EnvVar{
 				Name:  "PUBLIC_URL", // URL used by users/browsers.
 				Value: fmt.Sprintf("%s://$(THIS_POD_IP):$(HUMIO_PORT)%s", scheme, pathSuffix),
 			})
@@ -419,13 +416,13 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	}
 
 	if hnp.GetPath() != "/" {
-		envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
+		envVars = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, corev1.EnvVar{
 			Name:  "PROXY_PREFIX_URL",
 			Value: hnp.GetPath(),
 		})
 	}
 
-	return envVar
+	return envVars
 }
 
 func (hnp HumioNodePool) GetContainerSecurityContext() *corev1.SecurityContext {

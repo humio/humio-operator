@@ -91,6 +91,11 @@ type HumioClusterSpec struct {
 
 	HumioNodeSpec `json:",inline"`
 
+	// CommonEnvironmentVariables is the set of variables that will be applied to all nodes regardless of the node pool types.
+	// See spec.nodePools.environmentVariables to override or append variables for a node pool.
+	// New installations should prefer setting this variable instead of spec.environmentVariables as the latter will be deprecated in the future.
+	CommonEnvironmentVariables []corev1.EnvVar `json:"commonEnvironmentVariables,omitempty"`
+
 	// NodePools can be used to define additional groups of Humio cluster pods that share a set of configuration.
 	NodePools []HumioNodePoolSpec `json:"nodePools,omitempty"`
 }
@@ -119,6 +124,7 @@ type HumioNodeSpec struct {
 	DisableInitContainer bool `json:"disableInitContainer,omitempty"`
 
 	// EnvironmentVariablesSource is the reference to an external source of environment variables that will be merged with environmentVariables
+	// New installations should prefer defining common variables in spec.NodePools.[].EnvironmentVariables
 	EnvironmentVariablesSource []corev1.EnvFromSource `json:"environmentVariablesSource,omitempty"`
 
 	// PodAnnotations can be used to specify annotations that will be added to the Humio pods
@@ -208,7 +214,10 @@ type HumioNodeSpec struct {
 	// to the Humio pods
 	HumioServiceLabels map[string]string `json:"humioServiceLabels,omitempty"`
 
-	// EnvironmentVariables that will be merged with default environment variables then set on the humio container
+	// EnvironmentVariables is the set of variables that will be supplied to all Pods.
+	// This set is merged with fallback environment variables (for defaults in case they are not supplied in the Custom Resource),
+	// and spec.CommonEnvironmentVariables (for variables that should be applied to all node types).
+	// Precedence is given to the more environment-specific variables.
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
 
 	// ImageSource is the reference to an external source identifying the image
@@ -268,6 +277,9 @@ type HumioUpdateStrategy struct {
 }
 
 type HumioNodePoolSpec struct {
+	// EnvironmentVariables is the set of variables specific to this node pool.
+	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
+
 	// TODO: Mark name as required and non-empty, perhaps even confirm the content somehow
 	Name string `json:"name,omitempty"`
 

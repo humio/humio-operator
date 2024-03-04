@@ -100,9 +100,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	var humioNodePools HumioNodePoolList
 	humioNodePools.Add(NewHumioNodeManagerFromHumioCluster(hc))
-	defaultEnvVars := hc.Spec.EnvironmentVariables
 	for idx := range hc.Spec.NodePools {
-		hc.Spec.NodePools[idx].EnvironmentVariables = append(hc.Spec.NodePools[idx].EnvironmentVariables, defaultEnvVars...)
+		hc.Spec.NodePools[idx].EnvironmentVariables = mergeCommonEnvVars(hc.Spec.CommonEnvironmentVariables, hc.Spec.NodePools[idx].EnvironmentVariables)
 		humioNodePools.Add(NewHumioNodeManagerFromHumioNodePool(hc, &hc.Spec.NodePools[idx]))
 	}
 
@@ -2389,4 +2388,24 @@ func (r *HumioClusterReconciler) getLicenseString(ctx context.Context, hc *humio
 func (r *HumioClusterReconciler) logErrorAndReturn(err error, msg string) error {
 	r.Log.Error(err, msg)
 	return fmt.Errorf("%s: %w", msg, err)
+}
+
+// mergeCommonEnvVars returns a slice of merged environment variables.
+// Gives precedence to the more specific values defined on a node pool.
+func mergeCommonEnvVars(common []corev1.EnvVar, nodepool []corev1.EnvVar) []corev1.EnvVar {
+	var add bool
+	for _, commonVar := range common {
+		for _, nodeVar := range nodepool {
+			if commonVar.Name == nodeVar.Name {
+				add = false
+				break
+			}
+			add = true
+		}
+		if add {
+			nodepool = append(nodepool, commonVar)
+		}
+		add = false
+	}
+	return nodepool
 }
