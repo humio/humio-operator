@@ -2174,8 +2174,12 @@ var _ = Describe("Humio Resources Controllers", func() {
 				if err != nil {
 					return *updatedAlert
 				}
-				// Ignore the ID
+
+				// Ignore the ID, QueryOwnershipType and RunAsUserID
 				updatedAlert.ID = ""
+				updatedAlert.QueryOwnershipType = ""
+				updatedAlert.RunAsUserID = ""
+
 				return *updatedAlert
 			}, testTimeout, suite.TestInterval).Should(Equal(*verifiedAlert))
 
