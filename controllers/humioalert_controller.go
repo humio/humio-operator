@@ -214,5 +214,7 @@ func (r *HumioAlertReconciler) logErrorAndReturn(err error, msg string) error {
 func sanitizeAlert(alert *humioapi.Alert) {
 	alert.TimeOfLastTrigger = 0
 	alert.ID = ""
+	alert.RunAsUserID = ""
+	alert.QueryOwnershipType = ""
 	alert.LastError = ""
 }
