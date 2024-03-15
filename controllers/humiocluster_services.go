@@ -19,9 +19,8 @@ package controllers
 import (
 	"fmt"
 
-	"github.com/humio/humio-operator/pkg/helpers"
-
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
