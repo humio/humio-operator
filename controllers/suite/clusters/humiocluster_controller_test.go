@@ -831,6 +831,18 @@ var _ = Describe("HumioCluster Controller", func() {
 			revisionKey, _ := mainNodePoolManager.GetHumioClusterNodePoolRevisionAnnotation()
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
+
+			suite.UsingClusterBy(key.Name, "Simulating migration from non-node pools or orphaned node pools")
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Status.NodePoolStatus = append(updatedHumioCluster.Status.NodePoolStatus, humiov1alpha1.HumioNodePoolStatus{Name: "orphaned", State: humiov1alpha1.HumioClusterStateUpgrading})
+				return k8sClient.Status().Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, mainNodePoolManager.GetPodLabels())
 			for _, pod := range clusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)

@@ -108,6 +108,14 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	emptyResult := reconcile.Result{}
 
+	if ok, idx := r.hasNoUnusedNodePoolStatus(hc, &humioNodePools); !ok {
+		r.cleanupUnusedNodePoolStatus(hc, idx)
+		if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+			withNodePoolStatusList(hc.Status.NodePoolStatus)); err != nil {
+			return result, r.logErrorAndReturn(err, "unable to set cluster state")
+		}
+	}
+
 	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
 		_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withObservedGeneration(hc.GetGeneration()))
@@ -414,6 +422,27 @@ func (r *HumioClusterReconciler) nodePoolsInMaintenance(hc *humiov1alpha1.HumioC
 		}
 	}
 	return poolsInMaintenance
+}
+
+func (r *HumioClusterReconciler) cleanupUnusedNodePoolStatus(hc *humiov1alpha1.HumioCluster, idx int) {
+	r.Log.Info(fmt.Sprintf("removing node pool %s from node pool status list", hc.Status.NodePoolStatus[idx].Name))
+	hc.Status.NodePoolStatus = append(hc.Status.NodePoolStatus[:idx], hc.Status.NodePoolStatus[idx+1:]...)
+}
+
+func (r *HumioClusterReconciler) hasNoUnusedNodePoolStatus(hc *humiov1alpha1.HumioCluster, hnps *HumioNodePoolList) (bool, int) {
+	for idx, poolStatus := range hc.Status.NodePoolStatus {
+		var validPool bool
+		for _, pool := range hnps.Items {
+			if poolStatus.Name == pool.GetNodePoolName() && pool.GetNodeCount() > 0 {
+				validPool = true
+			}
+		}
+		if !validPool {
+			r.Log.Info(fmt.Sprintf("node pool %s is not valid", poolStatus.Name))
+			return false, idx
+		}
+	}
+	return true, 0
 }
 
 func (r *HumioClusterReconciler) ensurePodRevisionAnnotation(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (string, error) {

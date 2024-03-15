@@ -52,6 +52,10 @@ type stateOption struct {
 	nodePoolName string
 }
 
+type stateOptionList struct {
+	statesList []stateOption
+}
+
 type versionOption struct {
 	version string
 }
@@ -100,6 +104,17 @@ func (o *optionBuilder) withNodePoolState(state string, nodePoolName string) *op
 	o.options = append(o.options, stateOption{
 		state:        state,
 		nodePoolName: nodePoolName,
+	})
+	return o
+}
+
+func (o *optionBuilder) withNodePoolStatusList(humioNodePoolStatusList humiov1alpha1.HumioNodePoolStatusList) *optionBuilder {
+	var statesList []stateOption
+	for _, poolStatus := range humioNodePoolStatusList {
+		statesList = append(statesList, stateOption{nodePoolName: poolStatus.Name, state: poolStatus.State})
+	}
+	o.options = append(o.options, stateOptionList{
+		statesList: statesList,
 	})
 	return o
 }
@@ -159,7 +174,6 @@ func (s stateOption) Apply(hc *humiov1alpha1.HumioCluster) {
 				hc.Status.NodePoolStatus[idx] = nodePoolStatus
 				return
 			}
-
 		}
 
 		hc.Status.NodePoolStatus = append(hc.Status.NodePoolStatus, humiov1alpha1.HumioNodePoolStatus{
@@ -178,6 +192,20 @@ func (s stateOption) GetResult() (reconcile.Result, error) {
 		return reconcile.Result{RequeueAfter: time.Second * 10}, nil
 	}
 	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+}
+
+func (s stateOptionList) Apply(hc *humiov1alpha1.HumioCluster) {
+	hc.Status.NodePoolStatus = humiov1alpha1.HumioNodePoolStatusList{}
+	for _, poolStatus := range s.statesList {
+		hc.Status.NodePoolStatus = append(hc.Status.NodePoolStatus, humiov1alpha1.HumioNodePoolStatus{
+			Name:  poolStatus.nodePoolName,
+			State: poolStatus.state,
+		})
+	}
+}
+
+func (s stateOptionList) GetResult() (reconcile.Result, error) {
+	return reconcile.Result{}, nil
 }
 
 func (v versionOption) Apply(hc *humiov1alpha1.HumioCluster) {
