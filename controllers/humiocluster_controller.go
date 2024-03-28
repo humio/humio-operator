@@ -2390,10 +2390,13 @@ func (r *HumioClusterReconciler) logErrorAndReturn(err error, msg string) error 
 	return fmt.Errorf("%s: %w", msg, err)
 }
 
-// mergeCommonEnvVars returns a slice of merged environment variables.
-// Gives precedence to the more specific values defined on a node pool.
-func mergeCommonEnvVars(common []corev1.EnvVar, nodepool []corev1.EnvVar) []corev1.EnvVar {
+// mergeCommonEnvVars returns a slice of environment variables.
+// In case of a duplicate variable name, precedence is given to the value defined in nodepool.
+func mergeCommonEnvVars(common, nodepool []corev1.EnvVar) []corev1.EnvVar {
 	var add bool
+	if len(nodepool) == 0 {
+		return common
+	}
 	for _, commonVar := range common {
 		for _, nodeVar := range nodepool {
 			if commonVar.Name == nodeVar.Name {
