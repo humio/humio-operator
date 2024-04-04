@@ -3329,8 +3329,10 @@ spec:
                   be supplied to all Pods. This set is merged with fallback environment
                   variables (for defaults in case they are not supplied in the Custom
                   Resource), and spec.CommonEnvironmentVariables (for variables that
-                  should be applied to all node types). Precedence is given to the
-                  more environment-specific variables.
+                  should be applied to Pods of all node types). Precedence is given
+                  to more environment-specific variables; below the predecence is
+                  greater moving left to right.   spec.environmentVariables -> spec.commonEnvironmentVariables
+                  -> spec.nodePools[].environmentVariables
                 items:
                   description: EnvVar represents an environment variable present in
                     a Container.
@@ -3437,7 +3439,6 @@ spec:
               environmentVariablesSource:
                 description: EnvironmentVariablesSource is the reference to an external
                   source of environment variables that will be merged with environmentVariables
-                  New installations should prefer defining common variables in spec.NodePools.[].EnvironmentVariables
                 items:
                   description: EnvFromSource represents the source of a set of ConfigMaps
                   properties:
@@ -8777,8 +8778,11 @@ spec:
                             that will be supplied to all Pods. This set is merged
                             with fallback environment variables (for defaults in case
                             they are not supplied in the Custom Resource), and spec.CommonEnvironmentVariables
-                            (for variables that should be applied to all node types).
-                            Precedence is given to the more environment-specific variables.
+                            (for variables that should be applied to Pods of all node
+                            types). Precedence is given to more environment-specific
+                            variables; below the predecence is greater moving left
+                            to right.   spec.environmentVariables -> spec.commonEnvironmentVariables
+                            -> spec.nodePools[].environmentVariables
                           items:
                             description: EnvVar represents an environment variable
                               present in a Container.
@@ -8895,8 +8899,7 @@ spec:
                         environmentVariablesSource:
                           description: EnvironmentVariablesSource is the reference
                             to an external source of environment variables that will
-                            be merged with environmentVariables New installations
-                            should prefer defining common variables in spec.NodePools.[].EnvironmentVariables
+                            be merged with environmentVariables
                           items:
                             description: EnvFromSource represents the source of a
                               set of ConfigMaps

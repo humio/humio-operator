@@ -124,7 +124,6 @@ type HumioNodeSpec struct {
 	DisableInitContainer bool `json:"disableInitContainer,omitempty"`
 
 	// EnvironmentVariablesSource is the reference to an external source of environment variables that will be merged with environmentVariables
-	// New installations should prefer defining common variables in spec.NodePools.[].EnvironmentVariables
 	EnvironmentVariablesSource []corev1.EnvFromSource `json:"environmentVariablesSource,omitempty"`
 
 	// PodAnnotations can be used to specify annotations that will be added to the Humio pods
@@ -216,8 +215,9 @@ type HumioNodeSpec struct {
 
 	// EnvironmentVariables is the set of variables that will be supplied to all Pods.
 	// This set is merged with fallback environment variables (for defaults in case they are not supplied in the Custom Resource),
-	// and spec.CommonEnvironmentVariables (for variables that should be applied to all node types).
-	// Precedence is given to the more environment-specific variables.
+	// and spec.CommonEnvironmentVariables (for variables that should be applied to Pods of all node types).
+	// Precedence is given to more environment-specific variables; below the predecence is greater moving left to right.
+	//   spec.environmentVariables -> spec.commonEnvironmentVariables -> spec.nodePools[].environmentVariables
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
 
 	// ImageSource is the reference to an external source identifying the image

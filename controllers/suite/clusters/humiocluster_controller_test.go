@@ -93,10 +93,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
-			toCreate.Spec.CommonEnvironmentVariables = append(toCreate.Spec.CommonEnvironmentVariables, corev1.EnvVar{
-				Name:  "common_test",
-				Value: "common_test_value",
-			})
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
@@ -1419,281 +1415,304 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	Context("Humio Cluster Update Environment Variable Multi Node Pool", func() {
-		It("Should correctly replace pods to use new environment variable for multi node pool clusters", func() {
-			key := types.NamespacedName{
-				Name:      "humiocluster-update-envvar-np",
-				Namespace: testProcessNamespace,
-			}
-			toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
-			toCreate.Spec.NodeCount = 1
-			toCreate.Spec.NodePools[0].NodeCount = 1
-			toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
-				{
-					Name:  "test",
-					Value: "",
-				},
-				{
-					Name:  "HUMIO_OPTS",
-					Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-				},
-				{
-					Name:  "ZOOKEEPER_URL",
-					Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
-				},
-				{
-					Name:  "KAFKA_SERVERS",
-					Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
-				},
-				{
-					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
-					Value: key.Name,
-				},
-				{
-					Name:  "AUTHENTICATION_METHOD",
-					Value: "oauth",
-				},
-				{
-					Name:  "ENABLE_IOC_SERVICE",
-					Value: "false",
-				},
-			}
-			toCreate.Spec.NodePools[0].EnvironmentVariables = []corev1.EnvVar{
-				{
-					Name:  "test",
-					Value: "",
-				},
-				{
-					Name:  "HUMIO_OPTS",
-					Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-				},
-				{
-					Name:  "ZOOKEEPER_URL",
-					Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
-				},
-				{
-					Name:  "KAFKA_SERVERS",
-					Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
-				},
-				{
-					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
-					Value: key.Name,
-				},
-				{
-					Name:  "AUTHENTICATION_METHOD",
-					Value: "oauth",
-				},
-				{
-					Name:  "ENABLE_IOC_SERVICE",
-					Value: "false",
-				},
-			}
-
-			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
-			ctx := context.Background()
-			createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
-			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
-
-			mainNodePoolManager := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
-
-			var updatedHumioCluster humiov1alpha1.HumioCluster
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, mainNodePoolManager.GetPodLabels())
-			for _, pod := range clusterPods {
-				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Env).Should(ContainElement(toCreate.Spec.EnvironmentVariables[0]))
-			}
-
-			suite.UsingClusterBy(key.Name, "Updating the environment variable on main node pool successfully")
-			updatedEnvironmentVariables := []corev1.EnvVar{
-				{
-					Name:  "test",
-					Value: "update",
-				},
-				{
-					Name:  "HUMIO_OPTS",
-					Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-				},
-				{
-					Name:  "ZOOKEEPER_URL",
-					Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
-				},
-				{
-					Name:  "KAFKA_SERVERS",
-					Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
-				},
-				{
-					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
-					Value: key.Name,
-				},
-				{
-					Name:  "AUTHENTICATION_METHOD",
-					Value: "oauth",
-				},
-				{
-					Name:  "ENABLE_IOC_SERVICE",
-					Value: "false",
-				},
-			}
-			Eventually(func() error {
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil {
-					return err
+		It("Should correctly replace pods to use new environment variable for multi node pool clusters",
+			Label("envvar"), func() {
+				key := types.NamespacedName{
+					Name:      "humiocluster-update-envvar-np",
+					Namespace: testProcessNamespace,
 				}
-				updatedHumioCluster.Spec.EnvironmentVariables = updatedEnvironmentVariables
-				return k8sClient.Update(ctx, &updatedHumioCluster)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-
-			Eventually(func() string {
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				return updatedHumioCluster.Status.State
-			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
-
-			suite.UsingClusterBy(key.Name, "Confirming only one node pool is in the correct state")
-			Eventually(func() int {
-				var poolsInCorrectState int
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				for _, poolStatus := range updatedHumioCluster.Status.NodePoolStatus {
-					if poolStatus.State == humiov1alpha1.HumioClusterStateRestarting {
-						poolsInCorrectState++
-					}
+				toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
+				toCreate.Spec.NodeCount = 1
+				toCreate.Spec.NodePools[0].NodeCount = 1
+				toCreate.Spec.CommonEnvironmentVariables = []corev1.EnvVar{
+					{
+						Name:  "COMMON_ENV_VAR",
+						Value: "value",
+					},
+					{
+						Name:  "test",
+						Value: "common",
+					},
 				}
-				return poolsInCorrectState
-			}, testTimeout, suite.TestInterval).Should(Equal(1))
+				toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
+					{
+						Name:  "test",
+						Value: "",
+					},
+					{
+						Name:  "HUMIO_OPTS",
+						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+					},
+					{
+						Name:  "ZOOKEEPER_URL",
+						Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
+					},
+					{
+						Name:  "KAFKA_SERVERS",
+						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+					},
+					{
+						Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
+						Value: key.Name,
+					},
+					{
+						Name:  "AUTHENTICATION_METHOD",
+						Value: "oauth",
+					},
+					{
+						Name:  "ENABLE_IOC_SERVICE",
+						Value: "false",
+					},
+				}
+				toCreate.Spec.NodePools[0].EnvironmentVariables = []corev1.EnvVar{
+					{
+						Name:  "test",
+						Value: "np",
+					},
+				}
 
-			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, mainNodePoolManager, 2)
+				suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+				ctx := context.Background()
+				createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
+				defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			Eventually(func() string {
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				return updatedHumioCluster.Status.State
-			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+				mainNodePoolManager := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
+				customNodePoolManager := controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0])
 
-			Eventually(func() bool {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, mainNodePoolManager.GetPodLabels())
-				Expect(len(clusterPods)).To(BeIdenticalTo(toCreate.Spec.NodeCount))
-
+				expectedCommonVars := []corev1.EnvVar{
+					{
+						Name:  "COMMON_ENV_VAR",
+						Value: "value",
+					},
+					{
+						Name:  "KAFKA_SERVERS",
+						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+					},
+				}
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, mainNodePoolManager.GetPodLabels())
+				Expect(clusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 				for _, pod := range clusterPods {
 					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-					Expect(pod.Spec.Containers[humioIndex].Env).Should(ContainElement(updatedEnvironmentVariables[0]))
+					Expect(pod.Spec.Containers[humioIndex].Env).To(ContainElements(append(expectedCommonVars, corev1.EnvVar{
+						Name: "test", Value: "common"})))
 				}
-				return true
-			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
-			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, mainNodePoolManager.GetPodLabels())
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
-				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
-			}
-
-			suite.UsingClusterBy(key.Name, "Confirming pod revision did not change for the other node pool")
-			additionalNodePoolManager := controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[0])
-
-			nonUpdatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
-			Expect(nonUpdatedClusterPods).To(HaveLen(toCreate.Spec.NodePools[0].NodeCount))
-			Expect(updatedHumioCluster.Spec.NodePools[0].EnvironmentVariables).To(Equal(toCreate.Spec.NodePools[0].EnvironmentVariables))
-			for _, pod := range nonUpdatedClusterPods {
-				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
-			}
-
-			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, additionalNodePoolManager.GetPodLabels())
-
-			suite.UsingClusterBy(key.Name, "Updating the environment variable on additional node pool successfully")
-			updatedEnvironmentVariables = []corev1.EnvVar{
-				{
-					Name:  "test",
-					Value: "update",
-				},
-				{
-					Name:  "HUMIO_OPTS",
-					Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-				},
-				{
-					Name:  "ZOOKEEPER_URL",
-					Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
-				},
-				{
-					Name:  "KAFKA_SERVERS",
-					Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
-				},
-				{
-					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
-					Value: key.Name,
-				},
-				{
-					Name:  "AUTHENTICATION_METHOD",
-					Value: "oauth",
-				},
-				{
-					Name:  "ENABLE_IOC_SERVICE",
-					Value: "false",
-				},
-			}
-			Eventually(func() error {
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil {
-					return err
-				}
-				updatedHumioCluster.Spec.NodePools[0].EnvironmentVariables = updatedEnvironmentVariables
-				return k8sClient.Update(ctx, &updatedHumioCluster)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-
-			Eventually(func() string {
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				return updatedHumioCluster.Status.State
-			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
-
-			suite.UsingClusterBy(key.Name, "Confirming only one node pool is in the correct state")
-			Eventually(func() int {
-				var poolsInCorrectState int
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				for _, poolStatus := range updatedHumioCluster.Status.NodePoolStatus {
-					if poolStatus.State == humiov1alpha1.HumioClusterStateRestarting {
-						poolsInCorrectState++
-					}
-				}
-				return poolsInCorrectState
-			}, testTimeout, suite.TestInterval).Should(Equal(1))
-
-			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, additionalNodePoolManager, 2)
-
-			Eventually(func() string {
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				return updatedHumioCluster.Status.State
-			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
-
-			Eventually(func() bool {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
-				Expect(len(clusterPods)).To(BeIdenticalTo(toCreate.Spec.NodeCount))
-
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, customNodePoolManager.GetPodLabels())
+				Expect(clusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 				for _, pod := range clusterPods {
 					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-					Expect(pod.Spec.Containers[humioIndex].Env).Should(ContainElement(updatedEnvironmentVariables[0]))
+					Expect(pod.Spec.Containers[humioIndex].Env).To(ContainElements(append(expectedCommonVars, corev1.EnvVar{
+						Name: "test", Value: "np"})))
 				}
-				return true
-			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
-			updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
-				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
-			}
+				suite.UsingClusterBy(key.Name, "Updating the environment variable on main node pool successfully")
+				updatedCommonEnvironmentVariables := []corev1.EnvVar{
+					{
+						Name:  "COMMON_ENV_VAR",
+						Value: "value",
+					},
+				}
+				updatedEnvironmentVariables := []corev1.EnvVar{
+					{
+						Name:  "test",
+						Value: "update",
+					},
+					{
+						Name:  "HUMIO_OPTS",
+						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+					},
+					{
+						Name:  "ZOOKEEPER_URL",
+						Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
+					},
+					{
+						Name:  "KAFKA_SERVERS",
+						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+					},
+					{
+						Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
+						Value: key.Name,
+					},
+					{
+						Name:  "AUTHENTICATION_METHOD",
+						Value: "oauth",
+					},
+					{
+						Name:  "ENABLE_IOC_SERVICE",
+						Value: "false",
+					},
+				}
 
-			suite.UsingClusterBy(key.Name, "Confirming pod revision did not change for the other main pool")
+				var updatedHumioCluster humiov1alpha1.HumioCluster
+				Eventually(func() error {
+					updatedHumioCluster = humiov1alpha1.HumioCluster{}
+					err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+					if err != nil {
+						return err
+					}
+					updatedHumioCluster.Spec.CommonEnvironmentVariables = updatedCommonEnvironmentVariables
+					updatedHumioCluster.Spec.EnvironmentVariables = updatedEnvironmentVariables
+					return k8sClient.Update(ctx, &updatedHumioCluster)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			nonUpdatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, mainNodePoolManager.GetPodLabels())
-			Expect(nonUpdatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
-			for _, pod := range nonUpdatedClusterPods {
-				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
-			}
-		})
+				Eventually(func() string {
+					updatedHumioCluster = humiov1alpha1.HumioCluster{}
+					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+					return updatedHumioCluster.Status.State
+				}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
+
+				suite.UsingClusterBy(key.Name, "Confirming only one node pool is in the correct state")
+				Eventually(func() int {
+					var poolsInCorrectState int
+					updatedHumioCluster = humiov1alpha1.HumioCluster{}
+					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+					for _, poolStatus := range updatedHumioCluster.Status.NodePoolStatus {
+						if poolStatus.State == humiov1alpha1.HumioClusterStateRestarting {
+							poolsInCorrectState++
+						}
+					}
+					return poolsInCorrectState
+				}, testTimeout, suite.TestInterval).Should(Equal(1))
+
+				suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
+				ensurePodsRollingRestart(ctx, mainNodePoolManager, 2)
+
+				Eventually(func() string {
+					updatedHumioCluster = humiov1alpha1.HumioCluster{}
+					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+					return updatedHumioCluster.Status.State
+				}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+				Eventually(func() bool {
+					clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, mainNodePoolManager.GetPodLabels())
+					Expect(len(clusterPods)).To(BeIdenticalTo(toCreate.Spec.NodeCount))
+
+					for _, pod := range clusterPods {
+						humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+						Expect(pod.Spec.Containers[humioIndex].Env).Should(ContainElement(updatedEnvironmentVariables[0]))
+					}
+					return true
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+				updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, mainNodePoolManager.GetPodLabels())
+				if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+					suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+					Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+				}
+
+				suite.UsingClusterBy(key.Name, "Confirming pod revision did not change for the other node pool")
+				additionalNodePoolManager := controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[0])
+
+				nonUpdatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
+				Expect(nonUpdatedClusterPods).To(HaveLen(toCreate.Spec.NodePools[0].NodeCount))
+				Expect(updatedHumioCluster.Spec.NodePools[0].EnvironmentVariables).To(Equal(toCreate.Spec.NodePools[0].EnvironmentVariables))
+				for _, pod := range nonUpdatedClusterPods {
+					Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+				}
+
+				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, additionalNodePoolManager.GetPodLabels())
+
+				suite.UsingClusterBy(key.Name, "Updating the environment variable on additional node pool successfully")
+				updatedEnvironmentVariables = []corev1.EnvVar{
+					{
+						Name:  "test",
+						Value: "update",
+					},
+					{
+						Name:  "HUMIO_OPTS",
+						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+					},
+					{
+						Name:  "ZOOKEEPER_URL",
+						Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
+					},
+					{
+						Name:  "KAFKA_SERVERS",
+						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+					},
+					{
+						Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
+						Value: key.Name,
+					},
+					{
+						Name:  "AUTHENTICATION_METHOD",
+						Value: "oauth",
+					},
+					{
+						Name:  "ENABLE_IOC_SERVICE",
+						Value: "false",
+					},
+				}
+				npUpdatedEnvironmentVariables := []corev1.EnvVar{
+					{
+						Name:  "test",
+						Value: "np-update",
+					},
+				}
+
+				Eventually(func() error {
+					updatedHumioCluster = humiov1alpha1.HumioCluster{}
+					err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+					if err != nil {
+						return err
+					}
+					updatedHumioCluster.Spec.NodePools[0].EnvironmentVariables = npUpdatedEnvironmentVariables
+					return k8sClient.Update(ctx, &updatedHumioCluster)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				Eventually(func() string {
+					updatedHumioCluster = humiov1alpha1.HumioCluster{}
+					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+					return updatedHumioCluster.Status.State
+				}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
+
+				suite.UsingClusterBy(key.Name, "Confirming only one node pool is in the correct state")
+				Eventually(func() int {
+					var poolsInCorrectState int
+					updatedHumioCluster = humiov1alpha1.HumioCluster{}
+					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+					for _, poolStatus := range updatedHumioCluster.Status.NodePoolStatus {
+						if poolStatus.State == humiov1alpha1.HumioClusterStateRestarting {
+							poolsInCorrectState++
+						}
+					}
+					return poolsInCorrectState
+				}, testTimeout, suite.TestInterval).Should(Equal(1))
+
+				suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
+				ensurePodsRollingRestart(ctx, additionalNodePoolManager, 2)
+
+				Eventually(func() string {
+					updatedHumioCluster = humiov1alpha1.HumioCluster{}
+					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+					return updatedHumioCluster.Status.State
+				}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+				Eventually(func() bool {
+					clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
+					Expect(len(clusterPods)).To(BeIdenticalTo(toCreate.Spec.NodeCount))
+
+					for _, pod := range clusterPods {
+						humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+						Expect(pod.Spec.Containers[humioIndex].Env).Should(ContainElements(npUpdatedEnvironmentVariables))
+					}
+					return true
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+				updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
+				if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+					suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+					Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+				}
+
+				suite.UsingClusterBy(key.Name, "Confirming pod revision did not change for the other main pool")
+
+				nonUpdatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, mainNodePoolManager.GetPodLabels())
+				Expect(nonUpdatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+				for _, pod := range nonUpdatedClusterPods {
+					Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
+				}
+			})
 	})
 
 	Context("Humio Cluster Ingress", func() {
@@ -2143,126 +2162,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(k8sClient.Get(ctx, key, headlessSvc)).Should(Succeed())
 				return headlessSvc.Labels
 			}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(updatedLabelsKey, updatedLabelsValue))
-		})
-	})
-
-	Describe("HumioCluster environment variables", func() {
-		Context("Using the default node pool", func() {
-			It("should merge CommonEnvironmentVariables", func() {
-				key := types.NamespacedName{
-					Name:      "humiocluster-env-vars",
-					Namespace: testProcessNamespace,
-				}
-				toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-				toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
-					{
-						Name:  "TEST_ENV_VAR",
-						Value: "testvalue",
-					},
-				}
-				toCreate.Spec.CommonEnvironmentVariables = []corev1.EnvVar{
-					{
-						Name:  "COMMON_ENV_VAR",
-						Value: "commonvalue",
-					},
-					{
-						Name:  "TEST_ENV_VAR",
-						Value: "commonvalue",
-					},
-				}
-
-				suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
-				ctx := context.Background()
-				suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
-				defer suite.CleanupCluster(ctx, k8sClient, toCreate)
-
-				hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
-				for _, pod := range clusterPods {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-					Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElements([]corev1.EnvVar{
-						{
-							Name:  "TEST_ENV_VAR",
-							Value: "commonvalue",
-						},
-						{
-							Name:  "COMMON_ENV_VAR",
-							Value: "commonvalue",
-						},
-					}))
-					Expect(pod.Spec.Containers[humioIdx].Env).ToNot(ContainElement(corev1.EnvVar{
-						Name:  "TEST_ENV_VAR",
-						Value: "testvalue",
-					}), "Duplicate definition in CommonEnvironmentVariables should take precedence")
-				}
-			})
-		})
-
-		Context("Using a custom node pool", func() {
-			It("should have expected common environment variables", func() {
-				key := types.NamespacedName{
-					Name:      "humiocluster-env-vars",
-					Namespace: testProcessNamespace,
-				}
-				toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
-				toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
-					{
-						Name:  "TEST_ENV_VAR",
-						Value: "testvalue",
-					},
-					{
-						Name:  "UNIQUE_ENV_VAR",
-						Value: "unique",
-					},
-				}
-				toCreate.Spec.CommonEnvironmentVariables = []corev1.EnvVar{
-					{
-						Name:  "COMMON_ENV_VAR",
-						Value: "commonvalue",
-					},
-					{
-						Name:  "TEST_ENV_VAR",
-						Value: "commonvalue",
-					},
-				}
-				toCreate.Spec.NodePools[0].EnvironmentVariables = []corev1.EnvVar{
-					{
-						Name:  "NODE_POOL_ENV_VAR",
-						Value: "nodepoolvalue",
-					},
-				}
-
-				suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
-				ctx := context.Background()
-				suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
-				defer suite.CleanupCluster(ctx, k8sClient, toCreate)
-
-				hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
-				expectedEnvVars := []corev1.EnvVar{
-					{
-						Name:  "UNIQUE_ENV_VAR",
-						Value: "unique",
-					},
-					{
-						Name:  "TEST_ENV_VAR",
-						Value: "commonvalue",
-					},
-					{
-						Name:  "COMMON_ENV_VAR",
-						Value: "commonvalue",
-					},
-				}
-				for _, pod := range clusterPods {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-					if strings.Contains(pod.Name, "np-1") {
-						Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElements(append(expectedEnvVars, corev1.EnvVar{
-							Name: "NODE_POOL_NAME", Value: "nodepoolvalue"})))
-					} else {
-						Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElements(expectedEnvVars))
-					}
-				}
-			})
 		})
 	})
 
