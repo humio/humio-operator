@@ -129,7 +129,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			ExtraVolumes:                                hc.Spec.ExtraVolumes,
 			HumioServiceAccountAnnotations:              hc.Spec.HumioServiceAccountAnnotations,
 			HumioServiceLabels:                          hc.Spec.HumioServiceLabels,
-			EnvironmentVariables:                        hc.Spec.EnvironmentVariables,
+			EnvironmentVariables:                        mergeEnvVars(hc.Spec.EnvironmentVariables, hc.Spec.CommonEnvironmentVariables),
 			ImageSource:                                 hc.Spec.ImageSource,
 			HumioESServicePort:                          hc.Spec.HumioESServicePort,
 			HumioServicePort:                            hc.Spec.HumioServicePort,
@@ -193,7 +193,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			ExtraVolumes:                   hnp.ExtraVolumes,
 			HumioServiceAccountAnnotations: hnp.HumioServiceAccountAnnotations,
 			HumioServiceLabels:             hnp.HumioServiceLabels,
-			EnvironmentVariables:           hnp.EnvironmentVariables,
+			EnvironmentVariables:           mergeEnvVars(hc.Spec.CommonEnvironmentVariables, hnp.EnvironmentVariables),
 			ImageSource:                    hnp.ImageSource,
 			HumioESServicePort:             hnp.HumioESServicePort,
 			HumioServicePort:               hnp.HumioServicePort,
@@ -379,10 +379,6 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 		},
 	}
 
-	for _, defaultEnvVar := range envDefaults {
-		envVars = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, defaultEnvVar)
-	}
-
 	humioVersion, _ := HumioVersionFromString(hnp.GetImage())
 	if ok, _ := humioVersion.AtLeast(HumioVersionWithoutOldVhostSelection); !ok {
 		if EnvVarHasValue(hnp.humioNodeSpec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") &&
@@ -392,6 +388,10 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 				Value: "$(ZOOKEEPER_URL)",
 			})
 		}
+	}
+
+	for _, defaultEnvVar := range envDefaults {
+		envVars = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, defaultEnvVar)
 	}
 
 	// Allow overriding PUBLIC_URL. This may be useful when other methods of exposing the cluster are used other than

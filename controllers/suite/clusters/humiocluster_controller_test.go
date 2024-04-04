@@ -93,6 +93,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
+			toCreate.Spec.CommonEnvironmentVariables = append(toCreate.Spec.CommonEnvironmentVariables, corev1.EnvVar{
+				Name:  "common_test",
+				Value: "common_test_value",
+			})
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
@@ -2142,6 +2146,126 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
+	Describe("HumioCluster environment variables", func() {
+		Context("Using the default node pool", func() {
+			It("should merge CommonEnvironmentVariables", func() {
+				key := types.NamespacedName{
+					Name:      "humiocluster-env-vars",
+					Namespace: testProcessNamespace,
+				}
+				toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+				toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
+					{
+						Name:  "TEST_ENV_VAR",
+						Value: "testvalue",
+					},
+				}
+				toCreate.Spec.CommonEnvironmentVariables = []corev1.EnvVar{
+					{
+						Name:  "COMMON_ENV_VAR",
+						Value: "commonvalue",
+					},
+					{
+						Name:  "TEST_ENV_VAR",
+						Value: "commonvalue",
+					},
+				}
+
+				suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+				ctx := context.Background()
+				suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+				defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+				hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
+				for _, pod := range clusterPods {
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+					Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElements([]corev1.EnvVar{
+						{
+							Name:  "TEST_ENV_VAR",
+							Value: "commonvalue",
+						},
+						{
+							Name:  "COMMON_ENV_VAR",
+							Value: "commonvalue",
+						},
+					}))
+					Expect(pod.Spec.Containers[humioIdx].Env).ToNot(ContainElement(corev1.EnvVar{
+						Name:  "TEST_ENV_VAR",
+						Value: "testvalue",
+					}), "Duplicate definition in CommonEnvironmentVariables should take precedence")
+				}
+			})
+		})
+
+		Context("Using a custom node pool", func() {
+			It("should have expected common environment variables", func() {
+				key := types.NamespacedName{
+					Name:      "humiocluster-env-vars",
+					Namespace: testProcessNamespace,
+				}
+				toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
+				toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
+					{
+						Name:  "TEST_ENV_VAR",
+						Value: "testvalue",
+					},
+					{
+						Name:  "UNIQUE_ENV_VAR",
+						Value: "unique",
+					},
+				}
+				toCreate.Spec.CommonEnvironmentVariables = []corev1.EnvVar{
+					{
+						Name:  "COMMON_ENV_VAR",
+						Value: "commonvalue",
+					},
+					{
+						Name:  "TEST_ENV_VAR",
+						Value: "commonvalue",
+					},
+				}
+				toCreate.Spec.NodePools[0].EnvironmentVariables = []corev1.EnvVar{
+					{
+						Name:  "NODE_POOL_ENV_VAR",
+						Value: "nodepoolvalue",
+					},
+				}
+
+				suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+				ctx := context.Background()
+				suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+				defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+				hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
+				expectedEnvVars := []corev1.EnvVar{
+					{
+						Name:  "UNIQUE_ENV_VAR",
+						Value: "unique",
+					},
+					{
+						Name:  "TEST_ENV_VAR",
+						Value: "commonvalue",
+					},
+					{
+						Name:  "COMMON_ENV_VAR",
+						Value: "commonvalue",
+					},
+				}
+				for _, pod := range clusterPods {
+					humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+					if strings.Contains(pod.Name, "np-1") {
+						Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElements(append(expectedEnvVars, corev1.EnvVar{
+							Name: "NODE_POOL_NAME", Value: "nodepoolvalue"})))
+					} else {
+						Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElements(expectedEnvVars))
+					}
+				}
+			})
+		})
+	})
+
 	Context("Humio Cluster Container Arguments", func() {
 		It("Should correctly configure container arguments and ephemeral disks env var with deprecated zk node uuid", func() {
 			key := types.NamespacedName{
@@ -2150,11 +2274,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.Image = oldSupportedHumioVersion
-			// ZOOKEEPER_URL gets filtered out by default in the call to ConstructBasicSingleNodeHumioCluster, so we add it back here
-			toCreate.Spec.EnvironmentVariables = append([]corev1.EnvVar{{
-				Name:  "ZOOKEEPER_URL",
-				Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
-			}}, toCreate.Spec.EnvironmentVariables...)
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully without ephemeral disks")
 			ctx := context.Background()
@@ -2195,13 +2314,15 @@ var _ = Describe("HumioCluster Controller", func() {
 				return []string{}
 			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo([]string{"-c", "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat /shared/availability-zone)_ && exec bash /app/humio/run.sh"}))
 
-			clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
-			Expect(err).ToNot(HaveOccurred())
-			humioIdx, _ := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
-			Expect(clusterPods[0].Spec.Containers[humioIdx].Env).To(ContainElement(corev1.EnvVar{
-				Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
-				Value: "$(ZOOKEEPER_URL)",
-			}))
+			Eventually(func() []corev1.EnvVar {
+				clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
+				Expect(err).ToNot(HaveOccurred())
+				if len(clusterPods) > 0 {
+					humioIdx, _ := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
+					return clusterPods[0].Spec.Containers[humioIdx].Env
+				}
+				return []corev1.EnvVar{}
+			}, testTimeout, suite.TestInterval).Should(ContainElement(corev1.EnvVar{Name: "ZOOKEEPER_URL_FOR_NODE_UUID", Value: "$(ZOOKEEPER_URL)"}))
 		})
 		It("Should correctly configure container arguments and ephemeral disks env var with default vhost selection method", func() {
 			key := types.NamespacedName{

@@ -10,14 +10,14 @@ import (
 func TestMergeEnvVars(t *testing.T) {
 	testCases := []struct {
 		name     string
-		common   []corev1.EnvVar
-		nodepool []corev1.EnvVar
+		from     []corev1.EnvVar
+		into     []corev1.EnvVar
 		expected []corev1.EnvVar
 	}{
 		{
-			name:   "no common env vars",
-			common: []corev1.EnvVar{},
-			nodepool: []corev1.EnvVar{
+			name: "no from",
+			from: []corev1.EnvVar{},
+			into: []corev1.EnvVar{
 				{Name: "NODEPOOL_ENV_VAR", Value: "nodepool_value"},
 			},
 			expected: []corev1.EnvVar{
@@ -25,11 +25,11 @@ func TestMergeEnvVars(t *testing.T) {
 			},
 		},
 		{
-			name: "no duplicate env vars",
-			common: []corev1.EnvVar{
+			name: "no duplicates",
+			from: []corev1.EnvVar{
 				{Name: "COMMON_ENV_VAR", Value: "common_value"},
 			},
-			nodepool: []corev1.EnvVar{
+			into: []corev1.EnvVar{
 				{Name: "NODEPOOL_ENV_VAR", Value: "nodepool_value"},
 			},
 			expected: []corev1.EnvVar{
@@ -38,11 +38,11 @@ func TestMergeEnvVars(t *testing.T) {
 			},
 		},
 		{
-			name: "duplicate env vars",
-			common: []corev1.EnvVar{
+			name: "duplicates",
+			from: []corev1.EnvVar{
 				{Name: "DUPLICATE_ENV_VAR", Value: "common_value"},
 			},
-			nodepool: []corev1.EnvVar{
+			into: []corev1.EnvVar{
 				{Name: "NODE_ENV_VAR", Value: "nodepool_value"},
 				{Name: "DUPLICATE_ENV_VAR", Value: "nodepool_value"},
 			},
@@ -52,11 +52,11 @@ func TestMergeEnvVars(t *testing.T) {
 			},
 		},
 		{
-			name: "no nodepool env vars",
-			common: []corev1.EnvVar{
+			name: "no into",
+			from: []corev1.EnvVar{
 				{Name: "COMMON_ENV_VAR", Value: "common_value"},
 			},
-			nodepool: []corev1.EnvVar{},
+			into: []corev1.EnvVar{},
 			expected: []corev1.EnvVar{
 				{Name: "COMMON_ENV_VAR", Value: "common_value"},
 			},
@@ -64,7 +64,7 @@ func TestMergeEnvVars(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := mergeCommonEnvVars(tc.common, tc.nodepool)
+			actual := mergeEnvVars(tc.from, tc.into)
 			if d := cmp.Diff(tc.expected, actual); d != "" {
 				t.Errorf("expected: %v, got: %v", tc.expected, actual)
 			}

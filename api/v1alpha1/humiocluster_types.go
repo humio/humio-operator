@@ -277,9 +277,6 @@ type HumioUpdateStrategy struct {
 }
 
 type HumioNodePoolSpec struct {
-	// EnvironmentVariables is the set of variables specific to this node pool.
-	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
-
 	// TODO: Mark name as required and non-empty, perhaps even confirm the content somehow
 	Name string `json:"name,omitempty"`
 

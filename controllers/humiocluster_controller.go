@@ -101,7 +101,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	var humioNodePools HumioNodePoolList
 	humioNodePools.Add(NewHumioNodeManagerFromHumioCluster(hc))
 	for idx := range hc.Spec.NodePools {
-		hc.Spec.NodePools[idx].EnvironmentVariables = mergeCommonEnvVars(hc.Spec.CommonEnvironmentVariables, hc.Spec.NodePools[idx].EnvironmentVariables)
 		humioNodePools.Add(NewHumioNodeManagerFromHumioNodePool(hc, &hc.Spec.NodePools[idx]))
 	}
 
@@ -2390,15 +2389,15 @@ func (r *HumioClusterReconciler) logErrorAndReturn(err error, msg string) error 
 	return fmt.Errorf("%s: %w", msg, err)
 }
 
-// mergeCommonEnvVars returns a slice of environment variables.
-// In case of a duplicate variable name, precedence is given to the value defined in nodepool.
-func mergeCommonEnvVars(common, nodepool []corev1.EnvVar) []corev1.EnvVar {
+// mergeEnvVars returns a slice of environment variables.
+// In case of a duplicate variable name, precedence is given to the value defined in into.
+func mergeEnvVars(from, into []corev1.EnvVar) []corev1.EnvVar {
 	var add bool
-	if len(nodepool) == 0 {
-		return common
+	if len(into) == 0 {
+		return from
 	}
-	for _, commonVar := range common {
-		for _, nodeVar := range nodepool {
+	for _, commonVar := range from {
+		for _, nodeVar := range into {
 			if commonVar.Name == nodeVar.Name {
 				add = false
 				break
@@ -2406,9 +2405,9 @@ func mergeCommonEnvVars(common, nodepool []corev1.EnvVar) []corev1.EnvVar {
 			add = true
 		}
 		if add {
-			nodepool = append(nodepool, commonVar)
+			into = append(into, commonVar)
 		}
 		add = false
 	}
-	return nodepool
+	return into
 }
