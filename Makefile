@@ -54,7 +54,7 @@ test: manifests generate fmt vet ginkgo ## Run tests.
 ifndef HUMIO_E2E_LICENSE
 	$(error HUMIO_E2E_LICENSE not set)
 endif
-	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@2831a3d9e9bbc72c65e8d132c54c7a8ff39d218f
 	$(SHELL) -c "\
 		eval \$$($(GOBIN)/setup-envtest use -p env ${TEST_K8S_VERSION}); \
 		export USE_CERTMANAGER=false; \
