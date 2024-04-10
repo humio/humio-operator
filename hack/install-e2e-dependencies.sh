@@ -2,7 +2,7 @@
 
 set -ex
 
-declare -r go_version=1.20.8
+declare -r go_version=1.22.2
 declare -r ginkgo_version=2.9.4
 declare -r helm_version=3.12.0
 declare -r kubectl_version=1.23.3

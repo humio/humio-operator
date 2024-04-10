@@ -1,11 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.6.2
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: humioalerts.core.humio.com
   labels:
     app: 'humio-operator'
@@ -28,14 +26,19 @@ spec:
         description: HumioAlert is the Schema for the humioalerts API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -52,9 +55,9 @@ spec:
                 description: Description is the description of the Alert
                 type: string
               externalClusterName:
-                description: ExternalClusterName refers to an object of type HumioExternalCluster
-                  where the Humio resources should be created. This conflicts with
-                  ManagedClusterName.
+                description: |-
+                  ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+                  This conflicts with ManagedClusterName.
                 type: string
               labels:
                 description: Labels are a set of labels on the Alert
@@ -62,9 +65,10 @@ spec:
                   type: string
                 type: array
               managedClusterName:
-                description: ManagedClusterName refers to an object of type HumioCluster
-                  that is managed by the operator where the Humio resources should
-                  be created. This conflicts with ExternalClusterName.
+                description: |-
+                  ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+                  resources should be created.
+                  This conflicts with ExternalClusterName.
                 type: string
               name:
                 description: Name is the name of the alert inside Humio
@@ -73,12 +77,14 @@ spec:
                 description: Query defines the desired state of the Humio query
                 properties:
                   end:
-                    description: 'End is the end time for the query. Defaults to "now"
-                      Deprecated: Will be ignored. All alerts end at "now".'
+                    description: |-
+                      End is the end time for the query. Defaults to "now"
+                      Deprecated: Will be ignored. All alerts end at "now".
                     type: string
                   isLive:
-                    description: 'IsLive sets whether the query is a live query. Defaults
-                      to "true" Deprecated: Will be ignored. All alerts are live.'
+                    description: |-
+                      IsLive sets whether the query is a live query. Defaults to "true"
+                      Deprecated: Will be ignored. All alerts are live.
                     type: boolean
                   queryString:
                     description: QueryString is the Humio query that will trigger
@@ -123,9 +129,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
