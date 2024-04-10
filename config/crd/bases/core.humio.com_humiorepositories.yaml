@@ -1,11 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.6.2
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: humiorepositories.core.humio.com
   labels:
     app: 'humio-operator'
@@ -33,14 +31,19 @@ spec:
         description: HumioRepository is the Schema for the humiorepositories API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -48,24 +51,25 @@ spec:
             description: HumioRepositorySpec defines the desired state of HumioRepository
             properties:
               allowDataDeletion:
-                description: AllowDataDeletion is used as a blocker in case an operation
-                  of the operator would delete data within the repository. This must
-                  be set to true before the operator will apply retention settings
-                  that will (or might) cause data to be deleted within the repository.
+                description: |-
+                  AllowDataDeletion is used as a blocker in case an operation of the operator would delete data within the
+                  repository. This must be set to true before the operator will apply retention settings that will (or might)
+                  cause data to be deleted within the repository.
                 type: boolean
               description:
                 description: Description contains the description that will be set
                   on the repository
                 type: string
               externalClusterName:
-                description: ExternalClusterName refers to an object of type HumioExternalCluster
-                  where the Humio resources should be created. This conflicts with
-                  ManagedClusterName.
+                description: |-
+                  ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+                  This conflicts with ManagedClusterName.
                 type: string
               managedClusterName:
-                description: ManagedClusterName refers to an object of type HumioCluster
-                  that is managed by the operator where the Humio resources should
-                  be created. This conflicts with ExternalClusterName.
+                description: |-
+                  ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+                  resources should be created.
+                  This conflicts with ExternalClusterName.
                 type: string
               name:
                 description: Name is the name of the repository inside Humio
@@ -74,9 +78,9 @@ spec:
                 description: Retention defines the retention settings for the repository
                 properties:
                   ingestSizeInGB:
-                    description: 'perhaps we should migrate to resource.Quantity?
-                      the Humio API needs float64, but that is not supported here,
-                      see more here: https://github.com/kubernetes-sigs/controller-tools/issues/245'
+                    description: |-
+                      perhaps we should migrate to resource.Quantity? the Humio API needs float64, but that is not supported here, see more here:
+                      https://github.com/kubernetes-sigs/controller-tools/issues/245
                     format: int32
                     type: integer
                   storageSizeInGB:
@@ -99,9 +103,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
