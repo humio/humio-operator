@@ -6,6 +6,7 @@ require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/cert-manager/cert-manager v1.12.9
 	github.com/cli/shurcooL-graphql v0.0.4
+	github.com/go-jose/go-jose/v4 v4.0.1
 	github.com/go-logr/logr v1.3.0
 	github.com/go-logr/zapr v1.2.4
 	github.com/google/go-cmp v0.6.0
@@ -15,7 +16,6 @@ require (
 	github.com/onsi/gomega v1.27.11-0.20230807134635-babe25fc5472
 	github.com/prometheus/client_golang v1.16.0
 	go.uber.org/zap v1.25.0
-	gopkg.in/square/go-jose.v2 v2.6.0
 	k8s.io/api v0.28.8
 	k8s.io/apimachinery v0.28.8
 	k8s.io/client-go v0.28.8
