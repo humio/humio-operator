@@ -1442,6 +1442,30 @@ var _ = Describe("HumioCluster Controller", func() {
 						Value: "value",
 					},
 					{
+						Name:  "HUMIO_OPTS",
+						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+					},
+					{
+						Name:  "ZOOKEEPER_URL",
+						Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
+					},
+					{
+						Name:  "KAFKA_SERVERS",
+						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+					},
+					{
+						Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
+						Value: key.Name,
+					},
+					{
+						Name:  "AUTHENTICATION_METHOD",
+						Value: "oauth",
+					},
+					{
+						Name:  "ENABLE_IOC_SERVICE",
+						Value: "false",
+					},
+					{
 						Name:  "test",
 						Value: "common",
 					},
@@ -1522,6 +1546,30 @@ var _ = Describe("HumioCluster Controller", func() {
 					{
 						Name:  "COMMON_ENV_VAR",
 						Value: "value",
+					},
+					{
+						Name:  "HUMIO_OPTS",
+						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+					},
+					{
+						Name:  "ZOOKEEPER_URL",
+						Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
+					},
+					{
+						Name:  "KAFKA_SERVERS",
+						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+					},
+					{
+						Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
+						Value: key.Name,
+					},
+					{
+						Name:  "AUTHENTICATION_METHOD",
+						Value: "oauth",
+					},
+					{
+						Name:  "ENABLE_IOC_SERVICE",
+						Value: "false",
 					},
 				}
 				updatedEnvironmentVariables := []corev1.EnvVar{

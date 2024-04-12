@@ -100,9 +100,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	r.Log = r.Log.WithValues("Request.UID", hc.UID)
 
-	// Prefer CommonEnvironmentVariables over top-level HumioCluster.HumioNodeSpec.EnvironmentVariables as the latter will be deprecated in the future.
-	hc.Spec.CommonEnvironmentVariables = mergeEnvVars(hc.Spec.EnvironmentVariables, hc.Spec.CommonEnvironmentVariables)
-
 	var humioNodePools HumioNodePoolList
 	humioNodePools.Add(NewHumioNodeManagerFromHumioCluster(hc))
 	for idx := range hc.Spec.NodePools {

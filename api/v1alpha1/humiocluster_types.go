@@ -92,7 +92,7 @@ type HumioClusterSpec struct {
 	HumioNodeSpec `json:",inline"`
 
 	// CommonEnvironmentVariables is the set of variables that will be applied to all nodes regardless of the node pool types.
-	// See spec.nodePools.environmentVariables to override or append variables for a node pool.
+	// See spec.nodePools[].environmentVariables to override or append variables for a node pool.
 	// New installations should prefer setting this variable instead of spec.environmentVariables as the latter will be deprecated in the future.
 	CommonEnvironmentVariables []corev1.EnvVar `json:"commonEnvironmentVariables,omitempty"`
 
@@ -213,11 +213,11 @@ type HumioNodeSpec struct {
 	// to the Humio pods
 	HumioServiceLabels map[string]string `json:"humioServiceLabels,omitempty"`
 
-	// EnvironmentVariables is the set of variables that will be supplied to all Pods.
+	// EnvironmentVariables is the set of variables that will be supplied to all Pods in the given node pool.
 	// This set is merged with fallback environment variables (for defaults in case they are not supplied in the Custom Resource),
-	// and spec.CommonEnvironmentVariables (for variables that should be applied to Pods of all node types).
-	// Precedence is given to more environment-specific variables; below the predecence is greater moving left to right.
-	//   spec.environmentVariables -> spec.commonEnvironmentVariables -> spec.nodePools[].environmentVariables
+	// and spec.commonEnvironmentVariables (for variables that should be applied to Pods of all node types).
+	// Precedence is given to more environment-specific variables, i.e. spec.environmentVariables
+	// (or spec.nodePools[].environmentVariables) has higher precedence than spec.commonEnvironmentVariables.
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
 
 	// ImageSource is the reference to an external source identifying the image
