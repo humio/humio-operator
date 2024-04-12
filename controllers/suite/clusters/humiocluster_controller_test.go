@@ -1530,7 +1530,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				for _, pod := range clusterPods {
 					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 					Expect(pod.Spec.Containers[humioIndex].Env).To(ContainElements(append(expectedCommonVars, corev1.EnvVar{
-						Name: "test", Value: "common"})))
+						Name: "test", Value: ""})))
 				}
 
 				customClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, customNodePoolManager.GetPodLabels())

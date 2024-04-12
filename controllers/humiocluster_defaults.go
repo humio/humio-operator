@@ -129,7 +129,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			ExtraVolumes:                                hc.Spec.ExtraVolumes,
 			HumioServiceAccountAnnotations:              hc.Spec.HumioServiceAccountAnnotations,
 			HumioServiceLabels:                          hc.Spec.HumioServiceLabels,
-			EnvironmentVariables:                        mergeEnvVars(hc.Spec.EnvironmentVariables, hc.Spec.CommonEnvironmentVariables),
+			EnvironmentVariables:                        mergeEnvVars(hc.Spec.CommonEnvironmentVariables, hc.Spec.EnvironmentVariables),
 			ImageSource:                                 hc.Spec.ImageSource,
 			HumioESServicePort:                          hc.Spec.HumioESServicePort,
 			HumioServicePort:                            hc.Spec.HumioServicePort,
