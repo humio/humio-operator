@@ -832,12 +832,10 @@ spec:
                   If all Kubernetes worker nodes are located in the same availability zone, you must set DisableInitContainer to true to use auto rebalancing of partitions.
                 type: boolean
               commonEnvironmentVariables:
-                description: CommonEnvironmentVariables is the set of variables that
-                  will be applied to all nodes regardless of the node pool types.
-                  See spec.nodePools[].environmentVariables to override or append
-                  variables for a node pool. New installations should prefer setting
-                  this variable instead of spec.environmentVariables as the latter
-                  will be deprecated in the future.
+                description: |-
+                  CommonEnvironmentVariables is the set of variables that will be applied to all nodes regardless of the node pool types.
+                  See spec.nodePools[].environmentVariables to override or append variables for a node pool.
+                  New installations should prefer setting this variable instead of spec.environmentVariables as the latter will be deprecated in the future.
                 items:
                   description: EnvVar represents an environment variable present in
                     a Container.
@@ -846,15 +844,16 @@ spec:
                       description: Name of the environment variable. Must be a C_IDENTIFIER.
                       type: string
                     value:
-                      description: 'Variable references $(VAR_NAME) are expanded using
-                        the previously defined environment variables in the container
-                        and any service environment variables. If a variable cannot
-                        be resolved, the reference in the input string will be unchanged.
-                        Double $$ are reduced to a single $, which allows for escaping
-                        the $(VAR_NAME) syntax: i.e. "$$(VAR_NAME)" will produce the
-                        string literal "$(VAR_NAME)". Escaped references will never
-                        be expanded, regardless of whether the variable exists or
-                        not. Defaults to "".'
+                      description: |-
+                        Variable references $(VAR_NAME) are expanded
+                        using the previously defined environment variables in the container and
+                        any service environment variables. If a variable cannot be resolved,
+                        the reference in the input string will be unchanged. Double $$ are reduced
+                        to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e.
+                        "$$(VAR_NAME)" will produce the string literal "$(VAR_NAME)".
+                        Escaped references will never be expanded, regardless of whether the variable
+                        exists or not.
+                        Defaults to "".
                       type: string
                     valueFrom:
                       description: Source for the environment variable's value. Cannot
@@ -867,8 +866,10 @@ spec:
                               description: The key to select.
                               type: string
                             name:
-                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                              description: |-
+                                Name of the referent.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?
                               type: string
                             optional:
                               description: Specify whether the ConfigMap or its key
@@ -877,11 +878,11 @@ spec:
                           required:
                           - key
                           type: object
+                          x-kubernetes-map-type: atomic
                         fieldRef:
-                          description: 'Selects a field of the pod: supports metadata.name,
-                            metadata.namespace, `metadata.labels[''<KEY>'']`, `metadata.annotations[''<KEY>'']`,
-                            spec.nodeName, spec.serviceAccountName, status.hostIP,
-                            status.podIP, status.podIPs.'
+                          description: |-
+                            Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
+                            spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.
                           properties:
                             apiVersion:
                               description: Version of the schema the FieldPath is
@@ -894,11 +895,11 @@ spec:
                           required:
                           - fieldPath
                           type: object
+                          x-kubernetes-map-type: atomic
                         resourceFieldRef:
-                          description: 'Selects a resource of the container: only
-                            resources limits and requests (limits.cpu, limits.memory,
-                            limits.ephemeral-storage, requests.cpu, requests.memory
-                            and requests.ephemeral-storage) are currently supported.'
+                          description: |-
+                            Selects a resource of the container: only resources limits and requests
+                            (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
                           properties:
                             containerName:
                               description: 'Container name: required for volumes,
@@ -918,6 +919,7 @@ spec:
                           required:
                           - resource
                           type: object
+                          x-kubernetes-map-type: atomic
                         secretKeyRef:
                           description: Selects a key of a secret in the pod's namespace
                           properties:
@@ -926,8 +928,10 @@ spec:
                                 be a valid secret key.
                               type: string
                             name:
-                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                              description: |-
+                                Name of the referent.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?
                               type: string
                             optional:
                               description: Specify whether the Secret or its key must
@@ -936,6 +940,7 @@ spec:
                           required:
                           - key
                           type: object
+                          x-kubernetes-map-type: atomic
                       type: object
                   required:
                   - name
@@ -3383,14 +3388,12 @@ spec:
                   This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.
                 type: boolean
               environmentVariables:
-                description: EnvironmentVariables is the set of variables that will
-                  be supplied to all Pods in the given node pool. This set is merged
-                  with fallback environment variables (for defaults in case they are
-                  not supplied in the Custom Resource), and spec.commonEnvironmentVariables
-                  (for variables that should be applied to Pods of all node types).
-                  Precedence is given to more environment-specific variables, i.e.
-                  spec.environmentVariables (or spec.nodePools[].environmentVariables)
-                  has higher precedence than spec.commonEnvironmentVariables.
+                description: |-
+                  EnvironmentVariables is the set of variables that will be supplied to all Pods in the given node pool.
+                  This set is merged with fallback environment variables (for defaults in case they are not supplied in the Custom Resource),
+                  and spec.commonEnvironmentVariables (for variables that should be applied to Pods of all node types).
+                  Precedence is given to more environment-specific variables, i.e. spec.environmentVariables
+                  (or spec.nodePools[].environmentVariables) has higher precedence than spec.commonEnvironmentVariables.
                 items:
                   description: EnvVar represents an environment variable present in
                     a Container.
@@ -8702,15 +8705,12 @@ spec:
                             This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.
                           type: boolean
                         environmentVariables:
-                          description: EnvironmentVariables is the set of variables
-                            that will be supplied to all Pods in the given node pool.
-                            This set is merged with fallback environment variables
-                            (for defaults in case they are not supplied in the Custom
-                            Resource), and spec.commonEnvironmentVariables (for variables
-                            that should be applied to Pods of all node types). Precedence
-                            is given to more environment-specific variables, i.e.
-                            spec.environmentVariables (or spec.nodePools[].environmentVariables)
-                            has higher precedence than spec.commonEnvironmentVariables.
+                          description: |-
+                            EnvironmentVariables is the set of variables that will be supplied to all Pods in the given node pool.
+                            This set is merged with fallback environment variables (for defaults in case they are not supplied in the Custom Resource),
+                            and spec.commonEnvironmentVariables (for variables that should be applied to Pods of all node types).
+                            Precedence is given to more environment-specific variables, i.e. spec.environmentVariables
+                            (or spec.nodePools[].environmentVariables) has higher precedence than spec.commonEnvironmentVariables.
                           items:
                             description: EnvVar represents an environment variable
                               present in a Container.
