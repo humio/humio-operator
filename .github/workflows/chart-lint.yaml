@@ -7,4 +7,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: helm v3 lint
-        run: docker run --rm --volume $GITHUB_WORKSPACE:/workspace --workdir /workspace alpine/helm:3.12.0 lint charts/humio-operator
+        run: docker run --rm --volume $GITHUB_WORKSPACE:/workspace --workdir /workspace alpine/helm:3.14.4 lint charts/humio-operator
