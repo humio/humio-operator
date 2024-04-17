@@ -3,8 +3,8 @@
 set -ex
 
 declare -r go_version=1.22.2
-declare -r ginkgo_version=2.9.4
-declare -r helm_version=3.12.0
+declare -r ginkgo_version=2.17.1
+declare -r helm_version=3.14.4
 declare -r kubectl_version=1.23.3
 declare -r bin_dir=${BIN_DIR:-/usr/local/bin}
 
