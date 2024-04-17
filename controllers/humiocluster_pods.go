@@ -707,11 +707,7 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 						Value: fmt.Sprintf("%s://%s-core-%s.%s.%s:%d", strings.ToLower(string(hnp.GetProbeScheme())), hnp.GetNodePoolName(), "", headlessServiceName(hnp.GetClusterName()), hnp.GetNamespace(), HumioPort),
 					})
 				} else {
-					sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
-						Name:      envVar.Name,
-						Value:     envVar.Value,
-						ValueFrom: envVar.ValueFrom,
-					})
+					sanitizedEnvVars = append(sanitizedEnvVars, envVar)
 				}
 			}
 			container.Env = sanitizedEnvVars
@@ -773,6 +769,11 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 					},
 				},
 			})
+		} else if strings.HasPrefix("kube-api-access-", volume.Name) {
+			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+				Name:         "kube-api-access-",
+				VolumeSource: corev1.VolumeSource{},
+			})
 		} else {
 			sanitizedVolumes = append(sanitizedVolumes, volume)
 		}
@@ -790,6 +791,7 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 	pod.Spec.EnableServiceLinks = nil
 	pod.Spec.PreemptionPolicy = nil
 	pod.Spec.DeprecatedServiceAccount = ""
+	pod.Spec.NodeName = ""
 	pod.Spec.Tolerations = hnp.GetTolerations()
 	pod.Spec.TopologySpreadConstraints = hnp.GetTopologySpreadConstraints()
 
