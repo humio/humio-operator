@@ -541,6 +541,13 @@ func (in *HumioClusterSpec) DeepCopyInto(out *HumioClusterSpec) {
 		}
 	}
 	in.HumioNodeSpec.DeepCopyInto(&out.HumioNodeSpec)
+	if in.CommonEnvironmentVariables != nil {
+		in, out := &in.CommonEnvironmentVariables, &out.CommonEnvironmentVariables
+		*out = make([]v1.EnvVar, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.NodePools != nil {
 		in, out := &in.NodePools, &out.NodePools
 		*out = make([]HumioNodePoolSpec, len(*in))

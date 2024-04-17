@@ -2419,3 +2419,26 @@ func (r *HumioClusterReconciler) logErrorAndReturn(err error, msg string) error 
 	r.Log.Error(err, msg)
 	return fmt.Errorf("%s: %w", msg, err)
 }
+
+// mergeEnvVars returns a slice of environment variables.
+// In case of a duplicate variable name, precedence is given to the value defined in into.
+func mergeEnvVars(from, into []corev1.EnvVar) []corev1.EnvVar {
+	var add bool
+	if len(into) == 0 {
+		return from
+	}
+	for _, commonVar := range from {
+		for _, nodeVar := range into {
+			if commonVar.Name == nodeVar.Name {
+				add = false
+				break
+			}
+			add = true
+		}
+		if add {
+			into = append(into, commonVar)
+		}
+		add = false
+	}
+	return into
+}
