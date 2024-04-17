@@ -129,7 +129,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			ExtraVolumes:                                hc.Spec.ExtraVolumes,
 			HumioServiceAccountAnnotations:              hc.Spec.HumioServiceAccountAnnotations,
 			HumioServiceLabels:                          hc.Spec.HumioServiceLabels,
-			EnvironmentVariables:                        hc.Spec.EnvironmentVariables,
+			EnvironmentVariables:                        mergeEnvVars(hc.Spec.CommonEnvironmentVariables, hc.Spec.EnvironmentVariables),
 			ImageSource:                                 hc.Spec.ImageSource,
 			HumioESServicePort:                          hc.Spec.HumioESServicePort,
 			HumioServicePort:                            hc.Spec.HumioServicePort,
@@ -193,7 +193,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			ExtraVolumes:                   hnp.ExtraVolumes,
 			HumioServiceAccountAnnotations: hnp.HumioServiceAccountAnnotations,
 			HumioServiceLabels:             hnp.HumioServiceLabels,
-			EnvironmentVariables:           hnp.EnvironmentVariables,
+			EnvironmentVariables:           mergeEnvVars(hc.Spec.CommonEnvironmentVariables, hnp.EnvironmentVariables),
 			ImageSource:                    hnp.ImageSource,
 			HumioESServicePort:             hnp.HumioESServicePort,
 			HumioServicePort:               hnp.HumioServicePort,
@@ -321,11 +321,8 @@ func (hnp HumioNodePool) GetIngress() humiov1alpha1.HumioClusterIngressSpec {
 }
 
 func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
-	var envVar []corev1.EnvVar
-
-	for _, env := range hnp.humioNodeSpec.EnvironmentVariables {
-		envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, env)
-	}
+	envVars := make([]corev1.EnvVar, len(hnp.humioNodeSpec.EnvironmentVariables))
+	copy(envVars, hnp.humioNodeSpec.EnvironmentVariables)
 
 	scheme := "https"
 	if !hnp.TLSEnabled() {
@@ -394,7 +391,7 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	}
 
 	for _, defaultEnvVar := range envDefaults {
-		envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, defaultEnvVar)
+		envVars = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, defaultEnvVar)
 	}
 
 	// Allow overriding PUBLIC_URL. This may be useful when other methods of exposing the cluster are used other than
@@ -406,12 +403,12 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 			pathSuffix = hnp.GetPath()
 		}
 		if hnp.GetIngress().Enabled {
-			envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
+			envVars = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, corev1.EnvVar{
 				Name:  "PUBLIC_URL", // URL used by users/browsers.
 				Value: fmt.Sprintf("https://%s%s", hnp.GetHostname(), pathSuffix),
 			})
 		} else {
-			envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
+			envVars = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, corev1.EnvVar{
 				Name:  "PUBLIC_URL", // URL used by users/browsers.
 				Value: fmt.Sprintf("%s://$(THIS_POD_IP):$(HUMIO_PORT)%s", scheme, pathSuffix),
 			})
@@ -419,13 +416,13 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	}
 
 	if hnp.GetPath() != "/" {
-		envVar = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVar, corev1.EnvVar{
+		envVars = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, corev1.EnvVar{
 			Name:  "PROXY_PREFIX_URL",
 			Value: hnp.GetPath(),
 		})
 	}
 
-	return envVar
+	return envVars
 }
 
 func (hnp HumioNodePool) GetContainerSecurityContext() *corev1.SecurityContext {
