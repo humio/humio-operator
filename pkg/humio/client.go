@@ -217,6 +217,7 @@ func (h *ClientConfig) GetClusters(config *humioapi.Config, req reconcile.Reques
 
 // UpdateStoragePartitionScheme updates the storage partition scheme and can be mocked via the Client interface
 func (h *ClientConfig) UpdateStoragePartitionScheme(config *humioapi.Config, req reconcile.Request, spi []humioapi.StoragePartitionInput) error {
+	//lint:ignore SA1019 we can rip out all uses of UpdateStoragePartitionScheme when we no longer support LogScale versions prior to 1.88
 	err := h.GetHumioClient(config, req).Clusters().UpdateStoragePartitionScheme(spi)
 	if err != nil {
 		h.logger.Error(err, "could not update storage partition scheme cluster information")
@@ -226,6 +227,7 @@ func (h *ClientConfig) UpdateStoragePartitionScheme(config *humioapi.Config, req
 
 // UpdateIngestPartitionScheme updates the ingest partition scheme and can be mocked via the Client interface
 func (h *ClientConfig) UpdateIngestPartitionScheme(config *humioapi.Config, req reconcile.Request, ipi []humioapi.IngestPartitionInput) error {
+	//lint:ignore SA1019 we can rip out all uses of UpdateIngestPartitionScheme when we no longer support LogScale versions prior to 1.80
 	err := h.GetHumioClient(config, req).Clusters().UpdateIngestPartitionScheme(ipi)
 	if err != nil {
 		h.logger.Error(err, "could not update ingest partition scheme cluster information")
@@ -235,11 +237,13 @@ func (h *ClientConfig) UpdateIngestPartitionScheme(config *humioapi.Config, req 
 
 // SuggestedStoragePartitions gets the suggested storage partition layout
 func (h *ClientConfig) SuggestedStoragePartitions(config *humioapi.Config, req reconcile.Request) ([]humioapi.StoragePartitionInput, error) {
+	//lint:ignore SA1019 we can rip out all uses of SuggestedStoragePartitions when we no longer support LogScale versions prior to 1.88
 	return h.GetHumioClient(config, req).Clusters().SuggestedStoragePartitions()
 }
 
 // SuggestedIngestPartitions gets the suggested ingest partition layout
 func (h *ClientConfig) SuggestedIngestPartitions(config *humioapi.Config, req reconcile.Request) ([]humioapi.IngestPartitionInput, error) {
+	//lint:ignore SA1019 we can rip out all uses of SuggestedIngestPartitions when we no longer support LogScale versions prior to 1.80
 	return h.GetHumioClient(config, req).Clusters().SuggestedIngestPartitions()
 }
 
