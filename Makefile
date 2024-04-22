@@ -231,8 +231,12 @@ run-e2e-tests-local-kind:
 	make preload-images-kind
 	hack/run-e2e-tests-using-kubectl-kind.sh
 
+.PHONY: ginkgo
 ginkgo:
-ifeq (,$(shell which ginkgo))
+ifneq (,$(shell which ginkgo))
+GINKGO=$(shell which ginkgo)
+else
+ifeq (,$(shell PATH=$$PATH:$(GOBIN) which ginkgo))
 	@{ \
 	set -ex ;\
 	GINKGO_TMP_DIR=$$(mktemp -d) ;\
@@ -246,7 +250,6 @@ ifeq (,$(shell which ginkgo))
 	go get github.com/onsi/gomega/... ;\
 	rm -rf $$GINKGO_TMP_DIR ;\
 	}
+endif
 GINKGO=$(GOBIN)/ginkgo
-else
-GINKGO=$(shell which ginkgo)
 endif

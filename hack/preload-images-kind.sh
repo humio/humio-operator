@@ -22,18 +22,23 @@ do
   kind load docker-image --name kind $image
 done
 
-# Install ginkgo
-mkdir /tmp/ginkgo
-pushd /tmp/ginkgo
-go mod init tmp
-which go
-go version
-go get github.com/onsi/ginkgo/v2/ginkgo
-go install github.com/onsi/ginkgo/v2/ginkgo
-popd
+if ! PATH=$PATH:~/go/bin which ginkgo &>/dev/null; then
+  # Install ginkgo
+  mkdir /tmp/ginkgo
+  pushd /tmp/ginkgo
+  go mod init tmp
+  which go
+  go version
+  go get github.com/onsi/ginkgo/v2/ginkgo
+  go install github.com/onsi/ginkgo/v2/ginkgo
+  popd
+fi
 
 # Preload image we will run e2e tests from within
-CGO_ENABLED=0 GOOS=linux ~/go/bin/ginkgo build --skip-package helpers ./controllers/suite/... -covermode=count -coverprofile cover.out -progress
+PATH=$PATH:~/go/bin \
+GOOS=linux \
+CGO_ENABLED=0 \
+ginkgo build --skip-package helpers ./controllers/suite/... -covermode=count -coverprofile cover.out -progress
 rm -r testbindir
 mkdir testbindir
 find . -name "*.test" | xargs -I{} mv {} testbindir

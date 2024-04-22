@@ -177,6 +177,27 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 		Image:             controllers.Image,
 		ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 		NodeCount:         1,
+		// Affinity needs to be overridden to exclude default value for kubernetes.io/arch to allow running local tests
+		// on ARM-based MacBooks without getting pods stuck in "Pending" due to no nodes matching the affinity rules.
+		Affinity: corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{
+						{
+							MatchExpressions: []corev1.NodeSelectorRequirement{
+								{
+									Key:      corev1.LabelOSStable,
+									Operator: corev1.NodeSelectorOpIn,
+									Values: []string{
+										"linux",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		EnvironmentVariables: []corev1.EnvVar{
 			{
 				Name:  "ZOOKEEPER_URL",

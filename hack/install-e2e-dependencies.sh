@@ -8,21 +8,27 @@ declare -r helm_version=3.14.4
 declare -r kubectl_version=1.23.3
 declare -r bin_dir=${BIN_DIR:-/usr/local/bin}
 
+if which dpkg-architecture &>/dev/null; then
+  declare -r arch=$(dpkg-architecture -q DEB_HOST_ARCH)
+else
+  declare -r arch=$(uname -m)
+fi
+
 install_go() {
   # Remove any leftover old temp go installation, so we don't unpack on top of an existing installation
   rm -rf /tmp/go
-  curl -s https://dl.google.com/go/go${go_version}.linux-amd64.tar.gz | tar -xz -C /tmp
+  curl -s https://dl.google.com/go/go${go_version}.linux-$arch.tar.gz | tar -xz -C /tmp
   ln -s /tmp/go/bin/go ${bin_dir}/go
 }
 
 install_helm() {
-  curl -L https://get.helm.sh/helm-v${helm_version}-linux-amd64.tar.gz -o /tmp/helm.tar.gz \
+  curl -s -L https://get.helm.sh/helm-v${helm_version}-linux-$arch.tar.gz -o /tmp/helm.tar.gz \
     && tar -zxvf /tmp/helm.tar.gz -C /tmp \
-    && mv /tmp/linux-amd64/helm ${bin_dir}/helm
+    && mv /tmp/linux-$arch/helm ${bin_dir}/helm
 }
 
 install_kubectl() {
-  curl -L https://dl.k8s.io/release/v${kubectl_version}/bin/linux/amd64/kubectl -o ${bin_dir}/kubectl \
+  curl -s -L https://dl.k8s.io/release/v${kubectl_version}/bin/linux/$arch/kubectl -o ${bin_dir}/kubectl \
     && chmod +x ${bin_dir}/kubectl
 }
 
