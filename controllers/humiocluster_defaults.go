@@ -86,7 +86,6 @@ type HumioNodePool struct {
 	path                     string
 	ingress                  humiov1alpha1.HumioClusterIngressSpec
 	clusterAnnotations       map[string]string
-	priorityClassName        string
 }
 
 func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioNodePool {
