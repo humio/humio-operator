@@ -177,6 +177,27 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 		Image:             controllers.Image,
 		ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 		NodeCount:         1,
+		// Affinity needs to be overridden to exclude default value for kubernetes.io/arch to allow running local tests
+		// on ARM-based machines without getting pods stuck in "Pending" due to no nodes matching the affinity rules.
+		Affinity: corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{
+						{
+							MatchExpressions: []corev1.NodeSelectorRequirement{
+								{
+									Key:      corev1.LabelOSStable,
+									Operator: corev1.NodeSelectorOpIn,
+									Values: []string{
+										"linux",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		EnvironmentVariables: []corev1.EnvVar{
 			{
 				Name:  "ZOOKEEPER_URL",
@@ -585,7 +606,8 @@ func PrintLinesWithRunID(runID string, lines []string, specState ginkgotypes.Spe
 }
 
 func useDockerCredentials() bool {
-	return os.Getenv(dockerUsernameEnvVar) != "" && os.Getenv(dockerPasswordEnvVar) != ""
+	return os.Getenv(dockerUsernameEnvVar) != "" && os.Getenv(dockerPasswordEnvVar) != "" &&
+		os.Getenv(dockerUsernameEnvVar) != "none" && os.Getenv(dockerPasswordEnvVar) != "none"
 }
 
 func CreateDockerRegredSecret(ctx context.Context, namespace corev1.Namespace, k8sClient client.Client) {

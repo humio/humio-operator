@@ -13,7 +13,7 @@ jobs:
       run: |
         make manifests
         if [[ -n $(git status -s) ]] ; then
-          echo "Generating manifests leaves tracked fiels in a modified state."
+          echo "Generating manifests leaves tracked files in a modified state."
           echo "Ensure to include updated manifests in this PR."
           echo "This is usually done by running 'make manifests' and running 'git add ...' for the files that was modified by generating manifests."
           git status -s
@@ -30,18 +30,6 @@ jobs:
       if: always() # always run even if the previous step fails
       with:
         report_paths: '*-results-junit.xml'
-# Disable olm checks until we have a new bundle we want to validate against
-#  olm-checks:
-#    name: Run OLM Checks
-#    runs-on: ubuntu-latest
-#    steps:
-#    - uses: actions/checkout@v2
-#    - name: operator-sdk lint
-#      env:
-#        GO111MODULE: "on"
-#      uses: ./.github/action/operator-sdk
-#      with:
-#        args: operator-courier --verbose verify --ui_validate_io deploy/olm-catalog/humio-operator
   build:
     needs: checks
     name: Run Build
@@ -85,8 +73,8 @@ jobs:
         go get github.com/securego/gosec/cmd/gosec
         go install github.com/securego/gosec/cmd/gosec
         gosec ./...
-#    - name: Run Staticcheck
-#      uses: dominikh/staticcheck-action@v1.2.0
-#      with:
-#        version: "2022.1.3"
-#        install-go: false
+    - name: Run Staticcheck
+      uses: dominikh/staticcheck-action@v1.3.1
+      with:
+        version: "2023.1.7"
+        install-go: false
