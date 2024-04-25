@@ -39,6 +39,17 @@ jobs:
     - uses: actions/setup-go@v4
       with:
         go-version: '1.22.2'
+    - name: Run Gosec Security Scanner
+      run: |
+        export PATH=$PATH:$(go env GOPATH)/bin
+        go get github.com/securego/gosec/cmd/gosec
+        go install github.com/securego/gosec/cmd/gosec
+        gosec ./...
+    - name: Run Staticcheck
+      uses: dominikh/staticcheck-action@v1.3.1
+      with:
+        version: "2023.1.7"
+        install-go: false
     - name: operator image
       run: make docker-build-operator IMG=humio/humio-operator:${{ github.sha }}
     - name: helper image
@@ -67,14 +78,3 @@ jobs:
         container_tag: ${{ github.sha }}
       env:
         FALCON_CLIENT_SECRET: "${{ secrets.FALCON_CLIENT_SECRET }}"
-    - name: Run Gosec Security Scanner
-      run: |
-        export PATH=$PATH:$(go env GOPATH)/bin
-        go get github.com/securego/gosec/cmd/gosec
-        go install github.com/securego/gosec/cmd/gosec
-        gosec ./...
-    - name: Run Staticcheck
-      uses: dominikh/staticcheck-action@v1.3.1
-      with:
-        version: "2023.1.7"
-        install-go: false

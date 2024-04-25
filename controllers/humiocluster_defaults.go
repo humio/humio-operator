@@ -33,10 +33,9 @@ import (
 )
 
 const (
-	Image                        = "humio/humio-core:1.100.0"
+	Image                        = "humio/humio-core:1.131.1"
 	HelperImage                  = "humio/humio-operator-helper:3568eb1e7041beaf70d48e71a3d5fc6c8cfb9a6f"
 	targetReplicationFactor      = 2
-	storagePartitionsCount       = 24
 	digestPartitionsCount        = 24
 	HumioPort                    = 8080
 	elasticPort                  = 9200
@@ -44,7 +43,6 @@ const (
 	ExtraKafkaPropertiesFilename = "extra-kafka-properties.properties"
 	ViewGroupPermissionsFilename = "view-group-permissions.json"
 	RolePermissionsFilename      = "role-permissions.json"
-	nodeUUIDPrefix               = "humio_"
 	HumioContainerName           = "humio"
 	AuthContainerName            = "humio-auth"
 	InitContainerName            = "humio-init"
@@ -81,7 +79,6 @@ type HumioNodePool struct {
 	viewGroupPermissions     string // Deprecated: Replaced by rolePermissions
 	rolePermissions          string
 	targetReplicationFactor  int
-	storagePartitionsCount   int
 	digestPartitionsCount    int
 	path                     string
 	ingress                  humiov1alpha1.HumioClusterIngressSpec
@@ -123,7 +120,6 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			Affinity:                                    hc.Spec.Affinity,
 			SidecarContainers:                           hc.Spec.SidecarContainers,
 			ExtraKafkaConfigs:                           hc.Spec.ExtraKafkaConfigs,
-			NodeUUIDPrefix:                              hc.Spec.NodeUUIDPrefix,
 			ExtraHumioVolumeMounts:                      hc.Spec.ExtraHumioVolumeMounts,
 			ExtraVolumes:                                hc.Spec.ExtraVolumes,
 			HumioServiceAccountAnnotations:              hc.Spec.HumioServiceAccountAnnotations,
@@ -144,7 +140,6 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 		viewGroupPermissions:     hc.Spec.ViewGroupPermissions,
 		rolePermissions:          hc.Spec.RolePermissions,
 		targetReplicationFactor:  hc.Spec.TargetReplicationFactor,
-		storagePartitionsCount:   hc.Spec.StoragePartitionsCount,
 		digestPartitionsCount:    hc.Spec.DigestPartitionsCount,
 		path:                     hc.Spec.Path,
 		ingress:                  hc.Spec.Ingress,
@@ -187,7 +182,6 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			Affinity:                       hnp.Affinity,
 			SidecarContainers:              hnp.SidecarContainers,
 			ExtraKafkaConfigs:              hnp.ExtraKafkaConfigs,
-			NodeUUIDPrefix:                 hnp.NodeUUIDPrefix,
 			ExtraHumioVolumeMounts:         hnp.ExtraHumioVolumeMounts,
 			ExtraVolumes:                   hnp.ExtraVolumes,
 			HumioServiceAccountAnnotations: hnp.HumioServiceAccountAnnotations,
@@ -208,7 +202,6 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 		viewGroupPermissions:     hc.Spec.ViewGroupPermissions,
 		rolePermissions:          hc.Spec.RolePermissions,
 		targetReplicationFactor:  hc.Spec.TargetReplicationFactor,
-		storagePartitionsCount:   hc.Spec.StoragePartitionsCount,
 		digestPartitionsCount:    hc.Spec.DigestPartitionsCount,
 		path:                     hc.Spec.Path,
 		ingress:                  hc.Spec.Ingress,
@@ -216,22 +209,22 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 	}
 }
 
-func (hnp HumioNodePool) GetClusterName() string {
+func (hnp *HumioNodePool) GetClusterName() string {
 	return hnp.clusterName
 }
 
-func (hnp HumioNodePool) GetNodePoolName() string {
+func (hnp *HumioNodePool) GetNodePoolName() string {
 	if hnp.nodePoolName == "" {
 		return hnp.GetClusterName()
 	}
 	return strings.Join([]string{hnp.GetClusterName(), hnp.nodePoolName}, "-")
 }
 
-func (hnp HumioNodePool) GetNamespace() string {
+func (hnp *HumioNodePool) GetNamespace() string {
 	return hnp.namespace
 }
 
-func (hnp HumioNodePool) GetHostname() string {
+func (hnp *HumioNodePool) GetHostname() string {
 	return hnp.hostname
 }
 
@@ -246,44 +239,37 @@ func (hnp *HumioNodePool) GetImage() string {
 	return Image
 }
 
-func (hnp HumioNodePool) GetImageSource() *humiov1alpha1.HumioImageSource {
+func (hnp *HumioNodePool) GetImageSource() *humiov1alpha1.HumioImageSource {
 	return hnp.humioNodeSpec.ImageSource
 }
 
-func (hnp HumioNodePool) GetHelperImage() string {
+func (hnp *HumioNodePool) GetHelperImage() string {
 	if hnp.humioNodeSpec.HelperImage != "" {
 		return hnp.humioNodeSpec.HelperImage
 	}
 	return HelperImage
 }
 
-func (hnp HumioNodePool) GetImagePullSecrets() []corev1.LocalObjectReference {
+func (hnp *HumioNodePool) GetImagePullSecrets() []corev1.LocalObjectReference {
 	return hnp.humioNodeSpec.ImagePullSecrets
 }
 
-func (hnp HumioNodePool) GetImagePullPolicy() corev1.PullPolicy {
+func (hnp *HumioNodePool) GetImagePullPolicy() corev1.PullPolicy {
 	return hnp.humioNodeSpec.ImagePullPolicy
 }
 
-func (hnp HumioNodePool) GetEnvironmentVariablesSource() []corev1.EnvFromSource {
+func (hnp *HumioNodePool) GetEnvironmentVariablesSource() []corev1.EnvFromSource {
 	return hnp.humioNodeSpec.EnvironmentVariablesSource
 }
 
-func (hnp HumioNodePool) GetTargetReplicationFactor() int {
+func (hnp *HumioNodePool) GetTargetReplicationFactor() int {
 	if hnp.targetReplicationFactor != 0 {
 		return hnp.targetReplicationFactor
 	}
 	return targetReplicationFactor
 }
 
-func (hnp HumioNodePool) GetStoragePartitionsCount() int {
-	if hnp.storagePartitionsCount != 0 {
-		return hnp.storagePartitionsCount
-	}
-	return storagePartitionsCount
-}
-
-func (hnp HumioNodePool) GetDigestPartitionsCount() int {
+func (hnp *HumioNodePool) GetDigestPartitionsCount() int {
 	if hnp.digestPartitionsCount != 0 {
 		return hnp.digestPartitionsCount
 	}
@@ -298,7 +284,7 @@ func (hnp *HumioNodePool) SetHumioClusterNodePoolRevisionAnnotation(newRevision 
 	hnp.clusterAnnotations[revisionKey] = strconv.Itoa(newRevision)
 }
 
-func (hnp HumioNodePool) GetHumioClusterNodePoolRevisionAnnotation() (string, int) {
+func (hnp *HumioNodePool) GetHumioClusterNodePoolRevisionAnnotation() (string, int) {
 	annotations := map[string]string{}
 	if len(hnp.clusterAnnotations) > 0 {
 		annotations = hnp.clusterAnnotations
@@ -315,11 +301,11 @@ func (hnp HumioNodePool) GetHumioClusterNodePoolRevisionAnnotation() (string, in
 	return podAnnotationKey, existingRevision
 }
 
-func (hnp HumioNodePool) GetIngress() humiov1alpha1.HumioClusterIngressSpec {
+func (hnp *HumioNodePool) GetIngress() humiov1alpha1.HumioClusterIngressSpec {
 	return hnp.ingress
 }
 
-func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
+func (hnp *HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	envVars := make([]corev1.EnvVar, len(hnp.humioNodeSpec.EnvironmentVariables))
 	copy(envVars, hnp.humioNodeSpec.EnvironmentVariables)
 
@@ -359,9 +345,8 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 
 		{Name: "HUMIO_PORT", Value: strconv.Itoa(HumioPort)},
 		{Name: "ELASTIC_PORT", Value: strconv.Itoa(elasticPort)},
-		{Name: "DIGEST_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
-		{Name: "STORAGE_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
-		{Name: "DEFAULT_PARTITION_COUNT", Value: strconv.Itoa(hnp.GetStoragePartitionsCount())},
+		{Name: "DEFAULT_DIGEST_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
+		{Name: "DEFAULT_SEGMENT_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
 		{Name: "INGEST_QUEUE_INITIAL_PARTITIONS", Value: strconv.Itoa(hnp.GetDigestPartitionsCount())},
 		{Name: "HUMIO_LOG4J_CONFIGURATION", Value: "log4j2-json-stdout.xml"},
 		{
@@ -376,17 +361,6 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 			Name:  "HUMIO_OPTS",
 			Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true",
 		},
-	}
-
-	humioVersion, _ := HumioVersionFromString(hnp.GetImage())
-	if ok, _ := humioVersion.AtLeast(HumioVersionWithoutOldVhostSelection); !ok {
-		if EnvVarHasValue(hnp.humioNodeSpec.EnvironmentVariables, "USING_EPHEMERAL_DISKS", "true") &&
-			EnvVarHasKey(hnp.humioNodeSpec.EnvironmentVariables, "ZOOKEEPER_URL") {
-			envDefaults = append(envDefaults, corev1.EnvVar{
-				Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
-				Value: "$(ZOOKEEPER_URL)",
-			})
-		}
 	}
 
 	for _, defaultEnvVar := range envDefaults {
@@ -424,7 +398,7 @@ func (hnp HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	return envVars
 }
 
-func (hnp HumioNodePool) GetContainerSecurityContext() *corev1.SecurityContext {
+func (hnp *HumioNodePool) GetContainerSecurityContext() *corev1.SecurityContext {
 	if hnp.humioNodeSpec.ContainerSecurityContext == nil {
 		return &corev1.SecurityContext{
 			AllowPrivilegeEscalation: helpers.BoolPtr(false),
@@ -445,13 +419,13 @@ func (hnp HumioNodePool) GetContainerSecurityContext() *corev1.SecurityContext {
 	return hnp.humioNodeSpec.ContainerSecurityContext
 }
 
-func (hnp HumioNodePool) GetNodePoolLabels() map[string]string {
+func (hnp *HumioNodePool) GetNodePoolLabels() map[string]string {
 	labels := hnp.GetCommonClusterLabels()
 	labels[kubernetes.NodePoolLabelName] = hnp.GetNodePoolName()
 	return labels
 }
 
-func (hnp HumioNodePool) GetPodLabels() map[string]string {
+func (hnp *HumioNodePool) GetPodLabels() map[string]string {
 	labels := hnp.GetNodePoolLabels()
 	for k, v := range hnp.humioNodeSpec.PodLabels {
 		if _, ok := labels[k]; !ok {
@@ -461,32 +435,32 @@ func (hnp HumioNodePool) GetPodLabels() map[string]string {
 	return labels
 }
 
-func (hnp HumioNodePool) GetCommonClusterLabels() map[string]string {
+func (hnp *HumioNodePool) GetCommonClusterLabels() map[string]string {
 	return kubernetes.LabelsForHumio(hnp.clusterName)
 }
 
-func (hnp HumioNodePool) GetCASecretName() string {
+func (hnp *HumioNodePool) GetCASecretName() string {
 	if hnp.tls != nil && hnp.tls.CASecretName != "" {
 		return hnp.tls.CASecretName
 	}
 	return fmt.Sprintf("%s-ca-keypair", hnp.GetClusterName())
 }
 
-func (hnp HumioNodePool) UseExistingCA() bool {
+func (hnp *HumioNodePool) UseExistingCA() bool {
 	return hnp.tls != nil && hnp.tls.CASecretName != ""
 }
 
-func (hnp HumioNodePool) GetLabelsForSecret(secretName string) map[string]string {
+func (hnp *HumioNodePool) GetLabelsForSecret(secretName string) map[string]string {
 	labels := hnp.GetCommonClusterLabels()
 	labels[kubernetes.SecretNameLabelName] = secretName
 	return labels
 }
 
-func (hnp HumioNodePool) GetNodeCount() int {
+func (hnp *HumioNodePool) GetNodeCount() int {
 	return hnp.humioNodeSpec.NodeCount
 }
 
-func (hnp HumioNodePool) GetDataVolumePersistentVolumeClaimSpecTemplate(pvcName string) corev1.VolumeSource {
+func (hnp *HumioNodePool) GetDataVolumePersistentVolumeClaimSpecTemplate(pvcName string) corev1.VolumeSource {
 	if hnp.PVCsEnabled() {
 		return corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
@@ -497,98 +471,98 @@ func (hnp HumioNodePool) GetDataVolumePersistentVolumeClaimSpecTemplate(pvcName 
 	return corev1.VolumeSource{}
 }
 
-func (hnp HumioNodePool) GetDataVolumePersistentVolumeClaimSpecTemplateRAW() corev1.PersistentVolumeClaimSpec {
+func (hnp *HumioNodePool) GetDataVolumePersistentVolumeClaimSpecTemplateRAW() corev1.PersistentVolumeClaimSpec {
 	return hnp.humioNodeSpec.DataVolumePersistentVolumeClaimSpecTemplate
 }
 
-func (hnp HumioNodePool) DataVolumePersistentVolumeClaimSpecTemplateIsSetByUser() bool {
+func (hnp *HumioNodePool) DataVolumePersistentVolumeClaimSpecTemplateIsSetByUser() bool {
 	return !reflect.DeepEqual(hnp.humioNodeSpec.DataVolumePersistentVolumeClaimSpecTemplate, corev1.PersistentVolumeClaimSpec{})
 }
 
-func (hnp HumioNodePool) GetDataVolumePersistentVolumeClaimPolicy() humiov1alpha1.HumioPersistentVolumeClaimPolicy {
+func (hnp *HumioNodePool) GetDataVolumePersistentVolumeClaimPolicy() humiov1alpha1.HumioPersistentVolumeClaimPolicy {
 	if hnp.PVCsEnabled() {
 		return hnp.humioNodeSpec.DataVolumePersistentVolumeClaimPolicy
 	}
 	return humiov1alpha1.HumioPersistentVolumeClaimPolicy{}
 }
 
-func (hnp HumioNodePool) GetDataVolumeSource() corev1.VolumeSource {
+func (hnp *HumioNodePool) GetDataVolumeSource() corev1.VolumeSource {
 	return hnp.humioNodeSpec.DataVolumeSource
 }
 
-func (hnp HumioNodePool) GetPodAnnotations() map[string]string {
+func (hnp *HumioNodePool) GetPodAnnotations() map[string]string {
 	return hnp.humioNodeSpec.PodAnnotations
 }
 
-func (hnp HumioNodePool) GetAuthServiceAccountSecretName() string {
+func (hnp *HumioNodePool) GetAuthServiceAccountSecretName() string {
 	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), authServiceAccountSecretNameIdentifier)
 }
 
-func (hnp HumioNodePool) GetInitServiceAccountSecretName() string {
+func (hnp *HumioNodePool) GetInitServiceAccountSecretName() string {
 	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), initServiceAccountSecretNameIdentifier)
 }
 
-func (hnp HumioNodePool) GetInitServiceAccountName() string {
+func (hnp *HumioNodePool) GetInitServiceAccountName() string {
 	if hnp.humioNodeSpec.InitServiceAccountName != "" {
 		return hnp.humioNodeSpec.InitServiceAccountName
 	}
 	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), initServiceAccountNameSuffix)
 }
 
-func (hnp HumioNodePool) InitServiceAccountIsSetByUser() bool {
+func (hnp *HumioNodePool) InitServiceAccountIsSetByUser() bool {
 	return hnp.humioNodeSpec.InitServiceAccountName != ""
 }
 
-func (hnp HumioNodePool) GetAuthServiceAccountName() string {
+func (hnp *HumioNodePool) GetAuthServiceAccountName() string {
 	if hnp.humioNodeSpec.AuthServiceAccountName != "" {
 		return hnp.humioNodeSpec.AuthServiceAccountName
 	}
 	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), authServiceAccountNameSuffix)
 }
 
-func (hnp HumioNodePool) AuthServiceAccountIsSetByUser() bool {
+func (hnp *HumioNodePool) AuthServiceAccountIsSetByUser() bool {
 	return hnp.humioNodeSpec.AuthServiceAccountName != ""
 }
 
-func (hnp HumioNodePool) GetInitClusterRoleName() string {
+func (hnp *HumioNodePool) GetInitClusterRoleName() string {
 	return fmt.Sprintf("%s-%s-%s", hnp.GetNamespace(), hnp.GetNodePoolName(), initClusterRoleSuffix)
 }
 
-func (hnp HumioNodePool) GetInitClusterRoleBindingName() string {
+func (hnp *HumioNodePool) GetInitClusterRoleBindingName() string {
 	return fmt.Sprintf("%s-%s-%s", hnp.GetNamespace(), hnp.GetNodePoolName(), initClusterRoleBindingSuffix)
 }
 
-func (hnp HumioNodePool) GetAuthRoleName() string {
+func (hnp *HumioNodePool) GetAuthRoleName() string {
 	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), authRoleSuffix)
 }
 
-func (hnp HumioNodePool) GetAuthRoleBindingName() string {
+func (hnp *HumioNodePool) GetAuthRoleBindingName() string {
 	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), authRoleBindingSuffix)
 }
 
-func (hnp HumioNodePool) GetShareProcessNamespace() *bool {
+func (hnp *HumioNodePool) GetShareProcessNamespace() *bool {
 	if hnp.humioNodeSpec.ShareProcessNamespace == nil {
 		return helpers.BoolPtr(false)
 	}
 	return hnp.humioNodeSpec.ShareProcessNamespace
 }
 
-func (hnp HumioNodePool) HumioServiceAccountIsSetByUser() bool {
+func (hnp *HumioNodePool) HumioServiceAccountIsSetByUser() bool {
 	return hnp.humioNodeSpec.HumioServiceAccountName != ""
 }
 
-func (hnp HumioNodePool) GetHumioServiceAccountName() string {
+func (hnp *HumioNodePool) GetHumioServiceAccountName() string {
 	if hnp.humioNodeSpec.HumioServiceAccountName != "" {
 		return hnp.humioNodeSpec.HumioServiceAccountName
 	}
 	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), HumioServiceAccountNameSuffix)
 }
 
-func (hnp HumioNodePool) GetHumioServiceAccountAnnotations() map[string]string {
+func (hnp *HumioNodePool) GetHumioServiceAccountAnnotations() map[string]string {
 	return hnp.humioNodeSpec.HumioServiceAccountAnnotations
 }
 
-func (hnp HumioNodePool) GetContainerReadinessProbe() *corev1.Probe {
+func (hnp *HumioNodePool) GetContainerReadinessProbe() *corev1.Probe {
 	if hnp.humioNodeSpec.ContainerReadinessProbe != nil && (*hnp.humioNodeSpec.ContainerReadinessProbe == (corev1.Probe{})) {
 		return nil
 	}
@@ -612,7 +586,7 @@ func (hnp HumioNodePool) GetContainerReadinessProbe() *corev1.Probe {
 	return hnp.humioNodeSpec.ContainerReadinessProbe
 }
 
-func (hnp HumioNodePool) GetContainerLivenessProbe() *corev1.Probe {
+func (hnp *HumioNodePool) GetContainerLivenessProbe() *corev1.Probe {
 	if hnp.humioNodeSpec.ContainerLivenessProbe != nil && (*hnp.humioNodeSpec.ContainerLivenessProbe == (corev1.Probe{})) {
 		return nil
 	}
@@ -636,7 +610,7 @@ func (hnp HumioNodePool) GetContainerLivenessProbe() *corev1.Probe {
 	return hnp.humioNodeSpec.ContainerLivenessProbe
 }
 
-func (hnp HumioNodePool) GetContainerStartupProbe() *corev1.Probe {
+func (hnp *HumioNodePool) GetContainerStartupProbe() *corev1.Probe {
 	if hnp.humioNodeSpec.ContainerStartupProbe != nil && (*hnp.humioNodeSpec.ContainerStartupProbe == (corev1.Probe{})) {
 		return nil
 	}
@@ -659,7 +633,7 @@ func (hnp HumioNodePool) GetContainerStartupProbe() *corev1.Probe {
 	return hnp.humioNodeSpec.ContainerStartupProbe
 }
 
-func (hnp HumioNodePool) GetPodSecurityContext() *corev1.PodSecurityContext {
+func (hnp *HumioNodePool) GetPodSecurityContext() *corev1.PodSecurityContext {
 	if hnp.humioNodeSpec.PodSecurityContext == nil {
 		return &corev1.PodSecurityContext{
 			RunAsUser:    helpers.Int64Ptr(65534),
@@ -671,7 +645,7 @@ func (hnp HumioNodePool) GetPodSecurityContext() *corev1.PodSecurityContext {
 	return hnp.humioNodeSpec.PodSecurityContext
 }
 
-func (hnp HumioNodePool) GetAffinity() *corev1.Affinity {
+func (hnp *HumioNodePool) GetAffinity() *corev1.Affinity {
 	if hnp.humioNodeSpec.Affinity == (corev1.Affinity{}) {
 		return &corev1.Affinity{
 			NodeAffinity: &corev1.NodeAffinity{
@@ -703,47 +677,47 @@ func (hnp HumioNodePool) GetAffinity() *corev1.Affinity {
 	return &hnp.humioNodeSpec.Affinity
 }
 
-func (hnp HumioNodePool) GetSidecarContainers() []corev1.Container {
+func (hnp *HumioNodePool) GetSidecarContainers() []corev1.Container {
 	return hnp.humioNodeSpec.SidecarContainers
 }
 
-func (hnp HumioNodePool) GetTolerations() []corev1.Toleration {
+func (hnp *HumioNodePool) GetTolerations() []corev1.Toleration {
 	return hnp.humioNodeSpec.Tolerations
 }
 
-func (hnp HumioNodePool) GetTopologySpreadConstraints() []corev1.TopologySpreadConstraint {
+func (hnp *HumioNodePool) GetTopologySpreadConstraints() []corev1.TopologySpreadConstraint {
 	return hnp.humioNodeSpec.TopologySpreadConstraints
 }
 
-func (hnp HumioNodePool) GetResources() corev1.ResourceRequirements {
+func (hnp *HumioNodePool) GetResources() corev1.ResourceRequirements {
 	return hnp.humioNodeSpec.Resources
 }
 
-func (hnp HumioNodePool) GetExtraKafkaConfigs() string {
+func (hnp *HumioNodePool) GetExtraKafkaConfigs() string {
 	return hnp.humioNodeSpec.ExtraKafkaConfigs
 }
 
-func (hnp HumioNodePool) GetExtraKafkaConfigsConfigMapName() string {
+func (hnp *HumioNodePool) GetExtraKafkaConfigsConfigMapName() string {
 	return fmt.Sprintf("%s-%s", hnp.GetNodePoolName(), extraKafkaConfigsConfigMapNameSuffix)
 }
 
-func (hnp HumioNodePool) GetViewGroupPermissions() string {
+func (hnp *HumioNodePool) GetViewGroupPermissions() string {
 	return hnp.viewGroupPermissions
 }
 
-func (hnp HumioNodePool) GetViewGroupPermissionsConfigMapName() string {
+func (hnp *HumioNodePool) GetViewGroupPermissionsConfigMapName() string {
 	return fmt.Sprintf("%s-%s", hnp.GetClusterName(), viewGroupPermissionsConfigMapNameSuffix)
 }
 
-func (hnp HumioNodePool) GetRolePermissions() string {
+func (hnp *HumioNodePool) GetRolePermissions() string {
 	return hnp.rolePermissions
 }
 
-func (hnp HumioNodePool) GetRolePermissionsConfigMapName() string {
+func (hnp *HumioNodePool) GetRolePermissionsConfigMapName() string {
 	return fmt.Sprintf("%s-%s", hnp.GetClusterName(), rolePermissionsConfigMapNameSuffix)
 }
 
-func (hnp HumioNodePool) GetPath() string {
+func (hnp *HumioNodePool) GetPath() string {
 	if hnp.path != "" {
 		if strings.HasPrefix(hnp.path, "/") {
 			return hnp.path
@@ -754,83 +728,75 @@ func (hnp HumioNodePool) GetPath() string {
 	return "/"
 }
 
-// Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in LogScale 1.80.0
-func (hnp HumioNodePool) GetNodeUUIDPrefix() string {
-	if hnp.humioNodeSpec.NodeUUIDPrefix != "" {
-		return hnp.humioNodeSpec.NodeUUIDPrefix
-	}
-	return nodeUUIDPrefix
-}
-
-func (hnp HumioNodePool) GetHumioServiceLabels() map[string]string {
+func (hnp *HumioNodePool) GetHumioServiceLabels() map[string]string {
 	return hnp.humioNodeSpec.HumioServiceLabels
 }
 
-func (hnp HumioNodePool) GetTerminationGracePeriodSeconds() *int64 {
+func (hnp *HumioNodePool) GetTerminationGracePeriodSeconds() *int64 {
 	if hnp.humioNodeSpec.TerminationGracePeriodSeconds == nil {
 		return helpers.Int64Ptr(300)
 	}
 	return hnp.humioNodeSpec.TerminationGracePeriodSeconds
 }
 
-func (hnp HumioNodePool) GetIDPCertificateSecretName() string {
+func (hnp *HumioNodePool) GetIDPCertificateSecretName() string {
 	if hnp.idpCertificateSecretName != "" {
 		return hnp.idpCertificateSecretName
 	}
 	return fmt.Sprintf("%s-%s", hnp.GetClusterName(), idpCertificateSecretNameSuffix)
 }
 
-func (hnp HumioNodePool) GetExtraHumioVolumeMounts() []corev1.VolumeMount {
+func (hnp *HumioNodePool) GetExtraHumioVolumeMounts() []corev1.VolumeMount {
 	return hnp.humioNodeSpec.ExtraHumioVolumeMounts
 }
 
-func (hnp HumioNodePool) GetExtraVolumes() []corev1.Volume {
+func (hnp *HumioNodePool) GetExtraVolumes() []corev1.Volume {
 	return hnp.humioNodeSpec.ExtraVolumes
 }
 
-func (hnp HumioNodePool) GetHumioServiceAnnotations() map[string]string {
+func (hnp *HumioNodePool) GetHumioServiceAnnotations() map[string]string {
 	return hnp.humioNodeSpec.HumioServiceAnnotations
 }
 
-func (hnp HumioNodePool) GetHumioServicePort() int32 {
+func (hnp *HumioNodePool) GetHumioServicePort() int32 {
 	if hnp.humioNodeSpec.HumioServicePort != 0 {
 		return hnp.humioNodeSpec.HumioServicePort
 	}
 	return HumioPort
 }
 
-func (hnp HumioNodePool) GetHumioESServicePort() int32 {
+func (hnp *HumioNodePool) GetHumioESServicePort() int32 {
 	if hnp.humioNodeSpec.HumioESServicePort != 0 {
 		return hnp.humioNodeSpec.HumioESServicePort
 	}
 	return elasticPort
 }
 
-func (hnp HumioNodePool) GetServiceType() corev1.ServiceType {
+func (hnp *HumioNodePool) GetServiceType() corev1.ServiceType {
 	if hnp.humioNodeSpec.HumioServiceType != "" {
 		return hnp.humioNodeSpec.HumioServiceType
 	}
 	return corev1.ServiceTypeClusterIP
 }
 
-func (hnp HumioNodePool) GetServiceName() string {
+func (hnp *HumioNodePool) GetServiceName() string {
 	if hnp.nodePoolName == "" {
 		return hnp.clusterName
 	}
 	return fmt.Sprintf("%s-%s", hnp.clusterName, hnp.nodePoolName)
 }
 
-func (hnp HumioNodePool) InitContainerDisabled() bool {
+func (hnp *HumioNodePool) InitContainerDisabled() bool {
 	return hnp.humioNodeSpec.DisableInitContainer
 }
 
-func (hnp HumioNodePool) PVCsEnabled() bool {
+func (hnp *HumioNodePool) PVCsEnabled() bool {
 	emptyPersistentVolumeClaimSpec := corev1.PersistentVolumeClaimSpec{}
 	return !reflect.DeepEqual(hnp.humioNodeSpec.DataVolumePersistentVolumeClaimSpecTemplate, emptyPersistentVolumeClaimSpec)
 
 }
 
-func (hnp HumioNodePool) TLSEnabled() bool {
+func (hnp *HumioNodePool) TLSEnabled() bool {
 	if hnp.tls == nil {
 		return helpers.UseCertManager()
 	}
@@ -841,7 +807,7 @@ func (hnp HumioNodePool) TLSEnabled() bool {
 	return helpers.UseCertManager() && *hnp.tls.Enabled
 }
 
-func (hnp HumioNodePool) GetProbeScheme() corev1.URIScheme {
+func (hnp *HumioNodePool) GetProbeScheme() corev1.URIScheme {
 	if !hnp.TLSEnabled() {
 		return corev1.URISchemeHTTP
 	}
@@ -849,7 +815,7 @@ func (hnp HumioNodePool) GetProbeScheme() corev1.URIScheme {
 	return corev1.URISchemeHTTPS
 }
 
-func (hnp HumioNodePool) GetUpdateStrategy() *humiov1alpha1.HumioUpdateStrategy {
+func (hnp *HumioNodePool) GetUpdateStrategy() *humiov1alpha1.HumioUpdateStrategy {
 	if hnp.humioNodeSpec.UpdateStrategy != nil {
 		return hnp.humioNodeSpec.UpdateStrategy
 	}
@@ -860,11 +826,11 @@ func (hnp HumioNodePool) GetUpdateStrategy() *humiov1alpha1.HumioUpdateStrategy 
 	}
 }
 
-func (hnp HumioNodePool) GetPriorityClassName() string {
+func (hnp *HumioNodePool) GetPriorityClassName() string {
 	return hnp.humioNodeSpec.PriorityClassName
 }
 
-func (hnp HumioNodePool) OkToDeletePvc() bool {
+func (hnp *HumioNodePool) OkToDeletePvc() bool {
 	return hnp.GetDataVolumePersistentVolumeClaimPolicy().ReclaimType == humiov1alpha1.HumioPersistentVolumeReclaimTypeOnNodeDelete
 }
 
