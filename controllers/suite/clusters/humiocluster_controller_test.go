@@ -49,9 +49,6 @@ const (
 
 	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.70.0"
 	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.76.2"
-
-	imageSourceConfigmapOldVersion = upgradePatchBestEffortOldVersion
-	imageSourceConfigmapNewVersion = upgradePatchBestEffortNewVersion
 )
 
 var _ = Describe("HumioCluster Controller", func() {
@@ -993,7 +990,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = imageSourceConfigmapOldVersion
+			toCreate.Spec.Image = upgradePatchBestEffortOldVersion
 			toCreate.Spec.NodeCount = 2
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -1036,7 +1033,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Equal("failed to set imageFromSource: ConfigMap \"image-source-missing\" not found"))
 
 			suite.UsingClusterBy(key.Name, "Creating the imageSource configmap")
-			updatedImage := imageSourceConfigmapNewVersion
+			updatedImage := upgradePatchBestEffortNewVersion
 			envVarSourceConfigMap := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "image-source",
@@ -2372,7 +2369,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				updatedHumioCluster.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{Name: "USING_EPHEMERAL_DISKS", Value: "true"})
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
-			hnp = controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)
 
 			expectedContainerArgString := "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"
 			Eventually(func() []string {
