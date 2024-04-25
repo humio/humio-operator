@@ -42,6 +42,7 @@ import (
 
 const (
 	oldSupportedHumioVersion   = "humio/humio-core:1.70.0"
+	upgradeJumpHumioVersion    = "humio/humio-core:1.128.0"
 	oldUnsupportedHumioVersion = "humio/humio-core:1.18.4"
 
 	upgradePatchBestEffortOldVersion = "humio/humio-core:1.82.0"
@@ -257,7 +258,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				if err != nil {
 					return err
 				}
-				updatedHumioCluster.Spec.Image = controllers.Image
+				updatedHumioCluster.Spec.Image = upgradeJumpHumioVersion
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -284,7 +285,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(controllers.Image))
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(upgradeJumpHumioVersion))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
@@ -439,7 +440,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				if err != nil {
 					return err
 				}
-				updatedHumioCluster.Spec.Image = controllers.Image
+				updatedHumioCluster.Spec.Image = upgradeJumpHumioVersion
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -467,7 +468,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(controllers.Image))
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(upgradeJumpHumioVersion))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
@@ -851,7 +852,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image on the main node pool successfully")
-			updatedImage := controllers.Image
+			updatedImage := upgradeJumpHumioVersion
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
