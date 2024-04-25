@@ -2076,7 +2076,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ViewName:           testRepo.Spec.Name,
 				Query: humiov1alpha1.HumioQuery{
 					QueryString: "#repo = test | count()",
-					Start:       "24h",
+					Start:       "1d",
 				},
 				ThrottleTimeMillis: 60000,
 				ThrottleField:      "some field",
