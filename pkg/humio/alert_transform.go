@@ -24,7 +24,7 @@ func AlertTransform(ha *humiov1alpha1.HumioAlert, actionIdMap map[string]string)
 	}
 
 	if alert.QueryStart == "" {
-		alert.QueryStart = "24h"
+		alert.QueryStart = "1d"
 	}
 
 	if _, ok := ha.ObjectMeta.Annotations[AlertIdentifierAnnotation]; ok {
