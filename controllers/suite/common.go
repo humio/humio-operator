@@ -43,6 +43,8 @@ const (
 	dockerPasswordEnvVar = "DOCKER_PASSWORD"
 	// DockerRegistryCredentialsSecretName is the name of the k8s secret containing the registry credentials
 	DockerRegistryCredentialsSecretName = "regcred"
+
+	sidecarWaitForGlobalImageVersion = "alpine:20240329"
 )
 
 const TestInterval = time.Second * 1
@@ -173,6 +175,8 @@ func CleanupCluster(ctx context.Context, k8sClient client.Client, hc *humiov1alp
 
 func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alpha1.HumioNodeSpec {
 	storageClassNameStandard := "standard"
+	userID := int64(65534)
+
 	nodeSpec := humiov1alpha1.HumioNodeSpec{
 		Image:             controllers.Image,
 		ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
@@ -193,6 +197,51 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 									},
 								},
 							},
+						},
+					},
+				},
+			},
+		},
+		SidecarContainers: []corev1.Container{
+			{
+				Name:    "wait-for-global-snapshot-on-disk",
+				Image:   sidecarWaitForGlobalImageVersion,
+				Command: []string{"/bin/sh"},
+				Args: []string{
+					"-c",
+					"trap 'exit 0' 15; while true; do sleep 100 & wait $!; done",
+				},
+				ReadinessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						Exec: &corev1.ExecAction{
+							Command: []string{
+								"/bin/sh",
+								"-c",
+								"ls /mnt/global*.json",
+							},
+						},
+					},
+					InitialDelaySeconds: 5,
+					TimeoutSeconds:      5,
+					PeriodSeconds:       10,
+					SuccessThreshold:    1,
+					FailureThreshold:    100,
+				},
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						Name:      "humio-data",
+						MountPath: "/mnt",
+						ReadOnly:  true,
+					},
+				},
+				SecurityContext: &corev1.SecurityContext{
+					Privileged:               helpers.BoolPtr(false),
+					AllowPrivilegeEscalation: helpers.BoolPtr(false),
+					ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
+					RunAsUser:                &userID,
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{
+							"ALL",
 						},
 					},
 				},
