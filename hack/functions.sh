@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-declare -r kindest_node_image_multiplatform_amd64_arm64=${E2E_KIND_K8S_VERSION:-kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161}
-declare -r kind_version=0.19.0
+declare -r kindest_node_image_multiplatform_amd64_arm64=${E2E_KIND_K8S_VERSION:-kindest/node:v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245}
+declare -r kind_version=0.22.0
 declare -r go_version=1.22.2
 declare -r helm_version=3.14.4
 declare -r kubectl_version=1.23.3
@@ -17,7 +17,7 @@ PATH=$bin_dir/goinstall/bin:$bin_dir:/usr/local/go/bin:$PATH
 GOBIN=$bin_dir
 
 start_kind_cluster() {
-  $kind create cluster --name kind --image $kindest_node_image_multiplatform_amd64_arm64
+  $kind create cluster --name kind --image $kindest_node_image_multiplatform_amd64_arm64 --wait 300s
 
   sleep 5
 
