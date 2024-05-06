@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/cli/shurcooL-graphql v0.0.4
-	github.com/humio/cli v0.33.1-0.20240313124410-359de49fb2af
+	github.com/humio/cli v0.33.1-0.20240425153346-f278dc8465f3
 	k8s.io/api v0.28.8
 	k8s.io/apimachinery v0.28.8
 	k8s.io/client-go v0.28.8

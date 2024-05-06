@@ -339,10 +339,17 @@ func authMode() {
 	go func() {
 		// Run separate go routine for readiness/liveness endpoint
 		http.HandleFunc("/", httpHandler)
-		err := http.ListenAndServe(":8180", nil)
-		if err != nil {
-			panic("could not bind on :8180")
+
+		server := &http.Server{
+			Addr:              ":8180",
+			ReadHeaderTimeout: 3 * time.Second,
 		}
+
+		err := server.ListenAndServe()
+		if err != nil {
+			panic(err)
+		}
+
 	}()
 
 	kubernetesClient := newKubernetesClientset()
