@@ -119,15 +119,15 @@ var _ = BeforeSuite(func() {
 			CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 			ErrorIfCRDPathMissing: true,
 		}
-		humioClientForTestSuite = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioAction = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioAlert = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioCluster = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioExternalCluster = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioIngestToken = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioParser = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioRepository = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioView = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
+		humioClientForTestSuite = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioAction = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioAlert = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioCluster = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioExternalCluster = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioIngestToken = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioParser = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioRepository = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioView = humio.NewMockClient(humioapi.Cluster{}, nil)
 	}
 
 	var cfg *rest.Config

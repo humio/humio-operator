@@ -51,10 +51,12 @@ const (
 type HumioClusterSpec struct {
 	// AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes.
 	// If all Kubernetes worker nodes are located in the same availability zone, you must set DisableInitContainer to true to use auto rebalancing of partitions.
+	// Deprecated: No longer needed as of 1.89.0 as partitions and segment distribution is now automatically managed by LogScale itself.
 	AutoRebalancePartitions bool `json:"autoRebalancePartitions,omitempty"`
 	// TargetReplicationFactor is the desired number of replicas of both storage and ingest partitions
 	TargetReplicationFactor int `json:"targetReplicationFactor,omitempty"`
 	// StoragePartitionsCount is the desired number of storage partitions
+	// Deprecated: No longer needed as LogScale now automatically redistributes segments
 	StoragePartitionsCount int `json:"storagePartitionsCount,omitempty"`
 	// DigestPartitionsCount is the desired number of digest partitions
 	DigestPartitionsCount int `json:"digestPartitionsCount,omitempty"`

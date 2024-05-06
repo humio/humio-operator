@@ -48,10 +48,6 @@ type Client interface {
 
 type ClusterClient interface {
 	GetClusters(*humioapi.Config, reconcile.Request) (humioapi.Cluster, error)
-	UpdateStoragePartitionScheme(*humioapi.Config, reconcile.Request, []humioapi.StoragePartitionInput) error
-	UpdateIngestPartitionScheme(*humioapi.Config, reconcile.Request, []humioapi.IngestPartitionInput) error
-	SuggestedStoragePartitions(*humioapi.Config, reconcile.Request) ([]humioapi.StoragePartitionInput, error)
-	SuggestedIngestPartitions(*humioapi.Config, reconcile.Request) ([]humioapi.IngestPartitionInput, error)
 	GetHumioClient(*humioapi.Config, reconcile.Request) *humioapi.Client
 	ClearHumioClientConnections()
 	GetBaseURL(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioCluster) *url.URL
@@ -213,38 +209,6 @@ func (h *ClientConfig) GetClusters(config *humioapi.Config, req reconcile.Reques
 		h.logger.Error(err, "could not get cluster information")
 	}
 	return clusters, err
-}
-
-// UpdateStoragePartitionScheme updates the storage partition scheme and can be mocked via the Client interface
-func (h *ClientConfig) UpdateStoragePartitionScheme(config *humioapi.Config, req reconcile.Request, spi []humioapi.StoragePartitionInput) error {
-	//lint:ignore SA1019 we can rip out all uses of UpdateStoragePartitionScheme when we no longer support LogScale versions prior to 1.88
-	err := h.GetHumioClient(config, req).Clusters().UpdateStoragePartitionScheme(spi)
-	if err != nil {
-		h.logger.Error(err, "could not update storage partition scheme cluster information")
-	}
-	return err
-}
-
-// UpdateIngestPartitionScheme updates the ingest partition scheme and can be mocked via the Client interface
-func (h *ClientConfig) UpdateIngestPartitionScheme(config *humioapi.Config, req reconcile.Request, ipi []humioapi.IngestPartitionInput) error {
-	//lint:ignore SA1019 we can rip out all uses of UpdateIngestPartitionScheme when we no longer support LogScale versions prior to 1.80
-	err := h.GetHumioClient(config, req).Clusters().UpdateIngestPartitionScheme(ipi)
-	if err != nil {
-		h.logger.Error(err, "could not update ingest partition scheme cluster information")
-	}
-	return err
-}
-
-// SuggestedStoragePartitions gets the suggested storage partition layout
-func (h *ClientConfig) SuggestedStoragePartitions(config *humioapi.Config, req reconcile.Request) ([]humioapi.StoragePartitionInput, error) {
-	//lint:ignore SA1019 we can rip out all uses of SuggestedStoragePartitions when we no longer support LogScale versions prior to 1.88
-	return h.GetHumioClient(config, req).Clusters().SuggestedStoragePartitions()
-}
-
-// SuggestedIngestPartitions gets the suggested ingest partition layout
-func (h *ClientConfig) SuggestedIngestPartitions(config *humioapi.Config, req reconcile.Request) ([]humioapi.IngestPartitionInput, error) {
-	//lint:ignore SA1019 we can rip out all uses of SuggestedIngestPartitions when we no longer support LogScale versions prior to 1.80
-	return h.GetHumioClient(config, req).Clusters().SuggestedIngestPartitions()
 }
 
 // GetBaseURL returns the base URL for given HumioCluster

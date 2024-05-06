@@ -249,10 +249,6 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 		},
 		EnvironmentVariables: []corev1.EnvVar{
 			{
-				Name:  "ZOOKEEPER_URL",
-				Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
-			},
-			{
 				Name:  "KAFKA_SERVERS",
 				Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
 			},
@@ -583,11 +579,11 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElements([]corev1.EnvVar{
 			{
-				Name:  "DIGEST_REPLICATION_FACTOR",
+				Name:  "DEFAULT_DIGEST_REPLICATION_FACTOR",
 				Value: strconv.Itoa(cluster.Spec.TargetReplicationFactor),
 			},
 			{
-				Name:  "STORAGE_REPLICATION_FACTOR",
+				Name:  "DEFAULT_SEGMENT_REPLICATION_FACTOR",
 				Value: strconv.Itoa(cluster.Spec.TargetReplicationFactor),
 			},
 		}))
