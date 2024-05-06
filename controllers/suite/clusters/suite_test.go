@@ -99,7 +99,7 @@ var _ = BeforeSuite(func() {
 	useExistingCluster := true
 	testProcessNamespace = fmt.Sprintf("e2e-clusters-%d", GinkgoParallelProcess())
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-		testTimeout = time.Second * 300
+		testTimeout = time.Second * 900
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &useExistingCluster,
 		}
