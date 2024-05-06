@@ -17,12 +17,10 @@ limitations under the License.
 package controllers
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"reflect"
 	"sort"
 	"strconv"
@@ -50,7 +48,6 @@ import (
 const (
 	humioAppPath             = "/app/humio"
 	HumioDataPath            = "/data/humio-data"
-	humioDataTmpPath         = "/app/humio/humio-data/tmp"
 	sharedPath               = "/shared"
 	TmpPath                  = "/tmp"
 	waitForPodTimeoutSeconds = 10
@@ -63,30 +60,12 @@ type podAttachments struct {
 	envVarSourceData             *map[string]string
 }
 
-// nodeUUIDTemplateVars contains the variables that are allowed to be rendered for the nodeUUID string
-type nodeUUIDTemplateVars struct {
-	Zone string
-}
-
 // ConstructContainerArgs returns the container arguments for the Humio pods. We want to grab a UUID from zookeeper
 // only when using ephemeral disks. If we're using persistent storage, then we rely on Humio to generate the UUID.
 // Note that relying on PVCs may not be good enough here as it's possible to have persistent storage using hostPath.
 // For this reason, we rely on the USING_EPHEMERAL_DISKS environment variable.
 func ConstructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]string, error) {
 	var shellCommands []string
-
-	humioVersion, _ := HumioVersionFromString(hnp.GetImage())
-	if ok, _ := humioVersion.AtLeast(HumioVersionWithoutOldVhostSelection); !ok {
-		if EnvVarHasValue(podEnvVars, "USING_EPHEMERAL_DISKS", "true") {
-			if EnvVarHasKey(podEnvVars, "ZOOKEEPER_URL") {
-				nodeUUIDPrefix, err := constructNodeUUIDPrefix(hnp)
-				if err != nil {
-					return []string{""}, fmt.Errorf("unable to construct node UUID: %w", err)
-				}
-				shellCommands = append(shellCommands, fmt.Sprintf("export ZOOKEEPER_PREFIX_FOR_NODE_UUID=%s", nodeUUIDPrefix))
-			}
-		}
-	}
 
 	if !hnp.InitContainerDisabled() {
 		shellCommands = append(shellCommands, fmt.Sprintf("export ZONE=$(cat %s/availability-zone)", sharedPath))
@@ -101,35 +80,6 @@ func ConstructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]s
 	sort.Strings(shellCommands)
 	shellCommands = append(shellCommands, fmt.Sprintf("exec bash %s/run.sh", humioAppPath))
 	return []string{"-c", strings.Join(shellCommands, " && ")}, nil
-}
-
-// constructNodeUUIDPrefix checks the value of the nodeUUID prefix and attempts to render it as a template. If the template
-// renders {{.Zone}} as the string set to containsZoneIdentifier, then we can be assured that the desired outcome is
-// that the zone in included inside the nodeUUID prefix.
-// Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in LogScale 1.80.0
-func constructNodeUUIDPrefix(hnp *HumioNodePool) (string, error) {
-	prefix := hnp.GetNodeUUIDPrefix()
-	containsZoneIdentifier := "containsZone"
-
-	t := template.Must(template.New("prefix").Parse(prefix))
-	data := nodeUUIDTemplateVars{Zone: containsZoneIdentifier}
-
-	var tpl bytes.Buffer
-	if err := t.Execute(&tpl, data); err != nil {
-		return "", err
-	}
-
-	nodeUUIDPrefix := tpl.String()
-	nodeUUIDPrefix = strings.Replace(nodeUUIDPrefix, containsZoneIdentifier, fmt.Sprintf("$(cat %s/availability-zone)", sharedPath), 1)
-
-	if !strings.HasPrefix(nodeUUIDPrefix, "/") {
-		nodeUUIDPrefix = fmt.Sprintf("/%s", nodeUUIDPrefix)
-	}
-	if !strings.HasSuffix(nodeUUIDPrefix, "_") {
-		nodeUUIDPrefix = fmt.Sprintf("%s_", nodeUUIDPrefix)
-	}
-
-	return nodeUUIDPrefix, nil
 }
 
 func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAttachments) (*corev1.Pod, error) {

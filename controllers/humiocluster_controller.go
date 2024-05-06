@@ -343,11 +343,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	if err = r.ensurePartitionsAreBalanced(hc, cluster.Config(), req); err != nil {
-		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()))
-	}
-
 	for _, fun := range []ctxHumioClusterFunc{
 		r.cleanupUnusedTLSCertificates,
 		r.cleanupUnusedTLSSecrets,
@@ -1429,19 +1424,19 @@ func (r *HumioClusterReconciler) ensureOrphanedPvcsAreDeleted(ctx context.Contex
 		if err != nil {
 			return r.logErrorAndReturn(err, "failed to list pvcs")
 		}
-		for _, pvc := range pvcList {
-			pvcOrphaned, err := r.isPvcOrphaned(ctx, hnp, hc, pvc)
+		for idx := range pvcList {
+			pvcOrphaned, err := r.isPvcOrphaned(ctx, hnp, hc, pvcList[idx])
 			if err != nil {
 				return r.logErrorAndReturn(err, "could not check if pvc is orphaned")
 			}
 			if pvcOrphaned {
-				if pvc.DeletionTimestamp == nil {
+				if pvcList[idx].DeletionTimestamp == nil {
 					r.Log.Info(fmt.Sprintf("node cannot be found for pvc. deleting pvc %s as "+
-						"dataVolumePersistentVolumeClaimPolicy is set to %s", pvc.Name,
+						"dataVolumePersistentVolumeClaimPolicy is set to %s", pvcList[idx].Name,
 						humiov1alpha1.HumioPersistentVolumeReclaimTypeOnNodeDelete))
-					err = r.Client.Delete(ctx, &pvc)
+					err = r.Client.Delete(ctx, &pvcList[idx])
 					if err != nil {
-						return r.logErrorAndReturn(err, fmt.Sprintf("cloud not delete pvc %s", pvc.Name))
+						return r.logErrorAndReturn(err, fmt.Sprintf("cloud not delete pvc %s", pvcList[idx].Name))
 					}
 				}
 			}
@@ -1553,49 +1548,6 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	}
 
 	return reconcile.Result{}, nil
-}
-
-func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(hc *humiov1alpha1.HumioCluster, config *humioapi.Config, req reconcile.Request) error {
-	humioVersion, _ := HumioVersionFromString(NewHumioNodeManagerFromHumioCluster(hc).GetImage())
-	if ok, _ := humioVersion.AtLeast(HumioVersionWithAutomaticPartitionManagement); ok {
-		return nil
-	}
-
-	if !hc.Spec.AutoRebalancePartitions {
-		r.Log.Info("partition auto-rebalancing not enabled, skipping")
-		return nil
-	}
-
-	currentClusterInfo, err := r.HumioClient.GetClusters(config, req)
-	if err != nil {
-		return r.logErrorAndReturn(err, "could not get cluster info")
-	}
-
-	suggestedStorageLayout, err := r.HumioClient.SuggestedStoragePartitions(config, req)
-	if err != nil {
-		return r.logErrorAndReturn(err, "could not get suggested storage layout")
-	}
-	currentStorageLayoutInput := helpers.MapStoragePartition(currentClusterInfo.StoragePartitions, helpers.ToStoragePartitionInput)
-	if !reflect.DeepEqual(currentStorageLayoutInput, suggestedStorageLayout) {
-		r.Log.Info(fmt.Sprintf("triggering update of storage partitions to use suggested layout, current: %#+v, suggested: %#+v", currentClusterInfo.StoragePartitions, suggestedStorageLayout))
-		if err = r.HumioClient.UpdateStoragePartitionScheme(config, req, suggestedStorageLayout); err != nil {
-			return r.logErrorAndReturn(err, "could not update storage partition scheme")
-		}
-	}
-
-	suggestedIngestLayout, err := r.HumioClient.SuggestedIngestPartitions(config, req)
-	if err != nil {
-		return r.logErrorAndReturn(err, "could not get suggested ingest layout")
-	}
-	currentIngestLayoutInput := helpers.MapIngestPartition(currentClusterInfo.IngestPartitions, helpers.ToIngestPartitionInput)
-	if !reflect.DeepEqual(currentIngestLayoutInput, suggestedIngestLayout) {
-		r.Log.Info(fmt.Sprintf("triggering update of ingest partitions to use suggested layout, current: %#+v, suggested: %#+v", currentClusterInfo.IngestPartitions, suggestedIngestLayout))
-		if err = r.HumioClient.UpdateIngestPartitionScheme(config, req, suggestedIngestLayout); err != nil {
-			return r.logErrorAndReturn(err, "could not update ingest partition scheme")
-		}
-	}
-
-	return nil
 }
 
 func (r *HumioClusterReconciler) ensureService(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {

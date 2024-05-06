@@ -41,15 +41,15 @@ import (
 )
 
 const (
-	oldSupportedHumioVersion   = "humio/humio-core:1.70.0"
+	oldSupportedHumioVersion   = "humio/humio-core:1.118.0"
 	upgradeJumpHumioVersion    = "humio/humio-core:1.128.0"
 	oldUnsupportedHumioVersion = "humio/humio-core:1.18.4"
 
-	upgradePatchBestEffortOldVersion = "humio/humio-core:1.82.0"
-	upgradePatchBestEffortNewVersion = "humio/humio-core:1.82.1"
+	upgradePatchBestEffortOldVersion = "humio/humio-core:1.124.1"
+	upgradePatchBestEffortNewVersion = "humio/humio-core:1.124.2"
 
-	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.70.0"
-	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.76.2"
+	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.124.1"
+	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.131.1"
 )
 
 var _ = Describe("HumioCluster Controller", func() {
@@ -1117,7 +1117,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image unsuccessfully")
-			updatedImage := "humio/humio-operator:1.70.7-missing-image"
+			updatedImage := fmt.Sprintf("%s-missing-image", controllers.Image)
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -1303,10 +1303,6 @@ var _ = Describe("HumioCluster Controller", func() {
 					Value: "",
 				},
 				{
-					Name:  "ZOOKEEPER_URL",
-					Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
-				},
-				{
 					Name:  "KAFKA_SERVERS",
 					Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
 				},
@@ -1349,10 +1345,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				{
 					Name:  "test",
 					Value: "update",
-				},
-				{
-					Name:  "ZOOKEEPER_URL",
-					Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
 				},
 				{
 					Name:  "KAFKA_SERVERS",
@@ -1444,10 +1436,6 @@ var _ = Describe("HumioCluster Controller", func() {
 						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
 					},
 					{
-						Name:  "ZOOKEEPER_URL",
-						Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
-					},
-					{
 						Name:  "KAFKA_SERVERS",
 						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
 					},
@@ -1476,10 +1464,6 @@ var _ = Describe("HumioCluster Controller", func() {
 					{
 						Name:  "HUMIO_OPTS",
 						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-					},
-					{
-						Name:  "ZOOKEEPER_URL",
-						Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
 					},
 					{
 						Name:  "KAFKA_SERVERS",
@@ -1550,10 +1534,6 @@ var _ = Describe("HumioCluster Controller", func() {
 						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
 					},
 					{
-						Name:  "ZOOKEEPER_URL",
-						Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
-					},
-					{
 						Name:  "KAFKA_SERVERS",
 						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
 					},
@@ -1578,10 +1558,6 @@ var _ = Describe("HumioCluster Controller", func() {
 					{
 						Name:  "HUMIO_OPTS",
 						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-					},
-					{
-						Name:  "ZOOKEEPER_URL",
-						Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
 					},
 					{
 						Name:  "KAFKA_SERVERS",
@@ -1679,10 +1655,6 @@ var _ = Describe("HumioCluster Controller", func() {
 					{
 						Name:  "HUMIO_OPTS",
 						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-					},
-					{
-						Name:  "ZOOKEEPER_URL",
-						Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
 					},
 					{
 						Name:  "KAFKA_SERVERS",
@@ -2224,63 +2196,6 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	Context("Humio Cluster Container Arguments", func() {
-		It("Should correctly configure container arguments and ephemeral disks env var with deprecated zk node uuid", func() {
-			key := types.NamespacedName{
-				Name:      "humiocluster-container-args-zk-uuid",
-				Namespace: testProcessNamespace,
-			}
-			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = oldSupportedHumioVersion
-
-			suite.UsingClusterBy(key.Name, "Creating the cluster successfully without ephemeral disks")
-			ctx := context.Background()
-			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
-			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
-
-			hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
-			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIdx].Args).To(Equal([]string{"-c", "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"}))
-				Expect(pod.Spec.Containers[humioIdx].Env).ToNot(ContainElement(corev1.EnvVar{
-					Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
-					Value: "$(ZOOKEEPER_URL)",
-				}))
-			}
-
-			suite.UsingClusterBy(key.Name, "Updating node uuid prefix which includes ephemeral disks and zone")
-			var updatedHumioCluster humiov1alpha1.HumioCluster
-
-			Eventually(func() error {
-				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-				if err != nil {
-					return err
-				}
-				updatedHumioCluster.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{Name: "USING_EPHEMERAL_DISKS", Value: "true"})
-				updatedHumioCluster.Spec.NodeUUIDPrefix = "humio_{{.Zone}}_"
-				return k8sClient.Update(ctx, &updatedHumioCluster)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-
-			hnp = controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)
-			Eventually(func() []string {
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
-				if len(clusterPods) > 0 {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
-					return clusterPods[0].Spec.Containers[humioIdx].Args
-				}
-				return []string{}
-			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo([]string{"-c", "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && export ZOOKEEPER_PREFIX_FOR_NODE_UUID=/humio_$(cat /shared/availability-zone)_ && exec bash /app/humio/run.sh"}))
-
-			Eventually(func() []corev1.EnvVar {
-				clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
-				Expect(err).ToNot(HaveOccurred())
-				if len(clusterPods) > 0 {
-					humioIdx, _ := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
-					return clusterPods[0].Spec.Containers[humioIdx].Env
-				}
-				return []corev1.EnvVar{}
-			}, testTimeout, suite.TestInterval).Should(ContainElement(corev1.EnvVar{Name: "ZOOKEEPER_URL_FOR_NODE_UUID", Value: "$(ZOOKEEPER_URL)"}))
-		})
 		It("Should correctly configure container arguments and ephemeral disks env var with default vhost selection method", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-container-args",
@@ -2298,10 +2213,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			for _, pod := range clusterPods {
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
 				Expect(pod.Spec.Containers[humioIdx].Args).To(Equal([]string{"-c", "export CORES=$(getconf _NPROCESSORS_ONLN) && export HUMIO_OPTS=\"$HUMIO_OPTS -XX:ActiveProcessorCount=$(getconf _NPROCESSORS_ONLN)\" && export ZONE=$(cat /shared/availability-zone) && exec bash /app/humio/run.sh"}))
-				Expect(pod.Spec.Containers[humioIdx].Env).ToNot(ContainElement(corev1.EnvVar{
-					Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
-					Value: "$(ZOOKEEPER_URL)",
-				}))
 			}
 
 			suite.UsingClusterBy(key.Name, "Updating node uuid prefix which includes ephemeral disks and zone")
@@ -2313,7 +2224,6 @@ var _ = Describe("HumioCluster Controller", func() {
 					return err
 				}
 				updatedHumioCluster.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{Name: "USING_EPHEMERAL_DISKS", Value: "true"})
-				updatedHumioCluster.Spec.NodeUUIDPrefix = "humio_{{.Zone}}_"
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -2328,14 +2238,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return []string{}
 			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo([]string{"-c", expectedContainerArgString}))
-
-			clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
-			Expect(err).ToNot(HaveOccurred())
-			humioIdx, _ := kubernetes.GetContainerIndexByName(clusterPods[0], controllers.HumioContainerName)
-			Expect(clusterPods[0].Spec.Containers[humioIdx].Env).ToNot(ContainElement(corev1.EnvVar{
-				Name:  "ZOOKEEPER_URL_FOR_NODE_UUID",
-				Value: "$(ZOOKEEPER_URL)",
-			}))
 		})
 	})
 
