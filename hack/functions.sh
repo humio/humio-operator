@@ -122,7 +122,7 @@ wait_for_pod() {
 preload_container_images() {
   # Extract humio images and tags from go source
   DEFAULT_IMAGE=$(grep '^\s*Image\s*=' controllers/humiocluster_defaults.go | cut -d '"' -f 2)
-  PRE_UPDATE_IMAGES=$(grep 'Version\s* = ' controllers/suite/clusters/humiocluster_controller_test.go | grep -v oldUnsupportedHumioVersion | grep -v 1.x.x | cut -d '"' -f 2 | sort -u)
+  PRE_UPDATE_IMAGES=$(grep -R 'Version\s* = ' controllers/suite | grep -v oldUnsupportedHumioVersion | grep -v 1.x.x | cut -d '"' -f 2 | sort -u)
 
   # Preload default image used by tests
   $docker pull $DEFAULT_IMAGE
