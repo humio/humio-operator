@@ -34,7 +34,7 @@ import (
 
 const (
 	Image                        = "humio/humio-core:1.131.1"
-	HelperImage                  = "humio/humio-operator-helper:3568eb1e7041beaf70d48e71a3d5fc6c8cfb9a6f"
+	HelperImage                  = "humio/humio-operator-helper:8f5ef6c7e470226e77d985f36cf39be9a100afea"
 	targetReplicationFactor      = 2
 	digestPartitionsCount        = 24
 	HumioPort                    = 8080
