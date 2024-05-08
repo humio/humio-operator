@@ -8,14 +8,7 @@ jobs:
     name: Build and Publish Operator
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-# Disable olm checks until we have a new bundle we want to validate against
-#    - name: operator-sdk lint
-#      env:
-#        GO111MODULE: "on"
-#      uses: ./.github/action/operator-sdk
-#      with:
-#        args: operator-courier --verbose verify --ui_validate_io deploy/olm-catalog/humio-operator
+    - uses: actions/checkout@v4
     - name: Set version information
       run: |
         echo "RELEASE_VERSION=master" >> $GITHUB_ENV
@@ -24,7 +17,7 @@ jobs:
     - name: docker build
       run: make docker-build-operator IMG=humio/humio-operator:${{ env.RELEASE_VERSION }} IMG_BUILD_ARGS="--label version=${{ env.RELEASE_VERSION }} --label release=${{ github.run_id }} --build-arg RELEASE_VERSION=${{ env.RELEASE_VERSION }} --build-arg RELEASE_COMMIT=${{ env.RELEASE_COMMIT }} --build-arg RELEASE_DATE=${{ env.RELEASE_DATE }}"
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -40,7 +33,7 @@ jobs:
       env:
         FALCON_CLIENT_SECRET: "${{ secrets.FALCON_CLIENT_SECRET }}"
     - name: Login to DockerHub
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
@@ -54,7 +47,7 @@ jobs:
     name: Build and Publish Helperimage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set version information
         run: |
           echo "RELEASE_VERSION=master" >> $GITHUB_ENV
@@ -63,7 +56,7 @@ jobs:
       - name: docker build
         run: make docker-build-helper IMG=humio/humio-operator-helper:${{ env.RELEASE_VERSION }} IMG_BUILD_ARGS="--label version=${{ env.RELEASE_VERSION }} --label release=${{ github.run_id }} --build-arg RELEASE_VERSION=${{ env.RELEASE_VERSION }} --build-arg RELEASE_COMMIT=${{ env.RELEASE_COMMIT }} --build-arg RELEASE_DATE=${{ env.RELEASE_DATE }}"
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -79,7 +72,7 @@ jobs:
         env:
           FALCON_CLIENT_SECRET: "${{ secrets.FALCON_CLIENT_SECRET }}"
       - name: Login to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
