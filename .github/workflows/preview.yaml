@@ -44,7 +44,7 @@ jobs:
         run: |
           docker pull humio/humio-core:preview
           LATEST_TAG=$(docker run --rm humio/humio-core:preview cat /tag.txt)
-          echo "::set-output name=HUMIO_CORE_DEV_TAG::$LATEST_TAG"
+          echo "HUMIO_CORE_DEV_TAG=$LATEST_TAG" >> $GITHUB_OUTPUT
       - name: run e2e tests
         env:
           HUMIO_CORE_DEV_TAG: ${{ steps.docker_tag.outputs.HUMIO_CORE_DEV_TAG }}
