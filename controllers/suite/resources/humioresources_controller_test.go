@@ -583,11 +583,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var initialParser *humioapi.Parser
 			Eventually(func() error {
 				initialParser, err = humioClient.GetParser(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateParser)
+				if err != nil {
+					return err
+				}
 
 				// Ignore the ID when comparing parser content
 				initialParser.ID = ""
 
-				return err
+				return nil
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(initialParser).ToNot(BeNil())
 
