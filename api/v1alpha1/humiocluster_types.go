@@ -265,8 +265,7 @@ type HumioUpdateStrategy struct {
 	// When set to RollingUpdate, pods will always be replaced one pod at a time. There may be some Humio updates where
 	// rolling updates are not supported, so it is not recommended to have this set all the time.
 	//
-	// When set to ReplaceAllOnUpdate, all Humio pods will be replaced at the same time during an update. Pods will still
-	// be replaced one at a time when there are other configuration changes such as updates to pod environment variables.
+	// When set to ReplaceAllOnUpdate, all Humio pods will be replaced at the same time during an update.
 	// This is the default behavior.
 	//
 	// When set to RollingUpdateBestEffort, the operator will evaluate the Humio version change and determine if the

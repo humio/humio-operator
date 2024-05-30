@@ -12506,8 +12506,7 @@ spec:
                                 rolling updates are not supported, so it is not recommended to have this set all the time.
 
 
-                                When set to ReplaceAllOnUpdate, all Humio pods will be replaced at the same time during an update. Pods will still
-                                be replaced one at a time when there are other configuration changes such as updates to pod environment variables.
+                                When set to ReplaceAllOnUpdate, all Humio pods will be replaced at the same time during an update.
                                 This is the default behavior.
 
 
@@ -14379,8 +14378,7 @@ spec:
                       rolling updates are not supported, so it is not recommended to have this set all the time.
 
 
-                      When set to ReplaceAllOnUpdate, all Humio pods will be replaced at the same time during an update. Pods will still
-                      be replaced one at a time when there are other configuration changes such as updates to pod environment variables.
+                      When set to ReplaceAllOnUpdate, all Humio pods will be replaced at the same time during an update.
                       This is the default behavior.
 
 
