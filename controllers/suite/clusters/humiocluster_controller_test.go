@@ -303,6 +303,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+			}
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
@@ -1211,6 +1214,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+			}
 			toCreate.Spec.HelperImage = ""
 			toCreate.Spec.NodeCount = 2
 
@@ -1296,6 +1302,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+			}
 			toCreate.Spec.NodeCount = 2
 			toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
 				{
@@ -1424,6 +1433,9 @@ var _ = Describe("HumioCluster Controller", func() {
 					Namespace: testProcessNamespace,
 				}
 				toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
+				toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+					Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+				}
 				toCreate.Spec.NodeCount = 1
 				toCreate.Spec.NodePools[0].NodeCount = 1
 				toCreate.Spec.CommonEnvironmentVariables = []corev1.EnvVar{
@@ -2347,6 +2359,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+			}
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
@@ -2418,6 +2433,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+			}
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
@@ -2513,6 +2531,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+			}
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
@@ -3190,6 +3211,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+			}
 			toCreate.Spec.NodeCount = 2
 			toCreate.Spec.DataVolumePersistentVolumeClaimSpecTemplate = corev1.PersistentVolumeClaimSpec{}
 			toCreate.Spec.DataVolumeSource = corev1.VolumeSource{
@@ -3342,6 +3366,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+			}
 			protocol := "http"
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 				protocol = "https"
@@ -3410,6 +3437,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+			}
 			toCreate.Spec.Hostname = "test-cluster.humio.com"
 			toCreate.Spec.ESHostname = "test-cluster-es.humio.com"
 			toCreate.Spec.Ingress = humiov1alpha1.HumioClusterIngressSpec{
@@ -4638,6 +4668,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+			}
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
@@ -4739,6 +4772,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+			}
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
