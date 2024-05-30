@@ -962,14 +962,8 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 			return podLifecycleState{}, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
 		}
 		if pod.Spec.Containers[humioContainerIdx].Image != desiredPod.Spec.Containers[desiredHumioContainerIdx].Image {
-			fromVersion, err := HumioVersionFromString(pod.Spec.Containers[humioContainerIdx].Image)
-			if err != nil {
-				return *podLifecycleStateValue, r.logErrorAndReturn(err, "failed to read version")
-			}
-			toVersion, err := HumioVersionFromString(desiredPod.Spec.Containers[desiredHumioContainerIdx].Image)
-			if err != nil {
-				return *podLifecycleStateValue, r.logErrorAndReturn(err, "failed to read version")
-			}
+			fromVersion := HumioVersionFromString(pod.Spec.Containers[humioContainerIdx].Image)
+			toVersion := HumioVersionFromString(desiredPod.Spec.Containers[desiredHumioContainerIdx].Image)
 			podLifecycleStateValue.versionDifference = &podLifecycleStateVersionDifference{
 				from: fromVersion,
 				to:   toVersion,
