@@ -595,10 +595,17 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(initialParser).ToNot(BeNil())
 
 			expectedInitialParser := humioapi.Parser{
-				Name:      spec.Name,
-				Script:    spec.ParserScript,
-				TagFields: spec.TagFields,
-				Tests:     spec.TestData,
+				Name:                           spec.Name,
+				Script:                         spec.ParserScript,
+				FieldsToTag:                    spec.TagFields,
+				FieldsToBeRemovedBeforeParsing: []string{},
+			}
+			expectedInitialParser.TestCases = make([]humioapi.ParserTestCase, len(spec.TestData))
+			for i := range spec.TestData {
+				expectedInitialParser.TestCases[i] = humioapi.ParserTestCase{
+					Event:      humioapi.ParserTestEvent{RawString: spec.TestData[i]},
+					Assertions: []humioapi.ParserTestCaseAssertions{},
+				}
 			}
 			Expect(*initialParser).To(Equal(expectedInitialParser))
 
@@ -622,10 +629,17 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(updatedParser).ToNot(BeNil())
 
 			expectedUpdatedParser := humioapi.Parser{
-				Name:      spec.Name,
-				Script:    updatedScript,
-				TagFields: spec.TagFields,
-				Tests:     spec.TestData,
+				Name:                           spec.Name,
+				Script:                         updatedScript,
+				FieldsToTag:                    spec.TagFields,
+				FieldsToBeRemovedBeforeParsing: []string{},
+			}
+			expectedUpdatedParser.TestCases = make([]humioapi.ParserTestCase, len(spec.TestData))
+			for i := range spec.TestData {
+				expectedUpdatedParser.TestCases[i] = humioapi.ParserTestCase{
+					Event:      humioapi.ParserTestEvent{RawString: spec.TestData[i]},
+					Assertions: []humioapi.ParserTestCaseAssertions{},
+				}
 			}
 			Eventually(func() humioapi.Parser {
 				updatedParser, err := humioClient.GetParser(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedParser)
