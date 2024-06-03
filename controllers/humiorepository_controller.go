@@ -73,13 +73,9 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 
-<<<<<<< HEAD
 	r.Log = r.Log.WithValues("Request.UID", hr.UID)
 
-	cluster, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager(), true)
-=======
 	cluster, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager(), true, false)
->>>>>>> 2e2b16a (wip)
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		setStateErr := r.setState(ctx, humiov1alpha1.HumioRepositoryStateConfigError, hr)
 		if setStateErr != nil {
@@ -193,18 +189,12 @@ func (r *HumioRepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *HumioRepositoryReconciler) finalize(ctx context.Context, config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
-<<<<<<< HEAD
-	_, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager(), true)
+	_, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}
 		return err
-=======
-	_, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager(), true, false)
-	if k8serrors.IsNotFound(err) {
-		return nil
->>>>>>> 2e2b16a (wip)
 	}
 
 	return r.HumioClient.DeleteRepository(config, req, hr)
