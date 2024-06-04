@@ -111,7 +111,7 @@ var _ = BeforeSuite(func() {
 			CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 			ErrorIfCRDPathMissing: true,
 		}
-		humioClient = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
+		humioClient = humio.NewMockClient(humioapi.Cluster{}, nil)
 	}
 
 	var cfg *rest.Config
@@ -248,6 +248,7 @@ var _ = BeforeSuite(func() {
 		Spec: corev1alpha1.HumioRepositorySpec{
 			ManagedClusterName: clusterKey.Name,
 			Name:               "test-repo",
+			AllowDataDeletion:  true,
 		},
 	}
 	Expect(k8sClient.Create(context.TODO(), &testRepo)).To(Succeed())

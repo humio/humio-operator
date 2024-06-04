@@ -22,7 +22,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/google/martian/log"
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -90,11 +89,9 @@ func (c Cluster) Url(ctx context.Context, k8sClient client.Client) (*url.URL, er
 
 		protocol := "https"
 		if !c.certManagerEnabled {
-			log.Infof("not using cert-manager, falling back to http")
 			protocol = "http"
 		}
 		if !TLSEnabled(&humioManagedCluster) {
-			log.Infof("humio managed cluster configured as insecure, using http")
 			protocol = "http"
 		}
 		baseURL, _ := url.Parse(fmt.Sprintf("%s://%s-headless.%s:%d/", protocol, c.managedClusterName, c.namespace, 8080))

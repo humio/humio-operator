@@ -1,0 +1,71 @@
+name: Test Humio Operator
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+jobs:
+  test-operator:
+    name: ${{ matrix.kind-k8s-version }}
+    runs-on: [ self-hosted, ops ]
+    strategy:
+      fail-fast: false
+      matrix:
+        kind-k8s-version:
+          - kindest/node:v1.21.14@sha256:8a4e9bb3f415d2bb81629ce33ef9c76ba514c14d707f9797a01e3216376ba093 # Not officially supported by kind 0.22.0
+          - kindest/node:v1.22.17@sha256:f5b2e5698c6c9d6d0adc419c0deae21a425c07d81bbf3b6a6834042f25d4fba2 # Not officially supported by kind 0.22.0
+          - kindest/node:v1.23.17@sha256:14d0a9a892b943866d7e6be119a06871291c517d279aedb816a4b4bc0ec0a5b3
+          - kindest/node:v1.24.17@sha256:bad10f9b98d54586cba05a7eaa1b61c6b90bfc4ee174fdc43a7b75ca75c95e51
+          - kindest/node:v1.25.16@sha256:e8b50f8e06b44bb65a93678a65a26248fae585b3d3c2a669e5ca6c90c69dc519
+          - kindest/node:v1.26.14@sha256:5d548739ddef37b9318c70cb977f57bf3e5015e4552be4e27e57280a8cbb8e4f
+          - kindest/node:v1.27.11@sha256:681253009e68069b8e01aad36a1e0fa8cf18bb0ab3e5c4069b2e65cafdd70843
+          - kindest/node:v1.28.7@sha256:9bc6c451a289cf96ad0bbaf33d416901de6fd632415b076ab05f5fa7e4f65c58
+          - kindest/node:v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.2'
+      - name: cleanup kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
+          chmod +x ./kind
+          ./kind delete cluster || true
+          make clean
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Get temp bin dir
+        id: bin_dir
+        run: echo "BIN_DIR=$(mktemp -d --tmpdir=${{ github.workspace }})" >> $GITHUB_OUTPUT
+      - name: Find latest Humio Core preview docker image
+        id: docker_tag
+        run: |
+          docker pull humio/humio-core:preview
+          LATEST_TAG=$(docker run --rm humio/humio-core:preview cat /tag.txt)
+          echo "HUMIO_CORE_DEV_TAG=$LATEST_TAG" >> $GITHUB_OUTPUT
+      - name: run e2e tests
+        env:
+          HUMIO_CORE_DEV_TAG: ${{ steps.docker_tag.outputs.HUMIO_CORE_DEV_TAG }}
+          BIN_DIR: ${{ steps.bin_dir.outputs.BIN_DIR }}
+          HUMIO_E2E_LICENSE: ${{ secrets.HUMIO_E2E_LICENSE }}
+          E2E_KIND_K8S_VERSION: ${{ matrix.kind-k8s-version }}
+          E2E_LOGS_HUMIO_HOSTNAME: ${{ secrets.E2E_LOGS_HUMIO_HOSTNAME }}
+          E2E_LOGS_HUMIO_INGEST_TOKEN: ${{ secrets.E2E_LOGS_HUMIO_INGEST_TOKEN }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          GINKGO_NODES: "6"
+        run: |
+          echo "Running operator tests against humio-core-dev:$HUMIO_CORE_DEV_TAG"
+          sed -i "s/humio-core:[0-9.]*/humio-core-dev:$HUMIO_CORE_DEV_TAG/g" controllers/humiocluster_defaults.go
+
+          hack/run-e2e-using-kind.sh
+      - name: cleanup kind
+        if: always()
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
+          chmod +x ./kind
+          ./kind delete cluster || true
+          make clean
+          docker image prune -f

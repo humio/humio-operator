@@ -328,6 +328,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 						IngestSizeInGB:  5,
 						StorageSizeInGB: 1,
 					},
+					AllowDataDeletion: true,
 				},
 			}
 
@@ -434,6 +435,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 						IngestSizeInGB:  5,
 						StorageSizeInGB: 1,
 					},
+					AllowDataDeletion: true,
 				},
 			}
 
@@ -779,6 +781,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioRepositorySpec{
 					ManagedClusterName: "non-existent-managed-cluster",
 					Name:               "parsername",
+					AllowDataDeletion:  true,
 				},
 			}
 			Expect(k8sClient.Create(ctx, toCreateRepository)).Should(Succeed())
@@ -812,6 +815,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioRepositorySpec{
 					ExternalClusterName: "non-existent-external-cluster",
 					Name:                "parsername",
+					AllowDataDeletion:   true,
 				},
 			}
 			Expect(k8sClient.Create(ctx, toCreateRepository)).Should(Succeed())
@@ -2072,7 +2076,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ViewName:           testRepo.Spec.Name,
 				Query: humiov1alpha1.HumioQuery{
 					QueryString: "#repo = test | count()",
-					Start:       "24h",
+					Start:       "1d",
 				},
 				ThrottleTimeMillis: 60000,
 				ThrottleField:      "some field",
@@ -2170,8 +2174,12 @@ var _ = Describe("Humio Resources Controllers", func() {
 				if err != nil {
 					return *updatedAlert
 				}
-				// Ignore the ID
+
+				// Ignore the ID, QueryOwnershipType and RunAsUserID
 				updatedAlert.ID = ""
+				updatedAlert.QueryOwnershipType = ""
+				updatedAlert.RunAsUserID = ""
+
 				return *updatedAlert
 			}, testTimeout, suite.TestInterval).Should(Equal(*verifiedAlert))
 
