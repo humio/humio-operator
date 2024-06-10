@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sort"
 	"strconv"
 	"strings"
@@ -151,12 +152,18 @@ var _ = BeforeSuite(func() {
 	//+kubebuilder:scaffold:scheme
 
 	watchNamespace, _ := helpers.GetWatchNamespace()
+	defaultNamespaces := map[string]cache.Config{}
+	if watchNamespace != "" {
+		for _, v := range strings.Split(watchNamespace, ",") {
+			defaultNamespaces[v] = cache.Config{}
+		}
+	}
 
 	options := ctrl.Options{
-		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0",
-		Cache:              cache.Options{Namespaces: strings.Split(watchNamespace, ",")},
-		Logger:             log,
+		Scheme:  scheme.Scheme,
+		Metrics: metricsserver.Options{BindAddress: "0"},
+		Cache:   cache.Options{DefaultNamespaces: defaultNamespaces},
+		Logger:  log,
 	}
 
 	k8sManager, err = ctrl.NewManager(cfg, options)

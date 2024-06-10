@@ -1,4 +1,4 @@
-FROM golang:1.22.2
+FROM golang:1.22.5
 
 # Create and populate /var/src with the source code for the humio-operator repository
 RUN mkdir /var/src
