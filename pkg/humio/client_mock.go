@@ -111,11 +111,21 @@ func (h *MockClientConfig) DeleteIngestToken(config *humioapi.Config, req reconc
 
 func (h *MockClientConfig) AddParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
 	h.apiClient.Parser = humioapi.Parser{
-		Name:      hp.Spec.Name,
-		Script:    hp.Spec.ParserScript,
-		TagFields: hp.Spec.TagFields,
-		Tests:     hp.Spec.TestData,
+		Name:                           hp.Spec.Name,
+		Script:                         hp.Spec.ParserScript,
+		FieldsToTag:                    hp.Spec.TagFields,
+		FieldsToBeRemovedBeforeParsing: []string{},
 	}
+
+	testCasesGQL := make([]humioapi.ParserTestCase, len(hp.Spec.TestData))
+	for i := range hp.Spec.TestData {
+		testCasesGQL[i] = humioapi.ParserTestCase{
+			Event:      humioapi.ParserTestEvent{RawString: hp.Spec.TestData[i]},
+			Assertions: []humioapi.ParserTestCaseAssertions{},
+		}
+	}
+	h.apiClient.Parser.TestCases = testCasesGQL
+
 	return &h.apiClient.Parser, nil
 }
 
