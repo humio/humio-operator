@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"gopkg.in/square/go-jose.v2/jwt"
+	jose "github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
 
 	humioapi "github.com/humio/cli/api"
 )
@@ -37,7 +38,7 @@ func ParseLicense(licenseString string) (humioapi.License, error) {
 func ParseLicenseType(licenseString string) (*humioapi.OnPremLicense, error) {
 	licenseContent := &license{}
 
-	token, err := jwt.ParseSigned(licenseString)
+	token, err := jwt.ParseSigned(licenseString, []jose.SignatureAlgorithm{jose.ES256, jose.ES512})
 	if err != nil {
 		return nil, fmt.Errorf("error when parsing license: %w", err)
 	}

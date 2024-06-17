@@ -51,10 +51,12 @@ const (
 type HumioClusterSpec struct {
 	// AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes.
 	// If all Kubernetes worker nodes are located in the same availability zone, you must set DisableInitContainer to true to use auto rebalancing of partitions.
+	// Deprecated: No longer needed as of 1.89.0 as partitions and segment distribution is now automatically managed by LogScale itself.
 	AutoRebalancePartitions bool `json:"autoRebalancePartitions,omitempty"`
 	// TargetReplicationFactor is the desired number of replicas of both storage and ingest partitions
 	TargetReplicationFactor int `json:"targetReplicationFactor,omitempty"`
 	// StoragePartitionsCount is the desired number of storage partitions
+	// Deprecated: No longer needed as LogScale now automatically redistributes segments
 	StoragePartitionsCount int `json:"storagePartitionsCount,omitempty"`
 	// DigestPartitionsCount is the desired number of digest partitions
 	DigestPartitionsCount int `json:"digestPartitionsCount,omitempty"`
@@ -90,6 +92,11 @@ type HumioClusterSpec struct {
 	HumioHeadlessServiceLabels map[string]string `json:"humioHeadlessServiceLabels,omitempty"`
 
 	HumioNodeSpec `json:",inline"`
+
+	// CommonEnvironmentVariables is the set of variables that will be applied to all nodes regardless of the node pool types.
+	// See spec.nodePools[].environmentVariables to override or append variables for a node pool.
+	// New installations should prefer setting this variable instead of spec.environmentVariables as the latter will be deprecated in the future.
+	CommonEnvironmentVariables []corev1.EnvVar `json:"commonEnvironmentVariables,omitempty"`
 
 	// NodePools can be used to define additional groups of Humio cluster pods that share a set of configuration.
 	NodePools []HumioNodePoolSpec `json:"nodePools,omitempty"`
@@ -208,7 +215,11 @@ type HumioNodeSpec struct {
 	// to the Humio pods
 	HumioServiceLabels map[string]string `json:"humioServiceLabels,omitempty"`
 
-	// EnvironmentVariables that will be merged with default environment variables then set on the humio container
+	// EnvironmentVariables is the set of variables that will be supplied to all Pods in the given node pool.
+	// This set is merged with fallback environment variables (for defaults in case they are not supplied in the Custom Resource),
+	// and spec.commonEnvironmentVariables (for variables that should be applied to Pods of all node types).
+	// Precedence is given to more environment-specific variables, i.e. spec.environmentVariables
+	// (or spec.nodePools[].environmentVariables) has higher precedence than spec.commonEnvironmentVariables.
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
 
 	// ImageSource is the reference to an external source identifying the image
@@ -254,8 +265,7 @@ type HumioUpdateStrategy struct {
 	// When set to RollingUpdate, pods will always be replaced one pod at a time. There may be some Humio updates where
 	// rolling updates are not supported, so it is not recommended to have this set all the time.
 	//
-	// When set to ReplaceAllOnUpdate, all Humio pods will be replaced at the same time during an update. Pods will still
-	// be replaced one at a time when there are other configuration changes such as updates to pod environment variables.
+	// When set to ReplaceAllOnUpdate, all Humio pods will be replaced at the same time during an update.
 	// This is the default behavior.
 	//
 	// When set to RollingUpdateBestEffort, the operator will evaluate the Humio version change and determine if the

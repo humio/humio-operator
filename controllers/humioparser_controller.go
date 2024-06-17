@@ -153,21 +153,23 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if parser exists")
 	}
 
-	currentTagFields := make([]string, len(curParser.TagFields))
+	currentFieldsToTag := make([]string, len(curParser.FieldsToTag))
 	expectedTagFields := make([]string, len(hp.Spec.TagFields))
-	currentTests := make([]string, len(curParser.Tests))
+	curParserTests := make([]string, len(curParser.TestCases))
 	expectedTests := make([]string, len(hp.Spec.TestData))
-	_ = copy(currentTagFields, curParser.TagFields)
+	_ = copy(currentFieldsToTag, curParser.FieldsToTag)
 	_ = copy(expectedTagFields, hp.Spec.TagFields)
-	_ = copy(currentTests, curParser.Tests)
+	for i := range curParser.TestCases {
+		curParserTests[i] = curParser.TestCases[i].Event.RawString
+	}
 	_ = copy(expectedTests, hp.Spec.TestData)
-	sort.Strings(currentTagFields)
+	sort.Strings(currentFieldsToTag)
 	sort.Strings(expectedTagFields)
-	sort.Strings(currentTests)
+	sort.Strings(curParserTests)
 	sort.Strings(expectedTests)
 	parserScriptDiff := cmp.Diff(curParser.Script, hp.Spec.ParserScript)
-	tagFieldsDiff := cmp.Diff(curParser.TagFields, hp.Spec.TagFields)
-	testDataDiff := cmp.Diff(curParser.Tests, hp.Spec.TestData)
+	tagFieldsDiff := cmp.Diff(curParser.FieldsToTag, hp.Spec.TagFields)
+	testDataDiff := cmp.Diff(curParserTests, hp.Spec.TestData)
 
 	if parserScriptDiff != "" || tagFieldsDiff != "" || testDataDiff != "" {
 		r.Log.Info("parser information differs, triggering update", "parserScriptDiff", parserScriptDiff, "tagFieldsDiff", tagFieldsDiff, "testDataDiff", testDataDiff)

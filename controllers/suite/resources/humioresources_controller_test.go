@@ -580,19 +580,29 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var initialParser *humioapi.Parser
 			Eventually(func() error {
 				initialParser, err = humioClient.GetParser(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateParser)
+				if err != nil {
+					return err
+				}
 
 				// Ignore the ID when comparing parser content
 				initialParser.ID = ""
 
-				return err
+				return nil
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(initialParser).ToNot(BeNil())
 
 			expectedInitialParser := humioapi.Parser{
-				Name:      spec.Name,
-				Script:    spec.ParserScript,
-				TagFields: spec.TagFields,
-				Tests:     spec.TestData,
+				Name:                           spec.Name,
+				Script:                         spec.ParserScript,
+				FieldsToTag:                    spec.TagFields,
+				FieldsToBeRemovedBeforeParsing: []string{},
+			}
+			expectedInitialParser.TestCases = make([]humioapi.ParserTestCase, len(spec.TestData))
+			for i := range spec.TestData {
+				expectedInitialParser.TestCases[i] = humioapi.ParserTestCase{
+					Event:      humioapi.ParserTestEvent{RawString: spec.TestData[i]},
+					Assertions: []humioapi.ParserTestCaseAssertions{},
+				}
 			}
 			Expect(*initialParser).To(Equal(expectedInitialParser))
 
@@ -616,10 +626,17 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(updatedParser).ToNot(BeNil())
 
 			expectedUpdatedParser := humioapi.Parser{
-				Name:      spec.Name,
-				Script:    updatedScript,
-				TagFields: spec.TagFields,
-				Tests:     spec.TestData,
+				Name:                           spec.Name,
+				Script:                         updatedScript,
+				FieldsToTag:                    spec.TagFields,
+				FieldsToBeRemovedBeforeParsing: []string{},
+			}
+			expectedUpdatedParser.TestCases = make([]humioapi.ParserTestCase, len(spec.TestData))
+			for i := range spec.TestData {
+				expectedUpdatedParser.TestCases[i] = humioapi.ParserTestCase{
+					Event:      humioapi.ParserTestEvent{RawString: spec.TestData[i]},
+					Assertions: []humioapi.ParserTestCaseAssertions{},
+				}
 			}
 			Eventually(func() humioapi.Parser {
 				updatedParser, err := humioClient.GetParser(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedParser)
@@ -2085,7 +2102,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ViewName:           testRepo.Spec.Name,
 				Query: humiov1alpha1.HumioQuery{
 					QueryString: "#repo = test | count()",
-					Start:       "24h",
+					Start:       "1d",
 				},
 				ThrottleTimeMillis: 60000,
 				ThrottleField:      "some field",
@@ -2183,8 +2200,12 @@ var _ = Describe("Humio Resources Controllers", func() {
 				if err != nil {
 					return *updatedAlert
 				}
-				// Ignore the ID
+
+				// Ignore the ID, QueryOwnershipType and RunAsUserID
 				updatedAlert.ID = ""
+				updatedAlert.QueryOwnershipType = ""
+				updatedAlert.RunAsUserID = ""
+
 				return *updatedAlert
 			}, testTimeout, suite.TestInterval).Should(Equal(*verifiedAlert))
 

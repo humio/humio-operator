@@ -48,10 +48,6 @@ type Client interface {
 
 type ClusterClient interface {
 	GetClusters(*humioapi.Config, reconcile.Request) (humioapi.Cluster, error)
-	UpdateStoragePartitionScheme(*humioapi.Config, reconcile.Request, []humioapi.StoragePartitionInput) error
-	UpdateIngestPartitionScheme(*humioapi.Config, reconcile.Request, []humioapi.IngestPartitionInput) error
-	SuggestedStoragePartitions(*humioapi.Config, reconcile.Request) ([]humioapi.StoragePartitionInput, error)
-	SuggestedIngestPartitions(*humioapi.Config, reconcile.Request) ([]humioapi.IngestPartitionInput, error)
 	GetHumioClient(*humioapi.Config, reconcile.Request) *humioapi.Client
 	ClearHumioClientConnections()
 	GetBaseURL(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioCluster) *url.URL
@@ -215,34 +211,6 @@ func (h *ClientConfig) GetClusters(config *humioapi.Config, req reconcile.Reques
 	return clusters, err
 }
 
-// UpdateStoragePartitionScheme updates the storage partition scheme and can be mocked via the Client interface
-func (h *ClientConfig) UpdateStoragePartitionScheme(config *humioapi.Config, req reconcile.Request, spi []humioapi.StoragePartitionInput) error {
-	err := h.GetHumioClient(config, req).Clusters().UpdateStoragePartitionScheme(spi)
-	if err != nil {
-		h.logger.Error(err, "could not update storage partition scheme cluster information")
-	}
-	return err
-}
-
-// UpdateIngestPartitionScheme updates the ingest partition scheme and can be mocked via the Client interface
-func (h *ClientConfig) UpdateIngestPartitionScheme(config *humioapi.Config, req reconcile.Request, ipi []humioapi.IngestPartitionInput) error {
-	err := h.GetHumioClient(config, req).Clusters().UpdateIngestPartitionScheme(ipi)
-	if err != nil {
-		h.logger.Error(err, "could not update ingest partition scheme cluster information")
-	}
-	return err
-}
-
-// SuggestedStoragePartitions gets the suggested storage partition layout
-func (h *ClientConfig) SuggestedStoragePartitions(config *humioapi.Config, req reconcile.Request) ([]humioapi.StoragePartitionInput, error) {
-	return h.GetHumioClient(config, req).Clusters().SuggestedStoragePartitions()
-}
-
-// SuggestedIngestPartitions gets the suggested ingest partition layout
-func (h *ClientConfig) SuggestedIngestPartitions(config *humioapi.Config, req reconcile.Request) ([]humioapi.IngestPartitionInput, error) {
-	return h.GetHumioClient(config, req).Clusters().SuggestedIngestPartitions()
-}
-
 // GetBaseURL returns the base URL for given HumioCluster
 func (h *ClientConfig) GetBaseURL(config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) *url.URL {
 	protocol := "https"
@@ -287,17 +255,26 @@ func (h *ClientConfig) DeleteIngestToken(config *humioapi.Config, req reconcile.
 
 func (h *ClientConfig) AddParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
 	parser := humioapi.Parser{
-		Name:      hp.Spec.Name,
-		Script:    hp.Spec.ParserScript,
-		TagFields: hp.Spec.TagFields,
-		Tests:     hp.Spec.TestData,
+		Name:        hp.Spec.Name,
+		Script:      hp.Spec.ParserScript,
+		FieldsToTag: hp.Spec.TagFields,
 	}
-	err := h.GetHumioClient(config, req).Parsers().Add(
+
+	testCasesGQL := make([]humioapi.ParserTestCase, len(hp.Spec.TestData))
+	for i := range hp.Spec.TestData {
+		testCasesGQL[i] = humioapi.ParserTestCase{
+			Event: humioapi.ParserTestEvent{
+				RawString: hp.Spec.TestData[i],
+			},
+		}
+	}
+	parser.TestCases = testCasesGQL
+
+	return h.GetHumioClient(config, req).Parsers().Add(
 		hp.Spec.RepositoryName,
 		&parser,
 		false,
 	)
-	return &parser, err
 }
 
 func (h *ClientConfig) GetParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
@@ -306,21 +283,28 @@ func (h *ClientConfig) GetParser(config *humioapi.Config, req reconcile.Request,
 
 func (h *ClientConfig) UpdateParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
 	parser := humioapi.Parser{
-		Name:      hp.Spec.Name,
-		Script:    hp.Spec.ParserScript,
-		TagFields: hp.Spec.TagFields,
-		Tests:     hp.Spec.TestData,
+		Name:        hp.Spec.Name,
+		Script:      hp.Spec.ParserScript,
+		FieldsToTag: hp.Spec.TagFields,
 	}
-	err := h.GetHumioClient(config, req).Parsers().Add(
+
+	testCasesGQL := make([]humioapi.ParserTestCase, len(hp.Spec.TestData))
+	for i := range hp.Spec.TestData {
+		testCasesGQL[i] = humioapi.ParserTestCase{
+			Event: humioapi.ParserTestEvent{RawString: hp.Spec.TestData[i]},
+		}
+	}
+	parser.TestCases = testCasesGQL
+
+	return h.GetHumioClient(config, req).Parsers().Add(
 		hp.Spec.RepositoryName,
 		&parser,
 		true,
 	)
-	return &parser, err
 }
 
 func (h *ClientConfig) DeleteParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) error {
-	return h.GetHumioClient(config, req).Parsers().Remove(hp.Spec.RepositoryName, hp.Spec.Name)
+	return h.GetHumioClient(config, req).Parsers().Delete(hp.Spec.RepositoryName, hp.Spec.Name)
 }
 
 func (h *ClientConfig) AddRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {

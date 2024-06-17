@@ -31,45 +31,35 @@ import (
 )
 
 type ClientMock struct {
-	Cluster                           humioapi.Cluster
-	ClusterError                      error
-	UpdateStoragePartitionSchemeError error
-	UpdateIngestPartitionSchemeError  error
-	IngestToken                       humioapi.IngestToken
-	Parser                            humioapi.Parser
-	Repository                        humioapi.Repository
-	View                              humioapi.View
-	OnPremLicense                     humioapi.OnPremLicense
-	Action                            humioapi.Action
-	Alert                             humioapi.Alert
+	Cluster       humioapi.Cluster
+	ClusterError  error
+	IngestToken   humioapi.IngestToken
+	Parser        humioapi.Parser
+	Repository    humioapi.Repository
+	View          humioapi.View
+	OnPremLicense humioapi.OnPremLicense
+	Action        humioapi.Action
+	Alert         humioapi.Alert
 }
 
 type MockClientConfig struct {
 	apiClient *ClientMock
 }
 
-func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePartitionSchemeError error, updateIngestPartitionSchemeError error) *MockClientConfig {
-	storagePartition := humioapi.StoragePartition{}
-	ingestPartition := humioapi.IngestPartition{}
-
+func NewMockClient(cluster humioapi.Cluster, clusterError error) *MockClientConfig {
 	mockClientConfig := &MockClientConfig{
 		apiClient: &ClientMock{
-			Cluster:                           cluster,
-			ClusterError:                      clusterError,
-			UpdateStoragePartitionSchemeError: updateStoragePartitionSchemeError,
-			UpdateIngestPartitionSchemeError:  updateIngestPartitionSchemeError,
-			IngestToken:                       humioapi.IngestToken{},
-			Parser:                            humioapi.Parser{},
-			Repository:                        humioapi.Repository{},
-			View:                              humioapi.View{},
-			OnPremLicense:                     humioapi.OnPremLicense{},
-			Action:                            humioapi.Action{},
-			Alert:                             humioapi.Alert{},
+			Cluster:       cluster,
+			ClusterError:  clusterError,
+			IngestToken:   humioapi.IngestToken{},
+			Parser:        humioapi.Parser{},
+			Repository:    humioapi.Repository{},
+			View:          humioapi.View{},
+			OnPremLicense: humioapi.OnPremLicense{},
+			Action:        humioapi.Action{},
+			Alert:         humioapi.Alert{},
 		},
 	}
-
-	cluster.StoragePartitions = []humioapi.StoragePartition{storagePartition}
-	cluster.IngestPartitions = []humioapi.IngestPartition{ingestPartition}
 
 	return mockClientConfig
 }
@@ -86,50 +76,6 @@ func (h *MockClientConfig) GetClusters(config *humioapi.Config, req reconcile.Re
 		return humioapi.Cluster{}, h.apiClient.ClusterError
 	}
 	return h.apiClient.Cluster, nil
-}
-
-func (h *MockClientConfig) UpdateStoragePartitionScheme(config *humioapi.Config, req reconcile.Request, sps []humioapi.StoragePartitionInput) error {
-	if h.apiClient.UpdateStoragePartitionSchemeError != nil {
-		return h.apiClient.UpdateStoragePartitionSchemeError
-	}
-
-	var storagePartitions []humioapi.StoragePartition
-	for _, storagePartitionInput := range sps {
-		var nodeIdsList []int
-		for _, nodeID := range storagePartitionInput.NodeIDs {
-			nodeIdsList = append(nodeIdsList, int(nodeID))
-		}
-		storagePartitions = append(storagePartitions, humioapi.StoragePartition{Id: int(storagePartitionInput.ID), NodeIds: nodeIdsList})
-	}
-	h.apiClient.Cluster.StoragePartitions = storagePartitions
-
-	return nil
-}
-
-func (h *MockClientConfig) UpdateIngestPartitionScheme(config *humioapi.Config, req reconcile.Request, ips []humioapi.IngestPartitionInput) error {
-	if h.apiClient.UpdateIngestPartitionSchemeError != nil {
-		return h.apiClient.UpdateIngestPartitionSchemeError
-	}
-
-	var ingestPartitions []humioapi.IngestPartition
-	for _, ingestPartitionInput := range ips {
-		var nodeIdsList []int
-		for _, nodeID := range ingestPartitionInput.NodeIDs {
-			nodeIdsList = append(nodeIdsList, int(nodeID))
-		}
-		ingestPartitions = append(ingestPartitions, humioapi.IngestPartition{Id: int(ingestPartitionInput.ID), NodeIds: nodeIdsList})
-	}
-	h.apiClient.Cluster.IngestPartitions = ingestPartitions
-
-	return nil
-}
-
-func (h *MockClientConfig) SuggestedStoragePartitions(config *humioapi.Config, req reconcile.Request) ([]humioapi.StoragePartitionInput, error) {
-	return []humioapi.StoragePartitionInput{}, nil
-}
-
-func (h *MockClientConfig) SuggestedIngestPartitions(config *humioapi.Config, req reconcile.Request) ([]humioapi.IngestPartitionInput, error) {
-	return []humioapi.IngestPartitionInput{}, nil
 }
 
 func (h *MockClientConfig) GetBaseURL(config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) *url.URL {
@@ -165,11 +111,21 @@ func (h *MockClientConfig) DeleteIngestToken(config *humioapi.Config, req reconc
 
 func (h *MockClientConfig) AddParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
 	h.apiClient.Parser = humioapi.Parser{
-		Name:      hp.Spec.Name,
-		Script:    hp.Spec.ParserScript,
-		TagFields: hp.Spec.TagFields,
-		Tests:     hp.Spec.TestData,
+		Name:                           hp.Spec.Name,
+		Script:                         hp.Spec.ParserScript,
+		FieldsToTag:                    hp.Spec.TagFields,
+		FieldsToBeRemovedBeforeParsing: []string{},
 	}
+
+	testCasesGQL := make([]humioapi.ParserTestCase, len(hp.Spec.TestData))
+	for i := range hp.Spec.TestData {
+		testCasesGQL[i] = humioapi.ParserTestCase{
+			Event:      humioapi.ParserTestEvent{RawString: hp.Spec.TestData[i]},
+			Assertions: []humioapi.ParserTestCaseAssertions{},
+		}
+	}
+	h.apiClient.Parser.TestCases = testCasesGQL
+
 	return &h.apiClient.Parser, nil
 }
 
