@@ -24,6 +24,7 @@ import (
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // humioServiceLabels generates the set of labels to attach to the humio kubernetes service
@@ -51,12 +52,14 @@ func ConstructService(hnp *HumioNodePool) *corev1.Service {
 			Selector: hnp.GetNodePoolLabels(),
 			Ports: []corev1.ServicePort{
 				{
-					Name: "http",
-					Port: hnp.GetHumioServicePort(),
+					Name:       "http",
+					Port:       hnp.GetHumioServicePort(),
+					TargetPort: intstr.IntOrString{IntVal: hnp.GetHumioServicePort()},
 				},
 				{
-					Name: "es",
-					Port: hnp.GetHumioESServicePort(),
+					Name:       "es",
+					Port:       hnp.GetHumioESServicePort(),
+					TargetPort: intstr.IntOrString{IntVal: hnp.GetHumioESServicePort()},
 				},
 			},
 		},
