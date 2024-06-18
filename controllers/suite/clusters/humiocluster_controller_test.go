@@ -4883,18 +4883,26 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Removing the node pool label from the pod")
-			clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-			Expect(err).Should(BeNil())
-			Expect(clusterPods).To(HaveLen(1))
-			labelsWithoutNodePoolName := map[string]string{}
-			for k, v := range clusterPods[0].GetLabels() {
-				if k == kubernetes.NodePoolLabelName {
-					continue
+			var clusterPods []corev1.Pod
+			Eventually(func() error {
+				clusterPods, err = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				if err != nil {
+					return err
 				}
-				labelsWithoutNodePoolName[k] = v
-			}
-			clusterPods[0].SetLabels(labelsWithoutNodePoolName)
-			Expect(k8sClient.Update(ctx, &clusterPods[0])).Should(Succeed())
+				if len(clusterPods) != 1 {
+					return fmt.Errorf("length found to be %d, expected %d", len(clusterPods), 1)
+				}
+				labelsWithoutNodePoolName := map[string]string{}
+				for k, v := range clusterPods[0].GetLabels() {
+					if k == kubernetes.NodePoolLabelName {
+						continue
+					}
+					labelsWithoutNodePoolName[k] = v
+				}
+				clusterPods[0].SetLabels(labelsWithoutNodePoolName)
+				return k8sClient.Update(ctx, &clusterPods[0])
+
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Validating the node pool name label gets added to the pod again")
 			Eventually(func() map[string]string {
