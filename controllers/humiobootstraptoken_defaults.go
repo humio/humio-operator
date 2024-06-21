@@ -5,11 +5,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
-
-	"github.com/humio/humio-operator/api/v1alpha1"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -18,11 +15,11 @@ const (
 )
 
 type HumioBootstrapTokenConfig struct {
-	BootstrapToken      *v1alpha1.HumioBootstrapToken
-	ManagedHumioCluster *v1alpha1.HumioCluster
+	BootstrapToken      *humiov1alpha1.HumioBootstrapToken
+	ManagedHumioCluster *humiov1alpha1.HumioCluster
 }
 
-func NewHumioBootstrapTokenConfig(bootstrapToken *humiov1alpha1.HumioBootstrapToken, managedHumioCluster *v1alpha1.HumioCluster) HumioBootstrapTokenConfig {
+func NewHumioBootstrapTokenConfig(bootstrapToken *humiov1alpha1.HumioBootstrapToken, managedHumioCluster *humiov1alpha1.HumioCluster) HumioBootstrapTokenConfig {
 	return HumioBootstrapTokenConfig{BootstrapToken: bootstrapToken, ManagedHumioCluster: managedHumioCluster}
 }
 
@@ -68,7 +65,7 @@ func (b *HumioBootstrapTokenConfig) image() string {
 	return Image
 }
 
-func (b *HumioBootstrapTokenConfig) imagePullSecrets() []v1.LocalObjectReference {
+func (b *HumioBootstrapTokenConfig) imagePullSecrets() []corev1.LocalObjectReference {
 	if len(b.BootstrapToken.Spec.ImagePullSecrets) > 0 {
 		return b.BootstrapToken.Spec.ImagePullSecrets
 	}
@@ -82,7 +79,7 @@ func (b *HumioBootstrapTokenConfig) imagePullSecrets() []v1.LocalObjectReference
 			}
 		}
 	}
-	return []v1.LocalObjectReference{}
+	return []corev1.LocalObjectReference{}
 }
 
 func (b *HumioBootstrapTokenConfig) resources() corev1.ResourceRequirements {
