@@ -124,7 +124,7 @@ func (r *HumioClusterReconciler) validateAdminSecretContent(ctx context.Context,
 		// We could successfully get information about the cluster, so the token must be valid
 		return nil
 	}
-	return fmt.Errorf("Unable to validate if kubernetes secret %s holds a valid humio API token", adminSecretName)
+	return fmt.Errorf("unable to validate if kubernetes secret %s holds a valid humio API token", adminSecretName)
 }
 
 // ensureAdminSecretContent ensures the target Kubernetes secret contains the desired API token
@@ -185,7 +185,7 @@ func (r *HumioClusterReconciler) createPermissionToken(ctx context.Context, conf
 	// Get user ID of admin account
 	userID, err := r.createAndGetAdminAccountUserID(ctx, config, req, organizationMode, username, organization)
 	if err != nil {
-		return fmt.Errorf("Got err trying to obtain user ID of admin user: %s\n", err)
+		return fmt.Errorf("got err trying to obtain user ID of admin user: %s", err)
 	}
 
 	if err := r.validateAdminSecretContent(ctx, hc, req); err == nil {
