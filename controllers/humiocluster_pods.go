@@ -906,20 +906,6 @@ func (r *HumioClusterReconciler) getDesiredBootstrapTokenHash(ctx context.Contex
 	return "", r.logErrorAndReturn(err, fmt.Sprintf("could not find bootstrap token secret matching labels %+v", kubernetes.LabelsForHumioBootstrapToken(hc.GetName())))
 }
 
-func (r *HumioClusterReconciler) bootstrapTokenReady(ctx context.Context, hc *humiov1alpha1.HumioCluster) (bool, error) {
-	humioBootstrapTokens, err := kubernetes.ListHumioBootstrapTokens(ctx, r.Client, hc.GetNamespace(), kubernetes.LabelsForHumioBootstrapToken(hc.GetName()))
-	if err != nil {
-		return false, r.logErrorAndReturn(err, "failed to get bootstrap token")
-	}
-
-	if len(humioBootstrapTokens) > 0 {
-		if humioBootstrapTokens[0].Status.State == humiov1alpha1.HumioBootstrapTokenStateReady {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 // findHumioNodeNameAndCertHash looks up the name of a free node certificate to use and the hash of the certificate specification
 func findHumioNodeNameAndCertHash(ctx context.Context, c client.Client, hnp *HumioNodePool, newlyCreatedPods []corev1.Pod) (podNameAndCertificateHash, error) {
 	// if we do not have TLS enabled, append a random suffix
