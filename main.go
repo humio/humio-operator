@@ -37,6 +37,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
@@ -86,15 +87,21 @@ func main() {
 		ctrl.Log.Error(err, "unable to get WatchNamespace, "+
 			"the manager will watch and manage resources in all namespaces")
 	}
+	defaultNamespaces := map[string]cache.Config{}
+	if watchNamespace != "" {
+		for _, v := range strings.Split(watchNamespace, ",") {
+			defaultNamespaces[v] = cache.Config{}
+		}
+	}
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
+		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
 		WebhookServer:          webhook.NewServer(webhook.Options{Port: 9443}),
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "d7845218.humio.com",
-		Cache:                  cache.Options{Namespaces: strings.Split(watchNamespace, ",")},
+		Cache:                  cache.Options{DefaultNamespaces: defaultNamespaces},
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
