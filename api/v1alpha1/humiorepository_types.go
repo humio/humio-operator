@@ -59,6 +59,8 @@ type HumioRepositorySpec struct {
 	// repository. This must be set to true before the operator will apply retention settings that will (or might)
 	// cause data to be deleted within the repository.
 	AllowDataDeletion bool `json:"allowDataDeletion,omitempty"`
+	// DisableAutomaticSearch is used to disable the start search automatically on loading the search page option.
+	DisableAutomaticSearch bool `json:"disableAutomaticSearch,omitempty"`
 }
 
 // HumioRepositoryStatus defines the observed state of HumioRepository

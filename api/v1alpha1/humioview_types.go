@@ -50,8 +50,12 @@ type HumioViewSpec struct {
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the view inside Humio
 	Name string `json:"name,omitempty"`
+	// Description contains the description that will be set on the view
+	Description string `json:"description,omitempty"`
 	// Connections contains the connections to the Humio repositories which is accessible in this view
 	Connections []HumioViewConnection `json:"connections,omitempty"`
+	// DisableAutomaticSearch is used to disable the start search automatically on loading the search page option.
+	DisableAutomaticSearch bool `json:"disableAutomaticSearch,omitempty"`
 }
 
 // HumioViewStatus defines the observed state of HumioView

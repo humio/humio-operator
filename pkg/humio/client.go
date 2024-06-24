@@ -377,6 +377,16 @@ func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.R
 		}
 	}
 
+	if curRepository.AutomaticSearch != !hr.Spec.DisableAutomaticSearch {
+		err = h.GetHumioClient(config, req).Repositories().UpdateAutomaticSearch(
+			hr.Spec.Name,
+			!hr.Spec.DisableAutomaticSearch,
+		)
+		if err != nil {
+			return &humioapi.Repository{}, err
+		}
+	}
+
 	return h.GetRepository(config, req, hr)
 }
 
@@ -422,6 +432,26 @@ func (h *ClientConfig) UpdateView(config *humioapi.Config, req reconcile.Request
 	curView, err := h.GetView(config, req, hv)
 	if err != nil {
 		return &humioapi.View{}, err
+	}
+
+	if curView.Description != hv.Spec.Description {
+		err = h.GetHumioClient(config, req).Views().UpdateDescription(
+			hv.Spec.Name,
+			hv.Spec.Description,
+		)
+		if err != nil {
+			return &humioapi.View{}, err
+		}
+	}
+
+	if curView.AutomaticSearch != !hv.Spec.DisableAutomaticSearch {
+		err = h.GetHumioClient(config, req).Views().UpdateAutomaticSearch(
+			hv.Spec.Name,
+			!hv.Spec.DisableAutomaticSearch,
+		)
+		if err != nil {
+			return &humioapi.View{}, err
+		}
 	}
 
 	connections := hv.GetViewConnections()

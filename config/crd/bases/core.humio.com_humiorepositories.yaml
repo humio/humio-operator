@@ -60,6 +60,10 @@ spec:
                 description: Description contains the description that will be set
                   on the repository
                 type: string
+              disableAutomaticSearch:
+                description: DisableAutomaticSearch is used to disable the start search
+                  automatically on loading the search page option.
+                type: boolean
               externalClusterName:
                 description: |-
                   ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.

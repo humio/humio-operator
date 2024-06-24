@@ -157,16 +157,19 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if (curRepository.Description != hr.Spec.Description) ||
 		(curRepository.RetentionDays != float64(hr.Spec.Retention.TimeInDays)) ||
 		(curRepository.IngestRetentionSizeGB != float64(hr.Spec.Retention.IngestSizeInGB)) ||
-		(curRepository.StorageRetentionSizeGB != float64(hr.Spec.Retention.StorageSizeInGB)) {
-		r.Log.Info(fmt.Sprintf("repository information differs, triggering update, expected %v/%v/%v/%v, got: %v/%v/%v/%v",
+		(curRepository.StorageRetentionSizeGB != float64(hr.Spec.Retention.StorageSizeInGB)) ||
+		(curRepository.AutomaticSearch != !hr.Spec.DisableAutomaticSearch) {
+		r.Log.Info(fmt.Sprintf("repository information differs, triggering update, expected %v/%v/%v/%v/%v, got: %v/%v/%v/%v/%v",
 			hr.Spec.Description,
 			float64(hr.Spec.Retention.TimeInDays),
 			float64(hr.Spec.Retention.IngestSizeInGB),
 			float64(hr.Spec.Retention.StorageSizeInGB),
+			!hr.Spec.DisableAutomaticSearch,
 			curRepository.Description,
 			curRepository.RetentionDays,
 			curRepository.IngestRetentionSizeGB,
-			curRepository.StorageRetentionSizeGB))
+			curRepository.StorageRetentionSizeGB,
+			curRepository.AutomaticSearch))
 		_, err = r.HumioClient.UpdateRepository(cluster.Config(), req, hr)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update repository")
