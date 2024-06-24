@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/google/go-cmp/cmp"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -725,6 +727,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}
 			}
 			Expect(*initialParser).To(Equal(expectedInitialParser))
+			Expect(cmp.Diff(initialParser.TestCases, expectedInitialParser.TestCases)).To(Equal(""))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Updating the parser successfully")
 			updatedScript := ""
