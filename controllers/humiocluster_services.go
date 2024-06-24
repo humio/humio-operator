@@ -54,12 +54,12 @@ func ConstructService(hnp *HumioNodePool) *corev1.Service {
 				{
 					Name:       "http",
 					Port:       hnp.GetHumioServicePort(),
-					TargetPort: intstr.IntOrString{IntVal: hnp.GetHumioServicePort()},
+					TargetPort: intstr.IntOrString{IntVal: HumioPort},
 				},
 				{
 					Name:       "es",
 					Port:       hnp.GetHumioESServicePort(),
-					TargetPort: intstr.IntOrString{IntVal: hnp.GetHumioESServicePort()},
+					TargetPort: intstr.IntOrString{IntVal: elasticPort},
 				},
 			},
 		},
