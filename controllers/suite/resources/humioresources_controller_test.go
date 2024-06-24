@@ -663,6 +663,123 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
+	Context("Humio Parser", func() {
+		It("HumioParser: Should handle parser with empty script and test correctly", func() {
+			ctx := context.Background()
+			spec := humiov1alpha1.HumioParserSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               "example-parser",
+				RepositoryName:     testRepo.Spec.Name,
+				ParserScript:       "",
+				TagFields:          []string{"@somefield"},
+				TestData:           []string{},
+			}
+
+			key := types.NamespacedName{
+				Name:      "humioparser",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateParser := &humiov1alpha1.HumioParser{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: spec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Creating the parser successfully")
+			Expect(k8sClient.Create(ctx, toCreateParser)).Should(Succeed())
+
+			fetchedParser := &humiov1alpha1.HumioParser{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedParser)
+				return fetchedParser.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateExists))
+
+			var initialParser *humioapi.Parser
+			Eventually(func() error {
+				initialParser, err = humioClient.GetParser(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateParser)
+				if err != nil {
+					return err
+				}
+
+				// Ignore the ID when comparing parser content
+				initialParser.ID = ""
+
+				return nil
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(initialParser).ToNot(BeNil())
+
+			expectedInitialParser := humioapi.Parser{
+				Name:                           spec.Name,
+				Script:                         spec.ParserScript,
+				FieldsToTag:                    spec.TagFields,
+				FieldsToBeRemovedBeforeParsing: []string{},
+			}
+			expectedInitialParser.TestCases = make([]humioapi.ParserTestCase, len(spec.TestData))
+			for i := range spec.TestData {
+				expectedInitialParser.TestCases[i] = humioapi.ParserTestCase{
+					Event:      humioapi.ParserTestEvent{RawString: spec.TestData[i]},
+					Assertions: []humioapi.ParserTestCaseAssertions{},
+				}
+			}
+			Expect(*initialParser).To(Equal(expectedInitialParser))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Updating the parser successfully")
+			updatedScript := ""
+			Eventually(func() error {
+				k8sClient.Get(ctx, key, fetchedParser)
+				fetchedParser.Spec.ParserScript = updatedScript
+				return k8sClient.Update(ctx, fetchedParser)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			var updatedParser *humioapi.Parser
+			Eventually(func() error {
+				updatedParser, err = humioClient.GetParser(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedParser)
+
+				// Ignore the ID when comparing parser content
+				updatedParser.ID = ""
+
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(updatedParser).ToNot(BeNil())
+
+			expectedUpdatedParser := humioapi.Parser{
+				Name:                           spec.Name,
+				Script:                         updatedScript,
+				FieldsToTag:                    spec.TagFields,
+				FieldsToBeRemovedBeforeParsing: []string{},
+			}
+			expectedUpdatedParser.TestCases = make([]humioapi.ParserTestCase, len(spec.TestData))
+			for i := range spec.TestData {
+				expectedUpdatedParser.TestCases[i] = humioapi.ParserTestCase{
+					Event:      humioapi.ParserTestEvent{RawString: spec.TestData[i]},
+					Assertions: []humioapi.ParserTestCaseAssertions{},
+				}
+			}
+			Eventually(func() humioapi.Parser {
+				updatedParser, err := humioClient.GetParser(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedParser)
+				if err != nil {
+					return humioapi.Parser{}
+				}
+
+				// Ignore the ID when comparing parser content
+				updatedParser.ID = ""
+
+				return *updatedParser
+			}, testTimeout, suite.TestInterval).Should(Equal(expectedUpdatedParser))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedParser)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedParser)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+		})
+	})
+
 	Context("Humio External Cluster", func() {
 		It("should handle resources correctly", func() {
 			ctx := context.Background()
