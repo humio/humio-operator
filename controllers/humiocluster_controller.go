@@ -121,6 +121,11 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			withObservedGeneration(hc.GetGeneration()))
 	}(ctx, r.HumioClient, hc)
 
+	if err := r.ensureHumioClusterBootstrapToken(ctx, hc); err != nil {
+		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+			withMessage(err.Error()))
+	}
+
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if err := r.setImageFromSource(ctx, pool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
@@ -190,7 +195,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	for _, pool := range humioNodePools.Items {
-		if err := r.validateInitialPodSpec(hc, pool); err != nil {
+		if err := r.validateInitialPodSpec(pool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName()))
@@ -239,7 +244,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			r.ensureService,
 			r.ensureHumioPodPermissions,
 			r.ensureInitContainerPermissions,
-			r.ensureAuthContainerPermissions,
 			r.ensureHumioNodeCertificates,
 			r.ensureExtraKafkaConfigsConfigMap,
 		} {
@@ -304,7 +308,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true)
+	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withMessage(r.logErrorAndReturn(err, "unable to obtain humio client config").Error()).
@@ -457,8 +461,30 @@ func (r *HumioClusterReconciler) ensurePodRevisionAnnotation(ctx context.Context
 	}
 	return hc.Status.State, nil
 }
+func (r *HumioClusterReconciler) ensureHumioClusterBootstrapToken(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	r.Log.Info("ensuring humiobootstraptoken")
+	hbtList, err := kubernetes.ListHumioBootstrapTokens(ctx, r.Client, hc.GetNamespace(), kubernetes.LabelsForHumioBootstrapToken(hc.GetName()))
+	if err != nil {
+		return r.logErrorAndReturn(err, "could not list HumioBootstrapToken")
+	}
+	if len(hbtList) > 0 {
+		r.Log.Info("humiobootstraptoken already exists")
+		return nil
+	}
 
-func (r *HumioClusterReconciler) validateInitialPodSpec(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
+	hbt := kubernetes.ConstructHumioBootstrapToken(hc.GetName(), hc.GetNamespace())
+	if err := controllerutil.SetControllerReference(hc, hbt, r.Scheme()); err != nil {
+		return r.logErrorAndReturn(err, "could not set controller reference")
+	}
+	r.Log.Info(fmt.Sprintf("creating humiobootstraptoken %s", hbt.Name))
+	err = r.Create(ctx, hbt)
+	if err != nil {
+		return r.logErrorAndReturn(err, "could not create bootstrap token resource")
+	}
+	return nil
+}
+
+func (r *HumioClusterReconciler) validateInitialPodSpec(hnp *HumioNodePool) error {
 	if _, err := ConstructPod(hnp, "", &podAttachments{}); err != nil {
 		return r.logErrorAndReturn(err, "failed to validate pod spec")
 	}
@@ -883,42 +909,6 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 	return nil
 }
 
-func (r *HumioClusterReconciler) ensureAuthContainerPermissions(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
-	// Only add the service account secret if the authServiceAccountName is supplied. This implies the service account,
-	// cluster role and cluster role binding are managed outside of the operator, so we skip the remaining tasks.
-	if hnp.AuthServiceAccountIsSetByUser() {
-		// We do not want to attach the auth service account to the humio pod. Instead, only the auth container should use this
-		// service account. To do this, we can attach the service account directly to the auth container as per
-		// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
-		if err := r.ensureServiceAccountSecretExists(ctx, hc, hnp, hnp.GetAuthServiceAccountSecretName(), hnp.GetAuthServiceAccountName()); err != nil {
-			return r.logErrorAndReturn(err, "unable to ensure auth service account secret exists")
-		}
-		return nil
-	}
-
-	// The service account is used by the auth container attached to the humio pods.
-	if err := r.ensureServiceAccountExists(ctx, hc, hnp, hnp.GetAuthServiceAccountName(), map[string]string{}); err != nil {
-		return r.logErrorAndReturn(err, "unable to ensure auth service account exists")
-	}
-
-	// We do not want to attach the auth service account to the humio pod. Instead, only the auth container should use this
-	// service account. To do this, we can attach the service account directly to the auth container as per
-	// https://github.com/kubernetes/kubernetes/issues/66020#issuecomment-590413238
-	if err := r.ensureServiceAccountSecretExists(ctx, hc, hnp, hnp.GetAuthServiceAccountSecretName(), hnp.GetAuthServiceAccountName()); err != nil {
-		return r.logErrorAndReturn(err, "unable to ensure auth service account secret exists")
-	}
-
-	if err := r.ensureAuthRole(ctx, hc, hnp); err != nil {
-		return r.logErrorAndReturn(err, "unable to ensure auth role exists")
-	}
-
-	if err := r.ensureAuthRoleBinding(ctx, hc, hnp); err != nil {
-		return r.logErrorAndReturn(err, "unable to ensure auth role binding exists")
-	}
-
-	return nil
-}
-
 // Ensure the CA Issuer is valid/ready
 func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
@@ -1117,27 +1107,6 @@ func (r *HumioClusterReconciler) ensureInitClusterRole(ctx context.Context, hnp 
 	return nil
 }
 
-func (r *HumioClusterReconciler) ensureAuthRole(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
-	roleName := hnp.GetAuthRoleName()
-	_, err := kubernetes.GetRole(ctx, r, roleName, hnp.GetNamespace())
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			role := kubernetes.ConstructAuthRole(roleName, hnp.GetNamespace(), hnp.GetNodePoolLabels())
-			if err := controllerutil.SetControllerReference(hc, role, r.Scheme()); err != nil {
-				return r.logErrorAndReturn(err, "could not set controller reference")
-			}
-			r.Log.Info(fmt.Sprintf("creating role: %s", role.Name))
-			err = r.Create(ctx, role)
-			if err != nil {
-				return r.logErrorAndReturn(err, "unable to create auth role")
-			}
-			r.Log.Info(fmt.Sprintf("successfully created auth role %s", roleName))
-			humioClusterPrometheusMetrics.Counters.RolesCreated.Inc()
-		}
-	}
-	return nil
-}
-
 func (r *HumioClusterReconciler) ensureInitClusterRoleBinding(ctx context.Context, hnp *HumioNodePool) error {
 	clusterRoleBindingName := hnp.GetInitClusterRoleBindingName()
 	_, err := kubernetes.GetClusterRoleBinding(ctx, r, clusterRoleBindingName)
@@ -1164,33 +1133,6 @@ func (r *HumioClusterReconciler) ensureInitClusterRoleBinding(ctx context.Contex
 	return nil
 }
 
-func (r *HumioClusterReconciler) ensureAuthRoleBinding(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
-	roleBindingName := hnp.GetAuthRoleBindingName()
-	_, err := kubernetes.GetRoleBinding(ctx, r, roleBindingName, hnp.GetNamespace())
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			roleBinding := kubernetes.ConstructRoleBinding(
-				roleBindingName,
-				hnp.GetAuthRoleName(),
-				hnp.GetNamespace(),
-				hnp.GetAuthServiceAccountName(),
-				hnp.GetNodePoolLabels(),
-			)
-			if err := controllerutil.SetControllerReference(hc, roleBinding, r.Scheme()); err != nil {
-				return r.logErrorAndReturn(err, "could not set controller reference")
-			}
-			r.Log.Info(fmt.Sprintf("creating role binding: %s", roleBinding.Name))
-			err = r.Create(ctx, roleBinding)
-			if err != nil {
-				return r.logErrorAndReturn(err, "unable to create auth role binding")
-			}
-			r.Log.Info(fmt.Sprintf("successfully created auth role binding %s", roleBindingName))
-			humioClusterPrometheusMetrics.Counters.RoleBindingsCreated.Inc()
-		}
-	}
-	return nil
-}
-
 // validateUserDefinedServiceAccountsExists confirms that the user-defined service accounts all exist as they should.
 // If any of the service account names explicitly set does not exist, or that we get an error, we return an error.
 // In case the user does not define any service accounts or that all user-defined service accounts already exists, we return nil.
@@ -1206,15 +1148,6 @@ func (r *HumioClusterReconciler) validateUserDefinedServiceAccountsExists(ctx co
 	}
 	if hc.Spec.InitServiceAccountName != "" {
 		_, err := kubernetes.GetServiceAccount(ctx, r, hc.Spec.InitServiceAccountName, hc.Namespace)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				return r.logErrorAndReturn(err, "not all referenced service accounts exists")
-			}
-			return r.logErrorAndReturn(err, "could not get service accounts")
-		}
-	}
-	if hc.Spec.AuthServiceAccountName != "" {
-		_, err := kubernetes.GetServiceAccount(ctx, r, hc.Spec.AuthServiceAccountName, hc.Namespace)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				return r.logErrorAndReturn(err, "not all referenced service accounts exists")
@@ -1477,7 +1410,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 
 	// Configure a Humio client without an API token which we can use to check the current license on the cluster
 	noLicense := humioapi.OnPremLicense{}
-	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), false)
+	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), false, false)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -1515,6 +1448,11 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	// At this point we know a non-empty license has been returned by the Humio API,
 	// so we can continue to parse the license and issue a license update if needed.
 	if existingLicense == nil || existingLicense == noLicense {
+		cluster, err = helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), false, true)
+		if err != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not install initial license")
+		}
+
 		if err = r.HumioClient.InstallLicense(cluster.Config(), req, licenseStr); err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not install initial license")
 		}
@@ -1524,7 +1462,20 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	cluster, err = helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true)
+	cluster, err = helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), false, true)
+	if err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not authenticate with bootstrap token")
+	}
+	if err = r.HumioClient.InstallLicense(cluster.Config(), req, licenseStr); err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not install license")
+	}
+
+	// TODO: ensureLicense should be broken into multiple steps
+	if err = r.ensurePermissionTokens(ctx, cluster.Config(), req, hc); err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("config: %+v", cluster.Config()))
+	}
+
+	cluster, err = helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -1548,6 +1499,11 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (r *HumioClusterReconciler) ensurePermissionTokens(ctx context.Context, config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) error {
+	r.Log.Info("ensuring permission tokens")
+	return r.createPermissionToken(ctx, config, req, hc, "admin", "RootOrg")
 }
 
 func (r *HumioClusterReconciler) ensureService(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
@@ -1704,50 +1660,6 @@ func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNod
 		if err != nil {
 			if !k8serrors.IsNotFound(err) {
 				return r.logErrorAndReturn(err, "unable to get init cluster role binding")
-			}
-		}
-	}
-
-	if !hnp.AuthServiceAccountIsSetByUser() {
-		serviceAccount, err := kubernetes.GetServiceAccount(ctx, r.Client, hnp.GetAuthServiceAccountName(), hnp.GetNamespace())
-		if err == nil {
-			serviceAccount.SetLabels(hnp.GetNodePoolLabels())
-			err = r.Client.Update(ctx, serviceAccount)
-			if err != nil {
-				return r.logErrorAndReturn(err, "unable to update auth service account")
-			}
-		}
-		if err != nil {
-			if !k8serrors.IsNotFound(err) {
-				return r.logErrorAndReturn(err, "unable to get auth service account")
-			}
-		}
-
-		role, err := kubernetes.GetRole(ctx, r.Client, hnp.GetAuthRoleName(), hnp.GetNamespace())
-		if err == nil {
-			role.SetLabels(hnp.GetNodePoolLabels())
-			err = r.Client.Update(ctx, role)
-			if err != nil {
-				return r.logErrorAndReturn(err, "unable to update auth role")
-			}
-		}
-		if err != nil {
-			if !k8serrors.IsNotFound(err) {
-				return r.logErrorAndReturn(err, "unable to get auth role")
-			}
-		}
-
-		roleBinding, err := kubernetes.GetRoleBinding(ctx, r.Client, hnp.GetAuthRoleBindingName(), hnp.GetNamespace())
-		if err == nil {
-			roleBinding.SetLabels(hnp.GetNodePoolLabels())
-			err = r.Client.Update(ctx, roleBinding)
-			if err != nil {
-				return r.logErrorAndReturn(err, "unable to update auth role binding")
-			}
-		}
-		if err != nil {
-			if !k8serrors.IsNotFound(err) {
-				return r.logErrorAndReturn(err, "unable to get auth role binding")
 			}
 		}
 	}
@@ -1969,24 +1881,6 @@ func (r *HumioClusterReconciler) getInitServiceAccountSecretName(ctx context.Con
 	return foundInitServiceAccountSecretsList[0].Name, nil
 }
 
-func (r *HumioClusterReconciler) getAuthServiceAccountSecretName(ctx context.Context, hnp *HumioNodePool) (string, error) {
-	foundAuthServiceAccountNameSecretsList, err := kubernetes.ListSecrets(ctx, r, hnp.GetNamespace(), hnp.GetLabelsForSecret(hnp.GetAuthServiceAccountSecretName()))
-	if err != nil {
-		return "", err
-	}
-	if len(foundAuthServiceAccountNameSecretsList) == 0 {
-		return "", nil
-	}
-	if len(foundAuthServiceAccountNameSecretsList) > 1 {
-		var secretNames []string
-		for _, secret := range foundAuthServiceAccountNameSecretsList {
-			secretNames = append(secretNames, secret.Name)
-		}
-		return "", fmt.Errorf("found more than one auth service account secret: %s", strings.Join(secretNames, ", "))
-	}
-	return foundAuthServiceAccountNameSecretsList[0].Name, nil
-}
-
 func (r *HumioClusterReconciler) ensureHumioServiceAccountAnnotations(ctx context.Context, hnp *HumioNodePool) (bool, error) {
 	// Don't change the service account annotations if the service account is not managed by the operator
 	if hnp.HumioServiceAccountIsSetByUser() {
@@ -2061,6 +1955,21 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	}
 	if envVarSourceData != nil {
 		attachments.envVarSourceData = envVarSourceData
+	}
+
+	humioBootstrapTokens, err := kubernetes.ListHumioBootstrapTokens(ctx, r.Client, hc.GetNamespace(), kubernetes.LabelsForHumioBootstrapToken(hc.GetName()))
+	if err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to get bootstrap token")
+	}
+	if len(humioBootstrapTokens) > 0 {
+		if humioBootstrapTokens[0].Status.State == humiov1alpha1.HumioBootstrapTokenStateReady {
+			attachments.bootstrapTokenSecretReference.secretReference = humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef
+			bootstrapTokenHash, err := r.getDesiredBootstrapTokenHash(ctx, hc)
+			if err != nil {
+				return reconcile.Result{}, r.logErrorAndReturn(err, "unable to find bootstrap token secret")
+			}
+			attachments.bootstrapTokenSecretReference.hash = bootstrapTokenHash
+		}
 	}
 
 	// prioritize deleting the pods with errors
