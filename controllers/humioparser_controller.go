@@ -162,7 +162,13 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	for i := range curParser.TestCases {
 		curParserTests[i] = curParser.TestCases[i].Event.RawString
 	}
+	if hp.Spec.TagFields == nil {
+		hp.Spec.TagFields = []string{}
+	}
 	_ = copy(expectedTests, hp.Spec.TestData)
+	if hp.Spec.TestData == nil {
+		hp.Spec.TestData = []string{}
+	}
 	sort.Strings(currentFieldsToTag)
 	sort.Strings(expectedTagFields)
 	sort.Strings(curParserTests)
