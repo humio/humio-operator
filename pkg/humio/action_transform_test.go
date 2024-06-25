@@ -130,7 +130,7 @@ func TestActionCRAsAction(t *testing.T) {
 			},
 			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property webhookProperties.bodyTemplate is required, property webhookProperties.headers is required, property webhookProperties.method is required, invalid url for webhookProperties.url: parse \"\": empty url", ActionTypeWebhook),
+			fmt.Sprintf("%s failed due to errors: property webhookProperties.url is required, property webhookProperties.bodyTemplate is required, property webhookProperties.headers is required, property webhookProperties.method is required, invalid url for webhookProperties.url: parse \"\": empty url", ActionTypeWebhook),
 		},
 		{
 			"invalid pagerDutyProperties.severity",

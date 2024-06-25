@@ -1613,7 +1613,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 		It("should handle web hook action correctly", func() {
 			ctx := context.Background()
-			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle web hook action correctly")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle web hook action with url directly")
 			webHookActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-webhook-action",
@@ -2460,6 +2460,124 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(toCreateAction.Spec.PagerDutyProperties.RoutingKey))
 		})
+
+		It("HumioAction: WebhookProperties: Should support direct url", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-webhook-action-direct",
+				Namespace: clusterKey.Namespace,
+			}
+
+			expectedSecretValue := fmt.Sprintf("https://%s/integrations/0000/alert/0000/routing_key", testService1.Name)
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               key.Name,
+					ViewName:           testRepo.Spec.Name,
+					WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
+						Url: expectedSecretValue,
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			var action *humioapi.Action
+			Eventually(func() error {
+				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(action).ToNot(BeNil())
+
+			createdAction, err := humio.CRActionFromAPIAction(action)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+
+			// Check the SecretMap rather than the ApiToken on the action
+			apiToken, found := humiov1alpha1.GetSecretForHa(createdAction)
+			Expect(found).To(BeTrue())
+			Expect(apiToken).To(Equal(toCreateAction.Spec.WebhookProperties.Url))
+		})
+
+		It("HumioAction: WebhookProperties: Should support referencing secrets", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-webhook-action-secret",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               key.Name,
+					ViewName:           testRepo.Spec.Name,
+					WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
+						UrlSource: humiov1alpha1.VarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "action-webhook-url-secret",
+								},
+								Key: "key",
+							},
+						},
+					},
+				},
+			}
+
+			expectedSecretValue := fmt.Sprintf("https://%s/integrations/0000/alert/0000/routing_key", testService1.Name)
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "action-webhook-url-secret",
+					Namespace: clusterKey.Namespace,
+				},
+				Data: map[string][]byte{
+					"key": []byte(expectedSecretValue),
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			var action *humioapi.Action
+			Eventually(func() error {
+				action, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(action).ToNot(BeNil())
+
+			createdAction, err := humio.CRActionFromAPIAction(action)
+			Expect(err).To(BeNil())
+			Expect(createdAction.Spec.Name).To(Equal(toCreateAction.Spec.Name))
+			Expect(createdAction.Spec.WebhookProperties.Url).To(Equal(""))
+
+			// Check the SecretMap rather than the ApiToken on the action
+			apiToken, found := humiov1alpha1.GetSecretForHa(createdAction)
+			Expect(found).To(BeTrue())
+			Expect(apiToken).To(Equal(expectedSecretValue))
+		})
+		// TODO: Add tests for using webhookProperties.Headers
+		// TODO: Add tests for using webhookProperties.Headers & HeadersSource?
+		// TODO: Add tests for using webhookProperties.HeadersSource?
 	})
 
 	Context("Humio Alert", func() {

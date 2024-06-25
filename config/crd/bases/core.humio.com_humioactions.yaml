@@ -70,11 +70,18 @@ spec:
                   Action, and contains the corresponding properties
                 properties:
                   ingestToken:
+                    description: |-
+                      IngestToken specifies what ingest token to use
+                      If both IngestToken and IngestTokenSource are specified, IngestToken will be used.
                     type: string
                   ingestTokenSource:
+                    description: |-
+                      IngestToken specifies where to fetch the ingest token from
+                      If both IngestToken and IngestTokenSource are specified, IngestToken will be used.
                     properties:
                       secretKeyRef:
-                        description: SecretKeySelector selects a key of a Secret.
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
                         properties:
                           key:
                             description: The key of the secret to select from.  Must
@@ -112,11 +119,18 @@ spec:
                   apiUrl:
                     type: string
                   genieKey:
+                    description: |-
+                      GenieKey specifies what API key to use
+                      If both GenieKey and GenieKeySource are specified, GenieKey will be used.
                     type: string
                   genieKeySource:
+                    description: |-
+                      GenieKeySource specifies where to fetch the API key from
+                      If both GenieKey and GenieKeySource are specified, GenieKey will be used.
                     properties:
                       secretKeyRef:
-                        description: SecretKeySelector selects a key of a Secret.
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
                         properties:
                           key:
                             description: The key of the secret to select from.  Must
@@ -145,11 +159,18 @@ spec:
                   and contains the corresponding properties
                 properties:
                   routingKey:
+                    description: |-
+                      RoutingKey specifies what API key to use
+                      If both RoutingKey and RoutingKeySource are specified, RoutingKey will be used.
                     type: string
                   routingKeySource:
+                    description: |-
+                      RoutingKeySource specifies where to fetch the routing key from
+                      If both RoutingKey and RoutingKeySource are specified, RoutingKey will be used.
                     properties:
                       secretKeyRef:
-                        description: SecretKeySelector selects a key of a Secret.
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
                         properties:
                           key:
                             description: The key of the secret to select from.  Must
@@ -180,11 +201,18 @@ spec:
                   Post Message Action, and contains the corresponding properties
                 properties:
                   apiToken:
+                    description: |-
+                      ApiToken specifies what API key to use
+                      If both ApiToken and ApiTokenSource are specified, ApiToken will be used.
                     type: string
                   apiTokenSource:
+                    description: |-
+                      ApiTokenSource specifies where to fetch the API key from
+                      If both ApiToken and ApiTokenSource are specified, ApiToken will be used.
                     properties:
                       secretKeyRef:
-                        description: SecretKeySelector selects a key of a Secret.
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
                         properties:
                           key:
                             description: The key of the secret to select from.  Must
@@ -225,11 +253,18 @@ spec:
                       type: string
                     type: object
                   url:
+                    description: |-
+                      Url specifies what URL to use
+                      If both Url and UrlSource are specified, Url will be used.
                     type: string
                   urlSource:
+                    description: |-
+                      UrlSource specifies where to fetch the URL from
+                      If both Url and UrlSource are specified, Url will be used.
                     properties:
                       secretKeyRef:
-                        description: SecretKeySelector selects a key of a Secret.
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
                         properties:
                           key:
                             description: The key of the secret to select from.  Must
@@ -260,11 +295,18 @@ spec:
                   messageType:
                     type: string
                   notifyUrl:
+                    description: |-
+                      NotifyUrl specifies what URL to use
+                      If both NotifyUrl and NotifyUrlSource are specified, NotifyUrl will be used.
                     type: string
                   notifyUrlSource:
+                    description: |-
+                      NotifyUrlSource specifies where to fetch the URL from
+                      If both NotifyUrl and NotifyUrlSource are specified, NotifyUrl will be used.
                     properties:
                       secretKeyRef:
-                        description: SecretKeySelector selects a key of a Secret.
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
                         properties:
                           key:
                             description: The key of the secret to select from.  Must
@@ -303,18 +345,73 @@ spec:
                   headers:
                     additionalProperties:
                       type: string
+                    type: object
+                  headersSource:
                     description: |-
-                      TODO: Do we want to have a HeadersSource? Not so easy to add, as it is a set of key-value pairs, and haSecrets is of type map[string]string. Maybe we can just automatically append key to GetSecretForHa and SetSecretForHa?
-                            fmt.Sprintf("%s-%s", hn.Namespace, hn.Name, hn.KeySuffix) ? then join those keys with "-"?
+                      HeadersSource
+                      TODO: Can we even use VarSource, or do we need something else that can refer to configmap/secret? Maybe only "kind: Secret" that assumes key,values from Secret object are the header key-value pairs?
+                            Maybe what we want is to just specify the key directly as plaintext in action while keeping VALUE of header in a secret, then use VarSource for that?
+                    properties:
+                      secretKeyRef:
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
                     type: object
                   ignoreSSL:
                     type: boolean
                   method:
                     type: string
                   url:
-                    description: 'TODO: Do we want to have a UrlSource? Easy to add,
-                      similar to UrlSource on Slack action!'
+                    description: |-
+                      Url specifies what URL to use
+                      If both Url and UrlSource are specified, Url will be used.
                     type: string
+                  urlSource:
+                    description: |-
+                      UrlSource specifies where to fetch the URL from
+                      If both Url and UrlSource are specified, Url will be used.
+                    properties:
+                      secretKeyRef:
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
                   useProxy:
                     type: boolean
                 type: object

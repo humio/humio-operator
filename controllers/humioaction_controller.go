@@ -245,7 +245,7 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 	if ha.Spec.WebhookProperties != nil {
 		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.WebhookProperties.Url, ha.Spec.WebhookProperties.UrlSource)
 		if err != nil {
-			return fmt.Errorf("victorOpsProperties.notifyUrlSource.%v", err)
+			return fmt.Errorf("webhookProperties.UrlSource.%v", err)
 		}
 	}
 

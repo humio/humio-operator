@@ -428,7 +428,12 @@ func webhookAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return action, err
 	}
 
+	apiToken, found := humiov1alpha1.GetSecretForHa(hn)
+
 	var method string
+	if hn.Spec.WebhookProperties.Url == "" && !found {
+		errorList = append(errorList, "property webhookProperties.url is required")
+	}
 	if hn.Spec.WebhookProperties.BodyTemplate == "" {
 		errorList = append(errorList, "property webhookProperties.bodyTemplate is required")
 	}
@@ -446,16 +451,21 @@ func webhookAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 				hn.Spec.WebhookProperties.Method, strings.Join(acceptedMethods, ", ")))
 		}
 	}
-	if _, err := url.ParseRequestURI(hn.Spec.WebhookProperties.Url); err != nil {
+	if hn.Spec.WebhookProperties.Url != "" {
+		action.WebhookAction.Url = hn.Spec.WebhookProperties.Url
+	} else {
+		action.WebhookAction.Url = apiToken
+	}
+	if _, err := url.ParseRequestURI(action.WebhookAction.Url); err != nil {
 		errorList = append(errorList, fmt.Sprintf("invalid url for webhookProperties.url: %s", err.Error()))
 	}
 	if len(errorList) > 0 {
 		return ifErrors(action, ActionTypeWebhook, errorList)
 	}
+
 	action.Type = humioapi.ActionTypeWebhook
 	action.WebhookAction.BodyTemplate = hn.Spec.WebhookProperties.BodyTemplate
 	action.WebhookAction.Method = method
-	action.WebhookAction.Url = hn.Spec.WebhookProperties.Url
 	action.WebhookAction.UseProxy = hn.Spec.WebhookProperties.UseProxy
 	action.WebhookAction.Headers = []humioapi.HttpHeaderEntryInput{}
 	for k, v := range hn.Spec.WebhookProperties.Headers {
