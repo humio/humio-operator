@@ -68,25 +68,24 @@ func CRActionFromAPIAction(action *humioapi.Action) (*humiov1alpha1.HumioAction,
 	}
 
 	if !reflect.ValueOf(action.HumioRepoAction).IsZero() {
-		ha.Spec.HumioRepositoryProperties = &humiov1alpha1.HumioActionRepositoryProperties{
-			IngestToken: action.HumioRepoAction.IngestToken,
-		}
+		ha.Spec.HumioRepositoryProperties = &humiov1alpha1.HumioActionRepositoryProperties{}
+		humiov1alpha1.SetSecretForHa(ha, action.HumioRepoAction.IngestToken)
 	}
 
 	if !reflect.ValueOf(action.OpsGenieAction).IsZero() {
 		ha.Spec.OpsGenieProperties = &humiov1alpha1.HumioActionOpsGenieProperties{
 			ApiUrl:   action.OpsGenieAction.ApiUrl,
-			GenieKey: action.OpsGenieAction.GenieKey,
 			UseProxy: action.OpsGenieAction.UseProxy,
 		}
+		humiov1alpha1.SetSecretForHa(ha, action.OpsGenieAction.GenieKey)
 	}
 
 	if !reflect.ValueOf(action.PagerDutyAction).IsZero() {
 		ha.Spec.PagerDutyProperties = &humiov1alpha1.HumioActionPagerDutyProperties{
-			RoutingKey: action.PagerDutyAction.RoutingKey,
-			Severity:   action.PagerDutyAction.Severity,
-			UseProxy:   action.PagerDutyAction.UseProxy,
+			Severity: action.PagerDutyAction.Severity,
+			UseProxy: action.PagerDutyAction.UseProxy,
 		}
+		humiov1alpha1.SetSecretForHa(ha, action.PagerDutyAction.RoutingKey)
 	}
 
 	if !reflect.ValueOf(action.SlackAction).IsZero() {
@@ -96,9 +95,9 @@ func CRActionFromAPIAction(action *humioapi.Action) (*humiov1alpha1.HumioAction,
 		}
 		ha.Spec.SlackProperties = &humiov1alpha1.HumioActionSlackProperties{
 			Fields:   fields,
-			Url:      action.SlackAction.Url,
 			UseProxy: action.SlackAction.UseProxy,
 		}
+		humiov1alpha1.SetSecretForHa(ha, action.SlackAction.Url)
 	}
 
 	if !reflect.ValueOf(action.SlackPostMessageAction).IsZero() {
@@ -117,9 +116,9 @@ func CRActionFromAPIAction(action *humioapi.Action) (*humiov1alpha1.HumioAction,
 	if !reflect.ValueOf(action.VictorOpsAction).IsZero() {
 		ha.Spec.VictorOpsProperties = &humiov1alpha1.HumioActionVictorOpsProperties{
 			MessageType: action.VictorOpsAction.MessageType,
-			NotifyUrl:   action.VictorOpsAction.NotifyUrl,
 			UseProxy:    action.VictorOpsAction.UseProxy,
 		}
+		humiov1alpha1.SetSecretForHa(ha, action.VictorOpsAction.NotifyUrl)
 	}
 
 	if !reflect.ValueOf(action.WebhookAction).IsZero() {
@@ -206,14 +205,21 @@ func humioRepoAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return action, err
 	}
 
-	if hn.Spec.HumioRepositoryProperties.IngestToken == "" {
+	apiToken, found := humiov1alpha1.GetSecretForHa(hn)
+
+	if hn.Spec.HumioRepositoryProperties.IngestToken == "" && !found {
 		errorList = append(errorList, "property humioRepositoryProperties.ingestToken is required")
 	}
 	if len(errorList) > 0 {
 		return ifErrors(action, ActionTypeHumioRepo, errorList)
 	}
+	if hn.Spec.HumioRepositoryProperties.IngestToken != "" {
+		action.HumioRepoAction.IngestToken = hn.Spec.HumioRepositoryProperties.IngestToken
+	} else {
+		action.HumioRepoAction.IngestToken = apiToken
+	}
+
 	action.Type = humioapi.ActionTypeHumioRepo
-	action.HumioRepoAction.IngestToken = hn.Spec.HumioRepositoryProperties.IngestToken
 
 	return action, nil
 }
@@ -225,7 +231,9 @@ func opsGenieAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return action, err
 	}
 
-	if hn.Spec.OpsGenieProperties.GenieKey == "" {
+	apiToken, found := humiov1alpha1.GetSecretForHa(hn)
+
+	if hn.Spec.OpsGenieProperties.GenieKey == "" && !found {
 		errorList = append(errorList, "property opsGenieProperties.genieKey is required")
 	}
 	if hn.Spec.OpsGenieProperties.ApiUrl == "" {
@@ -234,8 +242,13 @@ func opsGenieAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	if len(errorList) > 0 {
 		return ifErrors(action, ActionTypeOpsGenie, errorList)
 	}
+	if hn.Spec.OpsGenieProperties.GenieKey != "" {
+		action.OpsGenieAction.GenieKey = hn.Spec.OpsGenieProperties.GenieKey
+	} else {
+		action.OpsGenieAction.GenieKey = apiToken
+	}
+
 	action.Type = humioapi.ActionTypeOpsGenie
-	action.OpsGenieAction.GenieKey = hn.Spec.OpsGenieProperties.GenieKey
 	action.OpsGenieAction.ApiUrl = hn.Spec.OpsGenieProperties.ApiUrl
 	action.OpsGenieAction.UseProxy = hn.Spec.OpsGenieProperties.UseProxy
 
@@ -249,8 +262,10 @@ func pagerDutyAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return action, err
 	}
 
+	apiToken, found := humiov1alpha1.GetSecretForHa(hn)
+
 	var severity string
-	if hn.Spec.PagerDutyProperties.RoutingKey == "" {
+	if hn.Spec.PagerDutyProperties.RoutingKey == "" && !found {
 		errorList = append(errorList, "property pagerDutyProperties.routingKey is required")
 	}
 	if hn.Spec.PagerDutyProperties.Severity == "" {
@@ -267,8 +282,13 @@ func pagerDutyAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	if len(errorList) > 0 {
 		return ifErrors(action, ActionTypePagerDuty, errorList)
 	}
+	if hn.Spec.PagerDutyProperties.RoutingKey != "" {
+		action.PagerDutyAction.RoutingKey = hn.Spec.PagerDutyProperties.RoutingKey
+	} else {
+		action.PagerDutyAction.RoutingKey = apiToken
+	}
+
 	action.Type = humioapi.ActionTypePagerDuty
-	action.PagerDutyAction.RoutingKey = hn.Spec.PagerDutyProperties.RoutingKey
 	action.PagerDutyAction.Severity = severity
 	action.PagerDutyAction.UseProxy = hn.Spec.PagerDutyProperties.UseProxy
 
@@ -282,17 +302,26 @@ func slackAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return action, err
 	}
 
+	slackUrl, found := humiov1alpha1.GetSecretForHa(hn)
+	if hn.Spec.SlackProperties.Url == "" && !found {
+		errorList = append(errorList, "property slackProperties.url is required")
+	}
 	if hn.Spec.SlackProperties.Fields == nil {
 		errorList = append(errorList, "property slackProperties.fields is required")
 	}
-	if _, err := url.ParseRequestURI(hn.Spec.SlackProperties.Url); err != nil {
+	if hn.Spec.SlackProperties.Url != "" {
+		action.SlackAction.Url = hn.Spec.SlackProperties.Url
+	} else {
+		action.SlackAction.Url = slackUrl
+	}
+	if _, err := url.ParseRequestURI(action.SlackAction.Url); err != nil {
 		errorList = append(errorList, fmt.Sprintf("invalid url for slackProperties.url: %s", err.Error()))
 	}
 	if len(errorList) > 0 {
 		return ifErrors(action, ActionTypeSlack, errorList)
 	}
+
 	action.Type = humioapi.ActionTypeSlack
-	action.SlackAction.Url = hn.Spec.SlackProperties.Url
 	action.SlackAction.UseProxy = hn.Spec.SlackProperties.UseProxy
 	action.SlackAction.Fields = []humioapi.SlackFieldEntryInput{}
 	for k, v := range hn.Spec.SlackProperties.Fields {
@@ -356,7 +385,12 @@ func victorOpsAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return action, err
 	}
 
+	apiToken, found := humiov1alpha1.GetSecretForHa(hn)
+
 	var messageType string
+	if hn.Spec.VictorOpsProperties.NotifyUrl == "" && !found {
+		errorList = append(errorList, "property victorOpsProperties.notifyUrl is required")
+	}
 	if hn.Spec.VictorOpsProperties.MessageType == "" {
 		errorList = append(errorList, "property victorOpsProperties.messageType is required")
 	}
@@ -368,15 +402,20 @@ func victorOpsAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 				hn.Spec.VictorOpsProperties.MessageType, strings.Join(acceptedMessageTypes, ", ")))
 		}
 	}
-	if _, err := url.ParseRequestURI(hn.Spec.VictorOpsProperties.NotifyUrl); err != nil {
+	if hn.Spec.VictorOpsProperties.NotifyUrl != "" {
+		action.VictorOpsAction.NotifyUrl = hn.Spec.VictorOpsProperties.NotifyUrl
+	} else {
+		action.VictorOpsAction.NotifyUrl = apiToken
+	}
+	if _, err := url.ParseRequestURI(action.VictorOpsAction.NotifyUrl); err != nil {
 		errorList = append(errorList, fmt.Sprintf("invalid url for victorOpsProperties.notifyUrl: %s", err.Error()))
 	}
 	if len(errorList) > 0 {
 		return ifErrors(action, ActionTypeVictorOps, errorList)
 	}
+
 	action.Type = humioapi.ActionTypeVictorOps
 	action.VictorOpsAction.MessageType = messageType
-	action.VictorOpsAction.NotifyUrl = hn.Spec.VictorOpsProperties.NotifyUrl
 	action.VictorOpsAction.UseProxy = hn.Spec.VictorOpsProperties.UseProxy
 
 	return action, nil

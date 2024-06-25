@@ -88,7 +88,7 @@ func TestActionCRAsAction(t *testing.T) {
 			},
 			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property slackProperties.fields is required, invalid url for slackProperties.url: parse \"\": empty url", ActionTypeSlack),
+			fmt.Sprintf("%s failed due to errors: property slackProperties.url is required, property slackProperties.fields is required, invalid url for slackProperties.url: parse \"\": empty url", ActionTypeSlack),
 		},
 		{
 			"missing required slackPostMessageProperties",
@@ -116,7 +116,7 @@ func TestActionCRAsAction(t *testing.T) {
 			},
 			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property victorOpsProperties.messageType is required, invalid url for victorOpsProperties.notifyUrl: parse \"\": empty url", ActionTypeVictorOps),
+			fmt.Sprintf("%s failed due to errors: property victorOpsProperties.notifyUrl is required, property victorOpsProperties.messageType is required, invalid url for victorOpsProperties.notifyUrl: parse \"\": empty url", ActionTypeVictorOps),
 		},
 		{
 			"missing required webhookProperties",

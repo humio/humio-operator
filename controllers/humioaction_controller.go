@@ -202,28 +202,50 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 	if ha.Spec.SlackPostMessageProperties != nil {
 		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiToken, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
 		if err != nil {
-			return fmt.Errorf("slackPostMessageProperties.ApiTokenSource.%v", err)
+			return fmt.Errorf("slackPostMessageProperties.apiTokenSource.%v", err)
 		}
 	}
 
-	if ha.Spec.OpsGenieProperties != nil {
-		ha.Spec.OpsGenieProperties.GenieKey, err = r.resolveField(ctx, ha.Namespace, ha.Spec.OpsGenieProperties.GenieKey, ha.Spec.OpsGenieProperties.GenieKeySource)
+	if ha.Spec.SlackProperties != nil {
+		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackProperties.Url, ha.Spec.SlackProperties.UrlSource)
 		if err != nil {
-			return fmt.Errorf("opsGenieProperties.ingestTokenSource.%v", err)
+			return fmt.Errorf("slackProperties.urlSource.%v", err)
+		}
+
+	}
+
+	if ha.Spec.OpsGenieProperties != nil {
+		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.OpsGenieProperties.GenieKey, ha.Spec.OpsGenieProperties.GenieKeySource)
+		if err != nil {
+			return fmt.Errorf("opsGenieProperties.genieKeySource.%v", err)
 		}
 	}
 
 	if ha.Spec.HumioRepositoryProperties != nil {
-		ha.Spec.HumioRepositoryProperties.IngestToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.HumioRepositoryProperties.IngestToken, ha.Spec.HumioRepositoryProperties.IngestTokenSource)
+		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.HumioRepositoryProperties.IngestToken, ha.Spec.HumioRepositoryProperties.IngestTokenSource)
 		if err != nil {
 			return fmt.Errorf("humioRepositoryProperties.ingestTokenSource.%v", err)
 		}
 	}
 
 	if ha.Spec.PagerDutyProperties != nil {
-		ha.Spec.PagerDutyProperties.RoutingKey, err = r.resolveField(ctx, ha.Namespace, ha.Spec.PagerDutyProperties.RoutingKey, ha.Spec.PagerDutyProperties.RoutingKeySource)
+		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.PagerDutyProperties.RoutingKey, ha.Spec.PagerDutyProperties.RoutingKeySource)
 		if err != nil {
 			return fmt.Errorf("pagerDutyProperties.routingKeySource.%v", err)
+		}
+	}
+
+	if ha.Spec.VictorOpsProperties != nil {
+		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.VictorOpsProperties.NotifyUrl, ha.Spec.VictorOpsProperties.NotifyUrlSource)
+		if err != nil {
+			return fmt.Errorf("victorOpsProperties.notifyUrlSource.%v", err)
+		}
+	}
+
+	if ha.Spec.WebhookProperties != nil {
+		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.WebhookProperties.Url, ha.Spec.WebhookProperties.UrlSource)
+		if err != nil {
+			return fmt.Errorf("victorOpsProperties.notifyUrlSource.%v", err)
 		}
 	}
 

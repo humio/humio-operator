@@ -36,10 +36,15 @@ const (
 type HumioActionWebhookProperties struct {
 	BodyTemplate string            `json:"bodyTemplate,omitempty"`
 	Headers      map[string]string `json:"headers,omitempty"`
-	Method       string            `json:"method,omitempty"`
-	Url          string            `json:"url,omitempty"`
-	IgnoreSSL    bool              `json:"ignoreSSL,omitempty"`
-	UseProxy     bool              `json:"useProxy,omitempty"`
+	// HeadersSource
+	// TODO: Can we even use VarSource, or do we need something else that can refer to configmap/secret? Maybe only "kind: Secret" that assumes key,values from Secret object are the header key-value pairs?
+	//       Maybe what we want is to just specify the key directly as plaintext in action while keeping VALUE of header in a secret, then use VarSource for that?
+	HeadersSource VarSource `json:"headersSource,omitempty"`
+	Method        string    `json:"method,omitempty"`
+	Url           string    `json:"url,omitempty"`
+	UrlSource     VarSource `json:"urlSource,omitempty"`
+	IgnoreSSL     bool      `json:"ignoreSSL,omitempty"`
+	UseProxy      bool      `json:"useProxy,omitempty"`
 }
 
 // HumioActionEmailProperties defines the desired state of HumioActionEmailProperties
@@ -74,9 +79,10 @@ type HumioActionPagerDutyProperties struct {
 
 // HumioActionSlackProperties defines the desired state of HumioActionSlackProperties
 type HumioActionSlackProperties struct {
-	Fields   map[string]string `json:"fields,omitempty"`
-	Url      string            `json:"url,omitempty"`
-	UseProxy bool              `json:"useProxy,omitempty"`
+	Fields    map[string]string `json:"fields,omitempty"`
+	Url       string            `json:"url,omitempty"`
+	UrlSource VarSource         `json:"urlSource,omitempty"`
+	UseProxy  bool              `json:"useProxy,omitempty"`
 }
 
 // HumioActionSlackPostMessageProperties defines the desired state of HumioActionSlackPostMessageProperties
@@ -88,15 +94,16 @@ type HumioActionSlackPostMessageProperties struct {
 	UseProxy       bool              `json:"useProxy,omitempty"`
 }
 
-type VarSource struct {
-	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
-}
-
 // HumioActionVictorOpsProperties defines the desired state of HumioActionVictorOpsProperties
 type HumioActionVictorOpsProperties struct {
-	MessageType string `json:"messageType,omitempty"`
-	NotifyUrl   string `json:"notifyUrl,omitempty"`
-	UseProxy    bool   `json:"useProxy,omitempty"`
+	MessageType     string    `json:"messageType,omitempty"`
+	NotifyUrl       string    `json:"notifyUrl,omitempty"`
+	NotifyUrlSource VarSource `json:"notifyUrlSource"`
+	UseProxy        bool      `json:"useProxy,omitempty"`
+}
+
+type VarSource struct {
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 // HumioActionSpec defines the desired state of HumioAction

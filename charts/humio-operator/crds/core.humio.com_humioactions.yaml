@@ -156,8 +156,10 @@ spec:
                               be a valid secret key.
                             type: string
                           name:
-                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?
                             type: string
                           optional:
                             description: Specify whether the Secret or its key must
@@ -166,6 +168,7 @@ spec:
                         required:
                         - key
                         type: object
+                        x-kubernetes-map-type: atomic
                     type: object
                   severity:
                     type: string
@@ -223,6 +226,30 @@ spec:
                     type: object
                   url:
                     type: string
+                  urlSource:
+                    properties:
+                      secretKeyRef:
+                        description: SecretKeySelector selects a key of a Secret.
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
                   useProxy:
                     type: boolean
                 type: object
@@ -234,8 +261,34 @@ spec:
                     type: string
                   notifyUrl:
                     type: string
+                  notifyUrlSource:
+                    properties:
+                      secretKeyRef:
+                        description: SecretKeySelector selects a key of a Secret.
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
                   useProxy:
                     type: boolean
+                required:
+                - notifyUrlSource
                 type: object
               viewName:
                 description: ViewName is the name of the Humio View under which the
@@ -250,12 +303,17 @@ spec:
                   headers:
                     additionalProperties:
                       type: string
+                    description: |-
+                      TODO: Do we want to have a HeadersSource? Not so easy to add, as it is a set of key-value pairs, and haSecrets is of type map[string]string. Maybe we can just automatically append key to GetSecretForHa and SetSecretForHa?
+                            fmt.Sprintf("%s-%s", hn.Namespace, hn.Name, hn.KeySuffix) ? then join those keys with "-"?
                     type: object
                   ignoreSSL:
                     type: boolean
                   method:
                     type: string
                   url:
+                    description: 'TODO: Do we want to have a UrlSource? Easy to add,
+                      similar to UrlSource on Slack action!'
                     type: string
                   useProxy:
                     type: boolean
