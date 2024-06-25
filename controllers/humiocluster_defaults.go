@@ -804,7 +804,7 @@ func (hnp *HumioNodePool) TLSEnabled() bool {
 		return helpers.UseCertManager()
 	}
 
-	return helpers.UseCertManager() && *hnp.tls.Enabled
+	return helpers.UseCertManager() || *hnp.tls.Enabled
 }
 
 func (hnp *HumioNodePool) GetProbeScheme() corev1.URIScheme {
