@@ -34,13 +34,14 @@ const (
 
 // HumioActionWebhookProperties defines the desired state of HumioActionWebhookProperties
 type HumioActionWebhookProperties struct {
-	BodyTemplate string            `json:"bodyTemplate,omitempty"`
-	Headers      map[string]string `json:"headers,omitempty"`
-	// HeadersSource
-	// TODO: Can we even use VarSource, or do we need something else that can refer to configmap/secret? Maybe only "kind: Secret" that assumes key,values from Secret object are the header key-value pairs?
-	//       Maybe what we want is to just specify the key directly as plaintext in action while keeping VALUE of header in a secret, then use VarSource for that?
-	HeadersSource VarSource `json:"headersSource,omitempty"`
-	Method        string    `json:"method,omitempty"`
+	BodyTemplate string `json:"bodyTemplate,omitempty"`
+	// Headers specifies what HTTP headers to use.
+	// If both Headers and SecretHeaders are specified, they will be merged together.
+	Headers map[string]string `json:"headers,omitempty"`
+	// SecretHeaders specifies what HTTP headers to use and where to fetch the values from.
+	// If both Headers and SecretHeaders are specified, they will be merged together.
+	SecretHeaders []HeadersSource `json:"secretHeaders,omitempty"`
+	Method        string          `json:"method,omitempty"`
 	// Url specifies what URL to use
 	// If both Url and UrlSource are specified, Url will be used.
 	Url string `json:"url,omitempty"`
@@ -49,6 +50,14 @@ type HumioActionWebhookProperties struct {
 	UrlSource VarSource `json:"urlSource,omitempty"`
 	IgnoreSSL bool      `json:"ignoreSSL,omitempty"`
 	UseProxy  bool      `json:"useProxy,omitempty"`
+}
+
+// HeadersSource defines a header and corresponding source for the value of it.
+type HeadersSource struct {
+	// Name is the name of the header.
+	Name string `json:"name,omitempty"`
+	// ValueFrom defines where to fetch the value of the header from.
+	ValueFrom VarSource `json:"valueFrom,omitempty"`
 }
 
 // HumioActionEmailProperties defines the desired state of HumioActionEmailProperties
@@ -61,10 +70,10 @@ type HumioActionEmailProperties struct {
 
 // HumioActionRepositoryProperties defines the desired state of HumioActionRepositoryProperties
 type HumioActionRepositoryProperties struct {
-	// IngestToken specifies what ingest token to use
+	// IngestToken specifies what ingest token to use.
 	// If both IngestToken and IngestTokenSource are specified, IngestToken will be used.
 	IngestToken string `json:"ingestToken,omitempty"`
-	// IngestToken specifies where to fetch the ingest token from
+	// IngestToken specifies where to fetch the ingest token from.
 	// If both IngestToken and IngestTokenSource are specified, IngestToken will be used.
 	IngestTokenSource VarSource `json:"ingestTokenSource,omitempty"`
 }
@@ -72,10 +81,10 @@ type HumioActionRepositoryProperties struct {
 // HumioActionOpsGenieProperties defines the desired state of HumioActionOpsGenieProperties
 type HumioActionOpsGenieProperties struct {
 	ApiUrl string `json:"apiUrl,omitempty"`
-	// GenieKey specifies what API key to use
+	// GenieKey specifies what API key to use.
 	// If both GenieKey and GenieKeySource are specified, GenieKey will be used.
 	GenieKey string `json:"genieKey,omitempty"`
-	// GenieKeySource specifies where to fetch the API key from
+	// GenieKeySource specifies where to fetch the API key from.
 	// If both GenieKey and GenieKeySource are specified, GenieKey will be used.
 	GenieKeySource VarSource `json:"genieKeySource,omitempty"`
 	UseProxy       bool      `json:"useProxy,omitempty"`
@@ -83,10 +92,10 @@ type HumioActionOpsGenieProperties struct {
 
 // HumioActionPagerDutyProperties defines the desired state of HumioActionPagerDutyProperties
 type HumioActionPagerDutyProperties struct {
-	// RoutingKey specifies what API key to use
+	// RoutingKey specifies what API key to use.
 	// If both RoutingKey and RoutingKeySource are specified, RoutingKey will be used.
 	RoutingKey string `json:"routingKey,omitempty"`
-	// RoutingKeySource specifies where to fetch the routing key from
+	// RoutingKeySource specifies where to fetch the routing key from.
 	// If both RoutingKey and RoutingKeySource are specified, RoutingKey will be used.
 	RoutingKeySource VarSource `json:"routingKeySource,omitempty"`
 	Severity         string    `json:"severity,omitempty"`
@@ -96,10 +105,10 @@ type HumioActionPagerDutyProperties struct {
 // HumioActionSlackProperties defines the desired state of HumioActionSlackProperties
 type HumioActionSlackProperties struct {
 	Fields map[string]string `json:"fields,omitempty"`
-	// Url specifies what URL to use
+	// Url specifies what URL to use.
 	// If both Url and UrlSource are specified, Url will be used.
 	Url string `json:"url,omitempty"`
-	// UrlSource specifies where to fetch the URL from
+	// UrlSource specifies where to fetch the URL from.
 	// If both Url and UrlSource are specified, Url will be used.
 	UrlSource VarSource `json:"urlSource,omitempty"`
 	UseProxy  bool      `json:"useProxy,omitempty"`
@@ -107,10 +116,10 @@ type HumioActionSlackProperties struct {
 
 // HumioActionSlackPostMessageProperties defines the desired state of HumioActionSlackPostMessageProperties
 type HumioActionSlackPostMessageProperties struct {
-	// ApiToken specifies what API key to use
+	// ApiToken specifies what API key to use.
 	// If both ApiToken and ApiTokenSource are specified, ApiToken will be used.
 	ApiToken string `json:"apiToken,omitempty"`
-	// ApiTokenSource specifies where to fetch the API key from
+	// ApiTokenSource specifies where to fetch the API key from.
 	// If both ApiToken and ApiTokenSource are specified, ApiToken will be used.
 	ApiTokenSource VarSource         `json:"apiTokenSource,omitempty"`
 	Channels       []string          `json:"channels,omitempty"`
@@ -121,10 +130,10 @@ type HumioActionSlackPostMessageProperties struct {
 // HumioActionVictorOpsProperties defines the desired state of HumioActionVictorOpsProperties
 type HumioActionVictorOpsProperties struct {
 	MessageType string `json:"messageType,omitempty"`
-	// NotifyUrl specifies what URL to use
+	// NotifyUrl specifies what URL to use.
 	// If both NotifyUrl and NotifyUrlSource are specified, NotifyUrl will be used.
 	NotifyUrl string `json:"notifyUrl,omitempty"`
-	// NotifyUrlSource specifies where to fetch the URL from
+	// NotifyUrlSource specifies where to fetch the URL from.
 	// If both NotifyUrl and NotifyUrlSource are specified, NotifyUrl will be used.
 	NotifyUrlSource VarSource `json:"notifyUrlSource"`
 	UseProxy        bool      `json:"useProxy,omitempty"`

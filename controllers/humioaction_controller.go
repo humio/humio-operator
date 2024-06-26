@@ -156,16 +156,12 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 	curAction, err := r.HumioClient.GetAction(config, req, ha)
 	if errors.As(err, &humioapi.EntityNotFound{}) {
 		r.Log.Info("Action doesn't exist. Now adding action")
-		addedAction, err := r.HumioClient.AddAction(config, req, ha)
+		_, err = r.HumioClient.AddAction(config, req, ha)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create action")
 		}
 		r.Log.Info("Created action", "Action", ha.Spec.Name)
 
-		result, err := r.reconcileHumioActionAnnotations(ctx, addedAction, ha, req)
-		if err != nil {
-			return result, err
-		}
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err != nil {
@@ -187,7 +183,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update action")
 		}
 		if action != nil {
-			r.Log.Info(fmt.Sprintf("Updated action %q", ha.Spec.Name))
+			r.Log.Info(fmt.Sprintf("Updated action %q", ha.Spec.Name), "newAction", fmt.Sprintf("%#+v", action))
 		}
 	}
 
@@ -247,9 +243,23 @@ func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1a
 		if err != nil {
 			return fmt.Errorf("webhookProperties.UrlSource.%v", err)
 		}
+
+		allWebhookActionHeaders := map[string]string{}
+		if ha.Spec.WebhookProperties.SecretHeaders != nil {
+			for i := range ha.Spec.WebhookProperties.SecretHeaders {
+				headerName := ha.Spec.WebhookProperties.SecretHeaders[i].Name
+				headerValueSource := ha.Spec.WebhookProperties.SecretHeaders[i].ValueFrom
+				allWebhookActionHeaders[headerName], err = r.resolveField(ctx, ha.Namespace, "", headerValueSource)
+				if err != nil {
+					return fmt.Errorf("webhookProperties.secretHeaders.%v", err)
+				}
+			}
+
+		}
+		kubernetes.StoreFullSetOfMergedWebhookActionHeaders(ha, allWebhookActionHeaders)
 	}
 
-	humiov1alpha1.SetSecretForHa(ha, apiToken)
+	kubernetes.StoreSingleSecretForHa(ha, apiToken)
 
 	return nil
 }

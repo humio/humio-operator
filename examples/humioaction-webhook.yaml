@@ -37,7 +37,7 @@ spec:
 apiVersion: core.humio.com/v1alpha1
 kind: HumioAction
 metadata:
-  name: humio-web-hook-action-all-secret-external
+  name: humio-web-hook-action-mixed-headers-external
 spec:
   externalClusterName: example-humioexternalcluster
   name: example-web-hook-action-using-secrets
@@ -50,6 +50,36 @@ spec:
     headers: # TODO: How do we want this to be? Should this just be the same as env vars?
       some: header
       some-other: header
+    secretHeaders:
+      - name: this
+        valueFrom:
+          secretKeyRef:
+            name: example-humiocluster-webhook-action-headers-secret
+            key: somesecretheader
+    method: POST
+    bodyTemplate: |-
+      {alert_name} has alerted
+      click {url} to see the alert
+---
+apiVersion: core.humio.com/v1alpha1
+kind: HumioAction
+metadata:
+  name: humio-web-hook-action-all-secret-external
+spec:
+  externalClusterName: example-humioexternalcluster
+  name: example-web-hook-action-using-secret-url-and-headers
+  viewName: humio
+  webhookProperties:
+    urlSource:
+      secretKeyRef:
+        name: example-humiocluster-webhook-action-url-secret
+        key: data
+    secretHeaders:
+      - name: this
+        valueFrom:
+          secretKeyRef:
+            name: example-humiocluster-webhook-action-headers-secret
+            key: somesecretheader
     method: POST
     bodyTemplate: |-
       {alert_name} has alerted

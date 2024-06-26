@@ -18,12 +18,10 @@ package humio
 
 import (
 	"fmt"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 	"net/http"
 	"net/url"
-	"reflect"
 	"strings"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 
@@ -42,112 +40,6 @@ const (
 	ActionTypeEmail            = "Email"
 	ActionTypeOpsGenie         = "OpsGenie"
 )
-
-func CRActionFromAPIAction(action *humioapi.Action) (*humiov1alpha1.HumioAction, error) {
-	ha := &humiov1alpha1.HumioAction{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				ActionIdentifierAnnotation: action.ID,
-			},
-		},
-		Spec: humiov1alpha1.HumioActionSpec{
-			Name: action.Name,
-		},
-	}
-
-	if !reflect.ValueOf(action.EmailAction).IsZero() {
-		ha.Spec.EmailProperties = &humiov1alpha1.HumioActionEmailProperties{
-			Recipients: action.EmailAction.Recipients,
-		}
-		if action.EmailAction.BodyTemplate != "" {
-			ha.Spec.EmailProperties.BodyTemplate = action.EmailAction.BodyTemplate
-		}
-		if action.EmailAction.SubjectTemplate != "" {
-			ha.Spec.EmailProperties.SubjectTemplate = action.EmailAction.SubjectTemplate
-		}
-	}
-
-	if !reflect.ValueOf(action.HumioRepoAction).IsZero() {
-		ha.Spec.HumioRepositoryProperties = &humiov1alpha1.HumioActionRepositoryProperties{}
-		humiov1alpha1.SetSecretForHa(ha, action.HumioRepoAction.IngestToken)
-	}
-
-	if !reflect.ValueOf(action.OpsGenieAction).IsZero() {
-		ha.Spec.OpsGenieProperties = &humiov1alpha1.HumioActionOpsGenieProperties{
-			ApiUrl:   action.OpsGenieAction.ApiUrl,
-			UseProxy: action.OpsGenieAction.UseProxy,
-		}
-		humiov1alpha1.SetSecretForHa(ha, action.OpsGenieAction.GenieKey)
-	}
-
-	if !reflect.ValueOf(action.PagerDutyAction).IsZero() {
-		ha.Spec.PagerDutyProperties = &humiov1alpha1.HumioActionPagerDutyProperties{
-			Severity: action.PagerDutyAction.Severity,
-			UseProxy: action.PagerDutyAction.UseProxy,
-		}
-		humiov1alpha1.SetSecretForHa(ha, action.PagerDutyAction.RoutingKey)
-	}
-
-	if !reflect.ValueOf(action.SlackAction).IsZero() {
-		fields := make(map[string]string)
-		for _, field := range action.SlackAction.Fields {
-			fields[field.FieldName] = field.Value
-		}
-		ha.Spec.SlackProperties = &humiov1alpha1.HumioActionSlackProperties{
-			Fields:   fields,
-			UseProxy: action.SlackAction.UseProxy,
-		}
-		humiov1alpha1.SetSecretForHa(ha, action.SlackAction.Url)
-	}
-
-	if !reflect.ValueOf(action.SlackPostMessageAction).IsZero() {
-		fields := make(map[string]string)
-		for _, field := range action.SlackPostMessageAction.Fields {
-			fields[field.FieldName] = field.Value
-		}
-		ha.Spec.SlackPostMessageProperties = &humiov1alpha1.HumioActionSlackPostMessageProperties{
-			Channels: action.SlackPostMessageAction.Channels,
-			Fields:   fields,
-			UseProxy: action.SlackPostMessageAction.UseProxy,
-		}
-		humiov1alpha1.SetSecretForHa(ha, action.SlackPostMessageAction.ApiToken)
-	}
-
-	if !reflect.ValueOf(action.VictorOpsAction).IsZero() {
-		ha.Spec.VictorOpsProperties = &humiov1alpha1.HumioActionVictorOpsProperties{
-			MessageType: action.VictorOpsAction.MessageType,
-			UseProxy:    action.VictorOpsAction.UseProxy,
-		}
-		humiov1alpha1.SetSecretForHa(ha, action.VictorOpsAction.NotifyUrl)
-	}
-
-	if !reflect.ValueOf(action.WebhookAction).IsZero() {
-		headers := make(map[string]string)
-		for _, field := range action.WebhookAction.Headers {
-			headers[field.Header] = field.Value
-		}
-		ha.Spec.WebhookProperties = &humiov1alpha1.HumioActionWebhookProperties{
-			BodyTemplate: action.WebhookAction.BodyTemplate,
-			Headers:      headers,
-			Method:       action.WebhookAction.Method,
-			IgnoreSSL:    action.WebhookAction.IgnoreSSL,
-			UseProxy:     action.WebhookAction.UseProxy,
-		}
-		humiov1alpha1.SetSecretForHa(ha, action.WebhookAction.Url)
-	}
-	if reflect.ValueOf(action.EmailAction).IsZero() &&
-		reflect.ValueOf(action.HumioRepoAction).IsZero() &&
-		reflect.ValueOf(action.OpsGenieAction).IsZero() &&
-		reflect.ValueOf(action.PagerDutyAction).IsZero() &&
-		reflect.ValueOf(action.SlackAction).IsZero() &&
-		reflect.ValueOf(action.SlackPostMessageAction).IsZero() &&
-		reflect.ValueOf(action.VictorOpsAction).IsZero() &&
-		reflect.ValueOf(action.WebhookAction).IsZero() {
-		return nil, fmt.Errorf("no action configuration specified")
-	}
-
-	return ha, nil
-}
 
 func ActionFromActionCR(ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	at, err := actionType(ha)
@@ -205,7 +97,7 @@ func humioRepoAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return action, err
 	}
 
-	apiToken, found := humiov1alpha1.GetSecretForHa(hn)
+	apiToken, found := kubernetes.GetSecretForHa(hn)
 
 	if hn.Spec.HumioRepositoryProperties.IngestToken == "" && !found {
 		errorList = append(errorList, "property humioRepositoryProperties.ingestToken is required")
@@ -231,7 +123,7 @@ func opsGenieAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return action, err
 	}
 
-	apiToken, found := humiov1alpha1.GetSecretForHa(hn)
+	apiToken, found := kubernetes.GetSecretForHa(hn)
 
 	if hn.Spec.OpsGenieProperties.GenieKey == "" && !found {
 		errorList = append(errorList, "property opsGenieProperties.genieKey is required")
@@ -262,7 +154,7 @@ func pagerDutyAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return action, err
 	}
 
-	apiToken, found := humiov1alpha1.GetSecretForHa(hn)
+	apiToken, found := kubernetes.GetSecretForHa(hn)
 
 	var severity string
 	if hn.Spec.PagerDutyProperties.RoutingKey == "" && !found {
@@ -302,7 +194,7 @@ func slackAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return action, err
 	}
 
-	slackUrl, found := humiov1alpha1.GetSecretForHa(hn)
+	slackUrl, found := kubernetes.GetSecretForHa(hn)
 	if hn.Spec.SlackProperties.Url == "" && !found {
 		errorList = append(errorList, "property slackProperties.url is required")
 	}
@@ -343,7 +235,7 @@ func slackPostMessageAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, er
 		return action, err
 	}
 
-	apiToken, found := humiov1alpha1.GetSecretForHa(hn)
+	apiToken, found := kubernetes.GetSecretForHa(hn)
 	if hn.Spec.SlackPostMessageProperties.ApiToken == "" && !found {
 		errorList = append(errorList, "property slackPostMessageProperties.apiToken is required")
 	}
@@ -385,7 +277,7 @@ func victorOpsAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return action, err
 	}
 
-	apiToken, found := humiov1alpha1.GetSecretForHa(hn)
+	apiToken, found := kubernetes.GetSecretForHa(hn)
 
 	var messageType string
 	if hn.Spec.VictorOpsProperties.NotifyUrl == "" && !found {
@@ -428,7 +320,7 @@ func webhookAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 		return action, err
 	}
 
-	apiToken, found := humiov1alpha1.GetSecretForHa(hn)
+	apiToken, found := kubernetes.GetSecretForHa(hn)
 
 	var method string
 	if hn.Spec.WebhookProperties.Url == "" && !found {
@@ -436,9 +328,6 @@ func webhookAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	}
 	if hn.Spec.WebhookProperties.BodyTemplate == "" {
 		errorList = append(errorList, "property webhookProperties.bodyTemplate is required")
-	}
-	if len(hn.Spec.WebhookProperties.Headers) == 0 {
-		errorList = append(errorList, "property webhookProperties.headers is required")
 	}
 	if hn.Spec.WebhookProperties.Method == "" {
 		errorList = append(errorList, "property webhookProperties.method is required")
@@ -459,23 +348,30 @@ func webhookAction(hn *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	if _, err := url.ParseRequestURI(action.WebhookAction.Url); err != nil {
 		errorList = append(errorList, fmt.Sprintf("invalid url for webhookProperties.url: %s", err.Error()))
 	}
+	allHeaders, found := kubernetes.GetFullSetOfMergedWebhookheaders(hn)
+	if len(allHeaders) != len(hn.Spec.WebhookProperties.Headers)+len(hn.Spec.WebhookProperties.SecretHeaders) {
+		errorList = append(errorList, "webhookProperties contains duplicate keys")
+	}
 	if len(errorList) > 0 {
 		return ifErrors(action, ActionTypeWebhook, errorList)
+	}
+
+	if found {
+		action.WebhookAction.Headers = []humioapi.HttpHeaderEntryInput{}
+		for k, v := range allHeaders {
+			action.WebhookAction.Headers = append(action.WebhookAction.Headers,
+				humioapi.HttpHeaderEntryInput{
+					Header: k,
+					Value:  v,
+				},
+			)
+		}
 	}
 
 	action.Type = humioapi.ActionTypeWebhook
 	action.WebhookAction.BodyTemplate = hn.Spec.WebhookProperties.BodyTemplate
 	action.WebhookAction.Method = method
 	action.WebhookAction.UseProxy = hn.Spec.WebhookProperties.UseProxy
-	action.WebhookAction.Headers = []humioapi.HttpHeaderEntryInput{}
-	for k, v := range hn.Spec.WebhookProperties.Headers {
-		action.WebhookAction.Headers = append(action.WebhookAction.Headers,
-			humioapi.HttpHeaderEntryInput{
-				Header: k,
-				Value:  v,
-			},
-		)
-	}
 
 	return action, nil
 }
