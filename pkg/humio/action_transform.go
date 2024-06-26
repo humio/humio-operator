@@ -130,10 +130,10 @@ func CRActionFromAPIAction(action *humioapi.Action) (*humiov1alpha1.HumioAction,
 			BodyTemplate: action.WebhookAction.BodyTemplate,
 			Headers:      headers,
 			Method:       action.WebhookAction.Method,
-			Url:          action.WebhookAction.Url,
 			IgnoreSSL:    action.WebhookAction.IgnoreSSL,
 			UseProxy:     action.WebhookAction.UseProxy,
 		}
+		humiov1alpha1.SetSecretForHa(ha, action.WebhookAction.Url)
 	}
 	if reflect.ValueOf(action.EmailAction).IsZero() &&
 		reflect.ValueOf(action.HumioRepoAction).IsZero() &&
