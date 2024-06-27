@@ -27,6 +27,10 @@ func AlertTransform(ha *humiov1alpha1.HumioAlert, actionIdMap map[string]string)
 		alert.QueryStart = "1d"
 	}
 
+	if _, ok := ha.ObjectMeta.Annotations[AlertIdentifierAnnotation]; ok {
+		alert.ID = ha.ObjectMeta.Annotations[AlertIdentifierAnnotation]
+	}
+
 	return alert, nil
 }
 
