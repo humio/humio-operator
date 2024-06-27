@@ -145,12 +145,16 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, config *
 	curAlert, err := r.HumioClient.GetAlert(config, req, ha)
 	if errors.As(err, &humioapi.EntityNotFound{}) {
 		r.Log.Info("Alert doesn't exist. Now adding alert")
-		_, err = r.HumioClient.AddAlert(config, req, ha)
+		addedAlert, err := r.HumioClient.AddAlert(config, req, ha)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create alert")
 		}
 		r.Log.Info("Created alert", "Alert", ha.Spec.Name)
 
+		result, err := r.reconcileHumioAlertAnnotations(ctx, addedAlert, ha, req)
+		if err != nil {
+			return result, err
+		}
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err != nil {

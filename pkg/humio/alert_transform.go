@@ -3,6 +3,11 @@ package humio
 import (
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	AlertIdentifierAnnotation = "humio.com/alert-id"
 )
 
 func AlertTransform(ha *humiov1alpha1.HumioAlert, actionIdMap map[string]string) (*humioapi.Alert, error) {
@@ -23,6 +28,30 @@ func AlertTransform(ha *humiov1alpha1.HumioAlert, actionIdMap map[string]string)
 	}
 
 	return alert, nil
+}
+
+func AlertHydrate(ha *humiov1alpha1.HumioAlert, alert *humioapi.Alert, actionIdMap map[string]string) error {
+	ha.Spec = humiov1alpha1.HumioAlertSpec{
+		Name: alert.Name,
+		Query: humiov1alpha1.HumioQuery{
+			QueryString: alert.QueryString,
+			Start:       alert.QueryStart,
+		},
+		Description:        alert.Description,
+		ThrottleTimeMillis: alert.ThrottleTimeMillis,
+		ThrottleField:      alert.ThrottleField,
+		Silenced:           !alert.Enabled,
+		Actions:            actionIdsFromActionMap(ha.Spec.Actions, actionIdMap),
+		Labels:             alert.Labels,
+	}
+
+	ha.ObjectMeta = metav1.ObjectMeta{
+		Annotations: map[string]string{
+			AlertIdentifierAnnotation: alert.ID,
+		},
+	}
+
+	return nil
 }
 
 func actionIdsFromActionMap(actionList []string, actionIdMap map[string]string) []string {

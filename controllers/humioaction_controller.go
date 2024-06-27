@@ -156,12 +156,16 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 	curAction, err := r.HumioClient.GetAction(config, req, ha)
 	if errors.As(err, &humioapi.EntityNotFound{}) {
 		r.Log.Info("Action doesn't exist. Now adding action")
-		_, err = r.HumioClient.AddAction(config, req, ha)
+		addedAction, err := r.HumioClient.AddAction(config, req, ha)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create action")
 		}
 		r.Log.Info("Created action", "Action", ha.Spec.Name)
 
+		result, err := r.reconcileHumioActionAnnotations(ctx, addedAction, ha, req)
+		if err != nil {
+			return result, err
+		}
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err != nil {

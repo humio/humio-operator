@@ -47,7 +47,7 @@ spec:
       secretKeyRef:
         name: example-humiocluster-webhook-action-url-secret
         key: data
-    headers: # TODO: How do we want this to be? Should this just be the same as env vars?
+    headers:
       some: header
       some-other: header
     secretHeaders:

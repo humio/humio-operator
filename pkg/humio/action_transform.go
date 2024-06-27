@@ -29,6 +29,8 @@ import (
 )
 
 const (
+	ActionIdentifierAnnotation = "humio.com/action-id"
+
 	ActionTypeWebhook          = "Webhook"
 	ActionTypeSlack            = "Slack"
 	ActionTypeSlackPostMessage = "SlackPostMessage"
@@ -386,6 +388,9 @@ func ifErrors(action *humioapi.Action, actionType string, errorList []string) (*
 func baseAction(ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
 	action := &humioapi.Action{
 		Name: ha.Spec.Name,
+	}
+	if _, ok := ha.ObjectMeta.Annotations[ActionIdentifierAnnotation]; ok {
+		action.ID = ha.ObjectMeta.Annotations[ActionIdentifierAnnotation]
 	}
 	return action, nil
 }
