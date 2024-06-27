@@ -177,7 +177,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 	sanitizeAction(curAction)
 	sanitizeAction(expectedAction)
 	if !cmp.Equal(*curAction, *expectedAction) {
-		r.Log.Info("Action differs, triggering update")
+		r.Log.Info("Action differs, triggering update", "actionDiff", cmp.Diff(*curAction, *expectedAction))
 		action, err := r.HumioClient.UpdateAction(config, req, ha)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update action")

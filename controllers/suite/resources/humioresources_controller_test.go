@@ -969,10 +969,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
-			originalAction, err := humio.ActionFromActionCR(toCreateAction)
-			Expect(err).To(BeNil())
-			Expect(action.Name).To(Equal(originalAction.Name))
-
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the action successfully")
 			updatedAction := toCreateAction
 			updatedAction.Spec.EmailProperties.Recipients = []string{"updated@example.com"}
@@ -987,7 +983,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the action update succeeded")
-			var expectedUpdatedAction *humioapi.Action
+			var expectedUpdatedAction, updatedAction2 *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
@@ -996,16 +992,15 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the action matches the expected")
-			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
-			Expect(err).To(BeNil())
-			Expect(verifiedAction).ToNot(BeNil())
-			Eventually(func() humioapi.EmailAction {
-				updatedAction, err := humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+			Eventually(func() string {
+				updatedAction2, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
-					return humioapi.EmailAction{}
+					return ""
 				}
-				return updatedAction.EmailAction
-			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.EmailAction))
+				return updatedAction2.EmailAction.BodyTemplate
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(updatedAction.Spec.EmailProperties.BodyTemplate))
+			Expect(updatedAction2.EmailAction.SubjectTemplate).Should(BeEquivalentTo(updatedAction.Spec.EmailProperties.SubjectTemplate))
+			Expect(updatedAction2.EmailAction.Recipients).Should(BeEquivalentTo(updatedAction.Spec.EmailProperties.Recipients))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
@@ -1057,10 +1052,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
-			originalAction, err := humio.ActionFromActionCR(toCreateAction)
-			Expect(err).To(BeNil())
-			Expect(action.Name).To(Equal(originalAction.Name))
-
 			// Should not be setting the API token in this case, but the secretMap should have the value
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
@@ -1078,7 +1069,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the humio repo action update succeeded")
-			var expectedUpdatedAction *humioapi.Action
+			var expectedUpdatedAction, updatedAction2 *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
@@ -1086,16 +1077,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the humio repo action matches the expected")
-			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
-			Expect(err).To(BeNil())
-			Expect(verifiedAction).ToNot(BeNil())
-			Eventually(func() humioapi.HumioRepoAction {
-				updatedAction, err := humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+			Eventually(func() string {
+				updatedAction2, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
-					return humioapi.HumioRepoAction{}
+					return ""
 				}
-				return updatedAction.HumioRepoAction
-			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.HumioRepoAction))
+				return updatedAction2.HumioRepoAction.IngestToken
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(updatedAction.Spec.HumioRepositoryProperties.IngestToken))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
@@ -1148,10 +1136,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
-			originalAction, err := humio.ActionFromActionCR(toCreateAction)
-			Expect(err).To(BeNil())
-			Expect(action.Name).To(Equal(originalAction.Name))
-
 			// Check the SecretMap rather than the ApiToken on the action
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
@@ -1159,8 +1143,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the ops genie action successfully")
 			updatedAction := toCreateAction
-			expectedUpdatedGenieKey := "updatedgeniekey"
-			updatedAction.Spec.OpsGenieProperties.GenieKey = expectedUpdatedGenieKey
+			updatedAction.Spec.OpsGenieProperties.GenieKey = "updatedgeniekey"
 			updatedAction.Spec.OpsGenieProperties.ApiUrl = fmt.Sprintf("https://%s", testService2.Name)
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the ops genie action to be updated")
@@ -1171,7 +1154,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the ops genie action update succeeded")
-			var expectedUpdatedAction *humioapi.Action
+			var expectedUpdatedAction, updatedAction2 *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
@@ -1179,16 +1162,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the ops genie action matches the expected")
-			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
-			Expect(err).To(BeNil())
-			Expect(verifiedAction).ToNot(BeNil())
-			Eventually(func() humioapi.OpsGenieAction {
-				updatedAction, err := humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+			Eventually(func() string {
+				updatedAction2, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
-					return humioapi.OpsGenieAction{}
+					return ""
 				}
-				return updatedAction.OpsGenieAction
-			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.OpsGenieAction))
+				return updatedAction2.OpsGenieAction.GenieKey
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(updatedAction.Spec.OpsGenieProperties.GenieKey))
+			Expect(updatedAction2.OpsGenieAction.ApiUrl).Should(BeEquivalentTo(updatedAction.Spec.OpsGenieProperties.ApiUrl))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
@@ -1241,10 +1222,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
-			originalAction, err := humio.ActionFromActionCR(toCreateAction)
-			Expect(err).To(BeNil())
-			Expect(action.Name).To(Equal(originalAction.Name))
-
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(expectedSecretValue))
@@ -1262,7 +1239,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the pagerduty action update succeeded")
-			var expectedUpdatedAction *humioapi.Action
+			var expectedUpdatedAction, updatedAction2 *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
@@ -1270,16 +1247,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the pagerduty action matches the expected")
-			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
-			Expect(err).To(BeNil())
-			Expect(verifiedAction).ToNot(BeNil())
-			Eventually(func() humioapi.PagerDutyAction {
-				updatedAction, err := humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+			Eventually(func() string {
+				updatedAction2, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
-					return humioapi.PagerDutyAction{}
+					return ""
 				}
-				return updatedAction.PagerDutyAction
-			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.PagerDutyAction))
+				return updatedAction2.PagerDutyAction.RoutingKey
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(updatedAction.Spec.PagerDutyProperties.RoutingKey))
+			Expect(updatedAction2.PagerDutyAction.Severity).Should(BeEquivalentTo(updatedAction.Spec.PagerDutyProperties.Severity))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
@@ -1334,10 +1309,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
-			originalAction, err := humio.ActionFromActionCR(toCreateAction)
-			Expect(err).To(BeNil())
-			Expect(action.Name).To(Equal(originalAction.Name))
-
 			// Check the secretMap rather than the apiToken in the ha.
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
@@ -1345,10 +1316,12 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the slack post message action successfully")
 			updatedAction := toCreateAction
+			updatedFieldKey := "some"
+			updatedFieldValue := "updatedvalue"
 			updatedAction.Spec.SlackPostMessageProperties.ApiToken = "updated-token"
 			updatedAction.Spec.SlackPostMessageProperties.Channels = []string{"#some-channel", "#other-channel"}
 			updatedAction.Spec.SlackPostMessageProperties.Fields = map[string]string{
-				"some": "updatedkey",
+				updatedFieldKey: updatedFieldValue,
 			}
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the slack post message action to be updated")
@@ -1359,7 +1332,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack post message action update succeeded")
-			var expectedUpdatedAction *humioapi.Action
+			var expectedUpdatedAction, updatedAction2 *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
@@ -1367,16 +1340,18 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack post message action matches the expected")
-			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
-			Expect(err).To(BeNil())
-			Expect(verifiedAction).ToNot(BeNil())
-			Eventually(func() humioapi.SlackPostMessageAction {
-				updatedAction, err := humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+			Eventually(func() string {
+				updatedAction2, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
-					return humioapi.SlackPostMessageAction{}
+					return ""
 				}
-				return updatedAction.SlackPostMessageAction
-			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.SlackPostMessageAction))
+				return updatedAction2.SlackPostMessageAction.ApiToken
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(updatedAction.Spec.SlackPostMessageProperties.ApiToken))
+			Expect(updatedAction2.SlackPostMessageAction.Channels).Should(BeEquivalentTo(updatedAction.Spec.SlackPostMessageProperties.Channels))
+			Expect(updatedAction2.SlackPostMessageAction.Fields).Should(BeEquivalentTo([]humioapi.SlackFieldEntryInput{{
+				FieldName: updatedFieldKey,
+				Value:     updatedFieldValue,
+			}}))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
@@ -1430,10 +1405,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
-			originalAction, err := humio.ActionFromActionCR(toCreateAction)
-			Expect(err).To(BeNil())
-			Expect(action.Name).To(Equal(originalAction.Name))
-
 			// Check the SecretMap rather than the ApiToken on the action
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
@@ -1441,9 +1412,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the slack action successfully")
 			updatedAction := toCreateAction
+			updatedFieldKey := "some"
+			updatedFieldValue := "updatedvalue"
 			updatedAction.Spec.SlackProperties.Url = fmt.Sprintf("https://%s/services/T00000000/B00000000/YYYYYYYYYYYYYYYYYYYYYYYY", testService1.Name)
 			updatedAction.Spec.SlackProperties.Fields = map[string]string{
-				"some": "updatedkey",
+				updatedFieldKey: updatedFieldValue,
 			}
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the slack action to be updated")
@@ -1454,7 +1427,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack action update succeeded")
-			var expectedUpdatedAction *humioapi.Action
+			var expectedUpdatedAction, updatedAction2 *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
@@ -1462,16 +1435,17 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack action matches the expected")
-			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
-			Expect(err).To(BeNil())
-			Expect(verifiedAction).ToNot(BeNil())
-			Eventually(func() humioapi.SlackAction {
-				updatedAction, err := humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+			Eventually(func() string {
+				updatedAction2, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
-					return humioapi.SlackAction{}
+					return ""
 				}
-				return updatedAction.SlackAction
-			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.SlackAction))
+				return updatedAction2.SlackAction.Url
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(updatedAction.Spec.SlackProperties.Url))
+			Expect(updatedAction2.SlackAction.Fields).Should(BeEquivalentTo([]humioapi.SlackFieldEntryInput{{
+				FieldName: updatedFieldKey,
+				Value:     updatedFieldValue,
+			}}))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
@@ -1523,10 +1497,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
-			originalAction, err := humio.ActionFromActionCR(toCreateAction)
-			Expect(err).To(BeNil())
-			Expect(action.Name).To(Equal(originalAction.Name))
-
 			// Check the SecretMap rather than the NotifyUrl on the action
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
@@ -1545,7 +1515,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the victor ops action update succeeded")
-			var expectedUpdatedAction *humioapi.Action
+			var expectedUpdatedAction, updatedAction2 *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
@@ -1553,16 +1523,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the victor ops action matches the expected")
-			verifiedAction, err := humio.ActionFromActionCR(updatedAction)
-			Expect(err).To(BeNil())
-			Expect(verifiedAction).ToNot(BeNil())
-			Eventually(func() humioapi.VictorOpsAction {
-				updatedAction, err := humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+			Eventually(func() string {
+				updatedAction2, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				if err != nil {
-					return humioapi.VictorOpsAction{}
+					return ""
 				}
-				return updatedAction.VictorOpsAction
-			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(verifiedAction.VictorOpsAction))
+				return updatedAction2.VictorOpsAction.MessageType
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(updatedAction.Spec.VictorOpsProperties.MessageType))
+			Expect(updatedAction2.VictorOpsAction.NotifyUrl).Should(BeEquivalentTo(updatedAction.Spec.VictorOpsProperties.NotifyUrl))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
@@ -1616,13 +1584,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
-			originalAction, err := humio.ActionFromActionCR(toCreateAction)
-			Expect(err).To(BeNil())
-			Expect(action.Name).To(Equal(originalAction.Name))
-
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Updating the web hook action successfully")
+			updatedHeaderKey := "updatedKey"
+			updatedHeaderValue := "updatedValue"
 			updatedWebhookActionProperties := &humiov1alpha1.HumioActionWebhookProperties{
-				Headers:      map[string]string{"updated": "header"},
+				Headers:      map[string]string{updatedHeaderKey: updatedHeaderValue},
 				BodyTemplate: "updated template",
 				Method:       http.MethodPut,
 				Url:          fmt.Sprintf("https://%s/some/updated/api", testService1.Name),
@@ -1635,12 +1601,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8sClient.Update(ctx, fetchedAction)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			updatedAction, err := humio.ActionFromActionCR(fetchedAction)
-			Expect(err).To(BeNil())
-			Expect(updatedAction).ToNot(BeNil())
-
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the web hook action update succeeded")
-			var expectedUpdatedAction *humioapi.Action
+			var expectedUpdatedAction, updatedAction *humioapi.Action
 			Eventually(func() error {
 				expectedUpdatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
@@ -1648,13 +1610,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the web hook action matches the expected")
-			Eventually(func() humioapi.WebhookAction {
-				updatedAction, err := humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
-				if err != nil {
-					return humioapi.WebhookAction{}
+			Eventually(func() string {
+				updatedAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				if err != nil || updatedAction == nil {
+					return ""
 				}
-				return updatedAction.WebhookAction
-			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(updatedAction.WebhookAction))
+				return updatedAction.WebhookAction.Url
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(updatedWebhookActionProperties.Url))
+			Expect(updatedAction.WebhookAction.Headers).Should(BeEquivalentTo([]humioapi.HttpHeaderEntryInput{{
+				Header: updatedHeaderKey,
+				Value:  updatedHeaderValue,
+			}}))
+			Expect(updatedAction.WebhookAction.BodyTemplate).To(BeEquivalentTo(updatedWebhookActionProperties.BodyTemplate))
+			Expect(updatedAction.WebhookAction.Method).To(BeEquivalentTo(updatedWebhookActionProperties.Method))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
