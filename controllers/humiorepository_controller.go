@@ -158,13 +158,13 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		(curRepository.RetentionDays != float64(hr.Spec.Retention.TimeInDays)) ||
 		(curRepository.IngestRetentionSizeGB != float64(hr.Spec.Retention.IngestSizeInGB)) ||
 		(curRepository.StorageRetentionSizeGB != float64(hr.Spec.Retention.StorageSizeInGB)) ||
-		(curRepository.AutomaticSearch != !hr.Spec.DisableAutomaticSearch) {
+		(curRepository.AutomaticSearch != helpers.BoolTrue(hr.Spec.AutomaticSearch)) {
 		r.Log.Info(fmt.Sprintf("repository information differs, triggering update, expected %v/%v/%v/%v/%v, got: %v/%v/%v/%v/%v",
 			hr.Spec.Description,
 			float64(hr.Spec.Retention.TimeInDays),
 			float64(hr.Spec.Retention.IngestSizeInGB),
 			float64(hr.Spec.Retention.StorageSizeInGB),
-			!hr.Spec.DisableAutomaticSearch,
+			helpers.BoolTrue(hr.Spec.AutomaticSearch),
 			curRepository.Description,
 			curRepository.RetentionDays,
 			curRepository.IngestRetentionSizeGB,

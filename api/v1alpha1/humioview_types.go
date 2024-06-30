@@ -54,8 +54,8 @@ type HumioViewSpec struct {
 	Description string `json:"description,omitempty"`
 	// Connections contains the connections to the Humio repositories which is accessible in this view
 	Connections []HumioViewConnection `json:"connections,omitempty"`
-	// DisableAutomaticSearch is used to disable the start search automatically on loading the search page option.
-	DisableAutomaticSearch bool `json:"disableAutomaticSearch,omitempty"`
+	// AutomaticSearch is used to specify the start search automatically on loading the search page option.
+	AutomaticSearch *bool `json:"automaticSearch,omitempty"`
 }
 
 // HumioViewStatus defines the observed state of HumioView

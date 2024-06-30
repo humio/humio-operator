@@ -56,14 +56,14 @@ spec:
                   repository. This must be set to true before the operator will apply retention settings that will (or might)
                   cause data to be deleted within the repository.
                 type: boolean
+              automaticSearch:
+                description: AutomaticSearch is used to specify the start search automatically
+                  on loading the search page option.
+                type: boolean
               description:
                 description: Description contains the description that will be set
                   on the repository
                 type: string
-              disableAutomaticSearch:
-                description: DisableAutomaticSearch is used to disable the start search
-                  automatically on loading the search page option.
-                type: boolean
               externalClusterName:
                 description: |-
                   ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.

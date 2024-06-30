@@ -377,10 +377,10 @@ func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.R
 		}
 	}
 
-	if curRepository.AutomaticSearch != !hr.Spec.DisableAutomaticSearch {
+	if curRepository.AutomaticSearch != helpers.BoolTrue(hr.Spec.AutomaticSearch) {
 		err = h.GetHumioClient(config, req).Repositories().UpdateAutomaticSearch(
 			hr.Spec.Name,
-			!hr.Spec.DisableAutomaticSearch,
+			helpers.BoolTrue(hr.Spec.AutomaticSearch),
 		)
 		if err != nil {
 			return &humioapi.Repository{}, err
@@ -444,10 +444,10 @@ func (h *ClientConfig) UpdateView(config *humioapi.Config, req reconcile.Request
 		}
 	}
 
-	if curView.AutomaticSearch != !hv.Spec.DisableAutomaticSearch {
+	if curView.AutomaticSearch != helpers.BoolTrue(hv.Spec.AutomaticSearch) {
 		err = h.GetHumioClient(config, req).Views().UpdateAutomaticSearch(
 			hv.Spec.Name,
-			!hv.Spec.DisableAutomaticSearch,
+			helpers.BoolTrue(hv.Spec.AutomaticSearch),
 		)
 		if err != nil {
 			return &humioapi.View{}, err

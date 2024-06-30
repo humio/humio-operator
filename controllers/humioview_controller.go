@@ -162,11 +162,11 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 	// Update
 	if viewConnectionsDiffer(curView.Connections, hv.GetViewConnections()) ||
 		curView.Description != hv.Spec.Description ||
-		curView.AutomaticSearch != !hv.Spec.DisableAutomaticSearch {
+		curView.AutomaticSearch != helpers.BoolTrue(hv.Spec.AutomaticSearch) {
 		r.Log.Info(fmt.Sprintf("view information differs, triggering update, expected %v/%v/%v, got: %v/%v/%v",
 			hv.Spec.Connections,
 			hv.Spec.Description,
-			!hv.Spec.DisableAutomaticSearch,
+			helpers.BoolTrue(hv.Spec.AutomaticSearch),
 			curView.Connections,
 			curView.Description,
 			curView.AutomaticSearch))
