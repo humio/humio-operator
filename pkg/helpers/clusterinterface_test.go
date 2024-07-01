@@ -189,7 +189,7 @@ func TestCluster_HumioConfig_managedHumioCluster(t *testing.T) {
 			if !TLSEnabled(&tt.managedHumioCluster) {
 				protocol = "http"
 			}
-			expectedURL := fmt.Sprintf("%s://%s-headless.%s:8080/", protocol, tt.managedHumioCluster.Name, tt.managedHumioCluster.Namespace)
+			expectedURL := fmt.Sprintf("%s://%s.%s:8080/", protocol, tt.managedHumioCluster.Name, tt.managedHumioCluster.Namespace)
 			if cluster.Config().Address.String() != expectedURL {
 				t.Errorf("url not correct, expected: %s, got: %s", expectedURL, cluster.Config().Address)
 			}
