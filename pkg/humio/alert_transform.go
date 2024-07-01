@@ -51,7 +51,7 @@ func AlertHydrate(ha *humiov1alpha1.HumioAlert, alert *humioapi.Alert, actionIdM
 
 	ha.ObjectMeta = metav1.ObjectMeta{
 		Annotations: map[string]string{
-			ActionIdentifierAnnotation: alert.ID,
+			AlertIdentifierAnnotation: alert.ID,
 		},
 	}
 
