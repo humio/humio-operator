@@ -217,7 +217,7 @@ func (h *ClientConfig) GetBaseURL(config *humioapi.Config, req reconcile.Request
 	if !helpers.TLSEnabled(hc) {
 		protocol = "http"
 	}
-	baseURL, _ := url.Parse(fmt.Sprintf("%s://%s-headless.%s:%d/", protocol, hc.Name, hc.Namespace, 8080))
+	baseURL, _ := url.Parse(fmt.Sprintf("%s://%s.%s:%d/", protocol, hc.Name, hc.Namespace, 8080))
 	return baseURL
 
 }
