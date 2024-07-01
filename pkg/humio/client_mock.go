@@ -79,7 +79,7 @@ func (h *MockClientConfig) GetClusters(config *humioapi.Config, req reconcile.Re
 }
 
 func (h *MockClientConfig) GetBaseURL(config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) *url.URL {
-	baseURL, _ := url.Parse(fmt.Sprintf("http://%s-headless.%s:%d/", hc.Name, hc.Namespace, 8080))
+	baseURL, _ := url.Parse(fmt.Sprintf("http://%s.%s:%d/", hc.Name, hc.Namespace, 8080))
 	return baseURL
 }
 
