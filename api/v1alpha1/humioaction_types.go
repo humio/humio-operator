@@ -66,9 +66,10 @@ type HumioActionOpsGenieProperties struct {
 
 // HumioActionPagerDutyProperties defines the desired state of HumioActionPagerDutyProperties
 type HumioActionPagerDutyProperties struct {
-	RoutingKey string `json:"routingKey,omitempty"`
-	Severity   string `json:"severity,omitempty"`
-	UseProxy   bool   `json:"useProxy,omitempty"`
+	RoutingKey       string    `json:"routingKey,omitempty"`
+	RoutingKeySource VarSource `json:"routingKeySource,omitempty"`
+	Severity         string    `json:"severity,omitempty"`
+	UseProxy         bool      `json:"useProxy,omitempty"`
 }
 
 // HumioActionSlackProperties defines the desired state of HumioActionSlackProperties
