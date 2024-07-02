@@ -25,6 +25,7 @@ import (
 
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -159,6 +160,7 @@ func (h *MockClientConfig) AddRepository(config *humioapi.Config, req reconcile.
 }
 
 func (h *MockClientConfig) GetRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
+	h.apiClient.Repository.AutomaticSearch = helpers.BoolTrue(hr.Spec.AutomaticSearch)
 	return &h.apiClient.Repository, nil
 }
 
@@ -172,6 +174,7 @@ func (h *MockClientConfig) DeleteRepository(config *humioapi.Config, req reconci
 }
 
 func (h *MockClientConfig) GetView(config *humioapi.Config, req reconcile.Request, hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	h.apiClient.View.AutomaticSearch = helpers.BoolTrue(hv.Spec.AutomaticSearch)
 	return &h.apiClient.View, nil
 }
 
@@ -186,6 +189,7 @@ func (h *MockClientConfig) AddView(config *humioapi.Config, req reconcile.Reques
 
 	h.apiClient.View = humioapi.View{
 		Name:        hv.Spec.Name,
+		Description: hv.Spec.Description,
 		Connections: connections,
 	}
 	return &h.apiClient.View, nil
