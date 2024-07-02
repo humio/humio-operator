@@ -3,32 +3,25 @@ kind: HumioFilterAlert
 metadata:
   name: example-alert-filter-managed
 spec:
-  managedClusterName: sandbox-2 #example-humiocluster
+  managedClusterName: example-humiocluster
   name: example-filter-alert
   viewName: humio
   queryString: "#repo = humio | error = true"
-  enabled: false
+  enabled: true
   description: Error counts
   actions:
-    - test-action #example-email-action
-    #  labels:
-    #    - some-label
-#---
-#apiVersion: core.humio.com/v1alpha1
-#kind: HumioAction
-#metadata:
-#  name: example-email-action-external
-#spec:
-#  externalClusterName: example-humioexternalcluster
-#  name: example-email-action
-#  viewName: humio
-#  query:
-#    queryString: "#repo = humio | error = true | count() | _count > 0"
-#    start: 24h
-#    end: now
-#    isLive: true
-#  throttleTimeMillis: 60000
-#  silenced: false
-#  description: Error counts
-#  actions:
-#    - example-email-action
+    - example-email-action
+---
+apiVersion: core.humio.com/v1alpha1
+kind: HumioAction
+metadata:
+  name: example-email-action-external
+spec:
+  externalClusterName: example-humioexternalcluster
+name: example-filter-alert
+  viewName: humio
+  queryString: "#repo = humio | error = true"
+  enabled: true
+  description: Error counts
+  actions:
+    - example-email-action
