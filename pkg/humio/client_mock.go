@@ -302,7 +302,7 @@ func (h *MockClientConfig) GetFilterAlert(config *humioapi.Config, req reconcile
 }
 
 func (h *MockClientConfig) AddFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
-	if err := h.ValidateActionIDsForFilterAlert(config, req, hfa); err != nil {
+	if err := h.ValidateActionsForFilterAlert(config, req, hfa); err != nil {
 		return &humioapi.FilterAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
 	filterAlert, err := FilterAlertTransform(hfa)
@@ -322,7 +322,7 @@ func (h *MockClientConfig) DeleteFilterAlert(config *humioapi.Config, req reconc
 	return nil
 }
 
-func (h *MockClientConfig) ValidateActionIDsForFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+func (h *MockClientConfig) ValidateActionsForFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
 	return nil
 }
 

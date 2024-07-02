@@ -161,7 +161,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 	}
 
 	r.Log.Info("Checking if filter alert needs to be updated")
-	if err := r.HumioClient.ValidateActionIDsForFilterAlert(config, req, hfa); err != nil {
+	if err := r.HumioClient.ValidateActionsForFilterAlert(config, req, hfa); err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not get action id mapping")
 	}
 	expectedFilterAlert, err := humio.FilterAlertTransform(hfa)

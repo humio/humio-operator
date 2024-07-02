@@ -104,7 +104,7 @@ type FilterAlertsClient interface {
 	GetFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error)
 	UpdateFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error)
 	DeleteFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
-	ValidateActionIDsForFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
+	ValidateActionsForFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
 }
 
 type LicenseClient interface {
@@ -680,7 +680,7 @@ func (h *ClientConfig) AddFilterAlert(config *humioapi.Config, req reconcile.Req
 	if err != nil {
 		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for action: %w", err)
 	}
-	if err = h.ValidateActionIDsForFilterAlert(config, req, hfa); err != nil {
+	if err = h.ValidateActionsForFilterAlert(config, req, hfa); err != nil {
 		return &humioapi.FilterAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
 	filterAlert, err := FilterAlertTransform(hfa)
@@ -700,7 +700,7 @@ func (h *ClientConfig) UpdateFilterAlert(config *humioapi.Config, req reconcile.
 	if err != nil {
 		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for action: %w", err)
 	}
-	if err = h.ValidateActionIDsForFilterAlert(config, req, hfa); err != nil {
+	if err = h.ValidateActionsForFilterAlert(config, req, hfa); err != nil {
 		return &humioapi.FilterAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
 	filterAlert, err := FilterAlertTransform(hfa)
@@ -759,7 +759,7 @@ func (h *ClientConfig) GetActionIDsMapForAlerts(config *humioapi.Config, req rec
 	return actionIdMap, nil
 }
 
-func (h *ClientConfig) ValidateActionIDsForFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+func (h *ClientConfig) ValidateActionsForFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
 	for _, actionNameForAlert := range hfa.Spec.Actions {
 		if _, err := h.getAndValidateAction(config, req, actionNameForAlert, hfa.Spec.ViewName); err != nil {
 			return fmt.Errorf("problem getting action for filter alert %s: %w", hfa.Spec.Name, err)

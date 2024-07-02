@@ -2950,7 +2950,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(filterAlert).ToNot(BeNil())
 
 			Eventually(func() error {
-				return humioClient.ValidateActionIDsForFilterAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateFilterAlert)
+				return humioClient.ValidateActionsForFilterAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateFilterAlert)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			originalFilterAlert, err := humio.FilterAlertTransform(toCreateFilterAlert)
