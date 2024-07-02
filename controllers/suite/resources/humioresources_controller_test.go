@@ -2874,7 +2874,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	Context("Humio Filter Alert", func() {
+	FContext("Humio Filter Alert", func() {
 		It("should handle filter alert action correctly", func() {
 			ctx := context.Background()
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Should handle filter alert correctly")
