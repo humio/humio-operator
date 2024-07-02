@@ -34,6 +34,7 @@ import (
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers/suite"
+	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 )
 
@@ -354,6 +355,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				RetentionDays:          float64(toCreateRepository.Spec.Retention.TimeInDays),
 				IngestRetentionSizeGB:  float64(toCreateRepository.Spec.Retention.IngestSizeInGB),
 				StorageRetentionSizeGB: float64(toCreateRepository.Spec.Retention.StorageSizeInGB),
+				AutomaticSearch:        true,
 			}
 			Eventually(func() repositoryExpectation {
 				initialRepository, err := humioClient.GetRepository(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedRepository)
@@ -367,14 +369,17 @@ var _ = Describe("Humio Resources Controllers", func() {
 					IngestRetentionSizeGB:  initialRepository.IngestRetentionSizeGB,
 					StorageRetentionSizeGB: initialRepository.StorageRetentionSizeGB,
 					SpaceUsed:              initialRepository.SpaceUsed,
+					AutomaticSearch:        initialRepository.AutomaticSearch,
 				}
 			}, testTimeout, suite.TestInterval).Should(Equal(expectedInitialRepository))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioRepository: Updating the repository successfully")
 			updatedDescription := "important description - now updated"
+			updatedAutomaticSearch := helpers.BoolPtr(false)
 			Eventually(func() error {
 				k8sClient.Get(ctx, key, fetchedRepository)
 				fetchedRepository.Spec.Description = updatedDescription
+				fetchedRepository.Spec.AutomaticSearch = updatedAutomaticSearch
 				return k8sClient.Update(ctx, fetchedRepository)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -391,6 +396,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				RetentionDays:          float64(fetchedRepository.Spec.Retention.TimeInDays),
 				IngestRetentionSizeGB:  float64(fetchedRepository.Spec.Retention.IngestSizeInGB),
 				StorageRetentionSizeGB: float64(fetchedRepository.Spec.Retention.StorageSizeInGB),
+				AutomaticSearch:        *fetchedRepository.Spec.AutomaticSearch,
 			}
 			Eventually(func() repositoryExpectation {
 				updatedRepository, err := humioClient.GetRepository(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedRepository)
@@ -405,6 +411,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					IngestRetentionSizeGB:  updatedRepository.IngestRetentionSizeGB,
 					StorageRetentionSizeGB: updatedRepository.StorageRetentionSizeGB,
 					SpaceUsed:              updatedRepository.SpaceUsed,
+					AutomaticSearch:        updatedRepository.AutomaticSearch,
 				}
 			}, testTimeout, suite.TestInterval).Should(Equal(expectedUpdatedRepository))
 
@@ -452,6 +459,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioViewSpec{
 					ManagedClusterName: clusterKey.Name,
 					Name:               "example-view",
+					Description:        "important description",
 					Connections:        connections,
 				},
 			}
@@ -483,8 +491,10 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(initialView).ToNot(BeNil())
 
 			expectedInitialView := humioapi.View{
-				Name:        viewToCreate.Spec.Name,
-				Connections: viewToCreate.GetViewConnections(),
+				Name:            viewToCreate.Spec.Name,
+				Description:     viewToCreate.Spec.Description,
+				Connections:     viewToCreate.GetViewConnections(),
+				AutomaticSearch: true,
 			}
 
 			Eventually(func() humioapi.View {
@@ -496,15 +506,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Equal(expectedInitialView))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioView: Updating the view successfully in k8s")
+			updatedViewDescription := "important description - now updated"
 			updatedConnections := []humiov1alpha1.HumioViewConnection{
 				{
 					RepositoryName: testRepo.Spec.Name,
 					Filter:         "*",
 				},
 			}
+			updatedViewAutomaticSearch := helpers.BoolPtr(false)
 			Eventually(func() error {
 				k8sClient.Get(ctx, viewKey, fetchedView)
+				fetchedView.Spec.Description = updatedViewDescription
 				fetchedView.Spec.Connections = updatedConnections
+				fetchedView.Spec.AutomaticSearch = updatedViewAutomaticSearch
 				return k8sClient.Update(ctx, fetchedView)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -517,8 +531,10 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(updatedView).ToNot(BeNil())
 
 			expectedUpdatedView := humioapi.View{
-				Name:        viewToCreate.Spec.Name,
-				Connections: fetchedView.GetViewConnections(),
+				Name:            viewToCreate.Spec.Name,
+				Description:     fetchedView.Spec.Description,
+				Connections:     fetchedView.GetViewConnections(),
+				AutomaticSearch: *fetchedView.Spec.AutomaticSearch,
 			}
 			Eventually(func() humioapi.View {
 				updatedView, err := humioClient.GetView(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedView)
@@ -2246,4 +2262,5 @@ type repositoryExpectation struct {
 	IngestRetentionSizeGB  float64 `graphql:"ingestSizeBasedRetention"`
 	StorageRetentionSizeGB float64 `graphql:"storageSizeBasedRetention"`
 	SpaceUsed              int64   `graphql:"compressedByteSize"`
+	AutomaticSearch        bool
 }
