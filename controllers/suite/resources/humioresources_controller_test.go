@@ -2913,7 +2913,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ManagedClusterName: clusterKey.Name,
 				Name:               "example-filter-alert",
 				ViewName:           testRepo.Spec.Name,
-				QueryString:        "#repo = test | count()",
+				QueryString:        "#repo = humio | error = true",
 				Enabled:            true,
 				Description:        "humio filter alert",
 				Actions:            []string{toCreateDependentAction.Spec.Name},
@@ -2969,7 +2969,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Updating the filter alert successfully")
 			updatedFilterAlert := toCreateFilterAlert
-			updatedFilterAlert.Spec.QueryString = "#repo = test | updated=true | count()"
+			updatedFilterAlert.Spec.QueryString = "#repo = humio | updated_field = true | error = true"
 			updatedFilterAlert.Spec.Enabled = false
 			updatedFilterAlert.Spec.Description = "updated humio filter alert"
 			updatedFilterAlert.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
