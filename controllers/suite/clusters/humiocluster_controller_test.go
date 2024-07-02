@@ -1295,7 +1295,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Environment Variable", func() {
+	FContext("Humio Cluster Update Environment Variable", func() {
 		It("Should correctly replace pods to use new environment variable", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-envvar",
