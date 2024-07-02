@@ -44,6 +44,7 @@ type Client interface {
 	LicenseClient
 	ActionsClient
 	AlertsClient
+	FilterAlertsClient
 }
 
 type ClusterClient interface {
@@ -96,6 +97,14 @@ type AlertsClient interface {
 	UpdateAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAlert) (*humioapi.Alert, error)
 	DeleteAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAlert) error
 	GetActionIDsMapForAlerts(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAlert) (map[string]string, error)
+}
+
+type FilterAlertsClient interface {
+	AddFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error)
+	GetFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error)
+	UpdateFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error)
+	DeleteFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
+	ValidateActionIDsForFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
 }
 
 type LicenseClient interface {
@@ -635,6 +644,87 @@ func (h *ClientConfig) DeleteAlert(config *humioapi.Config, req reconcile.Reques
 	return h.GetHumioClient(config, req).Alerts().Delete(ha.Spec.ViewName, ha.Spec.Name)
 }
 
+func (h *ClientConfig) GetFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
+	err := h.validateView(config, req, hfa.Spec.ViewName)
+	if err != nil {
+		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for action %s: %w", hfa.Spec.Name, err)
+	}
+
+	var filterAlertId string
+	filterAlertsList, err := h.GetHumioClient(config, req).FilterAlerts().List(hfa.Spec.ViewName)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list filter alerts: %w", err)
+	}
+	for _, filterAlert := range filterAlertsList {
+		if filterAlert.Name == hfa.Spec.Name {
+			filterAlertId = filterAlert.ID
+		}
+	}
+	if filterAlertId == "" {
+		return nil, humioapi.FilterAlertNotFound(hfa.Spec.Name)
+	}
+	filterAlert, err := h.GetHumioClient(config, req).FilterAlerts().Get(hfa.Spec.ViewName, filterAlertId)
+	if err != nil {
+		return filterAlert, fmt.Errorf("error when trying to get filter alert %+v, name=%s, view=%s: %w", filterAlert, hfa.Spec.Name, hfa.Spec.ViewName, err)
+	}
+
+	if filterAlert == nil || filterAlert.Name == "" {
+		return nil, nil
+	}
+
+	return filterAlert, nil
+}
+
+func (h *ClientConfig) AddFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
+	err := h.validateView(config, req, hfa.Spec.ViewName)
+	if err != nil {
+		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for action: %w", err)
+	}
+	if err = h.ValidateActionIDsForFilterAlert(config, req, hfa); err != nil {
+		return &humioapi.FilterAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
+	}
+	filterAlert, err := FilterAlertTransform(hfa)
+	if err != nil {
+		return filterAlert, err
+	}
+
+	createdAlert, err := h.GetHumioClient(config, req).FilterAlerts().Create(hfa.Spec.ViewName, filterAlert)
+	if err != nil {
+		return createdAlert, fmt.Errorf("got error when attempting to add filter alert: %w, filteralert: %#v", err, *filterAlert)
+	}
+	return createdAlert, nil
+}
+
+func (h *ClientConfig) UpdateFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
+	err := h.validateView(config, req, hfa.Spec.ViewName)
+	if err != nil {
+		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for action: %w", err)
+	}
+	if err = h.ValidateActionIDsForFilterAlert(config, req, hfa); err != nil {
+		return &humioapi.FilterAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
+	}
+	filterAlert, err := FilterAlertTransform(hfa)
+	if err != nil {
+		return filterAlert, err
+	}
+
+	currentAlert, err := h.GetFilterAlert(config, req, hfa)
+	if err != nil {
+		return &humioapi.FilterAlert{}, fmt.Errorf("could not find filter alert with name: %q", filterAlert.Name)
+	}
+	filterAlert.ID = currentAlert.ID
+
+	return h.GetHumioClient(config, req).FilterAlerts().Update(hfa.Spec.ViewName, filterAlert)
+}
+
+func (h *ClientConfig) DeleteFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+	currentAlert, err := h.GetFilterAlert(config, req, hfa)
+	if err != nil {
+		return fmt.Errorf("could not find filter alert with name: %q", hfa.Name)
+	}
+	return h.GetHumioClient(config, req).FilterAlerts().Delete(hfa.Spec.ViewName, currentAlert.ID)
+}
+
 func (h *ClientConfig) getAndValidateAction(config *humioapi.Config, req reconcile.Request, actionName string, viewName string) (*humioapi.Action, error) {
 	action := &humiov1alpha1.HumioAction{
 		Spec: humiov1alpha1.HumioActionSpec{
@@ -667,4 +757,13 @@ func (h *ClientConfig) GetActionIDsMapForAlerts(config *humioapi.Config, req rec
 
 	}
 	return actionIdMap, nil
+}
+
+func (h *ClientConfig) ValidateActionIDsForFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+	for _, actionNameForAlert := range hfa.Spec.Actions {
+		if _, err := h.getAndValidateAction(config, req, actionNameForAlert, hfa.Spec.ViewName); err != nil {
+			return fmt.Errorf("problem getting action for filter alert %s: %w", hfa.Spec.Name, err)
+		}
+	}
+	return nil
 }
