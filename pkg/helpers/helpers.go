@@ -99,6 +99,11 @@ func IntPtr(val int) *int {
 	return &val
 }
 
+// BoolTrue returns true if the pointer is nil or true
+func BoolTrue(val *bool) bool {
+	return val == nil || *val
+}
+
 // MapToSortedString prettifies a string map, so it's more suitable for readability when logging.
 // The output is constructed by sorting the slice.
 func MapToSortedString(m map[string]string) string {
