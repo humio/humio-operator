@@ -76,7 +76,7 @@ spec:
                     type: string
                   ingestTokenSource:
                     description: |-
-                      IngestToken specifies where to fetch the ingest token from.
+                      IngestTokenSource specifies where to fetch the ingest token from.
                       If both IngestToken and IngestTokenSource are specified, IngestToken will be used.
                     properties:
                       secretKeyRef:
