@@ -88,7 +88,7 @@ func TestActionCRAsAction(t *testing.T) {
 			},
 			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property slackProperties.fields is required, invalid url for slackProperties.url: parse \"\": empty url", ActionTypeSlack),
+			fmt.Sprintf("%s failed due to errors: property slackProperties.url is required, property slackProperties.fields is required, invalid url for slackProperties.url: parse \"\": empty url", ActionTypeSlack),
 		},
 		{
 			"missing required slackPostMessageProperties",
@@ -116,7 +116,7 @@ func TestActionCRAsAction(t *testing.T) {
 			},
 			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property victorOpsProperties.messageType is required, invalid url for victorOpsProperties.notifyUrl: parse \"\": empty url", ActionTypeVictorOps),
+			fmt.Sprintf("%s failed due to errors: property victorOpsProperties.notifyUrl is required, property victorOpsProperties.messageType is required, invalid url for victorOpsProperties.notifyUrl: parse \"\": empty url", ActionTypeVictorOps),
 		},
 		{
 			"missing required webhookProperties",
@@ -130,7 +130,7 @@ func TestActionCRAsAction(t *testing.T) {
 			},
 			nil,
 			true,
-			fmt.Sprintf("%s failed due to errors: property webhookProperties.bodyTemplate is required, property webhookProperties.headers is required, property webhookProperties.method is required, invalid url for webhookProperties.url: parse \"\": empty url", ActionTypeWebhook),
+			fmt.Sprintf("%s failed due to errors: property webhookProperties.url is required, property webhookProperties.bodyTemplate is required, property webhookProperties.method is required, invalid url for webhookProperties.url: parse \"\": empty url", ActionTypeWebhook),
 		},
 		{
 			"invalid pagerDutyProperties.severity",
@@ -193,6 +193,33 @@ func TestActionCRAsAction(t *testing.T) {
 			nil,
 			true,
 			"could not find action type: no properties specified for action",
+		},
+		{
+			"duplicate header in webhookProperties",
+			args{
+				&humiov1alpha1.HumioAction{
+					Spec: humiov1alpha1.HumioActionSpec{
+						Name: "action",
+						WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
+							Url:          "http://127.0.0.1",
+							Method:       "POST",
+							BodyTemplate: "some body",
+							Headers: map[string]string{
+								"key": "value",
+							},
+							SecretHeaders: []humiov1alpha1.HeadersSource{
+								{
+									Name:      "key",
+									ValueFrom: humiov1alpha1.VarSource{},
+								},
+							},
+						},
+					},
+				},
+			},
+			nil,
+			true,
+			fmt.Sprintf("%s failed due to errors: webhookProperties contains duplicate keys", ActionTypeWebhook),
 		},
 	}
 	for _, tt := range tests {
