@@ -73,7 +73,7 @@ type HumioActionRepositoryProperties struct {
 	// IngestToken specifies what ingest token to use.
 	// If both IngestToken and IngestTokenSource are specified, IngestToken will be used.
 	IngestToken string `json:"ingestToken,omitempty"`
-	// IngestToken specifies where to fetch the ingest token from.
+	// IngestTokenSource specifies where to fetch the ingest token from.
 	// If both IngestToken and IngestTokenSource are specified, IngestToken will be used.
 	IngestTokenSource VarSource `json:"ingestTokenSource,omitempty"`
 }
