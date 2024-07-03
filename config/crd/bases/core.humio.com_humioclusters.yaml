@@ -939,6 +939,10 @@ spec:
                         type: array
                     type: object
                 type: object
+              authServiceAccountName:
+                description: '*Deprecated: AuthServiceAccountName is no longer used
+                  as the auth sidecar container has been removed.*'
+                type: string
               autoRebalancePartitions:
                 description: |-
                   AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes.
@@ -6628,6 +6632,10 @@ spec:
                                   type: array
                               type: object
                           type: object
+                        authServiceAccountName:
+                          description: '*Deprecated: AuthServiceAccountName is no
+                            longer used as the auth sidecar container has been removed.*'
+                          type: string
                         containerLivenessProbe:
                           description: |-
                             ContainerLivenessProbe is the liveness probe applied to the Humio container
