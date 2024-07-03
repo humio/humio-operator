@@ -181,13 +181,13 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 	sanitizeAction(curAction)
 	sanitizeAction(expectedAction)
 	if !cmp.Equal(*curAction, *expectedAction) {
-		r.Log.Info("Action differs, triggering update")
+		r.Log.Info("Action differs, triggering update", "actionDiff", cmp.Diff(*curAction, *expectedAction))
 		action, err := r.HumioClient.UpdateAction(config, req, ha)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update action")
 		}
 		if action != nil {
-			r.Log.Info(fmt.Sprintf("Updated action %q", ha.Spec.Name))
+			r.Log.Info(fmt.Sprintf("Updated action %q", ha.Spec.Name), "newAction", fmt.Sprintf("%#+v", action))
 		}
 	}
 
@@ -197,27 +197,73 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 
 func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1alpha1.HumioAction) error {
 	var err error
+	var apiToken string
 
 	if ha.Spec.SlackPostMessageProperties != nil {
-		ha.Spec.SlackPostMessageProperties.ApiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiToken, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
+		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackPostMessageProperties.ApiToken, ha.Spec.SlackPostMessageProperties.ApiTokenSource)
 		if err != nil {
-			return fmt.Errorf("slackPostMessageProperties.ingestTokenSource.%v", err)
+			return fmt.Errorf("slackPostMessageProperties.apiTokenSource.%v", err)
 		}
 	}
 
-	if ha.Spec.OpsGenieProperties != nil {
-		ha.Spec.OpsGenieProperties.GenieKey, err = r.resolveField(ctx, ha.Namespace, ha.Spec.OpsGenieProperties.GenieKey, ha.Spec.OpsGenieProperties.GenieKeySource)
+	if ha.Spec.SlackProperties != nil {
+		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.SlackProperties.Url, ha.Spec.SlackProperties.UrlSource)
 		if err != nil {
-			return fmt.Errorf("opsGenieProperties.ingestTokenSource.%v", err)
+			return fmt.Errorf("slackProperties.urlSource.%v", err)
+		}
+
+	}
+
+	if ha.Spec.OpsGenieProperties != nil {
+		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.OpsGenieProperties.GenieKey, ha.Spec.OpsGenieProperties.GenieKeySource)
+		if err != nil {
+			return fmt.Errorf("opsGenieProperties.genieKeySource.%v", err)
 		}
 	}
 
 	if ha.Spec.HumioRepositoryProperties != nil {
-		ha.Spec.HumioRepositoryProperties.IngestToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.HumioRepositoryProperties.IngestToken, ha.Spec.HumioRepositoryProperties.IngestTokenSource)
+		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.HumioRepositoryProperties.IngestToken, ha.Spec.HumioRepositoryProperties.IngestTokenSource)
 		if err != nil {
 			return fmt.Errorf("humioRepositoryProperties.ingestTokenSource.%v", err)
 		}
 	}
+
+	if ha.Spec.PagerDutyProperties != nil {
+		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.PagerDutyProperties.RoutingKey, ha.Spec.PagerDutyProperties.RoutingKeySource)
+		if err != nil {
+			return fmt.Errorf("pagerDutyProperties.routingKeySource.%v", err)
+		}
+	}
+
+	if ha.Spec.VictorOpsProperties != nil {
+		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.VictorOpsProperties.NotifyUrl, ha.Spec.VictorOpsProperties.NotifyUrlSource)
+		if err != nil {
+			return fmt.Errorf("victorOpsProperties.notifyUrlSource.%v", err)
+		}
+	}
+
+	if ha.Spec.WebhookProperties != nil {
+		apiToken, err = r.resolveField(ctx, ha.Namespace, ha.Spec.WebhookProperties.Url, ha.Spec.WebhookProperties.UrlSource)
+		if err != nil {
+			return fmt.Errorf("webhookProperties.UrlSource.%v", err)
+		}
+
+		allWebhookActionHeaders := map[string]string{}
+		if ha.Spec.WebhookProperties.SecretHeaders != nil {
+			for i := range ha.Spec.WebhookProperties.SecretHeaders {
+				headerName := ha.Spec.WebhookProperties.SecretHeaders[i].Name
+				headerValueSource := ha.Spec.WebhookProperties.SecretHeaders[i].ValueFrom
+				allWebhookActionHeaders[headerName], err = r.resolveField(ctx, ha.Namespace, "", headerValueSource)
+				if err != nil {
+					return fmt.Errorf("webhookProperties.secretHeaders.%v", err)
+				}
+			}
+
+		}
+		kubernetes.StoreFullSetOfMergedWebhookActionHeaders(ha, allWebhookActionHeaders)
+	}
+
+	kubernetes.StoreSingleSecretForHa(ha, apiToken)
 
 	return nil
 }
