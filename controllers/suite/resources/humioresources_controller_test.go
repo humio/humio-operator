@@ -2993,6 +2993,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Verifying the alert matches the expected")
 			verifiedFilterAlert, err := humio.FilterAlertTransform(updatedFilterAlert)
+			verifiedFilterAlert.ID = ""
+			verifiedFilterAlert.RunAsUserID = ""
+
 			Expect(err).To(BeNil())
 			Eventually(func() humioapi.FilterAlert {
 				updatedFilterAlert, err := humioClient.GetFilterAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedFilterAlert)
