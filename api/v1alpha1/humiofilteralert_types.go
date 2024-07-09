@@ -49,7 +49,7 @@ type HumioFilterAlertSpec struct {
 	// Description is the description of the filter alert
 	Description string `json:"description,omitempty"`
 	// ThrottleTimeSeconds is the throttle time in seconds. A filter alert is triggered at most once per the throttle time
-	ThrottleTimeSeconds int `json:"throttleTimeSeconds,omitempty"`
+	ThrottleTimeSeconds *int `json:"throttleTimeSeconds,omitempty"`
 	// ThrottleField is the field on which to throttle
 	ThrottleField string `json:"throttleField,omitempty"`
 	// Enabled will set the FilterAlert to enabled when set to true

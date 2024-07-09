@@ -19,9 +19,10 @@ package resources
 import (
 	"context"
 	"fmt"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	"net/http"
 	"os"
+
+	"github.com/humio/humio-operator/pkg/kubernetes"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -2910,16 +2911,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			filterAlertSpec := humiov1alpha1.HumioFilterAlertSpec{
-				ManagedClusterName:  clusterKey.Name,
-				Name:                "example-filter-alert",
-				ViewName:            testRepo.Spec.Name,
-				QueryString:         "#repo = humio | error = true",
-				Enabled:             true,
-				Description:         "humio filter alert",
-				ThrottleTimeSeconds: 10,
-				ThrottleField:       "somefield",
-				Actions:             []string{toCreateDependentAction.Spec.Name},
-				Labels:              []string{"some-label"},
+				ManagedClusterName: clusterKey.Name,
+				Name:               "example-filter-alert",
+				ViewName:           testRepo.Spec.Name,
+				QueryString:        "#repo = humio | error = true",
+				Enabled:            true,
+				Description:        "humio filter alert",
+				Actions:            []string{toCreateDependentAction.Spec.Name},
+				Labels:             []string{"some-label"},
 			}
 
 			key := types.NamespacedName{
@@ -2976,7 +2975,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			updatedFilterAlert.Spec.QueryString = "#repo = humio | updated_field = true | error = true"
 			updatedFilterAlert.Spec.Enabled = false
 			updatedFilterAlert.Spec.Description = "updated humio filter alert"
-			updatedFilterAlert.Spec.ThrottleTimeSeconds = 20
+			updatedFilterAlert.Spec.ThrottleTimeSeconds = helpers.IntPtr(20)
 			updatedFilterAlert.Spec.ThrottleField = "newfield"
 			updatedFilterAlert.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
 
