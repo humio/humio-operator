@@ -10,9 +10,15 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zapr v1.3.0
 	github.com/google/go-cmp v0.6.0
+<<<<<<< HEAD
 	github.com/humio/cli v0.36.1-0.20240814103929-aacdf44666ce
 	github.com/onsi/ginkgo/v2 v2.20.0
 	github.com/onsi/gomega v1.34.1
+=======
+	github.com/humio/cli v0.35.0
+	github.com/onsi/ginkgo/v2 v2.17.1
+	github.com/onsi/gomega v1.32.0
+>>>>>>> 6a2e02f (update)
 	github.com/prometheus/client_golang v1.19.0
 	go.uber.org/zap v1.27.0
 	k8s.io/api v0.29.5

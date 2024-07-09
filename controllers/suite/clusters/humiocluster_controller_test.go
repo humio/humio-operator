@@ -1291,7 +1291,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Validating pod bootstrap token annotation hash")
-			//var bootstrapTokenHash string
 			Eventually(func() string {
 				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 				_ = suite.MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
