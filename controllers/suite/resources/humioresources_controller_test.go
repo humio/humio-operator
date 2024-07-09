@@ -2910,14 +2910,16 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			filterAlertSpec := humiov1alpha1.HumioFilterAlertSpec{
-				ManagedClusterName: clusterKey.Name,
-				Name:               "example-filter-alert",
-				ViewName:           testRepo.Spec.Name,
-				QueryString:        "#repo = humio | error = true",
-				Enabled:            true,
-				Description:        "humio filter alert",
-				Actions:            []string{toCreateDependentAction.Spec.Name},
-				Labels:             []string{"some-label"},
+				ManagedClusterName:  clusterKey.Name,
+				Name:                "example-filter-alert",
+				ViewName:            testRepo.Spec.Name,
+				QueryString:         "#repo = humio | error = true",
+				Enabled:             true,
+				Description:         "humio filter alert",
+				ThrottleTimeSeconds: 10,
+				ThrottleField:       "somefield",
+				Actions:             []string{toCreateDependentAction.Spec.Name},
+				Labels:              []string{"some-label"},
 			}
 
 			key := types.NamespacedName{
@@ -2957,6 +2959,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(err).To(BeNil())
 			Expect(filterAlert.Name).To(Equal(originalFilterAlert.Name))
 			Expect(filterAlert.Description).To(Equal(originalFilterAlert.Description))
+			Expect(filterAlert.ThrottleTimeSeconds).To(Equal(originalFilterAlert.ThrottleTimeSeconds))
+			Expect(filterAlert.ThrottleField).To(Equal(originalFilterAlert.ThrottleField))
 			Expect(filterAlert.ActionNames).To(Equal(originalFilterAlert.ActionNames))
 			Expect(filterAlert.Labels).To(Equal(originalFilterAlert.Labels))
 			Expect(filterAlert.Enabled).To(Equal(originalFilterAlert.Enabled))
@@ -2972,6 +2976,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 			updatedFilterAlert.Spec.QueryString = "#repo = humio | updated_field = true | error = true"
 			updatedFilterAlert.Spec.Enabled = false
 			updatedFilterAlert.Spec.Description = "updated humio filter alert"
+			updatedFilterAlert.Spec.ThrottleTimeSeconds = 20
+			updatedFilterAlert.Spec.ThrottleField = "newfield"
 			updatedFilterAlert.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Waiting for the filter alert to be updated")
@@ -2980,6 +2986,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 				fetchedFilterAlert.Spec.QueryString = updatedFilterAlert.Spec.QueryString
 				fetchedFilterAlert.Spec.Enabled = updatedFilterAlert.Spec.Enabled
 				fetchedFilterAlert.Spec.Description = updatedFilterAlert.Spec.Description
+				fetchedFilterAlert.Spec.ThrottleTimeSeconds = updatedFilterAlert.Spec.ThrottleTimeSeconds
+				fetchedFilterAlert.Spec.ThrottleField = updatedFilterAlert.Spec.ThrottleField
 				return k8sClient.Update(ctx, fetchedFilterAlert)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 

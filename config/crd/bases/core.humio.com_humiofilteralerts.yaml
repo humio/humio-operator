@@ -80,6 +80,13 @@ spec:
               queryString:
                 description: QueryString defines the desired Humio query string
                 type: string
+              throttleField:
+                description: ThrottleField is the field on which to throttle
+                type: string
+              throttleTimeSeconds:
+                description: ThrottleTimeSeconds is the throttle time in seconds.
+                  A filter alert is triggered at most once per the throttle time
+                type: integer
               viewName:
                 description: ViewName is the name of the Humio View under which the
                   filter alert will be managed. This can also be a Repository
