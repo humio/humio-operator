@@ -41,6 +41,7 @@ type ClientMock struct {
 	OnPremLicense humioapi.OnPremLicense
 	Action        humioapi.Action
 	Alert         humioapi.Alert
+	FilterAlert   humioapi.FilterAlert
 }
 
 type MockClientConfig struct {
@@ -59,6 +60,7 @@ func NewMockClient(cluster humioapi.Cluster, clusterError error) *MockClientConf
 			OnPremLicense: humioapi.OnPremLicense{},
 			Action:        humioapi.Action{},
 			Alert:         humioapi.Alert{},
+			FilterAlert:   humioapi.FilterAlert{},
 		},
 	}
 
@@ -290,6 +292,38 @@ func (h *MockClientConfig) GetActionIDsMapForAlerts(config *humioapi.Config, req
 		actionIdMap[action] = hex.EncodeToString(hash[:])
 	}
 	return actionIdMap, nil
+}
+
+func (h *MockClientConfig) GetFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
+	if h.apiClient.FilterAlert.Name == "" {
+		return nil, fmt.Errorf("could not find alert in view %q with name %q, err=%w", hfa.Spec.ViewName, hfa.Spec.Name, humioapi.EntityNotFound{})
+	}
+	return &h.apiClient.FilterAlert, nil
+}
+
+func (h *MockClientConfig) AddFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
+	if err := h.ValidateActionsForFilterAlert(config, req, hfa); err != nil {
+		return &humioapi.FilterAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
+	}
+	filterAlert, err := FilterAlertTransform(hfa)
+	if err != nil {
+		return filterAlert, err
+	}
+	h.apiClient.FilterAlert = *filterAlert
+	return &h.apiClient.FilterAlert, nil
+}
+
+func (h *MockClientConfig) UpdateFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
+	return h.AddFilterAlert(config, req, hfa)
+}
+
+func (h *MockClientConfig) DeleteFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+	h.apiClient.FilterAlert = humioapi.FilterAlert{}
+	return nil
+}
+
+func (h *MockClientConfig) ValidateActionsForFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+	return nil
 }
 
 func (h *MockClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request) *humioapi.Client {

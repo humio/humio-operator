@@ -1,0 +1,13 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioFilterAlert
+metadata:
+  name: humiofilteralert-example
+spec:
+  managedClusterName: example-humiocluster
+  name: example-filteralert
+  viewName: humio
+  queryString: "#repo = humio | error = true | count() | _count > 0"
+  enabled: true
+  description: Error counts
+  actions:
+    - example-email-action

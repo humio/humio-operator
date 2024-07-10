@@ -88,6 +88,9 @@ rules:
   - humioalerts
   - humioalerts/finalizers
   - humioalerts/status
+  - humiofilteralerts
+  - humiofilteralerts/finalizers
+  - humiofilteralerts/status
   verbs:
   - create
   - delete
@@ -243,6 +246,9 @@ rules:
   - humioalerts
   - humioalerts/finalizers
   - humioalerts/status
+  - humiofilteralerts
+  - humiofilteralerts/finalizers
+  - humiofilteralerts/status
   verbs:
   - create
   - delete
