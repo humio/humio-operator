@@ -140,6 +140,15 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	if hfa.Spec.ThrottleTimeSeconds > 0 && hfa.Spec.ThrottleTimeSeconds < 60 {
+		r.Log.Error(fmt.Errorf("ThrottleTimeSeconds must be at least 60 seconds"), "error managing filter alert")
+		err := r.setState(ctx, humiov1alpha1.HumioFilterAlertStateConfigError, hfa)
+		if err != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set filter alert state")
+		}
+		return reconcile.Result{}, err
+	}
+
 	r.Log.Info("Checking if filter alert needs to be created")
 	curFilterAlert, err := r.HumioClient.GetFilterAlert(config, req, hfa)
 	if errors.As(err, &humioapi.EntityNotFound{}) {

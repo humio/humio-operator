@@ -2975,7 +2975,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			updatedFilterAlert.Spec.QueryString = "#repo = humio | updated_field = true | error = true"
 			updatedFilterAlert.Spec.Enabled = false
 			updatedFilterAlert.Spec.Description = "updated humio filter alert"
-			updatedFilterAlert.Spec.ThrottleTimeSeconds = 20
+			updatedFilterAlert.Spec.ThrottleTimeSeconds = 3600
 			updatedFilterAlert.Spec.ThrottleField = "newfield"
 			updatedFilterAlert.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
 
