@@ -19,9 +19,10 @@ package resources
 import (
 	"context"
 	"fmt"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	"net/http"
 	"os"
+
+	"github.com/humio/humio-operator/pkg/kubernetes"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -2871,6 +2872,186 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the invalid alert")
 			Expect(k8sClient.Create(ctx, toCreateInvalidAlert)).Should(Not(Succeed()))
+		})
+	})
+
+	Context("Humio Filter Alert", func() {
+		It("should handle filter alert action correctly", func() {
+			ctx := context.Background()
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Should handle filter alert correctly")
+			dependentEmailActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               "example-email-action",
+				ViewName:           testRepo.Spec.Name,
+				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
+					Recipients: []string{"example@example.com"},
+				},
+			}
+
+			actionKey := types.NamespacedName{
+				Name:      "humioaction",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateDependentAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      actionKey.Name,
+					Namespace: actionKey.Namespace,
+				},
+				Spec: dependentEmailActionSpec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the action required by the filter alert successfully")
+			Expect(k8sClient.Create(ctx, toCreateDependentAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, actionKey, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			filterAlertSpec := humiov1alpha1.HumioFilterAlertSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               "example-filter-alert",
+				ViewName:           testRepo.Spec.Name,
+				QueryString:        "#repo = humio | error = true",
+				Enabled:            true,
+				Description:        "humio filter alert",
+				Actions:            []string{toCreateDependentAction.Spec.Name},
+				Labels:             []string{"some-label"},
+			}
+
+			key := types.NamespacedName{
+				Name:      "humio-filter-alert",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateFilterAlert := &humiov1alpha1.HumioFilterAlert{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: filterAlertSpec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the filter alert successfully")
+			Expect(k8sClient.Create(ctx, toCreateFilterAlert)).Should(Succeed())
+
+			fetchedFilterAlert := &humiov1alpha1.HumioFilterAlert{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedFilterAlert)
+				return fetchedFilterAlert.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFilterAlertStateExists))
+
+			var filterAlert *humioapi.FilterAlert
+			Eventually(func() error {
+				filterAlert, err = humioClient.GetFilterAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateFilterAlert)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(filterAlert).ToNot(BeNil())
+
+			Eventually(func() error {
+				return humioClient.ValidateActionsForFilterAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateFilterAlert)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			originalFilterAlert, err := humio.FilterAlertTransform(toCreateFilterAlert)
+			Expect(err).To(BeNil())
+			Expect(filterAlert.Name).To(Equal(originalFilterAlert.Name))
+			Expect(filterAlert.Description).To(Equal(originalFilterAlert.Description))
+			Expect(filterAlert.ThrottleTimeSeconds).To(Equal(originalFilterAlert.ThrottleTimeSeconds))
+			Expect(filterAlert.ThrottleField).To(Equal(originalFilterAlert.ThrottleField))
+			Expect(filterAlert.ActionNames).To(Equal(originalFilterAlert.ActionNames))
+			Expect(filterAlert.Labels).To(Equal(originalFilterAlert.Labels))
+			Expect(filterAlert.Enabled).To(Equal(originalFilterAlert.Enabled))
+			Expect(filterAlert.QueryString).To(Equal(originalFilterAlert.QueryString))
+
+			createdFilterAlert := toCreateFilterAlert
+			err = humio.FilterAlertHydrate(createdFilterAlert, filterAlert)
+			Expect(err).To(BeNil())
+			Expect(createdFilterAlert.Spec).To(Equal(toCreateFilterAlert.Spec))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Updating the filter alert successfully")
+			updatedFilterAlert := toCreateFilterAlert
+			updatedFilterAlert.Spec.QueryString = "#repo = humio | updated_field = true | error = true"
+			updatedFilterAlert.Spec.Enabled = false
+			updatedFilterAlert.Spec.Description = "updated humio filter alert"
+			updatedFilterAlert.Spec.ThrottleTimeSeconds = 3600
+			updatedFilterAlert.Spec.ThrottleField = "newfield"
+			updatedFilterAlert.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Waiting for the filter alert to be updated")
+			Eventually(func() error {
+				k8sClient.Get(ctx, key, fetchedFilterAlert)
+				fetchedFilterAlert.Spec.QueryString = updatedFilterAlert.Spec.QueryString
+				fetchedFilterAlert.Spec.Enabled = updatedFilterAlert.Spec.Enabled
+				fetchedFilterAlert.Spec.Description = updatedFilterAlert.Spec.Description
+				fetchedFilterAlert.Spec.ThrottleTimeSeconds = updatedFilterAlert.Spec.ThrottleTimeSeconds
+				fetchedFilterAlert.Spec.ThrottleField = updatedFilterAlert.Spec.ThrottleField
+				return k8sClient.Update(ctx, fetchedFilterAlert)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Verifying the filter alert update succeeded")
+			var expectedUpdatedFilterAlert *humioapi.FilterAlert
+			Eventually(func() error {
+				expectedUpdatedFilterAlert, err = humioClient.GetFilterAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedFilterAlert)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(expectedUpdatedFilterAlert).ToNot(BeNil())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Verifying the alert matches the expected")
+			verifiedFilterAlert, err := humio.FilterAlertTransform(updatedFilterAlert)
+			verifiedFilterAlert.ID = ""
+			verifiedFilterAlert.RunAsUserID = ""
+
+			Expect(err).To(BeNil())
+			Eventually(func() humioapi.FilterAlert {
+				updatedFilterAlert, err := humioClient.GetFilterAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedFilterAlert)
+				if err != nil {
+					return *updatedFilterAlert
+				}
+
+				// Ignore the ID and RunAsUserID
+				updatedFilterAlert.ID = ""
+				updatedFilterAlert.RunAsUserID = ""
+
+				return *updatedFilterAlert
+			}, testTimeout, suite.TestInterval).Should(Equal(*verifiedFilterAlert))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Successfully deleting the filter alert")
+			Expect(k8sClient.Delete(ctx, fetchedFilterAlert)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedFilterAlert)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Successfully deleting the action")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, actionKey, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("HumioFilterAlert: Should deny improperly configured filter alert with missing required values", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-filter-alert",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateInvalidFilterAlert := &humiov1alpha1.HumioFilterAlert{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioFilterAlertSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "example-invalid-filter-alert",
+					ViewName:           testRepo.Spec.Name,
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Creating the invalid filter alert")
+			Expect(k8sClient.Create(ctx, toCreateInvalidFilterAlert)).Should(Not(Succeed()))
 		})
 	})
 })

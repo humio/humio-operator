@@ -20,13 +20,15 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"strings"
+
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -174,6 +176,14 @@ func main() {
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioAlert")
+		os.Exit(1)
+	}
+	if err = (&controllers.HumioFilterAlertReconciler{
+		Client:      mgr.GetClient(),
+		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioFilterAlert")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
