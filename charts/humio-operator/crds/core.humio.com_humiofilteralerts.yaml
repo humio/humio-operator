@@ -1,0 +1,111 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: humiofilteralerts.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.22.0'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioFilterAlert
+    listKind: HumioFilterAlertList
+    plural: humiofilteralerts
+    singular: humiofilteralert
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioFilterAlert is the Schema for the HumioFilterAlerts API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioFilterAlertSpec defines the desired state of HumioFilterAlert
+            properties:
+              actions:
+                description: Actions is the list of Humio Actions by name that will
+                  be triggered by this filter alert
+                items:
+                  type: string
+                type: array
+              description:
+                description: Description is the description of the filter alert
+                type: string
+              enabled:
+                description: Enabled will set the FilterAlert to enabled when set
+                  to true
+                type: boolean
+              externalClusterName:
+                description: |-
+                  ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+                  This conflicts with ManagedClusterName.
+                type: string
+              labels:
+                description: Labels are a set of labels on the filter alert
+                items:
+                  type: string
+                type: array
+              managedClusterName:
+                description: |-
+                  ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+                  resources should be created.
+                  This conflicts with ExternalClusterName.
+                type: string
+              name:
+                description: Name is the name of the filter alert inside Humio
+                type: string
+              queryString:
+                description: QueryString defines the desired Humio query string
+                type: string
+              throttleField:
+                description: ThrottleField is the field on which to throttle
+                type: string
+              throttleTimeSeconds:
+                description: ThrottleTimeSeconds is the throttle time in seconds.
+                  A filter alert is triggered at most once per the throttle time
+                type: integer
+              viewName:
+                description: ViewName is the name of the Humio View under which the
+                  filter alert will be managed. This can also be a Repository
+                type: string
+            required:
+            - actions
+            - name
+            - queryString
+            - viewName
+            type: object
+          status:
+            description: HumioFilterAlertStatus defines the observed state of HumioFilterAlert
+            properties:
+              state:
+                description: State reflects the current state of the HumioFilterAlert
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

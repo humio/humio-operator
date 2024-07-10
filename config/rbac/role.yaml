@@ -219,6 +219,32 @@ rules:
 - apiGroups:
   - core.humio.com
   resources:
+  - humiofilteralerts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiofilteralerts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiofilteralerts/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioingesttokens
   verbs:
   - create
