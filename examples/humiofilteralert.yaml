@@ -13,9 +13,9 @@ spec:
     - example-email-action
 ---
 apiVersion: core.humio.com/v1alpha1
-kind: HumioAction
+kind: HumioFilterAlert
 metadata:
-  name: example-email-action-external
+  name: example-alert-filter-external
 spec:
   externalClusterName: example-humioexternalcluster
 name: example-filter-alert
