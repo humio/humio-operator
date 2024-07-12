@@ -63,6 +63,9 @@ const (
 	viewGroupPermissionsConfigMapNameSuffix = "view-group-permissions"
 	rolePermissionsConfigMapNameSuffix      = "role-permissions"
 	idpCertificateSecretNameSuffix          = "idp-certificate"
+
+	// nodepool internal
+	NodePoolFeatureAllowedAPIRequestType = "OperatorInternal"
 )
 
 type HumioNodePool struct {
@@ -832,6 +835,13 @@ func (hnp *HumioNodePool) GetPriorityClassName() string {
 
 func (hnp *HumioNodePool) OkToDeletePvc() bool {
 	return hnp.GetDataVolumePersistentVolumeClaimPolicy().ReclaimType == humiov1alpha1.HumioPersistentVolumeReclaimTypeOnNodeDelete
+}
+
+func (hnp *HumioNodePool) GetNodePoolFeatureAllowedAPIRequestTypes() []string {
+	if hnp.humioNodeSpec.NodePoolFeatures.AllowedAPIRequestTypes != nil {
+		return *hnp.humioNodeSpec.NodePoolFeatures.AllowedAPIRequestTypes
+	}
+	return []string{NodePoolFeatureAllowedAPIRequestType}
 }
 
 func viewGroupPermissionsOrDefault(hc *humiov1alpha1.HumioCluster) string {
