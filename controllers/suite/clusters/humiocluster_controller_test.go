@@ -2158,6 +2158,21 @@ var _ = Describe("HumioCluster Controller", func() {
 				return service.Spec.Selector
 			}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue("humio.com/node-pool", key.Name))
 
+			suite.UsingClusterBy(key.Name, "Confirming internal service has the correct HTTP and ES ports")
+			internalSvc, _ := kubernetes.GetService(ctx, k8sClient, fmt.Sprintf("%s-internal", key.Name), key.Namespace)
+			Expect(internalSvc.Spec.Type).To(BeIdenticalTo(corev1.ServiceTypeClusterIP))
+			for _, port := range internalSvc.Spec.Ports {
+				if port.Name == "http" {
+					Expect(port.Port).Should(Equal(int32(8080)))
+				}
+				if port.Name == "es" {
+					Expect(port.Port).Should(Equal(int32(9200)))
+				}
+			}
+
+			internalSvc, _ = kubernetes.GetService(ctx, k8sClient, key.Name, key.Namespace)
+			Expect(svc.Annotations).To(BeNil())
+
 			suite.UsingClusterBy(key.Name, "Confirming headless service has the correct HTTP and ES ports")
 			headlessSvc, _ := kubernetes.GetService(ctx, k8sClient, fmt.Sprintf("%s-headless", key.Name), key.Namespace)
 			Expect(headlessSvc.Spec.Type).To(BeIdenticalTo(corev1.ServiceTypeClusterIP))

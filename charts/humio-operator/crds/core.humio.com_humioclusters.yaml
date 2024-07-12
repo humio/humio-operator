@@ -5717,6 +5717,18 @@ spec:
               nodeCount:
                 description: NodeCount is the desired number of humio cluster nodes
                 type: integer
+              nodePoolFeatures:
+                description: HumioNodePoolFeatures defines the features that are allowed
+                  by the node pool
+                properties:
+                  allowedAPIRequestTypes:
+                    description: |-
+                      AllowedAPIRequestTypes is a list of API request types that are allowed by the node pool. Current options are:
+                      OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request types, set this to [].
+                    items:
+                      type: string
+                    type: array
+                type: object
               nodePools:
                 description: NodePools can be used to define additional groups of
                   Humio cluster pods that share a set of configuration.
@@ -11205,6 +11217,18 @@ spec:
                           description: NodeCount is the desired number of humio cluster
                             nodes
                           type: integer
+                        nodePoolFeatures:
+                          description: HumioNodePoolFeatures defines the features
+                            that are allowed by the node pool
+                          properties:
+                            allowedAPIRequestTypes:
+                              description: |-
+                                AllowedAPIRequestTypes is a list of API request types that are allowed by the node pool. Current options are:
+                                OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request types, set this to [].
+                              items:
+                                type: string
+                              type: array
+                          type: object
                         nodeUUIDPrefix:
                           description: |-
                             NodeUUIDPrefix is the prefix for the Humio Node's UUID. By default this does not include the zone. If it's

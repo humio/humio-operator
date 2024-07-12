@@ -93,8 +93,46 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 	}
 }
 
+func constructInternalService(hc *humiov1alpha1.HumioCluster, hnpl []*HumioNodePool) *corev1.Service {
+	selectorLabels := kubernetes.LabelsForHumio(hc.Name)
+	for _, nodePool := range hnpl {
+		for _, allowedAPIRequestType := range nodePool.GetNodePoolFeatureAllowedAPIRequestTypes() {
+			if allowedAPIRequestType == NodePoolFeatureAllowedAPIRequestType {
+				selectorLabels[kubernetes.NodePoolLabelName] = nodePool.GetNodePoolName()
+			}
+		}
+	}
+
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        internalServiceName(hc.Name),
+			Namespace:   hc.Namespace,
+			Labels:      kubernetes.LabelsForHumio(hc.Name),
+			Annotations: humioHeadlessServiceAnnotationsOrDefault(hc),
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     corev1.ServiceTypeClusterIP,
+			Selector: selectorLabels,
+			Ports: []corev1.ServicePort{
+				{
+					Name: "http",
+					Port: HumioPort,
+				},
+				{
+					Name: "es",
+					Port: elasticPort,
+				},
+			},
+		},
+	}
+}
+
 func headlessServiceName(clusterName string) string {
 	return fmt.Sprintf("%s-headless", clusterName)
+}
+
+func internalServiceName(clusterName string) string {
+	return fmt.Sprintf("%s-internal", clusterName)
 }
 
 func servicesMatch(existingService *corev1.Service, service *corev1.Service) (bool, error) {
