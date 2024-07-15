@@ -143,6 +143,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.ensureLicenseIsValid,
 		r.ensureValidCASecret,
 		r.ensureHeadlessServiceExists,
+		r.ensureInternalServiceExists,
 		r.validateUserDefinedServiceAccountsExists,
 	} {
 		if err := fun(ctx, hc); err != nil {
@@ -170,12 +171,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			withPods(podStatusList).
 			withNodeCount(len(podStatusList)))
 	}(ctx, r.HumioClient, hc)
-
-	if err := r.ensureInternalServiceExists(ctx, hc, humioNodePools.Filter(NodePoolFilterHasNode)); err != nil {
-		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()).
-			withState(humiov1alpha1.HumioClusterStateConfigError))
-	}
 
 	for _, pool := range humioNodePools.Items {
 		if err := r.ensureOrphanedPvcsAreDeleted(ctx, hc, pool); err != nil {
@@ -1605,10 +1600,10 @@ func (r *HumioClusterReconciler) ensureHeadlessServiceExists(ctx context.Context
 	return nil
 }
 
-func (r *HumioClusterReconciler) ensureInternalServiceExists(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnpl []*HumioNodePool) error {
+func (r *HumioClusterReconciler) ensureInternalServiceExists(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("ensuring internal service")
 	existingService, err := kubernetes.GetService(ctx, r, internalServiceName(hc.Name), hc.Namespace)
-	service := constructInternalService(hc, hnpl)
+	service := constructInternalService(hc)
 	if k8serrors.IsNotFound(err) {
 		if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {
 			return r.logErrorAndReturn(err, "could not set controller reference")
