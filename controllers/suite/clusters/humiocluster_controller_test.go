@@ -1969,6 +1969,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				for _, pod := range clusterPods {
 					Expect(pod.Labels["humio.com/new-important-label"]).Should(Equal("true"))
 					Expect(pod.Labels["app.kubernetes.io/managed-by"]).Should(Equal("humio-operator"))
+					Expect(pod.Labels["humio.com/feature"]).Should(Equal("OperatorInternal"))
 				}
 				return true
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
@@ -2158,21 +2159,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				return service.Spec.Selector
 			}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue("humio.com/node-pool", key.Name))
 
-			suite.UsingClusterBy(key.Name, "Confirming internal service has the correct HTTP and ES ports")
-			internalSvc, _ := kubernetes.GetService(ctx, k8sClient, fmt.Sprintf("%s-internal", key.Name), key.Namespace)
-			Expect(internalSvc.Spec.Type).To(BeIdenticalTo(corev1.ServiceTypeClusterIP))
-			for _, port := range internalSvc.Spec.Ports {
-				if port.Name == "http" {
-					Expect(port.Port).Should(Equal(int32(8080)))
-				}
-				if port.Name == "es" {
-					Expect(port.Port).Should(Equal(int32(9200)))
-				}
-			}
-
-			internalSvc, _ = kubernetes.GetService(ctx, k8sClient, key.Name, key.Namespace)
-			Expect(svc.Annotations).To(BeNil())
-
 			suite.UsingClusterBy(key.Name, "Confirming headless service has the correct HTTP and ES ports")
 			headlessSvc, _ := kubernetes.GetService(ctx, k8sClient, fmt.Sprintf("%s-headless", key.Name), key.Namespace)
 			Expect(headlessSvc.Spec.Type).To(BeIdenticalTo(corev1.ServiceTypeClusterIP))
@@ -2219,6 +2205,26 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(k8sClient.Get(ctx, key, headlessSvc)).Should(Succeed())
 				return headlessSvc.Labels
 			}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(updatedLabelsKey, updatedLabelsValue))
+
+			suite.UsingClusterBy(key.Name, "Confirming internal service has the correct HTTP and ES ports")
+			internalSvc, _ := kubernetes.GetService(ctx, k8sClient, fmt.Sprintf("%s-internal", key.Name), key.Namespace)
+			Expect(internalSvc.Spec.Type).To(BeIdenticalTo(corev1.ServiceTypeClusterIP))
+			for _, port := range internalSvc.Spec.Ports {
+				if port.Name == "http" {
+					Expect(port.Port).Should(Equal(int32(8080)))
+				}
+				if port.Name == "es" {
+					Expect(port.Port).Should(Equal(int32(9200)))
+				}
+			}
+			internalSvc, _ = kubernetes.GetService(ctx, k8sClient, fmt.Sprintf("%s-internal", key.Name), key.Namespace)
+			Expect(internalSvc.Annotations).To(BeNil())
+
+			suite.UsingClusterBy(key.Name, "Confirming internal service has the correct selector")
+			Eventually(func() map[string]string {
+				internalSvc, _ := kubernetes.GetService(ctx, k8sClient, fmt.Sprintf("%s-internal", key.Name), key.Namespace)
+				return internalSvc.Spec.Selector
+			}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue("humio.com/feature", "OperatorInternal"))
 		})
 	})
 
@@ -3240,7 +3246,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			Expect(kubernetes.ListPersistentVolumeClaims(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())).To(HaveLen(0))
+			Expect(kubernetes.ListPersistentVolumeClaims(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetNodePoolLabels())).To(HaveLen(0))
 
 			suite.UsingClusterBy(key.Name, "Updating cluster to use persistent volumes")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -3262,7 +3268,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}).Should(Succeed())
 
 			Eventually(func() ([]corev1.PersistentVolumeClaim, error) {
-				return kubernetes.ListPersistentVolumeClaims(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				return kubernetes.ListPersistentVolumeClaims(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetNodePoolLabels())
 			}, testTimeout, suite.TestInterval).Should(HaveLen(toCreate.Spec.NodeCount))
 
 			Eventually(func() string {
@@ -3281,8 +3287,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 
 			suite.UsingClusterBy(key.Name, "Confirming pods are using PVC's and no PVC is left unused")
-			pvcList, _ := kubernetes.ListPersistentVolumeClaims(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-			foundPodList, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			pvcList, _ := kubernetes.ListPersistentVolumeClaims(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetNodePoolLabels())
+			foundPodList, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetNodePoolLabels())
 			for _, pod := range foundPodList {
 				_, err := controllers.FindPvcForPod(pvcList, pod)
 				Expect(err).ShouldNot(HaveOccurred())

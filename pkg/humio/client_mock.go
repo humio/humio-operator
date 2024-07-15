@@ -339,4 +339,5 @@ func (h *MockClientConfig) ClearHumioClientConnections() {
 	h.apiClient.OnPremLicense = humioapi.OnPremLicense{}
 	h.apiClient.Action = humioapi.Action{}
 	h.apiClient.Alert = humioapi.Alert{}
+	h.apiClient.FilterAlert = humioapi.FilterAlert{}
 }
