@@ -93,26 +93,18 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 	}
 }
 
-func constructInternalService(hc *humiov1alpha1.HumioCluster, hnpl []*HumioNodePool) *corev1.Service {
-	selectorLabels := kubernetes.LabelsForHumio(hc.Name)
-	for _, nodePool := range hnpl {
-		for _, allowedAPIRequestType := range nodePool.GetNodePoolFeatureAllowedAPIRequestTypes() {
-			if allowedAPIRequestType == NodePoolFeatureAllowedAPIRequestType {
-				selectorLabels[kubernetes.NodePoolLabelName] = nodePool.GetNodePoolName()
-			}
-		}
-	}
-
+func constructInternalService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        internalServiceName(hc.Name),
-			Namespace:   hc.Namespace,
-			Labels:      kubernetes.LabelsForHumio(hc.Name),
-			Annotations: humioHeadlessServiceAnnotationsOrDefault(hc),
+			Name:      internalServiceName(hc.Name),
+			Namespace: hc.Namespace,
+			Labels:    kubernetes.LabelsForHumio(hc.Name),
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     corev1.ServiceTypeClusterIP,
-			Selector: selectorLabels,
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: mergeHumioServiceLabels(hc.Name, map[string]string{
+				kubernetes.FeatureLabelName: NodePoolFeatureAllowedAPIRequestType,
+			}),
 			Ports: []corev1.ServicePort{
 				{
 					Name: "http",

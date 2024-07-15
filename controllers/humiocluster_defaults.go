@@ -435,6 +435,11 @@ func (hnp *HumioNodePool) GetPodLabels() map[string]string {
 			labels[k] = v
 		}
 	}
+	for _, feature := range hnp.GetNodePoolFeatureAllowedAPIRequestTypes() {
+		if feature == NodePoolFeatureAllowedAPIRequestType {
+			labels[kubernetes.FeatureLabelName] = NodePoolFeatureAllowedAPIRequestType
+		}
+	}
 	return labels
 }
 
