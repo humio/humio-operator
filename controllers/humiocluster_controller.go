@@ -24,11 +24,10 @@ import (
 	"strings"
 	"time"
 
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	humioapi "github.com/humio/cli/api"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
-	"github.com/humio/humio-operator/pkg/openshift"
-	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -99,6 +98,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconcile.Result{}, err
 	}
 
+	r.Log = r.Log.WithValues("Request.UID", hc.UID)
+
 	var humioNodePools HumioNodePoolList
 	humioNodePools.Add(NewHumioNodeManagerFromHumioCluster(hc))
 	for idx := range hc.Spec.NodePools {
@@ -106,6 +107,14 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	emptyResult := reconcile.Result{}
+
+	if ok, idx := r.hasNoUnusedNodePoolStatus(hc, &humioNodePools); !ok {
+		r.cleanupUnusedNodePoolStatus(hc, idx)
+		if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+			withNodePoolStatusList(hc.Status.NodePoolStatus)); err != nil {
+			return result, r.logErrorAndReturn(err, "unable to set cluster state")
+		}
+	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
 		_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
@@ -210,19 +219,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
-		if issueRestart, err := r.ensureHumioServiceAccountAnnotations(ctx, pool); err != nil || issueRestart {
-			opts := statusOptions()
-			if issueRestart {
-				_, err = r.incrementHumioClusterPodRevision(ctx, hc, pool)
-			}
-			if err != nil {
-				opts.withMessage(err.Error())
-			}
-			return r.updateStatus(ctx, r.Client.Status(), hc, opts.withState(hc.Status.State))
-		}
-	}
-
 	for _, fun := range []ctxHumioClusterFunc{
 		r.ensureValidCAIssuer,
 		r.ensureHumioClusterCACertBundle,
@@ -251,6 +247,19 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 					withMessage(err.Error()))
 			}
+		}
+	}
+
+	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
+		if issueRestart, err := r.ensureHumioServiceAccountAnnotations(ctx, pool); err != nil || issueRestart {
+			opts := statusOptions()
+			if issueRestart {
+				_, err = r.incrementHumioClusterPodRevision(ctx, hc, pool)
+			}
+			if err != nil {
+				opts.withMessage(err.Error())
+			}
+			return r.updateStatus(ctx, r.Client.Status(), hc, opts.withState(hc.Status.State))
 		}
 	}
 
@@ -334,13 +343,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	if err = r.ensurePartitionsAreBalanced(hc, cluster.Config(), req); err != nil {
-		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()))
-	}
-
 	for _, fun := range []ctxHumioClusterFunc{
-		r.cleanupUsersInSecurityContextConstraints,
 		r.cleanupUnusedTLSCertificates,
 		r.cleanupUnusedTLSSecrets,
 		r.cleanupUnusedCAIssuer,
@@ -414,6 +417,27 @@ func (r *HumioClusterReconciler) nodePoolsInMaintenance(hc *humiov1alpha1.HumioC
 		}
 	}
 	return poolsInMaintenance
+}
+
+func (r *HumioClusterReconciler) cleanupUnusedNodePoolStatus(hc *humiov1alpha1.HumioCluster, idx int) {
+	r.Log.Info(fmt.Sprintf("removing node pool %s from node pool status list", hc.Status.NodePoolStatus[idx].Name))
+	hc.Status.NodePoolStatus = append(hc.Status.NodePoolStatus[:idx], hc.Status.NodePoolStatus[idx+1:]...)
+}
+
+func (r *HumioClusterReconciler) hasNoUnusedNodePoolStatus(hc *humiov1alpha1.HumioCluster, hnps *HumioNodePoolList) (bool, int) {
+	for idx, poolStatus := range hc.Status.NodePoolStatus {
+		var validPool bool
+		for _, pool := range hnps.Items {
+			if poolStatus.Name == pool.GetNodePoolName() && pool.GetNodeCount() > 0 {
+				validPool = true
+			}
+		}
+		if !validPool {
+			r.Log.Info(fmt.Sprintf("node pool %s is not valid", poolStatus.Name))
+			return false, idx
+		}
+	}
+	return true, 0
 }
 
 func (r *HumioClusterReconciler) ensurePodRevisionAnnotation(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (string, error) {
@@ -807,12 +831,6 @@ func (r *HumioClusterReconciler) ensureHumioPodPermissions(ctx context.Context, 
 		return r.logErrorAndReturn(err, "unable to ensure humio service account exists")
 	}
 
-	// In cases with OpenShift, we must ensure our ServiceAccount has access to the SecurityContextConstraint
-	if helpers.IsOpenShift() {
-		if err := r.ensureSecurityContextConstraintsContainsServiceAccount(ctx, hnp.GetNamespace(), hnp.GetInitServiceAccountName()); err != nil {
-			return r.logErrorAndReturn(err, "could not ensure SecurityContextConstraints contains ServiceAccount")
-		}
-	}
 	return nil
 }
 
@@ -862,13 +880,6 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 		return r.logErrorAndReturn(err, "unable to ensure init cluster role binding exists")
 	}
 
-	// In cases with OpenShift, we must ensure our ServiceAccount has access to the SecurityContextConstraint
-	if helpers.IsOpenShift() {
-		if err := r.ensureSecurityContextConstraintsContainsServiceAccount(ctx, hnp.GetNamespace(), hnp.GetInitServiceAccountName()); err != nil {
-			return r.logErrorAndReturn(err, "could not ensure SecurityContextConstraints contains ServiceAccount")
-		}
-	}
-
 	return nil
 }
 
@@ -903,77 +914,6 @@ func (r *HumioClusterReconciler) ensureAuthContainerPermissions(ctx context.Cont
 
 	if err := r.ensureAuthRoleBinding(ctx, hc, hnp); err != nil {
 		return r.logErrorAndReturn(err, "unable to ensure auth role binding exists")
-	}
-
-	// In cases with OpenShift, we must ensure our ServiceAccount has access to the SecurityContextConstraint
-	if helpers.IsOpenShift() {
-		if err := r.ensureSecurityContextConstraintsContainsServiceAccount(ctx, hnp.GetNamespace(), hnp.GetAuthServiceAccountName()); err != nil {
-			return r.logErrorAndReturn(err, "could not ensure SecurityContextConstraints contains ServiceAccount")
-		}
-	}
-
-	return nil
-}
-
-func (r *HumioClusterReconciler) ensureSecurityContextConstraintsContainsServiceAccount(ctx context.Context, namespace, serviceAccountName string) error {
-	// TODO: Write unit/e2e test for this
-
-	if !helpers.IsOpenShift() {
-		return fmt.Errorf("updating SecurityContextConstraints are only suppoted when running on OpenShift")
-	}
-
-	// Get current SCC
-	scc, err := openshift.GetSecurityContextConstraints(ctx, r)
-	if err != nil {
-		return r.logErrorAndReturn(err, "unable to get details about SecurityContextConstraints")
-	}
-
-	// Give ServiceAccount access to SecurityContextConstraints if not already present
-	usersEntry := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, serviceAccountName)
-	if !helpers.ContainsElement(scc.Users, usersEntry) {
-		scc.Users = append(scc.Users, usersEntry)
-		err = r.Update(ctx, scc)
-		if err != nil {
-			return r.logErrorAndReturn(err, fmt.Sprintf("could not update SecurityContextConstraints %s to add ServiceAccount %s", scc.Name, serviceAccountName))
-		}
-	}
-	return nil
-}
-
-// Ensure the users in the SCC are cleaned up.
-// This cleanup is only called as part of reconciling HumioCluster objects,
-// this means that you can end up with the SCC listing the service accounts
-// used for the last cluster to be deleted, in the case that all HumioCluster's are removed.
-// TODO: Determine if we should move this to a finalizer to fix the situation described above.
-func (r *HumioClusterReconciler) cleanupUsersInSecurityContextConstraints(ctx context.Context, _ *humiov1alpha1.HumioCluster) error {
-	if !helpers.IsOpenShift() {
-		return nil
-	}
-
-	scc, err := openshift.GetSecurityContextConstraints(ctx, r)
-	if err != nil {
-		return r.logErrorAndReturn(err, "unable to get details about SecurityContextConstraints")
-	}
-
-	for _, userEntry := range scc.Users {
-		sccUserData := strings.Split(userEntry, ":")
-		sccUserNamespace := sccUserData[2]
-		sccUserName := sccUserData[3]
-
-		_, err := kubernetes.GetServiceAccount(ctx, r, sccUserName, sccUserNamespace)
-		if err == nil {
-			// We found an existing service account
-			continue
-		}
-		if k8serrors.IsNotFound(err) {
-			// Remove the entry from the list if the servicea doesn't exist
-			scc.Users = helpers.RemoveElement(scc.Users, fmt.Sprintf("system:serviceaccount:%s:%s", sccUserNamespace, sccUserName))
-			if err = r.Update(ctx, scc); err != nil {
-				return r.logErrorAndReturn(err, "unable to update SecurityContextConstraints")
-			}
-		} else {
-			return r.logErrorAndReturn(err, "unable to get existing service account")
-		}
 	}
 
 	return nil
@@ -1468,7 +1408,7 @@ func (r *HumioClusterReconciler) isPodAttachedToOrphanedPvc(ctx context.Context,
 	}
 	pvc, err := FindPvcForPod(pvcList, pod)
 	if err != nil {
-		return true, r.logErrorAndReturn(err, "could find pvc for pod")
+		return true, r.logErrorAndReturn(err, "could not find pvc for pod")
 	}
 	pvcOrphaned, err := r.isPvcOrphaned(ctx, hnp, hc, pvc)
 	if err != nil {
@@ -1484,19 +1424,19 @@ func (r *HumioClusterReconciler) ensureOrphanedPvcsAreDeleted(ctx context.Contex
 		if err != nil {
 			return r.logErrorAndReturn(err, "failed to list pvcs")
 		}
-		for _, pvc := range pvcList {
-			pvcOrphaned, err := r.isPvcOrphaned(ctx, hnp, hc, pvc)
+		for idx := range pvcList {
+			pvcOrphaned, err := r.isPvcOrphaned(ctx, hnp, hc, pvcList[idx])
 			if err != nil {
 				return r.logErrorAndReturn(err, "could not check if pvc is orphaned")
 			}
 			if pvcOrphaned {
-				if pvc.DeletionTimestamp == nil {
+				if pvcList[idx].DeletionTimestamp == nil {
 					r.Log.Info(fmt.Sprintf("node cannot be found for pvc. deleting pvc %s as "+
-						"dataVolumePersistentVolumeClaimPolicy is set to %s", pvc.Name,
+						"dataVolumePersistentVolumeClaimPolicy is set to %s", pvcList[idx].Name,
 						humiov1alpha1.HumioPersistentVolumeReclaimTypeOnNodeDelete))
-					err = r.Client.Delete(ctx, &pvc)
+					err = r.Client.Delete(ctx, &pvcList[idx])
 					if err != nil {
-						return r.logErrorAndReturn(err, fmt.Sprintf("cloud not delete pvc %s", pvc.Name))
+						return r.logErrorAndReturn(err, fmt.Sprintf("cloud not delete pvc %s", pvcList[idx].Name))
 					}
 				}
 			}
@@ -1608,49 +1548,6 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	}
 
 	return reconcile.Result{}, nil
-}
-
-func (r *HumioClusterReconciler) ensurePartitionsAreBalanced(hc *humiov1alpha1.HumioCluster, config *humioapi.Config, req reconcile.Request) error {
-	humioVersion, _ := HumioVersionFromString(NewHumioNodeManagerFromHumioCluster(hc).GetImage())
-	if ok, _ := humioVersion.AtLeast(HumioVersionWithAutomaticPartitionManagement); ok {
-		return nil
-	}
-
-	if !hc.Spec.AutoRebalancePartitions {
-		r.Log.Info("partition auto-rebalancing not enabled, skipping")
-		return nil
-	}
-
-	currentClusterInfo, err := r.HumioClient.GetClusters(config, req)
-	if err != nil {
-		return r.logErrorAndReturn(err, "could not get cluster info")
-	}
-
-	suggestedStorageLayout, err := r.HumioClient.SuggestedStoragePartitions(config, req)
-	if err != nil {
-		return r.logErrorAndReturn(err, "could not get suggested storage layout")
-	}
-	currentStorageLayoutInput := helpers.MapStoragePartition(currentClusterInfo.StoragePartitions, helpers.ToStoragePartitionInput)
-	if !reflect.DeepEqual(currentStorageLayoutInput, suggestedStorageLayout) {
-		r.Log.Info(fmt.Sprintf("triggering update of storage partitions to use suggested layout, current: %#+v, suggested: %#+v", currentClusterInfo.StoragePartitions, suggestedStorageLayout))
-		if err = r.HumioClient.UpdateStoragePartitionScheme(config, req, suggestedStorageLayout); err != nil {
-			return r.logErrorAndReturn(err, "could not update storage partition scheme")
-		}
-	}
-
-	suggestedIngestLayout, err := r.HumioClient.SuggestedIngestPartitions(config, req)
-	if err != nil {
-		return r.logErrorAndReturn(err, "could not get suggested ingest layout")
-	}
-	currentIngestLayoutInput := helpers.MapIngestPartition(currentClusterInfo.IngestPartitions, helpers.ToIngestPartitionInput)
-	if !reflect.DeepEqual(currentIngestLayoutInput, suggestedIngestLayout) {
-		r.Log.Info(fmt.Sprintf("triggering update of ingest partitions to use suggested layout, current: %#+v, suggested: %#+v", currentClusterInfo.IngestPartitions, suggestedIngestLayout))
-		if err = r.HumioClient.UpdateIngestPartitionScheme(config, req, suggestedIngestLayout); err != nil {
-			return r.logErrorAndReturn(err, "could not update ingest partition scheme")
-		}
-	}
-
-	return nil
 }
 
 func (r *HumioClusterReconciler) ensureService(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
@@ -2397,10 +2294,7 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 }
 
 func (r *HumioClusterReconciler) ensureValidHumioVersion(hnp *HumioNodePool) error {
-	hv, err := HumioVersionFromString(hnp.GetImage())
-	if err != nil {
-		return r.logErrorAndReturn(err, fmt.Sprintf("detected invalid Humio version: %s", hv.version))
-	}
+	hv := HumioVersionFromString(hnp.GetImage())
 	if ok, _ := hv.AtLeast(HumioVersionMinimumSupported); !ok {
 		return r.logErrorAndReturn(fmt.Errorf("unsupported Humio version: %s", hv.version.String()), fmt.Sprintf("Humio version must be at least %s", HumioVersionMinimumSupported))
 	}
@@ -2473,4 +2367,27 @@ func (r *HumioClusterReconciler) getLicenseString(ctx context.Context, hc *humio
 func (r *HumioClusterReconciler) logErrorAndReturn(err error, msg string) error {
 	r.Log.Error(err, msg)
 	return fmt.Errorf("%s: %w", msg, err)
+}
+
+// mergeEnvVars returns a slice of environment variables.
+// In case of a duplicate variable name, precedence is given to the value defined in into.
+func mergeEnvVars(from, into []corev1.EnvVar) []corev1.EnvVar {
+	var add bool
+	if len(into) == 0 {
+		return from
+	}
+	for _, commonVar := range from {
+		for _, nodeVar := range into {
+			if commonVar.Name == nodeVar.Name {
+				add = false
+				break
+			}
+			add = true
+		}
+		if add {
+			into = append(into, commonVar)
+		}
+		add = false
+	}
+	return into
 }

@@ -8,80 +8,109 @@ jobs:
     name: Build and Publish Operator
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-# Disable olm checks until we have a new bundle we want to validate against
-#    - name: operator-sdk lint
-#      env:
-#        GO111MODULE: "on"
-#      uses: ./.github/action/operator-sdk
-#      with:
-#        args: operator-courier --verbose verify --ui_validate_io deploy/olm-catalog/humio-operator
+    - uses: actions/checkout@v4
     - name: Set version information
       run: |
         echo "RELEASE_VERSION=master" >> $GITHUB_ENV
         echo "RELEASE_COMMIT=$(git rev-parse --verify HEAD)" >> $GITHUB_ENV
         echo "RELEASE_DATE=$(date --iso-8601=seconds)" >> $GITHUB_ENV
-    - name: docker build
-      run: make docker-build-operator IMG=humio/humio-operator:${{ env.RELEASE_VERSION }} IMG_BUILD_ARGS="--label version=${{ env.RELEASE_VERSION }} --label release=${{ github.run_id }} --build-arg RELEASE_VERSION=${{ env.RELEASE_VERSION }} --build-arg RELEASE_COMMIT=${{ env.RELEASE_COMMIT }} --build-arg RELEASE_DATE=${{ env.RELEASE_DATE }}"
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Build but don't push
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        # Because we use a container scanner pre-push we don't specify platform here so only the runner platform builds
+        # platforms: linux/amd64,linux/arm64
+        load: true
+        tags: ${{ github.repository_owner }}/humio-operator:${{ env.RELEASE_VERSION }}
+        labels: |
+          version=${{ env.RELEASE_VERSION }}
+          release=${{ github.run_id }}
+        build-args: |
+            RELEASE_VERSION=${{ env.RELEASE_VERSION }}
+            RELEASE_COMMIT=${{ env.RELEASE_COMMIT }}
+            RELEASE_DATE=${{ env.RELEASE_DATE }}
+        cache-to: type=local,type=registry,type=gha
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install six
+        python -m pip install --upgrade retry
+        pip install retry
     - name: CrowdStrike Container Image Scan Operator
+      if: github.repository_owner == 'humio'
       uses: crowdstrike/container-image-scan-action@v1
       with:
         falcon_client_id: 1cd30708cb31442f85a6eec83279fe7b
-        container_repository: humio/humio-operator
+        container_repository: ${{ github.repository_owner }}/humio-operator
         container_tag: ${{ env.RELEASE_VERSION }}
       env:
         FALCON_CLIENT_SECRET: "${{ secrets.FALCON_CLIENT_SECRET }}"
-    - name: Login to DockerHub
-      uses: docker/login-action@v2
+    - name: Build and push
+      uses: docker/build-push-action@v5
       with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-    - name: docker tag
-      run: docker tag humio/humio-operator:${{ env.RELEASE_VERSION }} humio/humio-operator:${{ env.RELEASE_COMMIT }}
-    - name: docker push
-      run: |
-        make docker-push IMG=humio/humio-operator:${{ env.RELEASE_VERSION }}
-        make docker-push IMG=humio/humio-operator:${{ env.RELEASE_COMMIT }}
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: |
+          ${{ github.repository_owner }}/humio-operator:${{ env.RELEASE_VERSION }}
+          ${{ github.repository_owner }}/humio-operator:${{ env.RELEASE_COMMIT }}
+        labels: |
+          version=${{ env.RELEASE_VERSION }}
+          release=${{ github.run_id }}
+        build-args: |
+          RELEASE_VERSION=${{ env.RELEASE_VERSION }}
+          RELEASE_COMMIT=${{ env.RELEASE_COMMIT }}
+          RELEASE_DATE=${{ env.RELEASE_DATE }}
+        cache-from: type=gha, mode=max
+        cache-to: type=gha
   build-and-publish-helper:
     name: Build and Publish Helperimage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set version information
         run: |
           echo "RELEASE_VERSION=master" >> $GITHUB_ENV
           echo "RELEASE_COMMIT=$(git rev-parse --verify HEAD)" >> $GITHUB_ENV
           echo "RELEASE_DATE=$(date --iso-8601=seconds)" >> $GITHUB_ENV
       - name: docker build
-        run: make docker-build-helper IMG=humio/humio-operator-helper:${{ env.RELEASE_VERSION }} IMG_BUILD_ARGS="--label version=${{ env.RELEASE_VERSION }} --label release=${{ github.run_id }} --build-arg RELEASE_VERSION=${{ env.RELEASE_VERSION }} --build-arg RELEASE_COMMIT=${{ env.RELEASE_COMMIT }} --build-arg RELEASE_DATE=${{ env.RELEASE_DATE }}"
+        run: make docker-build-helper IMG=${{ github.repository_owner }}/humio-operator-helper:${{ env.RELEASE_VERSION }} IMG_BUILD_ARGS="--label version=${{ env.RELEASE_VERSION }} --label release=${{ github.run_id }} --build-arg RELEASE_VERSION=${{ env.RELEASE_VERSION }} --build-arg RELEASE_COMMIT=${{ env.RELEASE_COMMIT }} --build-arg RELEASE_DATE=${{ env.RELEASE_DATE }}"
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install six
+          python -m pip install --upgrade retry
+          pip install retry
       - name: CrowdStrike Container Image Scan Operator Helper
+        if: github.repository_owner == 'humio'
         uses: crowdstrike/container-image-scan-action@v1
         with:
           falcon_client_id: 1cd30708cb31442f85a6eec83279fe7b
-          container_repository: humio/humio-operator-helper
+          container_repository: ${{ github.repository_owner }}/humio-operator-helper
           container_tag: ${{ env.RELEASE_VERSION }}
         env:
           FALCON_CLIENT_SECRET: "${{ secrets.FALCON_CLIENT_SECRET }}"
       - name: Login to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: docker tag
-        run: docker tag humio/humio-operator-helper:${{ env.RELEASE_VERSION }} humio/humio-operator-helper:${{ env.RELEASE_COMMIT }}
+        run: docker tag ${{ github.repository_owner }}/humio-operator-helper:${{ env.RELEASE_VERSION }} ${{ github.repository_owner }}/humio-operator-helper:${{ env.RELEASE_COMMIT }}
       - name: docker push
         run: |
-          make docker-push IMG=humio/humio-operator-helper:${{ env.RELEASE_VERSION }}
-          make docker-push IMG=humio/humio-operator-helper:${{ env.RELEASE_COMMIT }}
+          make docker-push IMG=${{ github.repository_owner }}/humio-operator-helper:${{ env.RELEASE_VERSION }}
+          make docker-push IMG=${{ github.repository_owner }}/humio-operator-helper:${{ env.RELEASE_COMMIT }}

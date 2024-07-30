@@ -1,18 +1,16 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.6.2
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: humioactions.core.humio.com
   labels:
     app: 'humio-operator'
     app.kubernetes.io/name: 'humio-operator'
     app.kubernetes.io/instance: 'humio-operator'
     app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.19.0'
+    helm.sh/chart: 'humio-operator-0.23.0'
 spec:
   group: core.humio.com
   names:
@@ -28,14 +26,19 @@ spec:
         description: HumioAction is the Schema for the humioactions API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -58,28 +61,37 @@ spec:
                     type: boolean
                 type: object
               externalClusterName:
-                description: ExternalClusterName refers to an object of type HumioExternalCluster
-                  where the Humio resources should be created. This conflicts with
-                  ManagedClusterName.
+                description: |-
+                  ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+                  This conflicts with ManagedClusterName.
                 type: string
               humioRepositoryProperties:
                 description: HumioRepositoryProperties indicates this is a Humio Repository
                   Action, and contains the corresponding properties
                 properties:
                   ingestToken:
+                    description: |-
+                      IngestToken specifies what ingest token to use.
+                      If both IngestToken and IngestTokenSource are specified, IngestToken will be used.
                     type: string
                   ingestTokenSource:
+                    description: |-
+                      IngestTokenSource specifies where to fetch the ingest token from.
+                      If both IngestToken and IngestTokenSource are specified, IngestToken will be used.
                     properties:
                       secretKeyRef:
-                        description: SecretKeySelector selects a key of a Secret.
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
                         properties:
                           key:
                             description: The key of the secret to select from.  Must
                               be a valid secret key.
                             type: string
                           name:
-                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?
                             type: string
                           optional:
                             description: Specify whether the Secret or its key must
@@ -88,12 +100,14 @@ spec:
                         required:
                         - key
                         type: object
+                        x-kubernetes-map-type: atomic
                     type: object
                 type: object
               managedClusterName:
-                description: ManagedClusterName refers to an object of type HumioCluster
-                  that is managed by the operator where the Humio resources should
-                  be created. This conflicts with ExternalClusterName.
+                description: |-
+                  ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+                  resources should be created.
+                  This conflicts with ExternalClusterName.
                 type: string
               name:
                 description: Name is the name of the Action
@@ -105,19 +119,28 @@ spec:
                   apiUrl:
                     type: string
                   genieKey:
+                    description: |-
+                      GenieKey specifies what API key to use.
+                      If both GenieKey and GenieKeySource are specified, GenieKey will be used.
                     type: string
                   genieKeySource:
+                    description: |-
+                      GenieKeySource specifies where to fetch the API key from.
+                      If both GenieKey and GenieKeySource are specified, GenieKey will be used.
                     properties:
                       secretKeyRef:
-                        description: SecretKeySelector selects a key of a Secret.
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
                         properties:
                           key:
                             description: The key of the secret to select from.  Must
                               be a valid secret key.
                             type: string
                           name:
-                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?
                             type: string
                           optional:
                             description: Specify whether the Secret or its key must
@@ -126,6 +149,7 @@ spec:
                         required:
                         - key
                         type: object
+                        x-kubernetes-map-type: atomic
                     type: object
                   useProxy:
                     type: boolean
@@ -135,7 +159,38 @@ spec:
                   and contains the corresponding properties
                 properties:
                   routingKey:
+                    description: |-
+                      RoutingKey specifies what API key to use.
+                      If both RoutingKey and RoutingKeySource are specified, RoutingKey will be used.
                     type: string
+                  routingKeySource:
+                    description: |-
+                      RoutingKeySource specifies where to fetch the routing key from.
+                      If both RoutingKey and RoutingKeySource are specified, RoutingKey will be used.
+                    properties:
+                      secretKeyRef:
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
                   severity:
                     type: string
                   useProxy:
@@ -146,19 +201,28 @@ spec:
                   Post Message Action, and contains the corresponding properties
                 properties:
                   apiToken:
+                    description: |-
+                      ApiToken specifies what API key to use.
+                      If both ApiToken and ApiTokenSource are specified, ApiToken will be used.
                     type: string
                   apiTokenSource:
+                    description: |-
+                      ApiTokenSource specifies where to fetch the API key from.
+                      If both ApiToken and ApiTokenSource are specified, ApiToken will be used.
                     properties:
                       secretKeyRef:
-                        description: SecretKeySelector selects a key of a Secret.
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
                         properties:
                           key:
                             description: The key of the secret to select from.  Must
                               be a valid secret key.
                             type: string
                           name:
-                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?
                             type: string
                           optional:
                             description: Specify whether the Secret or its key must
@@ -167,6 +231,7 @@ spec:
                         required:
                         - key
                         type: object
+                        x-kubernetes-map-type: atomic
                     type: object
                   channels:
                     items:
@@ -188,7 +253,38 @@ spec:
                       type: string
                     type: object
                   url:
+                    description: |-
+                      Url specifies what URL to use.
+                      If both Url and UrlSource are specified, Url will be used.
                     type: string
+                  urlSource:
+                    description: |-
+                      UrlSource specifies where to fetch the URL from.
+                      If both Url and UrlSource are specified, Url will be used.
+                    properties:
+                      secretKeyRef:
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
                   useProxy:
                     type: boolean
                 type: object
@@ -199,9 +295,42 @@ spec:
                   messageType:
                     type: string
                   notifyUrl:
+                    description: |-
+                      NotifyUrl specifies what URL to use.
+                      If both NotifyUrl and NotifyUrlSource are specified, NotifyUrl will be used.
                     type: string
+                  notifyUrlSource:
+                    description: |-
+                      NotifyUrlSource specifies where to fetch the URL from.
+                      If both NotifyUrl and NotifyUrlSource are specified, NotifyUrl will be used.
+                    properties:
+                      secretKeyRef:
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
                   useProxy:
                     type: boolean
+                required:
+                - notifyUrlSource
                 type: object
               viewName:
                 description: ViewName is the name of the Humio View under which the
@@ -216,13 +345,88 @@ spec:
                   headers:
                     additionalProperties:
                       type: string
+                    description: |-
+                      Headers specifies what HTTP headers to use.
+                      If both Headers and SecretHeaders are specified, they will be merged together.
                     type: object
                   ignoreSSL:
                     type: boolean
                   method:
                     type: string
+                  secretHeaders:
+                    description: |-
+                      SecretHeaders specifies what HTTP headers to use and where to fetch the values from.
+                      If both Headers and SecretHeaders are specified, they will be merged together.
+                    items:
+                      description: HeadersSource defines a header and corresponding
+                        source for the value of it.
+                      properties:
+                        name:
+                          description: Name is the name of the header.
+                          type: string
+                        valueFrom:
+                          description: ValueFrom defines where to fetch the value
+                            of the header from.
+                          properties:
+                            secretKeyRef:
+                              description: SecretKeyRef allows specifying which secret
+                                and what key in that secret holds the value we want
+                                to use
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must
+                                    be a valid secret key.
+                                  type: string
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    TODO: Add other useful fields. apiVersion, kind, uid?
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key
+                                    must be defined
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                              x-kubernetes-map-type: atomic
+                          type: object
+                      type: object
+                    type: array
                   url:
+                    description: |-
+                      Url specifies what URL to use
+                      If both Url and UrlSource are specified, Url will be used.
                     type: string
+                  urlSource:
+                    description: |-
+                      UrlSource specifies where to fetch the URL from
+                      If both Url and UrlSource are specified, Url will be used.
+                    properties:
+                      secretKeyRef:
+                        description: SecretKeyRef allows specifying which secret and
+                          what key in that secret holds the value we want to use
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: |-
+                              Name of the referent.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
                   useProxy:
                     type: boolean
                 type: object
@@ -242,9 +446,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

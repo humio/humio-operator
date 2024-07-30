@@ -18,12 +18,12 @@ spec:
       - example-email-action
 ---
 apiVersion: core.humio.com/v1alpha1
-kind: HumioAction
+kind: HumioAlert
 metadata:
-  name: example-email-action-external
+  name: example-alert-external
 spec:
   externalClusterName: example-humioexternalcluster
-  name: example-email-action
+  name: example-alert
   viewName: humio
   query:
     queryString: "#repo = humio | error = true | count() | _count > 0"

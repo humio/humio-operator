@@ -73,6 +73,8 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return reconcile.Result{}, err
 	}
 
+	r.Log = r.Log.WithValues("Request.UID", hv.UID)
+
 	cluster, err := helpers.NewCluster(ctx, r, hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName, hv.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
@@ -158,10 +160,16 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 	}
 
 	// Update
-	if viewConnectionsDiffer(curView.Connections, hv.GetViewConnections()) {
-		r.Log.Info(fmt.Sprintf("view information differs, triggering update, expected %v, got: %v",
+	if viewConnectionsDiffer(curView.Connections, hv.GetViewConnections()) ||
+		curView.Description != hv.Spec.Description ||
+		curView.AutomaticSearch != helpers.BoolTrue(hv.Spec.AutomaticSearch) {
+		r.Log.Info(fmt.Sprintf("view information differs, triggering update, expected %v/%v/%v, got: %v/%v/%v",
 			hv.Spec.Connections,
-			curView.Connections))
+			hv.Spec.Description,
+			helpers.BoolTrue(hv.Spec.AutomaticSearch),
+			curView.Connections,
+			curView.Description,
+			curView.AutomaticSearch))
 		_, err := r.HumioClient.UpdateView(config, req, hv)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update view")

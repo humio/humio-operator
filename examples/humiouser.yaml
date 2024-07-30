@@ -1,0 +1,25 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioUser
+metadata:
+  name: example-humiouser-managed
+spec:
+  managedClusterName: example-humiocluster
+  fullName: "users name"
+  email: "user@example.com"
+  company: "example company"
+  countryCode: "DK"
+  picture: "http://example.com/user.png"
+  isRoot: false
+---
+apiVersion: core.humio.com/v1alpha1
+kind: HumioUser
+metadata:
+  name: example-humiouser-external
+spec:
+  managedClusterName: example-humioexternalcluster
+  fullName: "users name"
+  email: "user@example.com"
+  company: "example company"
+  countryCode: "DK"
+  picture: "http://example.com/user.png"
+  isRoot: false

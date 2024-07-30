@@ -1,18 +1,16 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.6.2
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: humioexternalclusters.core.humio.com
   labels:
     app: 'humio-operator'
     app.kubernetes.io/name: 'humio-operator'
     app.kubernetes.io/instance: 'humio-operator'
     app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.19.0'
+    helm.sh/chart: 'humio-operator-0.23.0'
 spec:
   group: core.humio.com
   names:
@@ -34,14 +32,19 @@ spec:
           API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -49,16 +52,14 @@ spec:
             description: HumioExternalClusterSpec defines the desired state of HumioExternalCluster
             properties:
               apiTokenSecretName:
-                description: APITokenSecretName is used to obtain the API token we
-                  need to use when communicating with the external Humio cluster.
-                  The secret must contain a key "token" which holds the Humio API
-                  token.
+                description: |-
+                  APITokenSecretName is used to obtain the API token we need to use when communicating with the external Humio cluster.
+                  The secret must contain a key "token" which holds the Humio API token.
                 type: string
               caSecretName:
-                description: CASecretName is used to point to a Kubernetes secret
-                  that holds the CA that will be used to issue intra-cluster TLS certificates.
-                  The secret must contain a key "ca.crt" which holds the CA certificate
-                  in PEM format.
+                description: |-
+                  CASecretName is used to point to a Kubernetes secret that holds the CA that will be used to issue intra-cluster TLS certificates.
+                  The secret must contain a key "ca.crt" which holds the CA certificate in PEM format.
                 type: string
               insecure:
                 description: Insecure is used to disable TLS certificate verification
@@ -85,9 +86,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

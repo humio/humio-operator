@@ -16,7 +16,7 @@ func AlertTransform(ha *humiov1alpha1.HumioAlert, actionIdMap map[string]string)
 		QueryString:        ha.Spec.Query.QueryString,
 		QueryStart:         ha.Spec.Query.Start,
 		Description:        ha.Spec.Description,
-		ThrottleTimeMillis: humioapi.Long(ha.Spec.ThrottleTimeMillis),
+		ThrottleTimeMillis: ha.Spec.ThrottleTimeMillis,
 		ThrottleField:      ha.Spec.ThrottleField,
 		Enabled:            !ha.Spec.Silenced,
 		Actions:            actionIdsFromActionMap(ha.Spec.Actions, actionIdMap),
@@ -24,7 +24,7 @@ func AlertTransform(ha *humiov1alpha1.HumioAlert, actionIdMap map[string]string)
 	}
 
 	if alert.QueryStart == "" {
-		alert.QueryStart = "24h"
+		alert.QueryStart = "1d"
 	}
 
 	if _, ok := ha.ObjectMeta.Annotations[AlertIdentifierAnnotation]; ok {
@@ -42,7 +42,7 @@ func AlertHydrate(ha *humiov1alpha1.HumioAlert, alert *humioapi.Alert, actionIdM
 			Start:       alert.QueryStart,
 		},
 		Description:        alert.Description,
-		ThrottleTimeMillis: int(alert.ThrottleTimeMillis),
+		ThrottleTimeMillis: alert.ThrottleTimeMillis,
 		ThrottleField:      alert.ThrottleField,
 		Silenced:           !alert.Enabled,
 		Actions:            actionIdsFromActionMap(ha.Spec.Actions, actionIdMap),
@@ -51,7 +51,7 @@ func AlertHydrate(ha *humiov1alpha1.HumioAlert, alert *humioapi.Alert, actionIdM
 
 	ha.ObjectMeta = metav1.ObjectMeta{
 		Annotations: map[string]string{
-			ActionIdentifierAnnotation: alert.ID,
+			AlertIdentifierAnnotation: alert.ID,
 		},
 	}
 

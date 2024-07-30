@@ -35,11 +35,10 @@ import (
 
 	"github.com/humio/humio-operator/pkg/kubernetes"
 
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	humioapi "github.com/humio/cli/api"
-	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,7 +48,6 @@ import (
 
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
-	"github.com/humio/humio-operator/pkg/openshift"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -102,7 +100,7 @@ var _ = BeforeSuite(func() {
 	useExistingCluster := true
 	testProcessNamespace = fmt.Sprintf("e2e-clusters-%d", GinkgoParallelProcess())
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-		testTimeout = time.Second * 300
+		testTimeout = time.Second * 900
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &useExistingCluster,
 		}
@@ -123,16 +121,16 @@ var _ = BeforeSuite(func() {
 			CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 			ErrorIfCRDPathMissing: true,
 		}
-		humioClientForTestSuite = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioAction = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioAlert = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioCluster = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioExternalCluster = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioIngestToken = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioParser = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioRepository = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioUser = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
-		humioClientForHumioView = humio.NewMockClient(humioapi.Cluster{}, nil, nil, nil)
+		humioClientForTestSuite = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioAction = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioAlert = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioCluster = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioExternalCluster = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioIngestToken = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioParser = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioRepository = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioUser = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioView = humio.NewMockClient(humioapi.Cluster{}, nil)
 	}
 
 	var cfg *rest.Config
@@ -144,11 +142,6 @@ var _ = BeforeSuite(func() {
 		return err
 	}, 30*time.Second, 5*time.Second).Should(Succeed())
 	Expect(cfg).NotTo(BeNil())
-
-	if helpers.IsOpenShift() {
-		err = openshiftsecurityv1.AddToScheme(scheme.Scheme)
-		Expect(err).NotTo(HaveOccurred())
-	}
 
 	if helpers.UseCertManager() {
 		err = cmapi.AddToScheme(scheme.Scheme)
@@ -165,17 +158,8 @@ var _ = BeforeSuite(func() {
 	options := ctrl.Options{
 		Scheme:             scheme.Scheme,
 		MetricsBindAddress: "0",
-		Namespace:          watchNamespace,
+		Cache:              cache.Options{Namespaces: strings.Split(watchNamespace, ",")},
 		Logger:             log,
-	}
-
-	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
-	if strings.Contains(watchNamespace, ",") {
-		log.Info(fmt.Sprintf("manager will be watching namespace %q", watchNamespace))
-		// configure cluster-scoped with MultiNamespacedCacheBuilder
-		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(watchNamespace, ","))
-		// TODO: Get rid of Namespace property on Reconciler objects and instead use a custom cache implementation as this cache doesn't support watching a subset of namespace while still allowing to watch cluster-scoped resources. https://github.com/kubernetes-sigs/controller-runtime/issues/934
 	}
 
 	k8sManager, err = ctrl.NewManager(cfg, options)
@@ -271,81 +255,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	suite.CreateDockerRegredSecret(context.TODO(), testNamespace, k8sClient)
-
-	if helpers.IsOpenShift() {
-		var err error
-		ctx := context.Background()
-		Eventually(func() bool {
-			_, err = openshift.GetSecurityContextConstraints(ctx, k8sClient)
-			if k8serrors.IsNotFound(err) {
-				// Object has not been created yet
-				return true
-			}
-			if err != nil {
-				// Some other error happened. Typically:
-				//   <*cache.ErrCacheNotStarted | 0x31fc738>: {}
-				//         the cache is not started, can not read objects occurred
-				return false
-			}
-			// At this point we know the object already exists.
-			return true
-		}, testTimeout, suite.TestInterval).Should(BeTrue())
-		if k8serrors.IsNotFound(err) {
-			By("Simulating helm chart installation of the SecurityContextConstraints object")
-			sccName := os.Getenv("OPENSHIFT_SCC_NAME")
-			priority := int32(0)
-			scc := openshiftsecurityv1.SecurityContextConstraints{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      sccName,
-					Namespace: testProcessNamespace,
-				},
-				Priority:                 &priority,
-				AllowPrivilegedContainer: true,
-				DefaultAddCapabilities:   []corev1.Capability{},
-				RequiredDropCapabilities: []corev1.Capability{
-					"KILL",
-					"MKNOD",
-					"SETUID",
-					"SETGID",
-				},
-				AllowedCapabilities: []corev1.Capability{
-					"SYS_NICE",
-				},
-				AllowHostDirVolumePlugin: true,
-				Volumes: []openshiftsecurityv1.FSType{
-					openshiftsecurityv1.FSTypeConfigMap,
-					openshiftsecurityv1.FSTypeDownwardAPI,
-					openshiftsecurityv1.FSTypeEmptyDir,
-					openshiftsecurityv1.FSTypeHostPath,
-					openshiftsecurityv1.FSTypePersistentVolumeClaim,
-					openshiftsecurityv1.FSProjected,
-					openshiftsecurityv1.FSTypeSecret,
-				},
-				AllowedFlexVolumes: nil,
-				AllowHostNetwork:   false,
-				AllowHostPorts:     false,
-				AllowHostPID:       false,
-				AllowHostIPC:       false,
-				SELinuxContext: openshiftsecurityv1.SELinuxContextStrategyOptions{
-					Type: openshiftsecurityv1.SELinuxStrategyMustRunAs,
-				},
-				RunAsUser: openshiftsecurityv1.RunAsUserStrategyOptions{
-					Type: openshiftsecurityv1.RunAsUserStrategyRunAsAny,
-				},
-				SupplementalGroups: openshiftsecurityv1.SupplementalGroupsStrategyOptions{
-					Type: openshiftsecurityv1.SupplementalGroupsStrategyRunAsAny,
-				},
-				FSGroup: openshiftsecurityv1.FSGroupStrategyOptions{
-					Type: openshiftsecurityv1.FSGroupStrategyRunAsAny,
-				},
-				ReadOnlyRootFilesystem: false,
-				Users:                  []string{},
-				Groups:                 nil,
-				SeccompProfiles:        nil,
-			}
-			Expect(k8sClient.Create(ctx, &scc)).To(Succeed())
-		}
-	}
 })
 
 var _ = AfterSuite(func() {

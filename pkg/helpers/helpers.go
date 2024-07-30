@@ -28,8 +28,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-
-	humioapi "github.com/humio/cli/api"
 )
 
 // GetTypeName returns the name of the type of object which is obtained by using reflection
@@ -59,52 +57,6 @@ func RemoveElement(list []string, s string) []string {
 		}
 	}
 	return list
-}
-
-func MapStoragePartition(vs []humioapi.StoragePartition, f func(partition humioapi.StoragePartition) humioapi.StoragePartitionInput) []humioapi.StoragePartitionInput {
-	vsm := make([]humioapi.StoragePartitionInput, len(vs))
-	for i, v := range vs {
-		vsm[i] = f(v)
-	}
-	return vsm
-}
-
-func ToStoragePartitionInput(line humioapi.StoragePartition) humioapi.StoragePartitionInput {
-	var input humioapi.StoragePartitionInput
-	nodeIds := make([]int32, len(line.NodeIds))
-	for i, v := range line.NodeIds {
-		nodeIds[i] = int32(v)
-	}
-	input.ID = int32(line.Id)
-	input.NodeIDs = nodeIds
-
-	return input
-}
-
-func MapIngestPartition(vs []humioapi.IngestPartition, f func(partition humioapi.IngestPartition) humioapi.IngestPartitionInput) []humioapi.IngestPartitionInput {
-	vsm := make([]humioapi.IngestPartitionInput, len(vs))
-	for i, v := range vs {
-		vsm[i] = f(v)
-	}
-	return vsm
-}
-
-func ToIngestPartitionInput(line humioapi.IngestPartition) humioapi.IngestPartitionInput {
-	var input humioapi.IngestPartitionInput
-	nodeIds := make([]int32, len(line.NodeIds))
-	for i, v := range line.NodeIds {
-		nodeIds[i] = int32(v)
-	}
-	input.ID = int32(line.Id)
-	input.NodeIDs = nodeIds
-
-	return input
-}
-
-// IsOpenShift returns whether the operator is running in OpenShift-mode
-func IsOpenShift() bool {
-	sccName, found := os.LookupEnv("OPENSHIFT_SCC_NAME")
-	return found && sccName != ""
 }
 
 // UseCertManager returns whether the operator will use cert-manager
@@ -145,6 +97,11 @@ func Int64Ptr(val int64) *int64 {
 // IntPtr returns a int pointer to the specified int value
 func IntPtr(val int) *int {
 	return &val
+}
+
+// BoolTrue returns true if the pointer is nil or true
+func BoolTrue(val *bool) bool {
+	return val == nil || *val
 }
 
 // MapToSortedString prettifies a string map, so it's more suitable for readability when logging.

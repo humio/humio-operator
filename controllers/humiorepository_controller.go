@@ -73,6 +73,8 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 
+	r.Log = r.Log.WithValues("Request.UID", hr.UID)
+
 	cluster, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		r.Log.Error(err, "unable to obtain humio client config")
@@ -155,16 +157,19 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if (curRepository.Description != hr.Spec.Description) ||
 		(curRepository.RetentionDays != float64(hr.Spec.Retention.TimeInDays)) ||
 		(curRepository.IngestRetentionSizeGB != float64(hr.Spec.Retention.IngestSizeInGB)) ||
-		(curRepository.StorageRetentionSizeGB != float64(hr.Spec.Retention.StorageSizeInGB)) {
-		r.Log.Info(fmt.Sprintf("repository information differs, triggering update, expected %v/%v/%v/%v, got: %v/%v/%v/%v",
+		(curRepository.StorageRetentionSizeGB != float64(hr.Spec.Retention.StorageSizeInGB)) ||
+		(curRepository.AutomaticSearch != helpers.BoolTrue(hr.Spec.AutomaticSearch)) {
+		r.Log.Info(fmt.Sprintf("repository information differs, triggering update, expected %v/%v/%v/%v/%v, got: %v/%v/%v/%v/%v",
 			hr.Spec.Description,
 			float64(hr.Spec.Retention.TimeInDays),
 			float64(hr.Spec.Retention.IngestSizeInGB),
 			float64(hr.Spec.Retention.StorageSizeInGB),
+			helpers.BoolTrue(hr.Spec.AutomaticSearch),
 			curRepository.Description,
 			curRepository.RetentionDays,
 			curRepository.IngestRetentionSizeGB,
-			curRepository.StorageRetentionSizeGB))
+			curRepository.StorageRetentionSizeGB,
+			curRepository.AutomaticSearch))
 		_, err = r.HumioClient.UpdateRepository(cluster.Config(), req, hr)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update repository")
@@ -189,8 +194,11 @@ func (r *HumioRepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *HumioRepositoryReconciler) finalize(ctx context.Context, config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
 	_, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager(), true)
-	if k8serrors.IsNotFound(err) {
-		return nil
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
 	}
 
 	return r.HumioClient.DeleteRepository(config, req, hr)

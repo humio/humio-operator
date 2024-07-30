@@ -56,8 +56,6 @@ type HumioUserSpec struct {
 	Picture string `json:"picture,omitempty"`
 	// IsRoot is the root setting for the user
 	IsRoot bool `json:"isRoot,omitempty"`
-	// CreatedAt is date when the user was created
-	CreatedAt string `json:"createdAt,omitempty"`
 }
 
 // HumioUserStatus defines the observed state of HumioUser

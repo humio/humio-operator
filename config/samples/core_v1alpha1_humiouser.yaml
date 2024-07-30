@@ -2,11 +2,6 @@ apiVersion: core.humio.com/v1alpha1
 kind: HumioUser
 metadata:
   name: example-humiouser
-  labels:
-    app: 'humiouser'
-    app.kubernetes.io/name: 'humiouser'
-    app.kubernetes.io/instance: 'example-humiouser'
-    app.kubernetes.io/managed-by: 'manual'
 spec:
   managedClusterName: example-humiocluster
   fullName: "users name"

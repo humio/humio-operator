@@ -5,15 +5,15 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
       with:
-        go-version: '1.19.9'
+        go-version: '1.22.2'
     - shell: bash
       run: |
         make manifests
         if [[ -n $(git status -s) ]] ; then
-          echo "Generating manifests leaves tracked fiels in a modified state."
+          echo "Generating manifests leaves tracked files in a modified state."
           echo "Ensure to include updated manifests in this PR."
           echo "This is usually done by running 'make manifests' and running 'git add ...' for the files that was modified by generating manifests."
           git status -s
@@ -26,41 +26,42 @@ jobs:
       env:
         HUMIO_E2E_LICENSE: ${{ secrets.HUMIO_E2E_LICENSE }}
     - name: Publish Test Report
-      uses: mikepenz/action-junit-report@v3
+      uses: mikepenz/action-junit-report@v4
       if: always() # always run even if the previous step fails
       with:
         report_paths: '*-results-junit.xml'
-# Disable olm checks until we have a new bundle we want to validate against
-#  olm-checks:
-#    name: Run OLM Checks
-#    runs-on: ubuntu-latest
-#    steps:
-#    - uses: actions/checkout@v2
-#    - name: operator-sdk lint
-#      env:
-#        GO111MODULE: "on"
-#      uses: ./.github/action/operator-sdk
-#      with:
-#        args: operator-courier --verbose verify --ui_validate_io deploy/olm-catalog/humio-operator
   build:
     needs: checks
     name: Run Build
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
       with:
-        go-version: '1.19.9'
+        go-version: '1.22.2'
+    - name: Run Gosec Security Scanner
+      run: |
+        export PATH=$PATH:$(go env GOPATH)/bin
+        go get github.com/securego/gosec/cmd/gosec
+        go install github.com/securego/gosec/cmd/gosec
+        gosec ./...
+    - name: Run Staticcheck
+      uses: dominikh/staticcheck-action@v1.3.1
+      with:
+        version: "2023.1.7"
+        install-go: false
     - name: operator image
       run: make docker-build-operator IMG=humio/humio-operator:${{ github.sha }}
     - name: helper image
       run: make docker-build-helper IMG=humio/humio-operator-helper:${{ github.sha }}
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install six
+        python -m pip install --upgrade retry
+        pip install retry
     - name: CrowdStrike Container Image Scan Operator
       uses: crowdstrike/container-image-scan-action@v1
       with:
@@ -77,14 +78,3 @@ jobs:
         container_tag: ${{ github.sha }}
       env:
         FALCON_CLIENT_SECRET: "${{ secrets.FALCON_CLIENT_SECRET }}"
-    - name: Run Gosec Security Scanner
-      run: |
-        export PATH=$PATH:$(go env GOPATH)/bin
-        go get github.com/securego/gosec/cmd/gosec
-        go install github.com/securego/gosec/cmd/gosec
-        gosec ./...
-#    - name: Run Staticcheck
-#      uses: dominikh/staticcheck-action@v1.2.0
-#      with:
-#        version: "2022.1.3"
-#        install-go: false

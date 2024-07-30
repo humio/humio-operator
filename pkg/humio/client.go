@@ -26,6 +26,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	graphql "github.com/cli/shurcooL-graphql"
 	"github.com/go-logr/logr"
 
 	humioapi "github.com/humio/cli/api"
@@ -44,14 +45,11 @@ type Client interface {
 	LicenseClient
 	ActionsClient
 	AlertsClient
+	FilterAlertsClient
 }
 
 type ClusterClient interface {
 	GetClusters(*humioapi.Config, reconcile.Request) (humioapi.Cluster, error)
-	UpdateStoragePartitionScheme(*humioapi.Config, reconcile.Request, []humioapi.StoragePartitionInput) error
-	UpdateIngestPartitionScheme(*humioapi.Config, reconcile.Request, []humioapi.IngestPartitionInput) error
-	SuggestedStoragePartitions(*humioapi.Config, reconcile.Request) ([]humioapi.StoragePartitionInput, error)
-	SuggestedIngestPartitions(*humioapi.Config, reconcile.Request) ([]humioapi.IngestPartitionInput, error)
 	GetHumioClient(*humioapi.Config, reconcile.Request) *humioapi.Client
 	ClearHumioClientConnections()
 	GetBaseURL(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioCluster) *url.URL
@@ -107,6 +105,14 @@ type AlertsClient interface {
 	UpdateAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAlert) (*humioapi.Alert, error)
 	DeleteAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAlert) error
 	GetActionIDsMapForAlerts(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAlert) (map[string]string, error)
+}
+
+type FilterAlertsClient interface {
+	AddFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error)
+	GetFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error)
+	UpdateFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error)
+	DeleteFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
+	ValidateActionsForFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
 }
 
 type LicenseClient interface {
@@ -222,34 +228,6 @@ func (h *ClientConfig) GetClusters(config *humioapi.Config, req reconcile.Reques
 	return clusters, err
 }
 
-// UpdateStoragePartitionScheme updates the storage partition scheme and can be mocked via the Client interface
-func (h *ClientConfig) UpdateStoragePartitionScheme(config *humioapi.Config, req reconcile.Request, spi []humioapi.StoragePartitionInput) error {
-	err := h.GetHumioClient(config, req).Clusters().UpdateStoragePartitionScheme(spi)
-	if err != nil {
-		h.logger.Error(err, "could not update storage partition scheme cluster information")
-	}
-	return err
-}
-
-// UpdateIngestPartitionScheme updates the ingest partition scheme and can be mocked via the Client interface
-func (h *ClientConfig) UpdateIngestPartitionScheme(config *humioapi.Config, req reconcile.Request, ipi []humioapi.IngestPartitionInput) error {
-	err := h.GetHumioClient(config, req).Clusters().UpdateIngestPartitionScheme(ipi)
-	if err != nil {
-		h.logger.Error(err, "could not update ingest partition scheme cluster information")
-	}
-	return err
-}
-
-// SuggestedStoragePartitions gets the suggested storage partition layout
-func (h *ClientConfig) SuggestedStoragePartitions(config *humioapi.Config, req reconcile.Request) ([]humioapi.StoragePartitionInput, error) {
-	return h.GetHumioClient(config, req).Clusters().SuggestedStoragePartitions()
-}
-
-// SuggestedIngestPartitions gets the suggested ingest partition layout
-func (h *ClientConfig) SuggestedIngestPartitions(config *humioapi.Config, req reconcile.Request) ([]humioapi.IngestPartitionInput, error) {
-	return h.GetHumioClient(config, req).Clusters().SuggestedIngestPartitions()
-}
-
 // GetBaseURL returns the base URL for given HumioCluster
 func (h *ClientConfig) GetBaseURL(config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) *url.URL {
 	protocol := "https"
@@ -294,17 +272,26 @@ func (h *ClientConfig) DeleteIngestToken(config *humioapi.Config, req reconcile.
 
 func (h *ClientConfig) AddParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
 	parser := humioapi.Parser{
-		Name:      hp.Spec.Name,
-		Script:    hp.Spec.ParserScript,
-		TagFields: hp.Spec.TagFields,
-		Tests:     hp.Spec.TestData,
+		Name:        hp.Spec.Name,
+		Script:      hp.Spec.ParserScript,
+		FieldsToTag: hp.Spec.TagFields,
 	}
-	err := h.GetHumioClient(config, req).Parsers().Add(
+
+	testCasesGQL := make([]humioapi.ParserTestCase, len(hp.Spec.TestData))
+	for i := range hp.Spec.TestData {
+		testCasesGQL[i] = humioapi.ParserTestCase{
+			Event: humioapi.ParserTestEvent{
+				RawString: hp.Spec.TestData[i],
+			},
+		}
+	}
+	parser.TestCases = testCasesGQL
+
+	return h.GetHumioClient(config, req).Parsers().Add(
 		hp.Spec.RepositoryName,
 		&parser,
 		false,
 	)
-	return &parser, err
 }
 
 func (h *ClientConfig) GetParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
@@ -313,21 +300,28 @@ func (h *ClientConfig) GetParser(config *humioapi.Config, req reconcile.Request,
 
 func (h *ClientConfig) UpdateParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
 	parser := humioapi.Parser{
-		Name:      hp.Spec.Name,
-		Script:    hp.Spec.ParserScript,
-		TagFields: hp.Spec.TagFields,
-		Tests:     hp.Spec.TestData,
+		Name:        hp.Spec.Name,
+		Script:      hp.Spec.ParserScript,
+		FieldsToTag: hp.Spec.TagFields,
 	}
-	err := h.GetHumioClient(config, req).Parsers().Add(
+
+	testCasesGQL := make([]humioapi.ParserTestCase, len(hp.Spec.TestData))
+	for i := range hp.Spec.TestData {
+		testCasesGQL[i] = humioapi.ParserTestCase{
+			Event: humioapi.ParserTestEvent{RawString: hp.Spec.TestData[i]},
+		}
+	}
+	parser.TestCases = testCasesGQL
+
+	return h.GetHumioClient(config, req).Parsers().Add(
 		hp.Spec.RepositoryName,
 		&parser,
 		true,
 	)
-	return &parser, err
 }
 
 func (h *ClientConfig) DeleteParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) error {
-	return h.GetHumioClient(config, req).Parsers().Remove(hp.Spec.RepositoryName, hp.Spec.Name)
+	return h.GetHumioClient(config, req).Parsers().Delete(hp.Spec.RepositoryName, hp.Spec.Name)
 }
 
 func (h *ClientConfig) AddRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
@@ -400,6 +394,16 @@ func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.R
 		}
 	}
 
+	if curRepository.AutomaticSearch != helpers.BoolTrue(hr.Spec.AutomaticSearch) {
+		err = h.GetHumioClient(config, req).Repositories().UpdateAutomaticSearch(
+			hr.Spec.Name,
+			helpers.BoolTrue(hr.Spec.AutomaticSearch),
+		)
+		if err != nil {
+			return &humioapi.Repository{}, err
+		}
+	}
+
 	return h.GetRepository(config, req, hr)
 }
 
@@ -436,9 +440,8 @@ func (h *ClientConfig) AddView(config *humioapi.Config, req reconcile.Request, h
 	}
 
 	description := ""
-	connectionMap := getConnectionMap(viewConnections)
 
-	err := h.GetHumioClient(config, req).Views().Create(hv.Spec.Name, description, connectionMap)
+	err := h.GetHumioClient(config, req).Views().Create(hv.Spec.Name, description, getConnectionMap(viewConnections))
 	return &view, err
 }
 
@@ -446,6 +449,26 @@ func (h *ClientConfig) UpdateView(config *humioapi.Config, req reconcile.Request
 	curView, err := h.GetView(config, req, hv)
 	if err != nil {
 		return &humioapi.View{}, err
+	}
+
+	if curView.Description != hv.Spec.Description {
+		err = h.GetHumioClient(config, req).Views().UpdateDescription(
+			hv.Spec.Name,
+			hv.Spec.Description,
+		)
+		if err != nil {
+			return &humioapi.View{}, err
+		}
+	}
+
+	if curView.AutomaticSearch != helpers.BoolTrue(hv.Spec.AutomaticSearch) {
+		err = h.GetHumioClient(config, req).Views().UpdateAutomaticSearch(
+			hv.Spec.Name,
+			helpers.BoolTrue(hv.Spec.AutomaticSearch),
+		)
+		if err != nil {
+			return &humioapi.View{}, err
+		}
 	}
 
 	connections := hv.GetViewConnections()
@@ -542,10 +565,13 @@ func (h *ClientConfig) DeleteAction(config *humioapi.Config, req reconcile.Reque
 	return h.GetHumioClient(config, req).Actions().Delete(ha.Spec.ViewName, ha.Spec.Name)
 }
 
-func getConnectionMap(viewConnections []humioapi.ViewConnection) map[string]string {
-	connectionMap := make(map[string]string)
+func getConnectionMap(viewConnections []humioapi.ViewConnection) []humioapi.ViewConnectionInput {
+	connectionMap := make([]humioapi.ViewConnectionInput, 0)
 	for _, connection := range viewConnections {
-		connectionMap[connection.RepoName] = connection.Filter
+		connectionMap = append(connectionMap, humioapi.ViewConnectionInput{
+			RepositoryName: graphql.String(connection.RepoName),
+			Filter:         graphql.String(connection.Filter),
+		})
 	}
 	return connectionMap
 }
@@ -626,6 +652,87 @@ func (h *ClientConfig) DeleteAlert(config *humioapi.Config, req reconcile.Reques
 	return h.GetHumioClient(config, req).Alerts().Delete(ha.Spec.ViewName, ha.Spec.Name)
 }
 
+func (h *ClientConfig) GetFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
+	err := h.validateView(config, req, hfa.Spec.ViewName)
+	if err != nil {
+		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for action %s: %w", hfa.Spec.Name, err)
+	}
+
+	var filterAlertId string
+	filterAlertsList, err := h.GetHumioClient(config, req).FilterAlerts().List(hfa.Spec.ViewName)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list filter alerts: %w", err)
+	}
+	for _, filterAlert := range filterAlertsList {
+		if filterAlert.Name == hfa.Spec.Name {
+			filterAlertId = filterAlert.ID
+		}
+	}
+	if filterAlertId == "" {
+		return nil, humioapi.FilterAlertNotFound(hfa.Spec.Name)
+	}
+	filterAlert, err := h.GetHumioClient(config, req).FilterAlerts().Get(hfa.Spec.ViewName, filterAlertId)
+	if err != nil {
+		return filterAlert, fmt.Errorf("error when trying to get filter alert %+v, name=%s, view=%s: %w", filterAlert, hfa.Spec.Name, hfa.Spec.ViewName, err)
+	}
+
+	if filterAlert == nil || filterAlert.Name == "" {
+		return nil, nil
+	}
+
+	return filterAlert, nil
+}
+
+func (h *ClientConfig) AddFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
+	err := h.validateView(config, req, hfa.Spec.ViewName)
+	if err != nil {
+		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for action: %w", err)
+	}
+	if err = h.ValidateActionsForFilterAlert(config, req, hfa); err != nil {
+		return &humioapi.FilterAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
+	}
+	filterAlert, err := FilterAlertTransform(hfa)
+	if err != nil {
+		return filterAlert, err
+	}
+
+	createdAlert, err := h.GetHumioClient(config, req).FilterAlerts().Create(hfa.Spec.ViewName, filterAlert)
+	if err != nil {
+		return createdAlert, fmt.Errorf("got error when attempting to add filter alert: %w, filteralert: %#v", err, *filterAlert)
+	}
+	return createdAlert, nil
+}
+
+func (h *ClientConfig) UpdateFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
+	err := h.validateView(config, req, hfa.Spec.ViewName)
+	if err != nil {
+		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for action: %w", err)
+	}
+	if err = h.ValidateActionsForFilterAlert(config, req, hfa); err != nil {
+		return &humioapi.FilterAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
+	}
+	filterAlert, err := FilterAlertTransform(hfa)
+	if err != nil {
+		return filterAlert, err
+	}
+
+	currentAlert, err := h.GetFilterAlert(config, req, hfa)
+	if err != nil {
+		return &humioapi.FilterAlert{}, fmt.Errorf("could not find filter alert with name: %q", filterAlert.Name)
+	}
+	filterAlert.ID = currentAlert.ID
+
+	return h.GetHumioClient(config, req).FilterAlerts().Update(hfa.Spec.ViewName, filterAlert)
+}
+
+func (h *ClientConfig) DeleteFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+	currentAlert, err := h.GetFilterAlert(config, req, hfa)
+	if err != nil {
+		return fmt.Errorf("could not find filter alert with name: %q", hfa.Name)
+	}
+	return h.GetHumioClient(config, req).FilterAlerts().Delete(hfa.Spec.ViewName, currentAlert.ID)
+}
+
 func (h *ClientConfig) getAndValidateAction(config *humioapi.Config, req reconcile.Request, actionName string, viewName string) (*humioapi.Action, error) {
 	action := &humiov1alpha1.HumioAction{
 		Spec: humiov1alpha1.HumioActionSpec{
@@ -658,6 +765,15 @@ func (h *ClientConfig) GetActionIDsMapForAlerts(config *humioapi.Config, req rec
 
 	}
 	return actionIdMap, nil
+}
+
+func (h *ClientConfig) ValidateActionsForFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+	for _, actionNameForAlert := range hfa.Spec.Actions {
+		if _, err := h.getAndValidateAction(config, req, actionNameForAlert, hfa.Spec.ViewName); err != nil {
+			return fmt.Errorf("problem getting action for filter alert %s: %w", hfa.Spec.Name, err)
+		}
+	}
+	return nil
 }
 
 func (h *ClientConfig) AddUser(config *humioapi.Config, req reconcile.Request, hu *humiov1alpha1.HumioUser) (*humioapi.User, error) {

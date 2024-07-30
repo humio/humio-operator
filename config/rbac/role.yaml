@@ -1,9 +1,7 @@
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: manager-role
 rules:
 - apiGroups:
@@ -214,6 +212,32 @@ rules:
   - core.humio.com
   resources:
   - humioexternalclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiofilteralerts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiofilteralerts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiofilteralerts/status
   verbs:
   - get
   - patch

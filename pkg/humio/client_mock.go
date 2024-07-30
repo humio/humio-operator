@@ -25,52 +25,45 @@ import (
 
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type ClientMock struct {
-	Cluster                           humioapi.Cluster
-	ClusterError                      error
-	UpdateStoragePartitionSchemeError error
-	UpdateIngestPartitionSchemeError  error
-	IngestToken                       humioapi.IngestToken
-	Parser                            humioapi.Parser
-	Repository                        humioapi.Repository
-	View                              humioapi.View
-	OnPremLicense                     humioapi.OnPremLicense
-	Action                            humioapi.Action
-	Alert                             humioapi.Alert
-	User                              humioapi.User
+	Cluster       humioapi.Cluster
+	ClusterError  error
+	IngestToken   humioapi.IngestToken
+	Parser        humioapi.Parser
+	Repository    humioapi.Repository
+	View          humioapi.View
+	OnPremLicense humioapi.OnPremLicense
+	Action        humioapi.Action
+	Alert         humioapi.Alert
+	FilterAlert   humioapi.FilterAlert
+	User          humioapi.User
 }
 
 type MockClientConfig struct {
 	apiClient *ClientMock
 }
 
-func NewMockClient(cluster humioapi.Cluster, clusterError error, updateStoragePartitionSchemeError error, updateIngestPartitionSchemeError error) *MockClientConfig {
-	storagePartition := humioapi.StoragePartition{}
-	ingestPartition := humioapi.IngestPartition{}
-
+func NewMockClient(cluster humioapi.Cluster, clusterError error) *MockClientConfig {
 	mockClientConfig := &MockClientConfig{
 		apiClient: &ClientMock{
-			Cluster:                           cluster,
-			ClusterError:                      clusterError,
-			UpdateStoragePartitionSchemeError: updateStoragePartitionSchemeError,
-			UpdateIngestPartitionSchemeError:  updateIngestPartitionSchemeError,
-			IngestToken:                       humioapi.IngestToken{},
-			Parser:                            humioapi.Parser{},
-			Repository:                        humioapi.Repository{},
-			View:                              humioapi.View{},
-			OnPremLicense:                     humioapi.OnPremLicense{},
-			Action:                            humioapi.Action{},
-			Alert:                             humioapi.Alert{},
+			Cluster:       cluster,
+			ClusterError:  clusterError,
+			IngestToken:   humioapi.IngestToken{},
+			Parser:        humioapi.Parser{},
+			Repository:    humioapi.Repository{},
+			View:          humioapi.View{},
+			OnPremLicense: humioapi.OnPremLicense{},
+			Action:        humioapi.Action{},
+			Alert:         humioapi.Alert{},
+			FilterAlert:   humioapi.FilterAlert{},
 		},
 	}
-
-	cluster.StoragePartitions = []humioapi.StoragePartition{storagePartition}
-	cluster.IngestPartitions = []humioapi.IngestPartition{ingestPartition}
 
 	return mockClientConfig
 }
@@ -87,50 +80,6 @@ func (h *MockClientConfig) GetClusters(config *humioapi.Config, req reconcile.Re
 		return humioapi.Cluster{}, h.apiClient.ClusterError
 	}
 	return h.apiClient.Cluster, nil
-}
-
-func (h *MockClientConfig) UpdateStoragePartitionScheme(config *humioapi.Config, req reconcile.Request, sps []humioapi.StoragePartitionInput) error {
-	if h.apiClient.UpdateStoragePartitionSchemeError != nil {
-		return h.apiClient.UpdateStoragePartitionSchemeError
-	}
-
-	var storagePartitions []humioapi.StoragePartition
-	for _, storagePartitionInput := range sps {
-		var nodeIdsList []int
-		for _, nodeID := range storagePartitionInput.NodeIDs {
-			nodeIdsList = append(nodeIdsList, int(nodeID))
-		}
-		storagePartitions = append(storagePartitions, humioapi.StoragePartition{Id: int(storagePartitionInput.ID), NodeIds: nodeIdsList})
-	}
-	h.apiClient.Cluster.StoragePartitions = storagePartitions
-
-	return nil
-}
-
-func (h *MockClientConfig) UpdateIngestPartitionScheme(config *humioapi.Config, req reconcile.Request, ips []humioapi.IngestPartitionInput) error {
-	if h.apiClient.UpdateIngestPartitionSchemeError != nil {
-		return h.apiClient.UpdateIngestPartitionSchemeError
-	}
-
-	var ingestPartitions []humioapi.IngestPartition
-	for _, ingestPartitionInput := range ips {
-		var nodeIdsList []int
-		for _, nodeID := range ingestPartitionInput.NodeIDs {
-			nodeIdsList = append(nodeIdsList, int(nodeID))
-		}
-		ingestPartitions = append(ingestPartitions, humioapi.IngestPartition{Id: int(ingestPartitionInput.ID), NodeIds: nodeIdsList})
-	}
-	h.apiClient.Cluster.IngestPartitions = ingestPartitions
-
-	return nil
-}
-
-func (h *MockClientConfig) SuggestedStoragePartitions(config *humioapi.Config, req reconcile.Request) ([]humioapi.StoragePartitionInput, error) {
-	return []humioapi.StoragePartitionInput{}, nil
-}
-
-func (h *MockClientConfig) SuggestedIngestPartitions(config *humioapi.Config, req reconcile.Request) ([]humioapi.IngestPartitionInput, error) {
-	return []humioapi.IngestPartitionInput{}, nil
 }
 
 func (h *MockClientConfig) GetBaseURL(config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) *url.URL {
@@ -166,11 +115,21 @@ func (h *MockClientConfig) DeleteIngestToken(config *humioapi.Config, req reconc
 
 func (h *MockClientConfig) AddParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) (*humioapi.Parser, error) {
 	h.apiClient.Parser = humioapi.Parser{
-		Name:      hp.Spec.Name,
-		Script:    hp.Spec.ParserScript,
-		TagFields: hp.Spec.TagFields,
-		Tests:     hp.Spec.TestData,
+		Name:                           hp.Spec.Name,
+		Script:                         hp.Spec.ParserScript,
+		FieldsToTag:                    hp.Spec.TagFields,
+		FieldsToBeRemovedBeforeParsing: []string{},
 	}
+
+	testCasesGQL := make([]humioapi.ParserTestCase, len(hp.Spec.TestData))
+	for i := range hp.Spec.TestData {
+		testCasesGQL[i] = humioapi.ParserTestCase{
+			Event:      humioapi.ParserTestEvent{RawString: hp.Spec.TestData[i]},
+			Assertions: []humioapi.ParserTestCaseAssertions{},
+		}
+	}
+	h.apiClient.Parser.TestCases = testCasesGQL
+
 	return &h.apiClient.Parser, nil
 }
 
@@ -204,6 +163,7 @@ func (h *MockClientConfig) AddRepository(config *humioapi.Config, req reconcile.
 }
 
 func (h *MockClientConfig) GetRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
+	h.apiClient.Repository.AutomaticSearch = helpers.BoolTrue(hr.Spec.AutomaticSearch)
 	return &h.apiClient.Repository, nil
 }
 
@@ -244,6 +204,7 @@ func (h *MockClientConfig) DeleteUser(config *humioapi.Config, req reconcile.Req
 }
 
 func (h *MockClientConfig) GetView(config *humioapi.Config, req reconcile.Request, hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
+	h.apiClient.View.AutomaticSearch = helpers.BoolTrue(hv.Spec.AutomaticSearch)
 	return &h.apiClient.View, nil
 }
 
@@ -258,6 +219,7 @@ func (h *MockClientConfig) AddView(config *humioapi.Config, req reconcile.Reques
 
 	h.apiClient.View = humioapi.View{
 		Name:        hv.Spec.Name,
+		Description: hv.Spec.Description,
 		Connections: connections,
 	}
 	return &h.apiClient.View, nil
@@ -358,6 +320,38 @@ func (h *MockClientConfig) GetActionIDsMapForAlerts(config *humioapi.Config, req
 		actionIdMap[action] = hex.EncodeToString(hash[:])
 	}
 	return actionIdMap, nil
+}
+
+func (h *MockClientConfig) GetFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
+	if h.apiClient.FilterAlert.Name == "" {
+		return nil, fmt.Errorf("could not find alert in view %q with name %q, err=%w", hfa.Spec.ViewName, hfa.Spec.Name, humioapi.EntityNotFound{})
+	}
+	return &h.apiClient.FilterAlert, nil
+}
+
+func (h *MockClientConfig) AddFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
+	if err := h.ValidateActionsForFilterAlert(config, req, hfa); err != nil {
+		return &humioapi.FilterAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
+	}
+	filterAlert, err := FilterAlertTransform(hfa)
+	if err != nil {
+		return filterAlert, err
+	}
+	h.apiClient.FilterAlert = *filterAlert
+	return &h.apiClient.FilterAlert, nil
+}
+
+func (h *MockClientConfig) UpdateFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
+	return h.AddFilterAlert(config, req, hfa)
+}
+
+func (h *MockClientConfig) DeleteFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+	h.apiClient.FilterAlert = humioapi.FilterAlert{}
+	return nil
+}
+
+func (h *MockClientConfig) ValidateActionsForFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+	return nil
 }
 
 func (h *MockClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request) *humioapi.Client {

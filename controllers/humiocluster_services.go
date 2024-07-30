@@ -19,12 +19,12 @@ package controllers
 import (
 	"fmt"
 
-	"github.com/humio/humio-operator/pkg/helpers"
-
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // humioServiceLabels generates the set of labels to attach to the humio kubernetes service
@@ -52,12 +52,14 @@ func ConstructService(hnp *HumioNodePool) *corev1.Service {
 			Selector: hnp.GetNodePoolLabels(),
 			Ports: []corev1.ServicePort{
 				{
-					Name: "http",
-					Port: hnp.GetHumioServicePort(),
+					Name:       "http",
+					Port:       hnp.GetHumioServicePort(),
+					TargetPort: intstr.IntOrString{IntVal: HumioPort},
 				},
 				{
-					Name: "es",
-					Port: hnp.GetHumioESServicePort(),
+					Name:       "es",
+					Port:       hnp.GetHumioESServicePort(),
+					TargetPort: intstr.IntOrString{IntVal: elasticPort},
 				},
 			},
 		},
@@ -69,7 +71,7 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        headlessServiceName(hc.Name),
 			Namespace:   hc.Namespace,
-			Labels:      mergeHumioServiceLabels(hc.GetClusterName(), hc.Spec.HumioHeadlessServiceLabels),
+			Labels:      mergeHumioServiceLabels(hc.Name, hc.Spec.HumioHeadlessServiceLabels),
 			Annotations: humioHeadlessServiceAnnotationsOrDefault(hc),
 		},
 		Spec: corev1.ServiceSpec{

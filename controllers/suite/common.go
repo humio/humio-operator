@@ -43,6 +43,8 @@ const (
 	dockerPasswordEnvVar = "DOCKER_PASSWORD"
 	// DockerRegistryCredentialsSecretName is the name of the k8s secret containing the registry credentials
 	DockerRegistryCredentialsSecretName = "regcred"
+
+	sidecarWaitForGlobalImageVersion = "alpine:20240329"
 )
 
 const TestInterval = time.Second * 1
@@ -173,15 +175,79 @@ func CleanupCluster(ctx context.Context, k8sClient client.Client, hc *humiov1alp
 
 func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alpha1.HumioNodeSpec {
 	storageClassNameStandard := "standard"
+	userID := int64(65534)
+
 	nodeSpec := humiov1alpha1.HumioNodeSpec{
 		Image:             controllers.Image,
 		ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 		NodeCount:         1,
-		EnvironmentVariables: FilterZookeeperURLIfVersionIsRecentEnough(controllers.Image, []corev1.EnvVar{
-			{
-				Name:  "ZOOKEEPER_URL",
-				Value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181",
+		// Affinity needs to be overridden to exclude default value for kubernetes.io/arch to allow running local tests
+		// on ARM-based machines without getting pods stuck in "Pending" due to no nodes matching the affinity rules.
+		Affinity: corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{
+						{
+							MatchExpressions: []corev1.NodeSelectorRequirement{
+								{
+									Key:      corev1.LabelOSStable,
+									Operator: corev1.NodeSelectorOpIn,
+									Values: []string{
+										"linux",
+									},
+								},
+							},
+						},
+					},
+				},
 			},
+		},
+		SidecarContainers: []corev1.Container{
+			{
+				Name:    "wait-for-global-snapshot-on-disk",
+				Image:   sidecarWaitForGlobalImageVersion,
+				Command: []string{"/bin/sh"},
+				Args: []string{
+					"-c",
+					"trap 'exit 0' 15; while true; do sleep 100 & wait $!; done",
+				},
+				ReadinessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						Exec: &corev1.ExecAction{
+							Command: []string{
+								"/bin/sh",
+								"-c",
+								"ls /mnt/global*.json",
+							},
+						},
+					},
+					InitialDelaySeconds: 5,
+					TimeoutSeconds:      5,
+					PeriodSeconds:       10,
+					SuccessThreshold:    1,
+					FailureThreshold:    100,
+				},
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						Name:      "humio-data",
+						MountPath: "/mnt",
+						ReadOnly:  true,
+					},
+				},
+				SecurityContext: &corev1.SecurityContext{
+					Privileged:               helpers.BoolPtr(false),
+					AllowPrivilegeEscalation: helpers.BoolPtr(false),
+					ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
+					RunAsUser:                &userID,
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{
+							"ALL",
+						},
+					},
+				},
+			},
+		},
+		EnvironmentVariables: []corev1.EnvVar{
 			{
 				Name:  "KAFKA_SERVERS",
 				Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
@@ -210,12 +276,16 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 				Name:  "HUMIO_OPTS",
 				Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
 			},
-		}),
+			{
+				Name:  "IP_FILTER_ACTIONS",
+				Value: "allow all",
+			},
+		},
 		DataVolumePersistentVolumeClaimSpecTemplate: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{
 				corev1.ReadWriteOnce,
 			},
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceStorage: *resource.NewQuantity(1*1024*1024*1024, resource.BinarySI),
 				},
@@ -231,20 +301,6 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 	}
 
 	return nodeSpec
-}
-
-func FilterZookeeperURLIfVersionIsRecentEnough(image string, envVars []corev1.EnvVar) []corev1.EnvVar {
-	var filteredEnvVars []corev1.EnvVar
-	for _, envVar := range envVars {
-		humioVersion, _ := controllers.HumioVersionFromString(image)
-
-		if ok, _ := humioVersion.AtLeast(controllers.HumioVersionWithNewVhostSelection); ok &&
-			strings.HasPrefix(envVar.Name, "ZOOKEEPER_") {
-			continue
-		}
-		filteredEnvVars = append(filteredEnvVars, envVar)
-	}
-	return filteredEnvVars
 }
 
 func ConstructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreatedLicense bool) *humiov1alpha1.HumioCluster {
@@ -523,11 +579,11 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElements([]corev1.EnvVar{
 			{
-				Name:  "DIGEST_REPLICATION_FACTOR",
+				Name:  "DEFAULT_DIGEST_REPLICATION_FACTOR",
 				Value: strconv.Itoa(cluster.Spec.TargetReplicationFactor),
 			},
 			{
-				Name:  "STORAGE_REPLICATION_FACTOR",
+				Name:  "DEFAULT_SEGMENT_REPLICATION_FACTOR",
 				Value: strconv.Itoa(cluster.Spec.TargetReplicationFactor),
 			},
 		}))
@@ -599,7 +655,8 @@ func PrintLinesWithRunID(runID string, lines []string, specState ginkgotypes.Spe
 }
 
 func useDockerCredentials() bool {
-	return os.Getenv(dockerUsernameEnvVar) != "" && os.Getenv(dockerPasswordEnvVar) != ""
+	return os.Getenv(dockerUsernameEnvVar) != "" && os.Getenv(dockerPasswordEnvVar) != "" &&
+		os.Getenv(dockerUsernameEnvVar) != "none" && os.Getenv(dockerPasswordEnvVar) != "none"
 }
 
 func CreateDockerRegredSecret(ctx context.Context, namespace corev1.Namespace, k8sClient client.Client) {
