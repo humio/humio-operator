@@ -18,7 +18,7 @@ metadata:
   name: example-alert-filter-external
 spec:
   externalClusterName: example-humioexternalcluster
-name: example-filter-alert
+  name: example-filter-alert
   viewName: humio
   queryString: "#repo = humio | error = true"
   enabled: true
