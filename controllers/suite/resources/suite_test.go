@@ -71,7 +71,6 @@ var testNamespace corev1.Namespace
 var testRepo corev1alpha1.HumioRepository
 var testService1 corev1.Service
 var testService2 corev1.Service
-var testUser corev1alpha1.HumioUser
 var clusterKey types.NamespacedName
 var cluster = &corev1alpha1.HumioCluster{}
 var sharedCluster helpers.ClusterInterface

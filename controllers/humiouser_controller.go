@@ -138,7 +138,7 @@ func (r *HumioUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// Get current user
 	r.Log.Info("get current user")
-	curUser, err := r.HumioClient.GetUser(cluster.Config(), req, hu)
+	curUser, _ := r.HumioClient.GetUser(cluster.Config(), req, hu)
 	emptyUser := humioapi.User{}
 
 	// if this is a new user check that the username doesn't exist in humio first
