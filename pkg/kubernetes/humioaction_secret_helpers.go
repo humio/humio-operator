@@ -3,12 +3,19 @@ package kubernetes
 import (
 	"fmt"
 	"github.com/humio/humio-operator/api/v1alpha1"
+	"sync"
 )
 
-var haSecrets map[string]string = make(map[string]string)
-var haWebhookHeaders map[string]map[string]string = make(map[string]map[string]string)
+var (
+	haSecrets          = make(map[string]string)
+	haSecretsMu        sync.Mutex
+	haWebhookHeaders   = make(map[string]map[string]string)
+	haWebhookHeadersMu sync.Mutex
+)
 
 func GetSecretForHa(hn *v1alpha1.HumioAction) (string, bool) {
+	haSecretsMu.Lock()
+	defer haSecretsMu.Unlock()
 	if secret, found := haSecrets[fmt.Sprintf("%s %s", hn.Namespace, hn.Name)]; found {
 		return secret, true
 	}
@@ -16,11 +23,15 @@ func GetSecretForHa(hn *v1alpha1.HumioAction) (string, bool) {
 }
 
 func StoreSingleSecretForHa(hn *v1alpha1.HumioAction, token string) {
+	haSecretsMu.Lock()
+	defer haSecretsMu.Unlock()
 	key := fmt.Sprintf("%s %s", hn.Namespace, hn.Name)
 	haSecrets[key] = token
 }
 
 func GetFullSetOfMergedWebhookheaders(hn *v1alpha1.HumioAction) (map[string]string, bool) {
+	haWebhookHeadersMu.Lock()
+	defer haWebhookHeadersMu.Unlock()
 	if secret, found := haWebhookHeaders[fmt.Sprintf("%s %s", hn.Namespace, hn.Name)]; found {
 		return secret, true
 	}
@@ -28,6 +39,8 @@ func GetFullSetOfMergedWebhookheaders(hn *v1alpha1.HumioAction) (map[string]stri
 }
 
 func StoreFullSetOfMergedWebhookActionHeaders(hn *v1alpha1.HumioAction, resolvedSecretHeaders map[string]string) {
+	haWebhookHeadersMu.Lock()
+	defer haWebhookHeadersMu.Unlock()
 	key := fmt.Sprintf("%s %s", hn.Namespace, hn.Name)
 	if len(resolvedSecretHeaders) == 0 {
 		haWebhookHeaders[key] = hn.Spec.WebhookProperties.Headers
