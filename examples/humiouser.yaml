@@ -16,7 +16,7 @@ kind: HumioUser
 metadata:
   name: example-humiouser-external
 spec:
-  managedClusterName: example-humioexternalcluster
+  externalClusterName: example-humioexternalcluster
   fullName: "users name"
   email: "user@example.com"
   company: "example company"
