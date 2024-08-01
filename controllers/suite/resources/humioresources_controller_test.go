@@ -3114,7 +3114,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: aggregateAlertSpec,
 			}
 
+<<<<<<< HEAD
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Creating the aggregate alert successfully")
+=======
+			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the aggregate alert successfully")
+>>>>>>> dad47d2 (Created AggregateAlerts Support)
 			Expect(k8sClient.Create(ctx, toCreateAggregateAlert)).Should(Succeed())
 
 			fetchedAggregateAlert := &humiov1alpha1.HumioAggregateAlert{}
