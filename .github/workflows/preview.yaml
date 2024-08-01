@@ -68,5 +68,8 @@ jobs:
           chmod +x ./kind
           ./kind delete cluster || true
           make clean
-          docker image prune -f
-          docker buildx prune --all -f
+
+          echo cleaning up docker files as kind load docker-image seems to leave dangling files in the data directory that docker does not detect and so pruning with docker cli doesn't work
+          sudo systemctl stop docker
+          sudo rm -rf /var/lib/docker
+          sudo systemctl start docker
