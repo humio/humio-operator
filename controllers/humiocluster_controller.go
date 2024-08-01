@@ -1310,15 +1310,6 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, config *humio
 	}
 
 	for idx, pod := range foundPodList {
-		// Skip pods that already have a label. Check that the pvc also has the label if applicable
-		if kubernetes.LabelListContainsLabel(pod.GetLabels(), kubernetes.NodeIdLabelName) {
-			if hnp.PVCsEnabled() {
-				if err := r.ensurePvcLabels(ctx, hnp, pod, pvcList); err != nil {
-					return r.logErrorAndReturn(err, "could not ensure pvc labels")
-				}
-			}
-			continue
-		}
 		// If pod does not have an IP yet, so it is probably pending
 		if pod.Status.PodIP == "" {
 			r.Log.Info(fmt.Sprintf("not setting labels for pod %s because it is in state %s", pod.Name, pod.Status.Phase))
@@ -1327,7 +1318,6 @@ func (r *HumioClusterReconciler) ensureLabels(ctx context.Context, config *humio
 		for _, node := range cluster.Nodes {
 			if node.Uri == fmt.Sprintf("http://%s:%d", pod.Status.PodIP, HumioPort) {
 				labels := hnp.GetNodePoolLabels()
-				labels[kubernetes.NodeIdLabelName] = strconv.Itoa(node.Id)
 				r.Log.Info(fmt.Sprintf("setting labels for pod %s, labels=%v", pod.Name, labels))
 				pod.SetLabels(labels)
 				if err := r.Update(ctx, &foundPodList[idx]); err != nil {
@@ -1349,15 +1339,7 @@ func (r *HumioClusterReconciler) ensurePvcLabels(ctx context.Context, hnp *Humio
 	if err != nil {
 		return r.logErrorAndReturn(err, "failed to get pvc for pod to assign labels")
 	}
-	if kubernetes.LabelListContainsLabel(pvc.GetLabels(), kubernetes.NodeIdLabelName) {
-		return nil
-	}
-	nodeId, err := strconv.Atoi(pod.Labels[kubernetes.NodeIdLabelName])
-	if err != nil {
-		return r.logErrorAndReturn(err, fmt.Sprintf("unable to set label on pvc, nodeid %v is invalid", pod.Labels[kubernetes.NodeIdLabelName]))
-	}
 	labels := hnp.GetNodePoolLabels()
-	labels[kubernetes.NodeIdLabelName] = strconv.Itoa(nodeId)
 	r.Log.Info(fmt.Sprintf("setting labels for pvc %s, labels=%v", pvc.Name, labels))
 	pvc.SetLabels(labels)
 	if err := r.Update(ctx, &pvc); err != nil {

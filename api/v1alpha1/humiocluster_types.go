@@ -345,8 +345,10 @@ type HumioPodStatusList []HumioPodStatus
 
 // HumioPodStatus shows the status of individual humio pods
 type HumioPodStatus struct {
-	PodName  string `json:"podName,omitempty"`
-	PvcName  string `json:"pvcName,omitempty"`
+	PodName string `json:"podName,omitempty"`
+	PvcName string `json:"pvcName,omitempty"`
+	// NodeId used to refer to the value of the BOOTSTRAP_HOST_ID environment variable for a Humio instance.
+	// Deprecated: No longer being used.
 	NodeId   int    `json:"nodeId,omitempty"`
 	NodeName string `json:"nodeName,omitempty"`
 }
