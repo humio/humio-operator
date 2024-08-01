@@ -48,11 +48,10 @@ jobs:
         GINKGO_NODES: "6"
       run: |
         hack/run-e2e-using-kind.sh
-    - name: cleanup kind
+    - name: cleanup kind and docker files
       if: always()
       run: |
         curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
         chmod +x ./kind
         ./kind delete cluster || true
         make clean
-        docker image prune -f
