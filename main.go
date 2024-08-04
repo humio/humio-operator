@@ -154,6 +154,14 @@ func main() {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioRepository")
 		os.Exit(1)
 	}
+	if err = (&controllers.HumioUserReconciler{
+		Client:      mgr.GetClient(),
+		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioUser")
+		os.Exit(1)
+	}
 	if err = (&controllers.HumioViewReconciler{
 		Client:      mgr.GetClient(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),

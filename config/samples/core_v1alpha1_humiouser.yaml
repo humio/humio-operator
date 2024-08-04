@@ -1,0 +1,12 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioUser
+metadata:
+  name: example-humiouser
+spec:
+  managedClusterName: example-humiocluster
+  fullName: "users name"
+  email: "user@example.com"
+  company: "example company"
+  countryCode: "DK"
+  picture: "http://example.com/user.png"
+  isRoot: false

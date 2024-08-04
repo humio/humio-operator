@@ -74,6 +74,7 @@ var humioClientForHumioExternalCluster humio.Client
 var humioClientForHumioIngestToken humio.Client
 var humioClientForHumioParser humio.Client
 var humioClientForHumioRepository humio.Client
+var humioClientForHumioUser humio.Client
 var humioClientForHumioView humio.Client
 var humioClientForTestSuite humio.Client
 var testTimeout time.Duration
@@ -111,6 +112,7 @@ var _ = BeforeSuite(func() {
 		humioClientForHumioIngestToken = humio.NewClient(log, &humioapi.Config{}, "")
 		humioClientForHumioParser = humio.NewClient(log, &humioapi.Config{}, "")
 		humioClientForHumioRepository = humio.NewClient(log, &humioapi.Config{}, "")
+		humioClientForHumioUser = humio.NewClient(log, &humioapi.Config{}, "")
 		humioClientForHumioView = humio.NewClient(log, &humioapi.Config{}, "")
 	} else {
 		testTimeout = time.Second * 30
@@ -127,6 +129,7 @@ var _ = BeforeSuite(func() {
 		humioClientForHumioIngestToken = humio.NewMockClient(humioapi.Cluster{}, nil)
 		humioClientForHumioParser = humio.NewMockClient(humioapi.Cluster{}, nil)
 		humioClientForHumioRepository = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClientForHumioUser = humio.NewMockClient(humioapi.Cluster{}, nil)
 		humioClientForHumioView = humio.NewMockClient(humioapi.Cluster{}, nil)
 	}
 
@@ -213,6 +216,14 @@ var _ = BeforeSuite(func() {
 	err = (&controllers.HumioRepositoryReconciler{
 		Client:      k8sManager.GetClient(),
 		HumioClient: humioClientForHumioRepository,
+		BaseLogger:  log,
+		Namespace:   testProcessNamespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.HumioUserReconciler{
+		Client:      k8sManager.GetClient(),
+		HumioClient: humioClientForHumioUser,
 		BaseLogger:  log,
 		Namespace:   testProcessNamespace,
 	}).SetupWithManager(k8sManager)
