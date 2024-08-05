@@ -4105,7 +4105,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					if volume.Name == serviceAccountSecretVolumeName {
 						secret, err := kubernetes.GetSecret(ctx, k8sClient, volume.Secret.SecretName, key.Namespace)
 						Expect(err).ShouldNot(HaveOccurred())
-						Expect(secret.ObjectMeta.Annotations["kubernetes.io/service-account.name"]).To(Equal(toCreate.Spec.InitServiceAccountName))
+						Expect(secret.ObjectMeta.Annotations[corev1.ServiceAccountNameKey]).To(Equal(toCreate.Spec.InitServiceAccountName))
 					}
 				}
 			}
@@ -4123,7 +4123,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					if volume.Name == serviceAccountSecretVolumeName {
 						secret, err := kubernetes.GetSecret(ctx, k8sClient, volume.Secret.SecretName, key.Namespace)
 						Expect(err).ShouldNot(HaveOccurred())
-						Expect(secret.ObjectMeta.Annotations["kubernetes.io/service-account.name"]).To(Equal(toCreate.Spec.AuthServiceAccountName))
+						Expect(secret.ObjectMeta.Annotations[corev1.ServiceAccountNameKey]).To(Equal(toCreate.Spec.AuthServiceAccountName))
 					}
 				}
 			}
@@ -4163,7 +4163,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					if volume.Name == serviceAccountSecretVolumeName {
 						secret, err := kubernetes.GetSecret(ctx, k8sClient, volume.Secret.SecretName, key.Namespace)
 						Expect(err).ShouldNot(HaveOccurred())
-						Expect(secret.ObjectMeta.Annotations["kubernetes.io/service-account.name"]).To(Equal(toCreate.Spec.InitServiceAccountName))
+						Expect(secret.ObjectMeta.Annotations[corev1.ServiceAccountNameKey]).To(Equal(toCreate.Spec.InitServiceAccountName))
 					}
 				}
 			}
@@ -4181,7 +4181,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					if volume.Name == serviceAccountSecretVolumeName {
 						secret, err := kubernetes.GetSecret(ctx, k8sClient, volume.Secret.SecretName, key.Namespace)
 						Expect(err).ShouldNot(HaveOccurred())
-						Expect(secret.ObjectMeta.Annotations["kubernetes.io/service-account.name"]).To(Equal(toCreate.Spec.AuthServiceAccountName))
+						Expect(secret.ObjectMeta.Annotations[corev1.ServiceAccountNameKey]).To(Equal(toCreate.Spec.AuthServiceAccountName))
 					}
 				}
 			}
