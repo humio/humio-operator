@@ -353,6 +353,16 @@ func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.R
 		}
 	}
 
+	if curRepository.AutomaticSearch != helpers.BoolTrue(hr.Spec.AutomaticSearch) {
+		err = h.GetHumioClient(config, req).Repositories().UpdateAutomaticSearch(
+			hr.Spec.Name,
+			helpers.BoolTrue(hr.Spec.AutomaticSearch),
+		)
+		if err != nil {
+			return &humioapi.Repository{}, err
+		}
+	}
+
 	if curRepository.RetentionDays != float64(hr.Spec.Retention.TimeInDays) {
 		err = h.GetHumioClient(config, req).Repositories().UpdateTimeBasedRetention(
 			hr.Spec.Name,
@@ -380,16 +390,6 @@ func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.R
 			hr.Spec.Name,
 			float64(hr.Spec.Retention.IngestSizeInGB),
 			hr.Spec.AllowDataDeletion,
-		)
-		if err != nil {
-			return &humioapi.Repository{}, err
-		}
-	}
-
-	if curRepository.AutomaticSearch != helpers.BoolTrue(hr.Spec.AutomaticSearch) {
-		err = h.GetHumioClient(config, req).Repositories().UpdateAutomaticSearch(
-			hr.Spec.Name,
-			helpers.BoolTrue(hr.Spec.AutomaticSearch),
 		)
 		if err != nil {
 			return &humioapi.Repository{}, err

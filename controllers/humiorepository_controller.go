@@ -151,6 +151,17 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create repository")
 		}
 		r.Log.Info("created repository", "RepositoryName", hr.Spec.Name)
+
+		// call UpdateRepository immediately after creation to update configuration
+		// this allows retention settings to be configured initially without setting the AllowDataDeletion flag
+		hrNew := hr.DeepCopy()
+		hrNew.Spec.AllowDataDeletion = true
+		_, err = r.HumioClient.UpdateRepository(cluster.Config(), req, hrNew)
+		if err != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update repository after initial creation")
+		}
+		r.Log.Info("updated repository after initial creation", "RepositoryName", hrNew.Spec.Name)
+
 		return reconcile.Result{Requeue: true}, nil
 	}
 
