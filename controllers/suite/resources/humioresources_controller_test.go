@@ -3139,19 +3139,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return humioClient.ValidateActionsForScheduledSearch(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateScheduledSearch)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			originalFilterAlert, err := humio.ScheduledSearchTransform(toCreateScheduledSearch)
+			originalScheduledSearch, err := humio.ScheduledSearchTransform(toCreateScheduledSearch)
 			Expect(err).To(BeNil())
-			Expect(scheduledSearch.Name).To(Equal(originalFilterAlert.Name))
-			Expect(scheduledSearch.Description).To(Equal(originalFilterAlert.Description))
-			Expect(scheduledSearch.ActionNames).To(Equal(originalFilterAlert.ActionNames))
-			Expect(scheduledSearch.Labels).To(Equal(originalFilterAlert.Labels))
-			Expect(scheduledSearch.Enabled).To(Equal(originalFilterAlert.Enabled))
-			Expect(scheduledSearch.QueryString).To(Equal(originalFilterAlert.QueryString))
-			Expect(scheduledSearch.QueryStart).To(Equal(originalFilterAlert.QueryStart))
-			Expect(scheduledSearch.QueryEnd).To(Equal(originalFilterAlert.QueryEnd))
-			Expect(scheduledSearch.Schedule).To(Equal(originalFilterAlert.Schedule))
-			Expect(scheduledSearch.TimeZone).To(Equal(originalFilterAlert.TimeZone))
-			Expect(scheduledSearch.BackfillLimit).To(Equal(originalFilterAlert.BackfillLimit))
+			Expect(scheduledSearch.Name).To(Equal(originalScheduledSearch.Name))
+			Expect(scheduledSearch.Description).To(Equal(originalScheduledSearch.Description))
+			Expect(scheduledSearch.ActionNames).To(Equal(originalScheduledSearch.ActionNames))
+			Expect(scheduledSearch.Labels).To(Equal(originalScheduledSearch.Labels))
+			Expect(scheduledSearch.Enabled).To(Equal(originalScheduledSearch.Enabled))
+			Expect(scheduledSearch.QueryString).To(Equal(originalScheduledSearch.QueryString))
+			Expect(scheduledSearch.QueryStart).To(Equal(originalScheduledSearch.QueryStart))
+			Expect(scheduledSearch.QueryEnd).To(Equal(originalScheduledSearch.QueryEnd))
+			Expect(scheduledSearch.Schedule).To(Equal(originalScheduledSearch.Schedule))
+			Expect(scheduledSearch.TimeZone).To(Equal(originalScheduledSearch.TimeZone))
+			Expect(scheduledSearch.BackfillLimit).To(Equal(originalScheduledSearch.BackfillLimit))
 
 			createdScheduledSearch := toCreateScheduledSearch
 			err = humio.ScheduledSearchHydrate(createdScheduledSearch, scheduledSearch)
@@ -3167,7 +3167,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			updatedScheduledSearch.Spec.TimeZone = "UTC-01"
 			updatedScheduledSearch.Spec.BackfillLimit = 5
 			updatedScheduledSearch.Spec.Enabled = false
-			updatedScheduledSearch.Spec.Description = "updated humio filter alert"
+			updatedScheduledSearch.Spec.Description = "updated humio scheduled search"
 			updatedScheduledSearch.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Waiting for the scheduled search to be updated")

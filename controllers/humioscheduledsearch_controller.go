@@ -59,7 +59,7 @@ func (r *HumioScheduledSearchReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
-	r.Log.Info("Reconciling HumioFilterAlert")
+	r.Log.Info("Reconciling HumioScheduledSearch")
 
 	hss := &humiov1alpha1.HumioScheduledSearch{}
 	err := r.Get(ctx, req.NamespacedName, hss)
@@ -81,18 +81,18 @@ func (r *HumioScheduledSearchReconciler) Reconcile(ctx context.Context, req ctrl
 		r.Log.Error(err, "unable to obtain humio client config")
 		err = r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateConfigError, hss)
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set filter alert state")
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set scheduled search state")
 		}
 		return reconcile.Result{}, err
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hss *humiov1alpha1.HumioScheduledSearch) {
-		curFilterAlert, err := r.HumioClient.GetScheduledSearch(cluster.Config(), req, hss)
+		curScheduledSearch, err := r.HumioClient.GetScheduledSearch(cluster.Config(), req, hss)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateNotFound, hss)
 			return
 		}
-		if err != nil || curFilterAlert == nil {
+		if err != nil || curScheduledSearch == nil {
 			_ = r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateConfigError, hss)
 			return
 		}
@@ -111,7 +111,7 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
-			r.Log.Info("Deleting filter alert")
+			r.Log.Info("Deleting scheduled search")
 			if err := r.HumioClient.DeleteScheduledSearch(config, req, hss); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete scheduled search returned error")
 			}
@@ -148,7 +148,7 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create scheduled search")
 		}
-		r.Log.Info("Created scheduled alert", "ScheduledSearch", hss.Spec.Name)
+		r.Log.Info("Created scheduled search", "ScheduledSearch", hss.Spec.Name)
 
 		result, err := r.reconcileHumioScheduledSearchAnnotations(ctx, addedScheduledSearch, hss, req)
 		if err != nil {
@@ -198,7 +198,7 @@ func (r *HumioScheduledSearchReconciler) setState(ctx context.Context, state str
 	if hss.Status.State == state {
 		return nil
 	}
-	r.Log.Info(fmt.Sprintf("setting filter scheduled search to %s", state))
+	r.Log.Info(fmt.Sprintf("setting scheduled search to %s", state))
 	hss.Status.State = state
 	return r.Status().Update(ctx, hss)
 }
