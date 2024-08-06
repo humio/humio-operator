@@ -1,0 +1,18 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioScheduledSearch
+metadata:
+  name: humioscheduledsearch-example
+spec:
+  managedClusterName: example-humiocluster
+  name: example-scheduledsearch
+  viewName: humio
+  queryString: "#repo = humio | error = true | count() | _count > 0"
+  queryStart: "1h"
+  queryEnd: "now"
+  schedule: "1h"
+  timeZone: "UTC"
+  backfillLimit: 3
+  enabled: true
+  description: Error counts
+  actions:
+    - example-email-action

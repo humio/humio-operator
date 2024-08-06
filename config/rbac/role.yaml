@@ -323,6 +323,32 @@ rules:
 - apiGroups:
   - core.humio.com
   resources:
+  - humioscheduledsearches
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioscheduledsearches/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioscheduledsearches/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioviews
   verbs:
   - create

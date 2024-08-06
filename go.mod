@@ -10,7 +10,7 @@ require (
 	github.com/go-logr/logr v1.4.1
 	github.com/go-logr/zapr v1.3.0
 	github.com/google/go-cmp v0.6.0
-	github.com/humio/cli v0.35.1
+	github.com/humio/cli v0.35.2-0.20240712113350-4d23462e72b6
 	github.com/onsi/ginkgo/v2 v2.17.1
 	github.com/onsi/gomega v1.32.0
 	github.com/prometheus/client_golang v1.19.0
