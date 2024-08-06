@@ -36,6 +36,8 @@ const (
 	PodRevisionAnnotation      = "humio.com/pod-revision"
 	envVarSourceHashAnnotation = "humio.com/env-var-source-hash"
 	pvcHashAnnotation          = "humio_pvc_hash"
+	// #nosec G101
+	bootstrapTokenHashAnnotation = "humio.com/bootstrap-token-hash"
 )
 
 func (r *HumioClusterReconciler) incrementHumioClusterPodRevision(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (int, error) {

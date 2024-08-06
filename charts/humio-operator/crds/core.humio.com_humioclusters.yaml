@@ -946,9 +946,8 @@ spec:
                     type: object
                 type: object
               authServiceAccountName:
-                description: AuthServiceAccountName is the name of the Kubernetes
-                  Service Account that will be attached to the auth container in the
-                  humio pod.
+                description: '*Deprecated: AuthServiceAccountName is no longer used
+                  as the auth sidecar container has been removed.*'
                 type: string
               autoRebalancePartitions:
                 description: |-
@@ -6640,9 +6639,8 @@ spec:
                               type: object
                           type: object
                         authServiceAccountName:
-                          description: AuthServiceAccountName is the name of the Kubernetes
-                            Service Account that will be attached to the auth container
-                            in the humio pod.
+                          description: '*Deprecated: AuthServiceAccountName is no
+                            longer used as the auth sidecar container has been removed.*'
                           type: string
                         containerLivenessProbe:
                           description: |-

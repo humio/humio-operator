@@ -118,7 +118,7 @@ type HumioNodeSpec struct {
 	// DataVolumeSource is the volume that is mounted on the humio pods. This conflicts with DataVolumePersistentVolumeClaimSpecTemplate.
 	DataVolumeSource corev1.VolumeSource `json:"dataVolumeSource,omitempty"`
 
-	// AuthServiceAccountName is the name of the Kubernetes Service Account that will be attached to the auth container in the humio pod.
+	// *Deprecated: AuthServiceAccountName is no longer used as the auth sidecar container has been removed.*
 	AuthServiceAccountName string `json:"authServiceAccountName,omitempty"`
 
 	// DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
