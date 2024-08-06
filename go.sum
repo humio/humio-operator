@@ -52,8 +52,6 @@ github.com/google/pprof v0.0.0-20240415144954-be81aee2d733 h1:nHRIUuWr4qaFmeHwGB
 github.com/google/pprof v0.0.0-20240415144954-be81aee2d733/go.mod h1:kf6iHlnVGwgKolg33glAes7Yg/8iWP8ukqeldJSO7jw=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/humio/cli v0.35.1 h1:CwfGI5K79qHzEK51BCdbYUXthVPsUDY+3w1b0tO11S4=
-github.com/humio/cli v0.35.1/go.mod h1:Du1GCeQ65rVrUQX/ge45RFflX+I3ZLU3sdCM8kHpuq8=
 github.com/humio/cli v0.35.2-0.20240712113350-4d23462e72b6 h1:6lMszpwioB+ANZyEpwpr8iud7S86q/VfIRAoEM8KUkY=
 github.com/humio/cli v0.35.2-0.20240712113350-4d23462e72b6/go.mod h1:Du1GCeQ65rVrUQX/ge45RFflX+I3ZLU3sdCM8kHpuq8=
 github.com/imdario/mergo v0.3.16 h1:wwQJbIsHYGMUyLSPrEq1CT16AhnhNJQ51+4fdHUnCl4=
