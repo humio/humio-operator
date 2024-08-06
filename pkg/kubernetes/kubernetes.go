@@ -24,7 +24,6 @@ import (
 )
 
 const (
-	NodeIdLabelName   = "humio.com/node-id"
 	NodePoolLabelName = "humio.com/node-pool"
 	FeatureLabelName  = "humio.com/feature"
 )
