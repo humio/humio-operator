@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -1109,13 +1108,6 @@ func (r *HumioClusterReconciler) getPodStatusList(ctx context.Context, hc *humio
 			podStatus := humiov1alpha1.HumioPodStatus{
 				PodName:  pod.Name,
 				NodeName: nodeName,
-			}
-			if nodeIdStr, ok := pod.Labels[kubernetes.NodeIdLabelName]; ok {
-				nodeId, err := strconv.Atoi(nodeIdStr)
-				if err != nil {
-					return podStatusList, r.logErrorAndReturn(err, fmt.Sprintf("unable to set pod status, node id %s is invalid", nodeIdStr))
-				}
-				podStatus.NodeId = nodeId
 			}
 			if pool.PVCsEnabled() {
 				for _, volume := range pod.Spec.Volumes {
