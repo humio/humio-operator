@@ -191,7 +191,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	for _, pool := range humioNodePools.Items {
-		if err := r.validateInitialPodSpec(hc, pool); err != nil {
+		if err := r.validateInitialPodSpec(pool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName()))
@@ -459,7 +459,7 @@ func (r *HumioClusterReconciler) ensurePodRevisionAnnotation(ctx context.Context
 	return hc.Status.State, nil
 }
 
-func (r *HumioClusterReconciler) validateInitialPodSpec(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
+func (r *HumioClusterReconciler) validateInitialPodSpec(hnp *HumioNodePool) error {
 	if _, err := ConstructPod(hnp, "", &podAttachments{}); err != nil {
 		return r.logErrorAndReturn(err, "failed to validate pod spec")
 	}
