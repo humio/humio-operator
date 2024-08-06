@@ -252,6 +252,15 @@ type HumioNodeSpec struct {
 
 	// PriorityClassName is the name of the priority class that will be used by the Humio pods
 	PriorityClassName string `json:"priorityClassName,omitempty"`
+
+	// HumioNodePoolFeatures defines the features that are allowed by the node pool
+	NodePoolFeatures HumioNodePoolFeatures `json:"nodePoolFeatures,omitempty"`
+}
+
+type HumioNodePoolFeatures struct {
+	// AllowedAPIRequestTypes is a list of API request types that are allowed by the node pool. Current options are:
+	// OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request types, set this to [].
+	AllowedAPIRequestTypes *[]string `json:"allowedAPIRequestTypes,omitempty"`
 }
 
 type HumioUpdateStrategy struct {

@@ -5,7 +5,7 @@ declare -r kind_version=0.22.0
 declare -r go_version=1.22.2
 declare -r helm_version=3.14.4
 declare -r kubectl_version=1.23.3
-declare -r default_cert_manager_version=1.12.9
+declare -r default_cert_manager_version=1.12.12
 
 declare -r bin_dir=$(pwd)/tmp
 declare -r kubectl=$bin_dir/kubectl

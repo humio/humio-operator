@@ -175,6 +175,7 @@ func constructClusterCACertificateBundle(hc *humiov1alpha1.HumioCluster) cmapi.C
 			DNSNames: []string{
 				fmt.Sprintf("%s.%s", hc.Name, hc.Namespace),
 				fmt.Sprintf("%s-headless.%s", hc.Name, hc.Namespace),
+				fmt.Sprintf("%s-internal.%s", hc.Name, hc.Namespace),
 			},
 			IssuerRef: cmmeta.ObjectReference{
 				Name: constructCAIssuer(hc).Name,
@@ -196,8 +197,10 @@ func ConstructNodeCertificate(hnp *HumioNodePool, nodeSuffix string) cmapi.Certi
 			DNSNames: []string{
 				fmt.Sprintf("%s-core-%s.%s.%s", hnp.GetNodePoolName(), nodeSuffix, headlessServiceName(hnp.GetClusterName()), hnp.GetNamespace()), // Used for intra-cluster communication
 				fmt.Sprintf("%s-core-%s", hnp.GetNodePoolName(), nodeSuffix),                                                                      // Used for auth sidecar
-				fmt.Sprintf("%s.%s", hnp.GetNodePoolName(), hnp.GetNamespace()),                                                                   // Used by humio-operator and ingress controllers to reach the Humio API
-				fmt.Sprintf("%s-headless.%s", hnp.GetClusterName(), hnp.GetNamespace()),                                                           // Used by humio-operator and ingress controllers to reach the Humio API
+				fmt.Sprintf("%s.%s", hnp.GetNodePoolName(), hnp.GetNamespace()),                                                                   // Used by ingress controllers to reach the Humio API
+				fmt.Sprintf("%s-headless.%s", hnp.GetClusterName(), hnp.GetNamespace()),                                                           // Used for intra-cluster communication
+				fmt.Sprintf("%s-internal.%s", hnp.GetClusterName(), hnp.GetNamespace()),                                                           // Used by humio-operator to reach the Humio API
+
 			},
 			IssuerRef: cmmeta.ObjectReference{
 				Name: hnp.GetClusterName(),

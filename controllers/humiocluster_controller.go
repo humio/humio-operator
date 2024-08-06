@@ -143,6 +143,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.ensureLicenseIsValid,
 		r.ensureValidCASecret,
 		r.ensureHeadlessServiceExists,
+		r.ensureInternalServiceExists,
 		r.validateUserDefinedServiceAccountsExists,
 	} {
 		if err := fun(ctx, hc); err != nil {
@@ -190,7 +191,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	for _, pool := range humioNodePools.Items {
-		if err := r.validateInitialPodSpec(hc, pool); err != nil {
+		if err := r.validateInitialPodSpec(pool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName()))
@@ -449,7 +450,7 @@ func (r *HumioClusterReconciler) ensurePodRevisionAnnotation(ctx context.Context
 	return hc.Status.State, nil
 }
 
-func (r *HumioClusterReconciler) validateInitialPodSpec(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
+func (r *HumioClusterReconciler) validateInitialPodSpec(hnp *HumioNodePool) error {
 	if _, err := ConstructPod(hnp, "", &podAttachments{}); err != nil {
 		return r.logErrorAndReturn(err, "failed to validate pod spec")
 	}
@@ -1503,6 +1504,30 @@ func (r *HumioClusterReconciler) ensureHeadlessServiceExists(ctx context.Context
 		err = r.Create(ctx, service)
 		if err != nil {
 			return r.logErrorAndReturn(err, "unable to create headless service for HumioCluster")
+		}
+		return nil
+	}
+	if servicesMatchTest, err := servicesMatch(existingService, service); !servicesMatchTest || err != nil {
+		r.Log.Info(fmt.Sprintf("service %s requires update: %s", existingService.Name, err))
+		updateService(existingService, service)
+		if err = r.Update(ctx, existingService); err != nil {
+			return r.logErrorAndReturn(err, fmt.Sprintf("could not update service %s", service.Name))
+		}
+	}
+	return nil
+}
+
+func (r *HumioClusterReconciler) ensureInternalServiceExists(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	r.Log.Info("ensuring internal service")
+	existingService, err := kubernetes.GetService(ctx, r, internalServiceName(hc.Name), hc.Namespace)
+	service := constructInternalService(hc)
+	if k8serrors.IsNotFound(err) {
+		if err := controllerutil.SetControllerReference(hc, service, r.Scheme()); err != nil {
+			return r.logErrorAndReturn(err, "could not set controller reference")
+		}
+		err = r.Create(ctx, service)
+		if err != nil {
+			return r.logErrorAndReturn(err, "unable to create internal service for HumioCluster")
 		}
 		return nil
 	}

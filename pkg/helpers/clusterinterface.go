@@ -94,7 +94,7 @@ func (c Cluster) Url(ctx context.Context, k8sClient client.Client) (*url.URL, er
 		if !TLSEnabled(&humioManagedCluster) {
 			protocol = "http"
 		}
-		baseURL, _ := url.Parse(fmt.Sprintf("%s://%s-headless.%s:%d/", protocol, c.managedClusterName, c.namespace, 8080))
+		baseURL, _ := url.Parse(fmt.Sprintf("%s://%s-internal.%s:%d/", protocol, c.managedClusterName, c.namespace, 8080))
 		return baseURL, nil
 	}
 
