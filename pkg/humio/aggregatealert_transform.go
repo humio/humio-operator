@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	AggregatedAlertIdentifierAnnotation = "humio.com/filter-alert-id"
+	AggregatedAlertIdentifierAnnotation = "humio.com/aggregate-alert-id"
 )
 
 func AggregateAlertTransform(haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error) {
