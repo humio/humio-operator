@@ -3080,7 +3080,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: dependentEmailActionSpec,
 			}
 
-			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the action required by the aggregate alert successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Creating the action required by the aggregate alert successfully")
 			Expect(k8sClient.Create(ctx, toCreateDependentAction)).Should(Succeed())
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
@@ -3114,7 +3114,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: aggregateAlertSpec,
 			}
 
-			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the aggregate alert successfully")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Creating the aggregate alert successfully")
 			Expect(k8sClient.Create(ctx, toCreateAggregateAlert)).Should(Succeed())
 
 			fetchedAggregateAlert := &humiov1alpha1.HumioAggregateAlert{}
