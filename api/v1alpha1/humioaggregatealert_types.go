@@ -42,7 +42,7 @@ type HumioAggregateAlertSpec struct {
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the aggregated alert inside Humio
 	Name string `json:"name"`
-	// ViewName is the name of the Humio View under which the filter alert will be managed. This can also be a Repository
+	// ViewName is the name of the Humio View under which the aggregate alert will be managed. This can also be a Repository
 	ViewName string `json:"viewName"`
 	// QueryString defines the desired Humio query string
 	QueryString string `json:"queryString"`
@@ -60,7 +60,7 @@ type HumioAggregateAlertSpec struct {
 	Enabled bool `json:"enabled,omitempty"`
 	// Actions is the list of Humio Actions by name that will be triggered by this Aggregated alert
 	Actions []string `json:"actions"`
-	// Labels are a set of labels on the filter alert
+	// Labels are a set of labels on the aggregate alert
 	Labels []string `json:"labels,omitempty"`
 }
 
