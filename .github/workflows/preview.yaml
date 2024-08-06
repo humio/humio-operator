@@ -75,3 +75,4 @@ jobs:
           sudo rm -rf /var/lib/docker
           sudo systemctl start docker
           docker network create -d=bridge --subnet=172.19.0.0/24 kind || true
+
