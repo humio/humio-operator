@@ -91,6 +91,9 @@ rules:
   - humiofilteralerts
   - humiofilteralerts/finalizers
   - humiofilteralerts/status
+  - humioscheduledsearches
+  - humioscheduledsearches/finalizers
+  - humioscheduledsearches/status
   verbs:
   - create
   - delete
@@ -249,6 +252,9 @@ rules:
   - humiofilteralerts
   - humiofilteralerts/finalizers
   - humiofilteralerts/status
+  - humioscheduledsearches
+  - humioscheduledsearches/finalizers
+  - humioscheduledsearches/status
   verbs:
   - create
   - delete

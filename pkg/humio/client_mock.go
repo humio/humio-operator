@@ -32,16 +32,17 @@ import (
 )
 
 type ClientMock struct {
-	Cluster       humioapi.Cluster
-	ClusterError  error
-	IngestToken   humioapi.IngestToken
-	Parser        humioapi.Parser
-	Repository    humioapi.Repository
-	View          humioapi.View
-	OnPremLicense humioapi.OnPremLicense
-	Action        humioapi.Action
-	Alert         humioapi.Alert
-	FilterAlert   humioapi.FilterAlert
+	Cluster         humioapi.Cluster
+	ClusterError    error
+	IngestToken     humioapi.IngestToken
+	Parser          humioapi.Parser
+	Repository      humioapi.Repository
+	View            humioapi.View
+	OnPremLicense   humioapi.OnPremLicense
+	Action          humioapi.Action
+	Alert           humioapi.Alert
+	FilterAlert     humioapi.FilterAlert
+	ScheduledSearch humioapi.ScheduledSearch
 }
 
 type MockClientConfig struct {
@@ -51,16 +52,17 @@ type MockClientConfig struct {
 func NewMockClient(cluster humioapi.Cluster, clusterError error) *MockClientConfig {
 	mockClientConfig := &MockClientConfig{
 		apiClient: &ClientMock{
-			Cluster:       cluster,
-			ClusterError:  clusterError,
-			IngestToken:   humioapi.IngestToken{},
-			Parser:        humioapi.Parser{},
-			Repository:    humioapi.Repository{},
-			View:          humioapi.View{},
-			OnPremLicense: humioapi.OnPremLicense{},
-			Action:        humioapi.Action{},
-			Alert:         humioapi.Alert{},
-			FilterAlert:   humioapi.FilterAlert{},
+			Cluster:         cluster,
+			ClusterError:    clusterError,
+			IngestToken:     humioapi.IngestToken{},
+			Parser:          humioapi.Parser{},
+			Repository:      humioapi.Repository{},
+			View:            humioapi.View{},
+			OnPremLicense:   humioapi.OnPremLicense{},
+			Action:          humioapi.Action{},
+			Alert:           humioapi.Alert{},
+			FilterAlert:     humioapi.FilterAlert{},
+			ScheduledSearch: humioapi.ScheduledSearch{},
 		},
 	}
 
@@ -326,6 +328,38 @@ func (h *MockClientConfig) ValidateActionsForFilterAlert(config *humioapi.Config
 	return nil
 }
 
+func (h *MockClientConfig) AddScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) (*humioapi.ScheduledSearch, error) {
+	if err := h.ValidateActionsForScheduledSearch(config, req, hss); err != nil {
+		return &humioapi.ScheduledSearch{}, fmt.Errorf("could not get action id mapping: %w", err)
+	}
+	scheduledSearch, err := ScheduledSearchTransform(hss)
+	if err != nil {
+		return scheduledSearch, err
+	}
+	h.apiClient.ScheduledSearch = *scheduledSearch
+	return &h.apiClient.ScheduledSearch, nil
+}
+
+func (h *MockClientConfig) GetScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) (*humioapi.ScheduledSearch, error) {
+	if h.apiClient.ScheduledSearch.Name == "" {
+		return nil, fmt.Errorf("could not find scheduled search in view %q with name %q, err=%w", hss.Spec.ViewName, hss.Spec.Name, humioapi.EntityNotFound{})
+	}
+	return &h.apiClient.ScheduledSearch, nil
+}
+
+func (h *MockClientConfig) UpdateScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) (*humioapi.ScheduledSearch, error) {
+	return h.AddScheduledSearch(config, req, hss)
+}
+
+func (h *MockClientConfig) DeleteScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) error {
+	h.apiClient.ScheduledSearch = humioapi.ScheduledSearch{}
+	return nil
+}
+
+func (h *MockClientConfig) ValidateActionsForScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) error {
+	return nil
+}
+
 func (h *MockClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request) *humioapi.Client {
 	clusterURL, _ := url.Parse("http://localhost:8080/")
 	return humioapi.NewClient(humioapi.Config{Address: clusterURL})
@@ -340,4 +374,5 @@ func (h *MockClientConfig) ClearHumioClientConnections() {
 	h.apiClient.Action = humioapi.Action{}
 	h.apiClient.Alert = humioapi.Alert{}
 	h.apiClient.FilterAlert = humioapi.FilterAlert{}
+	h.apiClient.ScheduledSearch = humioapi.ScheduledSearch{}
 }

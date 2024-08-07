@@ -188,7 +188,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update filter alert")
 		}
 		if filterAlert != nil {
-			r.Log.Info(fmt.Sprintf("Updated filter lert %q", filterAlert.Name))
+			r.Log.Info(fmt.Sprintf("Updated filter alert %q", filterAlert.Name))
 		}
 	}
 

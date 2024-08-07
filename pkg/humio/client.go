@@ -45,6 +45,7 @@ type Client interface {
 	ActionsClient
 	AlertsClient
 	FilterAlertsClient
+	ScheduledSearchClient
 }
 
 type ClusterClient interface {
@@ -105,6 +106,14 @@ type FilterAlertsClient interface {
 	UpdateFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error)
 	DeleteFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
 	ValidateActionsForFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
+}
+
+type ScheduledSearchClient interface {
+	AddScheduledSearch(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioScheduledSearch) (*humioapi.ScheduledSearch, error)
+	GetScheduledSearch(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioScheduledSearch) (*humioapi.ScheduledSearch, error)
+	UpdateScheduledSearch(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioScheduledSearch) (*humioapi.ScheduledSearch, error)
+	DeleteScheduledSearch(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioScheduledSearch) error
+	ValidateActionsForScheduledSearch(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioScheduledSearch) error
 }
 
 type LicenseClient interface {
@@ -597,7 +606,7 @@ func (h *ClientConfig) GetAlert(config *humioapi.Config, req reconcile.Request, 
 func (h *ClientConfig) AddAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
 	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
-		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action: %w", err)
+		return &humioapi.Alert{}, fmt.Errorf("problem getting view for alert: %w", err)
 	}
 
 	actionIdMap, err := h.GetActionIDsMapForAlerts(config, req, ha)
@@ -678,7 +687,7 @@ func (h *ClientConfig) GetFilterAlert(config *humioapi.Config, req reconcile.Req
 func (h *ClientConfig) AddFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
 	err := h.validateView(config, req, hfa.Spec.ViewName)
 	if err != nil {
-		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for action: %w", err)
+		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for filter alert: %w", err)
 	}
 	if err = h.ValidateActionsForFilterAlert(config, req, hfa); err != nil {
 		return &humioapi.FilterAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
@@ -725,6 +734,87 @@ func (h *ClientConfig) DeleteFilterAlert(config *humioapi.Config, req reconcile.
 	return h.GetHumioClient(config, req).FilterAlerts().Delete(hfa.Spec.ViewName, currentAlert.ID)
 }
 
+func (h *ClientConfig) AddScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) (*humioapi.ScheduledSearch, error) {
+	err := h.validateView(config, req, hss.Spec.ViewName)
+	if err != nil {
+		return &humioapi.ScheduledSearch{}, fmt.Errorf("problem getting view for scheduled search: %w", err)
+	}
+	if err = h.ValidateActionsForScheduledSearch(config, req, hss); err != nil {
+		return &humioapi.ScheduledSearch{}, fmt.Errorf("could not get action id mapping: %w", err)
+	}
+	scheduledSearch, err := ScheduledSearchTransform(hss)
+	if err != nil {
+		return scheduledSearch, err
+	}
+
+	createdScheduledSearch, err := h.GetHumioClient(config, req).ScheduledSearches().Create(hss.Spec.ViewName, scheduledSearch)
+	if err != nil {
+		return createdScheduledSearch, fmt.Errorf("got error when attempting to add scheduled search: %w, scheduledsearch: %#v", err, *scheduledSearch)
+	}
+	return createdScheduledSearch, nil
+}
+
+func (h *ClientConfig) GetScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) (*humioapi.ScheduledSearch, error) {
+	err := h.validateView(config, req, hss.Spec.ViewName)
+	if err != nil {
+		return &humioapi.ScheduledSearch{}, fmt.Errorf("problem getting view for scheduled search %s: %w", hss.Spec.Name, err)
+	}
+
+	var scheduledSearchId string
+	scheduledSearchList, err := h.GetHumioClient(config, req).ScheduledSearches().List(hss.Spec.ViewName)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list scheduled searches: %w", err)
+	}
+	for _, scheduledSearch := range scheduledSearchList {
+		if scheduledSearch.Name == hss.Spec.Name {
+			scheduledSearchId = scheduledSearch.ID
+		}
+	}
+	if scheduledSearchId == "" {
+		return nil, humioapi.ScheduledSearchNotFound(hss.Spec.Name)
+	}
+	scheduledSearch, err := h.GetHumioClient(config, req).ScheduledSearches().Get(hss.Spec.ViewName, scheduledSearchId)
+	if err != nil {
+		return scheduledSearch, fmt.Errorf("error when trying to get scheduled search %+v, name=%s, view=%s: %w", scheduledSearch, hss.Spec.Name, hss.Spec.ViewName, err)
+	}
+
+	if scheduledSearch == nil || scheduledSearch.Name == "" {
+		return nil, nil
+	}
+
+	return scheduledSearch, nil
+}
+
+func (h *ClientConfig) UpdateScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) (*humioapi.ScheduledSearch, error) {
+	err := h.validateView(config, req, hss.Spec.ViewName)
+	if err != nil {
+		return &humioapi.ScheduledSearch{}, fmt.Errorf("problem getting view for scheduled search: %w", err)
+	}
+	if err = h.ValidateActionsForScheduledSearch(config, req, hss); err != nil {
+		return &humioapi.ScheduledSearch{}, fmt.Errorf("could not get action id mapping: %w", err)
+	}
+	scheduledSearch, err := ScheduledSearchTransform(hss)
+	if err != nil {
+		return scheduledSearch, err
+	}
+
+	currentScheduledSearch, err := h.GetScheduledSearch(config, req, hss)
+	if err != nil {
+		return &humioapi.ScheduledSearch{}, fmt.Errorf("could not find scheduled search with name: %q", scheduledSearch.Name)
+	}
+	scheduledSearch.ID = currentScheduledSearch.ID
+
+	return h.GetHumioClient(config, req).ScheduledSearches().Update(hss.Spec.ViewName, scheduledSearch)
+}
+
+func (h *ClientConfig) DeleteScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) error {
+	currentScheduledSearch, err := h.GetScheduledSearch(config, req, hss)
+	if err != nil {
+		return fmt.Errorf("could not find scheduled search with name: %q", hss.Name)
+	}
+	return h.GetHumioClient(config, req).ScheduledSearches().Delete(hss.Spec.ViewName, currentScheduledSearch.ID)
+}
+
 func (h *ClientConfig) getAndValidateAction(config *humioapi.Config, req reconcile.Request, actionName string, viewName string) (*humioapi.Action, error) {
 	action := &humiov1alpha1.HumioAction{
 		Spec: humiov1alpha1.HumioActionSpec{
@@ -763,6 +853,15 @@ func (h *ClientConfig) ValidateActionsForFilterAlert(config *humioapi.Config, re
 	for _, actionNameForAlert := range hfa.Spec.Actions {
 		if _, err := h.getAndValidateAction(config, req, actionNameForAlert, hfa.Spec.ViewName); err != nil {
 			return fmt.Errorf("problem getting action for filter alert %s: %w", hfa.Spec.Name, err)
+		}
+	}
+	return nil
+}
+
+func (h *ClientConfig) ValidateActionsForScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) error {
+	for _, actionNameForScheduledSearch := range hss.Spec.Actions {
+		if _, err := h.getAndValidateAction(config, req, actionNameForScheduledSearch, hss.Spec.ViewName); err != nil {
+			return fmt.Errorf("problem getting action for scheduled search %s: %w", hss.Spec.Name, err)
 		}
 	}
 	return nil
