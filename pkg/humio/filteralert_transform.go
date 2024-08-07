@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	FilterAlertIdentifierAnnotation = "humio.com/filter-alert-id"
-	QueryOwnershipTypeDefault       = "Organization"
+	FilterAlertIdentifierAnnotation      = "humio.com/filter-alert-id"
+	FilterAlertQueryOwnershipTypeDefault = "Organization"
 )
 
 func FilterAlertTransform(hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
@@ -21,7 +21,7 @@ func FilterAlertTransform(hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.Filter
 		Enabled:             hfa.Spec.Enabled,
 		ActionNames:         hfa.Spec.Actions,
 		Labels:              hfa.Spec.Labels,
-		QueryOwnershipType:  QueryOwnershipTypeDefault,
+		QueryOwnershipType:  FilterAlertQueryOwnershipTypeDefault,
 	}
 
 	if _, ok := hfa.ObjectMeta.Annotations[FilterAlertIdentifierAnnotation]; ok {
