@@ -65,7 +65,7 @@ spec:
                   This conflicts with ManagedClusterName.
                 type: string
               labels:
-                description: Labels are a set of labels on the filter alert
+                description: Labels are a set of labels on the aggregate alert
                 items:
                   type: string
                 type: array
@@ -96,7 +96,7 @@ spec:
                 type: string
               viewName:
                 description: ViewName is the name of the Humio View under which the
-                  filter alert will be managed. This can also be a Repository
+                  aggregate alert will be managed. This can also be a Repository
                 type: string
             required:
             - actions
