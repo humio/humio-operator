@@ -170,6 +170,14 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controllers.HumioScheduledSearchReconciler{
+		Client:      k8sManager.GetClient(),
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&controllers.HumioClusterReconciler{
 		Client:      k8sManager.GetClient(),
 		HumioClient: humioClient,

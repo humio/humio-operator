@@ -83,3 +83,4 @@ telepresence.log
 bin/
 testbin/
 *-junit.xml
+.envrc
