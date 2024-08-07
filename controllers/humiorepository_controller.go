@@ -77,12 +77,11 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	cluster, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		r.Log.Error(err, "unable to obtain humio client config")
-		err = r.setState(ctx, humiov1alpha1.HumioRepositoryStateConfigError, hr)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
+		setStateErr := r.setState(ctx, humiov1alpha1.HumioRepositoryStateConfigError, hr)
+		if setStateErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set cluster state")
 		}
-		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 
 	r.Log.Info("Checking if repository is marked to be deleted")

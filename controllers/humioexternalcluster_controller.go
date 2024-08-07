@@ -81,7 +81,7 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 
 	cluster, err := helpers.NewCluster(ctx, r, "", hec.Name, hec.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster.Config() == nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to obtain humio client config")
+		return reconcile.Result{}, r.logErrorAndReturn(fmt.Errorf("unable to obtain humio client config: %w", err), "unable to obtain humio client config")
 	}
 
 	err = r.HumioClient.TestAPIToken(cluster.Config(), req)
