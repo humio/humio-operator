@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/pkg/humio"

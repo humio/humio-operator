@@ -1,0 +1,31 @@
+# permissions for end users to edit humioaggregatealerts.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: humioaggregatealert-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: humio-operator
+    app.kubernetes.io/part-of: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humioaggregatealert-editor-role
+rules:
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioaggregatealerts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioaggregatealerts/status
+  verbs:
+  - get
