@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	// HumioAggregateAlertStateUnknown is the Unknown state of the aggregated alert
+	// HumioAggregateAlertStateUnknown is the Unknown state of the aggregate alert
 	HumioAggregateAlertStateUnknown = "Unknown"
 	// HumioAggregateAlertStateExists is the Exists state of the aggregated alert
 	HumioAggregateAlertStateExists = "Exists"
