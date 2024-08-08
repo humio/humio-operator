@@ -31,6 +31,10 @@ func ScheduledSearchTransform(hss *humiov1alpha1.HumioScheduledSearch) (*humioap
 		scheduledSearch.ID = hss.ObjectMeta.Annotations[ScheduledSearchIdentifierAnnotation]
 	}
 
+	if scheduledSearch.Labels == nil {
+		scheduledSearch.Labels = []string{}
+	}
+
 	return scheduledSearch, nil
 }
 
