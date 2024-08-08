@@ -43,6 +43,7 @@ import (
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 
+	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
 	//+kubebuilder:scaffold:imports
@@ -61,6 +62,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(humiov1alpha1.AddToScheme(scheme))
+	utilruntime.Must(corev1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -184,6 +186,14 @@ func main() {
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioFilterAlert")
+		os.Exit(1)
+	}
+	if err = (&controllers.HumioAggregateAlertReconciler{
+		Client:      mgr.GetClient(),
+		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioAggregateAlert")
 		os.Exit(1)
 	}
 	if err = (&controllers.HumioScheduledSearchReconciler{

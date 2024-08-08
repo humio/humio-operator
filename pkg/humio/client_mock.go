@@ -42,6 +42,7 @@ type ClientMock struct {
 	Action          humioapi.Action
 	Alert           humioapi.Alert
 	FilterAlert     humioapi.FilterAlert
+	AggregateAlert  humioapi.AggregateAlert
 	ScheduledSearch humioapi.ScheduledSearch
 }
 
@@ -62,6 +63,7 @@ func NewMockClient(cluster humioapi.Cluster, clusterError error) *MockClientConf
 			Action:          humioapi.Action{},
 			Alert:           humioapi.Alert{},
 			FilterAlert:     humioapi.FilterAlert{},
+			AggregateAlert:  humioapi.AggregateAlert{},
 			ScheduledSearch: humioapi.ScheduledSearch{},
 		},
 	}
@@ -325,6 +327,38 @@ func (h *MockClientConfig) DeleteFilterAlert(config *humioapi.Config, req reconc
 }
 
 func (h *MockClientConfig) ValidateActionsForFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+	return nil
+}
+
+func (h *MockClientConfig) GetAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error) {
+	if h.apiClient.AggregateAlert.Name == "" {
+		return nil, fmt.Errorf("could not find aggregated alert in view %q with name %q, err=%w", haa.Spec.ViewName, haa.Spec.Name, humioapi.EntityNotFound{})
+	}
+	return &h.apiClient.AggregateAlert, nil
+}
+
+func (h *MockClientConfig) AddAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error) {
+	if err := h.ValidateActionsForAggregateAlert(config, req, haa); err != nil {
+		return &humioapi.AggregateAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
+	}
+	aggregateAlert, err := AggregateAlertTransform(haa)
+	if err != nil {
+		return aggregateAlert, err
+	}
+	h.apiClient.AggregateAlert = *aggregateAlert
+	return &h.apiClient.AggregateAlert, nil
+}
+
+func (h *MockClientConfig) UpdateAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error) {
+	return h.AddAggregateAlert(config, req, haa)
+}
+
+func (h *MockClientConfig) DeleteAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) error {
+	h.apiClient.AggregateAlert = humioapi.AggregateAlert{}
+	return nil
+}
+
+func (h *MockClientConfig) ValidateActionsForAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) error {
 	return nil
 }
 
