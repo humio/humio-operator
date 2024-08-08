@@ -14,6 +14,7 @@ func AggregateAlertTransform(haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.
 	aggregateAlert := &humioapi.AggregateAlert{
 		Name:                  haa.Spec.Name,
 		QueryString:           haa.Spec.QueryString,
+		QueryTimestampType:    haa.Spec.QueryTimestampType,
 		Description:           haa.Spec.Description,
 		SearchIntervalSeconds: haa.Spec.SearchIntervalSeconds,
 		ThrottleTimeSeconds:   haa.Spec.ThrottleTimeSeconds,
@@ -21,10 +22,15 @@ func AggregateAlertTransform(haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.
 		Enabled:               haa.Spec.Enabled,
 		ActionNames:           haa.Spec.Actions,
 		Labels:                haa.Spec.Labels,
+		QueryOwnershipType:    humioapi.QueryOwnershipTypeOrganization,
 	}
 
-	if _, ok := haa.ObjectMeta.Annotations[AggregatedAlertIdentifierAnnotation]; ok {
-		aggregateAlert.ID = haa.ObjectMeta.Annotations[AggregatedAlertIdentifierAnnotation]
+	if _, ok := haa.ObjectMeta.Annotations[AggregateAlertIdentifierAnnotation]; ok {
+		aggregateAlert.ID = haa.ObjectMeta.Annotations[AggregateAlertIdentifierAnnotation]
+	}
+
+	if aggregateAlert.Labels == nil {
+		aggregateAlert.Labels = []string{}
 	}
 
 	return aggregateAlert, nil
@@ -34,6 +40,7 @@ func AggregateAlertHydrate(haa *humiov1alpha1.HumioAggregateAlert, aggregatealer
 	haa.Spec = humiov1alpha1.HumioAggregateAlertSpec{
 		Name:                  aggregatealert.Name,
 		QueryString:           aggregatealert.QueryString,
+		QueryTimestampType:    aggregatealert.QueryTimestampType,
 		Description:           aggregatealert.Description,
 		SearchIntervalSeconds: aggregatealert.SearchIntervalSeconds,
 		ThrottleTimeSeconds:   aggregatealert.ThrottleTimeSeconds,
@@ -45,7 +52,7 @@ func AggregateAlertHydrate(haa *humiov1alpha1.HumioAggregateAlert, aggregatealer
 
 	haa.ObjectMeta = metav1.ObjectMeta{
 		Annotations: map[string]string{
-			AggregatedAlertIdentifierAnnotation: aggregatealert.ID,
+			AggregateAlertIdentifierAnnotation: aggregatealert.ID,
 		},
 	}
 

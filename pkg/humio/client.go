@@ -971,6 +971,9 @@ func (h *ClientConfig) UpdateAggregateAlert(config *humioapi.Config, req reconci
 
 func (h *ClientConfig) DeleteAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) error {
 	currentAggregateAlert, err := h.GetAggregateAlert(config, req, haa)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("could not find aggregate alert with name: %q", haa.Name)
 	}

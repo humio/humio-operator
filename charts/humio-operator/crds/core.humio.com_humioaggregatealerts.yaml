@@ -48,12 +48,12 @@ spec:
             properties:
               actions:
                 description: Actions is the list of Humio Actions by name that will
-                  be triggered by this Aggregated alert
+                  be triggered by this Aggregate alert
                 items:
                   type: string
                 type: array
               description:
-                description: Description is the description of the Aggregated alert
+                description: Description is the description of the Aggregate alert
                 type: string
               enabled:
                 description: Enabled will set the AggregateAlert to enabled when set
@@ -76,10 +76,14 @@ spec:
                   This conflicts with ExternalClusterName.
                 type: string
               name:
-                description: Name is the name of the aggregated alert inside Humio
+                description: Name is the name of the aggregate alert inside Humio
                 type: string
               queryString:
                 description: QueryString defines the desired Humio query string
+                type: string
+              queryTimestampType:
+                description: QueryTimestampType defines the timestamp type to use
+                  for a query
                 type: string
               searchIntervalSeconds:
                 description: Search Interval time in seconds
@@ -89,10 +93,10 @@ spec:
                 type: string
               throttleTimeSeconds:
                 description: ThrottleTimeSeconds is the throttle time in seconds.
-                  An aggregated alert is triggered at most once per the throttle time
+                  An aggregate alert is triggered at most once per the throttle time
                 type: integer
               triggerMode:
-                description: Aggregated Alert trigger mode
+                description: Aggregate Alert trigger mode
                 type: string
               viewName:
                 description: ViewName is the name of the Humio View under which the

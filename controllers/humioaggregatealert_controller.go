@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -75,12 +76,11 @@ func (r *HumioAggregateAlertReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	cluster, err := helpers.NewCluster(ctx, r, haa.Spec.ManagedClusterName, haa.Spec.ExternalClusterName, haa.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		r.Log.Error(err, "unable to obtain humio client config")
-		err = r.setState(ctx, humiov1alpha1.HumioAggregateAlertStateConfigError, haa)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set alert state")
+		setStateErr := r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateConfigError, haa)
+		if setStateErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set scheduled search state")
 		}
-		return reconcile.Result{}, err
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 
 	defer func(ctx context.Context, HumioClient humio.Client, haa *humiov1alpha1.HumioAggregateAlert) {
@@ -193,7 +193,7 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 	}
 
 	r.Log.Info("done reconciling, will requeue in 15 seconds")
-	return reconcile.Result{}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 
 }
 
@@ -219,6 +219,5 @@ func (r *HumioAggregateAlertReconciler) logErrorAndReturn(err error, msg string)
 }
 
 func sanitizeAggregateAlert(aggregateAlert *humioapi.AggregateAlert) {
-	aggregateAlert.ID = ""
 	aggregateAlert.RunAsUserID = ""
 }

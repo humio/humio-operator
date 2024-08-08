@@ -209,6 +209,5 @@ func (r *HumioScheduledSearchReconciler) logErrorAndReturn(err error, msg string
 }
 
 func sanitizeScheduledSearch(scheduledSearch *humioapi.ScheduledSearch) {
-	scheduledSearch.ID = ""
 	scheduledSearch.RunAsUserID = ""
 }

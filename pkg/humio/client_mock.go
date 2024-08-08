@@ -332,7 +332,7 @@ func (h *MockClientConfig) ValidateActionsForFilterAlert(config *humioapi.Config
 
 func (h *MockClientConfig) GetAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error) {
 	if h.apiClient.AggregateAlert.Name == "" {
-		return nil, fmt.Errorf("could not find aggregated alert in view %q with name %q, err=%w", haa.Spec.ViewName, haa.Spec.Name, humioapi.EntityNotFound{})
+		return nil, fmt.Errorf("could not find aggregate alert in view %q with name %q, err=%w", haa.Spec.ViewName, haa.Spec.Name, humioapi.EntityNotFound{})
 	}
 	return &h.apiClient.AggregateAlert, nil
 }

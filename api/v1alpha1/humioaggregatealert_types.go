@@ -23,11 +23,11 @@ import (
 const (
 	// HumioAggregateAlertStateUnknown is the Unknown state of the aggregate alert
 	HumioAggregateAlertStateUnknown = "Unknown"
-	// HumioAggregateAlertStateExists is the Exists state of the aggregated alert
+	// HumioAggregateAlertStateExists is the Exists state of the aggregate alert
 	HumioAggregateAlertStateExists = "Exists"
-	// HumioAggregateAlertStateNotFound is the NotFound state of the aggregated alert
+	// HumioAggregateAlertStateNotFound is the NotFound state of the aggregate alert
 	HumioAggregateAlertStateNotFound = "NotFound"
-	// HumioAggregateAlertStateConfigError is the state of the aggregated alert when user-provided specification results in configuration error, such as non-existent humio cluster
+	// HumioAggregateAlertStateConfigError is the state of the aggregate alert when user-provided specification results in configuration error, such as non-existent humio cluster
 	HumioAggregateAlertStateConfigError = "ConfigError"
 )
 
@@ -40,25 +40,27 @@ type HumioAggregateAlertSpec struct {
 	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
-	// Name is the name of the aggregated alert inside Humio
+	// Name is the name of the aggregate alert inside Humio
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the aggregate alert will be managed. This can also be a Repository
 	ViewName string `json:"viewName"`
 	// QueryString defines the desired Humio query string
 	QueryString string `json:"queryString"`
-	// Description is the description of the Aggregated alert
+	// QueryTimestampType defines the timestamp type to use for a query
+	QueryTimestampType string `json:"queryTimestampType,omitempty"`
+	// Description is the description of the Aggregate alert
 	Description string `json:"description,omitempty"`
 	// Search Interval time in seconds
 	SearchIntervalSeconds int `json:"searchIntervalSeconds,omitempty"`
-	// ThrottleTimeSeconds is the throttle time in seconds. An aggregated alert is triggered at most once per the throttle time
+	// ThrottleTimeSeconds is the throttle time in seconds. An aggregate alert is triggered at most once per the throttle time
 	ThrottleTimeSeconds int `json:"throttleTimeSeconds,omitempty"`
 	// ThrottleField is the field on which to throttle
 	ThrottleField string `json:"throttleField,omitempty"`
-	// Aggregated Alert trigger mode
+	// Aggregate Alert trigger mode
 	TriggerMode string `json:"triggerMode,omitempty"`
 	// Enabled will set the AggregateAlert to enabled when set to true
 	Enabled bool `json:"enabled,omitempty"`
-	// Actions is the list of Humio Actions by name that will be triggered by this Aggregated alert
+	// Actions is the list of Humio Actions by name that will be triggered by this Aggregate alert
 	Actions []string `json:"actions"`
 	// Labels are a set of labels on the aggregate alert
 	Labels []string `json:"labels,omitempty"`
