@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
@@ -74,12 +75,11 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	cluster, err := helpers.NewCluster(ctx, r, ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName, ha.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		r.Log.Error(err, "unable to obtain humio client config")
-		err = r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set action state")
+		setStateErr := r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
+		if setStateErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set action state")
 		}
-		return reconcile.Result{}, err
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 
 	err = r.resolveSecrets(ctx, ha)
@@ -192,7 +192,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 	}
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
-	return reconcile.Result{}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 }
 
 func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1alpha1.HumioAction) error {

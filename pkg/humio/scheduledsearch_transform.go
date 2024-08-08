@@ -7,8 +7,7 @@ import (
 )
 
 const (
-	ScheduledSearchIdentifierAnnotation      = "humio.com/scheduled-search-id"
-	ScheduledSearchQueryOwnershipTypeDefault = "Organization"
+	ScheduledSearchIdentifierAnnotation = "humio.com/scheduled-search-id"
 )
 
 func ScheduledSearchTransform(hss *humiov1alpha1.HumioScheduledSearch) (*humioapi.ScheduledSearch, error) {
@@ -24,7 +23,7 @@ func ScheduledSearchTransform(hss *humiov1alpha1.HumioScheduledSearch) (*humioap
 		Enabled:            hss.Spec.Enabled,
 		ActionNames:        hss.Spec.Actions,
 		Labels:             hss.Spec.Labels,
-		QueryOwnershipType: ScheduledSearchQueryOwnershipTypeDefault,
+		QueryOwnershipType: humioapi.QueryOwnershipTypeOrganization,
 	}
 
 	if _, ok := hss.ObjectMeta.Annotations[ScheduledSearchIdentifierAnnotation]; ok {

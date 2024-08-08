@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/humio/humio-operator/pkg/kubernetes"
 
@@ -78,12 +79,11 @@ func (r *HumioFilterAlertReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	cluster, err := helpers.NewCluster(ctx, r, hfa.Spec.ManagedClusterName, hfa.Spec.ExternalClusterName, hfa.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		r.Log.Error(err, "unable to obtain humio client config")
-		err = r.setState(ctx, humiov1alpha1.HumioFilterAlertStateConfigError, hfa)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set filter alert state")
+		setStateErr := r.setState(ctx, humiov1alpha1.HumioFilterAlertStateConfigError, hfa)
+		if setStateErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set filter alert state")
 		}
-		return reconcile.Result{}, err
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hfa *humiov1alpha1.HumioFilterAlert) {
@@ -193,7 +193,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 	}
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
-	return reconcile.Result{}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
