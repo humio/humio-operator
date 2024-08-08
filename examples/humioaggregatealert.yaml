@@ -5,7 +5,8 @@ metadata:
 spec:
   managedClusterName: example-humiocluster
   name: example-aggregate-alert
-  queryString: "#repo = humio | error = true " | count()
+  queryString: "#repo = humio | error = true | count()"
+  queryTimestampType: "@timestamp"
   viewName: "humio"
   throttleTimeSeconds: 60
   triggerMode: "all"
@@ -25,7 +26,8 @@ metadata:
 spec:
   externalClusterName: example-humioexternalcluster
   name: example-aggregate-alert-external
-  queryString: "#repo = humio | error = true " | count()
+  queryString: "#repo = humio | error = true | count()"
+  queryTimestampType: "@timestamp"
   viewName: "humio"
   throttleTimeSeconds: 60
   triggerMode: "all"
