@@ -31,7 +31,7 @@ jobs:
           chmod +x ./kind
           ./kind delete cluster || true
           make clean
-          docker network create -d=bridge --subnet=172.19.0.0/24 kind || true
+          docker network create -d=bridge --subnet=172.30.0.0/16 kind || true
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
@@ -69,10 +69,5 @@ jobs:
           chmod +x ./kind
           ./kind delete cluster || true
           make clean
-
-          echo cleaning up docker files as kind load docker-image seems to leave dangling files in the data directory that docker does not detect and so pruning with docker cli doesnt work
-          sudo systemctl stop docker
-          sudo rm -rf /var/lib/docker
-          sudo systemctl start docker
-          docker network create -d=bridge --subnet=172.19.0.0/24 kind || true
-
+          docker system prune -af --volumes || true
+          docker network prune -f || true
