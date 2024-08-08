@@ -46,6 +46,7 @@ type Client interface {
 	ActionsClient
 	AlertsClient
 	FilterAlertsClient
+	AggregateAlertsClient
 	ScheduledSearchClient
 }
 
@@ -107,6 +108,14 @@ type FilterAlertsClient interface {
 	UpdateFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error)
 	DeleteFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
 	ValidateActionsForFilterAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
+}
+
+type AggregateAlertsClient interface {
+	AddAggregateAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error)
+	GetAggregateAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error)
+	UpdateAggregateAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error)
+	DeleteAggregateAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAggregateAlert) error
+	ValidateActionsForAggregateAlert(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioAggregateAlert) error
 }
 
 type ScheduledSearchClient interface {
@@ -877,10 +886,100 @@ func (h *ClientConfig) ValidateActionsForFilterAlert(config *humioapi.Config, re
 	return nil
 }
 
+<<<<<<< HEAD
 func (h *ClientConfig) ValidateActionsForScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) error {
 	for _, actionNameForScheduledSearch := range hss.Spec.Actions {
 		if _, err := h.getAndValidateAction(config, req, actionNameForScheduledSearch, hss.Spec.ViewName); err != nil {
 			return fmt.Errorf("problem getting action for scheduled search %s: %w", hss.Spec.Name, err)
+=======
+func (h *ClientConfig) AddAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error) {
+	err := h.validateView(config, req, haa.Spec.ViewName)
+	if err != nil {
+		return &humioapi.AggregateAlert{}, fmt.Errorf("problem getting view for action: %w", err)
+	}
+	if err = h.ValidateActionsForAggregateAlert(config, req, haa); err != nil {
+		return &humioapi.AggregateAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
+	}
+
+	aggregateAlert, err := AggregateAlertTransform(haa)
+	if err != nil {
+		return aggregateAlert, err
+	}
+
+	createdAggregateAlert, err := h.GetHumioClient(config, req).AggregateAlerts().Create(haa.Spec.ViewName, aggregateAlert)
+	if err != nil {
+		return createdAggregateAlert, fmt.Errorf("got error when attempting to add aggregate alert: %w, aggregatealert: %#v", err, *aggregateAlert)
+	}
+	return createdAggregateAlert, nil
+}
+
+func (h *ClientConfig) GetAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error) {
+	err := h.validateView(config, req, haa.Spec.ViewName)
+	if err != nil {
+		return &humioapi.AggregateAlert{}, fmt.Errorf("problem getting view for action %s: %w", haa.Spec.Name, err)
+	}
+
+	var aggregateAlertId string
+	aggregateAlertsList, err := h.GetHumioClient(config, req).AggregateAlerts().List(haa.Spec.ViewName)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list aggregate alerts: %w", err)
+	}
+	for _, aggregateAlert := range aggregateAlertsList {
+		if aggregateAlert.Name == haa.Spec.Name {
+			aggregateAlertId = aggregateAlert.ID
+		}
+	}
+	if aggregateAlertId == "" {
+		return nil, humioapi.AggregateAlertNotFound(haa.Spec.Name)
+	}
+	aggregateAlert, err := h.GetHumioClient(config, req).AggregateAlerts().Get(haa.Spec.ViewName, aggregateAlertId)
+	if err != nil {
+		return aggregateAlert, fmt.Errorf("error when trying to get aggregate alert %+v, name=%s, view=%s: %w", aggregateAlert, haa.Spec.Name, haa.Spec.ViewName, err)
+	}
+
+	if aggregateAlert == nil || aggregateAlert.Name == "" {
+		return nil, nil
+	}
+
+	return aggregateAlert, nil
+}
+
+func (h *ClientConfig) UpdateAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error) {
+	err := h.validateView(config, req, haa.Spec.ViewName)
+	if err != nil {
+		return &humioapi.AggregateAlert{}, fmt.Errorf("problem getting view for action %s: %w", haa.Spec.Name, err)
+	}
+	if err = h.ValidateActionsForAggregateAlert(config, req, haa); err != nil {
+		return &humioapi.AggregateAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
+	}
+	aggregateAlert, err := AggregateAlertTransform(haa)
+	if err != nil {
+		return aggregateAlert, err
+	}
+
+	currentAggregateAlert, err := h.GetAggregateAlert(config, req, haa)
+	if err != nil {
+		return &humioapi.AggregateAlert{}, fmt.Errorf("could not find aggregate alert with namer: %q", aggregateAlert.Name)
+	}
+	aggregateAlert.ID = currentAggregateAlert.ID
+
+	return h.GetHumioClient(config, req).AggregateAlerts().Update(haa.Spec.ViewName, aggregateAlert)
+}
+
+func (h *ClientConfig) DeleteAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) error {
+	currentAggregateAlert, err := h.GetAggregateAlert(config, req, haa)
+	if err != nil {
+		return fmt.Errorf("could not find aggregate alert with name: %q", haa.Name)
+	}
+	return h.GetHumioClient(config, req).AggregateAlerts().Delete(haa.Spec.ViewName, currentAggregateAlert.ID)
+}
+
+func (h *ClientConfig) ValidateActionsForAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) error {
+	// validate action
+	for _, actionNameForAlert := range haa.Spec.Actions {
+		if _, err := h.getAndValidateAction(config, req, actionNameForAlert, haa.Spec.ViewName); err != nil {
+			return fmt.Errorf("problem getting action for aggregate alert %s: %w", haa.Spec.Name, err)
+>>>>>>> 461e66a (Created AggregateAlerts Support)
 		}
 	}
 	return nil
