@@ -77,12 +77,11 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	cluster, err := helpers.NewCluster(ctx, r, hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName, hv.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		r.Log.Error(err, "unable to obtain humio client config")
-		err = r.setState(ctx, humiov1alpha1.HumioParserStateConfigError, hv)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
+		setStateErr := r.setState(ctx, humiov1alpha1.HumioParserStateConfigError, hv)
+		if setStateErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set cluster state")
 		}
-		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hv *humiov1alpha1.HumioView) {

@@ -9,7 +9,7 @@ spec:
   queryString: "#repo = humio | error = true | count()"
   queryStart: "1h"
   queryEnd: "now"
-  schedule: "1h"
+  schedule: "0 * * * *"
   timeZone: "UTC"
   backfillLimit: 3
   enabled: true
@@ -28,7 +28,7 @@ spec:
   queryString: "#repo = humio | error = true | count()"
   queryStart: "1h"
   queryEnd: "now"
-  schedule: "1h"
+  schedule: "0 * * * *"
   timeZone: "UTC"
   backfillLimit: 3
   enabled: true
