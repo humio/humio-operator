@@ -257,6 +257,7 @@ var _ = BeforeSuite(func() {
 
 	suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioCluster: Creating shared test cluster in namespace %s", clusterKey.Namespace))
 	cluster = suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
+	cluster.Spec.HumioNodeSpec.Image = "1.150.0"
 	suite.CreateAndBootstrapCluster(context.TODO(), k8sClient, humioClient, cluster, true, corev1alpha1.HumioClusterStateRunning, testTimeout)
 
 	sharedCluster, err = helpers.NewCluster(context.TODO(), k8sClient, clusterKey.Name, "", clusterKey.Namespace, helpers.UseCertManager(), true)
