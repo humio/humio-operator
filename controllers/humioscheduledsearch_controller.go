@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/humio/humio-operator/pkg/kubernetes"
 
@@ -78,12 +79,11 @@ func (r *HumioScheduledSearchReconciler) Reconcile(ctx context.Context, req ctrl
 
 	cluster, err := helpers.NewCluster(ctx, r, hss.Spec.ManagedClusterName, hss.Spec.ExternalClusterName, hss.Namespace, helpers.UseCertManager(), true)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		r.Log.Error(err, "unable to obtain humio client config")
-		err = r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateConfigError, hss)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set scheduled search state")
+		setStateErr := r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateConfigError, hss)
+		if setStateErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set scheduled search state")
 		}
-		return reconcile.Result{}, err
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hss *humiov1alpha1.HumioScheduledSearch) {
@@ -184,7 +184,7 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 	}
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
-	return reconcile.Result{}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

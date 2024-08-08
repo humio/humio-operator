@@ -17,6 +17,7 @@ limitations under the License.
 package humio
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -322,6 +323,10 @@ func (h *ClientConfig) UpdateParser(config *humioapi.Config, req reconcile.Reque
 }
 
 func (h *ClientConfig) DeleteParser(config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) error {
+	_, err := h.GetParser(config, req, hp)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		return nil
+	}
 	return h.GetHumioClient(config, req).Parsers().Delete(hp.Spec.RepositoryName, hp.Spec.Name)
 }
 
@@ -563,6 +568,10 @@ func (h *ClientConfig) UpdateAction(config *humioapi.Config, req reconcile.Reque
 }
 
 func (h *ClientConfig) DeleteAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) error {
+	_, err := h.GetAction(config, req, ha)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		return nil
+	}
 	return h.GetHumioClient(config, req).Actions().Delete(ha.Spec.ViewName, ha.Spec.Name)
 }
 
@@ -650,6 +659,10 @@ func (h *ClientConfig) UpdateAlert(config *humioapi.Config, req reconcile.Reques
 }
 
 func (h *ClientConfig) DeleteAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) error {
+	_, err := h.GetAlert(config, req, ha)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		return nil
+	}
 	return h.GetHumioClient(config, req).Alerts().Delete(ha.Spec.ViewName, ha.Spec.Name)
 }
 
@@ -728,6 +741,9 @@ func (h *ClientConfig) UpdateFilterAlert(config *humioapi.Config, req reconcile.
 
 func (h *ClientConfig) DeleteFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
 	currentAlert, err := h.GetFilterAlert(config, req, hfa)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("could not find filter alert with name: %q", hfa.Name)
 	}
@@ -809,6 +825,9 @@ func (h *ClientConfig) UpdateScheduledSearch(config *humioapi.Config, req reconc
 
 func (h *ClientConfig) DeleteScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) error {
 	currentScheduledSearch, err := h.GetScheduledSearch(config, req, hss)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("could not find scheduled search with name: %q", hss.Name)
 	}
