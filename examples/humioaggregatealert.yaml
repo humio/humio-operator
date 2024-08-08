@@ -1,7 +1,7 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioAggregateAlert
 metadata:
-    name: example-aggregate-alert-managed
+  name: example-aggregate-alert-managed
 spec:
   managedClusterName: example-humiocluster
   name: example-aggregate-alert
@@ -21,9 +21,9 @@ spec:
 apiVersion: core.humio.com/v1alpha1
 kind: HumioAggregateAlert
 metadata:
-    name: example-aggregate-alert-external
+  name: example-aggregate-alert-external
 spec:
-  managedClusterName: example-humiocluster
+  externalClusterName: example-humioexternalcluster
   name: example-aggregate-alert-external
   queryString: "#repo = humio | error = true " | count()
   viewName: "humio"
