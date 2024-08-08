@@ -21,7 +21,6 @@ func AggregateAlertTransform(haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.
 		Enabled:               haa.Spec.Enabled,
 		ActionNames:           haa.Spec.Actions,
 		Labels:                haa.Spec.Labels,
-		QueryOwnershipType:    QueryOwnershipTypeDefault,
 	}
 
 	if _, ok := haa.ObjectMeta.Annotations[AggregatedAlertIdentifierAnnotation]; ok {

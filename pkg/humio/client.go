@@ -597,7 +597,7 @@ func (h *ClientConfig) InstallLicense(config *humioapi.Config, req reconcile.Req
 func (h *ClientConfig) GetAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
 	err := h.validateView(config, req, ha.Spec.ViewName)
 	if err != nil {
-		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action %s: %w", ha.Spec.Name, err)
+		return &humioapi.Alert{}, fmt.Errorf("problem getting view for alert %s: %w", ha.Spec.Name, err)
 	}
 
 	alert, err := h.GetHumioClient(config, req).Alerts().Get(ha.Spec.ViewName, ha.Spec.Name)
@@ -665,7 +665,7 @@ func (h *ClientConfig) DeleteAlert(config *humioapi.Config, req reconcile.Reques
 func (h *ClientConfig) GetFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
 	err := h.validateView(config, req, hfa.Spec.ViewName)
 	if err != nil {
-		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for action %s: %w", hfa.Spec.Name, err)
+		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for filter alert %s: %w", hfa.Spec.Name, err)
 	}
 
 	var filterAlertId string
@@ -867,12 +867,15 @@ func (h *ClientConfig) ValidateActionsForFilterAlert(config *humioapi.Config, re
 	return nil
 }
 
-<<<<<<< HEAD
 func (h *ClientConfig) ValidateActionsForScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) error {
 	for _, actionNameForScheduledSearch := range hss.Spec.Actions {
 		if _, err := h.getAndValidateAction(config, req, actionNameForScheduledSearch, hss.Spec.ViewName); err != nil {
 			return fmt.Errorf("problem getting action for scheduled search %s: %w", hss.Spec.Name, err)
-=======
+		}
+	}
+	return nil
+}
+
 func (h *ClientConfig) AddAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error) {
 	err := h.validateView(config, req, haa.Spec.ViewName)
 	if err != nil {
@@ -960,7 +963,6 @@ func (h *ClientConfig) ValidateActionsForAggregateAlert(config *humioapi.Config,
 	for _, actionNameForAlert := range haa.Spec.Actions {
 		if _, err := h.getAndValidateAction(config, req, actionNameForAlert, haa.Spec.ViewName); err != nil {
 			return fmt.Errorf("problem getting action for aggregate alert %s: %w", haa.Spec.Name, err)
->>>>>>> 461e66a (Created AggregateAlerts Support)
 		}
 	}
 	return nil
