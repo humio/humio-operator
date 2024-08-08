@@ -56,4 +56,3 @@ jobs:
         chmod +x ./kind
         ./kind delete cluster || true
         make clean
-        docker network create -d=bridge --subnet=172.19.0.0/24 kind || true
