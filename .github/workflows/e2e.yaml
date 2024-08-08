@@ -58,4 +58,3 @@ jobs:
         make clean
         docker system prune -af --volumes || true
         docker network prune -f || true
-        docker network create -d=bridge --subnet=172.30.0.0/16 kind || true
