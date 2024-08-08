@@ -3233,200 +3233,201 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Creating the invalid aggregate alert")
 			Expect(k8sClient.Create(ctx, toCreateInvalidAggregateAlert)).Should(Not(Succeed()))
 		})
+	})
 
-		Context("Humio Scheduled Search", func() {
-			It("should handle scheduled search action correctly", func() {
-				ctx := context.Background()
-				suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Should handle scheduled search correctly")
-				dependentEmailActionSpec := humiov1alpha1.HumioActionSpec{
-					ManagedClusterName: clusterKey.Name,
-					Name:               "example-email-action2",
-					ViewName:           testRepo.Spec.Name,
-					EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
-						Recipients: []string{"example@example.com"},
-					},
-				}
-	
-				actionKey := types.NamespacedName{
-					Name:      "humioaction2",
-					Namespace: clusterKey.Namespace,
-				}
-	
-				toCreateDependentAction := &humiov1alpha1.HumioAction{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      actionKey.Name,
-						Namespace: actionKey.Namespace,
-					},
-					Spec: dependentEmailActionSpec,
-				}
-	
-				suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Creating the action required by the scheduled search successfully")
-				Expect(k8sClient.Create(ctx, toCreateDependentAction)).Should(Succeed())
-	
-				fetchedAction := &humiov1alpha1.HumioAction{}
-				Eventually(func() string {
-					k8sClient.Get(ctx, actionKey, fetchedAction)
-					return fetchedAction.Status.State
-				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
-	
-				scheduledSearchSpec := humiov1alpha1.HumioScheduledSearchSpec{
-					ManagedClusterName: clusterKey.Name,
-					Name:               "example-scheduled-search",
-					ViewName:           testRepo.Spec.Name,
-					QueryString:        "#repo = humio | error = true",
-					QueryStart:         "1h",
-					QueryEnd:           "now",
-					Schedule:           "0 * * * *",
-					TimeZone:           "UTC",
-					BackfillLimit:      3,
-					Enabled:            true,
-					Description:        "humio scheduled search",
-					Actions:            []string{toCreateDependentAction.Spec.Name},
-					Labels:             []string{"some-label"},
-				}
-	
-				key := types.NamespacedName{
-					Name:      "humio-scheduled-search",
-					Namespace: clusterKey.Namespace,
-				}
-	
-				toCreateScheduledSearch := &humiov1alpha1.HumioScheduledSearch{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      key.Name,
-						Namespace: key.Namespace,
-					},
-					Spec: scheduledSearchSpec,
-				}
-	
-				suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Creating the scheduled search successfully")
-				Expect(k8sClient.Create(ctx, toCreateScheduledSearch)).Should(Succeed())
-	
-				fetchedScheduledSearch := &humiov1alpha1.HumioScheduledSearch{}
-				Eventually(func() string {
-					k8sClient.Get(ctx, key, fetchedScheduledSearch)
-					return fetchedScheduledSearch.Status.State
-				}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioScheduledSearchStateExists))
-	
-				var scheduledSearch *humioapi.ScheduledSearch
-				Eventually(func() error {
-					scheduledSearch, err = humioClient.GetScheduledSearch(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateScheduledSearch)
-					return err
-				}, testTimeout, suite.TestInterval).Should(Succeed())
-				Expect(scheduledSearch).ToNot(BeNil())
-	
-				Eventually(func() error {
-					return humioClient.ValidateActionsForScheduledSearch(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateScheduledSearch)
-				}, testTimeout, suite.TestInterval).Should(Succeed())
-	
-				originalScheduledSearch, err := humio.ScheduledSearchTransform(toCreateScheduledSearch)
-				Expect(err).To(BeNil())
-				Expect(scheduledSearch.Name).To(Equal(originalScheduledSearch.Name))
-				Expect(scheduledSearch.Description).To(Equal(originalScheduledSearch.Description))
-				Expect(scheduledSearch.ActionNames).To(Equal(originalScheduledSearch.ActionNames))
-				Expect(scheduledSearch.Labels).To(Equal(originalScheduledSearch.Labels))
-				Expect(scheduledSearch.Enabled).To(Equal(originalScheduledSearch.Enabled))
-				Expect(scheduledSearch.QueryString).To(Equal(originalScheduledSearch.QueryString))
-				Expect(scheduledSearch.QueryStart).To(Equal(originalScheduledSearch.QueryStart))
-				Expect(scheduledSearch.QueryEnd).To(Equal(originalScheduledSearch.QueryEnd))
-				Expect(scheduledSearch.Schedule).To(Equal(originalScheduledSearch.Schedule))
-				Expect(scheduledSearch.TimeZone).To(Equal(originalScheduledSearch.TimeZone))
-				Expect(scheduledSearch.BackfillLimit).To(Equal(originalScheduledSearch.BackfillLimit))
-	
-				createdScheduledSearch := toCreateScheduledSearch
-				err = humio.ScheduledSearchHydrate(createdScheduledSearch, scheduledSearch)
-				Expect(err).To(BeNil())
-				Expect(createdScheduledSearch.Spec).To(Equal(toCreateScheduledSearch.Spec))
-	
-				suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Updating the scheduled search successfully")
-				updatedScheduledSearch := toCreateScheduledSearch
-				updatedScheduledSearch.Spec.QueryString = "#repo = humio | updated_field = true | error = true"
-				updatedScheduledSearch.Spec.QueryStart = "2h"
-				updatedScheduledSearch.Spec.QueryEnd = "30m"
-				updatedScheduledSearch.Spec.Schedule = "0 0 * * *"
-				updatedScheduledSearch.Spec.TimeZone = "UTC-01"
-				updatedScheduledSearch.Spec.BackfillLimit = 5
-				updatedScheduledSearch.Spec.Enabled = false
-				updatedScheduledSearch.Spec.Description = "updated humio scheduled search"
-				updatedScheduledSearch.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
-	
-				suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Waiting for the scheduled search to be updated")
-				Eventually(func() error {
-					k8sClient.Get(ctx, key, fetchedScheduledSearch)
-					fetchedScheduledSearch.Spec.QueryString = updatedScheduledSearch.Spec.QueryString
-					fetchedScheduledSearch.Spec.QueryStart = updatedScheduledSearch.Spec.QueryStart
-					fetchedScheduledSearch.Spec.QueryEnd = updatedScheduledSearch.Spec.QueryEnd
-					fetchedScheduledSearch.Spec.Schedule = updatedScheduledSearch.Spec.Schedule
-					fetchedScheduledSearch.Spec.TimeZone = updatedScheduledSearch.Spec.TimeZone
-					fetchedScheduledSearch.Spec.BackfillLimit = updatedScheduledSearch.Spec.BackfillLimit
-					fetchedScheduledSearch.Spec.Enabled = updatedScheduledSearch.Spec.Enabled
-					fetchedScheduledSearch.Spec.Description = updatedScheduledSearch.Spec.Description
-					return k8sClient.Update(ctx, fetchedScheduledSearch)
-				}, testTimeout, suite.TestInterval).Should(Succeed())
-	
-				suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Verifying the scheduled search update succeeded")
-				var expectedUpdatedScheduledSearch *humioapi.ScheduledSearch
-				Eventually(func() error {
-					expectedUpdatedScheduledSearch, err = humioClient.GetScheduledSearch(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedScheduledSearch)
-					return err
-				}, testTimeout, suite.TestInterval).Should(Succeed())
-				Expect(expectedUpdatedScheduledSearch).ToNot(BeNil())
-	
-				suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Verifying the scheduled search matches the expected")
-				verifiedScheduledSearch, err := humio.ScheduledSearchTransform(updatedScheduledSearch)
-				verifiedScheduledSearch.ID = ""
-				verifiedScheduledSearch.RunAsUserID = ""
-	
-				Expect(err).To(BeNil())
-				Eventually(func() humioapi.ScheduledSearch {
-					updatedScheduledSearch, err := humioClient.GetScheduledSearch(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedScheduledSearch)
-					if err != nil {
-						return *updatedScheduledSearch
-					}
-	
-					// Ignore the ID and RunAsUserID
-					updatedScheduledSearch.ID = ""
-					updatedScheduledSearch.RunAsUserID = ""
-	
+	Context("Humio Scheduled Search", func() {
+		It("should handle scheduled search action correctly", func() {
+			ctx := context.Background()
+			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Should handle scheduled search correctly")
+			dependentEmailActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               "example-email-action2",
+				ViewName:           testRepo.Spec.Name,
+				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
+					Recipients: []string{"example@example.com"},
+				},
+			}
+
+			actionKey := types.NamespacedName{
+				Name:      "humioaction2",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateDependentAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      actionKey.Name,
+					Namespace: actionKey.Namespace,
+				},
+				Spec: dependentEmailActionSpec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Creating the action required by the scheduled search successfully")
+			Expect(k8sClient.Create(ctx, toCreateDependentAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, actionKey, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			scheduledSearchSpec := humiov1alpha1.HumioScheduledSearchSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               "example-scheduled-search",
+				ViewName:           testRepo.Spec.Name,
+				QueryString:        "#repo = humio | error = true",
+				QueryStart:         "1h",
+				QueryEnd:           "now",
+				Schedule:           "0 * * * *",
+				TimeZone:           "UTC",
+				BackfillLimit:      3,
+				Enabled:            true,
+				Description:        "humio scheduled search",
+				Actions:            []string{toCreateDependentAction.Spec.Name},
+				Labels:             []string{"some-label"},
+			}
+
+			key := types.NamespacedName{
+				Name:      "humio-scheduled-search",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateScheduledSearch := &humiov1alpha1.HumioScheduledSearch{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: scheduledSearchSpec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Creating the scheduled search successfully")
+			Expect(k8sClient.Create(ctx, toCreateScheduledSearch)).Should(Succeed())
+
+			fetchedScheduledSearch := &humiov1alpha1.HumioScheduledSearch{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedScheduledSearch)
+				return fetchedScheduledSearch.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioScheduledSearchStateExists))
+
+			var scheduledSearch *humioapi.ScheduledSearch
+			Eventually(func() error {
+				scheduledSearch, err = humioClient.GetScheduledSearch(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateScheduledSearch)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(scheduledSearch).ToNot(BeNil())
+
+			Eventually(func() error {
+				return humioClient.ValidateActionsForScheduledSearch(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateScheduledSearch)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			originalScheduledSearch, err := humio.ScheduledSearchTransform(toCreateScheduledSearch)
+			Expect(err).To(BeNil())
+			Expect(scheduledSearch.Name).To(Equal(originalScheduledSearch.Name))
+			Expect(scheduledSearch.Description).To(Equal(originalScheduledSearch.Description))
+			Expect(scheduledSearch.ActionNames).To(Equal(originalScheduledSearch.ActionNames))
+			Expect(scheduledSearch.Labels).To(Equal(originalScheduledSearch.Labels))
+			Expect(scheduledSearch.Enabled).To(Equal(originalScheduledSearch.Enabled))
+			Expect(scheduledSearch.QueryString).To(Equal(originalScheduledSearch.QueryString))
+			Expect(scheduledSearch.QueryStart).To(Equal(originalScheduledSearch.QueryStart))
+			Expect(scheduledSearch.QueryEnd).To(Equal(originalScheduledSearch.QueryEnd))
+			Expect(scheduledSearch.Schedule).To(Equal(originalScheduledSearch.Schedule))
+			Expect(scheduledSearch.TimeZone).To(Equal(originalScheduledSearch.TimeZone))
+			Expect(scheduledSearch.BackfillLimit).To(Equal(originalScheduledSearch.BackfillLimit))
+
+			createdScheduledSearch := toCreateScheduledSearch
+			err = humio.ScheduledSearchHydrate(createdScheduledSearch, scheduledSearch)
+			Expect(err).To(BeNil())
+			Expect(createdScheduledSearch.Spec).To(Equal(toCreateScheduledSearch.Spec))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Updating the scheduled search successfully")
+			updatedScheduledSearch := toCreateScheduledSearch
+			updatedScheduledSearch.Spec.QueryString = "#repo = humio | updated_field = true | error = true"
+			updatedScheduledSearch.Spec.QueryStart = "2h"
+			updatedScheduledSearch.Spec.QueryEnd = "30m"
+			updatedScheduledSearch.Spec.Schedule = "0 0 * * *"
+			updatedScheduledSearch.Spec.TimeZone = "UTC-01"
+			updatedScheduledSearch.Spec.BackfillLimit = 5
+			updatedScheduledSearch.Spec.Enabled = false
+			updatedScheduledSearch.Spec.Description = "updated humio scheduled search"
+			updatedScheduledSearch.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Waiting for the scheduled search to be updated")
+			Eventually(func() error {
+				k8sClient.Get(ctx, key, fetchedScheduledSearch)
+				fetchedScheduledSearch.Spec.QueryString = updatedScheduledSearch.Spec.QueryString
+				fetchedScheduledSearch.Spec.QueryStart = updatedScheduledSearch.Spec.QueryStart
+				fetchedScheduledSearch.Spec.QueryEnd = updatedScheduledSearch.Spec.QueryEnd
+				fetchedScheduledSearch.Spec.Schedule = updatedScheduledSearch.Spec.Schedule
+				fetchedScheduledSearch.Spec.TimeZone = updatedScheduledSearch.Spec.TimeZone
+				fetchedScheduledSearch.Spec.BackfillLimit = updatedScheduledSearch.Spec.BackfillLimit
+				fetchedScheduledSearch.Spec.Enabled = updatedScheduledSearch.Spec.Enabled
+				fetchedScheduledSearch.Spec.Description = updatedScheduledSearch.Spec.Description
+				return k8sClient.Update(ctx, fetchedScheduledSearch)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Verifying the scheduled search update succeeded")
+			var expectedUpdatedScheduledSearch *humioapi.ScheduledSearch
+			Eventually(func() error {
+				expectedUpdatedScheduledSearch, err = humioClient.GetScheduledSearch(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedScheduledSearch)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(expectedUpdatedScheduledSearch).ToNot(BeNil())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Verifying the scheduled search matches the expected")
+			verifiedScheduledSearch, err := humio.ScheduledSearchTransform(updatedScheduledSearch)
+			verifiedScheduledSearch.ID = ""
+			verifiedScheduledSearch.RunAsUserID = ""
+
+			Expect(err).To(BeNil())
+			Eventually(func() humioapi.ScheduledSearch {
+				updatedScheduledSearch, err := humioClient.GetScheduledSearch(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedScheduledSearch)
+				if err != nil {
 					return *updatedScheduledSearch
-				}, testTimeout, suite.TestInterval).Should(Equal(*verifiedScheduledSearch))
-	
-				suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Successfully deleting the scheduled search")
-				Expect(k8sClient.Delete(ctx, fetchedScheduledSearch)).To(Succeed())
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, key, fetchedScheduledSearch)
-					return k8serrors.IsNotFound(err)
-				}, testTimeout, suite.TestInterval).Should(BeTrue())
-	
-				suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Successfully deleting the action")
-				Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, actionKey, fetchedAction)
-					return k8serrors.IsNotFound(err)
-				}, testTimeout, suite.TestInterval).Should(BeTrue())
-			})
-	
-			It("HumioScheduledSearch: Should deny improperly configured scheduled search with missing required values", func() {
-				ctx := context.Background()
-				key := types.NamespacedName{
-					Name:      "humio-scheduled-search",
-					Namespace: clusterKey.Namespace,
 				}
-				toCreateInvalidScheduledSearch := &humiov1alpha1.HumioScheduledSearch{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      key.Name,
-						Namespace: key.Namespace,
-					},
-					Spec: humiov1alpha1.HumioScheduledSearchSpec{
-						ManagedClusterName: clusterKey.Name,
-						Name:               "example-invalid-scheduled-search",
-						ViewName:           testRepo.Spec.Name,
-					},
-				}
-	
-				suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Creating the invalid scheduled search")
-				Expect(k8sClient.Create(ctx, toCreateInvalidScheduledSearch)).Should(Not(Succeed()))
-			})
-	
+
+				// Ignore the ID and RunAsUserID
+				updatedScheduledSearch.ID = ""
+				updatedScheduledSearch.RunAsUserID = ""
+
+				return *updatedScheduledSearch
+			}, testTimeout, suite.TestInterval).Should(Equal(*verifiedScheduledSearch))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Successfully deleting the scheduled search")
+			Expect(k8sClient.Delete(ctx, fetchedScheduledSearch)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedScheduledSearch)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Successfully deleting the action")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, actionKey, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("HumioScheduledSearch: Should deny improperly configured scheduled search with missing required values", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-scheduled-search",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateInvalidScheduledSearch := &humiov1alpha1.HumioScheduledSearch{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioScheduledSearchSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "example-invalid-scheduled-search",
+					ViewName:           testRepo.Spec.Name,
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Creating the invalid scheduled search")
+			Expect(k8sClient.Create(ctx, toCreateInvalidScheduledSearch)).Should(Not(Succeed()))
+		})
+
 	})
 })
 
