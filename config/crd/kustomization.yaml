@@ -11,11 +11,8 @@ resources:
 - bases/core.humio.com_humioactions.yaml
 - bases/core.humio.com_humioalerts.yaml
 - bases/core.humio.com_humiofilteralerts.yaml
-<<<<<<< HEAD
 - bases/core.humio.com_humioscheduledsearches.yaml
-=======
 - bases/core.humio.com_humioaggregatealerts.yaml
->>>>>>> 461e66a (Created AggregateAlerts Support)
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
@@ -30,11 +27,8 @@ patchesStrategicMerge:
 #- patches/webhook_in_humioactions.yaml
 #- patches/webhook_in_humioalerts.yaml
 #- patches/webhook_in_humiofilteralerts.yaml
-<<<<<<< HEAD
 #- patches/webhook_in_humioscheduledsearches.yaml
-=======
 #- patches/webhook_in_humioaggregatealerts.yaml
->>>>>>> 461e66a (Created AggregateAlerts Support)
 # +kubebuilder:scaffold:crdkustomizewebhookpatch
 
 # [CERTMANAGER] To enable webhook, uncomment all the sections with [CERTMANAGER] prefix.
@@ -48,11 +42,8 @@ patchesStrategicMerge:
 #- patches/cainjection_in_humioactions.yaml
 #- patches/cainjection_in_humioalerts.yaml
 #- patches/cainjection_in_humiofilteralerts.yaml
-<<<<<<< HEAD
 #- patches/cainjection_in_humioscheduledsearches.yaml
-=======
 #- patches/cainjection_in_humioaggregatealerts.yaml
->>>>>>> 461e66a (Created AggregateAlerts Support)
 # +kubebuilder:scaffold:crdkustomizecainjectionpatch
 
 # the following config is for teaching kustomize how to do kustomization for CRDs.

@@ -408,5 +408,6 @@ func (h *MockClientConfig) ClearHumioClientConnections() {
 	h.apiClient.Action = humioapi.Action{}
 	h.apiClient.Alert = humioapi.Alert{}
 	h.apiClient.FilterAlert = humioapi.FilterAlert{}
+	h.apiClient.AggregateAlert = humioapi.AggregateAlert{}
 	h.apiClient.ScheduledSearch = humioapi.ScheduledSearch{}
 }
