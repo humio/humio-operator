@@ -11,7 +11,7 @@ spec:
   actions:
     - example-email-action
   throttleTimeSeconds: 60
-  triggerMode: "all"
+  triggerMode: "CompleteMode"
   searchInterval: 60
   description: "This is an example of an aggregate alert"
   enabled: true
