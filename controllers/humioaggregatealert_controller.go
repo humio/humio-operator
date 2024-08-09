@@ -185,7 +185,7 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 			curAggregateAlert))
 		AggregateAlert, err := r.HumioClient.UpdateAggregateAlert(config, req, haa)
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update agregate alert")
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update aggregate alert")
 		}
 		if AggregateAlert != nil {
 			r.Log.Info(fmt.Sprintf("Updated Aggregate Alert %q", AggregateAlert.Name))

@@ -3155,7 +3155,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Updating the aggregate alert successfully")
 			updatedAggregateAlert := toCreateAggregateAlert
-			updatedAggregateAlert.Spec.QueryString = "#repo = humio | updated_field = true | error = true"
+			updatedAggregateAlert.Spec.QueryString = "#repo = humio | updated_field = true | error = true | count()"
 			updatedAggregateAlert.Spec.Enabled = false
 			updatedAggregateAlert.Spec.Description = "updated humio aggregate alert"
 			updatedAggregateAlert.Spec.SearchIntervalSeconds = 120
