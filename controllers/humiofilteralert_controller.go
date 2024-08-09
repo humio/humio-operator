@@ -218,5 +218,6 @@ func (r *HumioFilterAlertReconciler) logErrorAndReturn(err error, msg string) er
 }
 
 func sanitizeFilterAlert(filterAlert *humioapi.FilterAlert) {
+	filterAlert.ID = ""
 	filterAlert.RunAsUserID = ""
 }
