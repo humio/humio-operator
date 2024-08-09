@@ -3061,7 +3061,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Should handle aggregate alert correctly")
 			dependentEmailActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
-				Name:               "example-email-action",
+				Name:               "example-email-action3",
 				ViewName:           testRepo.Spec.Name,
 				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
 					Recipients: []string{"example@example.com"},
@@ -3069,7 +3069,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			actionKey := types.NamespacedName{
-				Name:      "humioaction",
+				Name:      "humioaction3",
 				Namespace: clusterKey.Namespace,
 			}
 
