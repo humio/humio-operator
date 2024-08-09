@@ -1663,7 +1663,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: clusterKey.Name,
-					Name:               "example-invalid-action",
+					Name:               "example-invalid-action-missing",
 					ViewName:           testRepo.Spec.Name,
 				},
 			}
@@ -1705,7 +1705,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: clusterKey.Name,
-					Name:               "example-invalid-action",
+					Name:               "example-invalid-action-extra",
 					ViewName:           testRepo.Spec.Name,
 					WebhookProperties:  &humiov1alpha1.HumioActionWebhookProperties{},
 					EmailProperties:    &humiov1alpha1.HumioActionEmailProperties{},
