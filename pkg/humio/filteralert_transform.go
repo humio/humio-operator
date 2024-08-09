@@ -27,6 +27,10 @@ func FilterAlertTransform(hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.Filter
 		filterAlert.ID = hfa.ObjectMeta.Annotations[FilterAlertIdentifierAnnotation]
 	}
 
+	if filterAlert.Labels == nil {
+		filterAlert.Labels = []string{}
+	}
+
 	return filterAlert, nil
 }
 
