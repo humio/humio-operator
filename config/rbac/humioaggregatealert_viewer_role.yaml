@@ -1,0 +1,27 @@
+# permissions for end users to view humioaggregatealerts.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: humioaggregatealert-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: humio-operator
+    app.kubernetes.io/part-of: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humioaggregatealert-viewer-role
+rules:
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioaggregatealerts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioaggregatealerts/status
+  verbs:
+  - get

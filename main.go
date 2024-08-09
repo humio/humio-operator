@@ -186,6 +186,14 @@ func main() {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioFilterAlert")
 		os.Exit(1)
 	}
+	if err = (&controllers.HumioAggregateAlertReconciler{
+		Client:      mgr.GetClient(),
+		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioAggregateAlert")
+		os.Exit(1)
+	}
 	if err = (&controllers.HumioScheduledSearchReconciler{
 		Client:      mgr.GetClient(),
 		HumioClient: humio.NewClient(log, &humioapi.Config{}, userAgent),

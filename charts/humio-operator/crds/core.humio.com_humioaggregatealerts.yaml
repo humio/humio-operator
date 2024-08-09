@@ -1,0 +1,122 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: humioaggregatealerts.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.23.0'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioAggregateAlert
+    listKind: HumioAggregateAlertList
+    plural: humioaggregatealerts
+    singular: humioaggregatealert
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioAggregateAlert is the Schema for the humioAggregateAlerts
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert
+            properties:
+              actions:
+                description: Actions is the list of Humio Actions by name that will
+                  be triggered by this Aggregate alert
+                items:
+                  type: string
+                type: array
+              description:
+                description: Description is the description of the Aggregate alert
+                type: string
+              enabled:
+                description: Enabled will set the AggregateAlert to enabled when set
+                  to true
+                type: boolean
+              externalClusterName:
+                description: |-
+                  ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+                  This conflicts with ManagedClusterName.
+                type: string
+              labels:
+                description: Labels are a set of labels on the aggregate alert
+                items:
+                  type: string
+                type: array
+              managedClusterName:
+                description: |-
+                  ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+                  resources should be created.
+                  This conflicts with ExternalClusterName.
+                type: string
+              name:
+                description: Name is the name of the aggregate alert inside Humio
+                type: string
+              queryString:
+                description: QueryString defines the desired Humio query string
+                type: string
+              queryTimestampType:
+                description: QueryTimestampType defines the timestamp type to use
+                  for a query
+                type: string
+              searchIntervalSeconds:
+                description: Search Interval time in seconds
+                type: integer
+              throttleField:
+                description: ThrottleField is the field on which to throttle
+                type: string
+              throttleTimeSeconds:
+                description: ThrottleTimeSeconds is the throttle time in seconds.
+                  An aggregate alert is triggered at most once per the throttle time
+                type: integer
+              triggerMode:
+                description: Aggregate Alert trigger mode
+                type: string
+              viewName:
+                description: ViewName is the name of the Humio View under which the
+                  aggregate alert will be managed. This can also be a Repository
+                type: string
+            required:
+            - actions
+            - name
+            - queryString
+            - viewName
+            type: object
+          status:
+            description: HumioAggregateAlertStatus defines the observed state of HumioAggregateAlert
+            properties:
+              state:
+                description: State reflects the current state of HumioAggregateAlert
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
