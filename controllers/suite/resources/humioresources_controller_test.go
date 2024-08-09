@@ -3095,7 +3095,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:                  "example-aggregate-alert",
 				ViewName:              testRepo.Spec.Name,
 				QueryString:           "#repo = humio | error = true",
-				QueryTimestampType:    "@timestamp",
+				QueryTimestampType:    "EventTimestamp",
 				TriggerMode:           "all",
 				SearchIntervalSeconds: 60,
 				ThrottleTimeSeconds:   120,
