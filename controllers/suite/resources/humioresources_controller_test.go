@@ -3162,6 +3162,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			updatedAggregateAlert.Spec.ThrottleTimeSeconds = 3600
 			updatedAggregateAlert.Spec.ThrottleField = "newfield"
 			updatedAggregateAlert.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
+			updatedAggregateAlert.Spec.TriggerMode = "CompleteMode"
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Waiting for the aggregate alert to be updated")
 			Eventually(func() error {
@@ -3172,6 +3173,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 				fetchedAggregateAlert.Spec.SearchIntervalSeconds = updatedAggregateAlert.Spec.SearchIntervalSeconds
 				fetchedAggregateAlert.Spec.ThrottleTimeSeconds = updatedAggregateAlert.Spec.ThrottleTimeSeconds
 				fetchedAggregateAlert.Spec.ThrottleField = updatedAggregateAlert.Spec.ThrottleField
+				fetchedAggregateAlert.Spec.Actions = updatedAggregateAlert.Spec.Actions
+				fetchedAggregateAlert.Spec.TriggerMode = updatedAggregateAlert.Spec.TriggerMode
+
 				return k8sClient.Update(ctx, fetchedAggregateAlert)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
