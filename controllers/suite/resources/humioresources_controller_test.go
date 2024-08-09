@@ -1680,6 +1680,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var invalidAction *humioapi.Action
 			Eventually(func() error {
 				invalidAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateInvalidAction)
+				if err == nil {
+					suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioAction: Got the following back even though we did not expect to get anything back: %#+v", invalidAction))
+				}
 				return err
 			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
 			Expect(invalidAction).To(BeNil())
