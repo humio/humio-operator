@@ -57,7 +57,7 @@ endif
 		eval \$$($(GOBIN)/setup-envtest use -p env ${TEST_K8S_VERSION}); \
 		export USE_CERTMANAGER=false; \
 		export TEST_USE_EXISTING_CLUSTER=false; \
-		$(GINKGO) -vv --no-color --procs 3 -output-dir=${PWD} --output-interceptor-mode=none -keep-separate-reports --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m ./... -covermode=count -coverprofile cover.out \
+		$(GINKGO) -vv --no-color --procs 3 -output-dir=${PWD} -keep-separate-reports --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m ./... -covermode=count -coverprofile cover.out \
 	"
 
 ##@ Build
