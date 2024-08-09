@@ -9,7 +9,7 @@ spec:
   queryTimestampType: "EventTimestamp"
   viewName: "humio"
   throttleTimeSeconds: 60
-  triggerMode: "all"
+  triggerMode: "CompleteMode"
   searchIntervalSeconds: 60
   throttleField: "@timestamp"
   description: "This is an example of an aggregate alert"
@@ -30,7 +30,7 @@ spec:
   queryTimestampType: "EventTimestamp"
   viewName: "humio"
   throttleTimeSeconds: 60
-  triggerMode: "all"
+  triggerMode: "CompleteMode"
   searchIntervalSeconds: 60
   throttleField: "@timestamp"
   description: "This is an example of an aggregate alert"
