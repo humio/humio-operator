@@ -123,12 +123,12 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioParser) {
-		curParser, err := humioClient.GetParser(cluster.Config(), req, hp)
+		_, err := humioClient.GetParser(cluster.Config(), req, hp)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioParserStateNotFound, hp)
 			return
 		}
-		if err != nil || curParser == nil {
+		if err != nil {
 			_ = r.setState(ctx, humiov1alpha1.HumioParserStateUnknown, hp)
 			return
 		}

@@ -111,7 +111,7 @@ var _ = BeforeSuite(func() {
 			CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 			ErrorIfCRDPathMissing: true,
 		}
-		humioClient = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClient = humio.NewMockClient()
 	}
 
 	var cfg *rest.Config

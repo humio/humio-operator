@@ -3,14 +3,9 @@ package humio
 import (
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	ScheduledSearchIdentifierAnnotation = "humio.com/scheduled-search-id"
-)
-
-func ScheduledSearchTransform(hss *humiov1alpha1.HumioScheduledSearch) (*humioapi.ScheduledSearch, error) {
+func ScheduledSearchTransform(hss *humiov1alpha1.HumioScheduledSearch) *humioapi.ScheduledSearch {
 	scheduledSearch := &humioapi.ScheduledSearch{
 		Name:               hss.Spec.Name,
 		QueryString:        hss.Spec.QueryString,
@@ -26,18 +21,14 @@ func ScheduledSearchTransform(hss *humiov1alpha1.HumioScheduledSearch) (*humioap
 		QueryOwnershipType: humioapi.QueryOwnershipTypeOrganization,
 	}
 
-	if _, ok := hss.ObjectMeta.Annotations[ScheduledSearchIdentifierAnnotation]; ok {
-		scheduledSearch.ID = hss.ObjectMeta.Annotations[ScheduledSearchIdentifierAnnotation]
-	}
-
 	if scheduledSearch.Labels == nil {
 		scheduledSearch.Labels = []string{}
 	}
 
-	return scheduledSearch, nil
+	return scheduledSearch
 }
 
-func ScheduledSearchHydrate(hss *humiov1alpha1.HumioScheduledSearch, scheduledSearch *humioapi.ScheduledSearch) error {
+func ScheduledSearchHydrate(hss *humiov1alpha1.HumioScheduledSearch, scheduledSearch *humioapi.ScheduledSearch) {
 	hss.Spec = humiov1alpha1.HumioScheduledSearchSpec{
 		Name:          scheduledSearch.Name,
 		QueryString:   scheduledSearch.QueryString,
@@ -52,11 +43,5 @@ func ScheduledSearchHydrate(hss *humiov1alpha1.HumioScheduledSearch, scheduledSe
 		Labels:        scheduledSearch.Labels,
 	}
 
-	hss.ObjectMeta = metav1.ObjectMeta{
-		Annotations: map[string]string{
-			ScheduledSearchIdentifierAnnotation: scheduledSearch.ID,
-		},
-	}
-
-	return nil
+	return
 }

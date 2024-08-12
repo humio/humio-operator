@@ -261,16 +261,7 @@ func (h *ClientConfig) AddIngestToken(config *humioapi.Config, req reconcile.Req
 }
 
 func (h *ClientConfig) GetIngestToken(config *humioapi.Config, req reconcile.Request, hit *humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
-	tokens, err := h.GetHumioClient(config, req).IngestTokens().List(hit.Spec.RepositoryName)
-	if err != nil {
-		return &humioapi.IngestToken{}, err
-	}
-	for _, token := range tokens {
-		if token.Name == hit.Spec.Name {
-			return &token, nil
-		}
-	}
-	return &humioapi.IngestToken{}, nil
+	return h.GetHumioClient(config, req).IngestTokens().Get(hit.Spec.RepositoryName, hit.Spec.Name)
 }
 
 func (h *ClientConfig) UpdateIngestToken(config *humioapi.Config, req reconcile.Request, hit *humiov1alpha1.HumioIngestToken) (*humioapi.IngestToken, error) {
@@ -423,6 +414,10 @@ func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.R
 }
 
 func (h *ClientConfig) DeleteRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
+	_, err := h.GetRepository(config, req, hr)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		return nil
+	}
 	// TODO: perhaps we should allow calls to DeleteRepository() to include the reason instead of hardcoding it
 	return h.GetHumioClient(config, req).Repositories().Delete(
 		hr.Spec.Name,
@@ -503,6 +498,10 @@ func (h *ClientConfig) UpdateView(config *humioapi.Config, req reconcile.Request
 }
 
 func (h *ClientConfig) DeleteView(config *humioapi.Config, req reconcile.Request, hv *humiov1alpha1.HumioView) error {
+	_, err := h.GetView(config, req, hv)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		return nil
+	}
 	return h.GetHumioClient(config, req).Views().Delete(hv.Spec.Name, "Deleted by humio-operator")
 }
 
@@ -534,7 +533,7 @@ func (h *ClientConfig) GetAction(config *humioapi.Config, req reconcile.Request,
 
 	action, err := h.GetHumioClient(config, req).Actions().Get(ha.Spec.ViewName, ha.Spec.Name)
 	if err != nil {
-		return action, fmt.Errorf("error when trying to get action %+v, name=%s, view=%s: %w", action, ha.Spec.Name, ha.Spec.ViewName, err)
+		return nil, fmt.Errorf("error when trying to get action %+v, name=%s, view=%s: %w", action, ha.Spec.Name, ha.Spec.ViewName, err)
 	}
 
 	if action == nil || action.Name == "" {
@@ -572,6 +571,12 @@ func (h *ClientConfig) UpdateAction(config *humioapi.Config, req reconcile.Reque
 	if err != nil {
 		return action, err
 	}
+
+	currentAction, err := h.GetAction(config, req, ha)
+	if err != nil {
+		return nil, fmt.Errorf("could not find action with name: %q", ha.Spec.Name)
+	}
+	action.ID = currentAction.ID
 
 	return h.GetHumioClient(config, req).Actions().Update(ha.Spec.ViewName, action)
 }
@@ -631,11 +636,8 @@ func (h *ClientConfig) AddAlert(config *humioapi.Config, req reconcile.Request, 
 	if err != nil {
 		return &humioapi.Alert{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
-	alert, err := AlertTransform(ha, actionIdMap)
-	if err != nil {
-		return alert, err
-	}
 
+	alert := AlertTransform(ha, actionIdMap)
 	createdAlert, err := h.GetHumioClient(config, req).Alerts().Add(ha.Spec.ViewName, alert)
 	if err != nil {
 		return createdAlert, fmt.Errorf("got error when attempting to add alert: %w, alert: %#v", err, *alert)
@@ -653,11 +655,8 @@ func (h *ClientConfig) UpdateAlert(config *humioapi.Config, req reconcile.Reques
 	if err != nil {
 		return &humioapi.Alert{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
-	alert, err := AlertTransform(ha, actionIdMap)
-	if err != nil {
-		return alert, err
-	}
 
+	alert := AlertTransform(ha, actionIdMap)
 	currentAlert, err := h.GetAlert(config, req, ha)
 	if err != nil {
 		return &humioapi.Alert{}, fmt.Errorf("could not find alert with name: %q", alert.Name)
@@ -714,11 +713,8 @@ func (h *ClientConfig) AddFilterAlert(config *humioapi.Config, req reconcile.Req
 	if err = h.ValidateActionsForFilterAlert(config, req, hfa); err != nil {
 		return &humioapi.FilterAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
-	filterAlert, err := FilterAlertTransform(hfa)
-	if err != nil {
-		return filterAlert, err
-	}
 
+	filterAlert := FilterAlertTransform(hfa)
 	createdAlert, err := h.GetHumioClient(config, req).FilterAlerts().Create(hfa.Spec.ViewName, filterAlert)
 	if err != nil {
 		return createdAlert, fmt.Errorf("got error when attempting to add filter alert: %w, filteralert: %#v", err, *filterAlert)
@@ -734,11 +730,8 @@ func (h *ClientConfig) UpdateFilterAlert(config *humioapi.Config, req reconcile.
 	if err = h.ValidateActionsForFilterAlert(config, req, hfa); err != nil {
 		return &humioapi.FilterAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
-	filterAlert, err := FilterAlertTransform(hfa)
-	if err != nil {
-		return filterAlert, err
-	}
 
+	filterAlert := FilterAlertTransform(hfa)
 	currentAlert, err := h.GetFilterAlert(config, req, hfa)
 	if err != nil {
 		return &humioapi.FilterAlert{}, fmt.Errorf("could not find filter alert with name: %q", filterAlert.Name)
@@ -767,10 +760,7 @@ func (h *ClientConfig) AddScheduledSearch(config *humioapi.Config, req reconcile
 	if err = h.ValidateActionsForScheduledSearch(config, req, hss); err != nil {
 		return &humioapi.ScheduledSearch{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
-	scheduledSearch, err := ScheduledSearchTransform(hss)
-	if err != nil {
-		return scheduledSearch, err
-	}
+	scheduledSearch := ScheduledSearchTransform(hss)
 
 	createdScheduledSearch, err := h.GetHumioClient(config, req).ScheduledSearches().Create(hss.Spec.ViewName, scheduledSearch)
 	if err != nil {
@@ -818,10 +808,7 @@ func (h *ClientConfig) UpdateScheduledSearch(config *humioapi.Config, req reconc
 	if err = h.ValidateActionsForScheduledSearch(config, req, hss); err != nil {
 		return &humioapi.ScheduledSearch{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
-	scheduledSearch, err := ScheduledSearchTransform(hss)
-	if err != nil {
-		return scheduledSearch, err
-	}
+	scheduledSearch := ScheduledSearchTransform(hss)
 
 	currentScheduledSearch, err := h.GetScheduledSearch(config, req, hss)
 	if err != nil {
@@ -904,11 +891,7 @@ func (h *ClientConfig) AddAggregateAlert(config *humioapi.Config, req reconcile.
 		return &humioapi.AggregateAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
 
-	aggregateAlert, err := AggregateAlertTransform(haa)
-	if err != nil {
-		return aggregateAlert, err
-	}
-
+	aggregateAlert := AggregateAlertTransform(haa)
 	createdAggregateAlert, err := h.GetHumioClient(config, req).AggregateAlerts().Create(haa.Spec.ViewName, aggregateAlert)
 	if err != nil {
 		return createdAggregateAlert, fmt.Errorf("got error when attempting to add aggregate alert: %w, aggregatealert: %#v", err, *aggregateAlert)
@@ -955,11 +938,7 @@ func (h *ClientConfig) UpdateAggregateAlert(config *humioapi.Config, req reconci
 	if err = h.ValidateActionsForAggregateAlert(config, req, haa); err != nil {
 		return &humioapi.AggregateAlert{}, fmt.Errorf("could not get action id mapping: %w", err)
 	}
-	aggregateAlert, err := AggregateAlertTransform(haa)
-	if err != nil {
-		return aggregateAlert, err
-	}
-
+	aggregateAlert := AggregateAlertTransform(haa)
 	currentAggregateAlert, err := h.GetAggregateAlert(config, req, haa)
 	if err != nil {
 		return &humioapi.AggregateAlert{}, fmt.Errorf("could not find aggregate alert with namer: %q", aggregateAlert.Name)

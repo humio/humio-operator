@@ -67,15 +67,7 @@ import (
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var k8sManager ctrl.Manager
-var humioClientForHumioAction humio.Client
-var humioClientForHumioAlert humio.Client
-var humioClientForHumioCluster humio.Client
-var humioClientForHumioExternalCluster humio.Client
-var humioClientForHumioIngestToken humio.Client
-var humioClientForHumioParser humio.Client
-var humioClientForHumioRepository humio.Client
-var humioClientForHumioView humio.Client
-var humioClientForTestSuite humio.Client
+var testHumioClient humio.Client
 var testTimeout time.Duration
 var testProcessNamespace string
 var err error
@@ -103,15 +95,7 @@ var _ = BeforeSuite(func() {
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &useExistingCluster,
 		}
-		humioClientForTestSuite = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioAction = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioAlert = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioCluster = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioExternalCluster = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioIngestToken = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioParser = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioRepository = humio.NewClient(log, &humioapi.Config{}, "")
-		humioClientForHumioView = humio.NewClient(log, &humioapi.Config{}, "")
+		testHumioClient = humio.NewClient(log, &humioapi.Config{}, "")
 	} else {
 		testTimeout = time.Second * 30
 		testEnv = &envtest.Environment{
@@ -119,15 +103,7 @@ var _ = BeforeSuite(func() {
 			CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 			ErrorIfCRDPathMissing: true,
 		}
-		humioClientForTestSuite = humio.NewMockClient(humioapi.Cluster{}, nil)
-		humioClientForHumioAction = humio.NewMockClient(humioapi.Cluster{}, nil)
-		humioClientForHumioAlert = humio.NewMockClient(humioapi.Cluster{}, nil)
-		humioClientForHumioCluster = humio.NewMockClient(humioapi.Cluster{}, nil)
-		humioClientForHumioExternalCluster = humio.NewMockClient(humioapi.Cluster{}, nil)
-		humioClientForHumioIngestToken = humio.NewMockClient(humioapi.Cluster{}, nil)
-		humioClientForHumioParser = humio.NewMockClient(humioapi.Cluster{}, nil)
-		humioClientForHumioRepository = humio.NewMockClient(humioapi.Cluster{}, nil)
-		humioClientForHumioView = humio.NewMockClient(humioapi.Cluster{}, nil)
+		testHumioClient = humio.NewMockClient()
 	}
 
 	var cfg *rest.Config
@@ -164,7 +140,7 @@ var _ = BeforeSuite(func() {
 
 	err = (&controllers.HumioActionReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioAction,
+		HumioClient: testHumioClient,
 		BaseLogger:  log,
 		Namespace:   testProcessNamespace,
 	}).SetupWithManager(k8sManager)
@@ -172,7 +148,7 @@ var _ = BeforeSuite(func() {
 
 	err = (&controllers.HumioAlertReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioAlert,
+		HumioClient: testHumioClient,
 		BaseLogger:  log,
 		Namespace:   testProcessNamespace,
 	}).SetupWithManager(k8sManager)
@@ -180,7 +156,7 @@ var _ = BeforeSuite(func() {
 
 	err = (&controllers.HumioClusterReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioCluster,
+		HumioClient: testHumioClient,
 		BaseLogger:  log,
 		Namespace:   testProcessNamespace,
 	}).SetupWithManager(k8sManager)
@@ -188,7 +164,7 @@ var _ = BeforeSuite(func() {
 
 	err = (&controllers.HumioExternalClusterReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioExternalCluster,
+		HumioClient: testHumioClient,
 		BaseLogger:  log,
 		Namespace:   testProcessNamespace,
 	}).SetupWithManager(k8sManager)
@@ -196,7 +172,7 @@ var _ = BeforeSuite(func() {
 
 	err = (&controllers.HumioIngestTokenReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioIngestToken,
+		HumioClient: testHumioClient,
 		BaseLogger:  log,
 		Namespace:   testProcessNamespace,
 	}).SetupWithManager(k8sManager)
@@ -204,7 +180,7 @@ var _ = BeforeSuite(func() {
 
 	err = (&controllers.HumioParserReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioParser,
+		HumioClient: testHumioClient,
 		BaseLogger:  log,
 		Namespace:   testProcessNamespace,
 	}).SetupWithManager(k8sManager)
@@ -212,7 +188,7 @@ var _ = BeforeSuite(func() {
 
 	err = (&controllers.HumioRepositoryReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioRepository,
+		HumioClient: testHumioClient,
 		BaseLogger:  log,
 		Namespace:   testProcessNamespace,
 	}).SetupWithManager(k8sManager)
@@ -220,7 +196,7 @@ var _ = BeforeSuite(func() {
 
 	err = (&controllers.HumioViewReconciler{
 		Client:      k8sManager.GetClient(),
-		HumioClient: humioClientForHumioView,
+		HumioClient: testHumioClient,
 		BaseLogger:  log,
 		Namespace:   testProcessNamespace,
 	}).SetupWithManager(k8sManager)
