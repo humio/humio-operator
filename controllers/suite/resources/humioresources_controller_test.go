@@ -43,12 +43,12 @@ import (
 var _ = Describe("Humio Resources Controllers", func() {
 	BeforeEach(func() {
 		// failed test runs that don't clean up leave resources behind.
-		humioClient.ClearHumioClientConnections()
+		humioClient.ClearHumioClientConnections(testRepoName)
 	})
 
 	AfterEach(func() {
 		// Add any teardown steps that needs to be executed after each test
-		humioClient.ClearHumioClientConnections()
+		humioClient.ClearHumioClientConnections(testRepoName)
 	})
 
 	// Add Tests for OpenAPI validation (or additional CRD features) specified in

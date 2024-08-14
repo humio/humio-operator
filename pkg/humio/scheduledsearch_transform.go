@@ -42,6 +42,4 @@ func ScheduledSearchHydrate(hss *humiov1alpha1.HumioScheduledSearch, scheduledSe
 		Actions:       scheduledSearch.ActionNames,
 		Labels:        scheduledSearch.Labels,
 	}
-
-	return
 }

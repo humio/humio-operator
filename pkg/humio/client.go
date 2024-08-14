@@ -53,10 +53,10 @@ type Client interface {
 type ClusterClient interface {
 	GetClusters(*humioapi.Config, reconcile.Request) (humioapi.Cluster, error)
 	GetHumioClient(*humioapi.Config, reconcile.Request) *humioapi.Client
-	ClearHumioClientConnections()
+	ClearHumioClientConnections(string)
 	GetBaseURL(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioCluster) *url.URL
 	TestAPIToken(*humioapi.Config, reconcile.Request) error
-	Status(*humioapi.Config, reconcile.Request) (humioapi.StatusResponse, error)
+	Status(*humioapi.Config, reconcile.Request) (*humioapi.StatusResponse, error)
 }
 
 type IngestTokensClient interface {
@@ -213,7 +213,7 @@ func (h *ClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Request)
 	return c.client
 }
 
-func (h *ClientConfig) ClearHumioClientConnections() {
+func (h *ClientConfig) ClearHumioClientConnections(string) {
 	h.humioClientsMutex.Lock()
 	defer h.humioClientsMutex.Unlock()
 
@@ -221,22 +221,13 @@ func (h *ClientConfig) ClearHumioClientConnections() {
 }
 
 // Status returns the status of the humio cluster
-func (h *ClientConfig) Status(config *humioapi.Config, req reconcile.Request) (humioapi.StatusResponse, error) {
-	status, err := h.GetHumioClient(config, req).Status()
-	if err != nil {
-		h.logger.Error(err, "could not get status")
-		return humioapi.StatusResponse{}, err
-	}
-	return *status, err
+func (h *ClientConfig) Status(config *humioapi.Config, req reconcile.Request) (*humioapi.StatusResponse, error) {
+	return h.GetHumioClient(config, req).Status()
 }
 
 // GetClusters returns a humio cluster and can be mocked via the Client interface
 func (h *ClientConfig) GetClusters(config *humioapi.Config, req reconcile.Request) (humioapi.Cluster, error) {
-	clusters, err := h.GetHumioClient(config, req).Clusters().Get()
-	if err != nil {
-		h.logger.Error(err, "could not get cluster information")
-	}
-	return clusters, err
+	return h.GetHumioClient(config, req).Clusters().Get()
 }
 
 // GetBaseURL returns the base URL for given HumioCluster
@@ -337,24 +328,17 @@ func (h *ClientConfig) AddRepository(config *humioapi.Config, req reconcile.Requ
 }
 
 func (h *ClientConfig) GetRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
-	repoList, err := h.GetHumioClient(config, req).Repositories().List()
+	repo, err := h.GetHumioClient(config, req).Repositories().Get(hr.Spec.Name)
 	if err != nil {
-		return &humioapi.Repository{}, fmt.Errorf("could not list repositories: %w", err)
+		return nil, err
 	}
-	for _, repo := range repoList {
-		if repo.Name == hr.Spec.Name {
-			// we now know the repository exists
-			repository, err := h.GetHumioClient(config, req).Repositories().Get(hr.Spec.Name)
-			return &repository, err
-		}
-	}
-	return &humioapi.Repository{}, nil
+	return &repo, nil
 }
 
 func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
 	curRepository, err := h.GetRepository(config, req, hr)
 	if err != nil {
-		return &humioapi.Repository{}, err
+		return nil, err
 	}
 
 	if curRepository.Description != hr.Spec.Description {
@@ -363,7 +347,7 @@ func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.R
 			hr.Spec.Description,
 		)
 		if err != nil {
-			return &humioapi.Repository{}, err
+			return nil, err
 		}
 	}
 
@@ -374,7 +358,7 @@ func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.R
 			hr.Spec.AllowDataDeletion,
 		)
 		if err != nil {
-			return &humioapi.Repository{}, err
+			return nil, err
 		}
 	}
 
@@ -385,7 +369,7 @@ func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.R
 			hr.Spec.AllowDataDeletion,
 		)
 		if err != nil {
-			return &humioapi.Repository{}, err
+			return nil, err
 		}
 	}
 
@@ -396,7 +380,7 @@ func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.R
 			hr.Spec.AllowDataDeletion,
 		)
 		if err != nil {
-			return &humioapi.Repository{}, err
+			return nil, err
 		}
 	}
 
@@ -406,7 +390,7 @@ func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.R
 			helpers.BoolTrue(hr.Spec.AutomaticSearch),
 		)
 		if err != nil {
-			return &humioapi.Repository{}, err
+			return nil, err
 		}
 	}
 
@@ -427,18 +411,7 @@ func (h *ClientConfig) DeleteRepository(config *humioapi.Config, req reconcile.R
 }
 
 func (h *ClientConfig) GetView(config *humioapi.Config, req reconcile.Request, hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
-	viewList, err := h.GetHumioClient(config, req).Views().List()
-	if err != nil {
-		return &humioapi.View{}, fmt.Errorf("could not list views: %w", err)
-	}
-	for _, v := range viewList {
-		if v.Name == hv.Spec.Name {
-			// we now know the view exists
-			view, err := h.GetHumioClient(config, req).Views().Get(hv.Spec.Name)
-			return view, err
-		}
-	}
-	return &humioapi.View{}, nil
+	return h.GetHumioClient(config, req).Views().Get(hv.Spec.Name)
 }
 
 func (h *ClientConfig) AddView(config *humioapi.Config, req reconcile.Request, hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
@@ -458,7 +431,7 @@ func (h *ClientConfig) AddView(config *humioapi.Config, req reconcile.Request, h
 func (h *ClientConfig) UpdateView(config *humioapi.Config, req reconcile.Request, hv *humiov1alpha1.HumioView) (*humioapi.View, error) {
 	curView, err := h.GetView(config, req, hv)
 	if err != nil {
-		return &humioapi.View{}, err
+		return nil, err
 	}
 
 	if curView.Description != hv.Spec.Description {
@@ -467,7 +440,7 @@ func (h *ClientConfig) UpdateView(config *humioapi.Config, req reconcile.Request
 			hv.Spec.Description,
 		)
 		if err != nil {
-			return &humioapi.View{}, err
+			return nil, err
 		}
 	}
 
@@ -477,7 +450,7 @@ func (h *ClientConfig) UpdateView(config *humioapi.Config, req reconcile.Request
 			helpers.BoolTrue(hv.Spec.AutomaticSearch),
 		)
 		if err != nil {
-			return &humioapi.View{}, err
+			return nil, err
 		}
 	}
 
@@ -491,7 +464,7 @@ func (h *ClientConfig) UpdateView(config *humioapi.Config, req reconcile.Request
 		getConnectionMap(connections),
 	)
 	if err != nil {
-		return &humioapi.View{}, err
+		return nil, err
 	}
 
 	return h.GetView(config, req, hv)
@@ -505,46 +478,22 @@ func (h *ClientConfig) DeleteView(config *humioapi.Config, req reconcile.Request
 	return h.GetHumioClient(config, req).Views().Delete(hv.Spec.Name, "Deleted by humio-operator")
 }
 
-func (h *ClientConfig) validateView(config *humioapi.Config, req reconcile.Request, viewName string) error {
-	view := &humiov1alpha1.HumioView{
-		Spec: humiov1alpha1.HumioViewSpec{
-			Name: viewName,
-		},
-	}
-
-	viewResult, err := h.GetView(config, req, view)
-	if err != nil {
-		return fmt.Errorf("failed to verify view %s exists. error: %w", viewName, err)
-	}
-
-	emptyView := &humioapi.View{}
-	if reflect.DeepEqual(emptyView, viewResult) {
-		return fmt.Errorf("view %s does not exist", viewName)
-	}
-
-	return nil
+func (h *ClientConfig) validateSearchDomain(config *humioapi.Config, req reconcile.Request, searchDomainName string) error {
+	_, err := h.GetHumioClient(config, req).SearchDomains().Get(searchDomainName)
+	return err
 }
 
 func (h *ClientConfig) GetAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
-	err := h.validateView(config, req, ha.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, ha.Spec.ViewName)
 	if err != nil {
 		return nil, fmt.Errorf("problem getting view for action %s: %w", ha.Spec.Name, err)
 	}
 
-	action, err := h.GetHumioClient(config, req).Actions().Get(ha.Spec.ViewName, ha.Spec.Name)
-	if err != nil {
-		return nil, fmt.Errorf("error when trying to get action %+v, name=%s, view=%s: %w", action, ha.Spec.Name, ha.Spec.ViewName, err)
-	}
-
-	if action == nil || action.Name == "" {
-		return nil, nil
-	}
-
-	return action, nil
+	return h.GetHumioClient(config, req).Actions().Get(ha.Spec.ViewName, ha.Spec.Name)
 }
 
 func (h *ClientConfig) AddAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
-	err := h.validateView(config, req, ha.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, ha.Spec.ViewName)
 	if err != nil {
 		return nil, fmt.Errorf("problem getting view for action %s: %w", ha.Spec.Name, err)
 	}
@@ -562,7 +511,7 @@ func (h *ClientConfig) AddAction(config *humioapi.Config, req reconcile.Request,
 }
 
 func (h *ClientConfig) UpdateAction(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAction) (*humioapi.Action, error) {
-	err := h.validateView(config, req, ha.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, ha.Spec.ViewName)
 	if err != nil {
 		return nil, fmt.Errorf("problem getting view for action %s: %w", ha.Spec.Name, err)
 	}
@@ -609,25 +558,16 @@ func (h *ClientConfig) InstallLicense(config *humioapi.Config, req reconcile.Req
 }
 
 func (h *ClientConfig) GetAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
-	err := h.validateView(config, req, ha.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, ha.Spec.ViewName)
 	if err != nil {
 		return &humioapi.Alert{}, fmt.Errorf("problem getting view for alert %s: %w", ha.Spec.Name, err)
 	}
 
-	alert, err := h.GetHumioClient(config, req).Alerts().Get(ha.Spec.ViewName, ha.Spec.Name)
-	if err != nil {
-		return alert, fmt.Errorf("error when trying to get alert %+v, name=%s, view=%s: %w", alert, ha.Spec.Name, ha.Spec.ViewName, err)
-	}
-
-	if alert == nil || alert.Name == "" {
-		return nil, nil
-	}
-
-	return alert, nil
+	return h.GetHumioClient(config, req).Alerts().Get(ha.Spec.ViewName, ha.Spec.Name)
 }
 
 func (h *ClientConfig) AddAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
-	err := h.validateView(config, req, ha.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, ha.Spec.ViewName)
 	if err != nil {
 		return &humioapi.Alert{}, fmt.Errorf("problem getting view for alert: %w", err)
 	}
@@ -646,7 +586,7 @@ func (h *ClientConfig) AddAlert(config *humioapi.Config, req reconcile.Request, 
 }
 
 func (h *ClientConfig) UpdateAlert(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humioapi.Alert, error) {
-	err := h.validateView(config, req, ha.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, ha.Spec.ViewName)
 	if err != nil {
 		return &humioapi.Alert{}, fmt.Errorf("problem getting view for action: %w", err)
 	}
@@ -675,7 +615,7 @@ func (h *ClientConfig) DeleteAlert(config *humioapi.Config, req reconcile.Reques
 }
 
 func (h *ClientConfig) GetFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
-	err := h.validateView(config, req, hfa.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, hfa.Spec.ViewName)
 	if err != nil {
 		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for filter alert %s: %w", hfa.Spec.Name, err)
 	}
@@ -706,7 +646,7 @@ func (h *ClientConfig) GetFilterAlert(config *humioapi.Config, req reconcile.Req
 }
 
 func (h *ClientConfig) AddFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
-	err := h.validateView(config, req, hfa.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, hfa.Spec.ViewName)
 	if err != nil {
 		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for filter alert: %w", err)
 	}
@@ -723,7 +663,7 @@ func (h *ClientConfig) AddFilterAlert(config *humioapi.Config, req reconcile.Req
 }
 
 func (h *ClientConfig) UpdateFilterAlert(config *humioapi.Config, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
-	err := h.validateView(config, req, hfa.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, hfa.Spec.ViewName)
 	if err != nil {
 		return &humioapi.FilterAlert{}, fmt.Errorf("problem getting view for action: %w", err)
 	}
@@ -753,7 +693,7 @@ func (h *ClientConfig) DeleteFilterAlert(config *humioapi.Config, req reconcile.
 }
 
 func (h *ClientConfig) AddScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) (*humioapi.ScheduledSearch, error) {
-	err := h.validateView(config, req, hss.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, hss.Spec.ViewName)
 	if err != nil {
 		return &humioapi.ScheduledSearch{}, fmt.Errorf("problem getting view for scheduled search: %w", err)
 	}
@@ -770,7 +710,7 @@ func (h *ClientConfig) AddScheduledSearch(config *humioapi.Config, req reconcile
 }
 
 func (h *ClientConfig) GetScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) (*humioapi.ScheduledSearch, error) {
-	err := h.validateView(config, req, hss.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, hss.Spec.ViewName)
 	if err != nil {
 		return &humioapi.ScheduledSearch{}, fmt.Errorf("problem getting view for scheduled search %s: %w", hss.Spec.Name, err)
 	}
@@ -801,7 +741,7 @@ func (h *ClientConfig) GetScheduledSearch(config *humioapi.Config, req reconcile
 }
 
 func (h *ClientConfig) UpdateScheduledSearch(config *humioapi.Config, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) (*humioapi.ScheduledSearch, error) {
-	err := h.validateView(config, req, hss.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, hss.Spec.ViewName)
 	if err != nil {
 		return &humioapi.ScheduledSearch{}, fmt.Errorf("problem getting view for scheduled search: %w", err)
 	}
@@ -838,17 +778,7 @@ func (h *ClientConfig) getAndValidateAction(config *humioapi.Config, req reconci
 		},
 	}
 
-	actionResult, err := h.GetAction(config, req, action)
-	if err != nil {
-		return actionResult, fmt.Errorf("failed to verify action %s exists. error: %w", actionName, err)
-	}
-
-	emptyAction := &humioapi.Action{}
-	if reflect.DeepEqual(emptyAction, actionResult) {
-		return actionResult, fmt.Errorf("action %s does not exist", actionName)
-	}
-
-	return actionResult, nil
+	return h.GetAction(config, req, action)
 }
 
 func (h *ClientConfig) GetActionIDsMapForAlerts(config *humioapi.Config, req reconcile.Request, ha *humiov1alpha1.HumioAlert) (map[string]string, error) {

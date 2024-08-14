@@ -25,24 +25,6 @@ func AlertTransform(ha *humiov1alpha1.HumioAlert, actionIdMap map[string]string)
 	return alert
 }
 
-func AlertHydrate(ha *humiov1alpha1.HumioAlert, alert *humioapi.Alert, actionIdMap map[string]string) {
-	ha.Spec = humiov1alpha1.HumioAlertSpec{
-		Name: alert.Name,
-		Query: humiov1alpha1.HumioQuery{
-			QueryString: alert.QueryString,
-			Start:       alert.QueryStart,
-		},
-		Description:        alert.Description,
-		ThrottleTimeMillis: alert.ThrottleTimeMillis,
-		ThrottleField:      alert.ThrottleField,
-		Silenced:           !alert.Enabled,
-		Actions:            actionIdsFromActionMap(ha.Spec.Actions, actionIdMap),
-		Labels:             alert.Labels,
-	}
-
-	return
-}
-
 func actionIdsFromActionMap(actionList []string, actionIdMap map[string]string) []string {
 	var actionIds []string
 	for _, action := range actionList {

@@ -56,12 +56,12 @@ var _ = Describe("HumioCluster Controller", func() {
 
 	BeforeEach(func() {
 		// failed test runs that don't clean up leave resources behind.
-		testHumioClient.ClearHumioClientConnections()
+		testHumioClient.ClearHumioClientConnections("")
 	})
 
 	AfterEach(func() {
 		// Add any teardown steps that needs to be executed after each test
-		testHumioClient.ClearHumioClientConnections()
+		testHumioClient.ClearHumioClientConnections("")
 	})
 
 	// Add Tests for OpenAPI validation (or additional CRD features) specified in

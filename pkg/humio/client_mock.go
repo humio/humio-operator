@@ -68,7 +68,7 @@ type MockClientConfig struct {
 func NewMockClient() *MockClientConfig {
 	mockClientConfig := &MockClientConfig{
 		apiClient: &ClientMock{
-			OnPremLicense: map[resourceKey]humioapi.OnPremLicense{},
+			OnPremLicense: make(map[resourceKey]humioapi.OnPremLicense),
 
 			Repository: make(map[resourceKey]humioapi.Repository),
 			View:       make(map[resourceKey]humioapi.View),
@@ -86,8 +86,8 @@ func NewMockClient() *MockClientConfig {
 	return mockClientConfig
 }
 
-func (h *MockClientConfig) Status(config *humioapi.Config, req reconcile.Request) (humioapi.StatusResponse, error) {
-	return humioapi.StatusResponse{
+func (h *MockClientConfig) Status(config *humioapi.Config, req reconcile.Request) (*humioapi.StatusResponse, error) {
+	return &humioapi.StatusResponse{
 		Status:  "OK",
 		Version: "x.y.z",
 	}, nil
@@ -110,8 +110,13 @@ func (h *MockClientConfig) AddIngestToken(config *humioapi.Config, req reconcile
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
+	clusterName := fmt.Sprintf("%s%s", hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName)
+	if !h.searchDomainNameExists(clusterName, hit.Spec.RepositoryName) {
+		return nil, fmt.Errorf("search domain name does not exist")
+	}
+
 	key := resourceKey{
-		clusterName:      fmt.Sprintf("%s%s", hit.Spec.ManagedClusterName, hit.Spec.ExternalClusterName),
+		clusterName:      clusterName,
 		searchDomainName: hit.Spec.RepositoryName,
 		resourceName:     hit.Spec.Name,
 	}
@@ -184,8 +189,13 @@ func (h *MockClientConfig) AddParser(config *humioapi.Config, req reconcile.Requ
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
+	clusterName := fmt.Sprintf("%s%s", hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName)
+	if !h.searchDomainNameExists(clusterName, hp.Spec.RepositoryName) {
+		return nil, fmt.Errorf("search domain name does not exist")
+	}
+
 	key := resourceKey{
-		clusterName:      fmt.Sprintf("%s%s", hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName),
+		clusterName:      clusterName,
 		searchDomainName: hp.Spec.RepositoryName,
 		resourceName:     hp.Spec.Name,
 	}
@@ -256,8 +266,13 @@ func (h *MockClientConfig) AddRepository(config *humioapi.Config, req reconcile.
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
+	clusterName := fmt.Sprintf("%s%s", hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName)
+	if h.searchDomainNameExists(clusterName, hr.Spec.Name) {
+		return nil, fmt.Errorf("search domain name already in use")
+	}
+
 	key := resourceKey{
-		clusterName:  fmt.Sprintf("%s%s", hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName),
+		clusterName:  clusterName,
 		resourceName: hr.Spec.Name,
 	}
 
@@ -326,6 +341,8 @@ func (h *MockClientConfig) DeleteRepository(config *humioapi.Config, req reconci
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
+	// TODO: consider finding all entities referring to this searchDomainName and remove them as well
+
 	key := resourceKey{
 		clusterName:  fmt.Sprintf("%s%s", hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName),
 		resourceName: hr.Spec.Name,
@@ -354,8 +371,13 @@ func (h *MockClientConfig) AddView(config *humioapi.Config, req reconcile.Reques
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
+	clusterName := fmt.Sprintf("%s%s", hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName)
+	if h.searchDomainNameExists(clusterName, hv.Spec.Name) {
+		return nil, fmt.Errorf("search domain name already in use")
+	}
+
 	key := resourceKey{
-		clusterName:  fmt.Sprintf("%s%s", hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName),
+		clusterName:  clusterName,
 		resourceName: hv.Spec.Name,
 	}
 
@@ -415,6 +437,8 @@ func (h *MockClientConfig) UpdateView(config *humioapi.Config, req reconcile.Req
 func (h *MockClientConfig) DeleteView(config *humioapi.Config, req reconcile.Request, hv *humiov1alpha1.HumioView) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
+
+	// TODO: consider finding all entities referring to this searchDomainName and remove them as well
 
 	key := resourceKey{
 		clusterName:  fmt.Sprintf("%s%s", hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName),
@@ -478,8 +502,13 @@ func (h *MockClientConfig) AddAction(config *humioapi.Config, req reconcile.Requ
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
+	clusterName := fmt.Sprintf("%s%s", ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName)
+	if !h.searchDomainNameExists(clusterName, ha.Spec.ViewName) {
+		return nil, fmt.Errorf("search domain name does not exist")
+	}
+
 	key := resourceKey{
-		clusterName:      fmt.Sprintf("%s%s", ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName),
+		clusterName:      clusterName,
 		searchDomainName: ha.Spec.ViewName,
 		resourceName:     ha.Spec.Name,
 	}
@@ -558,8 +587,13 @@ func (h *MockClientConfig) AddAlert(config *humioapi.Config, req reconcile.Reque
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
+	clusterName := fmt.Sprintf("%s%s", ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName)
+	if !h.searchDomainNameExists(clusterName, ha.Spec.ViewName) {
+		return nil, fmt.Errorf("search domain name does not exist")
+	}
+
 	key := resourceKey{
-		clusterName:      fmt.Sprintf("%s%s", ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName),
+		clusterName:      clusterName,
 		searchDomainName: ha.Spec.ViewName,
 		resourceName:     ha.Spec.Name,
 	}
@@ -649,8 +683,13 @@ func (h *MockClientConfig) AddFilterAlert(config *humioapi.Config, req reconcile
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
+	clusterName := fmt.Sprintf("%s%s", hfa.Spec.ManagedClusterName, hfa.Spec.ExternalClusterName)
+	if !h.searchDomainNameExists(clusterName, hfa.Spec.ViewName) {
+		return nil, fmt.Errorf("search domain name does not exist")
+	}
+
 	key := resourceKey{
-		clusterName:      fmt.Sprintf("%s%s", hfa.Spec.ManagedClusterName, hfa.Spec.ExternalClusterName),
+		clusterName:      clusterName,
 		searchDomainName: hfa.Spec.ViewName,
 		resourceName:     hfa.Spec.Name,
 	}
@@ -801,8 +840,13 @@ func (h *MockClientConfig) AddScheduledSearch(config *humioapi.Config, req recon
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
+	clusterName := fmt.Sprintf("%s%s", hss.Spec.ManagedClusterName, hss.Spec.ExternalClusterName)
+	if !h.searchDomainNameExists(clusterName, hss.Spec.ViewName) {
+		return nil, fmt.Errorf("search domain name does not exist")
+	}
+
 	key := resourceKey{
-		clusterName:      fmt.Sprintf("%s%s", hss.Spec.ManagedClusterName, hss.Spec.ExternalClusterName),
+		clusterName:      clusterName,
 		searchDomainName: hss.Spec.ViewName,
 		resourceName:     hss.Spec.Name,
 	}
@@ -886,11 +930,12 @@ func (h *MockClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Requ
 	return humioapi.NewClient(humioapi.Config{Address: clusterURL})
 }
 
-func (h *MockClientConfig) ClearHumioClientConnections() {
-	// TODO: Find out if we can rip this function out entirely. Maybe tests should be updated to include object deletions?
-	h.apiClient.OnPremLicense = make(map[resourceKey]humioapi.OnPremLicense)
-
-	h.apiClient.Repository = make(map[resourceKey]humioapi.Repository)
+func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
+	for k := range h.apiClient.Repository {
+		if k.resourceName != repoNameToKeep {
+			delete(h.apiClient.Repository, k)
+		}
+	}
 	h.apiClient.View = make(map[resourceKey]humioapi.View)
 
 	h.apiClient.IngestToken = make(map[resourceKey]humioapi.IngestToken)
@@ -900,4 +945,23 @@ func (h *MockClientConfig) ClearHumioClientConnections() {
 	h.apiClient.FilterAlert = make(map[resourceKey]humioapi.FilterAlert)
 	h.apiClient.AggregateAlert = make(map[resourceKey]humioapi.AggregateAlert)
 	h.apiClient.ScheduledSearch = make(map[resourceKey]humioapi.ScheduledSearch)
+}
+
+// searchDomainNameExists returns a boolean if either a repository or view exists with the given search domain name.
+// It assumes the caller already holds the lock humioClientMu.
+func (h *MockClientConfig) searchDomainNameExists(clusterName, searchDomainName string) bool {
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: searchDomainName,
+	}
+
+	if _, found := h.apiClient.Repository[key]; found {
+		return true
+	}
+
+	if _, found := h.apiClient.View[key]; found {
+		return true
+	}
+
+	return false
 }
