@@ -349,7 +349,11 @@ func markPodAsPending(ctx context.Context, client client.Client, nodeID int, pod
 
 func podReadyCountByRevision(ctx context.Context, hnp *controllers.HumioNodePool, expectedPodRevision int, expectedReadyCount int) map[int]int {
 	revisionToReadyCount := map[int]int{}
-	clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, hnp.GetNamespace(), hnp.GetNodePoolLabels())
+	clusterPods, err := kubernetes.ListPods(ctx, k8sClient, hnp.GetNamespace(), hnp.GetNodePoolLabels())
+	if err != nil {
+		suite.UsingClusterBy(hnp.GetClusterName(), "podReadyCountByRevision | ERROR WHILE LISTING PODS IN")
+		return map[int]int{}
+	}
 	for nodeID, pod := range clusterPods {
 		revision, _ := strconv.Atoi(pod.Annotations[controllers.PodRevisionAnnotation])
 		if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
@@ -365,7 +369,11 @@ func podReadyCountByRevision(ctx context.Context, hnp *controllers.HumioNodePool
 			}
 		} else {
 			if nodeID+1 <= expectedReadyCount {
-				_ = suite.MarkPodAsRunning(ctx, k8sClient, nodeID, pod, hnp.GetClusterName())
+				suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("podReadyCountByRevision | marking pod %s as running", pod.Name))
+				err = suite.MarkPodAsRunning(ctx, k8sClient, nodeID, pod, hnp.GetClusterName())
+				if err != nil {
+					suite.UsingClusterBy(hnp.GetClusterName(), "podReadyCountByRevision | ERROR WHILE MARKING POD AS RUNNING")
+				}
 				revisionToReadyCount[revision]++
 			}
 		}
@@ -431,6 +439,7 @@ func ensurePodsRollingRestart(ctx context.Context, hnp *controllers.HumioNodePoo
 
 	for expectedReadyCount := 1; expectedReadyCount < hnp.GetNodeCount()+1; expectedReadyCount++ {
 		Eventually(func() map[int]int {
+			suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("Ensuring replacement pods are ready one at a time expectedReadyCount=%d", expectedReadyCount))
 			return podReadyCountByRevision(ctx, hnp, expectedPodRevision, expectedReadyCount)
 		}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(expectedPodRevision, expectedReadyCount))
 	}
