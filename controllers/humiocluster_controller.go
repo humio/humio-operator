@@ -318,6 +318,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			status, err := humioClient.Status(cluster.Config(), req)
 			if err != nil {
 				r.Log.Error(err, "unable to get cluster status")
+				return
 			}
 			_, _ = r.updateStatus(ctx, r.Client.Status(), hc, opts.withVersion(status.Version))
 		}
