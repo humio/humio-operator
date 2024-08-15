@@ -112,6 +112,9 @@ var _ = BeforeSuite(func() {
 		// testEnv.Start() sporadically fails with "unable to grab random port for serving webhooks on", so let's
 		// retry a couple of times
 		cfg, err = testEnv.Start()
+		if err != nil {
+			By(fmt.Sprintf("Got error trying to start testEnv, retrying... err=%v", err))
+		}
 		return err
 	}, 30*time.Second, 5*time.Second).Should(Succeed())
 	Expect(cfg).NotTo(BeNil())
@@ -347,34 +350,69 @@ func markPodAsPending(ctx context.Context, client client.Client, nodeID int, pod
 	return client.Status().Update(ctx, &pod)
 }
 
-func podReadyCountByRevision(ctx context.Context, hnp *controllers.HumioNodePool, expectedPodRevision int, expectedReadyCount int) map[int]int {
+func markPodsWithRevisionAsReady(ctx context.Context, hnp *controllers.HumioNodePool, podRevision int, desiredReadyPodCount int) {
+	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+		return
+	}
+	foundPodList, _ := kubernetes.ListPods(ctx, k8sClient, hnp.GetNamespace(), hnp.GetNodePoolLabels())
+	suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("Found %d pods", len(foundPodList)))
+	podListWithRevision := []corev1.Pod{}
+	for i := range foundPodList {
+		foundPodRevisionValue, _ := foundPodList[i].Annotations[controllers.PodRevisionAnnotation]
+		foundPodHash, _ := foundPodList[i].Annotations[controllers.PodHashAnnotation]
+		suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("Pod=%s revision=%s podHash=%s podIP=%s", foundPodList[i].Name, foundPodRevisionValue, foundPodHash, foundPodList[i].Status.PodIP))
+		foundPodRevisionValueInt, _ := strconv.Atoi(foundPodRevisionValue)
+		if foundPodRevisionValueInt == podRevision {
+			podListWithRevision = append(podListWithRevision, foundPodList[i])
+		}
+	}
+	suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("revision=%d, count=%d pods", podRevision, len(podListWithRevision)))
+
+	readyWithRevision := 0
+	for i := range podListWithRevision {
+		if podListWithRevision[i].Status.PodIP != "" {
+			readyWithRevision++
+		}
+	}
+	suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("revision=%d, count=%d pods, readyWithRevision=%d", podRevision, len(podListWithRevision), readyWithRevision))
+
+	if readyWithRevision == desiredReadyPodCount {
+		suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("Got expected pod count %d with revision %d", readyWithRevision, podRevision))
+		return
+	}
+
+	for i := range podListWithRevision {
+		suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("Considering pod %s with podIP %s", podListWithRevision[i].Name, podListWithRevision[i].Status.PodIP))
+		if podListWithRevision[i].Status.PodIP == "" {
+			err := suite.MarkPodAsRunning(ctx, k8sClient, podListWithRevision[i], hnp.GetClusterName())
+			if err != nil {
+				suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("Got error while marking pod %s as running: %v", podListWithRevision[i].Name, err))
+			}
+			break
+		}
+	}
+}
+
+func podReadyCountByRevision(ctx context.Context, hnp *controllers.HumioNodePool, expectedPodRevision int) map[int]int {
 	revisionToReadyCount := map[int]int{}
 	clusterPods, err := kubernetes.ListPods(ctx, k8sClient, hnp.GetNamespace(), hnp.GetNodePoolLabels())
 	if err != nil {
-		suite.UsingClusterBy(hnp.GetClusterName(), "podReadyCountByRevision | ERROR WHILE LISTING PODS IN")
-		return map[int]int{}
+		suite.UsingClusterBy(hnp.GetClusterName(), "podReadyCountByRevision | Got error when listing pods")
 	}
-	for nodeID, pod := range clusterPods {
-		revision, _ := strconv.Atoi(pod.Annotations[controllers.PodRevisionAnnotation])
-		if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-			if pod.DeletionTimestamp == nil {
-				for _, condition := range pod.Status.Conditions {
-					if condition.Type == corev1.PodReady {
-						if condition.Status == corev1.ConditionTrue {
-							revisionToReadyCount[revision]++
 
-						}
+	for _, pod := range clusterPods {
+		value, found := pod.Annotations[controllers.PodRevisionAnnotation]
+		if !found {
+			suite.UsingClusterBy(hnp.GetClusterName(), "podReadyCountByRevision | ERROR, pod found without revision annotation")
+		}
+		revision, _ := strconv.Atoi(value)
+		if pod.DeletionTimestamp == nil {
+			for _, condition := range pod.Status.Conditions {
+				if condition.Type == corev1.PodReady {
+					if condition.Status == corev1.ConditionTrue {
+						revisionToReadyCount[revision]++
 					}
 				}
-			}
-		} else {
-			if nodeID+1 <= expectedReadyCount {
-				suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("podReadyCountByRevision | marking pod %s as running", pod.Name))
-				err = suite.MarkPodAsRunning(ctx, k8sClient, nodeID, pod, hnp.GetClusterName())
-				if err != nil {
-					suite.UsingClusterBy(hnp.GetClusterName(), "podReadyCountByRevision | ERROR WHILE MARKING POD AS RUNNING")
-				}
-				revisionToReadyCount[revision]++
 			}
 		}
 	}
@@ -440,7 +478,8 @@ func ensurePodsRollingRestart(ctx context.Context, hnp *controllers.HumioNodePoo
 	for expectedReadyCount := 1; expectedReadyCount < hnp.GetNodeCount()+1; expectedReadyCount++ {
 		Eventually(func() map[int]int {
 			suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("Ensuring replacement pods are ready one at a time expectedReadyCount=%d", expectedReadyCount))
-			return podReadyCountByRevision(ctx, hnp, expectedPodRevision, expectedReadyCount)
+			markPodsWithRevisionAsReady(ctx, hnp, expectedPodRevision, expectedReadyCount)
+			return podReadyCountByRevision(ctx, hnp, expectedPodRevision)
 		}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(expectedPodRevision, expectedReadyCount))
 	}
 }
@@ -457,14 +496,16 @@ func ensurePodsGoPending(ctx context.Context, hnp *controllers.HumioNodePool, ex
 func ensurePodsTerminate(ctx context.Context, hnp *controllers.HumioNodePool, expectedPodRevision int) {
 	suite.UsingClusterBy(hnp.GetClusterName(), "Ensuring all existing pods are terminated at the same time")
 	Eventually(func() map[int]int {
-		numPodsReadyByRevision := podReadyCountByRevision(ctx, hnp, expectedPodRevision, 0)
+		markPodsWithRevisionAsReady(ctx, hnp, expectedPodRevision, 0)
+		numPodsReadyByRevision := podReadyCountByRevision(ctx, hnp, expectedPodRevision)
 		suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("podsReadyCountByRevision() = %#+v", numPodsReadyByRevision))
 		return numPodsReadyByRevision
 	}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(expectedPodRevision-1, 0))
 
 	suite.UsingClusterBy(hnp.GetClusterName(), "Ensuring replacement pods are not ready at the same time")
 	Eventually(func() map[int]int {
-		numPodsReadyByRevision := podReadyCountByRevision(ctx, hnp, expectedPodRevision, 0)
+		markPodsWithRevisionAsReady(ctx, hnp, expectedPodRevision, 0)
+		numPodsReadyByRevision := podReadyCountByRevision(ctx, hnp, expectedPodRevision)
 		suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("podsReadyCountByRevision() = %#+v", numPodsReadyByRevision))
 		return numPodsReadyByRevision
 	}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(expectedPodRevision, 0))
@@ -476,7 +517,8 @@ func ensurePodsSimultaneousRestart(ctx context.Context, hnp *controllers.HumioNo
 
 	suite.UsingClusterBy(hnp.GetClusterName(), "Ensuring all pods come back up after terminating")
 	Eventually(func() map[int]int {
-		numPodsReadyByRevision := podReadyCountByRevision(ctx, hnp, expectedPodRevision, hnp.GetNodeCount())
+		markPodsWithRevisionAsReady(ctx, hnp, expectedPodRevision, hnp.GetNodeCount())
+		numPodsReadyByRevision := podReadyCountByRevision(ctx, hnp, expectedPodRevision)
 		suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("podsReadyCountByRevision() = %#+v", numPodsReadyByRevision))
 		return numPodsReadyByRevision
 	}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(expectedPodRevision, hnp.GetNodeCount()))

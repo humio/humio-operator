@@ -260,7 +260,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			if err != nil {
 				opts.withMessage(err.Error())
 			}
-			return r.updateStatus(ctx, r.Client.Status(), hc, opts.withState(hc.Status.State))
+			_, _ = r.updateStatus(ctx, r.Client.Status(), hc, opts.withState(hc.Status.State))
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
 
@@ -377,7 +378,7 @@ func (r *HumioClusterReconciler) nodePoolPodsReady(ctx context.Context, hc *humi
 	if podsStatus.waitingOnPods() {
 		r.Log.Info("waiting on pods, refusing to continue with reconciliation until all pods are ready")
 		r.Log.Info(fmt.Sprintf("cluster state is %s. waitingOnPods=%v, "+
-			"revisionsInSync=%v, podRevisisons=%v, podDeletionTimestampSet=%v, podNames=%v, expectedRunningPods=%v, "+
+			"revisionsInSync=%v, podRevisions=%v, podDeletionTimestampSet=%v, podNames=%v, expectedRunningPods=%v, "+
 			"podsReady=%v, podsNotReady=%v",
 			hc.Status.State, podsStatus.waitingOnPods(), podsStatus.podRevisionsInSync(),
 			podsStatus.podRevisions, podsStatus.podDeletionTimestampSet, podsStatus.podNames,
@@ -2045,6 +2046,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 					withMessage(r.logErrorAndReturn(err, fmt.Sprintf("failed to increment pod revision to %d", revision)).Error()))
 			}
+			return reconcile.Result{Requeue: true}, nil
 		}
 		if !desiredLifecycleState.WantsUpgrade() && desiredLifecycleState.WantsRestart() {
 			if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
@@ -2055,6 +2057,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 					withMessage(r.logErrorAndReturn(err, fmt.Sprintf("failed to increment pod revision to %d", revision)).Error()))
 			}
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
 	if desiredLifecycleState.ShouldDeletePod() {
@@ -2120,7 +2123,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	}
 
 	r.Log.Info(fmt.Sprintf("cluster state is still %s. waitingOnPods=%v, podBeingDeleted=%v, "+
-		"revisionsInSync=%v, podRevisisons=%v, podDeletionTimestampSet=%v, podNames=%v, podHumioVersions=%v, expectedRunningPods=%v, podsReady=%v, podsNotReady=%v",
+		"revisionsInSync=%v, podRevisions=%v, podDeletionTimestampSet=%v, podNames=%v, podHumioVersions=%v, expectedRunningPods=%v, podsReady=%v, podsNotReady=%v",
 		hc.Status.State, podsStatus.waitingOnPods(), desiredLifecycleState.ShouldDeletePod(), podsStatus.podRevisionsInSync(),
 		podsStatus.podRevisions, podsStatus.podDeletionTimestampSet, podsStatus.podNames, podsStatus.podImageVersions, podsStatus.expectedRunningPods, podsStatus.readyCount, podsStatus.notReadyCount))
 
