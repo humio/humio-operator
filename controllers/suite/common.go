@@ -81,7 +81,7 @@ func MarkPodAsRunning(ctx context.Context, k8sClient client.Client, pod corev1.P
 	}
 
 	UsingClusterBy(clusterName, fmt.Sprintf("Simulating Humio container starts up and is marked Ready (pod phase %s)", pod.Status.Phase))
-	pod.Status.PodIP = fmt.Sprintf("192.168.0.1")
+	pod.Status.PodIP = "192.168.0.1"
 	pod.Status.Conditions = []corev1.PodCondition{
 		{
 			Type:   corev1.PodReady,

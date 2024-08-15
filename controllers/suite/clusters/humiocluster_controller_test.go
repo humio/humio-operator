@@ -1141,8 +1141,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() int {
 				var badPodCount int
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+				suite.UsingClusterBy(key.Name, fmt.Sprintf("Found of %d pods", len(clusterPods)))
 				for _, pod := range clusterPods {
 					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+					suite.UsingClusterBy(key.Name, fmt.Sprintf("Pod %s uses image %s and is using revision %s", pod.Spec.NodeName, pod.Spec.Containers[humioIndex].Image, pod.Annotations[controllers.PodRevisionAnnotation]))
 					if pod.Spec.Containers[humioIndex].Image == updatedImage && pod.Annotations[controllers.PodRevisionAnnotation] == "2" {
 						badPodCount++
 					}

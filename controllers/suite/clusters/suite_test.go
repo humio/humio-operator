@@ -358,8 +358,8 @@ func markPodsWithRevisionAsReady(ctx context.Context, hnp *controllers.HumioNode
 	suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("Found %d pods", len(foundPodList)))
 	podListWithRevision := []corev1.Pod{}
 	for i := range foundPodList {
-		foundPodRevisionValue, _ := foundPodList[i].Annotations[controllers.PodRevisionAnnotation]
-		foundPodHash, _ := foundPodList[i].Annotations[controllers.PodHashAnnotation]
+		foundPodRevisionValue := foundPodList[i].Annotations[controllers.PodRevisionAnnotation]
+		foundPodHash := foundPodList[i].Annotations[controllers.PodHashAnnotation]
 		suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("Pod=%s revision=%s podHash=%s podIP=%s", foundPodList[i].Name, foundPodRevisionValue, foundPodHash, foundPodList[i].Status.PodIP))
 		foundPodRevisionValueInt, _ := strconv.Atoi(foundPodRevisionValue)
 		if foundPodRevisionValueInt == podRevision {
