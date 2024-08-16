@@ -91,6 +91,9 @@ rules:
   - humiofilteralerts
   - humiofilteralerts/finalizers
   - humiofilteralerts/status
+  - humioaggregatealerts
+  - humioaggregatealerts/finalizers
+  - humioaggregatealerts/status
   - humioscheduledsearches
   - humioscheduledsearches/finalizers
   - humioscheduledsearches/status
@@ -252,6 +255,9 @@ rules:
   - humiofilteralerts
   - humiofilteralerts/finalizers
   - humiofilteralerts/status
+  - humioaggregatealerts
+  - humioaggregatealerts/finalizers
+  - humioaggregatealerts/status
   - humioscheduledsearches
   - humioscheduledsearches/finalizers
   - humioscheduledsearches/status
