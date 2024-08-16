@@ -1663,7 +1663,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: clusterKey.Name,
-					Name:               "example-invalid-action",
+					Name:               "example-invalid-action-missing",
 					ViewName:           testRepo.Spec.Name,
 				},
 			}
@@ -1680,6 +1680,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var invalidAction *humioapi.Action
 			Eventually(func() error {
 				invalidAction, err = humioClient.GetAction(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateInvalidAction)
+				if err == nil {
+					suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioAction: Got the following back even though we did not expect to get anything back: %#+v", invalidAction))
+				}
 				return err
 			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
 			Expect(invalidAction).To(BeNil())
@@ -1705,7 +1708,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioActionSpec{
 					ManagedClusterName: clusterKey.Name,
-					Name:               "example-invalid-action",
+					Name:               "example-invalid-action-extra",
 					ViewName:           testRepo.Spec.Name,
 					WebhookProperties:  &humiov1alpha1.HumioActionWebhookProperties{},
 					EmailProperties:    &humiov1alpha1.HumioActionEmailProperties{},
@@ -3055,6 +3058,194 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
+	Context("Humio Aggregate Alert", func() {
+		It("should handle aggregate alert action correctly", func() {
+			ctx := context.Background()
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Should handle aggregate alert correctly")
+			dependentEmailActionSpec := humiov1alpha1.HumioActionSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               "example-email-action3",
+				ViewName:           testRepo.Spec.Name,
+				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
+					Recipients: []string{"example@example.com"},
+				},
+			}
+
+			actionKey := types.NamespacedName{
+				Name:      "humioaction3",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateDependentAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      actionKey.Name,
+					Namespace: actionKey.Namespace,
+				},
+				Spec: dependentEmailActionSpec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Creating the action required by the aggregate alert successfully")
+			Expect(k8sClient.Create(ctx, toCreateDependentAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, actionKey, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			aggregateAlertSpec := humiov1alpha1.HumioAggregateAlertSpec{
+				ManagedClusterName:    clusterKey.Name,
+				Name:                  "example-aggregate-alert",
+				ViewName:              testRepo.Spec.Name,
+				QueryString:           "#repo = humio | error = true | count()",
+				QueryTimestampType:    "EventTimestamp",
+				SearchIntervalSeconds: 60,
+				ThrottleTimeSeconds:   120,
+				ThrottleField:         "@timestamp",
+				TriggerMode:           "ImmediateMode",
+				Enabled:               true,
+				Description:           "humio aggregate alert",
+				Actions:               []string{toCreateDependentAction.Spec.Name},
+				Labels:                []string{"some-label"},
+			}
+
+			key := types.NamespacedName{
+				Name:      "humio-aggregate-alert",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAggregateAlert := &humiov1alpha1.HumioAggregateAlert{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: aggregateAlertSpec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Creating the aggregate alert successfully")
+			Expect(k8sClient.Create(ctx, toCreateAggregateAlert)).Should(Succeed())
+
+			fetchedAggregateAlert := &humiov1alpha1.HumioAggregateAlert{}
+			Eventually(func() string {
+				k8sClient.Get(ctx, key, fetchedAggregateAlert)
+				return fetchedAggregateAlert.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAggregateAlertStateExists))
+
+			var aggregateAlert *humioapi.AggregateAlert
+			Eventually(func() error {
+				aggregateAlert, err = humioClient.GetAggregateAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAggregateAlert)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(aggregateAlert).ToNot(BeNil())
+
+			Eventually(func() error {
+				return humioClient.ValidateActionsForAggregateAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAggregateAlert)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			originalAggregateAlert, err := humio.AggregateAlertTransform(toCreateAggregateAlert)
+			Expect(err).To(BeNil())
+			Expect(aggregateAlert.Name).To(Equal(originalAggregateAlert.Name))
+			Expect(aggregateAlert.Description).To(Equal(originalAggregateAlert.Description))
+			Expect(aggregateAlert.ThrottleTimeSeconds).To(Equal(originalAggregateAlert.ThrottleTimeSeconds))
+			Expect(aggregateAlert.ThrottleField).To(Equal(originalAggregateAlert.ThrottleField))
+			Expect(aggregateAlert.ActionNames).To(Equal(originalAggregateAlert.ActionNames))
+			Expect(aggregateAlert.Labels).To(Equal(originalAggregateAlert.Labels))
+
+			createdAggregateAlert := toCreateAggregateAlert
+			err = humio.AggregateAlertHydrate(createdAggregateAlert, aggregateAlert)
+			Expect(err).To(BeNil())
+			Expect(createdAggregateAlert.Spec).To(Equal(toCreateAggregateAlert.Spec))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Updating the aggregate alert successfully")
+			updatedAggregateAlert := toCreateAggregateAlert
+			updatedAggregateAlert.Spec.QueryString = "#repo = humio | updated_field = true | error = true | count()"
+			updatedAggregateAlert.Spec.Enabled = false
+			updatedAggregateAlert.Spec.Description = "updated humio aggregate alert"
+			updatedAggregateAlert.Spec.SearchIntervalSeconds = 120
+			updatedAggregateAlert.Spec.ThrottleTimeSeconds = 3600
+			updatedAggregateAlert.Spec.ThrottleField = "newfield"
+			updatedAggregateAlert.Spec.Actions = []string{toCreateDependentAction.Spec.Name}
+			updatedAggregateAlert.Spec.TriggerMode = "CompleteMode"
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Waiting for the aggregate alert to be updated")
+			Eventually(func() error {
+				k8sClient.Get(ctx, key, fetchedAggregateAlert)
+				fetchedAggregateAlert.Spec.QueryString = updatedAggregateAlert.Spec.QueryString
+				fetchedAggregateAlert.Spec.Enabled = updatedAggregateAlert.Spec.Enabled
+				fetchedAggregateAlert.Spec.Description = updatedAggregateAlert.Spec.Description
+				fetchedAggregateAlert.Spec.SearchIntervalSeconds = updatedAggregateAlert.Spec.SearchIntervalSeconds
+				fetchedAggregateAlert.Spec.ThrottleTimeSeconds = updatedAggregateAlert.Spec.ThrottleTimeSeconds
+				fetchedAggregateAlert.Spec.ThrottleField = updatedAggregateAlert.Spec.ThrottleField
+				fetchedAggregateAlert.Spec.Actions = updatedAggregateAlert.Spec.Actions
+				fetchedAggregateAlert.Spec.TriggerMode = updatedAggregateAlert.Spec.TriggerMode
+
+				return k8sClient.Update(ctx, fetchedAggregateAlert)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Verifying the aggregate alert update succeeded")
+			var expectedUpdatedAggregateAlert *humioapi.AggregateAlert
+			Eventually(func() error {
+				expectedUpdatedAggregateAlert, err = humioClient.GetAggregateAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAggregateAlert)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(expectedUpdatedAggregateAlert).ToNot(BeNil())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Verifying the alert matches the expected")
+			verifiedAggregateAlert, err := humio.AggregateAlertTransform(updatedAggregateAlert)
+			verifiedAggregateAlert.ID = ""
+			verifiedAggregateAlert.RunAsUserID = ""
+
+			Expect(err).To(BeNil())
+			Eventually(func() humioapi.AggregateAlert {
+				updatedAggregateAlert, err := humioClient.GetAggregateAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAggregateAlert)
+				if err != nil {
+					return *updatedAggregateAlert
+				}
+
+				// Ignore the ID and RunAsUserID
+				updatedAggregateAlert.ID = ""
+				updatedAggregateAlert.RunAsUserID = ""
+
+				return *updatedAggregateAlert
+			}, testTimeout, suite.TestInterval).Should(Equal(*verifiedAggregateAlert))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Successfully deleting the aggregate alert")
+			Expect(k8sClient.Delete(ctx, fetchedAggregateAlert)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAggregateAlert)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Successfully deleting the action")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, actionKey, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+		It("HumioAggregateAlert: Should deny improperly configured aggregate alert with missing required values", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-aggregate-alert",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateInvalidAggregateAlert := &humiov1alpha1.HumioAggregateAlert{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioAggregateAlertSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "example-invalid-aggregate-alert",
+					ViewName:           testRepo.Spec.Name,
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Creating the invalid aggregate alert")
+			Expect(k8sClient.Create(ctx, toCreateInvalidAggregateAlert)).Should(Not(Succeed()))
+		})
+	})
+
 	Context("Humio Scheduled Search", func() {
 		It("should handle scheduled search action correctly", func() {
 			ctx := context.Background()
@@ -3247,6 +3438,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Creating the invalid scheduled search")
 			Expect(k8sClient.Create(ctx, toCreateInvalidScheduledSearch)).Should(Not(Succeed()))
 		})
+
 	})
 })
 
