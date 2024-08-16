@@ -813,7 +813,7 @@ func (h *ClientConfig) ValidateActionsForScheduledSearch(config *humioapi.Config
 }
 
 func (h *ClientConfig) AddAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error) {
-	err := h.validateView(config, req, haa.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, haa.Spec.ViewName)
 	if err != nil {
 		return &humioapi.AggregateAlert{}, fmt.Errorf("problem getting view for action: %w", err)
 	}
@@ -830,7 +830,7 @@ func (h *ClientConfig) AddAggregateAlert(config *humioapi.Config, req reconcile.
 }
 
 func (h *ClientConfig) GetAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error) {
-	err := h.validateView(config, req, haa.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, haa.Spec.ViewName)
 	if err != nil {
 		return &humioapi.AggregateAlert{}, fmt.Errorf("problem getting view for action %s: %w", haa.Spec.Name, err)
 	}
@@ -861,7 +861,7 @@ func (h *ClientConfig) GetAggregateAlert(config *humioapi.Config, req reconcile.
 }
 
 func (h *ClientConfig) UpdateAggregateAlert(config *humioapi.Config, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error) {
-	err := h.validateView(config, req, haa.Spec.ViewName)
+	err := h.validateSearchDomain(config, req, haa.Spec.ViewName)
 	if err != nil {
 		return &humioapi.AggregateAlert{}, fmt.Errorf("problem getting view for action %s: %w", haa.Spec.Name, err)
 	}
