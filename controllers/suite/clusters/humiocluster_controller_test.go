@@ -19,6 +19,7 @@ package clusters
 import (
 	"context"
 	"fmt"
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"os"
 	"reflect"
 	"strings"
@@ -3786,6 +3787,43 @@ var _ = Describe("HumioCluster Controller", func() {
 			ingresses, _ = kubernetes.ListIngresses(ctx, k8sClient, toCreate.Namespace, kubernetes.MatchingLabelsForHumio(toCreate.Name))
 			for _, ingress := range ingresses {
 				Expect(ingress.Spec.TLS).To(BeNil())
+			}
+		})
+	})
+
+	Context("Humio Cluster with additional hostnames for TLS", func() {
+		It("Creating cluster with additional hostnames for TLS", func() {
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				key := types.NamespacedName{
+					Name:      "humiocluster-tls-additional-hostnames",
+					Namespace: testProcessNamespace,
+				}
+				toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+				toCreate.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{
+					Enabled: helpers.BoolPtr(true),
+					ExtraHostnames: []string{
+						"something.additional",
+						"yet.another.something.additional",
+					},
+				}
+
+				suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+				ctx := context.Background()
+				suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+				defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+				suite.UsingClusterBy(key.Name, "Confirming certificate objects contain the additional hostnames")
+
+				Eventually(func() ([]cmapi.Certificate, error) {
+					return kubernetes.ListCertificates(ctx, k8sClient, toCreate.Namespace, kubernetes.MatchingLabelsForHumio(toCreate.Name))
+				}, testTimeout, suite.TestInterval).Should(HaveLen(2))
+
+				var certificates []cmapi.Certificate
+				certificates, err = kubernetes.ListCertificates(ctx, k8sClient, toCreate.Namespace, kubernetes.MatchingLabelsForHumio(toCreate.Name))
+				Expect(err).To(Succeed())
+				for _, certificate := range certificates {
+					Expect(certificate.Spec.DNSNames).Should(ContainElements(toCreate.Spec.TLS.ExtraHostnames))
+				}
 			}
 		})
 	})

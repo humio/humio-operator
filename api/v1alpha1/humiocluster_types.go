@@ -327,6 +327,8 @@ type HumioClusterTLSSpec struct {
 	Enabled *bool `json:"enabled,omitempty"`
 	// CASecretName is used to point to a Kubernetes secret that holds the CA that will be used to issue intra-cluster TLS certificates
 	CASecretName string `json:"caSecretName,omitempty"`
+	// ExtraHostnames holds a list of additional hostnames that will be appended to TLS certificates.
+	ExtraHostnames []string `json:"extraHostnames,omitempty"`
 }
 
 // HumioClusterLicenseSpec points to the optional location of the Humio license
