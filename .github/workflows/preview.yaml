@@ -31,7 +31,6 @@ jobs:
           chmod +x ./kind
           ./kind delete cluster || true
           make clean
-          docker network create -d=bridge --subnet=172.19.0.0/24 kind || true
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
