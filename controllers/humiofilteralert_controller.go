@@ -87,13 +87,13 @@ func (r *HumioFilterAlertReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hfa *humiov1alpha1.HumioFilterAlert) {
-		curFilterAlert, err := r.HumioClient.GetFilterAlert(cluster.Config(), req, hfa)
+		_, err := r.HumioClient.GetFilterAlert(cluster.Config(), req, hfa)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioFilterAlertStateNotFound, hfa)
 			return
 		}
-		if err != nil || curFilterAlert == nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioFilterAlertStateConfigError, hfa)
+		if err != nil {
+			_ = r.setState(ctx, humiov1alpha1.HumioFilterAlertStateUnknown, hfa)
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioFilterAlertStateExists, hfa)
@@ -157,12 +157,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create filter alert")
 		}
-		r.Log.Info("Created filter alert", "FilterAlert", hfa.Spec.Name)
-
-		result, err := r.reconcileHumioFilterAlertAnnotations(ctx, addedFilterAlert, hfa, req)
-		if err != nil {
-			return result, err
-		}
+		r.Log.Info("Created filter alert", "FilterAlert", hfa.Spec.Name, "ID", addedFilterAlert.ID)
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err != nil {
@@ -173,11 +168,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 	if err := r.HumioClient.ValidateActionsForFilterAlert(config, req, hfa); err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not get action id mapping")
 	}
-	expectedFilterAlert, err := humio.FilterAlertTransform(hfa)
-	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not parse expected FilterAlert")
-	}
-
+	expectedFilterAlert := humio.FilterAlertTransform(hfa)
 	sanitizeFilterAlert(curFilterAlert)
 	if !reflect.DeepEqual(*curFilterAlert, *expectedFilterAlert) {
 		r.Log.Info(fmt.Sprintf("FilterAlert differs, triggering update, expected %#v, got: %#v",
@@ -218,5 +209,6 @@ func (r *HumioFilterAlertReconciler) logErrorAndReturn(err error, msg string) er
 }
 
 func sanitizeFilterAlert(filterAlert *humioapi.FilterAlert) {
+	filterAlert.ID = ""
 	filterAlert.RunAsUserID = ""
 }

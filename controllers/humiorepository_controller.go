@@ -18,8 +18,8 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"reflect"
 	"time"
 
 	humioapi "github.com/humio/cli/api"
@@ -121,14 +121,13 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hr *humiov1alpha1.HumioRepository) {
-		curRepository, err := humioClient.GetRepository(cluster.Config(), req, hr)
-		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioRepositoryStateUnknown, hr)
+		_, err := humioClient.GetRepository(cluster.Config(), req, hr)
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			_ = r.setState(ctx, humiov1alpha1.HumioRepositoryStateNotFound, hr)
 			return
 		}
-		emptyRepository := humioapi.Parser{}
-		if reflect.DeepEqual(emptyRepository, *curRepository) {
-			_ = r.setState(ctx, humiov1alpha1.HumioRepositoryStateNotFound, hr)
+		if err != nil {
+			_ = r.setState(ctx, humiov1alpha1.HumioRepositoryStateUnknown, hr)
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioRepositoryStateExists, hr)
@@ -137,12 +136,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	// Get current repository
 	r.Log.Info("get current repository")
 	curRepository, err := r.HumioClient.GetRepository(cluster.Config(), req, hr)
-	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if repository exists")
-	}
-
-	emptyRepository := humioapi.Repository{}
-	if reflect.DeepEqual(emptyRepository, *curRepository) {
+	if errors.As(err, &humioapi.EntityNotFound{}) {
 		r.Log.Info("repository doesn't exist. Now adding repository")
 		// create repository
 		_, err := r.HumioClient.AddRepository(cluster.Config(), req, hr)
@@ -151,6 +145,9 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 		r.Log.Info("created repository", "RepositoryName", hr.Spec.Name)
 		return reconcile.Result{Requeue: true}, nil
+	}
+	if err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if repository exists")
 	}
 
 	if (curRepository.Description != hr.Spec.Description) ||
