@@ -86,13 +86,13 @@ func (r *HumioAlertReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, ha *humiov1alpha1.HumioAlert) {
-		curAlert, err := r.HumioClient.GetAlert(cluster.Config(), req, ha)
+		_, err := r.HumioClient.GetAlert(cluster.Config(), req, ha)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioAlertStateNotFound, ha)
 			return
 		}
-		if err != nil || curAlert == nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioAlertStateConfigError, ha)
+		if err != nil {
+			_ = r.setState(ctx, humiov1alpha1.HumioAlertStateUnknown, ha)
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioAlertStateExists, ha)
@@ -149,12 +149,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, config *
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create alert")
 		}
-		r.Log.Info("Created alert", "Alert", ha.Spec.Name)
-
-		result, err := r.reconcileHumioAlertAnnotations(ctx, addedAlert, ha, req)
-		if err != nil {
-			return result, err
-		}
+		r.Log.Info("Created alert", "Alert", ha.Spec.Name, "ID", addedAlert.ID)
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err != nil {
@@ -167,11 +162,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, config *
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not get action id mapping")
 	}
-	expectedAlert, err := humio.AlertTransform(ha, actionIdMap)
-	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not parse expected Alert")
-	}
-
+	expectedAlert := humio.AlertTransform(ha, actionIdMap)
 	sanitizeAlert(curAlert)
 	if !reflect.DeepEqual(*curAlert, *expectedAlert) {
 		r.Log.Info(fmt.Sprintf("Alert differs, triggering update, expected %#v, got: %#v",

@@ -3,14 +3,9 @@ package humio
 import (
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	FilterAlertIdentifierAnnotation = "humio.com/filter-alert-id"
-)
-
-func FilterAlertTransform(hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.FilterAlert, error) {
+func FilterAlertTransform(hfa *humiov1alpha1.HumioFilterAlert) *humioapi.FilterAlert {
 	filterAlert := &humioapi.FilterAlert{
 		Name:                hfa.Spec.Name,
 		QueryString:         hfa.Spec.QueryString,
@@ -23,14 +18,14 @@ func FilterAlertTransform(hfa *humiov1alpha1.HumioFilterAlert) (*humioapi.Filter
 		QueryOwnershipType:  humioapi.QueryOwnershipTypeOrganization,
 	}
 
-	if _, ok := hfa.ObjectMeta.Annotations[FilterAlertIdentifierAnnotation]; ok {
-		filterAlert.ID = hfa.ObjectMeta.Annotations[FilterAlertIdentifierAnnotation]
+	if filterAlert.Labels == nil {
+		filterAlert.Labels = []string{}
 	}
 
-	return filterAlert, nil
+	return filterAlert
 }
 
-func FilterAlertHydrate(hfa *humiov1alpha1.HumioFilterAlert, alert *humioapi.FilterAlert) error {
+func FilterAlertHydrate(hfa *humiov1alpha1.HumioFilterAlert, alert *humioapi.FilterAlert) {
 	hfa.Spec = humiov1alpha1.HumioFilterAlertSpec{
 		Name:                alert.Name,
 		QueryString:         alert.QueryString,
@@ -41,12 +36,4 @@ func FilterAlertHydrate(hfa *humiov1alpha1.HumioFilterAlert, alert *humioapi.Fil
 		Actions:             alert.ActionNames,
 		Labels:              alert.Labels,
 	}
-
-	hfa.ObjectMeta = metav1.ObjectMeta{
-		Annotations: map[string]string{
-			FilterAlertIdentifierAnnotation: alert.ID,
-		},
-	}
-
-	return nil
 }

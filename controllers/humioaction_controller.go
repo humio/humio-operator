@@ -87,22 +87,22 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not resolve secret references")
 	}
 
-	if _, err := humio.ActionFromActionCR(ha); err != nil {
-		r.Log.Error(err, "unable to validate action")
-		err = r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set action state")
+	if _, validateErr := humio.ActionFromActionCR(ha); validateErr != nil {
+		r.Log.Error(validateErr, "unable to validate action")
+		setStateErr := r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
+		if setStateErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set action state")
 		}
-		return reconcile.Result{}, err
+		return reconcile.Result{}, validateErr
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, ha *humiov1alpha1.HumioAction) {
-		curAction, err := r.HumioClient.GetAction(cluster.Config(), req, ha)
+		_, err := r.HumioClient.GetAction(cluster.Config(), req, ha)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioActionStateNotFound, ha)
 			return
 		}
-		if err != nil || curAction == nil {
+		if err != nil {
 			_ = r.setState(ctx, humiov1alpha1.HumioActionStateUnknown, ha)
 			return
 		}
@@ -160,12 +160,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create action")
 		}
-		r.Log.Info("Created action", "Action", ha.Spec.Name)
-
-		result, err := r.reconcileHumioActionAnnotations(ctx, addedAction, ha, req)
-		if err != nil {
-			return result, err
-		}
+		r.Log.Info("Created action", "Action", ha.Spec.Name, "ID", addedAction.ID)
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err != nil {

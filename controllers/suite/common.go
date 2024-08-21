@@ -66,8 +66,8 @@ func MarkPodsAsRunning(ctx context.Context, client client.Client, pods []corev1.
 	}
 
 	UsingClusterBy(clusterName, "Simulating Humio container starts up and is marked Ready")
-	for nodeID, pod := range pods {
-		err := MarkPodAsRunning(ctx, client, nodeID, pod, clusterName)
+	for _, pod := range pods {
+		err := MarkPodAsRunning(ctx, client, pod, clusterName)
 		if err != nil {
 			return err
 		}
@@ -75,13 +75,13 @@ func MarkPodsAsRunning(ctx context.Context, client client.Client, pods []corev1.
 	return nil
 }
 
-func MarkPodAsRunning(ctx context.Context, client client.Client, nodeID int, pod corev1.Pod, clusterName string) error {
+func MarkPodAsRunning(ctx context.Context, k8sClient client.Client, pod corev1.Pod, clusterName string) error {
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 		return nil
 	}
 
-	UsingClusterBy(clusterName, fmt.Sprintf("Simulating Humio container starts up and is marked Ready (node %d, pod phase %s)", nodeID, pod.Status.Phase))
-	pod.Status.PodIP = fmt.Sprintf("192.168.0.%d", nodeID)
+	UsingClusterBy(clusterName, fmt.Sprintf("Simulating Humio container starts up and is marked Ready (pod phase %s)", pod.Status.Phase))
+	pod.Status.PodIP = "192.168.0.1"
 	pod.Status.Conditions = []corev1.PodCondition{
 		{
 			Type:   corev1.PodReady,
@@ -89,7 +89,7 @@ func MarkPodAsRunning(ctx context.Context, client client.Client, nodeID int, pod
 		},
 	}
 	pod.Status.Phase = corev1.PodRunning
-	return client.Status().Update(ctx, &pod)
+	return k8sClient.Status().Update(ctx, &pod)
 }
 
 func CleanupCluster(ctx context.Context, k8sClient client.Client, hc *humiov1alpha1.HumioCluster) {

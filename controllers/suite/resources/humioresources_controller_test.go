@@ -43,12 +43,12 @@ import (
 var _ = Describe("Humio Resources Controllers", func() {
 	BeforeEach(func() {
 		// failed test runs that don't clean up leave resources behind.
-		humioClient.ClearHumioClientConnections()
+		humioClient.ClearHumioClientConnections(testRepoName)
 	})
 
 	AfterEach(func() {
 		// Add any teardown steps that needs to be executed after each test
-		humioClient.ClearHumioClientConnections()
+		humioClient.ClearHumioClientConnections(testRepoName)
 	})
 
 	// Add Tests for OpenAPI validation (or additional CRD features) specified in
@@ -99,7 +99,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
-				Expect(string(ingestTokenSecret.Data["token"])).To(Equal("mocktoken"))
+				Expect(string(ingestTokenSecret.Data["token"])).ToNot(BeEmpty())
 			}
 			Expect(ingestTokenSecret.OwnerReferences).Should(HaveLen(1))
 
@@ -153,7 +153,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
-				Expect(string(ingestTokenSecret.Data["token"])).To(Equal("mocktoken"))
+				Expect(string(ingestTokenSecret.Data["token"])).ToNot(BeEmpty())
 			}
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Successfully deleting it")
@@ -224,7 +224,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(ingestTokenSecret.Labels).Should(HaveKeyWithValue("custom-label", "custom-value"))
 
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
-				Expect(string(ingestTokenSecret.Data["token"])).To(Equal("mocktoken"))
+				Expect(string(ingestTokenSecret.Data["token"])).ToNot(BeEmpty())
 			}
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Successfully deleting it")
@@ -609,20 +609,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(initialParser).ToNot(BeNil())
 
-			expectedInitialParser := humioapi.Parser{
-				Name:                           spec.Name,
-				Script:                         spec.ParserScript,
-				FieldsToTag:                    spec.TagFields,
-				FieldsToBeRemovedBeforeParsing: []string{},
-			}
-			expectedInitialParser.TestCases = make([]humioapi.ParserTestCase, len(spec.TestData))
-			for i := range spec.TestData {
-				expectedInitialParser.TestCases[i] = humioapi.ParserTestCase{
-					Event:      humioapi.ParserTestEvent{RawString: spec.TestData[i]},
-					Assertions: []humioapi.ParserTestCaseAssertions{},
-				}
-			}
-			Expect(*initialParser).To(Equal(expectedInitialParser))
+			expectedInitialParser := humio.ParserTransform(toCreateParser)
+			Expect(*initialParser).To(Equal(*expectedInitialParser))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Updating the parser successfully")
 			updatedScript := "kvParse() | updated"
@@ -643,19 +631,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(updatedParser).ToNot(BeNil())
 
-			expectedUpdatedParser := humioapi.Parser{
-				Name:                           spec.Name,
-				Script:                         updatedScript,
-				FieldsToTag:                    spec.TagFields,
-				FieldsToBeRemovedBeforeParsing: []string{},
-			}
-			expectedUpdatedParser.TestCases = make([]humioapi.ParserTestCase, len(spec.TestData))
-			for i := range spec.TestData {
-				expectedUpdatedParser.TestCases[i] = humioapi.ParserTestCase{
-					Event:      humioapi.ParserTestEvent{RawString: spec.TestData[i]},
-					Assertions: []humioapi.ParserTestCaseAssertions{},
-				}
-			}
+			expectedUpdatedParser := *humio.ParserTransform(fetchedParser)
 			Eventually(func() humioapi.Parser {
 				updatedParser, err := humioClient.GetParser(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedParser)
 				if err != nil {
@@ -2783,8 +2759,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			originalAlert, err := humio.AlertTransform(toCreateAlert, actionIdMap)
-			Expect(err).To(BeNil())
+			originalAlert := humio.AlertTransform(toCreateAlert, actionIdMap)
 			Expect(alert.Name).To(Equal(originalAlert.Name))
 			Expect(alert.Description).To(Equal(originalAlert.Description))
 			Expect(alert.Actions).To(Equal(originalAlert.Actions))
@@ -2824,8 +2799,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(expectedUpdatedAlert).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Verifying the alert matches the expected")
-			verifiedAlert, err := humio.AlertTransform(updatedAlert, actionIdMap)
-			Expect(err).To(BeNil())
+			verifiedAlert := humio.AlertTransform(updatedAlert, actionIdMap)
 			Eventually(func() humioapi.Alert {
 				updatedAlert, err := humioClient.GetAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAlert)
 				if err != nil {
@@ -2957,8 +2931,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return humioClient.ValidateActionsForFilterAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateFilterAlert)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			originalFilterAlert, err := humio.FilterAlertTransform(toCreateFilterAlert)
-			Expect(err).To(BeNil())
+			originalFilterAlert := humio.FilterAlertTransform(toCreateFilterAlert)
 			Expect(filterAlert.Name).To(Equal(originalFilterAlert.Name))
 			Expect(filterAlert.Description).To(Equal(originalFilterAlert.Description))
 			Expect(filterAlert.ThrottleTimeSeconds).To(Equal(originalFilterAlert.ThrottleTimeSeconds))
@@ -2969,8 +2942,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(filterAlert.QueryString).To(Equal(originalFilterAlert.QueryString))
 
 			createdFilterAlert := toCreateFilterAlert
-			err = humio.FilterAlertHydrate(createdFilterAlert, filterAlert)
-			Expect(err).To(BeNil())
+			humio.FilterAlertHydrate(createdFilterAlert, filterAlert)
 			Expect(createdFilterAlert.Spec).To(Equal(toCreateFilterAlert.Spec))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Updating the filter alert successfully")
@@ -3002,11 +2974,10 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(expectedUpdatedFilterAlert).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Verifying the alert matches the expected")
-			verifiedFilterAlert, err := humio.FilterAlertTransform(updatedFilterAlert)
+			verifiedFilterAlert := humio.FilterAlertTransform(updatedFilterAlert)
 			verifiedFilterAlert.ID = ""
 			verifiedFilterAlert.RunAsUserID = ""
 
-			Expect(err).To(BeNil())
 			Eventually(func() humioapi.FilterAlert {
 				updatedFilterAlert, err := humioClient.GetFilterAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedFilterAlert)
 				if err != nil {
@@ -3142,8 +3113,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return humioClient.ValidateActionsForAggregateAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateAggregateAlert)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			originalAggregateAlert, err := humio.AggregateAlertTransform(toCreateAggregateAlert)
-			Expect(err).To(BeNil())
+			originalAggregateAlert := humio.AggregateAlertTransform(toCreateAggregateAlert)
 			Expect(aggregateAlert.Name).To(Equal(originalAggregateAlert.Name))
 			Expect(aggregateAlert.Description).To(Equal(originalAggregateAlert.Description))
 			Expect(aggregateAlert.ThrottleTimeSeconds).To(Equal(originalAggregateAlert.ThrottleTimeSeconds))
@@ -3152,7 +3122,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(aggregateAlert.Labels).To(Equal(originalAggregateAlert.Labels))
 
 			createdAggregateAlert := toCreateAggregateAlert
-			err = humio.AggregateAlertHydrate(createdAggregateAlert, aggregateAlert)
+			humio.AggregateAlertHydrate(createdAggregateAlert, aggregateAlert)
 			Expect(err).To(BeNil())
 			Expect(createdAggregateAlert.Spec).To(Equal(toCreateAggregateAlert.Spec))
 
@@ -3191,11 +3161,10 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(expectedUpdatedAggregateAlert).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Verifying the alert matches the expected")
-			verifiedAggregateAlert, err := humio.AggregateAlertTransform(updatedAggregateAlert)
+			verifiedAggregateAlert := humio.AggregateAlertTransform(updatedAggregateAlert)
 			verifiedAggregateAlert.ID = ""
 			verifiedAggregateAlert.RunAsUserID = ""
 
-			Expect(err).To(BeNil())
 			Eventually(func() humioapi.AggregateAlert {
 				updatedAggregateAlert, err := humioClient.GetAggregateAlert(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedAggregateAlert)
 				if err != nil {
@@ -3330,8 +3299,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return humioClient.ValidateActionsForScheduledSearch(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, toCreateScheduledSearch)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			originalScheduledSearch, err := humio.ScheduledSearchTransform(toCreateScheduledSearch)
-			Expect(err).To(BeNil())
+			originalScheduledSearch := humio.ScheduledSearchTransform(toCreateScheduledSearch)
 			Expect(scheduledSearch.Name).To(Equal(originalScheduledSearch.Name))
 			Expect(scheduledSearch.Description).To(Equal(originalScheduledSearch.Description))
 			Expect(scheduledSearch.ActionNames).To(Equal(originalScheduledSearch.ActionNames))
@@ -3345,8 +3313,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(scheduledSearch.BackfillLimit).To(Equal(originalScheduledSearch.BackfillLimit))
 
 			createdScheduledSearch := toCreateScheduledSearch
-			err = humio.ScheduledSearchHydrate(createdScheduledSearch, scheduledSearch)
-			Expect(err).To(BeNil())
+			humio.ScheduledSearchHydrate(createdScheduledSearch, scheduledSearch)
 			Expect(createdScheduledSearch.Spec).To(Equal(toCreateScheduledSearch.Spec))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Updating the scheduled search successfully")
@@ -3384,11 +3351,10 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(expectedUpdatedScheduledSearch).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Verifying the scheduled search matches the expected")
-			verifiedScheduledSearch, err := humio.ScheduledSearchTransform(updatedScheduledSearch)
+			verifiedScheduledSearch := humio.ScheduledSearchTransform(updatedScheduledSearch)
 			verifiedScheduledSearch.ID = ""
 			verifiedScheduledSearch.RunAsUserID = ""
 
-			Expect(err).To(BeNil())
 			Eventually(func() humioapi.ScheduledSearch {
 				updatedScheduledSearch, err := humioClient.GetScheduledSearch(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey}, fetchedScheduledSearch)
 				if err != nil {

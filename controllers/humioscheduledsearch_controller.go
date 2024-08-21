@@ -87,13 +87,13 @@ func (r *HumioScheduledSearchReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hss *humiov1alpha1.HumioScheduledSearch) {
-		curScheduledSearch, err := r.HumioClient.GetScheduledSearch(cluster.Config(), req, hss)
+		_, err := r.HumioClient.GetScheduledSearch(cluster.Config(), req, hss)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateNotFound, hss)
 			return
 		}
-		if err != nil || curScheduledSearch == nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateConfigError, hss)
+		if err != nil {
+			_ = r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateUnknown, hss)
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateExists, hss)
@@ -148,12 +148,7 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create scheduled search")
 		}
-		r.Log.Info("Created scheduled search", "ScheduledSearch", hss.Spec.Name)
-
-		result, err := r.reconcileHumioScheduledSearchAnnotations(ctx, addedScheduledSearch, hss, req)
-		if err != nil {
-			return result, err
-		}
+		r.Log.Info("Created scheduled search", "ScheduledSearch", hss.Spec.Name, "ID", addedScheduledSearch.ID)
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err != nil {
@@ -164,10 +159,7 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 	if err := r.HumioClient.ValidateActionsForScheduledSearch(config, req, hss); err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not get action id mapping")
 	}
-	expectedScheduledSearch, err := humio.ScheduledSearchTransform(hss)
-	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not parse expected ScheduledSearch")
-	}
+	expectedScheduledSearch := humio.ScheduledSearchTransform(hss)
 
 	sanitizeScheduledSearch(curScheduledSearch)
 	if !reflect.DeepEqual(*curScheduledSearch, *expectedScheduledSearch) {
@@ -209,5 +201,6 @@ func (r *HumioScheduledSearchReconciler) logErrorAndReturn(err error, msg string
 }
 
 func sanitizeScheduledSearch(scheduledSearch *humioapi.ScheduledSearch) {
+	scheduledSearch.ID = ""
 	scheduledSearch.RunAsUserID = ""
 }

@@ -156,12 +156,7 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create aggregate alert")
 		}
-		r.Log.Info("Created aggregate alert", "AggregateAlert", haa.Spec.Name)
-
-		result, err := r.reconcileHumioAggregateAlertAnnotations(ctx, addedAggregateAlert, haa, req)
-		if err != nil {
-			return result, err
-		}
+		r.Log.Info("Created aggregate alert", "AggregateAlert", haa.Spec.Name, "ID", addedAggregateAlert.ID)
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err != nil {
@@ -173,11 +168,7 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 	if err := r.HumioClient.ValidateActionsForAggregateAlert(config, req, haa); err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not validate actions for aggregate alert")
 	}
-	expectedAggregateAlert, err := humio.AggregateAlertTransform(haa)
-	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not parse expected AggregateAlert")
-	}
-
+	expectedAggregateAlert := humio.AggregateAlertTransform(haa)
 	sanitizeAggregateAlert(curAggregateAlert)
 	if !reflect.DeepEqual(*curAggregateAlert, *expectedAggregateAlert) {
 		r.Log.Info(fmt.Sprintf("AggregateAlert differs, triggering update, expected %#v, got: %#v",
