@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/go-logr/logr"
 	humioapi "github.com/humio/cli/api"
@@ -122,30 +123,22 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hit *humiov1alpha1.HumioIngestToken) {
-		curToken, err := humioClient.GetIngestToken(cluster.Config(), req, hit)
+		_, err := humioClient.GetIngestToken(cluster.Config(), req, hit)
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateNotFound, hit)
+			return
+		}
 		if err != nil {
 			_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateUnknown, hit)
 			return
 		}
-		emptyToken := humioapi.IngestToken{}
-		if emptyToken != *curToken {
-			_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateExists, hit)
-			return
-		}
-		_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateNotFound, hit)
+		_ = r.setState(ctx, humiov1alpha1.HumioIngestTokenStateExists, hit)
 	}(ctx, r.HumioClient, hit)
 
 	// Get current ingest token
 	r.Log.Info("get current ingest token")
 	curToken, err := r.HumioClient.GetIngestToken(cluster.Config(), req, hit)
-	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if ingest token exists")
-	}
-	// If token doesn't exist, the Get returns: nil, err.
-	// How do we distinguish between "doesn't exist" and "error while executing get"?
-	// TODO: change the way we do errors from the API so we can get rid of this hack
-	emptyToken := humioapi.IngestToken{}
-	if emptyToken == *curToken {
+	if errors.As(err, &humioapi.EntityNotFound{}) {
 		r.Log.Info("ingest token doesn't exist. Now adding ingest token")
 		// create token
 		_, err := r.HumioClient.AddIngestToken(cluster.Config(), req, hit)
@@ -154,6 +147,9 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		r.Log.Info("created ingest token")
 		return reconcile.Result{Requeue: true}, nil
+	}
+	if err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if ingest token exists")
 	}
 
 	// Trigger update if parser name changed
@@ -243,7 +239,7 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 		if string(existingSecret.Data["token"]) != string(desiredSecret.Data["token"]) {
 			r.Log.Info("secret does not match the token in Humio. Updating token", "TokenSecretName", hit.Spec.TokenSecretName)
 			if err = r.Update(ctx, desiredSecret); err != nil {
-				return r.logErrorAndReturn(err, "unable to update alert")
+				return r.logErrorAndReturn(err, "unable to update ingest token")
 			}
 		}
 	}

@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -39,6 +40,9 @@ func (r *HumioClusterReconciler) getPodsStatus(ctx context.Context, hc *humiov1a
 		notReadyCount:       len(foundPodList),
 		expectedRunningPods: hnp.GetNodeCount(),
 	}
+	sort.Slice(foundPodList, func(i, j int) bool {
+		return foundPodList[i].Name < foundPodList[j].Name
+	})
 	var podsReady, podsNotReady []string
 	for _, pod := range foundPodList {
 		podRevisionStr := pod.Annotations[PodRevisionAnnotation]

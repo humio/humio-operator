@@ -18,8 +18,8 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
@@ -84,32 +84,6 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 
-	defer func(ctx context.Context, humioClient humio.Client, hv *humiov1alpha1.HumioView) {
-		curView, err := r.HumioClient.GetView(cluster.Config(), req, hv)
-		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioViewStateUnknown, hv)
-			return
-		}
-		emptyView := humioapi.View{}
-		if reflect.DeepEqual(emptyView, *curView) {
-			_ = r.setState(ctx, humiov1alpha1.HumioViewStateNotFound, hv)
-			return
-		}
-		_ = r.setState(ctx, humiov1alpha1.HumioViewStateExists, hv)
-	}(ctx, r.HumioClient, hv)
-
-	r.Log.Info("get current view")
-	curView, err := r.HumioClient.GetView(cluster.Config(), req, hv)
-	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if view exists")
-	}
-
-	return r.reconcileHumioView(ctx, cluster.Config(), curView, hv, req)
-}
-
-func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *humioapi.Config, curView *humioapi.View, hv *humiov1alpha1.HumioView, req reconcile.Request) (reconcile.Result, error) {
-	emptyView := humioapi.View{}
-
 	// Delete
 	r.Log.Info("Checking if view is marked to be deleted")
 	isMarkedForDeletion := hv.GetDeletionTimestamp() != nil
@@ -120,7 +94,7 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting View")
-			if err := r.HumioClient.DeleteView(config, req, hv); err != nil {
+			if err := r.HumioClient.DeleteView(cluster.Config(), req, hv); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete view returned error")
 			}
 
@@ -147,15 +121,32 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// Add View
-	if reflect.DeepEqual(emptyView, *curView) {
+	defer func(ctx context.Context, humioClient humio.Client, hv *humiov1alpha1.HumioView) {
+		_, err := r.HumioClient.GetView(cluster.Config(), req, hv)
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			_ = r.setState(ctx, humiov1alpha1.HumioViewStateNotFound, hv)
+			return
+		}
+		if err != nil {
+			_ = r.setState(ctx, humiov1alpha1.HumioViewStateUnknown, hv)
+			return
+		}
+		_ = r.setState(ctx, humiov1alpha1.HumioViewStateExists, hv)
+	}(ctx, r.HumioClient, hv)
+
+	r.Log.Info("get current view")
+	curView, err := r.HumioClient.GetView(cluster.Config(), req, hv)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
 		r.Log.Info("View doesn't exist. Now adding view")
-		_, err := r.HumioClient.AddView(config, req, hv)
+		_, err := r.HumioClient.AddView(cluster.Config(), req, hv)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create view")
 		}
 		r.Log.Info("created view", "ViewName", hv.Spec.Name)
 		return reconcile.Result{Requeue: true}, nil
+	}
+	if err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if view exists")
 	}
 
 	// Update
@@ -169,7 +160,7 @@ func (r *HumioViewReconciler) reconcileHumioView(ctx context.Context, config *hu
 			curView.Connections,
 			curView.Description,
 			curView.AutomaticSearch))
-		_, err := r.HumioClient.UpdateView(config, req, hv)
+		_, err := r.HumioClient.UpdateView(cluster.Config(), req, hv)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update view")
 		}

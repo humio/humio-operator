@@ -3,14 +3,9 @@ package humio
 import (
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	AggregateAlertIdentifierAnnotation = "humio.com/aggregate-alert-id"
-)
-
-func AggregateAlertTransform(haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.AggregateAlert, error) {
+func AggregateAlertTransform(haa *humiov1alpha1.HumioAggregateAlert) *humioapi.AggregateAlert {
 	aggregateAlert := &humioapi.AggregateAlert{
 		Name:                  haa.Spec.Name,
 		QueryString:           haa.Spec.QueryString,
@@ -26,37 +21,25 @@ func AggregateAlertTransform(haa *humiov1alpha1.HumioAggregateAlert) (*humioapi.
 		QueryOwnershipType:    humioapi.QueryOwnershipTypeOrganization,
 	}
 
-	if _, ok := haa.ObjectMeta.Annotations[AggregateAlertIdentifierAnnotation]; ok {
-		aggregateAlert.ID = haa.ObjectMeta.Annotations[AggregateAlertIdentifierAnnotation]
-	}
-
 	if aggregateAlert.Labels == nil {
 		aggregateAlert.Labels = []string{}
 	}
 
-	return aggregateAlert, nil
+	return aggregateAlert
 }
 
-func AggregateAlertHydrate(haa *humiov1alpha1.HumioAggregateAlert, aggregatealert *humioapi.AggregateAlert) error {
+func AggregateAlertHydrate(haa *humiov1alpha1.HumioAggregateAlert, aggregateAlert *humioapi.AggregateAlert) {
 	haa.Spec = humiov1alpha1.HumioAggregateAlertSpec{
-		Name:                  aggregatealert.Name,
-		QueryString:           aggregatealert.QueryString,
-		QueryTimestampType:    aggregatealert.QueryTimestampType,
-		Description:           aggregatealert.Description,
-		SearchIntervalSeconds: aggregatealert.SearchIntervalSeconds,
-		ThrottleTimeSeconds:   aggregatealert.ThrottleTimeSeconds,
-		ThrottleField:         aggregatealert.ThrottleField,
-		TriggerMode:           aggregatealert.TriggerMode,
-		Enabled:               aggregatealert.Enabled,
-		Actions:               aggregatealert.ActionNames,
-		Labels:                aggregatealert.Labels,
+		Name:                  aggregateAlert.Name,
+		QueryString:           aggregateAlert.QueryString,
+		QueryTimestampType:    aggregateAlert.QueryTimestampType,
+		Description:           aggregateAlert.Description,
+		SearchIntervalSeconds: aggregateAlert.SearchIntervalSeconds,
+		ThrottleTimeSeconds:   aggregateAlert.ThrottleTimeSeconds,
+		ThrottleField:         aggregateAlert.ThrottleField,
+		TriggerMode:           aggregateAlert.TriggerMode,
+		Enabled:               aggregateAlert.Enabled,
+		Actions:               aggregateAlert.ActionNames,
+		Labels:                aggregateAlert.Labels,
 	}
-
-	haa.ObjectMeta = metav1.ObjectMeta{
-		Annotations: map[string]string{
-			AggregateAlertIdentifierAnnotation: aggregatealert.ID,
-		},
-	}
-
-	return nil
 }

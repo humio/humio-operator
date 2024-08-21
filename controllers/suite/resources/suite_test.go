@@ -68,6 +68,7 @@ var k8sManager ctrl.Manager
 var humioClient humio.Client
 var testTimeout time.Duration
 var testNamespace corev1.Namespace
+var testRepoName = "test-repo"
 var testRepo corev1alpha1.HumioRepository
 var testService1 corev1.Service
 var testService2 corev1.Service
@@ -111,7 +112,7 @@ var _ = BeforeSuite(func() {
 			CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 			ErrorIfCRDPathMissing: true,
 		}
-		humioClient = humio.NewMockClient(humioapi.Cluster{}, nil)
+		humioClient = humio.NewMockClient()
 	}
 
 	var cfg *rest.Config
@@ -267,12 +268,12 @@ var _ = BeforeSuite(func() {
 
 	testRepo = corev1alpha1.HumioRepository{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-repo",
+			Name:      testRepoName,
 			Namespace: clusterKey.Namespace,
 		},
 		Spec: corev1alpha1.HumioRepositorySpec{
 			ManagedClusterName: clusterKey.Name,
-			Name:               "test-repo",
+			Name:               testRepoName,
 			AllowDataDeletion:  true,
 		},
 	}

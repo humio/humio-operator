@@ -793,7 +793,7 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 		return &corev1.Pod{}, r.logErrorAndReturn(err, "could not set controller reference")
 	}
 	r.Log.Info(fmt.Sprintf("pod %s will use attachments %+v", pod.Name, attachments))
-	pod.Annotations[podHashAnnotation] = podSpecAsSHA256(hnp, *pod)
+	pod.Annotations[PodHashAnnotation] = podSpecAsSHA256(hnp, *pod)
 
 	if attachments.envVarSourceData != nil {
 		b, err := json.Marshal(attachments.envVarSourceData)
@@ -808,15 +808,14 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 	}
 
 	_, podRevision := hnp.GetHumioClusterNodePoolRevisionAnnotation()
-	r.Log.Info(fmt.Sprintf("setting pod %s revision to %d", pod.Name, podRevision))
 	r.setPodRevision(pod, podRevision)
 
-	r.Log.Info(fmt.Sprintf("creating pod %s", pod.Name))
+	r.Log.Info(fmt.Sprintf("creating pod %s with revision %d", pod.Name, podRevision))
 	err = r.Create(ctx, pod)
 	if err != nil {
 		return &corev1.Pod{}, err
 	}
-	r.Log.Info(fmt.Sprintf("successfully created pod %s", pod.Name))
+	r.Log.Info(fmt.Sprintf("successfully created pod %s with revision %d", pod.Name, podRevision))
 	return pod, nil
 }
 
@@ -828,7 +827,7 @@ func (r *HumioClusterReconciler) waitForNewPods(ctx context.Context, hnp *HumioN
 	// revision that were still terminating when the new pod was created
 	var expectedPodCount int
 	for _, pod := range previousPodList {
-		if pod.Annotations[podHashAnnotation] == expectedPods[0].Annotations[podHashAnnotation] {
+		if pod.Annotations[PodHashAnnotation] == expectedPods[0].Annotations[PodHashAnnotation] {
 			expectedPodCount++
 		}
 	}
@@ -843,7 +842,7 @@ func (r *HumioClusterReconciler) waitForNewPods(ctx context.Context, hnp *HumioN
 			return err
 		}
 		for _, pod := range latestPodList {
-			if pod.Annotations[podHashAnnotation] == expectedPods[0].Annotations[podHashAnnotation] {
+			if pod.Annotations[PodHashAnnotation] == expectedPods[0].Annotations[PodHashAnnotation] {
 				podsMatchingRevisionCount++
 			}
 		}
@@ -857,7 +856,7 @@ func (r *HumioClusterReconciler) waitForNewPods(ctx context.Context, hnp *HumioN
 }
 
 func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, desiredPod corev1.Pod) (bool, error) {
-	if _, ok := pod.Annotations[podHashAnnotation]; !ok {
+	if _, ok := pod.Annotations[PodHashAnnotation]; !ok {
 		return false, fmt.Errorf("did not find annotation with pod hash")
 	}
 	if _, ok := pod.Annotations[PodRevisionAnnotation]; !ok {
@@ -872,7 +871,7 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 	desiredPodHash := podSpecAsSHA256(hnp, desiredPod)
 	_, existingPodRevision := hnp.GetHumioClusterNodePoolRevisionAnnotation()
 	r.setPodRevision(&desiredPod, existingPodRevision)
-	if pod.Annotations[podHashAnnotation] == desiredPodHash {
+	if pod.Annotations[PodHashAnnotation] == desiredPodHash {
 		specMatches = true
 	}
 	if pod.Annotations[PodRevisionAnnotation] == desiredPod.Annotations[PodRevisionAnnotation] {
@@ -905,7 +904,7 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 	sanitizedDesiredPod := sanitizePod(hnp, desiredPodCopy)
 	podSpecDiff := cmp.Diff(sanitizedCurrentPod.Spec, sanitizedDesiredPod.Spec)
 	if !specMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", podHashAnnotation, pod.Annotations[podHashAnnotation], desiredPodHash), "podSpecDiff", podSpecDiff)
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", PodHashAnnotation, pod.Annotations[PodHashAnnotation], desiredPodHash), "podSpecDiff", podSpecDiff)
 		return false, nil
 	}
 	if !revisionMatches {
