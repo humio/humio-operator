@@ -14754,6 +14754,12 @@ spec:
                       behaviour is to configure TLS if cert-manager is present, otherwise
                       we skip TLS.
                     type: boolean
+                  extraHostnames:
+                    description: ExtraHostnames holds a list of additional hostnames
+                      that will be appended to TLS certificates.
+                    items:
+                      type: string
+                    type: array
                 type: object
               tolerations:
                 description: Tolerations defines the tolerations that will be attached

@@ -64,7 +64,7 @@ func validCASecret(ctx context.Context, k8sclient client.Client, namespace, secr
 	// look up k8s secret
 	secret, err := kubernetes.GetSecret(ctx, k8sclient, secretName, namespace)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 	keys := []string{"tls.crt", "tls.key"}
 	for _, key := range keys {
@@ -165,7 +165,7 @@ func constructCAIssuer(hc *humiov1alpha1.HumioCluster) cmapi.Issuer {
 }
 
 func constructClusterCACertificateBundle(hc *humiov1alpha1.HumioCluster) cmapi.Certificate {
-	return cmapi.Certificate{
+	certificate := cmapi.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: hc.Namespace,
 			Name:      hc.Name,
@@ -183,10 +183,14 @@ func constructClusterCACertificateBundle(hc *humiov1alpha1.HumioCluster) cmapi.C
 			SecretName: hc.Name,
 		},
 	}
+	if hc.Spec.TLS != nil {
+		certificate.Spec.DNSNames = append(certificate.Spec.DNSNames, hc.Spec.TLS.ExtraHostnames...)
+	}
+	return certificate
 }
 
 func ConstructNodeCertificate(hnp *HumioNodePool, nodeSuffix string) cmapi.Certificate {
-	return cmapi.Certificate{
+	certificate := cmapi.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{},
 			Namespace:   hnp.GetNamespace(),
@@ -200,7 +204,6 @@ func ConstructNodeCertificate(hnp *HumioNodePool, nodeSuffix string) cmapi.Certi
 				fmt.Sprintf("%s.%s", hnp.GetNodePoolName(), hnp.GetNamespace()),                                                                   // Used by ingress controllers to reach the Humio API
 				fmt.Sprintf("%s-headless.%s", hnp.GetClusterName(), hnp.GetNamespace()),                                                           // Used for intra-cluster communication
 				fmt.Sprintf("%s-internal.%s", hnp.GetClusterName(), hnp.GetNamespace()),                                                           // Used by humio-operator to reach the Humio API
-
 			},
 			IssuerRef: cmmeta.ObjectReference{
 				Name: hnp.GetClusterName(),
@@ -219,6 +222,10 @@ func ConstructNodeCertificate(hnp *HumioNodePool, nodeSuffix string) cmapi.Certi
 			},
 		},
 	}
+	if hnp.GetTLSSpec() != nil {
+		certificate.Spec.DNSNames = append(certificate.Spec.DNSNames, hnp.GetTLSSpec().ExtraHostnames...)
+	}
+	return certificate
 }
 
 func GetDesiredCertHash(hnp *HumioNodePool) string {

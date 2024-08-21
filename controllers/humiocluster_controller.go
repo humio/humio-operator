@@ -960,17 +960,19 @@ func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *hu
 	}
 
 	r.Log.Info("checking for an existing CA secret")
-	validCASecret, err := validCASecret(ctx, r, hc.Namespace, getCASecretName(hc))
-	if validCASecret {
-		r.Log.Info("found valid CA secret")
+	caSecretIsValid, err := validCASecret(ctx, r, hc.Namespace, getCASecretName(hc))
+	if caSecretIsValid {
+		r.Log.Info("found valid CA secret, nothing more to do")
 		return nil
 	}
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return r.logErrorAndReturn(err, "could not validate CA secret")
-	}
-
+	// CA secret is not valid, return if user specified their own custom CA secret
 	if useExistingCA(hc) {
-		return r.logErrorAndReturn(fmt.Errorf("configured to use existing CA secret, but the CA secret invalid"), "specified CA secret invalid")
+		return r.logErrorAndReturn(fmt.Errorf("configured to use existing CA secret, but the CA secret is invalid or got error when validating, err=%v", err), "specified CA secret invalid")
+	}
+	// CA secret is not valid, and should generate our own if it is not already present
+	if !k8serrors.IsNotFound(err) {
+		// Got error that was not due to the k8s secret not existing
+		return r.logErrorAndReturn(err, "could not validate CA secret")
 	}
 
 	r.Log.Info("generating new CA certificate")
