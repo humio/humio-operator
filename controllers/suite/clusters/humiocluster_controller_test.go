@@ -3811,7 +3811,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 				suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 				ctx := context.Background()
-				suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+				suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 				defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 				suite.UsingClusterBy(key.Name, "Confirming certificate objects contain the additional hostnames")
