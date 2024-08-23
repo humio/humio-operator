@@ -4997,7 +4997,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			toCreate.Spec.SidecarContainers = []corev1.Container{
 				{
 					Name:  "jmap",
-					Image: "test-sidecar-image",
+					Image: controllers.SidecarImage,
 				},
 			}
 
@@ -5011,7 +5011,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			for _, pod := range clusterPods {
 				for _, container := range pod.Spec.Containers {
 					if container.Name == "jmap" {
-						Expect(container.Image).To(Equal("test-sidecar-image"))
+						Expect(container.Image).To(Equal(controllers.SidecarImage))
 					}
 				}
 			}
