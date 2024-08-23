@@ -72,6 +72,19 @@ spec:
           httpGet:
             path: /metrics
             port: 8080
+      - name: {{ .Values.sidecarContainer.name }}
+        image: {{ .Values.sidecarContainer.image }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - sleep
+        - "3600"
+        resources:
+          limits:
+            cpu: 10m
+            memory: 10Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
 {{- with .Values.operator.resources }}
         resources:
           {{- toYaml . | nindent 10 }}

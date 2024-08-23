@@ -455,6 +455,7 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 
 			}
 		}
+		sidecar.Image = hnp.GetSidecarImage()
 		pod.Spec.Containers = append(pod.Spec.Containers, sidecar)
 	}
 

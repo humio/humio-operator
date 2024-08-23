@@ -261,6 +261,13 @@ func (hnp *HumioNodePool) GetImagePullPolicy() corev1.PullPolicy {
 	return hnp.humioNodeSpec.ImagePullPolicy
 }
 
+func (hnp *HumioNodePool) GetSidecarImage() string {
+	if hnp.humioNodeSpec.SidecarContainers[0].Image == "" {
+		return hnp.GetImage()
+	}
+	return hnp.humioNodeSpec.SidecarContainers[0].Image
+}
+
 func (hnp *HumioNodePool) GetEnvironmentVariablesSource() []corev1.EnvFromSource {
 	return hnp.humioNodeSpec.EnvironmentVariablesSource
 }
