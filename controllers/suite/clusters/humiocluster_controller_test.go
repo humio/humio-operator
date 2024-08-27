@@ -4987,34 +4987,4 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(kubernetes.NodePoolLabelName, key.Name))
 		})
 	})
-	Context("Humio Cluster Sidecar Image", func() {
-		It("Should use the Helm-defined sidecar image", func() {
-			key := types.NamespacedName{
-				Name:      "humiocluster-sidecar-image",
-				Namespace: testProcessNamespace,
-			}
-			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.SidecarContainers = []corev1.Container{
-				{
-					Name:  "jmap",
-					Image: controllers.SidecarImage,
-				},
-			}
-
-			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
-			ctx := context.Background()
-			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
-			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
-
-			suite.UsingClusterBy(key.Name, "Confirming the sidecar image is set correctly")
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-			for _, pod := range clusterPods {
-				for _, container := range pod.Spec.Containers {
-					if container.Name == "jmap" {
-						Expect(container.Image).To(Equal(controllers.SidecarImage))
-					}
-				}
-			}
-		})
-	})
 })

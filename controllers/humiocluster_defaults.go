@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -34,7 +35,6 @@ import (
 
 const (
 	Image                        = "humio/humio-core:1.131.1"
-	SidecarImage                 = "humio/humio-core:1.131.1"
 	HelperImage                  = "humio/humio-operator-helper:8f5ef6c7e470226e77d985f36cf39be9a100afea"
 	targetReplicationFactor      = 2
 	digestPartitionsCount        = 24
@@ -240,6 +240,11 @@ func (hnp *HumioNodePool) GetImage() string {
 	if hnp.humioNodeSpec.Image != "" {
 		return hnp.humioNodeSpec.Image
 	}
+
+	if os.Getenv("HUMIO_OPERATOR_DEFAULT_IMAGE") != "" {
+		return os.Getenv("HUMIO_OPERATOR_DEFAULT_IMAGE")
+	}
+
 	return Image
 }
 
@@ -251,6 +256,11 @@ func (hnp *HumioNodePool) GetHelperImage() string {
 	if hnp.humioNodeSpec.HelperImage != "" {
 		return hnp.humioNodeSpec.HelperImage
 	}
+
+	if os.Getenv("HUMIO_OPERATOR_DEFAULT_HELPER_IMAGE") != "" {
+		return os.Getenv("HUMIO_OPERATOR_DEFAULT_HELPER_IMAGE")
+	}
+
 	return HelperImage
 }
 
@@ -260,13 +270,6 @@ func (hnp *HumioNodePool) GetImagePullSecrets() []corev1.LocalObjectReference {
 
 func (hnp *HumioNodePool) GetImagePullPolicy() corev1.PullPolicy {
 	return hnp.humioNodeSpec.ImagePullPolicy
-}
-
-func (hnp *HumioNodePool) GetSidecarImage() string {
-	if hnp.humioNodeSpec.SidecarContainers[0].Image == "" {
-		return hnp.GetImage()
-	}
-	return hnp.humioNodeSpec.SidecarContainers[0].Image
 }
 
 func (hnp *HumioNodePool) GetEnvironmentVariablesSource() []corev1.EnvFromSource {

@@ -41,6 +41,5 @@ operator:
 
 certmanager: true
 
-sidecarContainer:
-  name: busybox-sidecar
-  image: busybox
+image: humio/humio-core:latest
+helperimage: humio/humio-operator-helper:latest
