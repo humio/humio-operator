@@ -42,4 +42,4 @@ operator:
 certmanager: true
 
 image: humio/humio-core:latest
-helperimage: humio/humio-operator-helper:latest
+helperImage: humio/humio-operator-helper:latest
