@@ -35,12 +35,12 @@ spec:
         {{- toYaml . | nindent 8 }}
 {{- end }}
 {{- with .Values.image }}
-       image:
-          {{- toYaml . | nindent 8 }}
+      image:
+            {{- toYaml . | nindent 8 }}
 {{- end }}
 {{- with .Values.helperImage }}
-       helperImage:
-          {{- toYaml . | nindent 8 }}
+      helperImage:
+            {{- toYaml . | nindent 8 }}
 {{- end }}
 {{- with .Values.operator.nodeSelector }}
       nodeSelector:
