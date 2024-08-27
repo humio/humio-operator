@@ -34,11 +34,11 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
 {{- end }}
-{{- with .Values.operator.image }}
+{{- with .Values.image }}
        image:
           {{- toYaml . | nindent 8 }}
 {{- end }}
-{{- with .Values.operator.helperImage }}
+{{- with .Values.helperImage }}
        helperImage:
           {{- toYaml . | nindent 8 }}
 {{- end }}
