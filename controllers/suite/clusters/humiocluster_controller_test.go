@@ -19,11 +19,10 @@ package clusters
 import (
 	"context"
 	"fmt"
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"os"
 	"reflect"
 	"strings"
-
-	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
