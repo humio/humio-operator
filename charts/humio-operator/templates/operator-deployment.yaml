@@ -64,11 +64,11 @@ spec:
           value: "humio-operator"
         - name: USE_CERTMANAGER
           value: {{ .Values.certmanager | quote }}
-        {{- if .Values.Image }}
+        {{- if .Values.image }}
         - name: HUMIO_OPERATOR_DEFAULT_IMAGE
           value: {{- .Values.image }}
         {{- end }}
-        {{- if .Values.HelperImage }}
+        {{- if .Values.helperImage }}
         - name: HUMIO_OPERATOR_DEFAULT_HELPER_IMAGE
           value: {{- .Values.helperImage }}
         {{- end }}
