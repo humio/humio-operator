@@ -64,10 +64,14 @@ spec:
           value: "humio-operator"
         - name: USE_CERTMANAGER
           value: {{ .Values.certmanager | quote }}
+        {{- if .Values.Image }}
         - name: HUMIO_OPERATOR_DEFAULT_IMAGE
           value: {{- with .Values.Image }}
+        {{- end }}
+        {{- if .Values.HelperImage }}
         - name: HUMIO_OPERATOR_DEFAULT_HELPER_IMAGE
           value: {{- with .Values.helperImage }}
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /metrics
