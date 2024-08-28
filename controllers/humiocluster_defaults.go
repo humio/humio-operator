@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -239,6 +240,11 @@ func (hnp *HumioNodePool) GetImage() string {
 	if hnp.humioNodeSpec.Image != "" {
 		return hnp.humioNodeSpec.Image
 	}
+
+	if os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE") != "" {
+		return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE")
+	}
+
 	return Image
 }
 
@@ -250,6 +256,11 @@ func (hnp *HumioNodePool) GetHelperImage() string {
 	if hnp.humioNodeSpec.HelperImage != "" {
 		return hnp.humioNodeSpec.HelperImage
 	}
+
+	if os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE") != "" {
+		return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE")
+	}
+
 	return HelperImage
 }
 
