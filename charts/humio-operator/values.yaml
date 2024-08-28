@@ -40,3 +40,5 @@ operator:
             - linux
 
 certmanager: true
+defaultHumioCoreImage: ""
+defaultHumioHelperImage: ""
