@@ -91,7 +91,7 @@ func (h *MockClientConfig) Status(config *humioapi.Config, req reconcile.Request
 }
 
 func (h *MockClientConfig) GetClusters(config *humioapi.Config, req reconcile.Request) (humioapi.Cluster, error) {
-	return humioapi.Cluster{}, fmt.Errorf("not implemented")
+	return humioapi.Cluster{}, nil
 }
 
 func (h *MockClientConfig) GetBaseURL(config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) *url.URL {
@@ -928,6 +928,9 @@ func (h *MockClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Requ
 }
 
 func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
 	for k := range h.apiClient.Repository {
 		if k.resourceName != repoNameToKeep {
 			delete(h.apiClient.Repository, k)

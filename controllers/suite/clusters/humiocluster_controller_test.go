@@ -24,10 +24,10 @@ import (
 	"strings"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/controllers/suite"
+	"github.com/humio/humio-operator/controllers/versions"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/kubernetes"
 	. "github.com/onsi/ginkgo/v2"
@@ -40,18 +40,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-)
-
-const (
-	oldSupportedHumioVersion   = "humio/humio-core:1.118.0"
-	upgradeJumpHumioVersion    = "humio/humio-core:1.128.0"
-	oldUnsupportedHumioVersion = "humio/humio-core:1.18.4"
-
-	upgradePatchBestEffortOldVersion = "humio/humio-core:1.124.1"
-	upgradePatchBestEffortNewVersion = "humio/humio-core:1.124.2"
-
-	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.124.1"
-	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.131.1"
 )
 
 var _ = Describe("HumioCluster Controller", func() {
@@ -70,7 +58,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	// your API definition.
 	// Avoid adding tests for vanilla CRUD operations because they would
 	// test Kubernetes API server, which isn't the goal here.
-	Context("Humio Cluster Simple", func() {
+	Context("Humio Cluster Simple", Label("envtest", "dummy", "real"), func() {
 		It("Should bootstrap cluster correctly", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-simple",
@@ -86,7 +74,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster With Multiple Node Pools", func() {
+	Context("Humio Cluster With Multiple Node Pools", Label("envtest", "dummy", "real"), func() {
 		It("Should bootstrap multi node cluster correctly", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-multi-node-pool",
@@ -132,7 +120,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster With Node Pools Only", func() {
+	Context("Humio Cluster With Node Pools Only", Label("envtest", "dummy", "real"), func() {
 		It("Should bootstrap nodepools only cluster correctly", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-node-pool-only",
@@ -154,7 +142,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Without Init Container", func() {
+	Context("Humio Cluster Without Init Container", Label("envtest", "dummy", "real"), func() {
 		It("Should bootstrap cluster correctly", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-no-init-container",
@@ -170,7 +158,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Multi Organizations", func() {
+	Context("Humio Cluster Multi Organizations", Label("envtest", "dummy", "real"), func() {
 		It("Should bootstrap cluster correctly", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-multi-org",
@@ -193,14 +181,14 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Unsupported Version", func() {
+	Context("Humio Cluster Unsupported Version", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster with unsupported version", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-err-unsupp-vers",
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = oldUnsupportedHumioVersion
+			toCreate.Spec.Image = versions.OldUnsupportedHumioVersion()
 
 			ctx := context.Background()
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateConfigError, testTimeout)
@@ -222,18 +210,18 @@ var _ = Describe("HumioCluster Controller", func() {
 					Expect(err).Should(Succeed())
 				}
 				return updatedHumioCluster.Status.Message
-			}, testTimeout, suite.TestInterval).Should(Equal(fmt.Sprintf("Humio version must be at least %s: unsupported Humio version: %s", controllers.HumioVersionMinimumSupported, strings.Split(oldUnsupportedHumioVersion, ":")[1])))
+			}, testTimeout, suite.TestInterval).Should(Equal(fmt.Sprintf("Humio version must be at least %s: unsupported Humio version: %s", controllers.HumioVersionMinimumSupported, strings.Split(strings.Split(versions.OldUnsupportedHumioVersion(), ":")[1], "-")[0])))
 		})
 	})
 
-	Context("Humio Cluster Update Image", func() {
+	Context("Humio Cluster Update Image", Label("envtest", "dummy", "real"), func() {
 		It("Update should correctly replace pods to use new image", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image",
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = oldSupportedHumioVersion
+			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
 			toCreate.Spec.NodeCount = 2
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -260,7 +248,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				if err != nil {
 					return err
 				}
-				updatedHumioCluster.Spec.Image = upgradeJumpHumioVersion
+				updatedHumioCluster.Spec.Image = versions.UpgradeJumpHumioVersion()
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -287,7 +275,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(upgradeJumpHumioVersion))
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(versions.UpgradeJumpHumioVersion()))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
@@ -298,7 +286,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Failed Pods", func() {
+	Context("Humio Cluster Update Failed Pods", Label("envtest", "dummy", "real"), func() {
 		It("Update should correctly replace pods that are in a failed state", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-failed",
@@ -325,10 +313,24 @@ var _ = Describe("HumioCluster Controller", func() {
 				return nil
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
-			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			var updatedClusterPods []corev1.Pod
+			Eventually(func() map[corev1.PodPhase]int {
+				phaseToCount := map[corev1.PodPhase]int{}
+
+				updatedClusterPods, err = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+				if err != nil {
+					return map[corev1.PodPhase]int{}
+				}
+				Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+
+				for _, pod := range updatedClusterPods {
+					phaseToCount[pod.Status.Phase] += 1
+				}
+
+				return phaseToCount
+
+			}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(corev1.PodRunning, toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
-				Expect(pod.Status.Phase).To(BeIdenticalTo(corev1.PodRunning))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
 			}
 
@@ -346,7 +348,7 @@ var _ = Describe("HumioCluster Controller", func() {
 								{
 									MatchExpressions: []corev1.NodeSelectorRequirement{
 										{
-											Key:      "some-none-existant-label",
+											Key:      "some-none-existent-label",
 											Operator: corev1.NodeSelectorOpIn,
 											Values:   []string{"does-not-exist"},
 										},
@@ -408,14 +410,14 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Image Rolling Restart", func() {
+	Context("Humio Cluster Update Image Rolling Restart", Label("envtest", "dummy", "real"), func() {
 		It("Update should correctly replace pods to use new image in a rolling fashion", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image-rolling",
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = oldSupportedHumioVersion
+			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
 			toCreate.Spec.NodeCount = 2
 			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
 				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
@@ -445,7 +447,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				if err != nil {
 					return err
 				}
-				updatedHumioCluster.Spec.Image = upgradeJumpHumioVersion
+				updatedHumioCluster.Spec.Image = versions.UpgradeJumpHumioVersion()
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -473,7 +475,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(upgradeJumpHumioVersion))
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(versions.UpgradeJumpHumioVersion()))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
@@ -484,14 +486,14 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Image Update Strategy OnDelete", func() {
+	Context("Humio Cluster Update Image Update Strategy OnDelete", Label("envtest", "dummy", "real"), func() {
 		It("Update should not replace pods on image update when update strategy OnDelete is used", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image-on-delete",
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = oldSupportedHumioVersion
+			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
 			toCreate.Spec.NodeCount = 2
 			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
 				Type: humiov1alpha1.HumioClusterUpdateStrategyOnDelete,
@@ -515,7 +517,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
-			updatedImage := controllers.Image
+			updatedImage := versions.DefaultHumioImageVersion()
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -579,14 +581,14 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Image Rolling Best Effort Patch", func() {
+	Context("Humio Cluster Update Image Rolling Best Effort Patch", Label("envtest", "dummy", "real"), func() {
 		It("Update should correctly replace pods to use new image in a rolling fashion for patch updates", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image-rolling-patch",
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = upgradePatchBestEffortOldVersion
+			toCreate.Spec.Image = versions.UpgradePatchBestEffortOldVersion()
 			toCreate.Spec.NodeCount = 2
 			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
 				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdateBestEffort,
@@ -616,7 +618,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				if err != nil {
 					return err
 				}
-				updatedHumioCluster.Spec.Image = upgradePatchBestEffortNewVersion
+				updatedHumioCluster.Spec.Image = versions.UpgradePatchBestEffortNewVersion()
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -644,7 +646,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(upgradePatchBestEffortNewVersion))
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(versions.UpgradePatchBestEffortNewVersion()))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
@@ -655,14 +657,14 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Image Best Effort Version Jump", func() {
+	Context("Humio Cluster Update Image Best Effort Version Jump", Label("envtest", "dummy", "real"), func() {
 		It("Update should correctly replace pods in parallel to use new image for version jump updates", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image-vj",
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = upgradeRollingBestEffortVersionJumpOldVersion
+			toCreate.Spec.Image = versions.UpgradeRollingBestEffortVersionJumpOldVersion()
 			toCreate.Spec.NodeCount = 2
 			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
 				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdateBestEffort,
@@ -692,7 +694,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				if err != nil {
 					return err
 				}
-				updatedHumioCluster.Spec.Image = upgradeRollingBestEffortVersionJumpNewVersion
+				updatedHumioCluster.Spec.Image = versions.UpgradeRollingBestEffortVersionJumpNewVersion()
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -721,7 +723,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
 			for _, pod := range updatedClusterPods {
 				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(upgradeRollingBestEffortVersionJumpNewVersion))
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(versions.UpgradeRollingBestEffortVersionJumpNewVersion()))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
@@ -732,7 +734,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update EXTERNAL_URL", func() {
+	Context("Humio Cluster Update EXTERNAL_URL", Label("envtest", "dummy", "real"), func() {
 		It("Update should correctly replace pods to use the new EXTERNAL_URL in a non-rolling fashion", func() {
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 				key := types.NamespacedName{
@@ -812,13 +814,13 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Image Multi Node Pool", func() {
+	Context("Humio Cluster Update Image Multi Node Pool", Label("envtest", "dummy", "real"), func() {
 		It("Update should correctly replace pods to use new image in multiple node pools", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image-np",
 				Namespace: testProcessNamespace,
 			}
-			originalImage := oldSupportedHumioVersion
+			originalImage := versions.OldSupportedHumioVersion()
 			toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
 			toCreate.Spec.Image = originalImage
 			toCreate.Spec.NodeCount = 1
@@ -857,7 +859,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image on the main node pool successfully")
-			updatedImage := upgradeJumpHumioVersion
+			updatedImage := versions.UpgradeJumpHumioVersion()
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -989,14 +991,14 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Image Source", func() {
+	Context("Humio Cluster Update Image Source", Label("envtest", "dummy", "real"), func() {
 		It("Update should correctly replace pods to use new image", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-image-source",
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.Image = upgradePatchBestEffortOldVersion
+			toCreate.Spec.Image = versions.UpgradePatchBestEffortOldVersion()
 			toCreate.Spec.NodeCount = 2
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -1039,7 +1041,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Equal("failed to set imageFromSource: ConfigMap \"image-source-missing\" not found"))
 
 			suite.UsingClusterBy(key.Name, "Creating the imageSource configmap")
-			updatedImage := upgradePatchBestEffortNewVersion
+			updatedImage := versions.UpgradePatchBestEffortNewVersion()
 			envVarSourceConfigMap := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "image-source",
@@ -1096,7 +1098,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Using Wrong Image", func() {
+	Context("Humio Cluster Update Using Wrong Image", Label("envtest", "dummy", "real"), func() {
 		It("Update should correctly replace pods after using wrong image", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-wrong-image",
@@ -1122,7 +1124,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(updatedHumioCluster.Annotations).To(HaveKeyWithValue(revisionKey, "1"))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image unsuccessfully")
-			updatedImage := fmt.Sprintf("%s-missing-image", controllers.Image)
+			updatedImage := fmt.Sprintf("%s-missing-image", versions.DefaultHumioImageVersion())
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -1166,7 +1168,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
-			updatedImage = controllers.Image
+			updatedImage = versions.DefaultHumioImageVersion()
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -1211,7 +1213,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Helper Image", func() {
+	Context("Humio Cluster Update Helper Image", Label("envtest", "dummy", "real"), func() {
 		It("Update should correctly replace pods to use new image", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-helper-image",
@@ -1239,19 +1241,18 @@ var _ = Describe("HumioCluster Controller", func() {
 					return pod.Spec.InitContainers[initIdx].Image
 				}
 				return ""
-			}, testTimeout, suite.TestInterval).Should(Equal(controllers.HelperImage))
+			}, testTimeout, suite.TestInterval).Should(Equal(versions.DefaultHelperImageVersion()))
 
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-
 			suite.UsingClusterBy(key.Name, "Overriding helper image")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
-			customHelperImage := "humio/humio-operator-helper:master"
+			upgradedHelperImage := versions.UpgradeHelperImageVersion()
 			Eventually(func() error {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
 				if err != nil {
 					return err
 				}
-				updatedHumioCluster.Spec.HelperImage = customHelperImage
+				updatedHumioCluster.Spec.HelperImage = upgradedHelperImage
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -1266,7 +1267,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					return pod.Spec.InitContainers[initIdx].Image
 				}
 				return ""
-			}, testTimeout, suite.TestInterval).Should(Equal(customHelperImage))
+			}, testTimeout, suite.TestInterval).Should(Equal(upgradedHelperImage))
 
 			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 
@@ -1346,7 +1347,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Environment Variable", func() {
+	Context("Humio Cluster Update Environment Variable", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly replace pods to use new environment variable", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-envvar",
@@ -1476,339 +1477,338 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Environment Variable Multi Node Pool", func() {
-		It("Should correctly replace pods to use new environment variable for multi node pool clusters",
-			Label("envvar"), func() {
-				key := types.NamespacedName{
-					Name:      "humiocluster-update-envvar-np",
-					Namespace: testProcessNamespace,
-				}
-				toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
-				toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
-					Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
-				}
-				toCreate.Spec.NodeCount = 1
-				toCreate.Spec.NodePools[0].NodeCount = 1
-				toCreate.Spec.CommonEnvironmentVariables = []corev1.EnvVar{
-					{
-						Name:  "COMMON_ENV_VAR",
-						Value: "value",
-					},
-					{
-						Name:  "HUMIO_OPTS",
-						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-					},
-					{
-						Name:  "KAFKA_SERVERS",
-						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
-					},
-					{
-						Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
-						Value: key.Name,
-					},
-					{
-						Name:  "AUTHENTICATION_METHOD",
-						Value: "oauth",
-					},
-					{
-						Name:  "ENABLE_IOC_SERVICE",
-						Value: "false",
-					},
-					{
-						Name:  "test",
-						Value: "common",
-					},
-				}
-				toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
-					{
-						Name:  "test",
-						Value: "",
-					},
-					{
-						Name:  "HUMIO_OPTS",
-						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-					},
-					{
-						Name:  "KAFKA_SERVERS",
-						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
-					},
-					{
-						Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
-						Value: key.Name,
-					},
-					{
-						Name:  "AUTHENTICATION_METHOD",
-						Value: "oauth",
-					},
-					{
-						Name:  "ENABLE_IOC_SERVICE",
-						Value: "false",
-					},
-				}
-				toCreate.Spec.NodePools[0].EnvironmentVariables = []corev1.EnvVar{
-					{
-						Name:  "test",
-						Value: "np",
-					},
-				}
+	Context("Humio Cluster Update Environment Variable Multi Node Pool", Label("envtest", "dummy", "real"), func() {
+		It("Should correctly replace pods to use new environment variable for multi node pool clusters", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-update-envvar-np",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := constructBasicMultiNodePoolHumioCluster(key, true, 1)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+			}
+			toCreate.Spec.NodeCount = 1
+			toCreate.Spec.NodePools[0].NodeCount = 1
+			toCreate.Spec.CommonEnvironmentVariables = []corev1.EnvVar{
+				{
+					Name:  "COMMON_ENV_VAR",
+					Value: "value",
+				},
+				{
+					Name:  "HUMIO_OPTS",
+					Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+				},
+				{
+					Name:  "KAFKA_SERVERS",
+					Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+				},
+				{
+					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
+					Value: key.Name,
+				},
+				{
+					Name:  "AUTHENTICATION_METHOD",
+					Value: "oauth",
+				},
+				{
+					Name:  "ENABLE_IOC_SERVICE",
+					Value: "false",
+				},
+				{
+					Name:  "test",
+					Value: "common",
+				},
+			}
+			toCreate.Spec.EnvironmentVariables = []corev1.EnvVar{
+				{
+					Name:  "test",
+					Value: "",
+				},
+				{
+					Name:  "HUMIO_OPTS",
+					Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+				},
+				{
+					Name:  "KAFKA_SERVERS",
+					Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+				},
+				{
+					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
+					Value: key.Name,
+				},
+				{
+					Name:  "AUTHENTICATION_METHOD",
+					Value: "oauth",
+				},
+				{
+					Name:  "ENABLE_IOC_SERVICE",
+					Value: "false",
+				},
+			}
+			toCreate.Spec.NodePools[0].EnvironmentVariables = []corev1.EnvVar{
+				{
+					Name:  "test",
+					Value: "np",
+				},
+			}
 
-				suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
-				ctx := context.Background()
-				createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
-				defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-				mainNodePoolManager := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
-				customNodePoolManager := controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0])
+			mainNodePoolManager := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
+			customNodePoolManager := controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0])
 
-				expectedCommonVars := []corev1.EnvVar{
-					{
-						Name:  "COMMON_ENV_VAR",
-						Value: "value",
-					},
-					{
-						Name:  "KAFKA_SERVERS",
-						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
-					},
+			expectedCommonVars := []corev1.EnvVar{
+				{
+					Name:  "COMMON_ENV_VAR",
+					Value: "value",
+				},
+				{
+					Name:  "KAFKA_SERVERS",
+					Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+				},
+			}
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, mainNodePoolManager.GetPodLabels())
+			Expect(clusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Env).To(ContainElements(append(expectedCommonVars, corev1.EnvVar{
+					Name: "test", Value: ""})))
+			}
+
+			customClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, customNodePoolManager.GetPodLabels())
+			Expect(clusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			for _, pod := range customClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Env).To(ContainElements(append(expectedCommonVars, corev1.EnvVar{
+					Name: "test", Value: "np"})))
+			}
+
+			suite.UsingClusterBy(key.Name, "Updating the environment variable on main node pool successfully")
+			updatedCommonEnvironmentVariables := []corev1.EnvVar{
+				{
+					Name:  "COMMON_ENV_VAR",
+					Value: "value",
+				},
+				{
+					Name:  "HUMIO_OPTS",
+					Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+				},
+				{
+					Name:  "KAFKA_SERVERS",
+					Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+				},
+				{
+					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
+					Value: key.Name,
+				},
+				{
+					Name:  "AUTHENTICATION_METHOD",
+					Value: "oauth",
+				},
+				{
+					Name:  "ENABLE_IOC_SERVICE",
+					Value: "false",
+				},
+			}
+			updatedEnvironmentVariables := []corev1.EnvVar{
+				{
+					Name:  "test",
+					Value: "update",
+				},
+				{
+					Name:  "HUMIO_OPTS",
+					Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+				},
+				{
+					Name:  "KAFKA_SERVERS",
+					Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+				},
+				{
+					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
+					Value: key.Name,
+				},
+				{
+					Name:  "AUTHENTICATION_METHOD",
+					Value: "oauth",
+				},
+				{
+					Name:  "ENABLE_IOC_SERVICE",
+					Value: "false",
+				},
+			}
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
 				}
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, mainNodePoolManager.GetPodLabels())
-				Expect(clusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+				updatedHumioCluster.Spec.CommonEnvironmentVariables = updatedCommonEnvironmentVariables
+				updatedHumioCluster.Spec.EnvironmentVariables = updatedEnvironmentVariables
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
+
+			suite.UsingClusterBy(key.Name, "Confirming only one node pool is in the correct state")
+			Eventually(func() int {
+				var poolsInCorrectState int
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				for _, poolStatus := range updatedHumioCluster.Status.NodePoolStatus {
+					if poolStatus.State == humiov1alpha1.HumioClusterStateRestarting {
+						poolsInCorrectState++
+					}
+				}
+				return poolsInCorrectState
+			}, testTimeout, suite.TestInterval).Should(Equal(1))
+
+			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
+			ensurePodsRollingRestart(ctx, mainNodePoolManager, 2)
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			Eventually(func() bool {
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, mainNodePoolManager.GetPodLabels())
+				Expect(len(clusterPods)).To(BeIdenticalTo(toCreate.Spec.NodeCount))
+
 				for _, pod := range clusterPods {
 					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-					Expect(pod.Spec.Containers[humioIndex].Env).To(ContainElements(append(expectedCommonVars, corev1.EnvVar{
-						Name: "test", Value: ""})))
+					Expect(pod.Spec.Containers[humioIndex].Env).Should(ContainElement(updatedEnvironmentVariables[0]))
 				}
+				return true
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
-				customClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, customNodePoolManager.GetPodLabels())
-				Expect(clusterPods).To(HaveLen(toCreate.Spec.NodeCount))
-				for _, pod := range customClusterPods {
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, mainNodePoolManager.GetPodLabels())
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			suite.UsingClusterBy(key.Name, "Confirming pod revision did not change for the other node pool")
+			additionalNodePoolManager := controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[0])
+
+			nonUpdatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
+			Expect(nonUpdatedClusterPods).To(HaveLen(toCreate.Spec.NodePools[0].NodeCount))
+			Expect(updatedHumioCluster.Spec.NodePools[0].EnvironmentVariables).To(Equal(toCreate.Spec.NodePools[0].EnvironmentVariables))
+			for _, pod := range nonUpdatedClusterPods {
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+
+			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, additionalNodePoolManager.GetPodLabels())
+
+			suite.UsingClusterBy(key.Name, "Updating the environment variable on additional node pool successfully")
+			updatedEnvironmentVariables = []corev1.EnvVar{
+				{
+					Name:  "test",
+					Value: "update",
+				},
+				{
+					Name:  "HUMIO_OPTS",
+					Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
+				},
+				{
+					Name:  "KAFKA_SERVERS",
+					Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
+				},
+				{
+					Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
+					Value: key.Name,
+				},
+				{
+					Name:  "AUTHENTICATION_METHOD",
+					Value: "oauth",
+				},
+				{
+					Name:  "ENABLE_IOC_SERVICE",
+					Value: "false",
+				},
+			}
+			npUpdatedEnvironmentVariables := []corev1.EnvVar{
+				{
+					Name:  "test",
+					Value: "np-update",
+				},
+			}
+
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.NodePools[0].EnvironmentVariables = npUpdatedEnvironmentVariables
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
+
+			suite.UsingClusterBy(key.Name, "Confirming only one node pool is in the correct state")
+			Eventually(func() int {
+				var poolsInCorrectState int
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				for _, poolStatus := range updatedHumioCluster.Status.NodePoolStatus {
+					if poolStatus.State == humiov1alpha1.HumioClusterStateRestarting {
+						poolsInCorrectState++
+					}
+				}
+				return poolsInCorrectState
+			}, testTimeout, suite.TestInterval).Should(Equal(1))
+
+			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
+			ensurePodsRollingRestart(ctx, additionalNodePoolManager, 2)
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			Eventually(func() bool {
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
+				Expect(len(clusterPods)).To(BeIdenticalTo(toCreate.Spec.NodeCount))
+
+				for _, pod := range clusterPods {
 					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-					Expect(pod.Spec.Containers[humioIndex].Env).To(ContainElements(append(expectedCommonVars, corev1.EnvVar{
-						Name: "test", Value: "np"})))
+					Expect(pod.Spec.Containers[humioIndex].Env).Should(ContainElements(npUpdatedEnvironmentVariables))
 				}
+				return true
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
-				suite.UsingClusterBy(key.Name, "Updating the environment variable on main node pool successfully")
-				updatedCommonEnvironmentVariables := []corev1.EnvVar{
-					{
-						Name:  "COMMON_ENV_VAR",
-						Value: "value",
-					},
-					{
-						Name:  "HUMIO_OPTS",
-						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-					},
-					{
-						Name:  "KAFKA_SERVERS",
-						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
-					},
-					{
-						Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
-						Value: key.Name,
-					},
-					{
-						Name:  "AUTHENTICATION_METHOD",
-						Value: "oauth",
-					},
-					{
-						Name:  "ENABLE_IOC_SERVICE",
-						Value: "false",
-					},
-				}
-				updatedEnvironmentVariables := []corev1.EnvVar{
-					{
-						Name:  "test",
-						Value: "update",
-					},
-					{
-						Name:  "HUMIO_OPTS",
-						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-					},
-					{
-						Name:  "KAFKA_SERVERS",
-						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
-					},
-					{
-						Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
-						Value: key.Name,
-					},
-					{
-						Name:  "AUTHENTICATION_METHOD",
-						Value: "oauth",
-					},
-					{
-						Name:  "ENABLE_IOC_SERVICE",
-						Value: "false",
-					},
-				}
+			updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
 
-				var updatedHumioCluster humiov1alpha1.HumioCluster
-				Eventually(func() error {
-					updatedHumioCluster = humiov1alpha1.HumioCluster{}
-					err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-					if err != nil {
-						return err
-					}
-					updatedHumioCluster.Spec.CommonEnvironmentVariables = updatedCommonEnvironmentVariables
-					updatedHumioCluster.Spec.EnvironmentVariables = updatedEnvironmentVariables
-					return k8sClient.Update(ctx, &updatedHumioCluster)
-				}, testTimeout, suite.TestInterval).Should(Succeed())
+			suite.UsingClusterBy(key.Name, "Confirming pod revision did not change for the other main pool")
 
-				Eventually(func() string {
-					updatedHumioCluster = humiov1alpha1.HumioCluster{}
-					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-					return updatedHumioCluster.Status.State
-				}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
-
-				suite.UsingClusterBy(key.Name, "Confirming only one node pool is in the correct state")
-				Eventually(func() int {
-					var poolsInCorrectState int
-					updatedHumioCluster = humiov1alpha1.HumioCluster{}
-					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-					for _, poolStatus := range updatedHumioCluster.Status.NodePoolStatus {
-						if poolStatus.State == humiov1alpha1.HumioClusterStateRestarting {
-							poolsInCorrectState++
-						}
-					}
-					return poolsInCorrectState
-				}, testTimeout, suite.TestInterval).Should(Equal(1))
-
-				suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-				ensurePodsRollingRestart(ctx, mainNodePoolManager, 2)
-
-				Eventually(func() string {
-					updatedHumioCluster = humiov1alpha1.HumioCluster{}
-					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-					return updatedHumioCluster.Status.State
-				}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
-
-				Eventually(func() bool {
-					clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, mainNodePoolManager.GetPodLabels())
-					Expect(len(clusterPods)).To(BeIdenticalTo(toCreate.Spec.NodeCount))
-
-					for _, pod := range clusterPods {
-						humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-						Expect(pod.Spec.Containers[humioIndex].Env).Should(ContainElement(updatedEnvironmentVariables[0]))
-					}
-					return true
-				}, testTimeout, suite.TestInterval).Should(BeTrue())
-
-				updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, mainNodePoolManager.GetPodLabels())
-				if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-					suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
-					Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
-				}
-
-				suite.UsingClusterBy(key.Name, "Confirming pod revision did not change for the other node pool")
-				additionalNodePoolManager := controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[0])
-
-				nonUpdatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
-				Expect(nonUpdatedClusterPods).To(HaveLen(toCreate.Spec.NodePools[0].NodeCount))
-				Expect(updatedHumioCluster.Spec.NodePools[0].EnvironmentVariables).To(Equal(toCreate.Spec.NodePools[0].EnvironmentVariables))
-				for _, pod := range nonUpdatedClusterPods {
-					Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
-				}
-
-				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, additionalNodePoolManager.GetPodLabels())
-
-				suite.UsingClusterBy(key.Name, "Updating the environment variable on additional node pool successfully")
-				updatedEnvironmentVariables = []corev1.EnvVar{
-					{
-						Name:  "test",
-						Value: "update",
-					},
-					{
-						Name:  "HUMIO_OPTS",
-						Value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false",
-					},
-					{
-						Name:  "KAFKA_SERVERS",
-						Value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092",
-					},
-					{
-						Name:  "HUMIO_KAFKA_TOPIC_PREFIX",
-						Value: key.Name,
-					},
-					{
-						Name:  "AUTHENTICATION_METHOD",
-						Value: "oauth",
-					},
-					{
-						Name:  "ENABLE_IOC_SERVICE",
-						Value: "false",
-					},
-				}
-				npUpdatedEnvironmentVariables := []corev1.EnvVar{
-					{
-						Name:  "test",
-						Value: "np-update",
-					},
-				}
-
-				Eventually(func() error {
-					updatedHumioCluster = humiov1alpha1.HumioCluster{}
-					err := k8sClient.Get(ctx, key, &updatedHumioCluster)
-					if err != nil {
-						return err
-					}
-					updatedHumioCluster.Spec.NodePools[0].EnvironmentVariables = npUpdatedEnvironmentVariables
-					return k8sClient.Update(ctx, &updatedHumioCluster)
-				}, testTimeout, suite.TestInterval).Should(Succeed())
-
-				Eventually(func() string {
-					updatedHumioCluster = humiov1alpha1.HumioCluster{}
-					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-					return updatedHumioCluster.Status.State
-				}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
-
-				suite.UsingClusterBy(key.Name, "Confirming only one node pool is in the correct state")
-				Eventually(func() int {
-					var poolsInCorrectState int
-					updatedHumioCluster = humiov1alpha1.HumioCluster{}
-					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-					for _, poolStatus := range updatedHumioCluster.Status.NodePoolStatus {
-						if poolStatus.State == humiov1alpha1.HumioClusterStateRestarting {
-							poolsInCorrectState++
-						}
-					}
-					return poolsInCorrectState
-				}, testTimeout, suite.TestInterval).Should(Equal(1))
-
-				suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-				ensurePodsRollingRestart(ctx, additionalNodePoolManager, 2)
-
-				Eventually(func() string {
-					updatedHumioCluster = humiov1alpha1.HumioCluster{}
-					Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-					return updatedHumioCluster.Status.State
-				}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
-
-				Eventually(func() bool {
-					clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
-					Expect(len(clusterPods)).To(BeIdenticalTo(toCreate.Spec.NodeCount))
-
-					for _, pod := range clusterPods {
-						humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-						Expect(pod.Spec.Containers[humioIndex].Env).Should(ContainElements(npUpdatedEnvironmentVariables))
-					}
-					return true
-				}, testTimeout, suite.TestInterval).Should(BeTrue())
-
-				updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
-				if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-					suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
-					Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
-				}
-
-				suite.UsingClusterBy(key.Name, "Confirming pod revision did not change for the other main pool")
-
-				nonUpdatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, mainNodePoolManager.GetPodLabels())
-				Expect(nonUpdatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
-				for _, pod := range nonUpdatedClusterPods {
-					Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
-				}
-			})
+			nonUpdatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, mainNodePoolManager.GetPodLabels())
+			Expect(nonUpdatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			for _, pod := range nonUpdatedClusterPods {
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
+			}
+		})
 	})
 
-	Context("Humio Cluster Ingress", func() {
+	Context("Humio Cluster Ingress", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly update ingresses to use new annotations variable", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-ingress",
@@ -1972,7 +1972,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Pod Annotations", func() {
+	Context("Humio Cluster Pod Annotations", Label("envtest", "dummy", "real"), func() {
 		It("Should be correctly annotated", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-pods",
@@ -1999,7 +1999,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Pod Labels", func() {
+	Context("Humio Cluster Pod Labels", Label("envtest", "dummy", "real"), func() {
 		It("Should be correctly annotated", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-labels",
@@ -2027,7 +2027,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Custom Service", func() {
+	Context("Humio Cluster Custom Service", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly use default service", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-svc",
@@ -2064,7 +2064,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			// Wait for the new HumioCluster to finish any existing reconcile loop by waiting for the
 			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
 			// conditions where the HumioCluster is updated and service is deleted midway through reconciliation.
-			suite.IncrementGenerationAndWaitForReconcileToSync(ctx, key, k8sClient, testTimeout)
+			suite.WaitForReconcileToSync(ctx, key, k8sClient, &updatedHumioCluster, testTimeout)
 			Expect(k8sClient.Delete(ctx, controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)))).To(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Confirming we can see the updated HumioCluster object")
@@ -2100,7 +2100,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			// Wait for the new HumioCluster to finish any existing reconcile loop by waiting for the
 			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
 			// conditions where the HumioCluster is updated and service is deleted mid-way through a reconcile.
-			suite.IncrementGenerationAndWaitForReconcileToSync(ctx, key, k8sClient, testTimeout)
+			suite.WaitForReconcileToSync(ctx, key, k8sClient, &updatedHumioCluster, testTimeout)
 			Expect(k8sClient.Delete(ctx, controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)))).To(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Confirming service gets recreated with correct Humio port")
@@ -2132,7 +2132,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			// Wait for the new HumioCluster to finish any existing reconcile loop by waiting for the
 			// status.observedGeneration to equal at least that of the current resource version. This will avoid race
 			// conditions where the HumioCluster is updated and service is deleted mid-way through a reconcile.
-			suite.IncrementGenerationAndWaitForReconcileToSync(ctx, key, k8sClient, testTimeout)
+			suite.WaitForReconcileToSync(ctx, key, k8sClient, &updatedHumioCluster, testTimeout)
 			Expect(k8sClient.Delete(ctx, controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)))).To(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Confirming service gets recreated with correct ES port")
@@ -2202,7 +2202,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			delete(service.Spec.Selector, "humio.com/node-pool")
 			Expect(k8sClient.Update(ctx, service)).To(Succeed())
 
-			suite.IncrementGenerationAndWaitForReconcileToSync(ctx, key, k8sClient, testTimeout)
+			suite.WaitForReconcileToSync(ctx, key, k8sClient, &updatedHumioCluster, testTimeout)
 
 			Eventually(func() map[string]string {
 				service := controllers.ConstructService(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster))
@@ -2279,7 +2279,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Container Arguments", func() {
+	Context("Humio Cluster Container Arguments", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly configure container arguments and ephemeral disks env var with default vhost selection method", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-container-args",
@@ -2325,7 +2325,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Container Arguments Without Zone", func() {
+	Context("Humio Cluster Container Arguments Without Zone", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly configure container arguments", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-container-without-zone-args",
@@ -2369,7 +2369,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Service Account Annotations", func() {
+	Context("Humio Cluster Service Account Annotations", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly handle service account annotations", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-sa-annotations",
@@ -2424,7 +2424,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Pod Security Context", func() {
+	Context("Humio Cluster Pod Security Context", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly handle pod security context", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-podsecuritycontext",
@@ -2498,7 +2498,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Container Security Context", func() {
+	Context("Humio Cluster Container Security Context", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly handle container security context", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-containersecuritycontext",
@@ -2596,7 +2596,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Container Probes", func() {
+	Context("Humio Cluster Container Probes", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly handle container probes", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-probes",
@@ -2847,7 +2847,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Ekstra Kafka Configs", func() {
+	Context("Humio Cluster Extra Kafka Configs", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly handle extra kafka configs", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-extrakafkaconfigs",
@@ -2966,7 +2966,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster View Group Permissions", func() {
+	Context("Humio Cluster View Group Permissions", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly handle view group permissions", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-vgp",
@@ -3106,7 +3106,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Role Permissions", func() {
+	Context("Humio Cluster Role Permissions", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly handle role permissions", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-rp",
@@ -3276,7 +3276,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Persistent Volumes", func() {
+	Context("Humio Cluster Persistent Volumes", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly handle persistent volumes", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-pvc",
@@ -3349,7 +3349,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Extra Volumes", func() {
+	Context("Humio Cluster Extra Volumes", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly handle extra volumes", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-extra-volumes",
@@ -3431,7 +3431,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Custom Path", func() {
+	Context("Humio Cluster Custom Path", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly handle custom paths with ingress disabled", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-path-ing-disabled",
@@ -3503,7 +3503,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 		})
 
-		It("Should correctly handle custom paths with ingress enabled", func() {
+		It("Should correctly handle custom paths with ingress enabled", Label("envtest", "dummy", "real"), func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-path-ing-enabled",
 				Namespace: testProcessNamespace,
@@ -3577,7 +3577,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Config Errors", func() {
+	Context("Humio Cluster Config Errors", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster with conflicting volume mount name", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-err-volmnt-name",
@@ -3809,7 +3809,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Without TLS for Ingress", func() {
+	Context("Humio Cluster Without TLS for Ingress", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster without TLS for ingress", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-without-tls-ingress",
@@ -3841,7 +3841,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster with additional hostnames for TLS", func() {
+	Context("Humio Cluster with additional hostnames for TLS", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster with additional hostnames for TLS", func() {
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 				key := types.NamespacedName{
@@ -3878,7 +3878,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Ingress", func() {
+	Context("Humio Cluster Ingress", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly handle ingress when toggling both ESHostname and Hostname on/off", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-ingress-hostname",
@@ -4114,7 +4114,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster with non-existent custom service accounts", func() {
+	Context("Humio Cluster with non-existent custom service accounts", Label("envtest", "dummy", "real"), func() {
 		It("Should correctly handle non-existent humio service account by marking cluster as ConfigError", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-err-humio-service-account",
@@ -4183,7 +4183,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster With Custom Service Accounts", func() {
+	Context("Humio Cluster With Custom Service Accounts", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster with custom service accounts", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-service-accounts",
@@ -4263,7 +4263,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster With Service Annotations", func() {
+	Context("Humio Cluster With Service Annotations", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster with custom service annotations", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-svc-annotations",
@@ -4303,7 +4303,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster With Custom Tolerations", func() {
+	Context("Humio Cluster With Custom Tolerations", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster with custom tolerations", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-tolerations",
@@ -4332,7 +4332,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster With Custom Topology Spread Constraints", func() {
+	Context("Humio Cluster With Custom Topology Spread Constraints", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster with custom Topology Spread Constraints", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-tsc",
@@ -4360,7 +4360,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster With Custom Priority Class Name", func() {
+	Context("Humio Cluster With Custom Priority Class Name", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster with custom Priority Class Name", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-pcn",
@@ -4391,7 +4391,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster With Service Labels", func() {
+	Context("Humio Cluster With Service Labels", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster with custom service labels", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-svc-labels",
@@ -4426,7 +4426,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster with shared process namespace and sidecars", func() {
+	Context("Humio Cluster with shared process namespace and sidecars", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster without shared process namespace and sidecar", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-sidecars",
@@ -4461,7 +4461,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				updatedHumioCluster.Spec.SidecarContainers = []corev1.Container{
 					{
 						Name:    "jmap",
-						Image:   controllers.Image,
+						Image:   versions.DefaultHumioImageVersion(),
 						Command: []string{"/bin/sh"},
 						Args:    []string{"-c", "HUMIO_PID=$(ps -e | grep java | awk '{print $1'}); while :; do sleep 30 ; jmap -histo:live $HUMIO_PID | head -n203 ; done"},
 						VolumeMounts: []corev1.VolumeMount{
@@ -4516,7 +4516,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster pod termination grace period", func() {
+	Context("Humio Cluster pod termination grace period", Label("envtest", "dummy", "real"), func() {
 		It("Should validate default configuration", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-grace-default",
@@ -4567,7 +4567,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster install license", func() {
+	Context("Humio Cluster install license", Label("envtest", "dummy", "real"), func() {
 		It("Should fail when no license is present", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-no-license",
@@ -4689,7 +4689,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster state adjustment", func() {
+	Context("Humio Cluster state adjustment", Label("envtest", "dummy", "real"), func() {
 		It("Should successfully set proper state", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-state",
@@ -4729,7 +4729,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster with envSource configmap", func() {
+	Context("Humio Cluster with envSource configmap", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster with envSource configmap", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-env-source-configmap",
@@ -4833,7 +4833,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster with envSource secret", func() {
+	Context("Humio Cluster with envSource secret", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster with envSource secret", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-env-source-secret",
@@ -4937,7 +4937,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster with resources without node pool name label", func() {
+	Context("Humio Cluster with resources without node pool name label", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster with all node pool labels set", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-nodepool-labels",

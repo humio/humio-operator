@@ -27,6 +27,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/humio/humio-operator/controllers/versions"
 	"github.com/humio/humio-operator/pkg/helpers"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -34,8 +35,6 @@ import (
 )
 
 const (
-	Image                        = "humio/humio-core:1.142.3"
-	HelperImage                  = "humio/humio-operator-helper:8f5ef6c7e470226e77d985f36cf39be9a100afea"
 	targetReplicationFactor      = 2
 	digestPartitionsCount        = 24
 	HumioPort                    = 8080
@@ -238,7 +237,7 @@ func (hnp *HumioNodePool) GetImage() string {
 		return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE")
 	}
 
-	return Image
+	return versions.DefaultHumioImageVersion()
 }
 
 func (hnp *HumioNodePool) GetImageSource() *humiov1alpha1.HumioImageSource {
@@ -254,7 +253,7 @@ func (hnp *HumioNodePool) GetHelperImage() string {
 		return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE")
 	}
 
-	return HelperImage
+	return versions.DefaultHelperImageVersion()
 }
 
 func (hnp *HumioNodePool) GetImagePullSecrets() []corev1.LocalObjectReference {
@@ -561,7 +560,7 @@ func (hnp *HumioNodePool) GetContainerReadinessProbe() *corev1.Probe {
 	}
 
 	if hnp.humioNodeSpec.ContainerReadinessProbe == nil {
-		return &corev1.Probe{
+		probe := &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   "/api/v1/is-node-up",
@@ -569,12 +568,15 @@ func (hnp *HumioNodePool) GetContainerReadinessProbe() *corev1.Probe {
 					Scheme: hnp.GetProbeScheme(),
 				},
 			},
-			InitialDelaySeconds: 30,
-			PeriodSeconds:       5,
-			TimeoutSeconds:      5,
-			SuccessThreshold:    1,
-			FailureThreshold:    10,
+			PeriodSeconds:    5,
+			TimeoutSeconds:   5,
+			SuccessThreshold: 1,
+			FailureThreshold: 10,
 		}
+		if os.Getenv("DUMMY_LOGSCALE_IMAGE") != "true" {
+			probe.InitialDelaySeconds = 30
+		}
+		return probe
 	}
 	return hnp.humioNodeSpec.ContainerReadinessProbe
 }

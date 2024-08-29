@@ -104,7 +104,13 @@ var _ = BeforeSuite(func() {
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &useExistingCluster,
 		}
-		humioClient = humio.NewClient(log, &humioapi.Config{}, "")
+
+		if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+			humioClient = humio.NewMockClient()
+		} else {
+			humioClient = humio.NewClient(log, &humioapi.Config{}, "")
+		}
+
 	} else {
 		testTimeout = time.Second * 30
 		testEnv = &envtest.Environment{
@@ -258,7 +264,11 @@ var _ = BeforeSuite(func() {
 
 	suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioCluster: Creating shared test cluster in namespace %s", clusterKey.Namespace))
 	cluster = suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
-	cluster.Spec.HumioNodeSpec.Image = "humio/humio-core:1.150.0"
+	if os.Getenv("DUMMY_LOGSCALE_IMAGE") != "true" {
+		cluster.Spec.HumioNodeSpec.Image = "humio/humio-core:1.150.0"
+	} else {
+		cluster.Spec.HumioNodeSpec.Image = "humio/humio-core:dummy"
+	}
 	suite.CreateAndBootstrapCluster(context.TODO(), k8sClient, humioClient, cluster, true, corev1alpha1.HumioClusterStateRunning, testTimeout)
 
 	sharedCluster, err = helpers.NewCluster(context.TODO(), k8sClient, clusterKey.Name, "", clusterKey.Namespace, helpers.UseCertManager(), true, false)

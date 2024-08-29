@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	humioapi "github.com/humio/cli/api"
 	"os"
 	"path/filepath"
 	"sort"
@@ -38,7 +39,6 @@ import (
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
-	humioapi "github.com/humio/cli/api"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -95,7 +95,11 @@ var _ = BeforeSuite(func() {
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &useExistingCluster,
 		}
-		testHumioClient = humio.NewClient(log, &humioapi.Config{}, "")
+		if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+			testHumioClient = humio.NewMockClient()
+		} else {
+			testHumioClient = humio.NewClient(log, &humioapi.Config{}, "")
+		}
 	} else {
 		testTimeout = time.Second * 30
 		testEnv = &envtest.Environment{

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/humio/humio-operator/controllers/versions"
+
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/pkg/helpers"
@@ -37,8 +39,6 @@ const (
 	dockerPasswordEnvVar = "DOCKER_PASSWORD"
 	// DockerRegistryCredentialsSecretName is the name of the k8s secret containing the registry credentials
 	DockerRegistryCredentialsSecretName = "regcred"
-
-	sidecarWaitForGlobalImageVersion = "alpine:20240329"
 )
 
 const TestInterval = time.Second * 1
@@ -156,7 +156,7 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 	userID := int64(65534)
 
 	nodeSpec := humiov1alpha1.HumioNodeSpec{
-		Image:             controllers.Image,
+		Image:             versions.DefaultHumioImageVersion(),
 		ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 		NodeCount:         1,
 		// Affinity needs to be overridden to exclude default value for kubernetes.io/arch to allow running local tests
@@ -175,51 +175,6 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 									},
 								},
 							},
-						},
-					},
-				},
-			},
-		},
-		SidecarContainers: []corev1.Container{
-			{
-				Name:    "wait-for-global-snapshot-on-disk",
-				Image:   sidecarWaitForGlobalImageVersion,
-				Command: []string{"/bin/sh"},
-				Args: []string{
-					"-c",
-					"trap 'exit 0' 15; while true; do sleep 100 & wait $!; done",
-				},
-				ReadinessProbe: &corev1.Probe{
-					ProbeHandler: corev1.ProbeHandler{
-						Exec: &corev1.ExecAction{
-							Command: []string{
-								"/bin/sh",
-								"-c",
-								"ls /mnt/global*.json",
-							},
-						},
-					},
-					InitialDelaySeconds: 5,
-					TimeoutSeconds:      5,
-					PeriodSeconds:       10,
-					SuccessThreshold:    1,
-					FailureThreshold:    100,
-				},
-				VolumeMounts: []corev1.VolumeMount{
-					{
-						Name:      "humio-data",
-						MountPath: "/mnt",
-						ReadOnly:  true,
-					},
-				},
-				SecurityContext: &corev1.SecurityContext{
-					Privileged:               helpers.BoolPtr(false),
-					AllowPrivilegeEscalation: helpers.BoolPtr(false),
-					ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
-					RunAsUser:                &userID,
-					Capabilities: &corev1.Capabilities{
-						Drop: []corev1.Capability{
-							"ALL",
 						},
 					},
 				},
@@ -270,6 +225,54 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 			},
 			StorageClassName: &storageClassNameStandard,
 		},
+	}
+
+	if os.Getenv("DUMMY_LOGSCALE_IMAGE") != "true" {
+		nodeSpec.SidecarContainers = []corev1.Container{
+			{
+				Name:    "wait-for-global-snapshot-on-disk",
+				Image:   versions.SidecarWaitForGlobalImageVersion(),
+				Command: []string{"/bin/sh"},
+				Args: []string{
+					"-c",
+					"trap 'exit 0' 15; while true; do sleep 100 & wait $!; done",
+				},
+				ReadinessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						Exec: &corev1.ExecAction{
+							Command: []string{
+								"/bin/sh",
+								"-c",
+								"ls /mnt/global*.json",
+							},
+						},
+					},
+					InitialDelaySeconds: 5,
+					TimeoutSeconds:      5,
+					PeriodSeconds:       10,
+					SuccessThreshold:    1,
+					FailureThreshold:    100,
+				},
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						Name:      "humio-data",
+						MountPath: "/mnt",
+						ReadOnly:  true,
+					},
+				},
+				SecurityContext: &corev1.SecurityContext{
+					Privileged:               helpers.BoolPtr(false),
+					AllowPrivilegeEscalation: helpers.BoolPtr(false),
+					ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
+					RunAsUser:                &userID,
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{
+							"ALL",
+						},
+					},
+				},
+			},
+		}
 	}
 
 	if useDockerCredentials() {
@@ -531,7 +534,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}, &corev1.Secret{})
 	}, testTimeout, TestInterval).Should(Succeed())
 
-	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" && os.Getenv("DUMMY_LOGSCALE_IMAGE") != "true" {
 		UsingClusterBy(key.Name, "Validating cluster nodes have ZONE configured correctly")
 		if updatedHumioCluster.Spec.DisableInitContainer {
 			Eventually(func() []string {
@@ -602,21 +605,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	}
 
 	Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-	IncrementGenerationAndWaitForReconcileToSync(ctx, key, k8sClient, testTimeout)
-}
-
-func IncrementGenerationAndWaitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sClient client.Client, testTimeout time.Duration) {
-	UsingClusterBy(key.Name, "Incrementing HumioCluster Generation")
-
-	// Force an update the status field to trigger a new resource generation
-	var humioClusterBeforeUpdate humiov1alpha1.HumioCluster
-	Eventually(func() error {
-		Expect(k8sClient.Get(ctx, key, &humioClusterBeforeUpdate)).Should(Succeed())
-		humioClusterBeforeUpdate.Generation = humioClusterBeforeUpdate.GetGeneration() + 1
-		return k8sClient.Update(ctx, &humioClusterBeforeUpdate)
-	}, testTimeout, TestInterval).Should(Succeed())
-
-	WaitForReconcileToSync(ctx, key, k8sClient, &humioClusterBeforeUpdate, testTimeout)
+	WaitForReconcileToSync(ctx, key, k8sClient, &updatedHumioCluster, testTimeout)
 }
 
 func WaitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sClient client.Client, currentHumioCluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {

@@ -354,69 +354,78 @@ func authMode() {
 
 	kubernetesClient := newKubernetesClientset()
 
+	var apiToken, methodUsed string
+
 	for {
-		// Check required files exist before we continue
-		if !fileExists(localAdminTokenFile) {
-			fmt.Printf("Waiting on the Humio container to create the files %s. Retrying in 5 seconds.\n", localAdminTokenFile)
-			time.Sleep(5 * time.Second)
-			continue
-		}
+		if os.Getenv("DUMMY_LOGSCALE_IMAGE") != "true" {
+			var err error
 
-		// Get local admin token and create humio client with it
-		localAdminToken := getFileContent(localAdminTokenFile)
-		if localAdminToken == "" {
-			fmt.Printf("Local admin token file is empty. This might be due to Humio not being fully started up yet. Retrying in 5 seconds.\n")
-			time.Sleep(5 * time.Second)
-			continue
-		}
+			// Check required files exist before we continue
+			if !fileExists(localAdminTokenFile) {
+				fmt.Printf("Waiting on the Humio container to create the files %s. Retrying in 5 seconds.\n", localAdminTokenFile)
+				time.Sleep(5 * time.Second)
+				continue
+			}
 
-		nodeURL, err := url.Parse(humioNodeURL)
-		if err != nil {
-			fmt.Printf("Unable to parse URL %s: %s\n", humioNodeURL, err)
-			time.Sleep(5 * time.Second)
-			continue
-		}
+			// Get local admin token and create humio client with it
+			localAdminToken := getFileContent(localAdminTokenFile)
+			if localAdminToken == "" {
+				fmt.Printf("Local admin token file is empty. This might be due to Humio not being fully started up yet. Retrying in 5 seconds.\n")
+				time.Sleep(5 * time.Second)
+				continue
+			}
 
-		err = validateAdminSecretContent(ctx, kubernetesClient, namespace, clusterName, adminSecretNameSuffix, nodeURL)
-		if err == nil {
-			fmt.Printf("Existing token is still valid, thus no changes required. Will confirm again in 30 seconds.\n")
-			time.Sleep(30 * time.Second)
-			continue
-		}
+			nodeURL, err := url.Parse(humioNodeURL)
+			if err != nil {
+				fmt.Printf("Unable to parse URL %s: %s\n", humioNodeURL, err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
 
-		fmt.Printf("Could not validate existing admin secret: %s\n", err)
-		fmt.Printf("Continuing to create/update token.\n")
+			err = validateAdminSecretContent(ctx, kubernetesClient, namespace, clusterName, adminSecretNameSuffix, nodeURL)
+			if err == nil {
+				fmt.Printf("Existing token is still valid, thus no changes required. Will confirm again in 30 seconds.\n")
+				time.Sleep(30 * time.Second)
+				continue
+			}
 
-		clientNotReady := humioClient == nil ||
-			humioClient.Token() != localAdminToken ||
-			humioClient.Address() == nil // Auth container uses pod name for the address, and pod names are immutable.
-		if clientNotReady {
-			fmt.Printf("Updating humioClient to use localAdminToken\n")
-			humioClient = humio.NewClient(humio.Config{
-				Address:   nodeURL,
-				UserAgent: fmt.Sprintf("humio-operator-helper/%s (%s on %s)", version, commit, date),
-				Token:     localAdminToken,
-			})
-		}
+			fmt.Printf("Could not validate existing admin secret: %s\n", err)
+			fmt.Printf("Continuing to create/update token.\n")
 
-		// Get user ID of admin account
-		userID, err := createAndGetAdminAccountUserID(humioClient, organizationMode)
-		if err != nil {
-			fmt.Printf("Got err trying to obtain user ID of admin user: %s\n", err)
-			time.Sleep(5 * time.Second)
-			continue
-		}
+			clientNotReady := humioClient == nil ||
+				humioClient.Token() != localAdminToken ||
+				humioClient.Address() == nil // Auth container uses pod name for the address, and pod names are immutable.
+			if clientNotReady {
+				fmt.Printf("Updating humioClient to use localAdminToken\n")
+				humioClient = humio.NewClient(humio.Config{
+					Address:   nodeURL,
+					UserAgent: fmt.Sprintf("humio-operator-helper/%s (%s on %s)", version, commit, date),
+					Token:     localAdminToken,
+				})
+			}
 
-		// Get API token for user ID of admin account
-		apiToken, methodUsed, err := getApiTokenForUserID(humioClient, userID)
-		if err != nil {
-			fmt.Printf("Got err trying to obtain api token of admin user: %s\n", err)
-			time.Sleep(5 * time.Second)
-			continue
+			// Get user ID of admin account
+			userID, err := createAndGetAdminAccountUserID(humioClient, organizationMode)
+			if err != nil {
+				fmt.Printf("Got err trying to obtain user ID of admin user: %s\n", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+
+			// Get API token for user ID of admin account
+			apiToken, methodUsed, err = getApiTokenForUserID(humioClient, userID)
+			if err != nil {
+				fmt.Printf("Got err trying to obtain api token of admin user: %s\n", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+		} else {
+			apiToken = "DUMMY"
+			methodUsed = apiTokenMethodFromAPI
 		}
 
 		// Update Kubernetes secret if needed
-		err = ensureAdminSecretContent(ctx, kubernetesClient, namespace, clusterName, adminSecretNameSuffix, apiToken, methodUsed)
+		err := ensureAdminSecretContent(ctx, kubernetesClient, namespace, clusterName, adminSecretNameSuffix, apiToken, methodUsed)
 		if err != nil {
 			fmt.Printf("Got error ensuring k8s secret contains apiToken: %s\n", err)
 			time.Sleep(5 * time.Second)
