@@ -157,6 +157,7 @@ helm_install_shippers() {
     Set E2E_RUN_REF $e2e_run_ref
     Set E2E_RUN_ID $e2e_run_id
     Set E2E_RUN_ATTEMPT $e2e_run_attempt
+    Set GINKGO_LABEL_FILTER $ginkgo_label_filter
 EOF
 )
 
