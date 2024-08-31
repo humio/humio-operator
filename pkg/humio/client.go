@@ -322,8 +322,20 @@ func (h *ClientConfig) DeleteParser(config *humioapi.Config, req reconcile.Reque
 }
 
 func (h *ClientConfig) AddRepository(config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humioapi.Repository, error) {
-	repository := humioapi.Repository{Name: hr.Spec.Name}
-	err := h.GetHumioClient(config, req).Repositories().Create(hr.Spec.Name)
+	repository := humioapi.Repository{
+		Name:                   hr.Spec.Name,
+		Description:            hr.Spec.Description,
+		RetentionDays:          float64(hr.Spec.Retention.TimeInDays),
+		IngestRetentionSizeGB:  float64(hr.Spec.Retention.IngestSizeInGB),
+		StorageRetentionSizeGB: float64(hr.Spec.Retention.StorageSizeInGB),
+	}
+	err := h.GetHumioClient(config, req).Repositories().Create(
+		hr.Spec.Name,
+		hr.Spec.Description,
+		int64(hr.Spec.Retention.TimeInDays),
+		float64(hr.Spec.Retention.IngestSizeInGB),
+		float64(hr.Spec.Retention.StorageSizeInGB),
+	)
 	return &repository, err
 }
 
@@ -345,6 +357,16 @@ func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.R
 		err = h.GetHumioClient(config, req).Repositories().UpdateDescription(
 			hr.Spec.Name,
 			hr.Spec.Description,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if curRepository.AutomaticSearch != helpers.BoolTrue(hr.Spec.AutomaticSearch) {
+		err = h.GetHumioClient(config, req).Repositories().UpdateAutomaticSearch(
+			hr.Spec.Name,
+			helpers.BoolTrue(hr.Spec.AutomaticSearch),
 		)
 		if err != nil {
 			return nil, err
@@ -378,16 +400,6 @@ func (h *ClientConfig) UpdateRepository(config *humioapi.Config, req reconcile.R
 			hr.Spec.Name,
 			float64(hr.Spec.Retention.IngestSizeInGB),
 			hr.Spec.AllowDataDeletion,
-		)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if curRepository.AutomaticSearch != helpers.BoolTrue(hr.Spec.AutomaticSearch) {
-		err = h.GetHumioClient(config, req).Repositories().UpdateAutomaticSearch(
-			hr.Spec.Name,
-			helpers.BoolTrue(hr.Spec.AutomaticSearch),
 		)
 		if err != nil {
 			return nil, err
