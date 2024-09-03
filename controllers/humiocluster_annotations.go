@@ -31,11 +31,12 @@ import (
 )
 
 const (
-	certHashAnnotation           = "humio.com/certificate-hash"
-	PodHashAnnotation            = "humio.com/pod-hash"
-	PodRevisionAnnotation        = "humio.com/pod-revision"
-	envVarSourceHashAnnotation   = "humio.com/env-var-source-hash"
-	pvcHashAnnotation            = "humio_pvc_hash"
+	certHashAnnotation         = "humio.com/certificate-hash"
+	PodHashAnnotation          = "humio.com/pod-hash"
+	PodRevisionAnnotation      = "humio.com/pod-revision"
+	envVarSourceHashAnnotation = "humio.com/env-var-source-hash"
+	pvcHashAnnotation          = "humio_pvc_hash"
+	// #nosec G101
 	bootstrapTokenHashAnnotation = "humio.com/bootstrap-token-hash"
 )
 
