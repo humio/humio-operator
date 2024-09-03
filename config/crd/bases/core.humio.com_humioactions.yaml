@@ -5,6 +5,12 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
   name: humioactions.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.24.0'
 spec:
   group: core.humio.com
   names:
