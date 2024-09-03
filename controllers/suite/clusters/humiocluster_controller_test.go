@@ -19,10 +19,11 @@ package clusters
 import (
 	"context"
 	"fmt"
-	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"os"
 	"reflect"
 	"strings"
+
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
@@ -1287,7 +1288,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Creating a cluster")
 			ctx := context.Background()
-			suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClientForTestSuite, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			suite.UsingClusterBy(key.Name, "Validating pod bootstrap token annotation hash")
