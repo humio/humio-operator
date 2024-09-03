@@ -39,20 +39,16 @@ var (
 type resourceKey struct {
 	// clusterName holds the value of the cluster
 	clusterName string
-
 	// searchDomainName is the name of the repository or view
 	searchDomainName string
-
 	// resourceName is the name of resource, like IngestToken, Parser, etc.
 	resourceName string
 }
 
 type ClientMock struct {
-	OnPremLicense map[resourceKey]humioapi.OnPremLicense
-
-	Repository map[resourceKey]humioapi.Repository
-	View       map[resourceKey]humioapi.View
-
+	OnPremLicense   map[resourceKey]humioapi.OnPremLicense
+	Repository      map[resourceKey]humioapi.Repository
+	View            map[resourceKey]humioapi.View
 	IngestToken     map[resourceKey]humioapi.IngestToken
 	Parser          map[resourceKey]humioapi.Parser
 	Action          map[resourceKey]humioapi.Action
@@ -60,8 +56,7 @@ type ClientMock struct {
 	FilterAlert     map[resourceKey]humioapi.FilterAlert
 	AggregateAlert  map[resourceKey]humioapi.AggregateAlert
 	ScheduledSearch map[resourceKey]humioapi.ScheduledSearch
-
-	User humioapi.User
+	User            humioapi.User
 }
 
 type MockClientConfig struct {
@@ -71,11 +66,9 @@ type MockClientConfig struct {
 func NewMockClient() *MockClientConfig {
 	mockClientConfig := &MockClientConfig{
 		apiClient: &ClientMock{
-			OnPremLicense: make(map[resourceKey]humioapi.OnPremLicense),
-
-			Repository: make(map[resourceKey]humioapi.Repository),
-			View:       make(map[resourceKey]humioapi.View),
-
+			OnPremLicense:   make(map[resourceKey]humioapi.OnPremLicense),
+			Repository:      make(map[resourceKey]humioapi.Repository),
+			View:            make(map[resourceKey]humioapi.View),
 			IngestToken:     make(map[resourceKey]humioapi.IngestToken),
 			Parser:          make(map[resourceKey]humioapi.Parser),
 			Action:          make(map[resourceKey]humioapi.Action),
@@ -83,8 +76,7 @@ func NewMockClient() *MockClientConfig {
 			FilterAlert:     make(map[resourceKey]humioapi.FilterAlert),
 			AggregateAlert:  make(map[resourceKey]humioapi.AggregateAlert),
 			ScheduledSearch: make(map[resourceKey]humioapi.ScheduledSearch),
-
-			User: humioapi.User{},
+			User:            humioapi.User{},
 		},
 	}
 
@@ -942,7 +934,6 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 		}
 	}
 	h.apiClient.View = make(map[resourceKey]humioapi.View)
-
 	h.apiClient.IngestToken = make(map[resourceKey]humioapi.IngestToken)
 	h.apiClient.Parser = make(map[resourceKey]humioapi.Parser)
 	h.apiClient.Action = make(map[resourceKey]humioapi.Action)
