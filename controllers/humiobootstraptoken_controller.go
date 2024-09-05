@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"k8s.io/client-go/kubernetes/scheme"
@@ -289,7 +290,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.C
 			return r.logErrorAndReturn(err, "cannot create bootstrap token")
 		}
 		if okayToCreate {
-			secret := kubernetes.ConstructSecret(hbt.Name, hbt.Namespace, humioBootstrapTokenConfig.bootstrapTokenName(), secretData, nil)
+			secret := kubernetes.ConstructSecret(hbt.Name, hbt.Namespace, humioBootstrapTokenConfig.bootstrapTokenSecretName(), secretData, nil)
 			if err := controllerutil.SetControllerReference(hbt, secret, r.Scheme()); err != nil {
 				return r.logErrorAndReturn(err, "could not set controller reference")
 			}
@@ -319,7 +320,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 		return nil
 	}
 
-	commandArgs := []string{"/bin/bash", "/app/humio/humio/bin/humio-run-class.sh", "com.humio.main.TokenHashing", "--json"}
+	commandArgs := []string{"env", "JVM_TMP_DIR=/tmp", "/app/humio/humio/bin/humio-token-hashing.sh", "--json"}
 
 	if tokenSecret, ok := bootstrapTokenSecret.Data[BootstrapTokenSecretSecretName]; ok {
 		commandArgs = append(commandArgs, string(tokenSecret))
@@ -356,10 +357,25 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 		return r.logErrorAndReturn(err, "failed to exec pod")
 	}
 
+	var jsonOutput string
+	var includeLine bool
+	outputLines := strings.Split(output, "\n")
+	for _, line := range outputLines {
+		if line == "{" {
+			includeLine = true
+		}
+		if line == "}" {
+			jsonOutput += "}"
+			includeLine = false
+		}
+		if includeLine {
+			jsonOutput += fmt.Sprintf("%s\n", line)
+		}
+	}
 	var secretData HumioBootstrapTokenSecretData
-	err = json.Unmarshal([]byte(output), &secretData)
+	err = json.Unmarshal([]byte(jsonOutput), &secretData)
 	if err != nil {
-		r.Log.Error(fmt.Errorf("failed to read output from exec command"), "omitting output")
+		return r.logErrorAndReturn(err, "failed to read output from exec command: output omitted")
 	}
 
 	updatedSecret, err := r.getBootstrapTokenSecret(ctx, hbt, hc)
@@ -380,7 +396,7 @@ func (r *HumioBootstrapTokenReconciler) getBootstrapTokenSecret(ctx context.Cont
 	existingSecret := &corev1.Secret{}
 	err := r.Get(ctx, types.NamespacedName{
 		Namespace: hbt.Namespace,
-		Name:      humioBootstrapTokenConfig.bootstrapTokenName(),
+		Name:      humioBootstrapTokenConfig.bootstrapTokenSecretName(),
 	}, existingSecret)
 	return existingSecret, err
 }

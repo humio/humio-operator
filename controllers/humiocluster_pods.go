@@ -883,27 +883,32 @@ type podNameAndCertificateHash struct {
 func (r *HumioClusterReconciler) getDesiredBootstrapTokenHash(ctx context.Context, hc *humiov1alpha1.HumioCluster) (string, error) {
 	humioBootstrapTokens, err := kubernetes.ListHumioBootstrapTokens(ctx, r.Client, hc.GetNamespace(), kubernetes.LabelsForHumioBootstrapToken(hc.GetName()))
 	if err != nil {
-		return "", r.logErrorAndReturn(err, "failed to get bootstrap token")
+		return "", err
 	}
 
-	if len(humioBootstrapTokens) > 0 {
-		if humioBootstrapTokens[0].Status.State == humiov1alpha1.HumioBootstrapTokenStateReady {
-			existingSecret := &corev1.Secret{}
-			err := r.Get(ctx, types.NamespacedName{
-				Namespace: hc.GetNamespace(),
-				Name:      humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef.Name,
-			}, existingSecret)
-			if err != nil {
-				return "", r.logErrorAndReturn(err, fmt.Sprintf("failed to get bootstrap token secret %s",
-					humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef.Name))
-			}
+	if len(humioBootstrapTokens) == 0 {
+		return "", fmt.Errorf("could not find bootstrap token matching labels %+v: %w", kubernetes.LabelsForHumioBootstrapToken(hc.GetName()), err)
+	}
 
-			if ok := string(existingSecret.Data[humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef.Key]); ok != "" {
-				return helpers.AsSHA256(string(existingSecret.Data[humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef.Key])), nil
-			}
+	if humioBootstrapTokens[0].Status.State == humiov1alpha1.HumioBootstrapTokenStateReady {
+		existingSecret := &corev1.Secret{}
+		err := r.Get(ctx, types.NamespacedName{
+			Namespace: hc.GetNamespace(),
+			Name:      humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef.Name,
+		}, existingSecret)
+		if err != nil {
+			return "", fmt.Errorf("failed to get bootstrap token secret %s: %w",
+				humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef.Name, err)
 		}
+
+		if ok := string(existingSecret.Data[humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef.Key]); ok != "" {
+			return helpers.AsSHA256(string(existingSecret.Data[humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef.Key])), nil
+		} else {
+			return "", fmt.Errorf("bootstrap token %s does not have a value for key %s", humioBootstrapTokens[0].Name, humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef.Key)
+		}
+	} else {
+		return "", fmt.Errorf("bootstrap token not ready. status=%s", humioBootstrapTokens[0].Status.State)
 	}
-	return "", r.logErrorAndReturn(err, fmt.Sprintf("could not find bootstrap token secret matching labels %+v", kubernetes.LabelsForHumioBootstrapToken(hc.GetName())))
 }
 
 // findHumioNodeNameAndCertHash looks up the name of a free node certificate to use and the hash of the certificate specification

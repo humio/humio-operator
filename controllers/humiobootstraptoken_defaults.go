@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	bootstrapTokenSuffix        = "bootstrap-token"
+	bootstrapTokenSecretSuffix  = "bootstrap-token"
 	bootstrapTokenPodNameSuffix = "bootstrap-token-onetime"
 )
 
@@ -24,10 +24,14 @@ func NewHumioBootstrapTokenConfig(bootstrapToken *humiov1alpha1.HumioBootstrapTo
 }
 
 func (b *HumioBootstrapTokenConfig) bootstrapTokenName() string {
+	return b.BootstrapToken.Name
+}
+
+func (b *HumioBootstrapTokenConfig) bootstrapTokenSecretName() string {
 	if b.BootstrapToken.Spec.TokenSecret.SecretKeyRef != nil {
 		return b.BootstrapToken.Spec.TokenSecret.SecretKeyRef.Name
 	}
-	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, bootstrapTokenSuffix)
+	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, bootstrapTokenSecretSuffix)
 }
 
 func (b *HumioBootstrapTokenConfig) create() (bool, error) {

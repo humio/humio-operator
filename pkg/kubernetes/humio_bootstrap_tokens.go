@@ -25,7 +25,6 @@ limitations under the License.
 */
 
 const (
-	BootstrapTokenNameSuffix                  = "bootstrap-token"
 	BootstrapTokenSecretNameSuffix            = "bootstrap-token"
 	BootstrapTokenManagedClusterNameLabelName = "managed-cluster-name"
 )
