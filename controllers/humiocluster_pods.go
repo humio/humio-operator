@@ -895,7 +895,7 @@ func (r *HumioClusterReconciler) getDesiredBootstrapTokenHash(ctx context.Contex
 	}
 
 	existingSecret := &corev1.Secret{}
-	if r.Get(ctx, types.NamespacedName{
+	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: hc.GetNamespace(),
 		Name:      humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef.Name,
 	}, existingSecret); err != nil {
