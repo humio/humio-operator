@@ -1317,7 +1317,11 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(k8sClient.Update(ctx, &bootstrapTokenSecret)).To(BeNil())
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
-			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).To(BeNil())
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
 			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
