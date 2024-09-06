@@ -23,10 +23,6 @@ func NewHumioBootstrapTokenConfig(bootstrapToken *humiov1alpha1.HumioBootstrapTo
 	return HumioBootstrapTokenConfig{BootstrapToken: bootstrapToken, ManagedHumioCluster: managedHumioCluster}
 }
 
-func (b *HumioBootstrapTokenConfig) bootstrapTokenName() string {
-	return b.BootstrapToken.Name
-}
-
 func (b *HumioBootstrapTokenConfig) bootstrapTokenSecretName() string {
 	if b.BootstrapToken.Spec.TokenSecret.SecretKeyRef != nil {
 		return b.BootstrapToken.Spec.TokenSecret.SecretKeyRef.Name
