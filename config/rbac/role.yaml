@@ -115,6 +115,32 @@ rules:
 - apiGroups:
   - core.humio.com
   resources:
+  - HumioBootstrapTokens
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - HumioBootstrapTokens/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - HumioBootstrapTokens/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioAggregateAlerts
   verbs:
   - create

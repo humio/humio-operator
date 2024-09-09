@@ -184,6 +184,12 @@ func main() {
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioFilterAlert")
+	}
+	if err = (&controllers.HumioBootstrapTokenReconciler{
+		Client:     mgr.GetClient(),
+		BaseLogger: log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioBootstrapToken")
 		os.Exit(1)
 	}
 	if err = (&controllers.HumioAggregateAlertReconciler{
