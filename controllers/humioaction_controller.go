@@ -73,7 +73,7 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	r.Log = r.Log.WithValues("Request.UID", ha.UID)
 
-	cluster, err := helpers.NewCluster(ctx, r, ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName, ha.Namespace, helpers.UseCertManager(), true)
+	cluster, err := helpers.NewCluster(ctx, r, ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName, ha.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		setStateErr := r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
 		if setStateErr != nil {

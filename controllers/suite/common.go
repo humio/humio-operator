@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	ginkgotypes "github.com/onsi/ginkgo/v2/types"
-
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/pkg/helpers"
@@ -33,10 +31,6 @@ import (
 )
 
 const (
-	// apiTokenMethodAnnotationName is used to signal what mechanism was used to obtain the API token
-	apiTokenMethodAnnotationName = "humio.com/api-token-method" // #nosec G101
-	// apiTokenMethodFromAPI is used to indicate that the API token was obtained using an API call
-	apiTokenMethodFromAPI = "api"
 	// dockerUsernameEnvVar is used to login to docker when pulling images
 	dockerUsernameEnvVar = "DOCKER_USERNAME"
 	// dockerPasswordEnvVar is used to login to docker when pulling images
@@ -114,22 +108,6 @@ func CleanupCluster(ctx context.Context, k8sClient client.Client, hc *humiov1alp
 		}
 
 		serviceAccount, err := kubernetes.GetServiceAccount(ctx, k8sClient, cluster.Spec.InitServiceAccountName, cluster.Namespace)
-		if err == nil {
-			Expect(k8sClient.Delete(ctx, serviceAccount)).To(Succeed())
-		}
-	}
-	if cluster.Spec.AuthServiceAccountName != "" {
-		roleBinding, err := kubernetes.GetRoleBinding(ctx, k8sClient, cluster.Spec.AuthServiceAccountName, cluster.Namespace)
-		if err == nil {
-			Expect(k8sClient.Delete(ctx, roleBinding)).To(Succeed())
-		}
-
-		role, err := kubernetes.GetRole(ctx, k8sClient, cluster.Spec.AuthServiceAccountName, cluster.Namespace)
-		if err == nil {
-			Expect(k8sClient.Delete(ctx, role)).To(Succeed())
-		}
-
-		serviceAccount, err := kubernetes.GetServiceAccount(ctx, k8sClient, cluster.Spec.AuthServiceAccountName, cluster.Namespace)
 		if err == nil {
 			Expect(k8sClient.Delete(ctx, serviceAccount)).To(Succeed())
 		}
@@ -376,33 +354,81 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}
 	}
 
-	if cluster.Spec.AuthServiceAccountName != "" {
-		if cluster.Spec.AuthServiceAccountName != cluster.Spec.HumioServiceAccountName {
-			UsingClusterBy(key.Name, "Creating service account for auth container")
-			authServiceAccount := kubernetes.ConstructServiceAccount(cluster.Spec.AuthServiceAccountName, cluster.Namespace, map[string]string{}, map[string]string{})
-			Expect(k8sClient.Create(ctx, authServiceAccount)).To(Succeed())
-		}
-
-		UsingClusterBy(key.Name, "Creating role for auth container")
-		authRole := kubernetes.ConstructAuthRole(cluster.Spec.AuthServiceAccountName, key.Namespace, map[string]string{})
-		Expect(k8sClient.Create(ctx, authRole)).To(Succeed())
-
-		UsingClusterBy(key.Name, "Creating role binding for auth container")
-		authRoleBinding := kubernetes.ConstructRoleBinding(cluster.Spec.AuthServiceAccountName, authRole.Name, key.Namespace, cluster.Spec.AuthServiceAccountName, map[string]string{})
-		Expect(k8sClient.Create(ctx, authRoleBinding)).To(Succeed())
-	}
-
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
 		// Simulate sidecar creating the secret which contains the admin token used to authenticate with humio
 		secretData := map[string][]byte{"token": []byte("")}
 		adminTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
-		UsingClusterBy(key.Name, "Simulating the auth container creating the secret containing the API token")
+		UsingClusterBy(key.Name, "Simulating the admin token secret containing the API token")
 		desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, adminTokenSecretName, secretData, nil)
 		Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
+
+		UsingClusterBy(key.Name, "Simulating the creation of the HumioBootstrapToken resource")
+		humioBootstrapToken := kubernetes.ConstructHumioBootstrapToken(key.Name, key.Namespace)
+		humioBootstrapToken.Spec = humiov1alpha1.HumioBootstrapTokenSpec{
+			ManagedClusterName: key.Name,
+		}
+		humioBootstrapToken.Status = humiov1alpha1.HumioBootstrapTokenStatus{
+			State: humiov1alpha1.HumioBootstrapTokenStateReady,
+			TokenSecretKeyRef: humiov1alpha1.HumioTokenSecretStatus{SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+				},
+				Key: "secret",
+			},
+			},
+			HashedTokenSecretKeyRef: humiov1alpha1.HumioHashedTokenSecretStatus{SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+				},
+				Key: "hashedToken",
+			}},
+		}
+		UsingClusterBy(key.Name, "Creating HumioBootstrapToken resource")
+		Expect(k8sClient.Create(ctx, humioBootstrapToken)).Should(Succeed())
 	}
+
+	UsingClusterBy(key.Name, "Simulating the humio bootstrap token controller creating the secret containing the API token")
+	secretData := map[string][]byte{"hashedToken": []byte("P2HS9.20.r+ZbMqd0pHF65h3yQiOt8n1xNytv/4ePWKIj3cElP7gt8YD+gOtdGGvJYmG229kyFWLs6wXx9lfSDiRGGu/xuQ"), "secret": []byte("cYsrKi6IeyOJVzVIdmVK3M6RGl4y9GpgduYKXk4qWvvj")}
+	bootstrapTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix)
+	desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, bootstrapTokenSecretName, secretData, nil)
+	Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
 
 	UsingClusterBy(key.Name, "Creating HumioCluster resource")
 	Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
+
+	UsingClusterBy(key.Name, "Simulating HumioBootstrapToken Controller running and adding the secret and status")
+	Eventually(func() error {
+		hbtList, err := kubernetes.ListHumioBootstrapTokens(ctx, k8sClient, key.Namespace, kubernetes.LabelsForHumioBootstrapToken(key.Name))
+		if err != nil {
+			return err
+		}
+		if len(hbtList) == 0 {
+			return fmt.Errorf("no humiobootstraptokens for cluster %s", key.Name)
+		}
+		if len(hbtList) > 1 {
+			return fmt.Errorf("too many humiobootstraptokens for cluster %s. found list : %+v", key.Name, hbtList)
+		}
+
+		updatedHumioBootstrapToken := hbtList[0]
+		updatedHumioBootstrapToken.Status.State = humiov1alpha1.HumioBootstrapTokenStateReady
+		updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+				},
+				Key: "secret",
+			},
+		}
+		updatedHumioBootstrapToken.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+				},
+				Key: "hashedToken",
+			},
+		}
+		return k8sClient.Status().Update(ctx, &updatedHumioBootstrapToken)
+	}, testTimeout, TestInterval).Should(Succeed())
 
 	if expectedState != humiov1alpha1.HumioClusterStateRunning {
 		return
@@ -492,7 +518,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}, testTimeout, TestInterval).Should(HaveKeyWithValue(revisionKey, "1"))
 	}
 
-	UsingClusterBy(key.Name, "Waiting for the auth sidecar to populate the secret containing the API token")
+	UsingClusterBy(key.Name, "Waiting for the controller to populate the secret containing the admin token")
 	Eventually(func() error {
 		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetCommonClusterLabels())
 		for idx := range clusterPods {
@@ -506,28 +532,15 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	}, testTimeout, TestInterval).Should(Succeed())
 
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-		UsingClusterBy(key.Name, "Validating API token was obtained using the API method")
-		var apiTokenSecret corev1.Secret
-		Eventually(func() error {
-			return k8sClient.Get(ctx, types.NamespacedName{
-				Namespace: key.Namespace,
-				Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix),
-			}, &apiTokenSecret)
-		}, testTimeout, TestInterval).Should(Succeed())
-		Expect(apiTokenSecret.Annotations).Should(HaveKeyWithValue(apiTokenMethodAnnotationName, apiTokenMethodFromAPI))
-	}
-
-	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
 		UsingClusterBy(key.Name, "Validating cluster nodes have ZONE configured correctly")
 		if updatedHumioCluster.Spec.DisableInitContainer {
 			Eventually(func() []string {
-				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true)
+				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true, false)
 				Expect(err).To(BeNil())
 				Expect(clusterConfig).ToNot(BeNil())
 				Expect(clusterConfig.Config()).ToNot(BeNil())
 
 				cluster, err := humioClient.GetClusters(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
-				UsingClusterBy(key.Name, fmt.Sprintf("Obtained the following cluster details: %#+v, err: %v", cluster, err))
 				if err != nil {
 					return []string{fmt.Sprintf("got err: %s", err)}
 				}
@@ -548,13 +561,12 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 			}, testTimeout, TestInterval).Should(BeEmpty())
 		} else {
 			Eventually(func() []string {
-				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true)
+				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true, false)
 				Expect(err).To(BeNil())
 				Expect(clusterConfig).ToNot(BeNil())
 				Expect(clusterConfig.Config()).ToNot(BeNil())
 
 				cluster, err := humioClient.GetClusters(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
-				UsingClusterBy(key.Name, fmt.Sprintf("Obtained the following cluster details: %#+v, err: %v", cluster, err))
 				if err != nil || len(cluster.Nodes) < 1 {
 					return []string{}
 				}
@@ -624,34 +636,6 @@ func WaitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sCl
 		}
 		return int64(observedGen)
 	}, testTimeout, TestInterval).Should(BeNumerically("==", beforeGeneration))
-}
-
-type stdoutErrLine struct {
-	// We reuse the same names as Ginkgo so when we print out the relevant log lines we have a common field and value to jump from the test result to the relevant log lines by simply searching for the ID shown in the result.
-	CapturedGinkgoWriterOutput, CapturedStdOutErr string
-
-	// Line contains either the CapturedGinkgoWriterOutput or CapturedStdOutErr we get in the spec/suite report.
-	Line string
-
-	// LineNumber represents the index of line in the provided slice of lines. This may help to understand what order things were output in case two lines mention the same timestamp.
-	LineNumber int
-
-	// State includes information about if a given report passed or failed
-	State ginkgotypes.SpecState
-}
-
-func PrintLinesWithRunID(runID string, lines []string, specState ginkgotypes.SpecState) {
-	for idx, line := range lines {
-		output := stdoutErrLine{
-			CapturedGinkgoWriterOutput: runID,
-			CapturedStdOutErr:          runID,
-			Line:                       line,
-			LineNumber:                 idx,
-			State:                      specState,
-		}
-		u, _ := json.Marshal(output)
-		fmt.Println(string(u))
-	}
 }
 
 func useDockerCredentials() bool {

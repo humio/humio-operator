@@ -1,0 +1,268 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: humiobootstraptokens.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.24.0'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioBootstrapToken
+    listKind: HumioBootstrapTokenList
+    plural: humiobootstraptokens
+    singular: humiobootstraptoken
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The state of the bootstrap token
+      jsonPath: .status.state
+      name: State
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioBootstrapToken defines the bootstrap token that Humio will
+          use to bootstrap authentication
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioBootstrapTokenSpec defines the bootstrap token that
+              Humio will use to bootstrap authentication
+            properties:
+              bootstrapImage:
+                description: |-
+                  Image can be set to override the image used to run when generating a bootstrap token. This will default to the image
+                  that is used by either the HumioCluster resource or the first NodePool resource if ManagedClusterName is set on the HumioBootstrapTokenSpec
+                type: string
+              externalClusterName:
+                description: |-
+                  ExternalClusterName refers to the name of the HumioExternalCluster which will use this bootstrap token for authentication
+                  This conflicts with ManagedClusterName.
+                type: string
+              hashedTokenSecret:
+                description: |-
+                  HashedTokenSecret is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is used if one wants to use an existing
+                  hashed token for the BootstrapToken rather than letting the operator create one by running a bootstrap token onetime pod
+                properties:
+                  secretKeyRef:
+                    description: SecretKeyRef is the secret key reference to a kubernetes
+                      secret containing the bootstrap hashed token secret
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: |-
+                          Name of the referent.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+              imagePullSecrets:
+                description: |-
+                  ImagePullSecrets defines the imagepullsecrets for the bootstrap image onetime pod. These secrets are not created by the operator. This will default to the imagePullSecrets
+                  that are used by either the HumioCluster resource or the first NodePool resource if ManagedClusterName is set on the HumioBootstrapTokenSpec
+                items:
+                  description: |-
+                    LocalObjectReference contains enough information to let you locate the
+                    referenced object inside the same namespace.
+                  properties:
+                    name:
+                      description: |-
+                        Name of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        TODO: Add other useful fields. apiVersion, kind, uid?
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+              managedClusterName:
+                description: ManagedClusterName refers to the name of the HumioCluster
+                  which will use this bootstrap token
+                type: string
+              resources:
+                description: Resources is the kubernetes resource limits for the bootstrap
+                  onetime pod
+                properties:
+                  claims:
+                    description: |-
+                      Claims lists the names of resources, defined in spec.resourceClaims,
+                      that are used by this container.
+
+
+                      This is an alpha field and requires enabling the
+                      DynamicResourceAllocation feature gate.
+
+
+                      This field is immutable. It can only be set for containers.
+                    items:
+                      description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                      properties:
+                        name:
+                          description: |-
+                            Name must match the name of one entry in pod.spec.resourceClaims of
+                            the Pod where this field is used. It makes that resource available
+                            inside a container.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  limits:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: |-
+                      Limits describes the maximum amount of compute resources allowed.
+                      More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                    type: object
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: |-
+                      Requests describes the minimum amount of compute resources required.
+                      If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                      otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                      More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                    type: object
+                type: object
+              tokenSecret:
+                description: |-
+                  TokenSecret is the secret reference that contains the token to use for this HumioBootstrapToken. This is used if one wants to use an existing
+                  token for the BootstrapToken rather than letting the operator create one by running a bootstrap token onetime pod
+                properties:
+                  secretKeyRef:
+                    description: SecretKeyRef is the secret key reference to a kubernetes
+                      secret containing the bootstrap token secret
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: |-
+                          Name of the referent.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+            type: object
+          status:
+            properties:
+              hashedTokenSecretStatus:
+                description: |-
+                  HashedTokenSecret is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
+                  in the spec or automatically created
+                properties:
+                  secretKeyRef:
+                    description: |-
+                      SecretKeyRef is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
+                      in the spec or automatically created
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: |-
+                          Name of the referent.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+              state:
+                description: State can be "NotReady" or "Ready"
+                type: string
+              tokenSecretStatus:
+                description: |-
+                  TokenSecretKeyRef contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
+                  in the spec or automatically created
+                properties:
+                  secretKeyRef:
+                    description: |-
+                      SecretKeyRef contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
+                      in the spec or automatically created
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        description: |-
+                          Name of the referent.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

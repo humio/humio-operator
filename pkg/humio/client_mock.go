@@ -20,9 +20,10 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
-	"github.com/humio/humio-operator/pkg/helpers"
 	"net/url"
 	"sync"
+
+	"github.com/humio/humio-operator/pkg/helpers"
 
 	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -38,20 +39,16 @@ var (
 type resourceKey struct {
 	// clusterName holds the value of the cluster
 	clusterName string
-
 	// searchDomainName is the name of the repository or view
 	searchDomainName string
-
 	// resourceName is the name of resource, like IngestToken, Parser, etc.
 	resourceName string
 }
 
 type ClientMock struct {
-	OnPremLicense map[resourceKey]humioapi.OnPremLicense
-
-	Repository map[resourceKey]humioapi.Repository
-	View       map[resourceKey]humioapi.View
-
+	OnPremLicense   map[resourceKey]humioapi.OnPremLicense
+	Repository      map[resourceKey]humioapi.Repository
+	View            map[resourceKey]humioapi.View
 	IngestToken     map[resourceKey]humioapi.IngestToken
 	Parser          map[resourceKey]humioapi.Parser
 	Action          map[resourceKey]humioapi.Action
@@ -59,6 +56,7 @@ type ClientMock struct {
 	FilterAlert     map[resourceKey]humioapi.FilterAlert
 	AggregateAlert  map[resourceKey]humioapi.AggregateAlert
 	ScheduledSearch map[resourceKey]humioapi.ScheduledSearch
+	User            humioapi.User
 }
 
 type MockClientConfig struct {
@@ -68,11 +66,9 @@ type MockClientConfig struct {
 func NewMockClient() *MockClientConfig {
 	mockClientConfig := &MockClientConfig{
 		apiClient: &ClientMock{
-			OnPremLicense: make(map[resourceKey]humioapi.OnPremLicense),
-
-			Repository: make(map[resourceKey]humioapi.Repository),
-			View:       make(map[resourceKey]humioapi.View),
-
+			OnPremLicense:   make(map[resourceKey]humioapi.OnPremLicense),
+			Repository:      make(map[resourceKey]humioapi.Repository),
+			View:            make(map[resourceKey]humioapi.View),
 			IngestToken:     make(map[resourceKey]humioapi.IngestToken),
 			Parser:          make(map[resourceKey]humioapi.Parser),
 			Action:          make(map[resourceKey]humioapi.Action),
@@ -80,6 +76,7 @@ func NewMockClient() *MockClientConfig {
 			FilterAlert:     make(map[resourceKey]humioapi.FilterAlert),
 			AggregateAlert:  make(map[resourceKey]humioapi.AggregateAlert),
 			ScheduledSearch: make(map[resourceKey]humioapi.ScheduledSearch),
+			User:            humioapi.User{},
 		},
 	}
 
@@ -937,7 +934,6 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 		}
 	}
 	h.apiClient.View = make(map[resourceKey]humioapi.View)
-
 	h.apiClient.IngestToken = make(map[resourceKey]humioapi.IngestToken)
 	h.apiClient.Parser = make(map[resourceKey]humioapi.Parser)
 	h.apiClient.Action = make(map[resourceKey]humioapi.Action)
@@ -964,4 +960,29 @@ func (h *MockClientConfig) searchDomainNameExists(clusterName, searchDomainName 
 	}
 
 	return false
+}
+
+func (h *MockClientConfig) ListAllHumioUsersSingleOrg(config *humioapi.Config, req reconcile.Request) ([]user, error) {
+	return []user{}, nil
+}
+
+func (h *MockClientConfig) ListAllHumioUsersMultiOrg(config *humioapi.Config, req reconcile.Request, username string, organization string) ([]OrganizationSearchResultEntry, error) {
+	return []OrganizationSearchResultEntry{}, nil
+}
+
+func (h *MockClientConfig) ExtractExistingHumioAdminUserID(config *humioapi.Config, req reconcile.Request, organizationMode string, username string, organization string) (string, error) {
+	return "", nil
+}
+
+func (h *MockClientConfig) RotateUserApiTokenAndGet(config *humioapi.Config, req reconcile.Request, userID string) (string, error) {
+	return "", nil
+}
+
+func (h *MockClientConfig) AddUser(config *humioapi.Config, req reconcile.Request, username string, isRoot bool) (*humioapi.User, error) {
+	h.apiClient.User = humioapi.User{
+		ID:       "id",
+		Username: username,
+		IsRoot:   isRoot,
+	}
+	return &h.apiClient.User, nil
 }
