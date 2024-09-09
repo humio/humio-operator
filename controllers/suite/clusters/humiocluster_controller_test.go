@@ -19,10 +19,11 @@ package clusters
 import (
 	"context"
 	"fmt"
-	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"os"
 	"reflect"
 	"strings"
+
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
@@ -182,7 +183,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			})
 			toCreate.Spec.EnvironmentVariables = append(toCreate.Spec.EnvironmentVariables, corev1.EnvVar{
 				Name:  "ORGANIZATION_MODE",
-				Value: "multi",
+				Value: "multiv2",
 			})
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -1242,18 +1243,6 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 
-			suite.UsingClusterBy(key.Name, "Validating pod uses default helper image as auth sidecar container")
-			Eventually(func() string {
-				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-				_ = suite.MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
-
-				for _, pod := range clusterPods {
-					authIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.AuthContainerName)
-					return pod.Spec.InitContainers[authIdx].Image
-				}
-				return ""
-			}, testTimeout, suite.TestInterval).Should(Equal(controllers.HelperImage))
-
 			suite.UsingClusterBy(key.Name, "Overriding helper image")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			customHelperImage := "humio/humio-operator-helper:master"
@@ -1279,15 +1268,74 @@ var _ = Describe("HumioCluster Controller", func() {
 				return ""
 			}, testTimeout, suite.TestInterval).Should(Equal(customHelperImage))
 
-			suite.UsingClusterBy(key.Name, "Validating pod is recreated using the explicitly defined helper image as auth sidecar container")
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+		})
+	})
+
+	Context("Humio Cluster Rotate Bootstrap Token", func() {
+		It("Update should correctly replace pods to use new bootstrap token", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-rotate-bootstrap-token",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.NodeCount = 2
+
+			suite.UsingClusterBy(key.Name, "Creating a cluster")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(key.Name, "Validating pod bootstrap token annotation hash")
 			Eventually(func() string {
 				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-				for _, pod := range clusterPods {
-					authIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.AuthContainerName)
-					return pod.Spec.InitContainers[authIdx].Image
+				_ = suite.MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
+
+				if len(clusterPods) > 0 {
+					return clusterPods[0].Annotations["humio.com/bootstrap-token-hash"]
 				}
 				return ""
-			}, testTimeout, suite.TestInterval).Should(Equal(customHelperImage))
+			}, testTimeout, suite.TestInterval).Should(Not(Equal("")))
+
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			bootstrapTokenHashValue := clusterPods[0].Annotations["humio.com/bootstrap-token-hash"]
+
+			suite.UsingClusterBy(key.Name, "Rotating bootstrap token")
+			var bootstrapTokenSecret corev1.Secret
+
+			bootstrapTokenSecretKey := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix),
+				Namespace: key.Namespace,
+			}
+			Expect(k8sClient.Get(ctx, bootstrapTokenSecretKey, &bootstrapTokenSecret)).To(BeNil())
+			bootstrapTokenSecret.Data["hashedToken"] = []byte("some new token")
+			Expect(k8sClient.Update(ctx, &bootstrapTokenSecret)).To(BeNil())
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
+
+			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+
+			suite.UsingClusterBy(key.Name, "Validating pod is recreated with the new bootstrap token hash annotation")
+			Eventually(func() string {
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				_ = suite.MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
+
+				if len(clusterPods) > 0 {
+					return clusterPods[0].Annotations["humio.com/bootstrap-token-hash"]
+				}
+				return ""
+			}, testTimeout, suite.TestInterval).Should(Not(Equal(bootstrapTokenHashValue)))
 
 			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 
@@ -3314,7 +3362,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			initialExpectedVolumesCount := 6
+			initialExpectedVolumesCount := 5
 			initialExpectedVolumeMountsCount := 4
 
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
@@ -4143,7 +4191,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.InitServiceAccountName = "init-custom-service-account"
-			toCreate.Spec.AuthServiceAccountName = "auth-custom-service-account"
 			toCreate.Spec.HumioServiceAccountName = "humio-custom-service-account"
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -4170,24 +4217,6 @@ var _ = Describe("HumioCluster Controller", func() {
 					}
 				}
 			}
-			suite.UsingClusterBy(key.Name, "Confirming auth container is using the correct service account")
-			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.AuthContainerName)
-				var serviceAccountSecretVolumeName string
-				for _, volumeMount := range pod.Spec.Containers[humioIdx].VolumeMounts {
-					if volumeMount.MountPath == "/var/run/secrets/kubernetes.io/serviceaccount" {
-						serviceAccountSecretVolumeName = volumeMount.Name
-					}
-				}
-				Expect(serviceAccountSecretVolumeName).To(Not(BeEmpty()))
-				for _, volume := range pod.Spec.Volumes {
-					if volume.Name == serviceAccountSecretVolumeName {
-						secret, err := kubernetes.GetSecret(ctx, k8sClient, volume.Secret.SecretName, key.Namespace)
-						Expect(err).ShouldNot(HaveOccurred())
-						Expect(secret.ObjectMeta.Annotations[corev1.ServiceAccountNameKey]).To(Equal(toCreate.Spec.AuthServiceAccountName))
-					}
-				}
-			}
 			suite.UsingClusterBy(key.Name, "Confirming humio pod is using the correct service account")
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.ServiceAccountName).To(Equal(toCreate.Spec.HumioServiceAccountName))
@@ -4201,7 +4230,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.InitServiceAccountName = "custom-service-account"
-			toCreate.Spec.AuthServiceAccountName = "custom-service-account"
 			toCreate.Spec.HumioServiceAccountName = "custom-service-account"
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -4225,24 +4253,6 @@ var _ = Describe("HumioCluster Controller", func() {
 						secret, err := kubernetes.GetSecret(ctx, k8sClient, volume.Secret.SecretName, key.Namespace)
 						Expect(err).ShouldNot(HaveOccurred())
 						Expect(secret.ObjectMeta.Annotations[corev1.ServiceAccountNameKey]).To(Equal(toCreate.Spec.InitServiceAccountName))
-					}
-				}
-			}
-			suite.UsingClusterBy(key.Name, "Confirming auth container is using the correct service account")
-			for _, pod := range clusterPods {
-				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.AuthContainerName)
-				var serviceAccountSecretVolumeName string
-				for _, volumeMount := range pod.Spec.Containers[humioIdx].VolumeMounts {
-					if volumeMount.MountPath == "/var/run/secrets/kubernetes.io/serviceaccount" {
-						serviceAccountSecretVolumeName = volumeMount.Name
-					}
-				}
-				Expect(serviceAccountSecretVolumeName).To(Not(BeEmpty()))
-				for _, volume := range pod.Spec.Volumes {
-					if volume.Name == serviceAccountSecretVolumeName {
-						secret, err := kubernetes.GetSecret(ctx, k8sClient, volume.Secret.SecretName, key.Namespace)
-						Expect(err).ShouldNot(HaveOccurred())
-						Expect(secret.ObjectMeta.Annotations[corev1.ServiceAccountNameKey]).To(Equal(toCreate.Spec.AuthServiceAccountName))
 					}
 				}
 			}
@@ -4436,7 +4446,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				if pod.Spec.ShareProcessNamespace != nil {
 					Expect(*pod.Spec.ShareProcessNamespace).To(BeFalse())
 				}
-				Expect(pod.Spec.Containers).Should(HaveLen(2))
+				Expect(pod.Spec.Containers).Should(HaveLen(1))
 			}
 
 			suite.UsingClusterBy(key.Name, "Enabling shared process namespace and sidecars")
@@ -4496,9 +4506,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				for _, pod := range clusterPods {
 					for _, container := range pod.Spec.Containers {
 						if container.Name == controllers.HumioContainerName {
-							continue
-						}
-						if container.Name == controllers.AuthContainerName {
 							continue
 						}
 						return container.Name

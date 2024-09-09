@@ -74,7 +74,7 @@ func (r *HumioAggregateAlertReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	r.Log = r.Log.WithValues("Request.UID", haa.UID)
 
-	cluster, err := helpers.NewCluster(ctx, r, haa.Spec.ManagedClusterName, haa.Spec.ExternalClusterName, haa.Namespace, helpers.UseCertManager(), true)
+	cluster, err := helpers.NewCluster(ctx, r, haa.Spec.ManagedClusterName, haa.Spec.ExternalClusterName, haa.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		setStateErr := r.setState(ctx, humiov1alpha1.HumioAggregateAlertStateConfigError, haa)
 		if setStateErr != nil {

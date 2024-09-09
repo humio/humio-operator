@@ -20,9 +20,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	"reflect"
 	"time"
+
+	"github.com/humio/humio-operator/pkg/kubernetes"
 
 	humioapi "github.com/humio/cli/api"
 
@@ -76,7 +77,7 @@ func (r *HumioAlertReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	r.Log = r.Log.WithValues("Request.UID", ha.UID)
 
-	cluster, err := helpers.NewCluster(ctx, r, ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName, ha.Namespace, helpers.UseCertManager(), true)
+	cluster, err := helpers.NewCluster(ctx, r, ha.Spec.ManagedClusterName, ha.Spec.ExternalClusterName, ha.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		setStateErr := r.setState(ctx, humiov1alpha1.HumioAlertStateConfigError, ha)
 		if setStateErr != nil {

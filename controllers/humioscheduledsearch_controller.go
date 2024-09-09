@@ -77,7 +77,7 @@ func (r *HumioScheduledSearchReconciler) Reconcile(ctx context.Context, req ctrl
 
 	r.Log = r.Log.WithValues("Request.UID", hss.UID)
 
-	cluster, err := helpers.NewCluster(ctx, r, hss.Spec.ManagedClusterName, hss.Spec.ExternalClusterName, hss.Namespace, helpers.UseCertManager(), true)
+	cluster, err := helpers.NewCluster(ctx, r, hss.Spec.ManagedClusterName, hss.Spec.ExternalClusterName, hss.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		setStateErr := r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateConfigError, hss)
 		if setStateErr != nil {

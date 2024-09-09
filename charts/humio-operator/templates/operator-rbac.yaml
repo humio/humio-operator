@@ -23,6 +23,7 @@ rules:
   - ""
   resources:
   - pods
+  - pods/exec
   - services
   - services/finalizers
   - endpoints
@@ -67,6 +68,9 @@ rules:
   - humioclusters
   - humioclusters/finalizers
   - humioclusters/status
+  - humiobootstraptokens
+  - humiobootstraptokens/finalizers
+  - humiobootstraptokens/status
   - humioparsers
   - humioparsers/finalizers
   - humioparsers/status
@@ -179,6 +183,7 @@ rules:
   - ""
   resources:
   - pods
+  - pods/exec
   - services
   - services/finalizers
   - endpoints
@@ -231,6 +236,9 @@ rules:
   - humioclusters
   - humioclusters/finalizers
   - humioclusters/status
+  - humiobootstraptokens
+  - humiobootstraptokens/finalizers
+  - humiobootstraptokens/status
   - humioparsers
   - humioparsers/finalizers
   - humioparsers/status

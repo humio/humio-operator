@@ -48,6 +48,7 @@ type Client interface {
 	FilterAlertsClient
 	AggregateAlertsClient
 	ScheduledSearchClient
+	UsersClient
 }
 
 type ClusterClient interface {
@@ -129,6 +130,14 @@ type ScheduledSearchClient interface {
 type LicenseClient interface {
 	GetLicense(*humioapi.Config, reconcile.Request) (humioapi.License, error)
 	InstallLicense(*humioapi.Config, reconcile.Request, string) error
+}
+
+type UsersClient interface {
+	AddUser(*humioapi.Config, reconcile.Request, string, bool) (*humioapi.User, error)
+	ListAllHumioUsersSingleOrg(*humioapi.Config, reconcile.Request) ([]user, error)
+	ListAllHumioUsersMultiOrg(*humioapi.Config, reconcile.Request, string, string) ([]OrganizationSearchResultEntry, error)
+	ExtractExistingHumioAdminUserID(*humioapi.Config, reconcile.Request, string, string, string) (string, error)
+	RotateUserApiTokenAndGet(*humioapi.Config, reconcile.Request, string) (string, error)
 }
 
 // ClientConfig stores our Humio api client
@@ -897,4 +906,101 @@ func (h *ClientConfig) ValidateActionsForAggregateAlert(config *humioapi.Config,
 		}
 	}
 	return nil
+}
+
+type user struct {
+	Id       string
+	Username string
+}
+
+type OrganizationSearchResultEntry struct {
+	EntityId         string `graphql:"entityId"`
+	SearchMatch      string `graphql:"searchMatch"`
+	OrganizationName string `graphql:"organizationName"`
+}
+
+type OrganizationSearchResultSet struct {
+	Results []OrganizationSearchResultEntry `graphql:"results"`
+}
+
+func (h *ClientConfig) ListAllHumioUsersSingleOrg(config *humioapi.Config, req reconcile.Request) ([]user, error) {
+	var q struct {
+		Users []user `graphql:"users"`
+	}
+	err := h.GetHumioClient(config, req).Query(&q, nil)
+	return q.Users, err
+}
+
+func (h *ClientConfig) ListAllHumioUsersMultiOrg(config *humioapi.Config, req reconcile.Request, username string, organization string) ([]OrganizationSearchResultEntry, error) {
+	var q struct {
+		OrganizationSearchResultSet `graphql:"searchOrganizations(searchFilter: $username, typeFilter: User, sortBy: Name, orderBy: ASC, limit: 1000000, skip: 0)"`
+	}
+
+	variables := map[string]interface{}{
+		"username": graphql.String(username),
+	}
+
+	err := h.GetHumioClient(config, req).Query(&q, variables)
+	if err != nil {
+		return []OrganizationSearchResultEntry{}, err
+	}
+
+	var allUserResultEntries []OrganizationSearchResultEntry
+	for _, result := range q.OrganizationSearchResultSet.Results {
+		if result.OrganizationName == organization {
+			allUserResultEntries = append(allUserResultEntries, result)
+		}
+	}
+
+	return allUserResultEntries, nil
+}
+
+func (h *ClientConfig) ExtractExistingHumioAdminUserID(config *humioapi.Config, req reconcile.Request, organizationMode string, username string, organization string) (string, error) {
+	if organizationMode == "multi" || organizationMode == "multiv2" {
+		var allUserResults []OrganizationSearchResultEntry
+		allUserResults, err := h.ListAllHumioUsersMultiOrg(config, req, username, organization)
+		if err != nil {
+			// unable to list all users
+			return "", err
+		}
+		for _, userResult := range allUserResults {
+			if userResult.OrganizationName == organization {
+				if userResult.SearchMatch == fmt.Sprintf(" | %s () ()", username) {
+					fmt.Printf("Found user ID using multi-organization query.\n")
+					return userResult.EntityId, nil
+				}
+			}
+		}
+	}
+
+	allUsers, err := h.ListAllHumioUsersSingleOrg(config, req)
+	if err != nil {
+		// unable to list all users
+		return "", err
+	}
+	for _, user := range allUsers {
+		if user.Username == username {
+			return user.Id, nil
+		}
+	}
+
+	return "", nil
+}
+
+func (h *ClientConfig) RotateUserApiTokenAndGet(config *humioapi.Config, req reconcile.Request, userID string) (string, error) {
+	token, err := h.GetHumioClient(config, req).Users().RotateToken(userID)
+	if err != nil {
+		return "", fmt.Errorf("could not rotate apiToken for userID %s, err: %w", userID, err)
+	}
+	return token, nil
+}
+
+func (h *ClientConfig) AddUser(config *humioapi.Config, req reconcile.Request, username string, isRoot bool) (*humioapi.User, error) {
+	user, err := h.GetHumioClient(config, req).Users().Add(username, humioapi.UserChangeSet{
+		IsRoot: &isRoot,
+	})
+	if err != nil {
+		return &humioapi.User{}, err
+	}
+	return &user, nil
 }
