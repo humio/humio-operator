@@ -10,10 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/humio/humio-operator/controllers/versions"
-
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
+	"github.com/humio/humio-operator/controllers/versions"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 	"github.com/humio/humio-operator/pkg/kubernetes"
@@ -513,12 +512,11 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	UsingClusterBy(key.Name, "Validating cluster has expected pod revision annotation")
 	nodeMgrFromHumioCluster := controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)
 	if nodeMgrFromHumioCluster.GetNodeCount() > 0 {
-		revisionKey, _ := nodeMgrFromHumioCluster.GetHumioClusterNodePoolRevisionAnnotation()
-		Eventually(func() map[string]string {
+		Eventually(func() int {
 			updatedHumioCluster = humiov1alpha1.HumioCluster{}
 			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-			return updatedHumioCluster.Annotations
-		}, testTimeout, TestInterval).Should(HaveKeyWithValue(revisionKey, "1"))
+			return controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()
+		}, testTimeout, TestInterval).Should(BeEquivalentTo(1))
 	}
 
 	UsingClusterBy(key.Name, "Waiting for the controller to populate the secret containing the admin token")
@@ -605,7 +603,45 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	}
 
 	Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-	WaitForReconcileToSync(ctx, key, k8sClient, &updatedHumioCluster, testTimeout)
+	Eventually(func() map[corev1.PodPhase]int {
+		phaseToCount := map[corev1.PodPhase]int{
+			corev1.PodRunning: 0,
+		}
+
+		updatedClusterPods, err := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+		if err != nil {
+			return map[corev1.PodPhase]int{}
+		}
+		Expect(updatedClusterPods).To(HaveLen(updatedHumioCluster.Spec.NodeCount))
+
+		for _, pod := range updatedClusterPods {
+			phaseToCount[pod.Status.Phase] += 1
+		}
+
+		return phaseToCount
+
+	}, testTimeout, TestInterval).Should(HaveKeyWithValue(corev1.PodRunning, updatedHumioCluster.Spec.NodeCount))
+
+	for idx := range updatedHumioCluster.Spec.NodePools {
+		Eventually(func() map[corev1.PodPhase]int {
+			phaseToCount := map[corev1.PodPhase]int{
+				corev1.PodRunning: 0,
+			}
+
+			updatedClusterPods, err := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[idx]).GetPodLabels())
+			if err != nil {
+				return map[corev1.PodPhase]int{}
+			}
+			Expect(updatedClusterPods).To(HaveLen(updatedHumioCluster.Spec.NodePools[idx].NodeCount))
+
+			for _, pod := range updatedClusterPods {
+				phaseToCount[pod.Status.Phase] += 1
+			}
+
+			return phaseToCount
+
+		}, testTimeout, TestInterval).Should(HaveKeyWithValue(corev1.PodRunning, updatedHumioCluster.Spec.NodePools[idx].NodeCount))
+	}
 }
 
 func WaitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sClient client.Client, currentHumioCluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {

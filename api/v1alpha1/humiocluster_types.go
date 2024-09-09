@@ -379,6 +379,8 @@ type HumioNodePoolStatus struct {
 	Name string `json:"name,omitempty"`
 	// State will be empty before the cluster is bootstrapped. From there it can be "Running", "Upgrading", "Restarting" or "Pending"
 	State string `json:"state,omitempty"`
+	// DesiredPodRevision holds the desired pod revision for pods of the given node pool.
+	DesiredPodRevision int `json:"desiredPodRevision,omitempty"`
 }
 
 // HumioClusterStatus defines the observed state of HumioCluster

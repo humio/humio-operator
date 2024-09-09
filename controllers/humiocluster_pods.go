@@ -686,7 +686,7 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 		pod.Annotations[certHashAnnotation] = podNameAndCertHash.certificateHash
 	}
 
-	_, podRevision := hnp.GetHumioClusterNodePoolRevisionAnnotation()
+	podRevision := hnp.GetDesiredPodRevision()
 	r.setPodRevision(pod, podRevision)
 
 	r.Log.Info(fmt.Sprintf("creating pod %s with revision %d", pod.Name, podRevision))
@@ -749,8 +749,8 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 	var bootstrapTokenAnootationMatches bool
 
 	desiredPodHash := podSpecAsSHA256(hnp, desiredPod)
-	_, existingPodRevision := hnp.GetHumioClusterNodePoolRevisionAnnotation()
-	r.setPodRevision(&desiredPod, existingPodRevision)
+	desiredPodRevision := hnp.GetDesiredPodRevision()
+	r.setPodRevision(&desiredPod, desiredPodRevision)
 	if pod.Annotations[PodHashAnnotation] == desiredPodHash {
 		specMatches = true
 	}
@@ -1065,7 +1065,6 @@ func (r *HumioClusterReconciler) getPodStatusList(ctx context.Context, hc *humio
 		}
 	}
 	sort.Sort(podStatusList)
-	r.Log.Info(fmt.Sprintf("updating pod status with %+v", podStatusList))
 	return podStatusList, nil
 }
 

@@ -15048,6 +15048,10 @@ spec:
                 items:
                   description: HumioNodePoolStatus shows the status of each node pool
                   properties:
+                    desiredPodRevision:
+                      description: DesiredPodRevision holds the desired pod revision
+                        for pods of the given node pool.
+                      type: integer
                     name:
                       description: Name is the name of the node pool
                       type: string

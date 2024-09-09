@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	humioapi "github.com/humio/cli/api"
 	"os"
 	"path/filepath"
 	"sort"
@@ -28,6 +27,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	humioapi "github.com/humio/cli/api"
 
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/controllers/suite"
@@ -477,11 +478,11 @@ func podPendingCountByRevision(ctx context.Context, hnp *controllers.HumioNodePo
 }
 
 func ensurePodsRollingRestart(ctx context.Context, hnp *controllers.HumioNodePool, expectedPodRevision int) {
-	suite.UsingClusterBy(hnp.GetClusterName(), "Ensuring replacement pods are ready one at a time")
+	suite.UsingClusterBy(hnp.GetClusterName(), "ensurePodsRollingRestart Ensuring replacement pods are ready one at a time")
 
 	for expectedReadyCount := 1; expectedReadyCount < hnp.GetNodeCount()+1; expectedReadyCount++ {
 		Eventually(func() map[int]int {
-			suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("Ensuring replacement pods are ready one at a time expectedReadyCount=%d", expectedReadyCount))
+			suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("ensurePodsRollingRestart Ensuring replacement pods are ready one at a time expectedReadyCount=%d", expectedReadyCount))
 			markPodsWithRevisionAsReady(ctx, hnp, expectedPodRevision, expectedReadyCount)
 			return podReadyCountByRevision(ctx, hnp, expectedPodRevision)
 		}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(expectedPodRevision, expectedReadyCount))
@@ -498,7 +499,7 @@ func ensurePodsGoPending(ctx context.Context, hnp *controllers.HumioNodePool, ex
 }
 
 func ensurePodsTerminate(ctx context.Context, hnp *controllers.HumioNodePool, expectedPodRevision int) {
-	suite.UsingClusterBy(hnp.GetClusterName(), "Ensuring all existing pods are terminated at the same time")
+	suite.UsingClusterBy(hnp.GetClusterName(), "ensurePodsTerminate Ensuring all existing pods are terminated at the same time")
 	Eventually(func() map[int]int {
 		markPodsWithRevisionAsReady(ctx, hnp, expectedPodRevision, 0)
 		numPodsReadyByRevision := podReadyCountByRevision(ctx, hnp, expectedPodRevision)
@@ -506,11 +507,11 @@ func ensurePodsTerminate(ctx context.Context, hnp *controllers.HumioNodePool, ex
 		return numPodsReadyByRevision
 	}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(expectedPodRevision-1, 0))
 
-	suite.UsingClusterBy(hnp.GetClusterName(), "Ensuring replacement pods are not ready at the same time")
+	suite.UsingClusterBy(hnp.GetClusterName(), "ensurePodsTerminate Ensuring replacement pods are not ready at the same time")
 	Eventually(func() map[int]int {
 		markPodsWithRevisionAsReady(ctx, hnp, expectedPodRevision, 0)
 		numPodsReadyByRevision := podReadyCountByRevision(ctx, hnp, expectedPodRevision)
-		suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("podsReadyCountByRevision() = %#+v", numPodsReadyByRevision))
+		suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("ensurePodsTerminate podsReadyCountByRevision() = %#+v", numPodsReadyByRevision))
 		return numPodsReadyByRevision
 	}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(expectedPodRevision, 0))
 
@@ -519,11 +520,11 @@ func ensurePodsTerminate(ctx context.Context, hnp *controllers.HumioNodePool, ex
 func ensurePodsSimultaneousRestart(ctx context.Context, hnp *controllers.HumioNodePool, expectedPodRevision int) {
 	ensurePodsTerminate(ctx, hnp, expectedPodRevision)
 
-	suite.UsingClusterBy(hnp.GetClusterName(), "Ensuring all pods come back up after terminating")
+	suite.UsingClusterBy(hnp.GetClusterName(), "ensurePodsSimultaneousRestart Ensuring all pods come back up after terminating")
 	Eventually(func() map[int]int {
 		markPodsWithRevisionAsReady(ctx, hnp, expectedPodRevision, hnp.GetNodeCount())
 		numPodsReadyByRevision := podReadyCountByRevision(ctx, hnp, expectedPodRevision)
-		suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("podsReadyCountByRevision() = %#+v", numPodsReadyByRevision))
+		suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("ensurePodsSimultaneousRestart podsReadyCountByRevision() = %#+v", numPodsReadyByRevision))
 		return numPodsReadyByRevision
 	}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(expectedPodRevision, hnp.GetNodeCount()))
 }

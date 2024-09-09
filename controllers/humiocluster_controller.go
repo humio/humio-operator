@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -130,17 +129,17 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if err := r.setImageFromSource(ctx, pool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
-				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName()))
+				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision()))
 		}
 		if err := r.ensureValidHumioVersion(pool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
-				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName()))
+				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision()))
 		}
 		if err := r.ensureValidStorageConfiguration(pool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
-				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName()))
+				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision()))
 		}
 	}
 
@@ -166,7 +165,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
+	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
 		opts := statusOptions()
 		podStatusList, err := r.getPodStatusList(ctx, hc, humioNodePools.Filter(NodePoolFilterHasNode))
 		if err != nil {
@@ -175,7 +174,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		_, _ = r.updateStatus(ctx, r.Client.Status(), hc, opts.
 			withPods(podStatusList).
 			withNodeCount(len(podStatusList)))
-	}(ctx, r.HumioClient, hc)
+	}(ctx, hc)
 
 	for _, pool := range humioNodePools.Items {
 		if err := r.ensureOrphanedPvcsAreDeleted(ctx, hc, pool); err != nil {
@@ -199,7 +198,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if err := r.validateInitialPodSpec(pool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
-				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName()))
+				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision()))
 		}
 	}
 
@@ -210,18 +209,9 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if hc.Status.State == "" {
-		// TODO: migrate to updateStatus()
 		err := r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
-		}
-	}
-
-	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
-		if clusterState, err := r.ensurePodRevisionAnnotation(ctx, hc, pool); err != nil || clusterState != hc.Status.State {
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()).
-				withNodePoolState(clusterState, pool.GetNodePoolName()))
 		}
 	}
 
@@ -257,15 +247,13 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if issueRestart, err := r.ensureHumioServiceAccountAnnotations(ctx, pool); err != nil || issueRestart {
-			opts := statusOptions()
+			desiredPodRevision := pool.GetDesiredPodRevision()
 			if issueRestart {
-				_, err = r.incrementHumioClusterPodRevision(ctx, hc, pool)
+				desiredPodRevision++
 			}
-			if err != nil {
-				opts.withMessage(err.Error())
-			}
-			_, _ = r.updateStatus(ctx, r.Client.Status(), hc, opts.withState(hc.Status.State))
-			return reconcile.Result{Requeue: true}, nil
+			_, err = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withNodePoolState(hc.Status.State, pool.GetNodePoolName(), desiredPodRevision))
+			return reconcile.Result{Requeue: true}, err
 		}
 	}
 
@@ -273,7 +261,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if err := r.ensurePersistentVolumeClaimsExist(ctx, hc, pool); err != nil {
 			opts := statusOptions()
 			if hc.Status.State != humiov1alpha1.HumioClusterStateRestarting && hc.Status.State != humiov1alpha1.HumioClusterStateUpgrading {
-				opts.withNodePoolState(humiov1alpha1.HumioClusterStatePending, pool.GetNodePoolName())
+				opts.withNodePoolState(humiov1alpha1.HumioClusterStatePending, pool.GetNodePoolName(), pool.GetDesiredPodRevision())
 			}
 			return r.updateStatus(ctx, r.Client.Status(), hc, opts.
 				withMessage(err.Error()))
@@ -438,23 +426,6 @@ func (r *HumioClusterReconciler) hasNoUnusedNodePoolStatus(hc *humiov1alpha1.Hum
 	return true, 0
 }
 
-func (r *HumioClusterReconciler) ensurePodRevisionAnnotation(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (string, error) {
-	revisionKey, revisionValue := hnp.GetHumioClusterNodePoolRevisionAnnotation()
-	if revisionValue == 0 {
-		revisionValue = 1
-		r.Log.Info(fmt.Sprintf("setting cluster pod revision %s=%d", revisionKey, revisionValue))
-		if hc.Annotations == nil {
-			hc.Annotations = map[string]string{}
-		}
-		hc.Annotations[revisionKey] = strconv.Itoa(revisionValue)
-		hnp.SetHumioClusterNodePoolRevisionAnnotation(revisionValue)
-
-		if err := r.Update(ctx, hc); err != nil {
-			return humiov1alpha1.HumioClusterStatePending, r.logErrorAndReturn(err, fmt.Sprintf("unable to set pod revision annotation %s", revisionKey))
-		}
-	}
-	return hc.Status.State, nil
-}
 func (r *HumioClusterReconciler) ensureHumioClusterBootstrapToken(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("ensuring humiobootstraptoken")
 	hbtList, err := kubernetes.ListHumioBootstrapTokens(ctx, r.Client, hc.GetNamespace(), kubernetes.LabelsForHumioBootstrapToken(hc.GetName()))
@@ -1947,26 +1918,21 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	// 	 PodRestartPolicyRecreate == HumioClusterStateUpgrading
 	// 	 PodRestartPolicyRolling == HumioClusterStateRestarting
 	if hc.Status.State == humiov1alpha1.HumioClusterStateRunning || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
+		podRevision := hnp.GetDesiredPodRevision()
+		podRevision++
 		if desiredLifecycleState.WantsUpgrade() {
-			r.Log.Info(fmt.Sprintf("changing cluster state from %s to %s", hc.Status.State, humiov1alpha1.HumioClusterStateUpgrading))
+			r.Log.Info(fmt.Sprintf("changing cluster state from %s to %s with pod revision %d for node pool %s", hc.Status.State, humiov1alpha1.HumioClusterStateUpgrading, podRevision, hnp.GetNodePoolName()))
 			if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withNodePoolState(humiov1alpha1.HumioClusterStateUpgrading, hnp.GetNodePoolName())); err != nil {
+				withNodePoolState(humiov1alpha1.HumioClusterStateUpgrading, hnp.GetNodePoolName(), podRevision)); err != nil {
 				return result, err
-			}
-			if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, hnp); err != nil {
-				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-					withMessage(r.logErrorAndReturn(err, fmt.Sprintf("failed to increment pod revision to %d", revision)).Error()))
 			}
 			return reconcile.Result{Requeue: true}, nil
 		}
 		if !desiredLifecycleState.WantsUpgrade() && desiredLifecycleState.WantsRestart() {
+			r.Log.Info(fmt.Sprintf("changing cluster state from %s to %s with pod revision %d for node pool %s", hc.Status.State, humiov1alpha1.HumioClusterStateRestarting, podRevision, hnp.GetNodePoolName()))
 			if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withNodePoolState(humiov1alpha1.HumioClusterStateRestarting, hnp.GetNodePoolName())); err != nil {
+				withNodePoolState(humiov1alpha1.HumioClusterStateRestarting, hnp.GetNodePoolName(), podRevision)); err != nil {
 				return result, err
-			}
-			if revision, err := r.incrementHumioClusterPodRevision(ctx, hc, hnp); err != nil {
-				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-					withMessage(r.logErrorAndReturn(err, fmt.Sprintf("failed to increment pod revision to %d", revision)).Error()))
 			}
 			return reconcile.Result{Requeue: true}, nil
 		}
@@ -2027,7 +1993,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		if hc.Status.State == humiov1alpha1.HumioClusterStateRestarting || hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
 			r.Log.Info(fmt.Sprintf("no longer deleting pods. changing cluster state from %s to %s", hc.Status.State, humiov1alpha1.HumioClusterStateRunning))
 			if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withNodePoolState(humiov1alpha1.HumioClusterStateRunning, hnp.GetNodePoolName())); err != nil {
+				withNodePoolState(humiov1alpha1.HumioClusterStateRunning, hnp.GetNodePoolName(), hnp.GetDesiredPodRevision())); err != nil {
 				return result, err
 			}
 		}
