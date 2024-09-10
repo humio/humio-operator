@@ -37,7 +37,6 @@ import (
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
-	humioapi "github.com/humio/cli/api"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -108,7 +107,7 @@ var _ = BeforeSuite(func() {
 		if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
 			humioClient = humio.NewMockClient()
 		} else {
-			humioClient = humio.NewClient(log, &humioapi.Config{}, "")
+			humioClient = humio.NewClient(log, "")
 		}
 
 	} else {

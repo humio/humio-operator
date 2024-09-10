@@ -157,13 +157,12 @@ type humioClientConnection struct {
 }
 
 // NewClient returns a ClientConfig
-func NewClient(logger logr.Logger, config *humioapi.Config, userAgent string) *ClientConfig {
-	transport := humioapi.NewHttpTransport(*config)
-	return NewClientWithTransport(logger, config, userAgent, transport)
+func NewClient(logger logr.Logger, userAgent string) *ClientConfig {
+	return NewClientWithTransport(logger, userAgent)
 }
 
 // NewClientWithTransport returns a ClientConfig using an existing http.Transport
-func NewClientWithTransport(logger logr.Logger, config *humioapi.Config, userAgent string, transport *http.Transport) *ClientConfig {
+func NewClientWithTransport(logger logr.Logger, userAgent string) *ClientConfig {
 	return &ClientConfig{
 		logger:       logger,
 		userAgent:    userAgent,

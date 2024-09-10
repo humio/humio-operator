@@ -28,8 +28,6 @@ import (
 	"testing"
 	"time"
 
-	humioapi "github.com/humio/cli/api"
-
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/controllers/suite"
 	"k8s.io/apimachinery/pkg/types"
@@ -99,7 +97,7 @@ var _ = BeforeSuite(func() {
 		if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
 			testHumioClient = humio.NewMockClient()
 		} else {
-			testHumioClient = humio.NewClient(log, &humioapi.Config{}, "")
+			testHumioClient = humio.NewClient(log, "")
 		}
 	} else {
 		testTimeout = time.Second * 30
