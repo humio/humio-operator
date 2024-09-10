@@ -966,7 +966,7 @@ func (h *MockClientConfig) searchDomainNameExists(clusterName, searchDomainName 
 	return false
 }
 
-func (h *MockClientConfig) ListAllHumioUsersSingleOrg(config *humioapi.Config, req reconcile.Request) ([]user, error) {
+func (h *MockClientConfig) ListAllHumioUsersInCurrentOrganization(config *humioapi.Config, req reconcile.Request) ([]user, error) {
 	key := resourceKey{
 		resourceName: fmt.Sprintf("%s%s", req.Namespace, req.Name),
 	}
@@ -982,41 +982,6 @@ func (h *MockClientConfig) ListAllHumioUsersSingleOrg(config *humioapi.Config, r
 			Username: currentUser.Username,
 		},
 	}, nil
-}
-
-func (h *MockClientConfig) ListAllHumioUsersMultiOrg(config *humioapi.Config, req reconcile.Request, username string, organization string) ([]OrganizationSearchResultEntry, error) {
-	key := resourceKey{
-		resourceName: fmt.Sprintf("%s%s", req.Namespace, req.Name),
-	}
-
-	currentUser, found := h.apiClient.User[key]
-	if !found {
-		return []OrganizationSearchResultEntry{}, nil
-	}
-
-	return []OrganizationSearchResultEntry{
-		{
-			EntityId:         currentUser.ID,
-			SearchMatch:      fmt.Sprintf(" | %s () ()", currentUser.Username),
-			OrganizationName: "RecoveryRootOrg",
-		},
-	}, nil
-}
-
-func (h *MockClientConfig) ExtractExistingHumioAdminUserID(config *humioapi.Config, req reconcile.Request, organizationMode string, username string, organization string) (string, error) {
-	humioClientMu.Lock()
-	defer humioClientMu.Unlock()
-
-	key := resourceKey{
-		resourceName: fmt.Sprintf("%s%s", req.Namespace, req.Name),
-	}
-
-	currentUser, found := h.apiClient.User[key]
-	if !found {
-		return "", fmt.Errorf("could not find user")
-	}
-
-	return currentUser.ID, nil
 }
 
 func (h *MockClientConfig) RotateUserApiTokenAndGet(config *humioapi.Config, req reconcile.Request, username string) (string, error) {
