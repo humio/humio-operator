@@ -746,7 +746,7 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 	var revisionMatches bool
 	var envVarSourceMatches bool
 	var certHasAnnotationMatches bool
-	var bootstrapTokenAnootationMatches bool
+	var bootstrapTokenAnnotationMatches bool
 
 	desiredPodHash := podSpecAsSHA256(hnp, desiredPod)
 	desiredPodRevision := hnp.GetDesiredPodRevision()
@@ -779,12 +779,12 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 	}
 	if _, ok := pod.Annotations[bootstrapTokenHashAnnotation]; ok {
 		if pod.Annotations[bootstrapTokenHashAnnotation] == desiredPod.Annotations[bootstrapTokenHashAnnotation] {
-			bootstrapTokenAnootationMatches = true
+			bootstrapTokenAnnotationMatches = true
 		}
 	} else {
 		// Ignore bootstrapTokenHashAnnotation if it's not in either the current pod or the desired pod
 		if _, ok := desiredPod.Annotations[bootstrapTokenHashAnnotation]; !ok {
-			bootstrapTokenAnootationMatches = true
+			bootstrapTokenAnnotationMatches = true
 		}
 	}
 
@@ -809,8 +809,8 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", certHashAnnotation, pod.Annotations[certHashAnnotation], desiredPod.Annotations[certHashAnnotation]), "podSpecDiff", podSpecDiff)
 		return false, nil
 	}
-	if !bootstrapTokenAnootationMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s bootstrapTokenAnootationMatches not match desired pod: got %+v, expected %+v", bootstrapTokenHashAnnotation, pod.Annotations[bootstrapTokenHashAnnotation], desiredPod.Annotations[bootstrapTokenHashAnnotation]), "podSpecDiff", podSpecDiff)
+	if !bootstrapTokenAnnotationMatches {
+		r.Log.Info(fmt.Sprintf("pod annotation %s bootstrapTokenAnnotationMatches not match desired pod: got %+v, expected %+v", bootstrapTokenHashAnnotation, pod.Annotations[bootstrapTokenHashAnnotation], desiredPod.Annotations[bootstrapTokenHashAnnotation]), "podSpecDiff", podSpecDiff)
 		return false, nil
 	}
 	return true, nil
