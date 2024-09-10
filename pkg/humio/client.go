@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"reflect"
 	"sync"
 
@@ -55,7 +54,6 @@ type ClusterClient interface {
 	GetClusters(*humioapi.Config, reconcile.Request) (humioapi.Cluster, error)
 	GetHumioClient(*humioapi.Config, reconcile.Request) *humioapi.Client
 	ClearHumioClientConnections(string)
-	GetBaseURL(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioCluster) *url.URL
 	TestAPIToken(*humioapi.Config, reconcile.Request) error
 	Status(*humioapi.Config, reconcile.Request) (*humioapi.StatusResponse, error)
 }
@@ -234,17 +232,6 @@ func (h *ClientConfig) Status(config *humioapi.Config, req reconcile.Request) (*
 // GetClusters returns a humio cluster and can be mocked via the Client interface
 func (h *ClientConfig) GetClusters(config *humioapi.Config, req reconcile.Request) (humioapi.Cluster, error) {
 	return h.GetHumioClient(config, req).Clusters().Get()
-}
-
-// GetBaseURL returns the base URL for given HumioCluster
-func (h *ClientConfig) GetBaseURL(config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) *url.URL {
-	protocol := "https"
-	if !helpers.TLSEnabled(hc) {
-		protocol = "http"
-	}
-	baseURL, _ := url.Parse(fmt.Sprintf("%s://%s-internal.%s:%d/", protocol, hc.Name, hc.Namespace, 8080))
-	return baseURL
-
 }
 
 // TestAPIToken tests if an API token is valid by fetching the username that the API token belongs to

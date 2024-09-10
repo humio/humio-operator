@@ -94,11 +94,6 @@ func (h *MockClientConfig) GetClusters(config *humioapi.Config, req reconcile.Re
 	return humioapi.Cluster{}, nil
 }
 
-func (h *MockClientConfig) GetBaseURL(config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) *url.URL {
-	baseURL, _ := url.Parse(fmt.Sprintf("http://%s-internal.%s:%d/", hc.Name, hc.Namespace, 8080))
-	return baseURL
-}
-
 func (h *MockClientConfig) TestAPIToken(config *humioapi.Config, req reconcile.Request) error {
 	return nil
 }
