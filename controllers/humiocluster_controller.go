@@ -1341,7 +1341,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	// At this point we know a non-empty license has been returned by the Humio API,
 	// so we can continue to parse the license and issue a license update if needed.
 	if existingLicense == nil || existingLicense == noLicense {
-		cluster, err = helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), false, true)
+		cluster, err = helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), false, false)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not install initial license")
 		}
