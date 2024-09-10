@@ -393,6 +393,9 @@ var _ = ReportAfterSuite("HumioCluster Controller Suite", func(suiteReport ginkg
 		u, _ := json.Marshal(r)
 		fmt.Println(string(u))
 	}
+	if len(suiteReport.SpecialSuiteFailureReasons) > 0 {
+		fmt.Printf("SpecialSuiteFailureReasons: %+v", suiteReport.SpecialSuiteFailureReasons)
+	}
 })
 
 var _ = ReportAfterEach(func(specReport ginkgotypes.SpecReport) {
