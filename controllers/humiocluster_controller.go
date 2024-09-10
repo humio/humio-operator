@@ -1359,9 +1359,6 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not authenticate with bootstrap token")
 	}
-	if err = r.HumioClient.InstallLicense(cluster.Config(), req, licenseStr); err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not install license")
-	}
 
 	// TODO: ensureLicense should be broken into multiple steps
 	if err = r.ensurePermissionTokens(ctx, cluster.Config(), req, hc); err != nil {
