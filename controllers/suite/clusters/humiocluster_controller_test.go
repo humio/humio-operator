@@ -1256,6 +1256,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+			}
 			toCreate.Spec.NodeCount = 2
 
 			suite.UsingClusterBy(key.Name, "Creating a cluster")
