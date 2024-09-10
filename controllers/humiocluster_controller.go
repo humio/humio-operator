@@ -1360,9 +1360,8 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not authenticate with bootstrap token")
 	}
 
-	// TODO: ensureLicense should be broken into multiple steps
-	if err = r.ensurePermissionTokens(ctx, cluster.Config(), req, hc); err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("config: %+v", cluster.Config()))
+	if err = r.ensurePersonalAPITokenForAdminUser(ctx, cluster.Config(), req, hc); err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to create permission tokens")
 	}
 
 	cluster, err = helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
@@ -1391,9 +1390,9 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 	return reconcile.Result{}, nil
 }
 
-func (r *HumioClusterReconciler) ensurePermissionTokens(ctx context.Context, config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) error {
+func (r *HumioClusterReconciler) ensurePersonalAPITokenForAdminUser(ctx context.Context, config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) error {
 	r.Log.Info("ensuring permission tokens")
-	return r.createPermissionToken(ctx, config, req, hc, "admin", "RootOrg")
+	return r.createPersonalAPIToken(ctx, config, req, hc, "admin", "RecoveryRootOrg")
 }
 
 func (r *HumioClusterReconciler) ensureService(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {

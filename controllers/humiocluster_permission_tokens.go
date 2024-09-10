@@ -170,7 +170,7 @@ func (r *HumioClusterReconciler) ensureAdminSecretContent(ctx context.Context, h
 	return nil
 }
 
-func (r *HumioClusterReconciler) createPermissionToken(ctx context.Context, config *humioapi.Config, req reconcile.Request, hc *v1alpha1.HumioCluster, username string, organization string) error {
+func (r *HumioClusterReconciler) createPersonalAPIToken(ctx context.Context, config *humioapi.Config, req reconcile.Request, hc *v1alpha1.HumioCluster, username string, organization string) error {
 	r.Log.Info("ensuring admin user")
 
 	organizationMode := "single"
