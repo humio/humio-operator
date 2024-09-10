@@ -569,13 +569,11 @@ func (hnp *HumioNodePool) GetContainerReadinessProbe() *corev1.Probe {
 					Scheme: hnp.GetProbeScheme(),
 				},
 			},
-			PeriodSeconds:    5,
-			TimeoutSeconds:   5,
-			SuccessThreshold: 1,
-			FailureThreshold: 10,
-		}
-		if os.Getenv("DUMMY_LOGSCALE_IMAGE") != "true" {
-			probe.InitialDelaySeconds = 30
+			InitialDelaySeconds: 30,
+			PeriodSeconds:       5,
+			TimeoutSeconds:      5,
+			SuccessThreshold:    1,
+			FailureThreshold:    10,
 		}
 		return probe
 	}
