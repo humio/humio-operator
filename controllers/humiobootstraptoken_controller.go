@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -182,7 +183,7 @@ func (r *HumioBootstrapTokenReconciler) execCommand(pod *corev1.Pod, args []stri
 		TTY:       false,
 	}, scheme.ParameterCodec)
 
-	exec, err := remotecommand.NewSPDYExecutor(cfg, "POST", req.URL())
+	exec, err := remotecommand.NewSPDYExecutor(cfg, http.MethodPost, req.URL())
 	if err != nil {
 		return "", err
 	}
