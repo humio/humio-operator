@@ -1249,7 +1249,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Rotate Bootstrap Token", func() {
+	Context("Humio Cluster Rotate Bootstrap Token", Label("envtest", "dummy", "real"), func() {
 		It("Update should correctly replace pods to use new bootstrap token", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-rotate-bootstrap-token",
