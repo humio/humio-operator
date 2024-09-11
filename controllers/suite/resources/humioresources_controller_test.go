@@ -55,7 +55,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	// your API definition.
 	// Avoid adding tests for vanilla CRUD operations because they would
 	// test Kubernetes API server, which isn't the goal here.
-	Context("Humio Ingest Token", func() {
+	Context("Humio Ingest Token", Label("envtest", "dummy", "real"), func() {
 		It("should handle ingest token with target secret correctly", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -306,7 +306,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	Context("Humio Repository and View", func() {
+	Context("Humio Repository and View", Label("envtest", "dummy", "real"), func() {
 		It("should handle resources correctly", func() {
 			ctx := context.Background()
 			suite.UsingClusterBy(clusterKey.Name, "HumioRepository: Should handle repository correctly")
@@ -561,7 +561,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	Context("Humio Parser", func() {
+	Context("Humio Parser", Label("envtest", "dummy", "real"), func() {
 		It("HumioParser: Should handle parser correctly", func() {
 			ctx := context.Background()
 			spec := humiov1alpha1.HumioParserSpec{
@@ -653,7 +653,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	Context("Humio External Cluster", func() {
+	Context("Humio External Cluster", Label("envtest", "dummy", "real"), func() {
 		It("should handle resources correctly", func() {
 			ctx := context.Background()
 			suite.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Should handle externalcluster correctly")
@@ -702,7 +702,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	Context("Humio resources errors", func() {
+	Context("Humio resources errors", Label("envtest", "dummy", "real"), func() {
 		It("HumioParser: Creating ingest token pointing to non-existent managed cluster", func() {
 			ctx := context.Background()
 			keyErr := types.NamespacedName{
@@ -920,7 +920,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	Context("Humio Action", func() {
+	Context("Humio Action", Label("envtest", "dummy", "real"), func() {
 		It("should handle email action correctly", func() {
 			ctx := context.Background()
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Should handle action correctly")
@@ -2673,7 +2673,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	Context("Humio Alert", func() {
+	Context("Humio Alert", Label("envtest", "dummy", "real"), func() {
 		It("should handle alert action correctly", func() {
 			ctx := context.Background()
 			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Should handle alert correctly")
@@ -2852,7 +2852,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	Context("Humio Filter Alert", func() {
+	Context("Humio Filter Alert", Label("envtest", "dummy", "real"), func() {
 		It("should handle filter alert action correctly", func() {
 			ctx := context.Background()
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Should handle filter alert correctly")
@@ -3029,7 +3029,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	Context("Humio Aggregate Alert", func() {
+	Context("Humio Aggregate Alert", Label("envtest", "dummy", "real"), func() {
 		It("should handle aggregate alert action correctly", func() {
 			ctx := context.Background()
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Should handle aggregate alert correctly")
@@ -3215,7 +3215,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	Context("Humio Scheduled Search", func() {
+	Context("Humio Scheduled Search", Label("envtest", "dummy", "real"), func() {
 		It("should handle scheduled search action correctly", func() {
 			ctx := context.Background()
 			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Should handle scheduled search correctly")

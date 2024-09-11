@@ -108,7 +108,7 @@ func (r *HumioClusterReconciler) getPodsStatus(ctx context.Context, hc *humiov1a
 			}
 		}
 	}
-	r.Log.Info(fmt.Sprintf("pod status readyCount=%d notReadyCount=%d podsReady=%s podsNotReady=%s", status.readyCount, status.notReadyCount, podsReady, podsNotReady))
+	r.Log.Info(fmt.Sprintf("pod status nodePoolName=%s readyCount=%d notReadyCount=%d podsReady=%s podsNotReady=%s", hnp.GetNodePoolName(), status.readyCount, status.notReadyCount, podsReady, podsNotReady))
 	// collect ready pods and not ready pods in separate lists and just print the lists here instead of a log entry per host
 	return &status, nil
 }
