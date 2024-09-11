@@ -47,7 +47,7 @@ jobs:
           echo "HUMIO_CORE_DEV_TAG=$LATEST_TAG" >> $GITHUB_OUTPUT
       - name: run e2e tests
         env:
-          HUMIO_CORE_DEV_TAG: ${{ steps.docker_tag.outputs.HUMIO_CORE_DEV_TAG }}
+          HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE: ${{ steps.docker_tag.outputs.HUMIO_CORE_DEV_TAG }}
           BIN_DIR: ${{ steps.bin_dir.outputs.BIN_DIR }}
           HUMIO_E2E_LICENSE: ${{ secrets.HUMIO_E2E_LICENSE }}
           E2E_KIND_K8S_VERSION: ${{ matrix.kind-k8s-version }}
@@ -58,8 +58,6 @@ jobs:
           GINKGO_NODES: "6"
         run: |
           echo "Running operator tests against humio-core-dev:$HUMIO_CORE_DEV_TAG"
-          sed -i "s/humio-core:[0-9.]*/humio-core-dev:$HUMIO_CORE_DEV_TAG/g" controllers/humiocluster_defaults.go
-
           hack/run-e2e-using-kind.sh
       - name: cleanup kind
         if: always()

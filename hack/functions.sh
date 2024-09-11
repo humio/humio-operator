@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 declare -r kindest_node_image_multiplatform_amd64_arm64=${E2E_KIND_K8S_VERSION:-kindest/node:v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245}
 declare -r kind_version=0.22.0
 declare -r go_version=1.22.2
@@ -120,20 +119,27 @@ wait_for_pod() {
 }
 
 preload_container_images() {
-  # Extract humio images and tags from go source
-  DEFAULT_IMAGE=$(grep '^\s*Image\s*=' controllers/humiocluster_defaults.go | cut -d '"' -f 2)
-  PRE_UPDATE_IMAGES=$(grep -R 'Version\s* = ' controllers/suite | grep -v oldUnsupportedHumioVersion | grep -v 1.x.x | cut -d '"' -f 2 | sort -u)
+  if [[ $dummy_logscale_image == "true" ]]; then
+    # Build dummy images and preload them
+    make docker-build-dummy IMG=humio/humio-core:dummy
+    make docker-build-helper IMG=humio/humio-operator-helper:dummy
+    $kind load docker-image humio/humio-core:dummy &
+    $kind load docker-image humio/humio-operator-helper:dummy &
+    grep --only-matching --extended-regexp "humio/humio-core:[0-9.]+" controllers/versions/versions.go | awk '{print $1"-dummy"}' | xargs -I{} docker tag humio/humio-core:dummy {}
+    grep --only-matching --extended-regexp "humio/humio-core:[0-9.]+" controllers/versions/versions.go | awk '{print $1"-dummy"}' | xargs -I{} kind load docker-image {}
+    grep --only-matching --extended-regexp "humio/humio-operator-helper:[^\"]+" controllers/versions/versions.go | awk '{print $1"-dummy"}' | xargs -I{} docker tag humio/humio-operator-helper:dummy {}
+    grep --only-matching --extended-regexp "humio/humio-operator-helper:[^\"]+" controllers/versions/versions.go | awk '{print $1"-dummy"}' | xargs -I{} kind load docker-image {}
+  else
+    # Extract container image tags used by tests from go source
+    TEST_CONTAINER_IMAGES=$(grep 'Version\s*=\s*"' controllers/versions/versions.go | grep -v oldUnsupportedHumioVersion | grep -v 1.x.x | cut -d '"' -f 2 | sort -u)
 
-  # Preload default image used by tests
-  $docker pull $DEFAULT_IMAGE
-  $kind load docker-image --name kind $DEFAULT_IMAGE &
-
-  # Preload image used by e2e update tests
-  for image in $PRE_UPDATE_IMAGES
-  do
-    $docker pull $image
-    $kind load docker-image --name kind $image &
-  done
+    # Preload image used by e2e tests
+    for image in $TEST_CONTAINER_IMAGES
+    do
+      $docker pull $image
+      $kind load docker-image --name kind $image &
+    done
+  fi
 
   # Preload image we will run e2e tests from within
   $docker build --no-cache --pull -t testcontainer -f test.Dockerfile .
@@ -151,6 +157,7 @@ helm_install_shippers() {
     Set E2E_RUN_REF $e2e_run_ref
     Set E2E_RUN_ID $e2e_run_id
     Set E2E_RUN_ATTEMPT $e2e_run_attempt
+    Set GINKGO_LABEL_FILTER $ginkgo_label_filter
 EOF
 )
 

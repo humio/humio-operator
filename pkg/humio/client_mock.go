@@ -56,7 +56,7 @@ type ClientMock struct {
 	FilterAlert     map[resourceKey]humioapi.FilterAlert
 	AggregateAlert  map[resourceKey]humioapi.AggregateAlert
 	ScheduledSearch map[resourceKey]humioapi.ScheduledSearch
-	User            humioapi.User
+	User            map[resourceKey]humioapi.User
 }
 
 type MockClientConfig struct {
@@ -76,7 +76,7 @@ func NewMockClient() *MockClientConfig {
 			FilterAlert:     make(map[resourceKey]humioapi.FilterAlert),
 			AggregateAlert:  make(map[resourceKey]humioapi.AggregateAlert),
 			ScheduledSearch: make(map[resourceKey]humioapi.ScheduledSearch),
-			User:            humioapi.User{},
+			User:            make(map[resourceKey]humioapi.User),
 		},
 	}
 
@@ -91,12 +91,7 @@ func (h *MockClientConfig) Status(config *humioapi.Config, req reconcile.Request
 }
 
 func (h *MockClientConfig) GetClusters(config *humioapi.Config, req reconcile.Request) (humioapi.Cluster, error) {
-	return humioapi.Cluster{}, fmt.Errorf("not implemented")
-}
-
-func (h *MockClientConfig) GetBaseURL(config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) *url.URL {
-	baseURL, _ := url.Parse(fmt.Sprintf("http://%s-internal.%s:%d/", hc.Name, hc.Namespace, 8080))
-	return baseURL
+	return humioapi.Cluster{}, nil
 }
 
 func (h *MockClientConfig) TestAPIToken(config *humioapi.Config, req reconcile.Request) error {
@@ -928,6 +923,9 @@ func (h *MockClientConfig) GetHumioClient(config *humioapi.Config, req ctrl.Requ
 }
 
 func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
 	for k := range h.apiClient.Repository {
 		if k.resourceName != repoNameToKeep {
 			delete(h.apiClient.Repository, k)
@@ -941,6 +939,7 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 	h.apiClient.FilterAlert = make(map[resourceKey]humioapi.FilterAlert)
 	h.apiClient.AggregateAlert = make(map[resourceKey]humioapi.AggregateAlert)
 	h.apiClient.ScheduledSearch = make(map[resourceKey]humioapi.ScheduledSearch)
+	h.apiClient.User = make(map[resourceKey]humioapi.User)
 }
 
 // searchDomainNameExists returns a boolean if either a repository or view exists with the given search domain name.
@@ -962,27 +961,61 @@ func (h *MockClientConfig) searchDomainNameExists(clusterName, searchDomainName 
 	return false
 }
 
-func (h *MockClientConfig) ListAllHumioUsersSingleOrg(config *humioapi.Config, req reconcile.Request) ([]user, error) {
-	return []user{}, nil
+func (h *MockClientConfig) ListAllHumioUsersInCurrentOrganization(config *humioapi.Config, req reconcile.Request) ([]user, error) {
+	key := resourceKey{
+		resourceName: fmt.Sprintf("%s%s", req.Namespace, req.Name),
+	}
+
+	currentUser, found := h.apiClient.User[key]
+	if !found {
+		return []user{}, nil
+	}
+
+	return []user{
+		{
+			Id:       currentUser.ID,
+			Username: currentUser.Username,
+		},
+	}, nil
 }
 
-func (h *MockClientConfig) ListAllHumioUsersMultiOrg(config *humioapi.Config, req reconcile.Request, username string, organization string) ([]OrganizationSearchResultEntry, error) {
-	return []OrganizationSearchResultEntry{}, nil
-}
+func (h *MockClientConfig) RotateUserApiTokenAndGet(config *humioapi.Config, req reconcile.Request, username string) (string, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
 
-func (h *MockClientConfig) ExtractExistingHumioAdminUserID(config *humioapi.Config, req reconcile.Request, organizationMode string, username string, organization string) (string, error) {
-	return "", nil
-}
+	key := resourceKey{
+		resourceName: fmt.Sprintf("%s%s", req.Namespace, req.Name),
+	}
 
-func (h *MockClientConfig) RotateUserApiTokenAndGet(config *humioapi.Config, req reconcile.Request, userID string) (string, error) {
-	return "", nil
+	currentUser, found := h.apiClient.User[key]
+	if !found {
+		return "", fmt.Errorf("could not find user")
+	}
+
+	userWithNewToken := humioapi.User{
+		ID:       currentUser.ID,
+		Username: username,
+		IsRoot:   currentUser.IsRoot,
+	}
+	h.apiClient.User[key] = userWithNewToken
+
+	return userWithNewToken.ID, nil
 }
 
 func (h *MockClientConfig) AddUser(config *humioapi.Config, req reconcile.Request, username string, isRoot bool) (*humioapi.User, error) {
-	h.apiClient.User = humioapi.User{
-		ID:       "id",
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		resourceName: fmt.Sprintf("%s%s", req.Namespace, req.Name),
+	}
+
+	newUser := humioapi.User{
+		ID:       kubernetes.RandomString(),
 		Username: username,
 		IsRoot:   isRoot,
 	}
-	return &h.apiClient.User, nil
+	h.apiClient.User[key] = newUser
+
+	return &newUser, nil
 }

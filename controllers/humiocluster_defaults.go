@@ -27,6 +27,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/humio/humio-operator/controllers/versions"
 	"github.com/humio/humio-operator/pkg/helpers"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -34,8 +35,6 @@ import (
 )
 
 const (
-	Image                        = "humio/humio-core:1.142.3"
-	HelperImage                  = "humio/humio-operator-helper:8f5ef6c7e470226e77d985f36cf39be9a100afea"
 	targetReplicationFactor      = 2
 	digestPartitionsCount        = 24
 	HumioPort                    = 8080
@@ -82,9 +81,18 @@ type HumioNodePool struct {
 	path                     string
 	ingress                  humiov1alpha1.HumioClusterIngressSpec
 	clusterAnnotations       map[string]string
+	desiredPodRevision       int
 }
 
 func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioNodePool {
+	desiredPodRevision := 0
+	for _, status := range hc.Status.NodePoolStatus {
+		if status.Name == hc.Name {
+			desiredPodRevision = status.DesiredPodRevision
+			break
+		}
+	}
+
 	return &HumioNodePool{
 		namespace:        hc.Namespace,
 		clusterName:      hc.Name,
@@ -142,10 +150,19 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 		path:                     hc.Spec.Path,
 		ingress:                  hc.Spec.Ingress,
 		clusterAnnotations:       hc.Annotations,
+		desiredPodRevision:       desiredPodRevision,
 	}
 }
 
 func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *humiov1alpha1.HumioNodePoolSpec) *HumioNodePool {
+	desiredPodRevision := 0
+	for _, status := range hc.Status.NodePoolStatus {
+		if status.Name == strings.Join([]string{hc.Name, hnp.Name}, "-") {
+			desiredPodRevision = status.DesiredPodRevision
+			break
+		}
+	}
+
 	return &HumioNodePool{
 		namespace:        hc.Namespace,
 		clusterName:      hc.Name,
@@ -203,6 +220,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 		path:                     hc.Spec.Path,
 		ingress:                  hc.Spec.Ingress,
 		clusterAnnotations:       hc.Annotations,
+		desiredPodRevision:       desiredPodRevision,
 	}
 }
 
@@ -238,7 +256,7 @@ func (hnp *HumioNodePool) GetImage() string {
 		return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE")
 	}
 
-	return Image
+	return versions.DefaultHumioImageVersion()
 }
 
 func (hnp *HumioNodePool) GetImageSource() *humiov1alpha1.HumioImageSource {
@@ -254,7 +272,7 @@ func (hnp *HumioNodePool) GetHelperImage() string {
 		return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE")
 	}
 
-	return HelperImage
+	return versions.DefaultHelperImageVersion()
 }
 
 func (hnp *HumioNodePool) GetImagePullSecrets() []corev1.LocalObjectReference {
@@ -283,29 +301,11 @@ func (hnp *HumioNodePool) GetDigestPartitionsCount() int {
 	return digestPartitionsCount
 }
 
-func (hnp *HumioNodePool) SetHumioClusterNodePoolRevisionAnnotation(newRevision int) {
-	if hnp.clusterAnnotations == nil {
-		hnp.clusterAnnotations = map[string]string{}
+func (hnp *HumioNodePool) GetDesiredPodRevision() int {
+	if hnp.desiredPodRevision == 0 {
+		return 1
 	}
-	revisionKey, _ := hnp.GetHumioClusterNodePoolRevisionAnnotation()
-	hnp.clusterAnnotations[revisionKey] = strconv.Itoa(newRevision)
-}
-
-func (hnp *HumioNodePool) GetHumioClusterNodePoolRevisionAnnotation() (string, int) {
-	annotations := map[string]string{}
-	if len(hnp.clusterAnnotations) > 0 {
-		annotations = hnp.clusterAnnotations
-	}
-	podAnnotationKey := strings.Join([]string{PodRevisionAnnotation, hnp.GetNodePoolName()}, "-")
-	revision, ok := annotations[podAnnotationKey]
-	if !ok {
-		revision = "0"
-	}
-	existingRevision, err := strconv.Atoi(revision)
-	if err != nil {
-		return "", -1
-	}
-	return podAnnotationKey, existingRevision
+	return hnp.desiredPodRevision
 }
 
 func (hnp *HumioNodePool) GetIngress() humiov1alpha1.HumioClusterIngressSpec {

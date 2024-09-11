@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"reflect"
 	"sync"
 
@@ -55,7 +54,6 @@ type ClusterClient interface {
 	GetClusters(*humioapi.Config, reconcile.Request) (humioapi.Cluster, error)
 	GetHumioClient(*humioapi.Config, reconcile.Request) *humioapi.Client
 	ClearHumioClientConnections(string)
-	GetBaseURL(*humioapi.Config, reconcile.Request, *humiov1alpha1.HumioCluster) *url.URL
 	TestAPIToken(*humioapi.Config, reconcile.Request) error
 	Status(*humioapi.Config, reconcile.Request) (*humioapi.StatusResponse, error)
 }
@@ -134,9 +132,7 @@ type LicenseClient interface {
 
 type UsersClient interface {
 	AddUser(*humioapi.Config, reconcile.Request, string, bool) (*humioapi.User, error)
-	ListAllHumioUsersSingleOrg(*humioapi.Config, reconcile.Request) ([]user, error)
-	ListAllHumioUsersMultiOrg(*humioapi.Config, reconcile.Request, string, string) ([]OrganizationSearchResultEntry, error)
-	ExtractExistingHumioAdminUserID(*humioapi.Config, reconcile.Request, string, string, string) (string, error)
+	ListAllHumioUsersInCurrentOrganization(*humioapi.Config, reconcile.Request) ([]user, error)
 	RotateUserApiTokenAndGet(*humioapi.Config, reconcile.Request, string) (string, error)
 }
 
@@ -159,13 +155,12 @@ type humioClientConnection struct {
 }
 
 // NewClient returns a ClientConfig
-func NewClient(logger logr.Logger, config *humioapi.Config, userAgent string) *ClientConfig {
-	transport := humioapi.NewHttpTransport(*config)
-	return NewClientWithTransport(logger, config, userAgent, transport)
+func NewClient(logger logr.Logger, userAgent string) *ClientConfig {
+	return NewClientWithTransport(logger, userAgent)
 }
 
 // NewClientWithTransport returns a ClientConfig using an existing http.Transport
-func NewClientWithTransport(logger logr.Logger, config *humioapi.Config, userAgent string, transport *http.Transport) *ClientConfig {
+func NewClientWithTransport(logger logr.Logger, userAgent string) *ClientConfig {
 	return &ClientConfig{
 		logger:       logger,
 		userAgent:    userAgent,
@@ -237,17 +232,6 @@ func (h *ClientConfig) Status(config *humioapi.Config, req reconcile.Request) (*
 // GetClusters returns a humio cluster and can be mocked via the Client interface
 func (h *ClientConfig) GetClusters(config *humioapi.Config, req reconcile.Request) (humioapi.Cluster, error) {
 	return h.GetHumioClient(config, req).Clusters().Get()
-}
-
-// GetBaseURL returns the base URL for given HumioCluster
-func (h *ClientConfig) GetBaseURL(config *humioapi.Config, req reconcile.Request, hc *humiov1alpha1.HumioCluster) *url.URL {
-	protocol := "https"
-	if !helpers.TLSEnabled(hc) {
-		protocol = "http"
-	}
-	baseURL, _ := url.Parse(fmt.Sprintf("%s://%s-internal.%s:%d/", protocol, hc.Name, hc.Namespace, 8080))
-	return baseURL
-
 }
 
 // TestAPIToken tests if an API token is valid by fetching the username that the API token belongs to
@@ -919,72 +903,12 @@ type OrganizationSearchResultEntry struct {
 	OrganizationName string `graphql:"organizationName"`
 }
 
-type OrganizationSearchResultSet struct {
-	Results []OrganizationSearchResultEntry `graphql:"results"`
-}
-
-func (h *ClientConfig) ListAllHumioUsersSingleOrg(config *humioapi.Config, req reconcile.Request) ([]user, error) {
+func (h *ClientConfig) ListAllHumioUsersInCurrentOrganization(config *humioapi.Config, req reconcile.Request) ([]user, error) {
 	var q struct {
 		Users []user `graphql:"users"`
 	}
 	err := h.GetHumioClient(config, req).Query(&q, nil)
 	return q.Users, err
-}
-
-func (h *ClientConfig) ListAllHumioUsersMultiOrg(config *humioapi.Config, req reconcile.Request, username string, organization string) ([]OrganizationSearchResultEntry, error) {
-	var q struct {
-		OrganizationSearchResultSet `graphql:"searchOrganizations(searchFilter: $username, typeFilter: User, sortBy: Name, orderBy: ASC, limit: 1000000, skip: 0)"`
-	}
-
-	variables := map[string]interface{}{
-		"username": graphql.String(username),
-	}
-
-	err := h.GetHumioClient(config, req).Query(&q, variables)
-	if err != nil {
-		return []OrganizationSearchResultEntry{}, err
-	}
-
-	var allUserResultEntries []OrganizationSearchResultEntry
-	for _, result := range q.OrganizationSearchResultSet.Results {
-		if result.OrganizationName == organization {
-			allUserResultEntries = append(allUserResultEntries, result)
-		}
-	}
-
-	return allUserResultEntries, nil
-}
-
-func (h *ClientConfig) ExtractExistingHumioAdminUserID(config *humioapi.Config, req reconcile.Request, organizationMode string, username string, organization string) (string, error) {
-	if organizationMode == "multi" || organizationMode == "multiv2" {
-		var allUserResults []OrganizationSearchResultEntry
-		allUserResults, err := h.ListAllHumioUsersMultiOrg(config, req, username, organization)
-		if err != nil {
-			// unable to list all users
-			return "", err
-		}
-		for _, userResult := range allUserResults {
-			if userResult.OrganizationName == organization {
-				if userResult.SearchMatch == fmt.Sprintf(" | %s () ()", username) {
-					fmt.Printf("Found user ID using multi-organization query.\n")
-					return userResult.EntityId, nil
-				}
-			}
-		}
-	}
-
-	allUsers, err := h.ListAllHumioUsersSingleOrg(config, req)
-	if err != nil {
-		// unable to list all users
-		return "", err
-	}
-	for _, user := range allUsers {
-		if user.Username == username {
-			return user.Id, nil
-		}
-	}
-
-	return "", nil
 }
 
 func (h *ClientConfig) RotateUserApiTokenAndGet(config *humioapi.Config, req reconcile.Request, userID string) (string, error) {

@@ -22,24 +22,8 @@ import (
 
 // extractExistingHumioAdminUserID finds the user ID of the Humio user for the admin account, and returns
 // empty string and no error if the user doesn't exist
-func (r *HumioClusterReconciler) extractExistingHumioAdminUserID(config *humioapi.Config, req reconcile.Request, organizationMode string, username string, organization string) (string, error) {
-	if organizationMode == "multi" || organizationMode == "multiv2" {
-		allUserResults, err := r.HumioClient.ListAllHumioUsersMultiOrg(config, req, username, organization)
-		if err != nil {
-			// unable to list all users
-			return "", err
-		}
-		for _, userResult := range allUserResults {
-			if userResult.OrganizationName == "RecoveryRootOrg" {
-				if userResult.SearchMatch == fmt.Sprintf(" | %s () ()", username) {
-					fmt.Printf("Found user ID using multi-organization query.\n")
-					return userResult.EntityId, nil
-				}
-			}
-		}
-	}
-
-	allUsers, err := r.HumioClient.ListAllHumioUsersSingleOrg(config, req)
+func (r *HumioClusterReconciler) extractExistingHumioAdminUserID(config *humioapi.Config, req reconcile.Request, username string) (string, error) {
+	allUsers, err := r.HumioClient.ListAllHumioUsersInCurrentOrganization(config, req)
 	if err != nil {
 		// unable to list all users
 		return "", err
@@ -54,9 +38,9 @@ func (r *HumioClusterReconciler) extractExistingHumioAdminUserID(config *humioap
 }
 
 // createAndGetAdminAccountUserID ensures a Humio admin account exists and returns the user ID for it
-func (r *HumioClusterReconciler) createAndGetAdminAccountUserID(ctx context.Context, config *humioapi.Config, req reconcile.Request, organizationMode string, username string, organization string) (string, error) {
+func (r *HumioClusterReconciler) createAndGetAdminAccountUserID(config *humioapi.Config, req reconcile.Request, username string) (string, error) {
 	// List all users and grab the user ID for an existing user
-	userID, err := r.extractExistingHumioAdminUserID(config, req, organizationMode, username, organization)
+	userID, err := r.extractExistingHumioAdminUserID(config, req, username)
 	if err != nil {
 		// Error while grabbing the user ID
 		return "", err
@@ -71,7 +55,7 @@ func (r *HumioClusterReconciler) createAndGetAdminAccountUserID(ctx context.Cont
 	if err != nil {
 		return "", err
 	}
-	userID, err = r.extractExistingHumioAdminUserID(config, req, organizationMode, username, organization)
+	userID, err = r.extractExistingHumioAdminUserID(config, req, username)
 	if err != nil {
 		return "", err
 	}
@@ -170,20 +154,11 @@ func (r *HumioClusterReconciler) ensureAdminSecretContent(ctx context.Context, h
 	return nil
 }
 
-func (r *HumioClusterReconciler) createPermissionToken(ctx context.Context, config *humioapi.Config, req reconcile.Request, hc *v1alpha1.HumioCluster, username string, organization string) error {
+func (r *HumioClusterReconciler) createPersonalAPIToken(ctx context.Context, config *humioapi.Config, req reconcile.Request, hc *v1alpha1.HumioCluster, username string, organization string) error {
 	r.Log.Info("ensuring admin user")
 
-	organizationMode := "single"
-	if EnvVarHasKey(hc.Spec.EnvironmentVariables, "ORGANIZATION_MODE") {
-		organizationMode = EnvVarValue(hc.Spec.EnvironmentVariables, "ORGANIZATION_MODE")
-	}
-	for _, pool := range hc.Spec.NodePools {
-		if EnvVarHasKey(pool.EnvironmentVariables, "ORGANIZATION_MODE") {
-			organizationMode = EnvVarValue(pool.EnvironmentVariables, "ORGANIZATION_MODE")
-		}
-	}
 	// Get user ID of admin account
-	userID, err := r.createAndGetAdminAccountUserID(ctx, config, req, organizationMode, username, organization)
+	userID, err := r.createAndGetAdminAccountUserID(config, req, username)
 	if err != nil {
 		return fmt.Errorf("got err trying to obtain user ID of admin user: %s", err)
 	}
