@@ -12,6 +12,7 @@ import (
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
+	"github.com/humio/humio-operator/controllers/versions"
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
 	"github.com/humio/humio-operator/pkg/kubernetes"
@@ -37,8 +38,6 @@ const (
 	dockerPasswordEnvVar = "DOCKER_PASSWORD"
 	// DockerRegistryCredentialsSecretName is the name of the k8s secret containing the registry credentials
 	DockerRegistryCredentialsSecretName = "regcred"
-
-	sidecarWaitForGlobalImageVersion = "alpine:20240329"
 )
 
 const TestInterval = time.Second * 1
@@ -156,7 +155,7 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 	userID := int64(65534)
 
 	nodeSpec := humiov1alpha1.HumioNodeSpec{
-		Image:             controllers.Image,
+		Image:             versions.DefaultHumioImageVersion(),
 		ExtraKafkaConfigs: "security.protocol=PLAINTEXT",
 		NodeCount:         1,
 		// Affinity needs to be overridden to exclude default value for kubernetes.io/arch to allow running local tests
@@ -175,51 +174,6 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 									},
 								},
 							},
-						},
-					},
-				},
-			},
-		},
-		SidecarContainers: []corev1.Container{
-			{
-				Name:    "wait-for-global-snapshot-on-disk",
-				Image:   sidecarWaitForGlobalImageVersion,
-				Command: []string{"/bin/sh"},
-				Args: []string{
-					"-c",
-					"trap 'exit 0' 15; while true; do sleep 100 & wait $!; done",
-				},
-				ReadinessProbe: &corev1.Probe{
-					ProbeHandler: corev1.ProbeHandler{
-						Exec: &corev1.ExecAction{
-							Command: []string{
-								"/bin/sh",
-								"-c",
-								"ls /mnt/global*.json",
-							},
-						},
-					},
-					InitialDelaySeconds: 5,
-					TimeoutSeconds:      5,
-					PeriodSeconds:       10,
-					SuccessThreshold:    1,
-					FailureThreshold:    100,
-				},
-				VolumeMounts: []corev1.VolumeMount{
-					{
-						Name:      "humio-data",
-						MountPath: "/mnt",
-						ReadOnly:  true,
-					},
-				},
-				SecurityContext: &corev1.SecurityContext{
-					Privileged:               helpers.BoolPtr(false),
-					AllowPrivilegeEscalation: helpers.BoolPtr(false),
-					ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
-					RunAsUser:                &userID,
-					Capabilities: &corev1.Capabilities{
-						Drop: []corev1.Capability{
-							"ALL",
 						},
 					},
 				},
@@ -270,6 +224,54 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 			},
 			StorageClassName: &storageClassNameStandard,
 		},
+	}
+
+	if os.Getenv("DUMMY_LOGSCALE_IMAGE") != "true" {
+		nodeSpec.SidecarContainers = []corev1.Container{
+			{
+				Name:    "wait-for-global-snapshot-on-disk",
+				Image:   versions.SidecarWaitForGlobalImageVersion(),
+				Command: []string{"/bin/sh"},
+				Args: []string{
+					"-c",
+					"trap 'exit 0' 15; while true; do sleep 100 & wait $!; done",
+				},
+				ReadinessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						Exec: &corev1.ExecAction{
+							Command: []string{
+								"/bin/sh",
+								"-c",
+								"ls /mnt/global*.json",
+							},
+						},
+					},
+					InitialDelaySeconds: 5,
+					TimeoutSeconds:      5,
+					PeriodSeconds:       10,
+					SuccessThreshold:    1,
+					FailureThreshold:    100,
+				},
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						Name:      "humio-data",
+						MountPath: "/mnt",
+						ReadOnly:  true,
+					},
+				},
+				SecurityContext: &corev1.SecurityContext{
+					Privileged:               helpers.BoolPtr(false),
+					AllowPrivilegeEscalation: helpers.BoolPtr(false),
+					ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
+					RunAsUser:                &userID,
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{
+							"ALL",
+						},
+					},
+				},
+			},
+		}
 	}
 
 	if useDockerCredentials() {
@@ -510,12 +512,11 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	UsingClusterBy(key.Name, "Validating cluster has expected pod revision annotation")
 	nodeMgrFromHumioCluster := controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)
 	if nodeMgrFromHumioCluster.GetNodeCount() > 0 {
-		revisionKey, _ := nodeMgrFromHumioCluster.GetHumioClusterNodePoolRevisionAnnotation()
-		Eventually(func() map[string]string {
+		Eventually(func() int {
 			updatedHumioCluster = humiov1alpha1.HumioCluster{}
 			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-			return updatedHumioCluster.Annotations
-		}, testTimeout, TestInterval).Should(HaveKeyWithValue(revisionKey, "1"))
+			return controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()
+		}, testTimeout, TestInterval).Should(BeEquivalentTo(1))
 	}
 
 	UsingClusterBy(key.Name, "Waiting for the controller to populate the secret containing the admin token")
@@ -531,7 +532,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}, &corev1.Secret{})
 	}, testTimeout, TestInterval).Should(Succeed())
 
-	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" && os.Getenv("DUMMY_LOGSCALE_IMAGE") != "true" {
 		UsingClusterBy(key.Name, "Validating cluster nodes have ZONE configured correctly")
 		if updatedHumioCluster.Spec.DisableInitContainer {
 			Eventually(func() []string {
@@ -602,21 +603,45 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	}
 
 	Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-	IncrementGenerationAndWaitForReconcileToSync(ctx, key, k8sClient, testTimeout)
-}
+	Eventually(func() map[corev1.PodPhase]int {
+		phaseToCount := map[corev1.PodPhase]int{
+			corev1.PodRunning: 0,
+		}
 
-func IncrementGenerationAndWaitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sClient client.Client, testTimeout time.Duration) {
-	UsingClusterBy(key.Name, "Incrementing HumioCluster Generation")
+		updatedClusterPods, err := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+		if err != nil {
+			return map[corev1.PodPhase]int{}
+		}
+		Expect(updatedClusterPods).To(HaveLen(updatedHumioCluster.Spec.NodeCount))
 
-	// Force an update the status field to trigger a new resource generation
-	var humioClusterBeforeUpdate humiov1alpha1.HumioCluster
-	Eventually(func() error {
-		Expect(k8sClient.Get(ctx, key, &humioClusterBeforeUpdate)).Should(Succeed())
-		humioClusterBeforeUpdate.Generation = humioClusterBeforeUpdate.GetGeneration() + 1
-		return k8sClient.Update(ctx, &humioClusterBeforeUpdate)
-	}, testTimeout, TestInterval).Should(Succeed())
+		for _, pod := range updatedClusterPods {
+			phaseToCount[pod.Status.Phase] += 1
+		}
 
-	WaitForReconcileToSync(ctx, key, k8sClient, &humioClusterBeforeUpdate, testTimeout)
+		return phaseToCount
+
+	}, testTimeout, TestInterval).Should(HaveKeyWithValue(corev1.PodRunning, updatedHumioCluster.Spec.NodeCount))
+
+	for idx := range updatedHumioCluster.Spec.NodePools {
+		Eventually(func() map[corev1.PodPhase]int {
+			phaseToCount := map[corev1.PodPhase]int{
+				corev1.PodRunning: 0,
+			}
+
+			updatedClusterPods, err := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[idx]).GetPodLabels())
+			if err != nil {
+				return map[corev1.PodPhase]int{}
+			}
+			Expect(updatedClusterPods).To(HaveLen(updatedHumioCluster.Spec.NodePools[idx].NodeCount))
+
+			for _, pod := range updatedClusterPods {
+				phaseToCount[pod.Status.Phase] += 1
+			}
+
+			return phaseToCount
+
+		}, testTimeout, TestInterval).Should(HaveKeyWithValue(corev1.PodRunning, updatedHumioCluster.Spec.NodePools[idx].NodeCount))
+	}
 }
 
 func WaitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sClient client.Client, currentHumioCluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
