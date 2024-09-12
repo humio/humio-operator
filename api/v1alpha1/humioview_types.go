@@ -34,6 +34,8 @@ const (
 
 type HumioViewConnection struct {
 	// RepositoryName contains the name of the target repository
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	RepositoryName string `json:"repositoryName,omitempty"`
 	// Filter contains the prefix filter that will be applied for the given RepositoryName
 	Filter string `json:"filter,omitempty"`
@@ -49,8 +51,11 @@ type HumioViewSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the view inside Humio
-	Name string `json:"name,omitempty"`
+	//+kubebuilder:validation:MinLength=1
+	//+required
+	Name string `json:"name"`
 	// Description contains the description that will be set on the view
+	//+optional
 	Description string `json:"description,omitempty"`
 	// Connections contains the connections to the Humio repositories which is accessible in this view
 	Connections []HumioViewConnection `json:"connections,omitempty"`

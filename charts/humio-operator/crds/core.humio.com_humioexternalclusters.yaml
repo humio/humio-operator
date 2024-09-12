@@ -68,7 +68,10 @@ spec:
               url:
                 description: Url is used to connect to the Humio cluster we want to
                   use.
+                minLength: 1
                 type: string
+            required:
+            - url
             type: object
           status:
             description: HumioExternalClusterStatus defines the observed state of

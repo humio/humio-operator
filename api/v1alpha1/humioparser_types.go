@@ -41,10 +41,14 @@ type HumioParserSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the parser inside Humio
-	Name string `json:"name,omitempty"`
+	//+kubebuilder:validation:MinLength=1
+	//+required
+	Name string `json:"name"`
 	// ParserScript contains the code for the Humio parser
 	ParserScript string `json:"parserScript,omitempty"`
 	// RepositoryName defines what repository this parser should be managed in
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	RepositoryName string `json:"repositoryName,omitempty"`
 	// TagFields is used to define what fields will be used to define how data will be tagged when being parsed by
 	// this parser

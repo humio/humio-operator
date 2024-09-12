@@ -287,8 +287,9 @@ type HumioUpdateStrategy struct {
 }
 
 type HumioNodePoolSpec struct {
-	// TODO: Mark name as required and non-empty, perhaps even confirm the content somehow
-	Name string `json:"name,omitempty"`
+	//+kubebuilder:validation:MinLength:=1
+	//+required
+	Name string `json:"name"`
 
 	HumioNodeSpec `json:"spec,omitempty"`
 }
@@ -376,7 +377,9 @@ type HumioNodePoolStatusList []HumioNodePoolStatus
 // HumioNodePoolStatus shows the status of each node pool
 type HumioNodePoolStatus struct {
 	// Name is the name of the node pool
-	Name string `json:"name,omitempty"`
+	//+kubebuilder:validation:MinLength=1
+	//+required
+	Name string `json:"name"`
 	// State will be empty before the cluster is bootstrapped. From there it can be "Running", "Upgrading", "Restarting" or "Pending"
 	State string `json:"state,omitempty"`
 	// DesiredPodRevision holds the desired pod revision for pods of the given node pool.

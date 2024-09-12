@@ -30,7 +30,9 @@ const (
 // HumioExternalClusterSpec defines the desired state of HumioExternalCluster
 type HumioExternalClusterSpec struct {
 	// Url is used to connect to the Humio cluster we want to use.
-	Url string `json:"url,omitempty"`
+	//+kubebuilder:validation:MinLength=1
+	//+required
+	Url string `json:"url"`
 	// APITokenSecretName is used to obtain the API token we need to use when communicating with the external Humio cluster.
 	// The secret must contain a key "token" which holds the Humio API token.
 	APITokenSecretName string `json:"apiTokenSecretName,omitempty"`
