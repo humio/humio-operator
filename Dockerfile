@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.22 AS builder
+FROM golang:1.23 AS builder
 
 ARG RELEASE_VERSION=master
 ARG RELEASE_COMMIT=none

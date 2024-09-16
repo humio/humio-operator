@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 declare -r kindest_node_image_multiplatform_amd64_arm64=${E2E_KIND_K8S_VERSION:-kindest/node:v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245}
 declare -r kind_version=0.22.0
-declare -r go_version=1.22.2
+declare -r go_version=1.23.1
 declare -r helm_version=3.14.4
 declare -r kubectl_version=1.23.3
 declare -r default_cert_manager_version=1.12.12

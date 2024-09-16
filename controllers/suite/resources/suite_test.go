@@ -42,6 +42,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/humio/humio-operator/pkg/helpers"
 	"github.com/humio/humio-operator/pkg/humio"
@@ -141,12 +142,18 @@ var _ = BeforeSuite(func() {
 	//+kubebuilder:scaffold:scheme
 
 	watchNamespace, _ := helpers.GetWatchNamespace()
+	defaultNamespaces := map[string]cache.Config{}
+	if watchNamespace != "" {
+		for _, v := range strings.Split(watchNamespace, ",") {
+			defaultNamespaces[v] = cache.Config{}
+		}
+	}
 
 	options := ctrl.Options{
-		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0",
-		Cache:              cache.Options{Namespaces: strings.Split(watchNamespace, ",")},
-		Logger:             log,
+		Scheme:  scheme.Scheme,
+		Metrics: metricsserver.Options{BindAddress: "0"},
+		Cache:   cache.Options{DefaultNamespaces: defaultNamespaces},
+		Logger:  log,
 	}
 
 	k8sManager, err = ctrl.NewManager(cfg, options)

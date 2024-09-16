@@ -30,10 +30,10 @@ import (
 
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/controllers/suite"
+	"github.com/humio/humio-operator/pkg/kubernetes"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
-
-	"github.com/humio/humio-operator/pkg/kubernetes"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
@@ -133,12 +133,18 @@ var _ = BeforeSuite(func() {
 	//+kubebuilder:scaffold:scheme
 
 	watchNamespace, _ := helpers.GetWatchNamespace()
+	defaultNamespaces := map[string]cache.Config{}
+	if watchNamespace != "" {
+		for _, v := range strings.Split(watchNamespace, ",") {
+			defaultNamespaces[v] = cache.Config{}
+		}
+	}
 
 	options := ctrl.Options{
-		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0",
-		Cache:              cache.Options{Namespaces: strings.Split(watchNamespace, ",")},
-		Logger:             log,
+		Scheme:  scheme.Scheme,
+		Metrics: metricsserver.Options{BindAddress: "0"},
+		Cache:   cache.Options{DefaultNamespaces: defaultNamespaces},
+		Logger:  log,
 	}
 
 	k8sManager, err = ctrl.NewManager(cfg, options)
