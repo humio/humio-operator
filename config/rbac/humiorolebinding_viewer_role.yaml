@@ -1,0 +1,27 @@
+# permissions for end users to view humiorolebindings.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: humiorolebinding-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: humio-operator
+    app.kubernetes.io/part-of: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humiorolebinding-viewer-role
+rules:
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiorolebindings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiorolebindings/status
+  verbs:
+  - get

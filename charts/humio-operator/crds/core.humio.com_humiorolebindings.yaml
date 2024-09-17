@@ -1,0 +1,113 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: humiorolebindings.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.24.0'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioRoleBinding
+    listKind: HumioRoleBindingList
+    plural: humiorolebindings
+    singular: humiorolebinding
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioRoleBinding is the Schema for the humiorolebindings API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioRoleBindingSpec defines the desired state of HumioRoleBinding
+            properties:
+              roleName:
+                description: RoleName is the name of the LogScale role to assign
+                type: string
+              subjects:
+                description: |-
+                  Fetch details:
+                    Query.searchDomain.usersAndGroups
+                  If Group:
+                    - Mutation.assignRoleToGroup
+                        input:
+                          viewId: String!
+                          groupId: String!
+                          roleId: String!
+                          overrideExistingAssignmentsForView: Boolean
+                    - Mutation.unassignRoleFromGroup
+                        input:
+                          viewId: String!
+                          groupId: String!
+                          roleId: String!
+                    - Mutation.updateQueryPrefix
+                        input:
+                          queryPrefix: String!
+                          viewId: String!
+                          groupId: String!
+                    - Mutation.changeUserAndGroupRolesForSearchDomain
+                        searchDomainId: String!
+                        groups: [GroupRoleAssignment!]!
+                        users: [UserRoleAssignment!]!
+                  If User:
+                    - Mutation.assignUserRolesInSearchDomain
+                        input:
+                          searchDomainId: String!
+                          roleAssignments: [UserRoleAssignmentInput!]!
+                    - Mutation.unassignUserRoleForSearchDomain
+                        input:
+                          userId: String!
+                          searchDomainId: String!
+                          roleId: String
+                    - Mutation.changeUserAndGroupRolesForSearchDomain
+                        searchDomainId: String!
+                        groups: [GroupRoleAssignment!]!
+                        users: [UserRoleAssignment!]!
+                  TODO: Can we assign the same role twice but with different queryPrefixes?
+                  TODO: Org. root and cluster root? Maybe we create HumioUser with booleans for each?
+                items:
+                  properties:
+                    kind:
+                      type: string
+                    name:
+                      type: string
+                  required:
+                  - kind
+                  - name
+                  type: object
+                type: array
+            required:
+            - roleName
+            type: object
+          status:
+            description: HumioRoleBindingStatus defines the observed state of HumioRoleBinding
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

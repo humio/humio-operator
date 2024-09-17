@@ -240,6 +240,46 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controllers.HumioRoleReconciler{
+		Client:      k8sManager.GetClient(),
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.HumioGroupReconciler{
+		Client:      k8sManager.GetClient(),
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.HumioRoleBindingReconciler{
+		Client:      k8sManager.GetClient(),
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.HumioPermissionTokenReconciler{
+		Client:      k8sManager.GetClient(),
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.HumioUserReconciler{
+		Client:      k8sManager.GetClient(),
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	ctx, cancel = context.WithCancel(context.TODO())
 
 	go func() {

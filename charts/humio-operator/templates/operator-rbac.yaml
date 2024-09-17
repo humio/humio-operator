@@ -101,6 +101,21 @@ rules:
   - humioscheduledsearches
   - humioscheduledsearches/finalizers
   - humioscheduledsearches/status
+  - humioroles
+  - humioroles/finalizers
+  - humioroles/status
+  - humiogroups
+  - humiogroups/finalizers
+  - humiogroups/status
+  - humiorolebindings
+  - humiorolebindings/finalizers
+  - humiorolebindings/status
+  - humiopermissiontokens
+  - humiopermissiontokens/finalizers
+  - humiopermissiontokens/status
+  - humiousers
+  - humiousers/finalizers
+  - humiousers/status
   verbs:
   - create
   - delete
@@ -269,6 +284,21 @@ rules:
   - humioscheduledsearches
   - humioscheduledsearches/finalizers
   - humioscheduledsearches/status
+  - humioroles
+  - humioroles/finalizers
+  - humioroles/status
+  - humiogroups
+  - humiogroups/finalizers
+  - humiogroups/status
+  - humiorolebindings
+  - humiorolebindings/finalizers
+  - humiorolebindings/status
+  - humiopermissiontokens
+  - humiopermissiontokens/finalizers
+  - humiopermissiontokens/status
+  - humiousers
+  - humiousers/finalizers
+  - humiousers/status
   verbs:
   - create
   - delete

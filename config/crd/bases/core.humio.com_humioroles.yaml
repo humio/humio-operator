@@ -1,0 +1,76 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: humioroles.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.24.0'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioRole
+    listKind: HumioRoleList
+    plural: humioroles
+    singular: humiorole
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioRole is the Schema for the humioroles API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioRoleSpec defines the desired state of HumioRole
+            properties:
+              name:
+                description: |-
+                  - Mutation.createRole
+                  - Mutation.updateRole
+                  - Mutation.removeRole
+                type: string
+              orgPermissions:
+                items:
+                  type: string
+                type: array
+              systemPermissions:
+                items:
+                  type: string
+                type: array
+              viewPermissions:
+                items:
+                  type: string
+                type: array
+            required:
+            - name
+            type: object
+          status:
+            description: HumioRoleStatus defines the observed state of HumioRole
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

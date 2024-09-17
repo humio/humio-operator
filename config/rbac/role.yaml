@@ -297,6 +297,32 @@ rules:
 - apiGroups:
   - core.humio.com
   resources:
+  - humiogroups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiogroups/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiogroups/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioingesttokens
   verbs:
   - create
@@ -349,6 +375,32 @@ rules:
 - apiGroups:
   - core.humio.com
   resources:
+  - humiopermissiontokens
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiopermissiontokens/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiopermissiontokens/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humiorepositories
   verbs:
   - create
@@ -375,6 +427,58 @@ rules:
 - apiGroups:
   - core.humio.com
   resources:
+  - humiorolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiorolebindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiorolebindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioroles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioroles/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioroles/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioscheduledsearches
   verbs:
   - create
@@ -394,6 +498,32 @@ rules:
   - core.humio.com
   resources:
   - humioscheduledsearches/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiousers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiousers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiousers/status
   verbs:
   - get
   - patch

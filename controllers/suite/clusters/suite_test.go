@@ -208,6 +208,46 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controllers.HumioRoleReconciler{
+		Client:      k8sManager.GetClient(),
+		HumioClient: testHumioClient,
+		BaseLogger:  log,
+		Namespace:   testProcessNamespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.HumioGroupReconciler{
+		Client:      k8sManager.GetClient(),
+		HumioClient: testHumioClient,
+		BaseLogger:  log,
+		Namespace:   testProcessNamespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.HumioRoleBindingReconciler{
+		Client:      k8sManager.GetClient(),
+		HumioClient: testHumioClient,
+		BaseLogger:  log,
+		Namespace:   testProcessNamespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.HumioPermissionTokenReconciler{
+		Client:      k8sManager.GetClient(),
+		HumioClient: testHumioClient,
+		BaseLogger:  log,
+		Namespace:   testProcessNamespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.HumioUserReconciler{
+		Client:      k8sManager.GetClient(),
+		HumioClient: testHumioClient,
+		BaseLogger:  log,
+		Namespace:   testProcessNamespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		Expect(err).NotTo(HaveOccurred())

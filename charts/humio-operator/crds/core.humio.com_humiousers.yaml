@@ -1,0 +1,116 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: humiousers.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.24.0'
+spec:
+  group: core.humio.com
+  names:
+    kind: HumioUser
+    listKind: HumioUserList
+    plural: humiousers
+    singular: humiouser
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HumioUser is the Schema for the humiousers API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HumioUserSpec defines the desired state of HumioUser
+            properties:
+              isOrgOwner:
+                type: boolean
+              isRoot:
+                type: boolean
+              username:
+                description: |-
+                  - Mutation.addUserV2:
+                      input:
+                        username: String!
+                        company: String
+                        isRoot: Boolean
+                        firstName: String
+                        lastName: String
+                        fullName: String
+                        picture: String
+                        email: String
+                        countryCode: String
+                        stateCode: String
+                        sendInvite: Boolean
+                        verificationToken: String
+                        isOrgOwner: Boolean
+                  - Mutation.removeUser
+                      input:
+                        username: String!
+                  - Mutation.removeUserById
+                      input:
+                        id: String!
+                  - Mutation.updateUser
+                      input:
+                        username: String!
+                        company: String
+                        isRoot: Boolean
+                        firstName: String
+                        lastName: String
+                        fullName: String
+                        picture: String
+                        email: String
+                        countryCode: String
+                        stateCode: String
+                  - Mutation.updateUserById
+                      input:
+                        userId: String!
+                        company: String
+                        isRoot: Boolean
+                        username: String
+                        firstName: String
+                        lastName: String
+                        fullName: String
+                        picture: String
+                        email: String
+                        countryCode: String
+                        stateCode: String
+                  - Mutation.updateOrganizationRoot
+                      userId: String!
+                      organizationRoot: Boolean!
+                type: string
+            required:
+            - isOrgOwner
+            - isRoot
+            - username
+            type: object
+          status:
+            description: HumioUserStatus defines the observed state of HumioUser
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

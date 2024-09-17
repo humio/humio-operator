@@ -1,0 +1,12 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioGroup
+metadata:
+  labels:
+    app.kubernetes.io/name: humiogroup
+    app.kubernetes.io/instance: humiogroup-sample
+    app.kubernetes.io/part-of: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: humio-operator
+  name: humiogroup-sample
+spec:
+  # TODO(user): Add fields here

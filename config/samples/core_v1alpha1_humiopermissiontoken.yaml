@@ -1,0 +1,12 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioPermissionToken
+metadata:
+  labels:
+    app.kubernetes.io/name: humiopermissiontoken
+    app.kubernetes.io/instance: humiopermissiontoken-sample
+    app.kubernetes.io/part-of: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: humio-operator
+  name: humiopermissiontoken-sample
+spec:
+  # TODO(user): Add fields here
