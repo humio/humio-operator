@@ -5734,8 +5734,7 @@ spec:
                 items:
                   properties:
                     name:
-                      description: 'TODO: Mark name as required and non-empty, perhaps
-                        even confirm the content somehow'
+                      minLength: 1
                       type: string
                     spec:
                       properties:
@@ -13117,6 +13116,8 @@ spec:
                               type: string
                           type: object
                       type: object
+                  required:
+                  - name
                   type: object
                 type: array
               nodeUUIDPrefix:
@@ -15054,12 +15055,15 @@ spec:
                       type: integer
                     name:
                       description: Name is the name of the node pool
+                      minLength: 1
                       type: string
                     state:
                       description: State will be empty before the cluster is bootstrapped.
                         From there it can be "Running", "Upgrading", "Restarting"
                         or "Pending"
                       type: string
+                  required:
+                  - name
                   type: object
                 type: array
               observedGeneration:

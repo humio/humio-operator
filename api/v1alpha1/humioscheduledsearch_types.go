@@ -41,12 +41,17 @@ type HumioScheduledSearchSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the scheduled search inside Humio
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the scheduled search will be managed. This can also be a Repository
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	ViewName string `json:"viewName"`
 	// QueryString defines the desired Humio query string
 	QueryString string `json:"queryString"`
 	// Description is the description of the scheduled search
+	//+optional
 	Description string `json:"description,omitempty"`
 	// QueryStart is the start of the relative time interval for the query.
 	QueryStart string `json:"queryStart"`

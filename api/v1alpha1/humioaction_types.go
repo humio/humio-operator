@@ -55,7 +55,9 @@ type HumioActionWebhookProperties struct {
 // HeadersSource defines a header and corresponding source for the value of it.
 type HeadersSource struct {
 	// Name is the name of the header.
-	Name string `json:"name,omitempty"`
+	//+kubebuilder:validation:MinLength=1
+	//+required
+	Name string `json:"name"`
 	// ValueFrom defines where to fetch the value of the header from.
 	ValueFrom VarSource `json:"valueFrom,omitempty"`
 }
@@ -155,8 +157,12 @@ type HumioActionSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the Action
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the Action will be managed. This can also be a Repository
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	ViewName string `json:"viewName"`
 	// EmailProperties indicates this is an Email Action, and contains the corresponding properties
 	EmailProperties *HumioActionEmailProperties `json:"emailProperties,omitempty"`

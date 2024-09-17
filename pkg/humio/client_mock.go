@@ -962,6 +962,9 @@ func (h *MockClientConfig) searchDomainNameExists(clusterName, searchDomainName 
 }
 
 func (h *MockClientConfig) ListAllHumioUsersInCurrentOrganization(config *humioapi.Config, req reconcile.Request) ([]user, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
 	key := resourceKey{
 		resourceName: fmt.Sprintf("%s%s", req.Namespace, req.Name),
 	}

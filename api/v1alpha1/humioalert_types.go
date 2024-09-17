@@ -55,12 +55,17 @@ type HumioAlertSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the alert inside Humio
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the Alert will be managed. This can also be a Repository
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	ViewName string `json:"viewName"`
 	// Query defines the desired state of the Humio query
 	Query HumioQuery `json:"query"`
 	// Description is the description of the Alert
+	//+optional
 	Description string `json:"description,omitempty"`
 	// ThrottleTimeMillis is the throttle time in milliseconds. An Alert is triggered at most once per the throttle time
 	ThrottleTimeMillis int `json:"throttleTimeMillis,omitempty"`
