@@ -1,4 +1,6 @@
-FROM golang:1.22 AS builder
+FROM golang:1.22-alpine AS builder
+
+RUN apk add bash
 
 WORKDIR /app/humio
 COPY . /app/humio

@@ -16,7 +16,7 @@ PATH=$bin_dir/goinstall/bin:$bin_dir:/usr/local/go/bin:$PATH
 GOBIN=$bin_dir
 
 start_kind_cluster() {
-  $kind create cluster --name kind --image $kindest_node_image_multiplatform_amd64_arm64 --wait 300s
+  $kind create cluster --name kind --config hack/kind-config.yaml --image $kindest_node_image_multiplatform_amd64_arm64 --wait 300s
 
   sleep 5
 
@@ -25,7 +25,6 @@ start_kind_cluster() {
     exit 1
   fi
 
-  $kubectl label node --overwrite --all topology.kubernetes.io/zone=az1
   $kubectl patch clusterrolebinding cluster-admin --type='json' -p='[{"op": "add", "path": "/subjects/1", "value": {"kind": "ServiceAccount", "name": "default", "namespace": "default" } }]'
 }
 
