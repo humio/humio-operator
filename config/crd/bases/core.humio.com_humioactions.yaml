@@ -111,6 +111,7 @@ spec:
                 type: string
               name:
                 description: Name is the name of the Action
+                minLength: 1
                 type: string
               opsGenieProperties:
                 description: OpsGenieProperties indicates this is a Ops Genie Action,
@@ -335,6 +336,7 @@ spec:
               viewName:
                 description: ViewName is the name of the Humio View under which the
                   Action will be managed. This can also be a Repository
+                minLength: 1
                 type: string
               webhookProperties:
                 description: WebhookProperties indicates this is a Webhook Action,
@@ -363,6 +365,7 @@ spec:
                       properties:
                         name:
                           description: Name is the name of the header.
+                          minLength: 1
                           type: string
                         valueFrom:
                           description: ValueFrom defines where to fetch the value
@@ -392,6 +395,8 @@ spec:
                               type: object
                               x-kubernetes-map-type: atomic
                           type: object
+                      required:
+                      - name
                       type: object
                     type: array
                   url:

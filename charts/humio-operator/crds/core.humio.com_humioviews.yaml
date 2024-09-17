@@ -66,6 +66,7 @@ spec:
                     repositoryName:
                       description: RepositoryName contains the name of the target
                         repository
+                      minLength: 1
                       type: string
                   type: object
                 type: array
@@ -86,7 +87,10 @@ spec:
                 type: string
               name:
                 description: Name is the name of the view inside Humio
+                minLength: 1
                 type: string
+            required:
+            - name
             type: object
           status:
             description: HumioViewStatus defines the observed state of HumioView

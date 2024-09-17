@@ -63,6 +63,7 @@ spec:
                 type: string
               name:
                 description: Name is the name of the parser inside Humio
+                minLength: 1
                 type: string
               parserScript:
                 description: ParserScript contains the code for the Humio parser
@@ -70,6 +71,7 @@ spec:
               repositoryName:
                 description: RepositoryName defines what repository this parser should
                   be managed in
+                minLength: 1
                 type: string
               tagFields:
                 description: |-
@@ -84,6 +86,8 @@ spec:
                 items:
                   type: string
                 type: array
+            required:
+            - name
             type: object
           status:
             description: HumioParserStatus defines the observed state of HumioParser

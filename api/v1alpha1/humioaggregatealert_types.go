@@ -41,14 +41,19 @@ type HumioAggregateAlertSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the aggregate alert inside Humio
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the aggregate alert will be managed. This can also be a Repository
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	ViewName string `json:"viewName"`
 	// QueryString defines the desired Humio query string
 	QueryString string `json:"queryString"`
 	// QueryTimestampType defines the timestamp type to use for a query
 	QueryTimestampType string `json:"queryTimestampType,omitempty"`
 	// Description is the description of the Aggregate alert
+	//+optional
 	Description string `json:"description,omitempty"`
 	// Search Interval time in seconds
 	SearchIntervalSeconds int `json:"searchIntervalSeconds,omitempty"`

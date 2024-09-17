@@ -81,6 +81,7 @@ spec:
                 type: string
               name:
                 description: Name is the name of the scheduled search inside Humio
+                minLength: 1
                 type: string
               queryEnd:
                 description: QueryEnd is the end of the relative time interval for
@@ -104,6 +105,7 @@ spec:
               viewName:
                 description: ViewName is the name of the Humio View under which the
                   scheduled search will be managed. This can also be a Repository
+                minLength: 1
                 type: string
             required:
             - actions
