@@ -72,6 +72,7 @@ spec:
                 type: string
               name:
                 description: Name is the name of the alert inside Humio
+                minLength: 1
                 type: string
               query:
                 description: Query defines the desired state of the Humio query
@@ -110,6 +111,7 @@ spec:
               viewName:
                 description: ViewName is the name of the Humio View under which the
                   Alert will be managed. This can also be a Repository
+                minLength: 1
                 type: string
             required:
             - actions

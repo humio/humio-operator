@@ -63,14 +63,17 @@ spec:
                 type: string
               name:
                 description: Name is the name of the ingest token inside Humio
+                minLength: 1
                 type: string
               parserName:
                 description: ParserName is the name of the parser which will be assigned
                   to the ingest token.
+                minLength: 1
                 type: string
               repositoryName:
                 description: RepositoryName is the name of the Humio repository under
                   which the ingest token will be created
+                minLength: 1
                 type: string
               tokenSecretLabels:
                 additionalProperties:

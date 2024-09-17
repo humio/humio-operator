@@ -76,6 +76,7 @@ spec:
                 type: string
               name:
                 description: Name is the name of the filter alert inside Humio
+                minLength: 1
                 type: string
               queryString:
                 description: QueryString defines the desired Humio query string
@@ -90,6 +91,7 @@ spec:
               viewName:
                 description: ViewName is the name of the Humio View under which the
                   filter alert will be managed. This can also be a Repository
+                minLength: 1
                 type: string
             required:
             - actions
