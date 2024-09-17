@@ -1,8 +1,11 @@
-FROM golang:1.22.2
+# syntax=docker/dockerfile:1.7-labs
+FROM golang:1.22.2-alpine
+
+RUN apk add bash
 
 # Create and populate /var/src with the source code for the humio-operator repository
 RUN mkdir /var/src
-COPY ./ /var/src
+COPY --exclude=tmp --exclude=bin ./ /var/src
 WORKDIR /var/src
 
 RUN bash -c "rm -rf /var/src/tmp/*"
