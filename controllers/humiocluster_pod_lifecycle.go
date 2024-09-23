@@ -37,21 +37,23 @@ func (p *podLifecycleState) ShouldRollingRestart() bool {
 	}
 	if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate ||
 		p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyRollingUpdateBestEffort {
-		if p.WantsUpgrade() {
-			// if we're trying to go to or from a "latest" image, we can't do any version comparison
-			if p.versionDifference.from.IsLatest() || p.versionDifference.to.IsLatest() {
-				return false
-			}
-			if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyRollingUpdateBestEffort {
+
+		if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyRollingUpdateBestEffort {
+			if p.WantsUpgrade() {
+				// if we're trying to go to or from a "latest" image, we can't do any version comparison
+				if p.versionDifference.from.IsLatest() || p.versionDifference.to.IsLatest() {
+					return false
+				}
 				if p.versionDifference.from.SemVer().Major() == p.versionDifference.to.SemVer().Major() {
 					// allow rolling upgrades and downgrades for patch releases
 					if p.versionDifference.from.SemVer().Minor() == p.versionDifference.to.SemVer().Minor() {
 						return true
 					}
 				}
+				return false
 			}
-			return false
 		}
+		return true
 	}
 	if p.configurationDifference != nil {
 		return !p.configurationDifference.requiresSimultaneousRestart
