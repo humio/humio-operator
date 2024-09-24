@@ -561,7 +561,7 @@ func (hnp *HumioNodePool) GetContainerReadinessProbe() *corev1.Probe {
 	}
 
 	if hnp.humioNodeSpec.ContainerReadinessProbe == nil {
-		return &corev1.Probe{
+		probe := &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   "/api/v1/is-node-up",
@@ -575,6 +575,10 @@ func (hnp *HumioNodePool) GetContainerReadinessProbe() *corev1.Probe {
 			SuccessThreshold:    1,
 			FailureThreshold:    10,
 		}
+		if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+			probe.InitialDelaySeconds = 0
+		}
+		return probe
 	}
 	return hnp.humioNodeSpec.ContainerReadinessProbe
 }
