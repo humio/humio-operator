@@ -10,7 +10,6 @@ trap "cleanup_kind_cluster" EXIT
 
 declare -r ginkgo_nodes=${GINKGO_NODES:-6}
 declare -r docker=$(which docker)
-declare -r humio_e2e_license=${HUMIO_E2E_LICENSE}
 declare -r e2e_run_ref=${GITHUB_REF:-outside-github-$(hostname)}
 declare -r e2e_run_id=${GITHUB_RUN_ID:-none}
 declare -r e2e_run_attempt=${GITHUB_RUN_ATTEMPT:-none}

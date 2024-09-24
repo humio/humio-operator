@@ -311,12 +311,19 @@ func ConstructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 func CreateLicenseSecret(ctx context.Context, clusterKey types.NamespacedName, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster) {
 	UsingClusterBy(cluster.Name, fmt.Sprintf("Creating the license secret %s", cluster.Spec.License.SecretKeyRef.Name))
 
+	licenseString := "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzUxMiJ9.eyJpc09lbSI6ZmFsc2UsImF1ZCI6Ikh1bWlvLWxpY2Vuc2UtY2hlY2siLCJzdWIiOiJIdW1pbyBFMkUgdGVzdHMiLCJ1aWQiOiJGUXNvWlM3Yk1PUldrbEtGIiwibWF4VXNlcnMiOjEwLCJhbGxvd1NBQVMiOnRydWUsIm1heENvcmVzIjoxLCJ2YWxpZFVudGlsIjoxNzQzMTY2ODAwLCJleHAiOjE3NzQ1OTMyOTcsImlzVHJpYWwiOmZhbHNlLCJpYXQiOjE2Nzk5ODUyOTcsIm1heEluZ2VzdEdiUGVyRGF5IjoxfQ.someinvalidsignature"
+
+	// If we use a k8s that is not envtest, and we didn't specify we are using a dummy image, we require a valid license
+	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" && os.Getenv("DUMMY_LOGSCALE_IMAGE") != "true" {
+		licenseString = os.Getenv("HUMIO_E2E_LICENSE")
+	}
+
 	licenseSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-license", clusterKey.Name),
 			Namespace: clusterKey.Namespace,
 		},
-		StringData: map[string]string{"license": os.Getenv("HUMIO_E2E_LICENSE")},
+		StringData: map[string]string{"license": licenseString},
 		Type:       corev1.SecretTypeOpaque,
 	}
 	Expect(k8sClient.Create(ctx, &licenseSecret)).To(Succeed())
