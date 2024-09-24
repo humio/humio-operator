@@ -84,23 +84,6 @@ install_helm() {
   $helm version
 }
 
-install_go() {
-  if [ $(uname -o) = Darwin ]; then
-    # For Intel Macs
-    [ $(uname -m) = x86_64 ] && curl -Lo $go.tar.gz https://dl.google.com/go/go${go_version}.darwin-amd64.tar.gz && tar -zxvf $go.tar.gz -C $bin_dir && mv $bin_dir/go $bin_dir/goinstall && ln -s $bin_dir/goinstall/bin/go $go
-    # For M1 / ARM Macs
-    [ $(uname -m) = arm64 ] && curl -Lo $go.tar.gz https://dl.google.com/go/go${go_version}.darwin-arm64.tar.gz && tar -zxvf $go.tar.gz -C $bin_dir && mv $bin_dir/go $bin_dir/goinstall && ln -s $bin_dir/goinstall/bin/go $go
-  else
-    echo "Assuming Linux"
-    # For AMD64 / x86_64
-    [ $(uname -m) = x86_64 ] && curl -Lo $go.tar.gz https://dl.google.com/go/go${go_version}.linux-amd64.tar.gz && tar -zxvf $go.tar.gz -C $bin_dir && mv $bin_dir/go $bin_dir/goinstall && ln -s $bin_dir/goinstall/bin/go $go
-    # For ARM64
-    [ $(uname -m) = aarch64 ] && curl -Lo $go.tar.gz https://dl.google.com/go/go${go_version}.linux-arm64.tar.gz && tar -zxvf $go.tar.gz -C $bin_dir && mv $bin_dir/go $bin_dir/goinstall && ln -s $bin_dir/goinstall/bin/go $go
-  fi
-  rm $go.tar.gz
-  $go version
-}
-
 install_ginkgo() {
   go get github.com/onsi/ginkgo/v2/ginkgo
   go install github.com/onsi/ginkgo/v2/ginkgo
