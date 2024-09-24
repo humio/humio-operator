@@ -452,22 +452,6 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 				},
 			},
 		})
-		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name: "ca-cert",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName:  hnp.GetClusterName(),
-					DefaultMode: &mode,
-					Items: []corev1.KeyToPath{
-						{
-							Key:  "ca.crt",
-							Path: "certs/ca-bundle.crt",
-							Mode: &mode,
-						},
-					},
-				},
-			},
-		})
 	}
 
 	if attachments.bootstrapTokenSecretReference.hash != "" {
