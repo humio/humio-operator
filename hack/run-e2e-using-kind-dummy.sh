@@ -20,6 +20,8 @@ declare -r humio_ingest_token=${E2E_LOGS_HUMIO_INGEST_TOKEN:-none}
 declare -r docker_username=${DOCKER_USERNAME:-none}
 declare -r docker_password=${DOCKER_PASSWORD:-none}
 declare -r dummy_logscale_image=${DUMMY_LOGSCALE_IMAGE:-true}
+declare -r use_certmanager=${USE_CERTMANAGER:-true}
+declare -r preserve_kind_cluster=${PRESERVE_KIND_CLUSTER:-false}
 
 if [ ! -x "${docker}" ] ; then
   echo "'docker' is not installed. Install it and rerun the script."
@@ -38,13 +40,14 @@ preload_container_images
 kubectl_create_dockerhub_secret
 
 helm_install_shippers
-helm_install_cert_manager
+if [[ $use_certmanager == "true" ]]; then
+  helm_install_cert_manager
+  wait_for_pod -l app.kubernetes.io/name=cert-manager
+  wait_for_pod -l app.kubernetes.io/name=cainjector
+  wait_for_pod -l app.kubernetes.io/name=webhook
+fi
 
-wait_for_pod -l app.kubernetes.io/name=cert-manager
-wait_for_pod -l app.kubernetes.io/name=cainjector
-wait_for_pod -l app.kubernetes.io/name=webhook
-
-$kubectl create -k config/crd/
-$kubectl run test-pod --env="HUMIO_E2E_LICENSE=$humio_e2e_license" --env="GINKGO_NODES=$ginkgo_nodes" --env="DOCKER_USERNAME=$docker_username" --env="DOCKER_PASSWORD=$docker_password" --restart=Never --image=testcontainer --image-pull-policy=Never -- sleep 86400
+$kubectl apply --server-side=true -k config/crd/
+$kubectl run test-pod --env="GINKGO_NODES=$ginkgo_nodes" --env="DOCKER_USERNAME=$docker_username" --env="DOCKER_PASSWORD=$docker_password" --env="USE_CERTMANAGER=$use_certmanager" --env="PRESERVE_KIND_CLUSTER=$preserve_kind_cluster" --restart=Never --image=testcontainer --image-pull-policy=Never -- sleep 86400
 while [[ $($kubectl get pods test-pod -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod" ; $kubectl describe pod test-pod ; sleep 1 ; done
 $kubectl exec test-pod -- hack/run-e2e-within-kind-test-pod-dummy.sh

@@ -274,7 +274,7 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 		}
 	}
 
-	if useDockerCredentials() {
+	if UseDockerCredentials() {
 		nodeSpec.ImagePullSecrets = []corev1.LocalObjectReference{
 			{Name: DockerRegistryCredentialsSecretName},
 		}
@@ -663,13 +663,13 @@ func WaitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sCl
 	}, testTimeout, TestInterval).Should(BeNumerically("==", beforeGeneration))
 }
 
-func useDockerCredentials() bool {
+func UseDockerCredentials() bool {
 	return os.Getenv(dockerUsernameEnvVar) != "" && os.Getenv(dockerPasswordEnvVar) != "" &&
 		os.Getenv(dockerUsernameEnvVar) != "none" && os.Getenv(dockerPasswordEnvVar) != "none"
 }
 
 func CreateDockerRegredSecret(ctx context.Context, namespace corev1.Namespace, k8sClient client.Client) {
-	if !useDockerCredentials() {
+	if !UseDockerCredentials() {
 		return
 	}
 

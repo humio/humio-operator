@@ -16,6 +16,15 @@ PATH=$bin_dir/goinstall/bin:$bin_dir:/usr/local/go/bin:$PATH
 GOBIN=$bin_dir
 
 start_kind_cluster() {
+  if $kind get clusters | grep kind ; then
+    if ! $kubectl get daemonset -n kube-system kindnet ; then
+      echo "Cluster unavailable or not using a kind cluster. Only kind clusters are supported!"
+      exit 1
+    fi
+
+    return
+  fi
+
   $kind create cluster --name kind --config hack/kind-config.yaml --image $kindest_node_image_multiplatform_amd64_arm64 --wait 300s
 
   sleep 5
@@ -29,10 +38,19 @@ start_kind_cluster() {
 }
 
 cleanup_kind_cluster() {
-  $kind delete cluster --name kind
+  if [[ $preserve_kind_cluster == "true" ]]; then
+    $kubectl delete --grace-period=1 pod test-pod
+    $kubectl delete -k config/crd/
+  else
+    $kind delete cluster --name kind
+  fi
 }
 
 install_kind() {
+  if [ -f $kind ]; then
+    $kind version | grep -E "^kind v${kind_version}" && return
+  fi
+
   if [ $(uname -o) = Darwin ]; then
     # For Intel Macs
     [ $(uname -m) = x86_64 ] && curl -Lo $kind https://kind.sigs.k8s.io/dl/v${kind_version}/kind-darwin-amd64
@@ -50,6 +68,10 @@ install_kind() {
 }
 
 install_kubectl() {
+  if [ -f $kubectl ]; then
+    $kubectl version --client | grep "GitVersion:\"v${kubectl_version}\"" && return
+  fi
+
   if [ $(uname -o) = Darwin ]; then
     # For Intel Macs
     [ $(uname -m) = x86_64 ] && curl -Lo $kubectl https://dl.k8s.io/release/v${kubectl_version}/bin/darwin/amd64/kubectl
@@ -67,6 +89,10 @@ install_kubectl() {
 }
 
 install_helm() {
+  if [ -f $helm ]; then
+    $helm version --short | grep -E "^v${helm_version}" && return
+  fi
+
   if [ $(uname -o) = Darwin ]; then
     # For Intel Macs
     [ $(uname -m) = x86_64 ] && curl -Lo $helm.tar.gz https://get.helm.sh/helm-v${helm_version}-darwin-amd64.tar.gz && tar -zxvf $helm.tar.gz -C $bin_dir && mv $bin_dir/darwin-amd64/helm $helm && rm -r $bin_dir/darwin-amd64
@@ -129,6 +155,8 @@ preload_container_images() {
 }
 
 helm_install_shippers() {
+  $helm get metadata log-shipper && return
+
   # Install components to get observability during execution of tests
   if [[ $humio_hostname != "none" ]] && [[ $humio_ingest_token != "none" ]]; then
     e2eFilterTag=$(cat <<EOF
@@ -173,6 +201,8 @@ EOF
 }
 
 helm_install_cert_manager() {
+  $helm get metadata cert-manager && return
+
   k8s_server_version=$($kubectl version --short=true | grep "Server Version:" | awk '{print $NF}' | sed 's/v//' | cut -d. -f1-2)
   cert_manager_version=v${default_cert_manager_version}
   if [[ ${k8s_server_version} < 1.27 ]] ; then cert_manager_version=v1.11.5 ; fi
@@ -192,6 +222,8 @@ helm_install_cert_manager() {
 }
 
 helm_install_zookeeper_and_kafka() {
+  $helm get metadata humio && return
+
   # Install test dependency: Zookeeper and Kafka
   $helm repo add humio https://humio.github.io/cp-helm-charts
   helm_install_command=(
