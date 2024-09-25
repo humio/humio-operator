@@ -662,7 +662,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Namespace: clusterKey.Namespace,
 			}
 			protocol := "http"
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" && helpers.UseCertManager() {
 				protocol = "https"
 			}
 
@@ -1775,6 +1775,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(expectedSecretValue))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: OpsGenieProperties: Should support referencing secrets", func() {
@@ -1838,6 +1845,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(expectedSecretValue))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: OpsGenieProperties: Should support direct genie key", func() {
@@ -1883,6 +1897,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(expectedSecretValue))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: VictorOpsProperties: Should support referencing secrets", func() {
@@ -1946,6 +1967,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(expectedSecretValue))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: VictorOpsProperties: Should support direct notify url", func() {
@@ -1991,6 +2019,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(expectedSecretValue))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: SlackPostMessageProperties: Should support referencing secrets", func() {
@@ -2057,6 +2092,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(expectedSecretValue))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: SlackPostMessageProperties: Should support direct api token", func() {
@@ -2104,6 +2146,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.ApiToken))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: SlackProperties: Should support referencing secrets", func() {
@@ -2169,6 +2218,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(expectedSecretValue))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: SlackProperties: Should support direct url", func() {
@@ -2216,6 +2272,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(toCreateAction.Spec.SlackProperties.Url))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: PagerDutyProperties: Should support referencing secrets", func() {
@@ -2279,6 +2342,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(expectedSecretValue))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: PagerDutyProperties: Should support direct api token", func() {
@@ -2324,6 +2394,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(toCreateAction.Spec.PagerDutyProperties.RoutingKey))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: WebhookProperties: Should support direct url", func() {
@@ -2370,6 +2447,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(toCreateAction.Spec.WebhookProperties.Url))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: WebhookProperties: Should support referencing secret url", func() {
@@ -2434,6 +2518,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(expectedSecretValue))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioAction: WebhookProperties: Should support direct url and headers", func() {
@@ -2496,6 +2587,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			allHeaders, found := kubernetes.GetFullSetOfMergedWebhookheaders(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(allHeaders).To(HaveKeyWithValue(nonsensitiveHeaderKey, nonsensitiveHeaderValue))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 		It("HumioAction: WebhookProperties: Should support direct url and mixed headers", func() {
 			ctx := context.Background()
@@ -2588,6 +2686,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(found).To(BeTrue())
 			Expect(allHeaders).To(HaveKeyWithValue(headerKey1, sensitiveHeaderValue1))
 			Expect(allHeaders).To(HaveKeyWithValue(headerKey2, nonsensitiveHeaderValue2))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 		It("HumioAction: WebhookProperties: Should support direct url and secret headers", func() {
 			ctx := context.Background()
@@ -2670,6 +2775,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			allHeaders, found := kubernetes.GetFullSetOfMergedWebhookheaders(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(allHeaders).To(HaveKeyWithValue(headerKey, sensitiveHeaderValue))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 	})
 
