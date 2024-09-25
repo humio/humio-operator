@@ -84,8 +84,6 @@ var _ = BeforeSuite(func() {
 	log = zapr.NewLogger(zapLog)
 	logf.SetLogger(log)
 
-	Expect(os.Getenv("HUMIO_E2E_LICENSE")).NotTo(BeEmpty())
-
 	By("bootstrapping test environment")
 	useExistingCluster := true
 	testProcessNamespace = fmt.Sprintf("e2e-clusters-%d", GinkgoParallelProcess())
@@ -98,6 +96,8 @@ var _ = BeforeSuite(func() {
 			testHumioClient = humio.NewMockClient()
 		} else {
 			testHumioClient = humio.NewClient(log, "")
+			By("Verifying we have a valid license, as tests will require starting up real LogScale containers")
+			Expect(os.Getenv("HUMIO_E2E_LICENSE")).NotTo(BeEmpty())
 		}
 	} else {
 		testTimeout = time.Second * 30

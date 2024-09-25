@@ -20,6 +20,8 @@ declare -r humio_ingest_token=${E2E_LOGS_HUMIO_INGEST_TOKEN:-none}
 declare -r docker_username=${DOCKER_USERNAME:-none}
 declare -r docker_password=${DOCKER_PASSWORD:-none}
 declare -r dummy_logscale_image=${DUMMY_LOGSCALE_IMAGE:-false}
+declare -r use_certmanager=${USE_CERTMANAGER:-true}
+declare -r preserve_kind_cluster=${PRESERVE_KIND_CLUSTER:-false}
 declare -r humio_operator_default_humio_core_image=${HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE-}
 
 if [ ! -x "${docker}" ] ; then
@@ -39,16 +41,20 @@ preload_container_images
 kubectl_create_dockerhub_secret
 
 helm_install_shippers
-helm_install_cert_manager
+if [[ $use_certmanager == "true" ]]; then
+  helm_install_cert_manager
+fi
 helm_install_zookeeper_and_kafka
 
 wait_for_pod humio-cp-zookeeper-0
 wait_for_pod humio-cp-kafka-0
-wait_for_pod -l app.kubernetes.io/name=cert-manager
-wait_for_pod -l app.kubernetes.io/name=cainjector
-wait_for_pod -l app.kubernetes.io/name=webhook
+if [[ $use_certmanager == "true" ]]; then
+  wait_for_pod -l app.kubernetes.io/name=cert-manager
+  wait_for_pod -l app.kubernetes.io/name=cainjector
+  wait_for_pod -l app.kubernetes.io/name=webhook
+fi
 
-$kubectl create -k config/crd/
-$kubectl run test-pod --env="HUMIO_E2E_LICENSE=$humio_e2e_license" --env="GINKGO_NODES=$ginkgo_nodes" --env="DOCKER_USERNAME=$docker_username" --env="DOCKER_PASSWORD=$docker_password" --env="HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE=$humio_operator_default_humio_core_image" --restart=Never --image=testcontainer --image-pull-policy=Never -- sleep 86400
+$kubectl apply --server-side=true -k config/crd/
+$kubectl run test-pod --env="HUMIO_E2E_LICENSE=$humio_e2e_license" --env="GINKGO_NODES=$ginkgo_nodes" --env="DOCKER_USERNAME=$docker_username" --env="DOCKER_PASSWORD=$docker_password" --env="USE_CERTMANAGER=$use_certmanager" --env="PRESERVE_KIND_CLUSTER=$preserve_kind_cluster" --env="HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE=$humio_operator_default_humio_core_image" --restart=Never --image=testcontainer --image-pull-policy=Never -- sleep 86400
 while [[ $($kubectl get pods test-pod -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod" ; $kubectl describe pod test-pod ; sleep 1 ; done
 $kubectl exec test-pod -- hack/run-e2e-within-kind-test-pod.sh
