@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/humio/humio-operator/pkg/kubernetes"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 
 	"github.com/humio/humio-operator/controllers"
@@ -89,8 +90,6 @@ var _ = BeforeSuite(func() {
 	log = zapr.NewLogger(zapLog)
 	logf.SetLogger(log)
 
-	Expect(os.Getenv("HUMIO_E2E_LICENSE")).NotTo(BeEmpty())
-
 	By("bootstrapping test environment")
 	useExistingCluster := true
 	clusterKey = types.NamespacedName{
@@ -103,11 +102,12 @@ var _ = BeforeSuite(func() {
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &useExistingCluster,
 		}
-
 		if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
 			humioClient = humio.NewMockClient()
 		} else {
 			humioClient = humio.NewClient(log, "")
+			By("Verifying we have a valid license, as tests will require starting up real LogScale containers")
+			Expect(os.Getenv("HUMIO_E2E_LICENSE")).NotTo(BeEmpty())
 		}
 
 	} else {
@@ -256,8 +256,7 @@ var _ = BeforeSuite(func() {
 			Name: clusterKey.Namespace,
 		},
 	}
-	err = k8sClient.Create(context.TODO(), &testNamespace)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(k8sClient.Create(context.TODO(), &testNamespace)).ToNot(HaveOccurred())
 
 	suite.CreateDockerRegredSecret(context.TODO(), testNamespace, k8sClient)
 
@@ -347,24 +346,49 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	if k8sClient != nil {
+		Expect(k8sClient.Delete(context.TODO(), &corev1alpha1.HumioRepository{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testRepo.Name,
+				Namespace: testRepo.Namespace,
+			},
+		})).To(Succeed())
+		Expect(k8sClient.Delete(context.TODO(), &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testService1.Name,
+				Namespace: testService1.Namespace,
+			},
+		})).To(Succeed())
+		Expect(k8sClient.Delete(context.TODO(), &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testService2.Name,
+				Namespace: testService2.Namespace,
+			},
+		})).To(Succeed())
+
 		suite.UsingClusterBy(clusterKey.Name, "HumioCluster: Confirming resource generation wasn't updated excessively")
 		Expect(k8sClient.Get(context.Background(), clusterKey, cluster)).Should(Succeed())
 		Expect(cluster.GetGeneration()).ShouldNot(BeNumerically(">", 100))
 
 		suite.CleanupCluster(context.TODO(), k8sClient, cluster)
 
-		By(fmt.Sprintf("Removing regcred secret for namespace: %s", testNamespace.Name))
-		_ = k8sClient.Delete(context.TODO(), &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      suite.DockerRegistryCredentialsSecretName,
-				Namespace: clusterKey.Namespace,
-			},
-		})
+		if suite.UseDockerCredentials() {
+			By(fmt.Sprintf("Removing regcred secret for namespace: %s", testNamespace.Name))
+			Expect(k8sClient.Delete(context.TODO(), &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      suite.DockerRegistryCredentialsSecretName,
+					Namespace: clusterKey.Namespace,
+				},
+			})).To(Succeed())
+		}
 
-		if testNamespace.ObjectMeta.Name != "" {
+		if testNamespace.ObjectMeta.Name != "" && os.Getenv("PRESERVE_KIND_CLUSTER") == "true" {
 			By(fmt.Sprintf("Removing test namespace: %s", clusterKey.Namespace))
 			err := k8sClient.Delete(context.TODO(), &testNamespace)
 			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() bool {
+				return k8serrors.IsNotFound(k8sClient.Get(context.TODO(), types.NamespacedName{Name: clusterKey.Namespace}, &testNamespace))
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		}
 	}
 

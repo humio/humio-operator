@@ -278,7 +278,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
@@ -462,7 +462,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
@@ -556,7 +556,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
@@ -631,7 +631,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
@@ -707,16 +707,16 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
 		})
 	})
 
-	Context("Humio Cluster Update EXTERNAL_URL", Label("envtest", "dummy", "real"), func() {
+	Context("Humio Cluster Update EXTERNAL_URL", Label("dummy", "real"), func() {
 		It("Update should correctly replace pods to use the new EXTERNAL_URL in a non-rolling fashion", func() {
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.UseCertManager() {
 				key := types.NamespacedName{
 					Name:      "humiocluster-update-ext-url",
 					Namespace: testProcessNamespace,
@@ -957,7 +957,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
@@ -1063,7 +1063,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
 
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
@@ -1177,7 +1177,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(pod.Annotations[controllers.PodRevisionAnnotation]).To(Equal("3"))
 			}
 
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
@@ -1242,7 +1242,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
@@ -1314,7 +1314,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
@@ -1444,7 +1444,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
 			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
@@ -1666,7 +1666,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
 			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, mainNodePoolManager.GetPodLabels())
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
@@ -1767,7 +1767,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
 			updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, additionalNodePoolManager.GetPodLabels())
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
@@ -3337,20 +3337,24 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
 			initialExpectedVolumesCount := 5
-			initialExpectedVolumeMountsCount := 4
+			initialExpectedHumioContainerVolumeMountsCount := 4
 
 			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-				// if we run on a real cluster we have TLS enabled (using 2 volumes),
-				// and k8s will automatically inject a service account token adding one more
-				initialExpectedVolumesCount += 3
-				initialExpectedVolumeMountsCount += 2
+				// k8s will automatically inject a service account token
+				initialExpectedVolumesCount += 1                    // kube-api-access-<ID>
+				initialExpectedHumioContainerVolumeMountsCount += 1 // kube-api-access-<ID>
+
+				if helpers.UseCertManager() {
+					initialExpectedVolumesCount += 1                    // tls-cert
+					initialExpectedHumioContainerVolumeMountsCount += 1 // tls-cert
+				}
 			}
 
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.Volumes).To(HaveLen(initialExpectedVolumesCount))
 				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-				Expect(pod.Spec.Containers[humioIdx].VolumeMounts).To(HaveLen(initialExpectedVolumeMountsCount))
+				Expect(pod.Spec.Containers[humioIdx].VolumeMounts).To(HaveLen(initialExpectedHumioContainerVolumeMountsCount))
 			}
 
 			suite.UsingClusterBy(key.Name, "Adding additional volumes")
@@ -3395,7 +3399,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					return pod.Spec.Containers[humioIdx].VolumeMounts
 				}
 				return []corev1.VolumeMount{}
-			}, testTimeout, suite.TestInterval).Should(HaveLen(initialExpectedVolumeMountsCount + 1))
+			}, testTimeout, suite.TestInterval).Should(HaveLen(initialExpectedHumioContainerVolumeMountsCount + 1))
 			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.Volumes).Should(ContainElement(extraVolume))
@@ -3416,7 +3420,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
 			}
 			protocol := "http"
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+			if helpers.TLSEnabled(toCreate) {
 				protocol = "https"
 			}
 
@@ -3815,39 +3819,40 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster with additional hostnames for TLS", Label("envtest", "dummy", "real"), func() {
+	Context("Humio Cluster with additional hostnames for TLS", Label("dummy", "real"), func() {
 		It("Creating cluster with additional hostnames for TLS", func() {
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-				key := types.NamespacedName{
-					Name:      "humiocluster-tls-additional-hostnames",
-					Namespace: testProcessNamespace,
-				}
-				toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-				toCreate.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{
-					Enabled: helpers.BoolPtr(true),
-					ExtraHostnames: []string{
-						"something.additional",
-						"yet.another.something.additional",
-					},
-				}
+			key := types.NamespacedName{
+				Name:      "humiocluster-tls-additional-hostnames",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			if !helpers.TLSEnabled(toCreate) {
+				return
+			}
+			toCreate.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{
+				Enabled: helpers.BoolPtr(true),
+				ExtraHostnames: []string{
+					"something.additional",
+					"yet.another.something.additional",
+				},
+			}
 
-				suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
-				ctx := context.Background()
-				suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
-				defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-				suite.UsingClusterBy(key.Name, "Confirming certificate objects contain the additional hostnames")
+			suite.UsingClusterBy(key.Name, "Confirming certificate objects contain the additional hostnames")
 
-				Eventually(func() ([]cmapi.Certificate, error) {
-					return kubernetes.ListCertificates(ctx, k8sClient, toCreate.Namespace, kubernetes.MatchingLabelsForHumio(toCreate.Name))
-				}, testTimeout, suite.TestInterval).Should(HaveLen(2))
+			Eventually(func() ([]cmapi.Certificate, error) {
+				return kubernetes.ListCertificates(ctx, k8sClient, toCreate.Namespace, kubernetes.MatchingLabelsForHumio(toCreate.Name))
+			}, testTimeout, suite.TestInterval).Should(HaveLen(2))
 
-				var certificates []cmapi.Certificate
-				certificates, err = kubernetes.ListCertificates(ctx, k8sClient, toCreate.Namespace, kubernetes.MatchingLabelsForHumio(toCreate.Name))
-				Expect(err).To(Succeed())
-				for _, certificate := range certificates {
-					Expect(certificate.Spec.DNSNames).Should(ContainElements(toCreate.Spec.TLS.ExtraHostnames))
-				}
+			var certificates []cmapi.Certificate
+			certificates, err = kubernetes.ListCertificates(ctx, k8sClient, toCreate.Namespace, kubernetes.MatchingLabelsForHumio(toCreate.Name))
+			Expect(err).To(Succeed())
+			for _, certificate := range certificates {
+				Expect(certificate.Spec.DNSNames).Should(ContainElements(toCreate.Spec.TLS.ExtraHostnames))
 			}
 		})
 	})
@@ -4362,6 +4367,19 @@ var _ = Describe("HumioCluster Controller", func() {
 			for _, pod := range clusterPods {
 				Expect(pod.Spec.PriorityClassName).To(Equal(toCreate.Spec.PriorityClassName))
 			}
+
+			Expect(k8sClient.Delete(context.TODO(), priorityClass)).To(Succeed())
+
+			Eventually(func() bool {
+				return k8serrors.IsNotFound(k8sClient.Get(
+					context.TODO(),
+					types.NamespacedName{
+						Namespace: priorityClass.Namespace,
+						Name:      priorityClass.Name,
+					},
+					priorityClass),
+				)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 	})
 
