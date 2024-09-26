@@ -225,7 +225,7 @@ helm_install_zookeeper_and_kafka() {
   $helm get metadata humio && return
 
   # Install test dependency: Zookeeper and Kafka
-  $helm repo add humio https://humio.github.io/cp-helm-charts
+  $helm repo add --force-update humio https://humio.github.io/cp-helm-charts
   helm_install_command=(
     $helm install humio humio/cp-helm-charts
     --set cp-zookeeper.servers=1
