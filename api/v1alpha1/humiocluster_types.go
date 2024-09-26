@@ -282,8 +282,14 @@ type HumioUpdateStrategy struct {
 	// +kubebuilder:validation:Enum=OnDelete;RollingUpdate;ReplaceAllOnUpdate;RollingUpdateBestEffort
 	Type string `json:"type,omitempty"`
 
-	// The minimum time in seconds that a pod must be ready before the next pod can be deleted when doing rolling update.
+	// MinReadySeconds is the minimum time in seconds that a pod must be ready before the next pod can be deleted when doing rolling update.
 	MinReadySeconds int32 `json:"minReadySeconds,omitempty"`
+
+	// EnableZoneAwareness toggles zone awareness on or off during updates. When enabled, the pod replacement logic
+	// will go through all pods in a specific zone before it starts replacing pods in the next zone.
+	// If pods are failing, they bypass the zone limitation and are restarted immediately - ignoring the zone.
+	// Zone awareness is enabled by default.
+	EnableZoneAwareness *bool `json:"enableZoneAwareness,omitempty"`
 }
 
 type HumioNodePoolSpec struct {
@@ -384,6 +390,8 @@ type HumioNodePoolStatus struct {
 	State string `json:"state,omitempty"`
 	// DesiredPodRevision holds the desired pod revision for pods of the given node pool.
 	DesiredPodRevision int `json:"desiredPodRevision,omitempty"`
+	// ZoneUnderMaintenance holds the name of the availability zone currently under maintenance
+	ZoneUnderMaintenance string `json:"zoneUnderMaintenance,omitempty"`
 }
 
 // HumioClusterStatus defines the observed state of HumioCluster

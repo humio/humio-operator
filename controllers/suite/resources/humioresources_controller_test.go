@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/humio/humio-operator/pkg/kubernetes"
 
@@ -98,9 +97,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ingestTokenSecret)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
-				Expect(string(ingestTokenSecret.Data["token"])).ToNot(BeEmpty())
-			}
+			Expect(string(ingestTokenSecret.Data["token"])).ToNot(BeEmpty())
 			Expect(ingestTokenSecret.OwnerReferences).Should(HaveLen(1))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Checking correct parser assigned to ingest token")
@@ -152,9 +149,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ingestTokenSecret)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
-				Expect(string(ingestTokenSecret.Data["token"])).ToNot(BeEmpty())
-			}
+			Expect(string(ingestTokenSecret.Data["token"])).ToNot(BeEmpty())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedIngestToken)).To(Succeed())
@@ -223,9 +218,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(ingestTokenSecret.Labels).Should(HaveKeyWithValue("custom-label", "custom-value"))
 
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
-				Expect(string(ingestTokenSecret.Data["token"])).ToNot(BeEmpty())
-			}
+			Expect(string(ingestTokenSecret.Data["token"])).ToNot(BeEmpty())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedIngestToken)).To(Succeed())
@@ -662,7 +655,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Namespace: clusterKey.Namespace,
 			}
 			protocol := "http"
-			if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" && helpers.UseCertManager() {
+			if !helpers.UseEnvtest() && helpers.UseCertManager() {
 				protocol = "https"
 			}
 

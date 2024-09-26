@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -718,12 +719,12 @@ func (r *HumioClusterReconciler) waitForNewPods(ctx context.Context, hnp *HumioN
 	return fmt.Errorf("timed out waiting to validate new pods was created")
 }
 
-func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, desiredPod corev1.Pod) (bool, error) {
+func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, desiredPod corev1.Pod) bool {
 	if _, ok := pod.Annotations[PodHashAnnotation]; !ok {
-		return false, fmt.Errorf("did not find annotation with pod hash")
+		return false
 	}
 	if _, ok := pod.Annotations[PodRevisionAnnotation]; !ok {
-		return false, fmt.Errorf("did not find annotation with pod revision")
+		return false
 	}
 
 	var specMatches bool
@@ -779,28 +780,35 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 	podSpecDiff := cmp.Diff(sanitizedCurrentPod.Spec, sanitizedDesiredPod.Spec)
 	if !specMatches {
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", PodHashAnnotation, pod.Annotations[PodHashAnnotation], desiredPodHash), "podSpecDiff", podSpecDiff)
-		return false, nil
+		return false
 	}
 	if !revisionMatches {
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", PodRevisionAnnotation, pod.Annotations[PodRevisionAnnotation], desiredPod.Annotations[PodRevisionAnnotation]), "podSpecDiff", podSpecDiff)
-		return false, nil
+		return false
 	}
 	if !envVarSourceMatches {
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", envVarSourceHashAnnotation, pod.Annotations[envVarSourceHashAnnotation], desiredPod.Annotations[envVarSourceHashAnnotation]), "podSpecDiff", podSpecDiff)
-		return false, nil
+		return false
 	}
 	if !certHasAnnotationMatches {
 		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", certHashAnnotation, pod.Annotations[certHashAnnotation], desiredPod.Annotations[certHashAnnotation]), "podSpecDiff", podSpecDiff)
-		return false, nil
+		return false
 	}
 	if !bootstrapTokenAnnotationMatches {
 		r.Log.Info(fmt.Sprintf("pod annotation %s bootstrapTokenAnnotationMatches not match desired pod: got %+v, expected %+v", bootstrapTokenHashAnnotation, pod.Annotations[bootstrapTokenHashAnnotation], desiredPod.Annotations[bootstrapTokenHashAnnotation]), "podSpecDiff", podSpecDiff)
-		return false, nil
+		return false
 	}
-	return true, nil
+	return true
 }
 
-func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool, foundPodList []corev1.Pod, attachments *podAttachments) (podLifecycleState, error) {
+// getPodDesiredLifecycleState goes through the list of pods and decides what action to take for the pods.
+// It compares pods it is given with a newly-constructed pod. If they do not match, we know we have
+// "at least" a configuration difference and require a rolling replacement of the pods.
+// If the container image differs, it will indicate that a version difference is present.
+// For very specific configuration differences it may indicate that all pods in the node pool should be
+// replaced simultaneously.
+// The value of podLifecycleState.pod indicates what pod should be replaced next.
+func (r *HumioClusterReconciler) getPodDesiredLifecycleState(ctx context.Context, hnp *HumioNodePool, foundPodList []corev1.Pod, attachments *podAttachments, podsWithErrors bool) (podLifecycleState, error) {
 	for _, pod := range foundPodList {
 		podLifecycleStateValue := NewPodLifecycleState(*hnp, pod)
 
@@ -822,10 +830,7 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 			desiredPod.Annotations[bootstrapTokenHashAnnotation] = attachments.bootstrapTokenSecretReference.hash
 		}
 
-		podsMatch, err := r.podsMatch(hnp, pod, *desiredPod)
-		if err != nil {
-			r.Log.Error(err, "failed to check if pods match")
-		}
+		podsMatch := r.podsMatch(hnp, pod, *desiredPod)
 
 		// ignore pod if it matches the desired pod
 		if podsMatch {
@@ -853,6 +858,29 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(hnp *HumioNodePool,
 		// Changes to EXTERNAL_URL means we've toggled TLS on/off and must restart all pods at the same time
 		if EnvVarValue(pod.Spec.Containers[humioContainerIdx].Env, "EXTERNAL_URL") != EnvVarValue(desiredPod.Spec.Containers[desiredHumioContainerIdx].Env, "EXTERNAL_URL") {
 			podLifecycleStateValue.configurationDifference.requiresSimultaneousRestart = true
+		}
+
+		// if we run with envtest, we won't have zone information available
+		if !helpers.UseEnvtest() {
+			// if zone awareness is enabled, ignore pod if zone is incorrect
+			if !podsWithErrors && *hnp.GetUpdateStrategy().EnableZoneAwareness {
+				r.Log.Info(fmt.Sprintf("zone awareness enabled, looking up zone for pod=%s", pod.Name))
+				if pod.Spec.NodeName == "" {
+					// current pod does not have a nodeName set
+					r.Log.Info(fmt.Sprintf("pod=%s does not have a nodeName set, ignoring", pod.Name))
+					continue
+				}
+
+				// fetch zone for node name and ignore pod if zone is not the one that is marked as under maintenance
+				zoneForNodeName, err := kubernetes.GetZoneForNodeName(ctx, r, pod.Spec.NodeName)
+				if err != nil {
+					return podLifecycleState{}, r.logErrorAndReturn(err, "could get zone name for node")
+				}
+				if hnp.GetZoneUnderMaintenance() != "" && zoneForNodeName != hnp.GetZoneUnderMaintenance() {
+					r.Log.Info(fmt.Sprintf("ignoring pod=%s as zoneUnderMaintenace=%s but pod has nodeName=%s where zone=%s", pod.Name, hnp.GetZoneUnderMaintenance(), pod.Spec.NodeName, zoneForNodeName))
+					continue
+				}
+			}
 		}
 
 		return *podLifecycleStateValue, nil
@@ -1060,4 +1088,31 @@ func findPodForPvc(podList []corev1.Pod, pvc corev1.PersistentVolumeClaim) (core
 	}
 
 	return corev1.Pod{}, fmt.Errorf("could not find a pod for pvc %s", pvc.Name)
+}
+func FilterPodsByZoneName(ctx context.Context, c client.Client, podList []corev1.Pod, zoneName string) ([]corev1.Pod, error) {
+	filteredPodList := []corev1.Pod{}
+	for _, pod := range podList {
+		zoneForNodeName, err := kubernetes.GetZoneForNodeName(ctx, c, pod.Spec.NodeName)
+		if err != nil {
+			return nil, err
+		}
+		if zoneForNodeName == zoneName {
+			filteredPodList = append(filteredPodList, pod)
+		}
+	}
+	return filteredPodList, nil
+}
+
+func FilterPodsExcludePodsWithPodRevision(podList []corev1.Pod, podRevisionToExclude int) []corev1.Pod {
+	filteredPodList := []corev1.Pod{}
+	for _, pod := range podList {
+		podRevision, found := pod.Annotations[PodRevisionAnnotation]
+		if found {
+			if strconv.Itoa(podRevisionToExclude) == podRevision {
+				continue
+			}
+		}
+		filteredPodList = append(filteredPodList, pod)
+	}
+	return filteredPodList
 }
