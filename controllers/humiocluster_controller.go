@@ -1915,8 +1915,12 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 						podListForCurrentZoneWithWrongPodRevision := FilterPodsExcludePodsWithPodRevision(foundPodListForNodePool, hnp.GetDesiredPodRevision())
 						r.Log.Info(fmt.Sprintf("zone awareness enabled, len(podListForCurrentZoneWithWrongPodRevision)=%d", len(podListForCurrentZoneWithWrongPodRevision)))
 
-						if len(podListForCurrentZoneWithWrongPodRevision) > 0 {
-							newZoneUnderMaintenance, err := kubernetes.GetZoneForNodeName(ctx, r, podListForCurrentZoneWithWrongPodRevision[0].Spec.NodeName)
+						// Filter out any pods with empty nodeName fields
+						podListForCurrentZoneWithWrongPodRevisionAndNonEmptyNodeName := FilterPodsExcludePodsWithEmptyNodeName(podListForCurrentZoneWithWrongPodRevision)
+						r.Log.Info(fmt.Sprintf("zone awareness enabled, len(podListForCurrentZoneWithWrongPodRevision)=%d", len(podListForCurrentZoneWithWrongPodRevision)))
+
+						if len(podListForCurrentZoneWithWrongPodRevisionAndNonEmptyNodeName) > 0 {
+							newZoneUnderMaintenance, err := kubernetes.GetZoneForNodeName(ctx, r, podListForCurrentZoneWithWrongPodRevisionAndNonEmptyNodeName[0].Spec.NodeName)
 							if err != nil {
 								return reconcile.Result{}, r.logErrorAndReturn(err, "unable to fetch zone")
 							}

@@ -1116,3 +1116,14 @@ func FilterPodsExcludePodsWithPodRevision(podList []corev1.Pod, podRevisionToExc
 	}
 	return filteredPodList
 }
+
+func FilterPodsExcludePodsWithEmptyNodeName(podList []corev1.Pod) []corev1.Pod {
+	filteredPodList := []corev1.Pod{}
+	for _, pod := range podList {
+		if pod.Spec.NodeName == "" {
+			continue
+		}
+		filteredPodList = append(filteredPodList, pod)
+	}
+	return filteredPodList
+}
