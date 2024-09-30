@@ -13082,10 +13082,17 @@ spec:
                             UpdateStrategy controls how Humio pods are updated when changes are made to the HumioCluster resource that results
                             in a change to the Humio pods
                           properties:
+                            enableZoneAwareness:
+                              description: |-
+                                EnableZoneAwareness toggles zone awareness on or off during updates. When enabled, the pod replacement logic
+                                will go through all pods in a specific zone before it starts replacing pods in the next zone.
+                                If pods are failing, they bypass the zone limitation and are restarted immediately - ignoring the zone.
+                                Zone awareness is enabled by default.
+                              type: boolean
                             minReadySeconds:
-                              description: The minimum time in seconds that a pod
-                                must be ready before the next pod can be deleted when
-                                doing rolling update.
+                              description: MinReadySeconds is the minimum time in
+                                seconds that a pod must be ready before the next pod
+                                can be deleted when doing rolling update.
                               format: int32
                               type: integer
                             type:
@@ -14987,9 +14994,17 @@ spec:
                   UpdateStrategy controls how Humio pods are updated when changes are made to the HumioCluster resource that results
                   in a change to the Humio pods
                 properties:
+                  enableZoneAwareness:
+                    description: |-
+                      EnableZoneAwareness toggles zone awareness on or off during updates. When enabled, the pod replacement logic
+                      will go through all pods in a specific zone before it starts replacing pods in the next zone.
+                      If pods are failing, they bypass the zone limitation and are restarted immediately - ignoring the zone.
+                      Zone awareness is enabled by default.
+                    type: boolean
                   minReadySeconds:
-                    description: The minimum time in seconds that a pod must be ready
-                      before the next pod can be deleted when doing rolling update.
+                    description: MinReadySeconds is the minimum time in seconds that
+                      a pod must be ready before the next pod can be deleted when
+                      doing rolling update.
                     format: int32
                     type: integer
                   type:
@@ -15061,6 +15076,10 @@ spec:
                       description: State will be empty before the cluster is bootstrapped.
                         From there it can be "Running", "Upgrading", "Restarting"
                         or "Pending"
+                      type: string
+                    zoneUnderMaintenance:
+                      description: ZoneUnderMaintenance holds the name of the availability
+                        zone currently under maintenance
                       type: string
                   required:
                   - name

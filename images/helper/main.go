@@ -73,7 +73,7 @@ func initMode() {
 	} else {
 		zone, found := node.Labels[corev1.LabelZoneFailureDomainStable]
 		if !found {
-			zone, _ = node.Labels[corev1.LabelZoneFailureDomain]
+			zone = node.Labels[corev1.LabelZoneFailureDomain]
 		}
 		err := os.WriteFile(targetFile, []byte(zone), 0644) // #nosec G306
 		if err != nil {

@@ -16,3 +16,24 @@ func GetNode(ctx context.Context, c client.Client, nodeName string) (*corev1.Nod
 	}, &node)
 	return &node, err
 }
+
+var nodeNameToZoneName = map[string]string{}
+
+func GetZoneForNodeName(ctx context.Context, c client.Client, nodeName string) (string, error) {
+	zone, inCache := nodeNameToZoneName[nodeName]
+	if inCache {
+		return zone, nil
+	}
+
+	node, err := GetNode(ctx, c, nodeName)
+	if err != nil {
+		return "", nil
+	}
+	zone, found := node.Labels[corev1.LabelZoneFailureDomainStable]
+	if !found {
+		zone = node.Labels[corev1.LabelZoneFailureDomain]
+	}
+
+	nodeNameToZoneName[nodeName] = zone
+	return zone, nil
+}

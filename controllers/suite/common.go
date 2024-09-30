@@ -53,14 +53,14 @@ func UsingClusterBy(cluster, text string, callbacks ...func()) {
 	}
 }
 
-func MarkPodsAsRunning(ctx context.Context, client client.Client, pods []corev1.Pod, clusterName string) error {
-	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+func MarkPodsAsRunningIfUsingEnvtest(ctx context.Context, client client.Client, pods []corev1.Pod, clusterName string) error {
+	if !helpers.UseEnvtest() {
 		return nil
 	}
 
 	UsingClusterBy(clusterName, "Simulating Humio container starts up and is marked Ready")
 	for _, pod := range pods {
-		err := MarkPodAsRunning(ctx, client, pod, clusterName)
+		err := MarkPodAsRunningIfUsingEnvtest(ctx, client, pod, clusterName)
 		if err != nil {
 			return err
 		}
@@ -68,8 +68,8 @@ func MarkPodsAsRunning(ctx context.Context, client client.Client, pods []corev1.
 	return nil
 }
 
-func MarkPodAsRunning(ctx context.Context, k8sClient client.Client, pod corev1.Pod, clusterName string) error {
-	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+func MarkPodAsRunningIfUsingEnvtest(ctx context.Context, k8sClient client.Client, pod corev1.Pod, clusterName string) error {
+	if !helpers.UseEnvtest() {
 		return nil
 	}
 
@@ -79,6 +79,18 @@ func MarkPodAsRunning(ctx context.Context, k8sClient client.Client, pod corev1.P
 		{
 			Type:   corev1.PodReady,
 			Status: corev1.ConditionTrue,
+		},
+	}
+	pod.Status.InitContainerStatuses = []corev1.ContainerStatus{
+		{
+			Name:  controllers.InitContainerName,
+			Ready: true,
+		},
+	}
+	pod.Status.ContainerStatuses = []corev1.ContainerStatus{
+		{
+			Name:  controllers.HumioContainerName,
+			Ready: true,
 		},
 	}
 	pod.Status.Phase = corev1.PodRunning
@@ -226,7 +238,7 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 		},
 	}
 
-	if os.Getenv("DUMMY_LOGSCALE_IMAGE") != "true" {
+	if !helpers.UseDummyImage() {
 		nodeSpec.SidecarContainers = []corev1.Container{
 			{
 				Name:    "wait-for-global-snapshot-on-disk",
@@ -314,8 +326,8 @@ func CreateLicenseSecret(ctx context.Context, clusterKey types.NamespacedName, k
 	licenseString := "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzUxMiJ9.eyJpc09lbSI6ZmFsc2UsImF1ZCI6Ikh1bWlvLWxpY2Vuc2UtY2hlY2siLCJzdWIiOiJIdW1pbyBFMkUgdGVzdHMiLCJ1aWQiOiJGUXNvWlM3Yk1PUldrbEtGIiwibWF4VXNlcnMiOjEwLCJhbGxvd1NBQVMiOnRydWUsIm1heENvcmVzIjoxLCJ2YWxpZFVudGlsIjoxNzQzMTY2ODAwLCJleHAiOjE3NzQ1OTMyOTcsImlzVHJpYWwiOmZhbHNlLCJpYXQiOjE2Nzk5ODUyOTcsIm1heEluZ2VzdEdiUGVyRGF5IjoxfQ.someinvalidsignature"
 
 	// If we use a k8s that is not envtest, and we didn't specify we are using a dummy image, we require a valid license
-	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" && os.Getenv("DUMMY_LOGSCALE_IMAGE") != "true" {
-		licenseString = os.Getenv("HUMIO_E2E_LICENSE")
+	if !helpers.UseEnvtest() && !helpers.UseDummyImage() {
+		licenseString = helpers.GetE2ELicenseFromEnvVar()
 	}
 
 	licenseSecret := corev1.Secret{
@@ -363,7 +375,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}
 	}
 
-	if os.Getenv("TEST_USE_EXISTING_CLUSTER") != "true" {
+	if helpers.UseEnvtest() {
 		// Simulate sidecar creating the secret which contains the admin token used to authenticate with humio
 		secretData := map[string][]byte{"token": []byte("")}
 		adminTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
@@ -458,7 +470,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	Eventually(func() []corev1.Pod {
 		var clusterPods []corev1.Pod
 		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
-		_ = MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
+		_ = MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
 		return clusterPods
 	}, testTimeout, TestInterval).Should(HaveLen(cluster.Spec.NodeCount))
 
@@ -466,7 +478,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		Eventually(func() []corev1.Pod {
 			var clusterPods []corev1.Pod
 			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &cluster.Spec.NodePools[idx]).GetPodLabels())
-			_ = MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
+			_ = MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
 			return clusterPods
 		}, testTimeout, TestInterval).Should(HaveLen(pool.NodeCount))
 	}
@@ -504,11 +516,11 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	UsingClusterBy(key.Name, "Confirming cluster enters running state")
 	Eventually(func() string {
 		clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
-		_ = MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
+		_ = MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
 
 		for idx := range cluster.Spec.NodePools {
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &cluster.Spec.NodePools[idx]).GetPodLabels())
-			_ = MarkPodsAsRunning(ctx, k8sClient, clusterPods, key.Name)
+			_ = MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
 		}
 
 		updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -539,7 +551,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}, &corev1.Secret{})
 	}, testTimeout, TestInterval).Should(Succeed())
 
-	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" && os.Getenv("DUMMY_LOGSCALE_IMAGE") != "true" {
+	if !helpers.UseEnvtest() && !helpers.UseDummyImage() {
 		UsingClusterBy(key.Name, "Validating cluster nodes have ZONE configured correctly")
 		if updatedHumioCluster.Spec.DisableInitContainer {
 			Eventually(func() []string {
@@ -648,6 +660,34 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 			return phaseToCount
 
 		}, testTimeout, TestInterval).Should(HaveKeyWithValue(corev1.PodRunning, updatedHumioCluster.Spec.NodePools[idx].NodeCount))
+	}
+
+	Eventually(func() int {
+		numPodsReady := 0
+		clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+		for _, pod := range clusterPods {
+			for _, containerStatus := range pod.Status.ContainerStatuses {
+				if containerStatus.Name == controllers.HumioContainerName && containerStatus.Ready {
+					numPodsReady++
+				}
+			}
+		}
+		return numPodsReady
+	}, testTimeout, TestInterval).Should(BeIdenticalTo(updatedHumioCluster.Spec.NodeCount))
+
+	for idx := range updatedHumioCluster.Spec.NodePools {
+		Eventually(func() int {
+			numPodsReady := 0
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[idx]).GetPodLabels())
+			for _, pod := range clusterPods {
+				for _, containerStatus := range pod.Status.ContainerStatuses {
+					if containerStatus.Name == controllers.HumioContainerName && containerStatus.Ready {
+						numPodsReady++
+					}
+				}
+			}
+			return numPodsReady
+		}, testTimeout, TestInterval).Should(BeIdenticalTo(updatedHumioCluster.Spec.NodePools[idx].NodeCount))
 	}
 }
 

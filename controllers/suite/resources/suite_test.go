@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -97,17 +96,17 @@ var _ = BeforeSuite(func() {
 		Namespace: fmt.Sprintf("e2e-resources-%d", GinkgoParallelProcess()),
 	}
 
-	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+	if !helpers.UseEnvtest() {
 		testTimeout = time.Second * 300
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &useExistingCluster,
 		}
-		if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+		if helpers.UseDummyImage() {
 			humioClient = humio.NewMockClient()
 		} else {
 			humioClient = humio.NewClient(log, "")
 			By("Verifying we have a valid license, as tests will require starting up real LogScale containers")
-			Expect(os.Getenv("HUMIO_E2E_LICENSE")).NotTo(BeEmpty())
+			Expect(helpers.GetE2ELicenseFromEnvVar()).NotTo(BeEmpty())
 		}
 
 	} else {
@@ -262,11 +261,6 @@ var _ = BeforeSuite(func() {
 
 	suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioCluster: Creating shared test cluster in namespace %s", clusterKey.Namespace))
 	cluster = suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
-	if os.Getenv("DUMMY_LOGSCALE_IMAGE") != "true" {
-		cluster.Spec.HumioNodeSpec.Image = "humio/humio-core:1.150.0"
-	} else {
-		cluster.Spec.HumioNodeSpec.Image = "humio/humio-core:dummy"
-	}
 	suite.CreateAndBootstrapCluster(context.TODO(), k8sClient, humioClient, cluster, true, corev1alpha1.HumioClusterStateRunning, testTimeout)
 
 	sharedCluster, err = helpers.NewCluster(context.TODO(), k8sClient, clusterKey.Name, "", clusterKey.Namespace, helpers.UseCertManager(), true, false)
@@ -381,7 +375,7 @@ var _ = AfterSuite(func() {
 			})).To(Succeed())
 		}
 
-		if testNamespace.ObjectMeta.Name != "" && os.Getenv("PRESERVE_KIND_CLUSTER") == "true" {
+		if testNamespace.ObjectMeta.Name != "" && !helpers.UseEnvtest() && helpers.PreserveKindCluster() {
 			By(fmt.Sprintf("Removing test namespace: %s", clusterKey.Namespace))
 			err := k8sClient.Delete(context.TODO(), &testNamespace)
 			Expect(err).ToNot(HaveOccurred())

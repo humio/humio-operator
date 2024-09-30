@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -82,13 +81,19 @@ type HumioNodePool struct {
 	ingress                  humiov1alpha1.HumioClusterIngressSpec
 	clusterAnnotations       map[string]string
 	desiredPodRevision       int
+	state                    string
+	zoneUnderMaintenance     string
 }
 
 func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioNodePool {
 	desiredPodRevision := 0
+	zoneUnderMaintenance := ""
+	state := ""
 	for _, status := range hc.Status.NodePoolStatus {
 		if status.Name == hc.Name {
 			desiredPodRevision = status.DesiredPodRevision
+			zoneUnderMaintenance = status.ZoneUnderMaintenance
+			state = status.State
 			break
 		}
 	}
@@ -151,14 +156,21 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 		ingress:                  hc.Spec.Ingress,
 		clusterAnnotations:       hc.Annotations,
 		desiredPodRevision:       desiredPodRevision,
+		zoneUnderMaintenance:     zoneUnderMaintenance,
+		state:                    state,
 	}
 }
 
 func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *humiov1alpha1.HumioNodePoolSpec) *HumioNodePool {
 	desiredPodRevision := 0
+	zoneUnderMaintenance := ""
+	state := ""
+
 	for _, status := range hc.Status.NodePoolStatus {
 		if status.Name == strings.Join([]string{hc.Name, hnp.Name}, "-") {
 			desiredPodRevision = status.DesiredPodRevision
+			zoneUnderMaintenance = status.ZoneUnderMaintenance
+			state = status.State
 			break
 		}
 	}
@@ -221,6 +233,8 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 		ingress:                  hc.Spec.Ingress,
 		clusterAnnotations:       hc.Annotations,
 		desiredPodRevision:       desiredPodRevision,
+		zoneUnderMaintenance:     zoneUnderMaintenance,
+		state:                    state,
 	}
 }
 
@@ -252,8 +266,8 @@ func (hnp *HumioNodePool) GetImage() string {
 		return hnp.humioNodeSpec.Image
 	}
 
-	if os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE") != "" {
-		return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE")
+	if defaultImageFromEnvVar := helpers.GetDefaultHumioCoreImageFromEnvVar(); defaultImageFromEnvVar != "" {
+		return defaultImageFromEnvVar
 	}
 
 	return versions.DefaultHumioImageVersion()
@@ -268,8 +282,8 @@ func (hnp *HumioNodePool) GetHelperImage() string {
 		return hnp.humioNodeSpec.HelperImage
 	}
 
-	if os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE") != "" {
-		return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE")
+	if defaultHelperImageFromEnvVar := helpers.GetDefaultHumioHelperImageFromEnvVar(); defaultHelperImageFromEnvVar != "" {
+		return defaultHelperImageFromEnvVar
 	}
 
 	return versions.DefaultHelperImageVersion()
@@ -306,6 +320,14 @@ func (hnp *HumioNodePool) GetDesiredPodRevision() int {
 		return 1
 	}
 	return hnp.desiredPodRevision
+}
+
+func (hnp *HumioNodePool) GetZoneUnderMaintenance() string {
+	return hnp.zoneUnderMaintenance
+}
+
+func (hnp *HumioNodePool) GetState() string {
+	return hnp.state
 }
 
 func (hnp *HumioNodePool) GetIngress() humiov1alpha1.HumioClusterIngressSpec {
@@ -575,7 +597,7 @@ func (hnp *HumioNodePool) GetContainerReadinessProbe() *corev1.Probe {
 			SuccessThreshold:    1,
 			FailureThreshold:    10,
 		}
-		if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+		if helpers.UseDummyImage() {
 			probe.InitialDelaySeconds = 0
 		}
 		return probe
@@ -817,13 +839,20 @@ func (hnp *HumioNodePool) GetProbeScheme() corev1.URIScheme {
 }
 
 func (hnp *HumioNodePool) GetUpdateStrategy() *humiov1alpha1.HumioUpdateStrategy {
+	defaultZoneAwareness := true
+
 	if hnp.humioNodeSpec.UpdateStrategy != nil {
+		if hnp.humioNodeSpec.UpdateStrategy.EnableZoneAwareness == nil {
+			hnp.humioNodeSpec.UpdateStrategy.EnableZoneAwareness = &defaultZoneAwareness
+		}
+
 		return hnp.humioNodeSpec.UpdateStrategy
 	}
 
 	return &humiov1alpha1.HumioUpdateStrategy{
-		Type:            humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate,
-		MinReadySeconds: 0,
+		Type:                humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate,
+		MinReadySeconds:     0,
+		EnableZoneAwareness: &defaultZoneAwareness,
 	}
 }
 
