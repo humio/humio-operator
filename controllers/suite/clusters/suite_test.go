@@ -87,18 +87,22 @@ var _ = BeforeSuite(func() {
 	useExistingCluster := true
 	testProcessNamespace = fmt.Sprintf("e2e-clusters-%d", GinkgoParallelProcess())
 	if !helpers.UseEnvtest() {
-		testTimeout = time.Second * 900
 		testEnv = &envtest.Environment{
 			UseExistingCluster: &useExistingCluster,
 		}
 		if helpers.UseDummyImage() {
+			// We use kind with dummy images instead of the real humio/humio-core container images
+			testTimeout = time.Second * 180
 			testHumioClient = humio.NewMockClient()
 		} else {
+			// We use kind with real humio/humio-core container images
+			testTimeout = time.Second * 900
 			testHumioClient = humio.NewClient(log, "")
 			By("Verifying we have a valid license, as tests will require starting up real LogScale containers")
 			Expect(helpers.GetE2ELicenseFromEnvVar()).NotTo(BeEmpty())
 		}
 	} else {
+		// We use envtest to run tests
 		testTimeout = time.Second * 30
 		testEnv = &envtest.Environment{
 			// TODO: If we want to add support for TLS-functionality, we need to install cert-manager's CRD's
@@ -324,8 +328,8 @@ func createAndBootstrapMultiNodePoolCluster(ctx context.Context, k8sClient clien
 
 func constructBasicMultiNodePoolHumioCluster(key types.NamespacedName, useAutoCreatedLicense bool, numberOfAdditionalNodePools int) *humiov1alpha1.HumioCluster {
 	toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, useAutoCreatedLicense)
-	nodeSpec := suite.ConstructBasicNodeSpecForHumioCluster(key)
 
+	nodeSpec := suite.ConstructBasicNodeSpecForHumioCluster(key)
 	for i := 1; i <= numberOfAdditionalNodePools; i++ {
 		toCreate.Spec.NodePools = append(toCreate.Spec.NodePools, humiov1alpha1.HumioNodePoolSpec{
 			Name:          fmt.Sprintf("np-%d", i),
@@ -336,19 +340,43 @@ func constructBasicMultiNodePoolHumioCluster(key types.NamespacedName, useAutoCr
 	return toCreate
 }
 
-func markPodAsPendingIfUsingEnvtest(ctx context.Context, client client.Client, nodeID int, pod corev1.Pod, clusterName string) error {
+func markPodAsPendingUnschedulableIfUsingEnvtest(ctx context.Context, client client.Client, pod corev1.Pod, clusterName string) error {
 	if !helpers.UseEnvtest() {
 		return nil
 	}
 
-	suite.UsingClusterBy(clusterName, fmt.Sprintf("Simulating Humio pod is marked Pending (node %d, pod phase %s)", nodeID, pod.Status.Phase))
-	pod.Status.PodIP = fmt.Sprintf("192.168.0.%d", nodeID)
-
+	suite.UsingClusterBy(clusterName, fmt.Sprintf("Simulating Humio pod is marked Pending Unschedulable (podName %s, pod phase %s)", pod.Name, pod.Status.Phase))
 	pod.Status.Conditions = []corev1.PodCondition{
 		{
 			Type:   corev1.PodScheduled,
 			Status: corev1.ConditionFalse,
 			Reason: controllers.PodConditionReasonUnschedulable,
+		},
+	}
+	pod.Status.Phase = corev1.PodPending
+	return client.Status().Update(ctx, &pod)
+}
+
+func markPodAsPendingImagePullBackOffIfUsingEnvtest(ctx context.Context, client client.Client, pod corev1.Pod, clusterName string) error {
+	if !helpers.UseEnvtest() {
+		return nil
+	}
+
+	suite.UsingClusterBy(clusterName, fmt.Sprintf("Simulating Humio pod is marked Pending ImagePullBackOff (podName %s, pod phase %s)", pod.Name, pod.Status.Phase))
+	pod.Status.Conditions = []corev1.PodCondition{
+		{
+			Type:   corev1.PodScheduled,
+			Status: corev1.ConditionTrue,
+		},
+	}
+	pod.Status.ContainerStatuses = []corev1.ContainerStatus{
+		{
+			Name: controllers.HumioContainerName,
+			State: corev1.ContainerState{
+				Waiting: &corev1.ContainerStateWaiting{
+					Reason: "ImagePullBackOff",
+				},
+			},
 		},
 	}
 	pod.Status.Phase = corev1.PodPending
@@ -365,7 +393,8 @@ func markPodsWithRevisionAsReadyIfUsingEnvTest(ctx context.Context, hnp *control
 	for i := range foundPodList {
 		foundPodRevisionValue := foundPodList[i].Annotations[controllers.PodRevisionAnnotation]
 		foundPodHash := foundPodList[i].Annotations[controllers.PodHashAnnotation]
-		suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("Pod=%s revision=%s podHash=%s podIP=%s", foundPodList[i].Name, foundPodRevisionValue, foundPodHash, foundPodList[i].Status.PodIP))
+		suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("Pod=%s revision=%s podHash=%s podIP=%s podPhase=%s podStatusConditions=%+v",
+			foundPodList[i].Name, foundPodRevisionValue, foundPodHash, foundPodList[i].Status.PodIP, foundPodList[i].Status.Phase, foundPodList[i].Status.Conditions))
 		foundPodRevisionValueInt, _ := strconv.Atoi(foundPodRevisionValue)
 		if foundPodRevisionValueInt == podRevision {
 			podListWithRevision = append(podListWithRevision, foundPodList[i])
@@ -455,7 +484,7 @@ func podPendingCountByRevision(ctx context.Context, hnp *controllers.HumioNodePo
 			}
 		} else {
 			if nodeID+1 <= expectedPendingCount {
-				_ = markPodAsPendingIfUsingEnvtest(ctx, k8sClient, nodeID, pod, hnp.GetClusterName())
+				_ = markPodAsPendingUnschedulableIfUsingEnvtest(ctx, k8sClient, pod, hnp.GetClusterName())
 				revisionToPendingCount[revision]++
 			}
 		}
@@ -477,15 +506,17 @@ func podPendingCountByRevision(ctx context.Context, hnp *controllers.HumioNodePo
 	return revisionToPendingCount
 }
 
-func ensurePodsRollingRestart(ctx context.Context, hnp *controllers.HumioNodePool, expectedPodRevision int) {
-	suite.UsingClusterBy(hnp.GetClusterName(), "ensurePodsRollingRestart Ensuring replacement pods are ready one at a time")
+func ensurePodsRollingRestart(ctx context.Context, hnp *controllers.HumioNodePool, expectedPodRevision int, numPodsPerIteration int) {
+	suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("ensurePodsRollingRestart Ensuring replacement pods are ready %d at a time", numPodsPerIteration))
 
-	for expectedReadyCount := 1; expectedReadyCount < hnp.GetNodeCount()+1; expectedReadyCount++ {
+	// Each iteration we mark up to some expectedReady count in bulks of numPodsPerIteration, up to at most hnp.GetNodeCount()
+	for expectedReadyCount := numPodsPerIteration; expectedReadyCount < hnp.GetNodeCount()+numPodsPerIteration; expectedReadyCount = expectedReadyCount + numPodsPerIteration {
+		cappedExpectedReadyCount := min(hnp.GetNodeCount(), expectedReadyCount)
 		Eventually(func() map[int]int {
-			suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("ensurePodsRollingRestart Ensuring replacement pods are ready one at a time expectedReadyCount=%d", expectedReadyCount))
-			markPodsWithRevisionAsReadyIfUsingEnvTest(ctx, hnp, expectedPodRevision, expectedReadyCount)
+			suite.UsingClusterBy(hnp.GetClusterName(), fmt.Sprintf("ensurePodsRollingRestart Ensuring replacement pods are ready %d at a time expectedReadyCount=%d", numPodsPerIteration, cappedExpectedReadyCount))
+			markPodsWithRevisionAsReadyIfUsingEnvTest(ctx, hnp, expectedPodRevision, cappedExpectedReadyCount)
 			return podReadyCountByRevision(ctx, hnp, expectedPodRevision)
-		}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(expectedPodRevision, expectedReadyCount))
+		}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue(expectedPodRevision, cappedExpectedReadyCount))
 	}
 }
 

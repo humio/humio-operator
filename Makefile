@@ -53,7 +53,7 @@ test: manifests generate fmt vet ginkgo ## Run tests.
 	$(SHELL) -c "\
 		eval \$$($(GOBIN)/setup-envtest use -p env ${TEST_K8S_VERSION}); \
 		export TEST_USING_ENVTEST=true; \
-		$(GINKGO) --label-filter=envtest -vv --no-color --procs 3 -output-dir=${PWD} -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m ./... -covermode=count -coverprofile cover.out \
+		$(GINKGO) --label-filter=envtest -vv --no-color --procs=3 -output-dir=${PWD} -keep-separate-reports -race --junit-report=test-results-junit.xml --randomize-suites --randomize-all -timeout 10m ./... -covermode=count -coverprofile cover.out \
 	"
 
 run-e2e-tests-local-kind: manifests generate fmt vet ## Run tests.
