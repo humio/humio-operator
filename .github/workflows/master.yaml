@@ -84,8 +84,27 @@ jobs:
           echo "RELEASE_VERSION=master" >> $GITHUB_ENV
           echo "RELEASE_COMMIT=$(git rev-parse --verify HEAD)" >> $GITHUB_ENV
           echo "RELEASE_DATE=$(date --iso-8601=seconds)" >> $GITHUB_ENV
-      - name: docker build
-        run: make docker-build-helper IMG=${{ github.repository_owner }}/humio-operator-helper:${{ env.RELEASE_VERSION }} IMG_BUILD_ARGS="--label version=${{ env.RELEASE_VERSION }} --label release=${{ github.run_id }} --build-arg RELEASE_VERSION=${{ env.RELEASE_VERSION }} --build-arg RELEASE_COMMIT=${{ env.RELEASE_COMMIT }} --build-arg RELEASE_DATE=${{ env.RELEASE_DATE }}"
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build but don't push
+        uses: docker/build-push-action@v5
+        with:
+          context: images/helper
+          # Because we use a container scanner pre-push we don't specify platform here so only the runner platform builds
+          # platforms: linux/amd64,linux/arm64
+          load: true
+          tags: ${{ github.repository_owner }}/humio-operator-helper:${{ env.RELEASE_VERSION }}
+          labels: |
+            version=${{ env.RELEASE_VERSION }}
+            release=${{ github.run_id }}
+          build-args: |
+              RELEASE_VERSION=${{ env.RELEASE_VERSION }}
+              RELEASE_COMMIT=${{ env.RELEASE_COMMIT }}
+              RELEASE_DATE=${{ env.RELEASE_DATE }}
+          cache-to: type=local,type=registry,type=gha
       - name: Set up Python
         uses: actions/setup-python@v5
       - name: Install dependencies
@@ -103,14 +122,21 @@ jobs:
           container_tag: ${{ env.RELEASE_VERSION }}
         env:
           FALCON_CLIENT_SECRET: "${{ secrets.FALCON_CLIENT_SECRET }}"
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
+      - name: Build and push
+        uses: docker/build-push-action@v5
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: docker tag
-        run: docker tag ${{ github.repository_owner }}/humio-operator-helper:${{ env.RELEASE_VERSION }} ${{ github.repository_owner }}/humio-operator-helper:${{ env.RELEASE_COMMIT }}
-      - name: docker push
-        run: |
-          make docker-push IMG=${{ github.repository_owner }}/humio-operator-helper:${{ env.RELEASE_VERSION }}
-          make docker-push IMG=${{ github.repository_owner }}/humio-operator-helper:${{ env.RELEASE_COMMIT }}
+          context: images/helper
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ github.repository_owner }}/humio-operator-helper:${{ env.RELEASE_VERSION }}
+            ${{ github.repository_owner }}/humio-operator-helper:${{ env.RELEASE_COMMIT }}
+          labels: |
+            version=${{ env.RELEASE_VERSION }}
+            release=${{ github.run_id }}
+          build-args: |
+            RELEASE_VERSION=${{ env.RELEASE_VERSION }}
+            RELEASE_COMMIT=${{ env.RELEASE_COMMIT }}
+            RELEASE_DATE=${{ env.RELEASE_DATE }}
+          cache-from: type=gha, mode=max
+          cache-to: type=gha
