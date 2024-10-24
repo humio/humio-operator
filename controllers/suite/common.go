@@ -417,43 +417,11 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	UsingClusterBy(key.Name, "Creating HumioCluster resource")
 	Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
 
-	UsingClusterBy(key.Name, "Simulating HumioBootstrapToken Controller running and adding the secret and status")
-	Eventually(func() error {
-		hbtList, err := kubernetes.ListHumioBootstrapTokens(ctx, k8sClient, key.Namespace, kubernetes.LabelsForHumioBootstrapToken(key.Name))
-		if err != nil {
-			return err
-		}
-		if len(hbtList) == 0 {
-			return fmt.Errorf("no humiobootstraptokens for cluster %s", key.Name)
-		}
-		if len(hbtList) > 1 {
-			return fmt.Errorf("too many humiobootstraptokens for cluster %s. found list : %+v", key.Name, hbtList)
-		}
-
-		updatedHumioBootstrapToken := hbtList[0]
-		updatedHumioBootstrapToken.Status.State = humiov1alpha1.HumioBootstrapTokenStateReady
-		updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
-				},
-				Key: "secret",
-			},
-		}
-		updatedHumioBootstrapToken.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
-				},
-				Key: "hashedToken",
-			},
-		}
-		return k8sClient.Status().Update(ctx, &updatedHumioBootstrapToken)
-	}, testTimeout, TestInterval).Should(Succeed())
-
 	if expectedState != humiov1alpha1.HumioClusterStateRunning {
 		return
 	}
+
+	SimulateHumioBootstrapTokenCreatingSecretAndUpdatingStatus(ctx, key, k8sClient, testTimeout)
 
 	UsingClusterBy(key.Name, "Confirming cluster enters running state")
 	var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -741,4 +709,40 @@ func CreateDockerRegredSecret(ctx context.Context, namespace corev1.Namespace, k
 		Type: corev1.SecretTypeDockerConfigJson,
 	}
 	Expect(k8sClient.Create(ctx, &regcredSecret)).To(Succeed())
+}
+
+func SimulateHumioBootstrapTokenCreatingSecretAndUpdatingStatus(ctx context.Context, key types.NamespacedName, k8sClient client.Client, testTimeout time.Duration) {
+	UsingClusterBy(key.Name, "Simulating HumioBootstrapToken Controller running and adding the secret and status")
+	Eventually(func() error {
+		hbtList, err := kubernetes.ListHumioBootstrapTokens(ctx, k8sClient, key.Namespace, kubernetes.LabelsForHumioBootstrapToken(key.Name))
+		if err != nil {
+			return err
+		}
+		if len(hbtList) == 0 {
+			return fmt.Errorf("no humiobootstraptokens for cluster %s", key.Name)
+		}
+		if len(hbtList) > 1 {
+			return fmt.Errorf("too many humiobootstraptokens for cluster %s. found list : %+v", key.Name, hbtList)
+		}
+
+		updatedHumioBootstrapToken := hbtList[0]
+		updatedHumioBootstrapToken.Status.State = humiov1alpha1.HumioBootstrapTokenStateReady
+		updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+				},
+				Key: "secret",
+			},
+		}
+		updatedHumioBootstrapToken.Status.HashedTokenSecretKeyRef = humiov1alpha1.HumioHashedTokenSecretStatus{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
+				},
+				Key: "hashedToken",
+			},
+		}
+		return k8sClient.Status().Update(ctx, &updatedHumioBootstrapToken)
+	}, testTimeout, TestInterval).Should(Succeed())
 }

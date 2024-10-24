@@ -1,17 +1,26 @@
 package controllers
 
 import (
-	"time"
-
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// podLifecycleState is used to hold information on what the next action should be based on what configuration
+// changes are detected. It holds information that is specific to a single HumioNodePool in nodePool and the pod field
+// holds information about what pod should be deleted next.
 type podLifecycleState struct {
-	nodePool                HumioNodePool
-	pod                     corev1.Pod
-	versionDifference       *podLifecycleStateVersionDifference
+	// nodePool holds the HumioNodePool that is used to access the details and resources related to the node pool
+	nodePool HumioNodePool
+	// podsToBeReplaced holds the details of existing pods that is the next targets for pod deletion due to some
+	// difference between current state vs desired state.
+	podsToBeReplaced []corev1.Pod
+	// versionDifference holds information on what version we are upgrading from/to.
+	// This will be nil when no image version difference has been detected.
+	versionDifference *podLifecycleStateVersionDifference
+	// configurationDifference holds information indicating that we have detected a configuration difference.
+	// If the configuration difference requires all pods within the node pool to be replaced at the same time,
+	// requiresSimultaneousRestart will be set in podLifecycleStateConfigurationDifference.
+	// This will be nil when no configuration difference has been detected.
 	configurationDifference *podLifecycleStateConfigurationDifference
 }
 
@@ -24,10 +33,9 @@ type podLifecycleStateConfigurationDifference struct {
 	requiresSimultaneousRestart bool
 }
 
-func NewPodLifecycleState(hnp HumioNodePool, pod corev1.Pod) *podLifecycleState {
+func NewPodLifecycleState(hnp HumioNodePool) *podLifecycleState {
 	return &podLifecycleState{
 		nodePool: hnp,
-		pod:      pod,
 	}
 }
 
@@ -38,7 +46,7 @@ func (p *podLifecycleState) ShouldRollingRestart() bool {
 	if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate {
 		return true
 	}
-	if p.WantsUpgrade() {
+	if p.FoundVersionDifference() {
 		// if we're trying to go to or from a "latest" image, we can't do any version comparison
 		if p.versionDifference.from.IsLatest() || p.versionDifference.to.IsLatest() {
 			return false
@@ -60,68 +68,25 @@ func (p *podLifecycleState) ShouldRollingRestart() bool {
 	return false
 }
 
-func (p *podLifecycleState) RemainingMinReadyWaitTime(pods []corev1.Pod) time.Duration {
-	// We will only try to wait if we are performing a rolling restart and have MinReadySeconds set above 0.
-	// Additionally, if we do a rolling restart and MinReadySeconds is unset, then we also do not want to wait.
-	if !p.ShouldRollingRestart() || p.nodePool.GetUpdateStrategy().MinReadySeconds <= 0 {
-		return -1
-	}
-	var minReadySeconds = p.nodePool.GetUpdateStrategy().MinReadySeconds
-	var conditions []corev1.PodCondition
-	for _, pod := range pods {
-		if pod.Name == p.pod.Name {
-			continue
-		}
-		for _, condition := range pod.Status.Conditions {
-			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
-				conditions = append(conditions, condition)
-			}
-		}
-	}
-
-	// We take the condition with the latest transition time among type PodReady conditions with Status true for ready pods.
-	// Then we look at the condition with the latest transition time that is not for the pod that is a deletion candidate.
-	// We then take the difference between the latest transition time and now and compare this to the MinReadySeconds setting.
-	// This also means that if you quickly perform another rolling restart after another finished,
-	// then you may initially wait for the minReadySeconds timer on the first pod.
-	var latestTransitionTime = latestTransitionTime(conditions)
-	if !latestTransitionTime.Time.IsZero() {
-		var diff = time.Since(latestTransitionTime.Time).Milliseconds()
-		var minRdy = (time.Second * time.Duration(minReadySeconds)).Milliseconds()
-		if diff <= minRdy {
-			return time.Second * time.Duration((minRdy-diff)/1000)
-		}
-	}
-	return -1
-}
-
-func (p *podLifecycleState) ShouldDeletePod() bool {
+func (p *podLifecycleState) ADifferenceWasDetectedAndManualDeletionsNotEnabled() bool {
 	if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyOnDelete {
 		return false
 	}
-	return p.WantsUpgrade() || p.WantsRestart()
+	return p.FoundVersionDifference() || p.FoundConfigurationDifference()
 }
 
-func (p *podLifecycleState) WantsUpgrade() bool {
+func (p *podLifecycleState) FoundVersionDifference() bool {
 	return p.versionDifference != nil
 }
 
-func (p *podLifecycleState) WantsRestart() bool {
+func (p *podLifecycleState) FoundConfigurationDifference() bool {
 	return p.configurationDifference != nil
 }
 
-func latestTransitionTime(conditions []corev1.PodCondition) metav1.Time {
-	if len(conditions) == 0 {
-		return metav1.NewTime(time.Time{})
+func (p *podLifecycleState) namesOfPodsToBeReplaced() []string {
+	podNames := []string{}
+	for _, pod := range p.podsToBeReplaced {
+		podNames = append(podNames, pod.Name)
 	}
-	var max = conditions[0].LastTransitionTime
-	for idx, condition := range conditions {
-		if condition.LastTransitionTime.Time.IsZero() {
-			continue
-		}
-		if idx == 0 || condition.LastTransitionTime.Time.After(max.Time) {
-			max = condition.LastTransitionTime
-		}
-	}
-	return max
+	return podNames
 }

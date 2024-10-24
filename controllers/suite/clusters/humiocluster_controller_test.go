@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -88,12 +89,12 @@ var _ = Describe("HumioCluster Controller", func() {
 			createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning)
 
 			Eventually(func() error {
-				_, err := kubernetes.GetService(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0]).GetServiceName(), key.Namespace)
+				_, err := kubernetes.GetService(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetServiceName(), key.Namespace)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			Eventually(func() error {
-				_, err := kubernetes.GetService(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetServiceName(), key.Namespace)
+				_, err := kubernetes.GetService(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioNodePool(toCreate, &toCreate.Spec.NodePools[0]).GetServiceName(), key.Namespace)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -319,7 +320,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
 			}
 
-			suite.UsingClusterBy(key.Name, "Updating the cluster resources successfully")
+			suite.UsingClusterBy(key.Name, "Updating the cluster resources successfully with broken affinity")
 			Eventually(func() error {
 				updatedHumioCluster := humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -368,14 +369,9 @@ var _ = Describe("HumioCluster Controller", func() {
 					}
 				}
 				return pendingPodsCount
-			}, testTimeout, suite.TestInterval).Should(Equal(1))
+			}, testTimeout, 250*time.Millisecond).Should(Equal(1))
 
-			Eventually(func() string {
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				return updatedHumioCluster.Status.State
-			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
-
-			suite.UsingClusterBy(key.Name, "Updating the cluster resources successfully")
+			suite.UsingClusterBy(key.Name, "Updating the cluster resources successfully with working affinity")
 			Eventually(func() error {
 				updatedHumioCluster := humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
@@ -386,7 +382,36 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 3)
+			// Keep marking revision 2 as unschedulable as operator may delete it multiple times due to being unschedulable over and over
+			Eventually(func() []corev1.Pod {
+				podsMarkedAsPending := []corev1.Pod{}
+
+				currentPods, err := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+				if err != nil {
+					// wrap error in pod object, so that we can still see the error if the Eventually() fails
+					return []corev1.Pod{
+						{
+							ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%v", err)},
+						},
+					}
+				}
+				for _, pod := range currentPods {
+					if pod.Spec.Affinity != nil &&
+						pod.Spec.Affinity.NodeAffinity != nil &&
+						pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil &&
+						len(pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms) > 0 &&
+						len(pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions) > 0 {
+
+						if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0].Key == "some-none-existent-label" {
+							markPodAsPendingUnschedulableIfUsingEnvtest(ctx, k8sClient, pod, key.Name)
+						}
+					}
+				}
+
+				return podsMarkedAsPending
+			}, testTimeout, suite.TestInterval).Should(HaveLen(0))
+
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 3, 1)
 
 			Eventually(func() string {
 				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
@@ -442,7 +467,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
 
 			suite.UsingClusterBy(key.Name, "Pods upgrade in a rolling fashion because update strategy is explicitly set to rolling update")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -611,7 +636,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
 
 			suite.UsingClusterBy(key.Name, "Pods upgrade in a rolling fashion because the new version is a patch release")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -852,18 +877,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				return updatedHumioCluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
 
-			suite.UsingClusterBy(key.Name, "Confirming only one node pool is in the correct state")
-			Eventually(func() int {
-				var poolsInCorrectState int
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				for _, poolStatus := range updatedHumioCluster.Status.NodePoolStatus {
-					if poolStatus.State == humiov1alpha1.HumioClusterStateUpgrading {
-						poolsInCorrectState++
-					}
-				}
-				return poolsInCorrectState
-			}, testTimeout, suite.TestInterval).Should(Equal(1))
+			mostSeenNodePoolsWithUpgradingState := 0
+			forever := make(chan struct{})
+			ctx2, cancel := context.WithCancel(context.Background())
+			go monitorMaxNumberNodePoolsWithSpecificNodePoolStatus(ctx2, k8sClient, key, forever, &mostSeenNodePoolsWithUpgradingState, humiov1alpha1.HumioClusterStateUpgrading)
 
 			ensurePodsSimultaneousRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
 
@@ -913,20 +930,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				return updatedHumioCluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
 
-			suite.UsingClusterBy(key.Name, "Confirming only one node pool is in the correct state")
-			Eventually(func() int {
-				var poolsInCorrectState int
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				for _, poolStatus := range updatedHumioCluster.Status.NodePoolStatus {
-					if poolStatus.State == humiov1alpha1.HumioClusterStateUpgrading {
-						suite.UsingClusterBy(key.Name, fmt.Sprintf("nodePoolName=%s was found to be in Upgrading state", poolStatus.Name))
-						poolsInCorrectState++
-					}
-				}
-				return poolsInCorrectState
-			}, testTimeout, suite.TestInterval).Should(Equal(1))
-
 			ensurePodsSimultaneousRestart(ctx, controllers.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[0]), 2)
 
 			Eventually(func() string {
@@ -957,6 +960,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
 				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
 			}
+
+			cancel()
+			<-forever
+			Expect(mostSeenNodePoolsWithUpgradingState).To(BeNumerically("==", 1))
 
 			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
@@ -1095,7 +1102,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(1))
 
-			suite.UsingClusterBy(key.Name, "Updating the cluster image unsuccessfully")
+			suite.UsingClusterBy(key.Name, "Updating the cluster image unsuccessfully with broken image")
 			updatedImage := fmt.Sprintf("%s-missing-image", versions.DefaultHumioImageVersion())
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -1120,7 +1127,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				suite.UsingClusterBy(key.Name, fmt.Sprintf("Found of %d pods", len(clusterPods)))
 				for _, pod := range clusterPods {
 					humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
-					suite.UsingClusterBy(key.Name, fmt.Sprintf("Pod %s uses image %s and is using revision %s", pod.Spec.NodeName, pod.Spec.Containers[humioIndex].Image, pod.Annotations[controllers.PodRevisionAnnotation]))
+					suite.UsingClusterBy(key.Name, fmt.Sprintf("Pod %s uses image %s and is using revision %s", pod.Name, pod.Spec.Containers[humioIndex].Image, pod.Annotations[controllers.PodRevisionAnnotation]))
 					if pod.Spec.Containers[humioIndex].Image == updatedImage && pod.Annotations[controllers.PodRevisionAnnotation] == "2" {
 						badPodCount++
 					}
@@ -1130,16 +1137,18 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Simulating mock pods to be scheduled")
 			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-			_ = suite.MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
+			for _, pod := range clusterPods {
+				_ = markPodAsPendingImagePullBackOffIfUsingEnvtest(ctx, k8sClient, pod, key.Name)
+			}
 
-			suite.UsingClusterBy(key.Name, "Waiting for humio cluster state to be Running")
+			suite.UsingClusterBy(key.Name, "Waiting for humio cluster state to be Upgrading")
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
 				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
-			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
 
-			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
+			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully with working image")
 			updatedImage = versions.DefaultHumioImageVersion()
 			Eventually(func() error {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -1229,7 +1238,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
 
 			suite.UsingClusterBy(key.Name, "Validating pod is recreated using the explicitly defined helper image as init container")
 			Eventually(func() string {
@@ -1273,13 +1282,13 @@ var _ = Describe("HumioCluster Controller", func() {
 				_ = suite.MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
 
 				if len(clusterPods) > 0 {
-					return clusterPods[0].Annotations["humio.com/bootstrap-token-hash"]
+					return clusterPods[0].Annotations[controllers.BootstrapTokenHashAnnotation]
 				}
 				return ""
 			}, testTimeout, suite.TestInterval).Should(Not(Equal("")))
 
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-			bootstrapTokenHashValue := clusterPods[0].Annotations["humio.com/bootstrap-token-hash"]
+			bootstrapTokenHashValue := clusterPods[0].Annotations[controllers.BootstrapTokenHashAnnotation]
 
 			suite.UsingClusterBy(key.Name, "Rotating bootstrap token")
 			var bootstrapTokenSecret corev1.Secret
@@ -1300,7 +1309,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
 
 			suite.UsingClusterBy(key.Name, "Validating pod is recreated with the new bootstrap token hash annotation")
 			Eventually(func() string {
@@ -1308,7 +1317,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				_ = suite.MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
 
 				if len(clusterPods) > 0 {
-					return clusterPods[0].Annotations["humio.com/bootstrap-token-hash"]
+					return clusterPods[0].Annotations[controllers.BootstrapTokenHashAnnotation]
 				}
 				return ""
 			}, testTimeout, suite.TestInterval).Should(Not(Equal(bootstrapTokenHashValue)))
@@ -1425,7 +1434,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -1633,21 +1642,13 @@ var _ = Describe("HumioCluster Controller", func() {
 				return updatedHumioCluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
 
-			suite.UsingClusterBy(key.Name, "Confirming only one node pool is in the correct state")
-			Eventually(func() int {
-				var poolsInCorrectState int
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				for _, poolStatus := range updatedHumioCluster.Status.NodePoolStatus {
-					if poolStatus.State == humiov1alpha1.HumioClusterStateRestarting {
-						poolsInCorrectState++
-					}
-				}
-				return poolsInCorrectState
-			}, testTimeout, suite.TestInterval).Should(Equal(1))
+			mostSeenNodePoolsWithRestartingState := 0
+			forever := make(chan struct{})
+			ctx2, cancel := context.WithCancel(context.Background())
+			go monitorMaxNumberNodePoolsWithSpecificNodePoolStatus(ctx2, k8sClient, key, forever, &mostSeenNodePoolsWithRestartingState, humiov1alpha1.HumioClusterStateRestarting)
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, mainNodePoolManager, 2)
+			ensurePodsRollingRestart(ctx, mainNodePoolManager, 2, 1)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -1734,21 +1735,8 @@ var _ = Describe("HumioCluster Controller", func() {
 				return updatedHumioCluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
 
-			suite.UsingClusterBy(key.Name, "Confirming only one node pool is in the correct state")
-			Eventually(func() int {
-				var poolsInCorrectState int
-				updatedHumioCluster = humiov1alpha1.HumioCluster{}
-				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-				for _, poolStatus := range updatedHumioCluster.Status.NodePoolStatus {
-					if poolStatus.State == humiov1alpha1.HumioClusterStateRestarting {
-						poolsInCorrectState++
-					}
-				}
-				return poolsInCorrectState
-			}, testTimeout, suite.TestInterval).Should(Equal(1))
-
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, additionalNodePoolManager, 2)
+			ensurePodsRollingRestart(ctx, additionalNodePoolManager, 2, 1)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -1772,6 +1760,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
+
+			cancel()
+			<-forever
+			Expect(mostSeenNodePoolsWithRestartingState).To(BeNumerically("==", 1))
 
 			suite.UsingClusterBy(key.Name, "Confirming pod revision did not change for the other main pool")
 
@@ -2429,6 +2421,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				updatedHumioCluster.Spec.PodSecurityContext = &corev1.PodSecurityContext{}
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
+
 			Eventually(func() bool {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 				for _, pod := range clusterPods {
@@ -2456,7 +2451,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 3, 1)
 
 			Eventually(func() corev1.PodSecurityContext {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
@@ -2478,7 +2473,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-containersecuritycontext",
 				Namespace: testProcessNamespace,
-			}
+			} // State: <empty> -> Running -> ConfigError -> Running -> Restarting -> Running -> Restarting -> Running
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
 				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
@@ -2504,6 +2499,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				updatedHumioCluster.Spec.ContainerSecurityContext = &corev1.SecurityContext{}
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
+
 			Eventually(func() bool {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
 				for _, pod := range clusterPods {
@@ -2539,7 +2537,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 3, 1)
 
 			Eventually(func() corev1.SecurityContext {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
@@ -2608,7 +2606,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Confirming pods have the updated revision")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
 
 			suite.UsingClusterBy(key.Name, "Confirming pods do not have a readiness probe set")
 			Eventually(func() *corev1.Probe {
@@ -2704,7 +2702,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
 
 			Eventually(func() *corev1.Probe {
 				clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
@@ -3304,7 +3302,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRestarting))
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -3470,7 +3468,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
 
 			suite.UsingClusterBy(key.Name, "Confirming cluster returns to Running state")
 			Eventually(func() string {
@@ -3543,7 +3541,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
 
 			suite.UsingClusterBy(key.Name, "Confirming cluster returns to Running state")
 			Eventually(func() string {
@@ -3895,6 +3893,8 @@ var _ = Describe("HumioCluster Controller", func() {
 				updatedHumioCluster.Spec.Hostname = hostname
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.SimulateHumioBootstrapTokenCreatingSecretAndUpdatingStatus(ctx, key, k8sClient, testTimeout)
 
 			suite.UsingClusterBy(key.Name, "Confirming we only created ingresses with expected hostname")
 			foundIngressList = []networkingv1.Ingress{}
@@ -4293,9 +4293,9 @@ var _ = Describe("HumioCluster Controller", func() {
 			toCreate.Spec.Tolerations = []corev1.Toleration{
 				{
 					Key:      "key",
-					Operator: "Equal",
+					Operator: corev1.TolerationOpEqual,
 					Value:    "value",
-					Effect:   "NoSchedule",
+					Effect:   corev1.TaintEffectNoSchedule,
 				},
 			}
 
@@ -4804,7 +4804,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
 
 			suite.UsingClusterBy(key.Name, "Confirming pods contain the new env vars")
 			Eventually(func() int {
@@ -4908,7 +4908,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
 
 			suite.UsingClusterBy(key.Name, "Confirming pods contain the new env vars")
 			Eventually(func() int {
@@ -4987,18 +4987,21 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("test rolling update with max unavailable absolute value", Label("envtest", "dummy"), func() {
-		It("Update should correctly replace pods to use new image in a rolling fashion", func() {
+	Context("test rolling update with zone awareness enabled", Serial, Label("dummy"), func() {
+		It("Update should correctly replace pods maxUnavailable=1", func() {
 			key := types.NamespacedName{
-				Name:      "hc-update-absolute-maxunavail",
+				Name:      "hc-update-absolute-maxunavail-zone-1",
 				Namespace: testProcessNamespace,
 			}
 			maxUnavailable := intstr.FromInt32(1)
+			zoneAwarenessEnabled := true
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
 			toCreate.Spec.NodeCount = 9
 			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
-				Type: humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+				Type:                humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+				EnableZoneAwareness: &zoneAwarenessEnabled,
+				MaxUnavailable:      &maxUnavailable,
 			}
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
@@ -5017,55 +5020,11 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(1))
 
-			mostSeenUnavailable := 0
+			mostNumPodsSeenUnavailable := 0
+			mostNumZonesWithPodsSeenUnavailable := 0
 			forever := make(chan struct{})
 			ctx2, cancel := context.WithCancel(context.Background())
-
-			// TODO: Consider refactoring goroutine to a "watcher". https://book-v1.book.kubebuilder.io/beyond_basics/controller_watches
-			//       Using a for-loop executing ListPods will only see snapshots in time and we could easily miss
-			//       a point in time where we have too many pods that are not ready.
-			go func(ctx2 context.Context, k8sClient client.Client, toCreate humiov1alpha1.HumioCluster) {
-				hnp := controllers.NewHumioNodeManagerFromHumioCluster(&toCreate)
-				for {
-					select {
-					case <-ctx2.Done(): // if cancel() execute
-						forever <- struct{}{}
-						return
-					default:
-						// Assume all is unavailable, and decrement number each time we see one that is working
-						unavailableThisRound := hnp.GetNodeCount()
-
-						pods, _ := kubernetes.ListPods(ctx2, k8sClient, hnp.GetNamespace(), hnp.GetPodLabels())
-						suite.UsingClusterBy(key.Name, fmt.Sprintf("goroutine looking for unavailable pods: len(pods)=%d", len(pods)))
-						for _, pod := range pods {
-							suite.UsingClusterBy(key.Name, fmt.Sprintf("goroutine looking for unavailable pods: pod.Status.Phase=%s", pod.Status.Phase))
-
-							if pod.Status.Phase == corev1.PodFailed {
-								suite.UsingClusterBy(key.Name, fmt.Sprintf("goroutine looking for unavailable pods, full pod dump of failing pod: %+v", pod))
-								var eventList corev1.EventList
-								_ = k8sClient.List(ctx2, &eventList)
-								for _, event := range eventList.Items {
-									if event.InvolvedObject.UID == pod.UID {
-										suite.UsingClusterBy(key.Name, fmt.Sprintf("Found event for failing pod: involvedObject=%+v, reason=%s, message=%s, source=%+v", event.InvolvedObject, event.Reason, event.Message, event.Source))
-									}
-								}
-							}
-
-							if pod.Status.Phase == corev1.PodRunning {
-								for idx, containerStatus := range pod.Status.ContainerStatuses {
-									suite.UsingClusterBy(key.Name, fmt.Sprintf("goroutine looking for unavailable pods: pod.Status.ContainerStatuses[%d]=%+v", idx, containerStatus))
-									if containerStatus.Ready {
-										unavailableThisRound--
-									}
-								}
-							}
-						}
-						// Save the number of unavailable pods in this round
-						mostSeenUnavailable = max(mostSeenUnavailable, unavailableThisRound)
-					}
-					time.Sleep(1 * time.Second)
-				}
-			}(ctx2, k8sClient, *toCreate)
+			go monitorMaxUnavailableWithZoneAwareness(ctx2, k8sClient, *toCreate, forever, &mostNumPodsSeenUnavailable, &mostNumZonesWithPodsSeenUnavailable)
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
 			updatedImage := versions.DefaultHumioImageVersion()
@@ -5084,8 +5043,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 				return updatedHumioCluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
-
-			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
 
 			Eventually(func() string {
 				updatedHumioCluster = humiov1alpha1.HumioCluster{}
@@ -5114,8 +5071,1067 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
 
-			suite.UsingClusterBy(key.Name, fmt.Sprintf("Verifying we do not have too many unavailable pods during pod replacements, mostSeenUnavailable(%d) <= maxUnavailable(%d)", mostSeenUnavailable, maxUnavailable.IntValue()))
-			Expect(mostSeenUnavailable).To(BeNumerically("<=", maxUnavailable.IntValue()))
+			Expect(mostNumPodsSeenUnavailable).To(BeNumerically("==", maxUnavailable.IntValue()))
+			Expect(mostNumZonesWithPodsSeenUnavailable).To(BeNumerically("==", 1))
+		})
+
+		It("Update should correctly replace pods maxUnavailable=2", func() {
+			key := types.NamespacedName{
+				Name:      "hc-update-absolute-maxunavail-zone-2",
+				Namespace: testProcessNamespace,
+			}
+			maxUnavailable := intstr.FromInt32(2)
+			zoneAwarenessEnabled := true
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
+			toCreate.Spec.NodeCount = 9
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type:                humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+				EnableZoneAwareness: &zoneAwarenessEnabled,
+				MaxUnavailable:      &maxUnavailable,
+			}
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(1))
+
+			mostNumPodsSeenUnavailable := 0
+			mostNumZonesWithPodsSeenUnavailable := 0
+			forever := make(chan struct{})
+			ctx2, cancel := context.WithCancel(context.Background())
+			go monitorMaxUnavailableWithZoneAwareness(ctx2, k8sClient, *toCreate, forever, &mostNumPodsSeenUnavailable, &mostNumZonesWithPodsSeenUnavailable)
+
+			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage := versions.DefaultHumioImageVersion()
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			suite.UsingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(2))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
+			}
+
+			cancel()
+			<-forever
+
+			if helpers.TLSEnabled(&updatedHumioCluster) {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			Expect(mostNumPodsSeenUnavailable).To(BeNumerically("==", maxUnavailable.IntValue()))
+			Expect(mostNumZonesWithPodsSeenUnavailable).To(BeNumerically("==", 1))
+		})
+
+		It("Update should correctly replace pods maxUnavailable=4", func() {
+			key := types.NamespacedName{
+				Name:      "hc-update-absolute-maxunavail-zone-4",
+				Namespace: testProcessNamespace,
+			}
+			maxUnavailable := intstr.FromInt32(4)
+			zoneAwarenessEnabled := true
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
+			toCreate.Spec.NodeCount = 9
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type:                humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+				EnableZoneAwareness: &zoneAwarenessEnabled,
+				MaxUnavailable:      &maxUnavailable,
+			}
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(1))
+
+			mostNumPodsSeenUnavailable := 0
+			mostNumZonesWithPodsSeenUnavailable := 0
+			forever := make(chan struct{})
+			ctx2, cancel := context.WithCancel(context.Background())
+			go monitorMaxUnavailableWithZoneAwareness(ctx2, k8sClient, *toCreate, forever, &mostNumPodsSeenUnavailable, &mostNumZonesWithPodsSeenUnavailable)
+
+			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage := versions.DefaultHumioImageVersion()
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			suite.UsingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(2))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
+			}
+
+			cancel()
+			<-forever
+
+			if helpers.TLSEnabled(&updatedHumioCluster) {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			Expect(mostNumPodsSeenUnavailable).To(BeNumerically("==", 3)) // nodeCount 9 and 3 zones should only replace at most 3 pods at a time as we expect the 9 pods to be uniformly distributed across the 3 zones
+			Expect(mostNumZonesWithPodsSeenUnavailable).To(BeNumerically("==", 1))
+		})
+
+		It("Update should correctly replace pods maxUnavailable=25%", func() {
+			key := types.NamespacedName{
+				Name:      "hc-update-pct-maxunavail-zone-25",
+				Namespace: testProcessNamespace,
+			}
+			maxUnavailable := intstr.FromString("25%")
+			zoneAwarenessEnabled := true
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
+			toCreate.Spec.NodeCount = 9
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type:                humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+				EnableZoneAwareness: &zoneAwarenessEnabled,
+				MaxUnavailable:      &maxUnavailable,
+			}
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(1))
+
+			mostNumPodsSeenUnavailable := 0
+			mostNumZonesWithPodsSeenUnavailable := 0
+			forever := make(chan struct{})
+			ctx2, cancel := context.WithCancel(context.Background())
+			go monitorMaxUnavailableWithZoneAwareness(ctx2, k8sClient, *toCreate, forever, &mostNumPodsSeenUnavailable, &mostNumZonesWithPodsSeenUnavailable)
+
+			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage := versions.DefaultHumioImageVersion()
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			suite.UsingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(2))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
+			}
+
+			cancel()
+			<-forever
+
+			if helpers.TLSEnabled(&updatedHumioCluster) {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			Expect(mostNumPodsSeenUnavailable).To(BeNumerically("==", 2)) // nodeCount 9 * 25 % = 2.25 pods, rounded down is 2. Assuming 9 pods is uniformly distributed across 3 zones with 3 pods per zone.
+			Expect(mostNumZonesWithPodsSeenUnavailable).To(BeNumerically("==", 1))
+		})
+
+		It("Update should correctly replace pods maxUnavailable=50%", func() {
+			key := types.NamespacedName{
+				Name:      "hc-update-pct-maxunavail-zone-50",
+				Namespace: testProcessNamespace,
+			}
+			maxUnavailable := intstr.FromString("50%")
+			zoneAwarenessEnabled := true
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
+			toCreate.Spec.NodeCount = 9
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type:                humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+				EnableZoneAwareness: &zoneAwarenessEnabled,
+				MaxUnavailable:      &maxUnavailable,
+			}
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(1))
+
+			mostNumPodsSeenUnavailable := 0
+			mostNumZonesWithPodsSeenUnavailable := 0
+			forever := make(chan struct{})
+			ctx2, cancel := context.WithCancel(context.Background())
+			go monitorMaxUnavailableWithZoneAwareness(ctx2, k8sClient, *toCreate, forever, &mostNumPodsSeenUnavailable, &mostNumZonesWithPodsSeenUnavailable)
+
+			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage := versions.DefaultHumioImageVersion()
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			suite.UsingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(2))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
+			}
+
+			cancel()
+			<-forever
+
+			if helpers.TLSEnabled(&updatedHumioCluster) {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			Expect(mostNumPodsSeenUnavailable).To(BeNumerically("==", 3)) // nodeCount 9 * 50 % = 4.50 pods, rounded down is 4. Assuming 9 pods is uniformly distributed across 3 zones, that gives 3 pods per zone.
+			Expect(mostNumZonesWithPodsSeenUnavailable).To(BeNumerically("==", 1))
+		})
+
+		It("Update should correctly replace pods maxUnavailable=100%", func() {
+			key := types.NamespacedName{
+				Name:      "hc-update-pct-maxunavail-zone-100",
+				Namespace: testProcessNamespace,
+			}
+			maxUnavailable := intstr.FromString("100%")
+			zoneAwarenessEnabled := true
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
+			toCreate.Spec.NodeCount = 9
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type:                humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+				EnableZoneAwareness: &zoneAwarenessEnabled,
+				MaxUnavailable:      &maxUnavailable,
+			}
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(1))
+
+			mostNumPodsSeenUnavailable := 0
+			mostNumZonesWithPodsSeenUnavailable := 0
+			forever := make(chan struct{})
+			ctx2, cancel := context.WithCancel(context.Background())
+			go monitorMaxUnavailableWithZoneAwareness(ctx2, k8sClient, *toCreate, forever, &mostNumPodsSeenUnavailable, &mostNumZonesWithPodsSeenUnavailable)
+
+			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage := versions.DefaultHumioImageVersion()
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			suite.UsingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(2))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
+			}
+
+			cancel()
+			<-forever
+
+			if helpers.TLSEnabled(&updatedHumioCluster) {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			Expect(mostNumPodsSeenUnavailable).To(BeNumerically("==", 3)) // Assuming 9 pods is uniformly distributed across 3 zones, that gives 3 pods per zone.
+			Expect(mostNumZonesWithPodsSeenUnavailable).To(BeNumerically("==", 1))
+		})
+	})
+
+	Context("test rolling update with zone awareness disabled", Serial, Label("envtest", "dummy"), func() {
+		It("Update should correctly replace pods maxUnavailable=1", func() {
+			key := types.NamespacedName{
+				Name:      "hc-update-absolute-maxunavail-nozone-1",
+				Namespace: testProcessNamespace,
+			}
+			maxUnavailable := intstr.FromInt32(1)
+			zoneAwarenessDisabled := false
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
+			toCreate.Spec.NodeCount = 9
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type:                humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+				EnableZoneAwareness: &zoneAwarenessDisabled,
+				MaxUnavailable:      &maxUnavailable,
+			}
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(1))
+
+			mostSeenUnavailable := 0
+			forever := make(chan struct{})
+			ctx2, cancel := context.WithCancel(context.Background())
+			go monitorMaxUnavailableWithoutZoneAwareness(ctx2, k8sClient, *toCreate, forever, &mostSeenUnavailable)
+
+			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage := versions.DefaultHumioImageVersion()
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			suite.UsingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(2))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
+			}
+
+			cancel()
+			<-forever
+
+			if helpers.TLSEnabled(&updatedHumioCluster) {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			Expect(mostSeenUnavailable).To(BeNumerically("==", maxUnavailable.IntValue()))
+		})
+
+		It("Update should correctly replace pods maxUnavailable=2", func() {
+			key := types.NamespacedName{
+				Name:      "hc-update-absolute-maxunavail-nozone-2",
+				Namespace: testProcessNamespace,
+			}
+			maxUnavailable := intstr.FromInt32(2)
+			zoneAwarenessDisabled := false
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
+			toCreate.Spec.NodeCount = 9
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type:                humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+				EnableZoneAwareness: &zoneAwarenessDisabled,
+				MaxUnavailable:      &maxUnavailable,
+			}
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(1))
+
+			mostSeenUnavailable := 0
+			forever := make(chan struct{})
+			ctx2, cancel := context.WithCancel(context.Background())
+			go monitorMaxUnavailableWithoutZoneAwareness(ctx2, k8sClient, *toCreate, forever, &mostSeenUnavailable)
+
+			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage := versions.DefaultHumioImageVersion()
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, maxUnavailable.IntValue())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			suite.UsingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(2))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
+			}
+
+			cancel()
+			<-forever
+
+			if helpers.TLSEnabled(&updatedHumioCluster) {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			Expect(mostSeenUnavailable).To(BeNumerically("==", maxUnavailable.IntValue()))
+		})
+
+		It("Update should correctly replace pods maxUnavailable=4", func() {
+			key := types.NamespacedName{
+				Name:      "hc-update-absolute-maxunavail-nozone-4",
+				Namespace: testProcessNamespace,
+			}
+			maxUnavailable := intstr.FromInt32(4)
+			zoneAwarenessDisabled := false
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
+			toCreate.Spec.NodeCount = 9
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type:                humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+				EnableZoneAwareness: &zoneAwarenessDisabled,
+				MaxUnavailable:      &maxUnavailable,
+			}
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(1))
+
+			mostSeenUnavailable := 0
+			forever := make(chan struct{})
+			ctx2, cancel := context.WithCancel(context.Background())
+			go monitorMaxUnavailableWithoutZoneAwareness(ctx2, k8sClient, *toCreate, forever, &mostSeenUnavailable)
+
+			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage := versions.DefaultHumioImageVersion()
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, maxUnavailable.IntValue())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			suite.UsingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(2))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
+			}
+
+			cancel()
+			<-forever
+
+			if helpers.TLSEnabled(&updatedHumioCluster) {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			Expect(mostSeenUnavailable).To(BeNumerically("==", maxUnavailable.IntValue()))
+		})
+
+		It("Update should correctly replace pods maxUnavailable=25%", func() {
+			key := types.NamespacedName{
+				Name:      "hc-update-pct-maxunavail-nozone-25",
+				Namespace: testProcessNamespace,
+			}
+			maxUnavailable := intstr.FromString("25%")
+			zoneAwarenessDisabled := false
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
+			toCreate.Spec.NodeCount = 9
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type:                humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+				EnableZoneAwareness: &zoneAwarenessDisabled,
+				MaxUnavailable:      &maxUnavailable,
+			}
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(1))
+
+			mostSeenUnavailable := 0
+			forever := make(chan struct{})
+			ctx2, cancel := context.WithCancel(context.Background())
+			go monitorMaxUnavailableWithoutZoneAwareness(ctx2, k8sClient, *toCreate, forever, &mostSeenUnavailable)
+
+			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage := versions.DefaultHumioImageVersion()
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 2) // nodeCount 9 * 25 % = 2.25 pods, rounded down is 2
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			suite.UsingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(2))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
+			}
+
+			cancel()
+			<-forever
+
+			if helpers.TLSEnabled(&updatedHumioCluster) {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			Expect(mostSeenUnavailable).To(BeNumerically("==", 2)) // nodeCount 9 * 25 % = 2.25 pods, rounded down is 2
+		})
+
+		It("Update should correctly replace pods maxUnavailable=50%", func() {
+			key := types.NamespacedName{
+				Name:      "hc-update-pct-maxunavail-nozone-50",
+				Namespace: testProcessNamespace,
+			}
+			maxUnavailable := intstr.FromString("50%")
+			zoneAwarenessDisabled := false
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
+			toCreate.Spec.NodeCount = 9
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type:                humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+				EnableZoneAwareness: &zoneAwarenessDisabled,
+				MaxUnavailable:      &maxUnavailable,
+			}
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(1))
+
+			mostSeenUnavailable := 0
+			forever := make(chan struct{})
+			ctx2, cancel := context.WithCancel(context.Background())
+			go monitorMaxUnavailableWithoutZoneAwareness(ctx2, k8sClient, *toCreate, forever, &mostSeenUnavailable)
+
+			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage := versions.DefaultHumioImageVersion()
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 4) // nodeCount 9 * 50 % = 4.50 pods, rounded down is 4
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			suite.UsingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(2))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
+			}
+
+			cancel()
+			<-forever
+
+			if helpers.TLSEnabled(&updatedHumioCluster) {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			Expect(mostSeenUnavailable).To(BeNumerically("==", 4)) // nodeCount 9 * 50 % = 4.50 pods, rounded down is 4
+		})
+
+		It("Update should correctly replace pods maxUnavailable=100%", func() {
+			key := types.NamespacedName{
+				Name:      "hc-update-pct-maxunavail-nozone-100",
+				Namespace: testProcessNamespace,
+			}
+			maxUnavailable := intstr.FromString("100%")
+			zoneAwarenessDisabled := false
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = versions.OldSupportedHumioVersion()
+			toCreate.Spec.NodeCount = 9
+			toCreate.Spec.UpdateStrategy = &humiov1alpha1.HumioUpdateStrategy{
+				Type:                humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate,
+				EnableZoneAwareness: &zoneAwarenessDisabled,
+				MaxUnavailable:      &maxUnavailable,
+			}
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(toCreate.Spec.Image))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "1"))
+			}
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(1))
+
+			mostSeenUnavailable := 0
+			forever := make(chan struct{})
+			ctx2, cancel := context.WithCancel(context.Background())
+			go monitorMaxUnavailableWithoutZoneAwareness(ctx2, k8sClient, *toCreate, forever, &mostSeenUnavailable)
+
+			suite.UsingClusterBy(key.Name, "Updating the cluster image successfully")
+			updatedImage := versions.DefaultHumioImageVersion()
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.Image = updatedImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateUpgrading))
+
+			ensurePodsRollingRestart(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, toCreate.Spec.NodeCount)
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			suite.UsingClusterBy(key.Name, "Confirming pod revision is the same for all pods and the cluster itself")
+			updatedHumioCluster = humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+			Expect(controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()).To(BeEquivalentTo(2))
+
+			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+			Expect(updatedClusterPods).To(HaveLen(toCreate.Spec.NodeCount))
+			for _, pod := range updatedClusterPods {
+				humioIndex, _ := kubernetes.GetContainerIndexByName(pod, controllers.HumioContainerName)
+				Expect(pod.Spec.Containers[humioIndex].Image).To(BeIdenticalTo(updatedImage))
+				Expect(pod.Annotations).To(HaveKeyWithValue(controllers.PodRevisionAnnotation, "2"))
+			}
+
+			cancel()
+			<-forever
+
+			if helpers.TLSEnabled(&updatedHumioCluster) {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			Expect(mostSeenUnavailable).To(BeNumerically("==", toCreate.Spec.NodeCount))
 		})
 	})
 })
+
+// TODO: Consider refactoring goroutine to a "watcher". https://book-v1.book.kubebuilder.io/beyond_basics/controller_watches
+//
+//	Using a for-loop executing ListPods will only see snapshots in time and we could easily miss
+//	a point in time where we have too many pods that are not ready.
+func monitorMaxUnavailableWithZoneAwareness(ctx context.Context, k8sClient client.Client, toCreate humiov1alpha1.HumioCluster, forever chan struct{}, mostNumPodsSeenUnavailable *int, mostNumZonesWithPodsSeenUnavailable *int) {
+	hnp := controllers.NewHumioNodeManagerFromHumioCluster(&toCreate)
+	for {
+		select {
+		case <-ctx.Done(): // if cancel() execute
+			forever <- struct{}{}
+			return
+		default:
+			// Assume all is unavailable, and decrement number each time we see one that is working
+			unavailableThisRound := hnp.GetNodeCount()
+			zonesWithPodsSeenUnavailable := []string{}
+
+			pods, _ := kubernetes.ListPods(ctx, k8sClient, hnp.GetNamespace(), hnp.GetPodLabels())
+			for _, pod := range pods {
+				if pod.Status.Phase == corev1.PodRunning {
+					for _, containerStatus := range pod.Status.ContainerStatuses {
+						if containerStatus.Ready {
+							unavailableThisRound--
+						} else {
+							if pod.Spec.NodeName != "" {
+								zone, _ := kubernetes.GetZoneForNodeName(ctx, k8sClient, pod.Spec.NodeName)
+								if !slices.Contains(zonesWithPodsSeenUnavailable, zone) {
+									zonesWithPodsSeenUnavailable = append(zonesWithPodsSeenUnavailable, zone)
+								}
+							}
+						}
+					}
+				}
+			}
+			// Save the number of unavailable pods in this round
+			*mostNumPodsSeenUnavailable = max(*mostNumPodsSeenUnavailable, unavailableThisRound)
+			*mostNumZonesWithPodsSeenUnavailable = max(*mostNumZonesWithPodsSeenUnavailable, len(zonesWithPodsSeenUnavailable))
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
+// TODO: Consider refactoring goroutine to a "watcher". https://book-v1.book.kubebuilder.io/beyond_basics/controller_watches
+//
+//	Using a for-loop executing ListPods will only see snapshots in time and we could easily miss
+//	a point in time where we have too many pods that are not ready.
+func monitorMaxUnavailableWithoutZoneAwareness(ctx context.Context, k8sClient client.Client, toCreate humiov1alpha1.HumioCluster, forever chan struct{}, mostNumPodsSeenUnavailable *int) {
+	hnp := controllers.NewHumioNodeManagerFromHumioCluster(&toCreate)
+	for {
+		select {
+		case <-ctx.Done(): // if cancel() execute
+			forever <- struct{}{}
+			return
+		default:
+			// Assume all is unavailable, and decrement number each time we see one that is working
+			unavailableThisRound := hnp.GetNodeCount()
+
+			pods, _ := kubernetes.ListPods(ctx, k8sClient, hnp.GetNamespace(), hnp.GetPodLabels())
+			for _, pod := range pods {
+				if pod.Status.Phase == corev1.PodRunning {
+					for _, containerStatus := range pod.Status.ContainerStatuses {
+						if containerStatus.Ready {
+							unavailableThisRound--
+						}
+					}
+				}
+			}
+			// Save the number of unavailable pods in this round
+			*mostNumPodsSeenUnavailable = max(*mostNumPodsSeenUnavailable, unavailableThisRound)
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
+// TODO: Consider refactoring goroutine to a "watcher". https://book-v1.book.kubebuilder.io/beyond_basics/controller_watches
+//
+//	Using a for-loop will only see snapshots in time and we could easily miss a point in time where multiple node pools have the node pool state we are filtering for
+func monitorMaxNumberNodePoolsWithSpecificNodePoolStatus(ctx context.Context, k8sClient client.Client, key types.NamespacedName, forever chan struct{}, mostNumNodePoolsWithSpecificNodePoolStatus *int, nodePoolState string) {
+	updatedHumioCluster := humiov1alpha1.HumioCluster{}
+
+	for {
+		select {
+		case <-ctx.Done(): // if cancel() execute
+			forever <- struct{}{}
+			return
+		default:
+			numNodePoolsWithSpecificState := 0
+
+			_ = k8sClient.Get(ctx, key, &updatedHumioCluster)
+			for _, poolStatus := range updatedHumioCluster.Status.NodePoolStatus {
+				if poolStatus.State == nodePoolState {
+					numNodePoolsWithSpecificState++
+				}
+			}
+			// Save the number of node pools with the node pool state this round
+			*mostNumNodePoolsWithSpecificNodePoolStatus = max(*mostNumNodePoolsWithSpecificNodePoolStatus, numNodePoolsWithSpecificState)
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}

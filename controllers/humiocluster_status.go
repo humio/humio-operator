@@ -48,10 +48,12 @@ type messageOption struct {
 }
 
 type stateOption struct {
-	state                string
-	nodePoolName         string
-	desiredPodRevision   int
-	zoneUnderMaintenance string
+	state                     string
+	nodePoolName              string
+	zoneUnderMaintenance      string
+	desiredPodRevision        int
+	desiredPodHash            string
+	desiredBootstrapTokenHash string
 }
 
 type stateOptionList struct {
@@ -102,12 +104,14 @@ func (o *optionBuilder) withState(state string) *optionBuilder {
 	return o
 }
 
-func (o *optionBuilder) withNodePoolState(state string, nodePoolName string, podRevision int, zoneName string) *optionBuilder {
+func (o *optionBuilder) withNodePoolState(state string, nodePoolName string, podRevision int, podHash string, bootstrapTokenHash string, zoneName string) *optionBuilder {
 	o.options = append(o.options, stateOption{
-		state:                state,
-		nodePoolName:         nodePoolName,
-		desiredPodRevision:   podRevision,
-		zoneUnderMaintenance: zoneName,
+		state:                     state,
+		nodePoolName:              nodePoolName,
+		zoneUnderMaintenance:      zoneName,
+		desiredPodRevision:        podRevision,
+		desiredPodHash:            podHash,
+		desiredBootstrapTokenHash: bootstrapTokenHash,
 	})
 	return o
 }
@@ -116,10 +120,12 @@ func (o *optionBuilder) withNodePoolStatusList(humioNodePoolStatusList humiov1al
 	var statesList []stateOption
 	for _, poolStatus := range humioNodePoolStatusList {
 		statesList = append(statesList, stateOption{
-			nodePoolName:         poolStatus.Name,
-			state:                poolStatus.State,
-			desiredPodRevision:   poolStatus.DesiredPodRevision,
-			zoneUnderMaintenance: poolStatus.ZoneUnderMaintenance,
+			nodePoolName:              poolStatus.Name,
+			state:                     poolStatus.State,
+			zoneUnderMaintenance:      poolStatus.ZoneUnderMaintenance,
+			desiredPodRevision:        poolStatus.DesiredPodRevision,
+			desiredPodHash:            poolStatus.DesiredPodHash,
+			desiredBootstrapTokenHash: poolStatus.DesiredBootstrapTokenHash,
 		})
 	}
 	o.options = append(o.options, stateOptionList{
@@ -180,18 +186,22 @@ func (s stateOption) Apply(hc *humiov1alpha1.HumioCluster) {
 		for idx, nodePoolStatus := range hc.Status.NodePoolStatus {
 			if nodePoolStatus.Name == s.nodePoolName {
 				nodePoolStatus.State = s.state
-				nodePoolStatus.DesiredPodRevision = s.desiredPodRevision
 				nodePoolStatus.ZoneUnderMaintenance = s.zoneUnderMaintenance
+				nodePoolStatus.DesiredPodRevision = s.desiredPodRevision
+				nodePoolStatus.DesiredPodHash = s.desiredPodHash
+				nodePoolStatus.DesiredBootstrapTokenHash = s.desiredBootstrapTokenHash
 				hc.Status.NodePoolStatus[idx] = nodePoolStatus
 				return
 			}
 		}
 
 		hc.Status.NodePoolStatus = append(hc.Status.NodePoolStatus, humiov1alpha1.HumioNodePoolStatus{
-			Name:                 s.nodePoolName,
-			State:                s.state,
-			DesiredPodRevision:   s.desiredPodRevision,
-			ZoneUnderMaintenance: s.zoneUnderMaintenance,
+			Name:                      s.nodePoolName,
+			State:                     s.state,
+			ZoneUnderMaintenance:      s.zoneUnderMaintenance,
+			DesiredPodRevision:        s.desiredPodRevision,
+			DesiredPodHash:            s.desiredPodHash,
+			DesiredBootstrapTokenHash: s.desiredBootstrapTokenHash,
 		})
 	}
 }
@@ -211,10 +221,12 @@ func (s stateOptionList) Apply(hc *humiov1alpha1.HumioCluster) {
 	hc.Status.NodePoolStatus = humiov1alpha1.HumioNodePoolStatusList{}
 	for _, poolStatus := range s.statesList {
 		hc.Status.NodePoolStatus = append(hc.Status.NodePoolStatus, humiov1alpha1.HumioNodePoolStatus{
-			Name:                 poolStatus.nodePoolName,
-			State:                poolStatus.state,
-			DesiredPodRevision:   poolStatus.desiredPodRevision,
-			ZoneUnderMaintenance: poolStatus.zoneUnderMaintenance,
+			Name:                      poolStatus.nodePoolName,
+			State:                     poolStatus.state,
+			ZoneUnderMaintenance:      poolStatus.zoneUnderMaintenance,
+			DesiredPodRevision:        poolStatus.desiredPodRevision,
+			DesiredPodHash:            poolStatus.desiredPodHash,
+			DesiredBootstrapTokenHash: poolStatus.desiredBootstrapTokenHash,
 		})
 	}
 }

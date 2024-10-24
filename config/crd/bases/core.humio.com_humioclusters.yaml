@@ -13089,6 +13089,15 @@ spec:
                                 If pods are failing, they bypass the zone limitation and are restarted immediately - ignoring the zone.
                                 Zone awareness is enabled by default.
                               type: boolean
+                            maxUnavailable:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: |-
+                                MaxUnavailable is the maximum number of pods that can be unavailable during a rolling update.
+                                This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".
+                                By default, the max unavailable pods is 1.
+                              x-kubernetes-int-or-string: true
                             minReadySeconds:
                               description: MinReadySeconds is the minimum time in
                                 seconds that a pod must be ready before the next pod
@@ -15001,6 +15010,15 @@ spec:
                       If pods are failing, they bypass the zone limitation and are restarted immediately - ignoring the zone.
                       Zone awareness is enabled by default.
                     type: boolean
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: |-
+                      MaxUnavailable is the maximum number of pods that can be unavailable during a rolling update.
+                      This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".
+                      By default, the max unavailable pods is 1.
+                    x-kubernetes-int-or-string: true
                   minReadySeconds:
                     description: MinReadySeconds is the minimum time in seconds that
                       a pod must be ready before the next pod can be deleted when
@@ -15064,6 +15082,14 @@ spec:
                 items:
                   description: HumioNodePoolStatus shows the status of each node pool
                   properties:
+                    desiredBootstrapTokenHash:
+                      description: DesiredBootstrapTokenHash holds a SHA256 of the
+                        value set in environment variable BOOTSTRAP_ROOT_TOKEN_HASHED
+                      type: string
+                    desiredPodHash:
+                      description: DesiredPodHash holds a hashed representation of
+                        the pod spec
+                      type: string
                     desiredPodRevision:
                       description: DesiredPodRevision holds the desired pod revision
                         for pods of the given node pool.

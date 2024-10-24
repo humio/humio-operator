@@ -16,22 +16,13 @@ limitations under the License.
 
 package controllers
 
-import (
-	"strconv"
-
-	corev1 "k8s.io/api/core/v1"
-)
-
 const (
-	certHashAnnotation         = "humio.com/certificate-hash"
-	PodHashAnnotation          = "humio.com/pod-hash"
-	PodRevisionAnnotation      = "humio.com/pod-revision"
-	envVarSourceHashAnnotation = "humio.com/env-var-source-hash"
-	pvcHashAnnotation          = "humio_pvc_hash"
-	// #nosec G101
-	bootstrapTokenHashAnnotation = "humio.com/bootstrap-token-hash"
-)
+	// Set on Pod and Certificate objects
+	certHashAnnotation = "humio.com/certificate-hash"
 
-func (r *HumioClusterReconciler) setPodRevision(pod *corev1.Pod, newRevision int) {
-	pod.Annotations[PodRevisionAnnotation] = strconv.Itoa(newRevision)
-}
+	// Set on Pod objects
+	PodHashAnnotation            = "humio.com/pod-hash"
+	PodRevisionAnnotation        = "humio.com/pod-revision"
+	BootstrapTokenHashAnnotation = "humio.com/bootstrap-token-hash" // #nosec G101
+	envVarSourceHashAnnotation   = "humio.com/env-var-source-hash"
+)
