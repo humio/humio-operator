@@ -3,8 +3,6 @@ module github.com/humio/humio-operator/images/helper
 go 1.22
 
 require (
-	github.com/cli/shurcooL-graphql v0.0.4
-	github.com/humio/cli v0.33.1-0.20240425153346-f278dc8465f3
 	k8s.io/api v0.29.5
 	k8s.io/apimachinery v0.29.5
 	k8s.io/client-go v0.29.5
@@ -30,7 +28,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	golang.org/x/net v0.24.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
-	golang.org/x/sync v0.5.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
 	golang.org/x/term v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect

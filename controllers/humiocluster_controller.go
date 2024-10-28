@@ -31,6 +31,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -58,6 +59,9 @@ const (
 	// MaximumMinReadyRequeue The maximum requeue time to set for the MinReadySeconds functionality - this is to avoid a scenario where we
 	// requeue for hours into the future.
 	MaximumMinReadyRequeue = time.Second * 300
+
+	// waitingOnPodsMessage is the message that is populated as the message in the cluster status when waiting on pods
+	waitingOnPodsMessage = "waiting for pods to become ready"
 )
 
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
@@ -75,13 +79,19 @@ const (
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingress,verbs=create;delete;get;list;patch;update;watch
 
 func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// when running tests, ignore resources that are not in the correct namespace
 	if r.Namespace != "" {
 		if r.Namespace != req.Namespace {
 			return reconcile.Result{}, nil
 		}
 	}
 
-	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
+	r.Log = r.BaseLogger.WithValues(
+		"Request.Namespace", req.Namespace,
+		"Request.Name", req.Name,
+		"Request.Type", helpers.GetTypeName(r),
+		"Reconcile.ID", kubernetes.RandomString(),
+	)
 	r.Log.Info("Reconciling HumioCluster")
 
 	// Fetch the HumioCluster
@@ -98,73 +108,43 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	r.Log = r.Log.WithValues("Request.UID", hc.UID)
-
-	var humioNodePools HumioNodePoolList
-	humioNodePools.Add(NewHumioNodeManagerFromHumioCluster(hc))
-	for idx := range hc.Spec.NodePools {
-		humioNodePools.Add(NewHumioNodeManagerFromHumioNodePool(hc, &hc.Spec.NodePools[idx]))
-	}
-
+	humioNodePools := getHumioNodePoolManagers(hc)
 	emptyResult := reconcile.Result{}
 
-	if ok, idx := r.hasNoUnusedNodePoolStatus(hc, &humioNodePools); !ok {
-		r.cleanupUnusedNodePoolStatus(hc, idx)
-		if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-			withNodePoolStatusList(hc.Status.NodePoolStatus)); err != nil {
-			return result, r.logErrorAndReturn(err, "unable to set cluster state")
-		}
-	}
-
+	// update status with observed generation
+	// TODO: Look into refactoring of the use of "defer func's" to update HumioCluster.Status.
+	//       Right now we use StatusWriter to update the status multiple times, and rely on RetryOnConflict to retry
+	//       on conflicts which they'll be on many of the status updates.
+	//       We should be able to bundle all the options together and do a single update using StatusWriter.
+	//       Bundling options in a single StatusWriter.Update() should help reduce the number of conflicts.
 	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
 		_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withObservedGeneration(hc.GetGeneration()))
 	}(ctx, r.HumioClient, hc)
 
-	if err := r.ensureHumioClusterBootstrapToken(ctx, hc); err != nil {
-		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()))
+	// validate details in HumioCluster resource is valid
+	if result, err := r.verifyHumioClusterConfigurationIsValid(ctx, hc, humioNodePools); result != emptyResult || err != nil {
+		return result, err
 	}
 
-	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
-		if err := r.setImageFromSource(ctx, pool); err != nil {
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()).
-				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision()))
-		}
-		if err := r.ensureValidHumioVersion(pool); err != nil {
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()).
-				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision()))
-		}
-		if err := r.ensureValidStorageConfiguration(pool); err != nil {
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()).
-				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision()))
+	// if the state is not set yet, we know config is valid and mark it as Running
+	if hc.Status.State == "" {
+		err := r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc)
+		if err != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
 		}
 	}
 
-	for _, fun := range []ctxHumioClusterFunc{
-		r.ensureLicenseIsValid,
-		r.ensureValidCASecret,
-		r.ensureHeadlessServiceExists,
-		r.ensureInternalServiceExists,
-		r.validateUserDefinedServiceAccountsExists,
-	} {
-		if err := fun(ctx, hc); err != nil {
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()).
-				withState(humiov1alpha1.HumioClusterStateConfigError))
+	// create HumioBootstrapToken and block until we have a hashed bootstrap token
+	if result, err := r.ensureHumioClusterBootstrapToken(ctx, hc); result != emptyResult || err != nil {
+		if err != nil {
+			_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()))
 		}
+		return result, err
 	}
 
-	if len(humioNodePools.Filter(NodePoolFilterHasNode)) > 0 {
-		if err := r.ensureNodePoolSpecificResourcesHaveLabelWithNodePoolName(ctx, humioNodePools.Filter(NodePoolFilterHasNode)[0]); err != nil {
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()).
-				withState(humiov1alpha1.HumioClusterStateConfigError))
-		}
-	}
-
+	// update status with pods and nodeCount based on podStatusList
 	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
 		opts := statusOptions()
 		podStatusList, err := r.getPodStatusList(ctx, hc, humioNodePools.Filter(NodePoolFilterHasNode))
@@ -176,17 +156,23 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			withNodeCount(len(podStatusList)))
 	}(ctx, hc)
 
-	for _, pool := range humioNodePools.Items {
-		if err := r.ensureOrphanedPvcsAreDeleted(ctx, hc, pool); err != nil {
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()))
+	// remove unused node pool status entries
+	// TODO: This should be moved to cleanupUnusedResources, but nodePoolAllowsMaintenanceOperations fails
+	//       to indicate there's a node pool status in maintenance if the node pool is no longer configured
+	//       by the user. When nodePoolAllowsMaintenanceOperations is updated to properly indicate something
+	//       marked as under maintenance, even if no longer a node pool specified by the user, then we should
+	//       move this to cleanupUnusedResources.
+	if ok, idx := r.hasNoUnusedNodePoolStatus(hc, &humioNodePools); !ok {
+		r.cleanupUnusedNodePoolStatus(hc, idx)
+		if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+			withNodePoolStatusList(hc.Status.NodePoolStatus)); err != nil {
+			return result, r.logErrorAndReturn(err, "unable to set cluster state")
 		}
 	}
 
+	// ensure pods that does not run the desired version or config gets deleted and update state accordingly
 	for _, pool := range humioNodePools.Items {
 		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
-			// TODO: result should be controlled and returned by the status
-			// Ensure pods that does not run the desired version are deleted.
 			result, err := r.ensureMismatchedPodsAreDeleted(ctx, hc, pool)
 			if result != emptyResult || err != nil {
 				return result, err
@@ -194,34 +180,14 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	for _, pool := range humioNodePools.Items {
-		if err := r.validateInitialPodSpec(pool); err != nil {
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()).
-				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision()))
-		}
-	}
-
-	if err := r.validateNodeCount(hc, humioNodePools.Items); err != nil {
-		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()).
-			withState(humiov1alpha1.HumioClusterStateConfigError))
-	}
-
-	if hc.Status.State == "" {
-		err := r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
-		}
-	}
-
+	// create various k8s objects, e.g. Issuer, Certificate, ConfigMap, Ingress, Service, ServiceAccount, ClusterRole, ClusterRoleBinding
 	for _, fun := range []ctxHumioClusterFunc{
 		r.ensureValidCAIssuer,
 		r.ensureHumioClusterCACertBundle,
 		r.ensureHumioClusterKeystoreSecret,
 		r.ensureViewGroupPermissionsConfigMap,
 		r.ensureRolePermissionsConfigMap,
-		r.ensureNoIngressesIfIngressNotEnabled,
+		r.ensureNoIngressesIfIngressNotEnabled, // TODO: cleanupUnusedResources seems like a better place for this
 		r.ensureIngress,
 	} {
 		if err := fun(ctx, hc); err != nil {
@@ -229,7 +195,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				withMessage(err.Error()))
 		}
 	}
-
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		for _, fun := range []ctxHumioClusterPoolFunc{
 			r.ensureService,
@@ -245,59 +210,74 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
+	// update annotations on ServiceAccount object and trigger pod restart if annotations were changed
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if issueRestart, err := r.ensureHumioServiceAccountAnnotations(ctx, pool); err != nil || issueRestart {
 			desiredPodRevision := pool.GetDesiredPodRevision()
 			if issueRestart {
+				// TODO: Code seems to only try to save the updated pod revision in the same reconcile as the annotations on the ServiceAccount was updated.
+				//       We should ensure that even if we don't store it in the current reconcile, we'll still properly detect it next time and retry storing this updated pod revision.
+				//       Looks like a candidate for storing a ServiceAccount annotation hash in node pool status, similar to pod hash, bootstrap token hash, etc.
+				//       as this way we'd both store the updated hash *and* the updated pod revision in the same k8sClient.Update() API call.
 				desiredPodRevision++
 			}
 			_, err = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withNodePoolState(hc.Status.State, pool.GetNodePoolName(), desiredPodRevision))
+				withNodePoolState(hc.Status.State, pool.GetNodePoolName(), desiredPodRevision, pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), ""))
 			return reconcile.Result{Requeue: true}, err
 		}
 	}
 
+	// create pvcs if needed
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if err := r.ensurePersistentVolumeClaimsExist(ctx, hc, pool); err != nil {
 			opts := statusOptions()
 			if hc.Status.State != humiov1alpha1.HumioClusterStateRestarting && hc.Status.State != humiov1alpha1.HumioClusterStateUpgrading {
-				opts.withNodePoolState(humiov1alpha1.HumioClusterStatePending, pool.GetNodePoolName(), pool.GetDesiredPodRevision())
+				opts.withNodePoolState(humiov1alpha1.HumioClusterStatePending, pool.GetNodePoolName(), pool.GetDesiredPodRevision(), pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), pool.GetZoneUnderMaintenance())
 			}
 			return r.updateStatus(ctx, r.Client.Status(), hc, opts.
 				withMessage(err.Error()))
 		}
 	}
 
-	// TODO: result should be controlled and returned by the status
+	// create pods if needed
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
-		if result, err := r.ensurePodsExist(ctx, hc, pool); result != emptyResult || err != nil {
-			if err != nil {
-				_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-					withMessage(err.Error()))
+		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
+			if result, err := r.ensurePodsExist(ctx, hc, pool); result != emptyResult || err != nil {
+				if err != nil {
+					_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+						withMessage(err.Error()))
+				}
+				return result, err
 			}
-			return result, err
 		}
 	}
 
-	for _, nodePool := range humioNodePools.Filter(NodePoolFilterDoesNotHaveNodes) {
-		if err := r.cleanupUnusedService(ctx, nodePool); err != nil {
+	// wait for pods to start up
+	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
+		if podsReady, err := r.nodePoolPodsReady(ctx, hc, pool); !podsReady || err != nil {
+			msg := waitingOnPodsMessage
+			if err != nil {
+				msg = err.Error()
+			}
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()))
+				withState(hc.Status.State).
+				withMessage(msg))
 		}
 	}
 
-	// TODO: result should be controlled and returned by the status
-	if len(r.nodePoolsInMaintenance(hc, humioNodePools.Filter(NodePoolFilterHasNode))) == 0 {
-		if result, err := r.ensureLicense(ctx, hc, req); result != emptyResult || err != nil {
+	// wait for license and admin token
+	if len(r.currentlyConfiguredNodePoolsInMaintenance(hc, humioNodePools.Filter(NodePoolFilterHasNode))) == 0 {
+		if result, err := r.ensureLicenseAndAdminToken(ctx, hc, req); result != emptyResult || err != nil {
 			if err != nil {
 				_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-					withMessage(r.logErrorAndReturn(err, "unable to ensure license is installed").Error()))
+					withMessage(r.logErrorAndReturn(err, "unable to ensure license is installed and admin token is created").Error()))
 			}
 			// Usually if we fail to get the license, that means the cluster is not up. So wait a bit longer than usual to retry
 			return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 		}
 	}
 
+	// construct humioClient configured with the admin token
 	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
 		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
@@ -305,6 +285,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			withState(humiov1alpha1.HumioClusterStateConfigError))
 	}
 
+	// update status with version
 	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
 		opts := statusOptions()
 		if hc.Status.State == humiov1alpha1.HumioClusterStateRunning {
@@ -317,27 +298,9 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}(ctx, r.HumioClient, hc)
 
-	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
-		if podsReady, err := r.nodePoolPodsReady(ctx, hc, pool); !podsReady || err != nil {
-			msg := "waiting on all pods to be ready"
-			if err != nil {
-				msg = err.Error()
-			}
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withState(hc.Status.State).
-				withMessage(msg))
-		}
-	}
-
-	for _, fun := range []ctxHumioClusterFunc{
-		r.cleanupUnusedTLSCertificates,
-		r.cleanupUnusedTLSSecrets,
-		r.cleanupUnusedCAIssuer,
-	} {
-		if err := fun(ctx, hc); err != nil {
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()))
-		}
+	// clean up various k8s objects we no longer need
+	if result, err := r.cleanupUnusedResources(ctx, hc, humioNodePools); result != emptyResult || err != nil {
+		return result, err
 	}
 
 	r.Log.Info("done reconciling")
@@ -372,16 +335,18 @@ func (r *HumioClusterReconciler) nodePoolPodsReady(ctx context.Context, hc *humi
 		r.Log.Info(fmt.Sprintf("cluster state is %s. waitingOnPods=%v, "+
 			"revisionsInSync=%v, podRevisions=%v, podDeletionTimestampSet=%v, podNames=%v, expectedRunningPods=%v, "+
 			"podsReady=%v, podsNotReady=%v",
-			hc.Status.State, podsStatus.waitingOnPods(), podsStatus.podRevisionsInSync(),
+			hc.Status.State, podsStatus.waitingOnPods(), podsStatus.podRevisionCountMatchesNodeCountAndAllPodsHaveRevision(hnp.GetDesiredPodRevision()),
 			podsStatus.podRevisions, podsStatus.podDeletionTimestampSet, podsStatus.podNames,
-			podsStatus.expectedRunningPods, podsStatus.readyCount, podsStatus.notReadyCount))
+			podsStatus.nodeCount, podsStatus.readyCount, podsStatus.notReadyCount))
 		return false, nil
 	}
 	return true, nil
 }
 
+// nodePoolAllowsMaintenanceOperations fetches which node pools that are still defined, that are marked as in
+// maintenance, and returns true if hnp is present in that list.
 func (r *HumioClusterReconciler) nodePoolAllowsMaintenanceOperations(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, hnps []*HumioNodePool) bool {
-	poolsInMaintenance := r.nodePoolsInMaintenance(hc, hnps)
+	poolsInMaintenance := r.currentlyConfiguredNodePoolsInMaintenance(hc, hnps)
 	if len(poolsInMaintenance) == 0 {
 		return true
 	}
@@ -393,7 +358,8 @@ func (r *HumioClusterReconciler) nodePoolAllowsMaintenanceOperations(hc *humiov1
 	return false
 }
 
-func (r *HumioClusterReconciler) nodePoolsInMaintenance(hc *humiov1alpha1.HumioCluster, hnps []*HumioNodePool) []*HumioNodePool {
+// currentlyConfiguredNodePoolsInMaintenance loops through the desired node pools, and returns all node pools with state not Running
+func (r *HumioClusterReconciler) currentlyConfiguredNodePoolsInMaintenance(hc *humiov1alpha1.HumioCluster, hnps []*HumioNodePool) []*HumioNodePool {
 	var poolsInMaintenance []*HumioNodePool
 	for _, pool := range hnps {
 		for _, poolStatus := range hc.Status.NodePoolStatus {
@@ -426,27 +392,32 @@ func (r *HumioClusterReconciler) hasNoUnusedNodePoolStatus(hc *humiov1alpha1.Hum
 	return true, 0
 }
 
-func (r *HumioClusterReconciler) ensureHumioClusterBootstrapToken(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+func (r *HumioClusterReconciler) ensureHumioClusterBootstrapToken(ctx context.Context, hc *humiov1alpha1.HumioCluster) (reconcile.Result, error) {
 	r.Log.Info("ensuring humiobootstraptoken")
 	hbtList, err := kubernetes.ListHumioBootstrapTokens(ctx, r.Client, hc.GetNamespace(), kubernetes.LabelsForHumioBootstrapToken(hc.GetName()))
 	if err != nil {
-		return r.logErrorAndReturn(err, "could not list HumioBootstrapToken")
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not list HumioBootstrapToken")
 	}
 	if len(hbtList) > 0 {
-		r.Log.Info("humiobootstraptoken already exists")
-		return nil
+		r.Log.Info("humiobootstraptoken already exists, checking if HumioBootstrapTokenReconciler populated it")
+		if hbtList[0].Status.State == humiov1alpha1.HumioBootstrapTokenStateReady {
+			return reconcile.Result{}, nil
+		}
+		r.Log.Info("secret not populated yet, waiting on HumioBootstrapTokenReconciler")
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	hbt := kubernetes.ConstructHumioBootstrapToken(hc.GetName(), hc.GetNamespace())
 	if err := controllerutil.SetControllerReference(hc, hbt, r.Scheme()); err != nil {
-		return r.logErrorAndReturn(err, "could not set controller reference")
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not set controller reference")
 	}
 	r.Log.Info(fmt.Sprintf("creating humiobootstraptoken %s", hbt.Name))
 	err = r.Create(ctx, hbt)
 	if err != nil {
-		return r.logErrorAndReturn(err, "could not create bootstrap token resource")
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not create bootstrap token resource")
 	}
-	return nil
+
+	return reconcile.Result{Requeue: true}, nil
 }
 
 func (r *HumioClusterReconciler) validateInitialPodSpec(hnp *HumioNodePool) error {
@@ -1298,8 +1269,8 @@ func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *h
 	return nil
 }
 
-func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1alpha1.HumioCluster, req ctrl.Request) (reconcile.Result, error) {
-	r.Log.Info("ensuring license")
+func (r *HumioClusterReconciler) ensureLicenseAndAdminToken(ctx context.Context, hc *humiov1alpha1.HumioCluster, req ctrl.Request) (reconcile.Result, error) {
+	r.Log.Info("ensuring license and admin token")
 
 	// Configure a Humio client without an API token which we can use to check the current license on the cluster
 	noLicense := humioapi.OnPremLicense{}
@@ -1313,6 +1284,7 @@ func (r *HumioClusterReconciler) ensureLicense(ctx context.Context, hc *humiov1a
 		return ctrl.Result{}, fmt.Errorf("failed to get license: %w", err)
 	}
 
+	// update status with license details
 	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
 		if existingLicense != nil {
 			licenseStatus := humiov1alpha1.HumioLicenseStatus{
@@ -1833,180 +1805,220 @@ func (r *HumioClusterReconciler) ensureHumioServiceAccountAnnotations(ctx contex
 // The behavior of this depends on what, if anything, was changed in the pod. If there are changes that fall under a
 // rolling update, then the pod restart policy is set to PodRestartPolicyRolling and the reconciliation will continue if
 // there are any pods not in a ready state. This is so replacement pods may be created.
-// If there are changes that fall under a recreate update, the the pod restart policy is set to PodRestartPolicyRecreate
+// If there are changes that fall under a recreate update, then the pod restart policy is set to PodRestartPolicyRecreate
 // and the reconciliation will requeue and the deletions will continue to be executed until all the pods have been
 // removed.
 func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (reconcile.Result, error) {
-	foundPodList, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
+	r.Log.Info("ensuring mismatching pods are deleted")
+
+	attachments, result, err := r.constructPodAttachments(ctx, hc, hnp)
+	emptyResult := reconcile.Result{}
+	if result != emptyResult || err != nil {
+		return result, err
+	}
+
+	// fetch list of all current pods for the node pool
+	listOfAllCurrentPodsForNodePool, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods")
 	}
 
-	// if we do not have any pods running we have nothing to delete
-	if len(foundPodList) == 0 {
-		return reconcile.Result{}, nil
-	}
-
-	r.Log.Info("ensuring mismatching pods are deleted")
-	attachments := &podAttachments{}
-	// In the case we are using PVCs, we cannot lookup the available PVCs since they may already be in use
-	if hnp.DataVolumePersistentVolumeClaimSpecTemplateIsSetByUser() {
-		attachments.dataVolumeSource = hnp.GetDataVolumePersistentVolumeClaimSpecTemplate("")
-	}
-
-	podsStatus, err := r.getPodsStatus(ctx, hc, hnp, foundPodList)
+	// fetch podStatus where we collect information about current pods
+	podsStatus, err := r.getPodsStatus(ctx, hc, hnp, listOfAllCurrentPodsForNodePool)
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to get pod status")
 	}
 
-	envVarSourceData, err := r.getEnvVarSource(ctx, hnp)
-	if err != nil {
-		result, _ := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-			withMessage(r.logErrorAndReturn(err, "got error when getting pod envVarSource").Error()).
-			withState(humiov1alpha1.HumioClusterStateConfigError))
-		return result, err
-	}
-	if envVarSourceData != nil {
-		attachments.envVarSourceData = envVarSourceData
-	}
-
-	humioBootstrapTokens, err := kubernetes.ListHumioBootstrapTokens(ctx, r.Client, hc.GetNamespace(), kubernetes.LabelsForHumioBootstrapToken(hc.GetName()))
-	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to get bootstrap token")
-	}
-	if len(humioBootstrapTokens) > 0 {
-		if humioBootstrapTokens[0].Status.State == humiov1alpha1.HumioBootstrapTokenStateReady {
-			attachments.bootstrapTokenSecretReference.secretReference = humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef
-			bootstrapTokenHash, err := r.getDesiredBootstrapTokenHash(ctx, hc)
-			if err != nil {
-				return reconcile.Result{}, r.logErrorAndReturn(err, "unable to find bootstrap token secret")
-			}
-			attachments.bootstrapTokenSecretReference.hash = bootstrapTokenHash
-		}
-	}
-
-	// prioritize deleting the pods with errors
-	var podList []corev1.Pod
-	if podsStatus.havePodsWithErrors() {
-		r.Log.Info(fmt.Sprintf("found %d humio pods with errors", len(podsStatus.podErrors)))
-		podList = podsStatus.podErrors
-	} else {
-		podList = foundPodList
-	}
-	desiredLifecycleState, err := r.getPodDesiredLifecycleState(hnp, podList, attachments)
+	// based on all pods we have, fetch compare list of all current pods with desired pods
+	desiredLifecycleState, desiredPod, err := r.getPodDesiredLifecycleState(ctx, hnp, listOfAllCurrentPodsForNodePool, attachments, podsStatus.foundEvictedPodsOrPodsWithOrpahanedPVCs() || podsStatus.haveUnschedulablePodsOrPodsWithBadStatusConditions())
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "got error when getting pod desired lifecycle")
 	}
 
-	if podsStatus.havePodsRequiringDeletion() {
-		r.Log.Info(fmt.Sprintf("found %d humio pods requiring deletion", len(podsStatus.podsRequiringDeletion)))
-		r.Log.Info(fmt.Sprintf("deleting pod %s", podsStatus.podsRequiringDeletion[0].Name))
-		if err = r.Delete(ctx, &podsStatus.podsRequiringDeletion[0]); err != nil {
+	// dump the current state of things
+	r.Log.Info(fmt.Sprintf("cluster state is %s. waitingOnPods=%v, ADifferenceWasDetectedAndManualDeletionsNotEnabled=%v, "+
+		"revisionsInSync=%v, podRevisions=%v, podDeletionTimestampSet=%v, podNames=%v, podHumioVersions=%v, expectedRunningPods=%v, podsReady=%v, podsNotReady=%v nodePoolStatus=%v",
+		hc.Status.State, podsStatus.waitingOnPods(), desiredLifecycleState.ADifferenceWasDetectedAndManualDeletionsNotEnabled(), podsStatus.podRevisionCountMatchesNodeCountAndAllPodsHaveRevision(hnp.GetDesiredPodRevision()),
+		podsStatus.podRevisions, podsStatus.podDeletionTimestampSet, podsStatus.podNames, podsStatus.podImageVersions, podsStatus.nodeCount, podsStatus.readyCount, podsStatus.notReadyCount, hc.Status.NodePoolStatus))
+
+	// when we detect changes, update status to reflect Upgrading/Restarting
+	if hc.Status.State == humiov1alpha1.HumioClusterStateRunning || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
+		if desiredLifecycleState.FoundVersionDifference() {
+			r.Log.Info(fmt.Sprintf("changing cluster state from %s to %s with pod revision %d for node pool %s", hc.Status.State, humiov1alpha1.HumioClusterStateUpgrading, hnp.GetDesiredPodRevision(), hnp.GetNodePoolName()))
+			if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withNodePoolState(humiov1alpha1.HumioClusterStateUpgrading, hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), "")); err != nil {
+				return result, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		}
+		if !desiredLifecycleState.FoundVersionDifference() && desiredLifecycleState.FoundConfigurationDifference() {
+			r.Log.Info(fmt.Sprintf("changing cluster state from %s to %s with pod revision %d for node pool %s", hc.Status.State, humiov1alpha1.HumioClusterStateRestarting, hnp.GetDesiredPodRevision(), hnp.GetNodePoolName()))
+			if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withNodePoolState(humiov1alpha1.HumioClusterStateRestarting, hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), "")); err != nil {
+				return result, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		}
+	}
+
+	// when no more changes are needed, update state to Running
+	if hnp.GetState() != humiov1alpha1.HumioClusterStateRunning &&
+		podsStatus.podRevisionCountMatchesNodeCountAndAllPodsHaveRevision(hnp.GetDesiredPodRevision()) &&
+		podsStatus.notReadyCount == 0 &&
+		!podsStatus.waitingOnPods() &&
+		!desiredLifecycleState.FoundConfigurationDifference() &&
+		!desiredLifecycleState.FoundVersionDifference() {
+		r.Log.Info(fmt.Sprintf("updating cluster state as no difference was detected, updating from=%s to=%s", hnp.GetState(), humiov1alpha1.HumioClusterStateRunning))
+		_, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+			withNodePoolState(humiov1alpha1.HumioClusterStateRunning, hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), ""))
+		return reconcile.Result{Requeue: true}, err
+	}
+
+	// we expect an annotation for the bootstrap token to be present
+	desiredBootstrapTokenHash, found := desiredPod.Annotations[BootstrapTokenHashAnnotation]
+	if !found {
+		return reconcile.Result{}, fmt.Errorf("desiredPod does not have the mandatory annotation %s", BootstrapTokenHashAnnotation)
+	}
+
+	// calculate desired pod hash
+	desiredPodHash := podSpecAsSHA256(hnp, *desiredPod)
+
+	// save the new revision, hash and so on in one of two cases:
+	// 1. the cluster is in some pod replacement state
+	// 2. this is the first time we handle pods for this node pool
+	if hnp.GetDesiredPodRevision() == 0 ||
+		slices.Contains([]string{
+			humiov1alpha1.HumioClusterStateUpgrading,
+			humiov1alpha1.HumioClusterStateRestarting,
+		}, hc.Status.State) {
+		// if bootstrap token hash or desired pod hash differs, update node pool status with the new values
+		if desiredPodHash != hnp.GetDesiredPodHash() ||
+			desiredPod.Annotations[BootstrapTokenHashAnnotation] != hnp.GetDesiredBootstrapTokenHash() {
+			oldRevision := hnp.GetDesiredPodRevision()
+			newRevision := oldRevision + 1
+
+			r.Log.Info(fmt.Sprintf("detected a new pod hash for nodepool=%s updating status with oldPodRevision=%d newPodRevision=%d oldPodHash=%s newPodHash=%s oldBootstrapTokenHash=%s newBootstrapTokenHash=%s clusterState=%s",
+				hnp.GetNodePoolName(),
+				oldRevision, newRevision,
+				hnp.GetDesiredPodHash(), desiredPodHash,
+				hnp.GetDesiredBootstrapTokenHash(), desiredBootstrapTokenHash,
+				hc.Status.State,
+			))
+
+			_, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().withNodePoolState(hc.Status.State, hnp.GetNodePoolName(), newRevision, desiredPodHash, desiredBootstrapTokenHash, ""))
+			return reconcile.Result{Requeue: true}, err
+		}
+	}
+
+	// delete evicted pods and pods attached using PVC's attached to worker nodes that no longer exists
+	if podsStatus.foundEvictedPodsOrPodsWithOrpahanedPVCs() {
+		r.Log.Info(fmt.Sprintf("found %d humio pods requiring deletion", len(podsStatus.podsEvictedOrUsesPVCAttachedToHostThatNoLongerExists)))
+		r.Log.Info(fmt.Sprintf("deleting pod %s", podsStatus.podsEvictedOrUsesPVCAttachedToHostThatNoLongerExists[0].Name))
+		if err = r.Delete(ctx, &podsStatus.podsEvictedOrUsesPVCAttachedToHostThatNoLongerExists[0]); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s", podsStatus.podsRequiringDeletion[0].Name)).Error()))
+				withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s", podsStatus.podsEvictedOrUsesPVCAttachedToHostThatNoLongerExists[0].Name)).Error()))
 		}
 		return reconcile.Result{RequeueAfter: time.Second + 1}, nil
 	}
 
-	// If we are currently deleting pods, then check if the cluster state is Running or in a ConfigError state. If it
-	// is, then change to an appropriate state depending on the restart policy.
-	// If the cluster state is set as per the restart policy:
-	// 	 PodRestartPolicyRecreate == HumioClusterStateUpgrading
-	// 	 PodRestartPolicyRolling == HumioClusterStateRestarting
-	if hc.Status.State == humiov1alpha1.HumioClusterStateRunning || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
-		podRevision := hnp.GetDesiredPodRevision()
-		podRevision++
-		if desiredLifecycleState.WantsUpgrade() {
-			r.Log.Info(fmt.Sprintf("changing cluster state from %s to %s with pod revision %d for node pool %s", hc.Status.State, humiov1alpha1.HumioClusterStateUpgrading, podRevision, hnp.GetNodePoolName()))
-			if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withNodePoolState(humiov1alpha1.HumioClusterStateUpgrading, hnp.GetNodePoolName(), podRevision)); err != nil {
-				return result, err
-			}
-			return reconcile.Result{Requeue: true}, nil
-		}
-		if !desiredLifecycleState.WantsUpgrade() && desiredLifecycleState.WantsRestart() {
-			r.Log.Info(fmt.Sprintf("changing cluster state from %s to %s with pod revision %d for node pool %s", hc.Status.State, humiov1alpha1.HumioClusterStateRestarting, podRevision, hnp.GetNodePoolName()))
-			if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withNodePoolState(humiov1alpha1.HumioClusterStateRestarting, hnp.GetNodePoolName(), podRevision)); err != nil {
-				return result, err
-			}
-			return reconcile.Result{Requeue: true}, nil
+	// delete unschedulable pods or pods with bad status conditions (crashing,exited)
+	if podsStatus.haveUnschedulablePodsOrPodsWithBadStatusConditions() {
+		r.Log.Info(fmt.Sprintf("found %d humio pods with errors", len(podsStatus.podAreUnschedulableOrHaveBadStatusConditions)))
+
+		for i, pod := range podsStatus.podAreUnschedulableOrHaveBadStatusConditions {
+			r.Log.Info(fmt.Sprintf("deleting pod with error[%d] %s", i, pod.Name))
+			err = r.Delete(ctx, &pod)
+			return reconcile.Result{Requeue: true}, err
 		}
 	}
-	if desiredLifecycleState.ShouldDeletePod() {
-		if hc.Status.State == humiov1alpha1.HumioClusterStateRestarting && podsStatus.waitingOnPods() && desiredLifecycleState.ShouldRollingRestart() {
-			r.Log.Info(fmt.Sprintf("pod %s should be deleted, but waiting because not all other pods are "+
-				"ready. waitingOnPods=%v, clusterState=%s", desiredLifecycleState.pod.Name,
-				podsStatus.waitingOnPods(), hc.Status.State))
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage("waiting for pods to become ready"))
-		}
 
-		if hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading && podsStatus.waitingOnPods() && desiredLifecycleState.ShouldRollingRestart() {
-			r.Log.Info(fmt.Sprintf("pod %s should be deleted, but waiting because not all other pods are "+
-				"ready. waitingOnPods=%v, clusterState=%s", desiredLifecycleState.pod.Name,
-				podsStatus.waitingOnPods(), hc.Status.State))
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage("waiting for pods to become ready"))
-		}
+	podsForDeletion := desiredLifecycleState.podsToBeReplaced
 
-		var remainingMinReadyWaitTime = desiredLifecycleState.RemainingMinReadyWaitTime(podsStatus.podsReady)
-		if remainingMinReadyWaitTime > 0 {
-			if remainingMinReadyWaitTime > MaximumMinReadyRequeue {
-				// Only requeue after MaximumMinReadyRequeue if the remaining ready wait time is very high
-				r.Log.Info(fmt.Sprintf("Postponing pod=%s deletion due to the MinReadySeconds setting - requeue time is very long at %s seconds, setting to requeueSeconds=%s", desiredLifecycleState.pod.Name, remainingMinReadyWaitTime, MaximumMinReadyRequeue))
-				return reconcile.Result{RequeueAfter: MaximumMinReadyRequeue}, nil
+	// if zone awareness is enabled, we pin a zone until we're done replacing all pods in that zone,
+	// this is repeated for each zone with pods that needs replacing
+	if *hnp.GetUpdateStrategy().EnableZoneAwareness && !helpers.UseEnvtest() {
+		if hnp.GetZoneUnderMaintenance() == "" {
+			// pick a zone if we haven't already picked one
+			podListForCurrentZoneWithWrongPodRevisionOrPodHash := FilterPodsExcludePodsWithPodRevisionOrPodHash(listOfAllCurrentPodsForNodePool, hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash())
+			podListForCurrentZoneWithWrongPodRevisionAndNonEmptyNodeName := FilterPodsExcludePodsWithEmptyNodeName(podListForCurrentZoneWithWrongPodRevisionOrPodHash)
+			r.Log.Info(fmt.Sprintf("zone awareness enabled, len(podListForCurrentZoneWithWrongPodRevisionOrPodHash)=%d len(podListForCurrentZoneWithWrongPodRevisionAndNonEmptyNodeName)=%d", len(podListForCurrentZoneWithWrongPodRevisionOrPodHash), len(podListForCurrentZoneWithWrongPodRevisionAndNonEmptyNodeName)))
+
+			if len(podListForCurrentZoneWithWrongPodRevisionAndNonEmptyNodeName) > 0 {
+				newZoneUnderMaintenance, err := kubernetes.GetZoneForNodeName(ctx, r, podListForCurrentZoneWithWrongPodRevisionAndNonEmptyNodeName[0].Spec.NodeName)
+				if err != nil {
+					return reconcile.Result{}, r.logErrorAndReturn(err, "unable to fetch zone")
+				}
+				r.Log.Info(fmt.Sprintf("zone awareness enabled, pinning zone for nodePool=%s in oldZoneUnderMaintenance=%s newZoneUnderMaintenance=%s",
+					hnp.GetNodePoolName(), hnp.GetZoneUnderMaintenance(), newZoneUnderMaintenance))
+				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+					withNodePoolState(hnp.GetState(), hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), newZoneUnderMaintenance))
 			}
-			r.Log.Info(fmt.Sprintf("Postponing pod=%s deletion due to the MinReadySeconds setting - requeuing after requeueSeconds=%s", desiredLifecycleState.pod.Name, remainingMinReadyWaitTime))
-			return reconcile.Result{RequeueAfter: remainingMinReadyWaitTime}, nil
+		} else {
+			// clear the zone-under-maintenance marker if no more work is left in that zone
+			allPodsInZoneZoneUnderMaintenanceIncludingAlreadyMarkedForDeletion, err := FilterPodsByZoneName(ctx, r, listOfAllCurrentPodsForNodePool, hnp.GetZoneUnderMaintenance())
+			if err != nil {
+				return reconcile.Result{}, r.logErrorAndReturn(err, "got error filtering pods by zone name")
+			}
+			allPodsInZoneZoneUnderMaintenanceIncludingAlreadyMarkedForDeletionWithWrongHashOrRevision := FilterPodsExcludePodsWithPodRevisionOrPodHash(allPodsInZoneZoneUnderMaintenanceIncludingAlreadyMarkedForDeletion, hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash())
+			if len(allPodsInZoneZoneUnderMaintenanceIncludingAlreadyMarkedForDeletionWithWrongHashOrRevision) == 0 {
+				r.Log.Info(fmt.Sprintf("zone awareness enabled, clearing zone nodePool=%s in oldZoneUnderMaintenance=%s newZoneUnderMaintenance=%s",
+					hnp.GetNodePoolName(), hnp.GetZoneUnderMaintenance(), ""))
+				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+					withNodePoolState(hnp.GetState(), hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), ""))
+			}
+		}
+	}
+
+	// delete pods up to maxUnavailable from (filtered) pod list
+	if desiredLifecycleState.ADifferenceWasDetectedAndManualDeletionsNotEnabled() {
+		if hc.Status.State == humiov1alpha1.HumioClusterStateRestarting || hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading {
+			if podsStatus.waitingOnPods() && desiredLifecycleState.ShouldRollingRestart() {
+				r.Log.Info(fmt.Sprintf("pods %s should be deleted, but waiting because not all other pods are "+
+					"ready. waitingOnPods=%v, clusterState=%s", desiredLifecycleState.namesOfPodsToBeReplaced(),
+					podsStatus.waitingOnPods(), hc.Status.State),
+					"podsStatus.readyCount", podsStatus.readyCount,
+					"podsStatus.nodeCount", podsStatus.nodeCount,
+					"podsStatus.notReadyCount", podsStatus.notReadyCount,
+					"!podsStatus.haveUnschedulablePodsOrPodsWithBadStatusConditions()", !podsStatus.haveUnschedulablePodsOrPodsWithBadStatusConditions(),
+					"!podsStatus.foundEvictedPodsOrPodsWithOrpahanedPVCs()", !podsStatus.foundEvictedPodsOrPodsWithOrpahanedPVCs(),
+				)
+				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+					withMessage(waitingOnPodsMessage))
+			}
 		}
 
-		r.Log.Info(fmt.Sprintf("deleting pod %s", desiredLifecycleState.pod.Name))
-		if err = r.Delete(ctx, &desiredLifecycleState.pod); err != nil {
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s", desiredLifecycleState.pod.Name)).Error()))
+		for i := 0; i < podsStatus.scaledMaxUnavailableMinusNotReadyDueToMinReadySeconds() && i < len(podsForDeletion); i++ {
+			pod := podsForDeletion[i]
+			zone := ""
+			if *hnp.GetUpdateStrategy().EnableZoneAwareness && !helpers.UseEnvtest() {
+				zone, _ = kubernetes.GetZoneForNodeName(ctx, r.Client, pod.Spec.NodeName)
+			}
+			r.Log.Info(fmt.Sprintf("deleting pod[%d] %s", i, pod.Name),
+				"zone", zone,
+				"podsStatus.scaledMaxUnavailableMinusNotReadyDueToMinReadySeconds()", podsStatus.scaledMaxUnavailableMinusNotReadyDueToMinReadySeconds(),
+				"len(podsForDeletion)", len(podsForDeletion),
+			)
+			if err = r.Delete(ctx, &pod); err != nil {
+				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+					withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s", pod.Name)).Error()))
+			}
 		}
 	} else {
-		if desiredLifecycleState.WantsUpgrade() {
-			r.Log.Info(fmt.Sprintf("pod %s should be deleted because cluster upgrade is wanted but refusing due to the configured upgrade strategy",
-				desiredLifecycleState.pod.Name))
-		} else if desiredLifecycleState.WantsRestart() {
-			r.Log.Info(fmt.Sprintf("pod %s should be deleted because cluster restart is wanted but refusing due to the configured upgrade strategy",
-				desiredLifecycleState.pod.Name))
+		// OnDelete update strategy is enabled, so user must manually delete the pods
+		if desiredLifecycleState.FoundVersionDifference() || desiredLifecycleState.FoundConfigurationDifference() {
+			r.Log.Info(fmt.Sprintf("pods %v should be deleted because cluster restart/upgrade, but refusing due to the configured upgrade strategy",
+				desiredLifecycleState.namesOfPodsToBeReplaced()))
 		}
 	}
 
-	// If we allow a rolling update, then don't take down more than one pod at a time.
-	// Check the number of ready pods. if we have already deleted a pod, then the ready count will less than expected,
-	// but we must continue with reconciliation so the pod may be created later in the reconciliation.
-	// If we're doing a non-rolling update (recreate), then we can take down all the pods without waiting, but we will
-	// wait until all the pods are ready before changing the cluster state back to Running.
-	// If we are no longer waiting on or deleting pods, and all the revisions are in sync, then we know the upgrade or
-	// restart is complete and we can set the cluster state back to HumioClusterStateRunning.
-	// It's possible we entered a ConfigError state during an upgrade or restart, and in this case, we should reset the
-	// state to Running if the the pods are healthy but we're in a ConfigError state.
-	if !podsStatus.waitingOnPods() && !desiredLifecycleState.WantsUpgrade() && !desiredLifecycleState.WantsRestart() && podsStatus.podRevisionsInSync() {
-		if hc.Status.State == humiov1alpha1.HumioClusterStateRestarting || hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
-			r.Log.Info(fmt.Sprintf("no longer deleting pods. changing cluster state from %s to %s", hc.Status.State, humiov1alpha1.HumioClusterStateRunning))
-			if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withNodePoolState(humiov1alpha1.HumioClusterStateRunning, hnp.GetNodePoolName(), hnp.GetDesiredPodRevision())); err != nil {
-				return result, err
-			}
-		}
-	}
-
-	r.Log.Info(fmt.Sprintf("cluster state is still %s. waitingOnPods=%v, podBeingDeleted=%v, "+
-		"revisionsInSync=%v, podRevisions=%v, podDeletionTimestampSet=%v, podNames=%v, podHumioVersions=%v, expectedRunningPods=%v, podsReady=%v, podsNotReady=%v",
-		hc.Status.State, podsStatus.waitingOnPods(), desiredLifecycleState.ShouldDeletePod(), podsStatus.podRevisionsInSync(),
-		podsStatus.podRevisions, podsStatus.podDeletionTimestampSet, podsStatus.podNames, podsStatus.podImageVersions, podsStatus.expectedRunningPods, podsStatus.readyCount, podsStatus.notReadyCount))
-
-	// If we have pods being deleted, requeue as long as we're not doing a rolling update. This will ensure all pods
-	// are removed before creating the replacement pods.
-	if hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading && desiredLifecycleState.ShouldDeletePod() && !desiredLifecycleState.ShouldRollingRestart() {
+	// requeue if we're upgrading all pods as once and we still detect a difference, so there's still pods left
+	if hc.Status.State == humiov1alpha1.HumioClusterStateUpgrading && desiredLifecycleState.ADifferenceWasDetectedAndManualDeletionsNotEnabled() && !desiredLifecycleState.ShouldRollingRestart() {
+		r.Log.Info("requeuing after 1 sec as we are upgrading cluster, have more pods to delete and we are not doing rolling restart")
 		return reconcile.Result{RequeueAfter: time.Second + 1}, nil
 	}
 
-	// return empty result and no error indicating that everything was in the state we wanted it to be
+	// return empty result, which allows reconciliation to continue and create the new pods
+	r.Log.Info("nothing to do")
 	return reconcile.Result{}, nil
 }
 
@@ -2091,7 +2103,6 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 	if len(foundPersistentVolumeClaims) < hnp.GetNodeCount() {
 		r.Log.Info(fmt.Sprintf("pvc count of %d is less than %d. adding more", len(foundPersistentVolumeClaims), hnp.GetNodeCount()))
 		pvc := constructPersistentVolumeClaim(hnp)
-		pvc.Annotations[pvcHashAnnotation] = helpers.AsSHA256(pvc.Spec)
 		if err := controllerutil.SetControllerReference(hc, pvc, r.Scheme()); err != nil {
 			return r.logErrorAndReturn(err, "could not set controller reference")
 		}
@@ -2183,6 +2194,134 @@ func (r *HumioClusterReconciler) getLicenseString(ctx context.Context, hc *humio
 	return string(licenseSecret.Data[licenseSecretKeySelector.Key]), nil
 }
 
+func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx context.Context, hc *humiov1alpha1.HumioCluster, humioNodePools HumioNodePoolList) (reconcile.Result, error) {
+	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
+		if err := r.setImageFromSource(ctx, pool); err != nil {
+			r.Log.Info(fmt.Sprintf("failed to setImageFromSource, so setting ConfigError err=%v", err))
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()).
+				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision(), pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), pool.GetZoneUnderMaintenance()))
+		}
+		if err := r.ensureValidHumioVersion(pool); err != nil {
+			r.Log.Info(fmt.Sprintf("ensureValidHumioVersion failed, so setting ConfigError err=%v", err))
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()).
+				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision(), pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), pool.GetZoneUnderMaintenance()))
+		}
+		if err := r.ensureValidStorageConfiguration(pool); err != nil {
+			r.Log.Info(fmt.Sprintf("ensureValidStorageConfiguration failed, so setting ConfigError err=%v", err))
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()).
+				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision(), pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), pool.GetZoneUnderMaintenance()))
+		}
+	}
+
+	for _, fun := range []ctxHumioClusterFunc{
+		r.ensureLicenseIsValid,
+		r.ensureValidCASecret,
+		r.ensureHeadlessServiceExists,
+		r.ensureInternalServiceExists,
+		r.validateUserDefinedServiceAccountsExists,
+	} {
+		if err := fun(ctx, hc); err != nil {
+			r.Log.Info(fmt.Sprintf("someFunc failed, so setting ConfigError err=%v", err))
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()).
+				withState(humiov1alpha1.HumioClusterStateConfigError))
+		}
+	}
+
+	if len(humioNodePools.Filter(NodePoolFilterHasNode)) > 0 {
+		if err := r.ensureNodePoolSpecificResourcesHaveLabelWithNodePoolName(ctx, humioNodePools.Filter(NodePoolFilterHasNode)[0]); err != nil {
+			r.Log.Info(fmt.Sprintf("ensureNodePoolSpecificResourcesHaveLabelWithNodePoolName failed, so setting ConfigError err=%v", err))
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()).
+				withState(humiov1alpha1.HumioClusterStateConfigError))
+		}
+	}
+
+	if err := r.validateNodeCount(hc, humioNodePools.Items); err != nil {
+		r.Log.Info(fmt.Sprintf("validateNodeCount failed, so setting ConfigError err=%v", err))
+		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+			withMessage(err.Error()).
+			withState(humiov1alpha1.HumioClusterStateConfigError))
+	}
+
+	for _, pool := range humioNodePools.Items {
+		if err := r.validateInitialPodSpec(pool); err != nil {
+			r.Log.Info(fmt.Sprintf("validateInitialPodSpec failed, so setting ConfigError err=%v", err))
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()).
+				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision(), pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), pool.GetZoneUnderMaintenance()))
+		}
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *HumioClusterReconciler) cleanupUnusedResources(ctx context.Context, hc *humiov1alpha1.HumioCluster, humioNodePools HumioNodePoolList) (reconcile.Result, error) {
+	for _, pool := range humioNodePools.Items {
+		if err := r.ensureOrphanedPvcsAreDeleted(ctx, hc, pool); err != nil {
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()))
+		}
+	}
+
+	for _, nodePool := range humioNodePools.Filter(NodePoolFilterDoesNotHaveNodes) {
+		if err := r.cleanupUnusedService(ctx, nodePool); err != nil {
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()))
+		}
+	}
+
+	for _, fun := range []ctxHumioClusterFunc{
+		r.cleanupUnusedTLSCertificates,
+		r.cleanupUnusedTLSSecrets,
+		r.cleanupUnusedCAIssuer,
+	} {
+		if err := fun(ctx, hc); err != nil {
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()))
+		}
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *HumioClusterReconciler) constructPodAttachments(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (*podAttachments, reconcile.Result, error) {
+	attachments := &podAttachments{}
+
+	if hnp.DataVolumePersistentVolumeClaimSpecTemplateIsSetByUser() {
+		attachments.dataVolumeSource = hnp.GetDataVolumePersistentVolumeClaimSpecTemplate("")
+	}
+
+	envVarSourceData, err := r.getEnvVarSource(ctx, hnp)
+	if err != nil {
+		result, _ := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+			withMessage(r.logErrorAndReturn(err, "got error when getting pod envVarSource").Error()).
+			withState(humiov1alpha1.HumioClusterStateConfigError))
+		return nil, result, err
+	}
+	if envVarSourceData != nil {
+		attachments.envVarSourceData = envVarSourceData
+	}
+
+	humioBootstrapTokens, err := kubernetes.ListHumioBootstrapTokens(ctx, r.Client, hc.GetNamespace(), kubernetes.LabelsForHumioBootstrapToken(hc.GetName()))
+	if err != nil {
+		return nil, reconcile.Result{}, r.logErrorAndReturn(err, "failed to get bootstrap token")
+	}
+	if len(humioBootstrapTokens) > 0 {
+		if humioBootstrapTokens[0].Status.State == humiov1alpha1.HumioBootstrapTokenStateReady {
+			attachments.bootstrapTokenSecretReference.secretReference = humioBootstrapTokens[0].Status.HashedTokenSecretKeyRef.SecretKeyRef
+			bootstrapTokenHash, err := r.getDesiredBootstrapTokenHash(ctx, hc)
+			if err != nil {
+				return nil, reconcile.Result{}, r.logErrorAndReturn(err, "unable to find bootstrap token secret")
+			}
+			attachments.bootstrapTokenSecretReference.hash = bootstrapTokenHash
+		}
+	}
+
+	return attachments, reconcile.Result{}, nil
+}
+
 func (r *HumioClusterReconciler) logErrorAndReturn(err error, msg string) error {
 	r.Log.Error(err, msg)
 	return fmt.Errorf("%s: %w", msg, err)
@@ -2209,4 +2348,13 @@ func mergeEnvVars(from, into []corev1.EnvVar) []corev1.EnvVar {
 		add = false
 	}
 	return into
+}
+
+func getHumioNodePoolManagers(hc *humiov1alpha1.HumioCluster) HumioNodePoolList {
+	var humioNodePools HumioNodePoolList
+	humioNodePools.Add(NewHumioNodeManagerFromHumioCluster(hc))
+	for idx := range hc.Spec.NodePools {
+		humioNodePools.Add(NewHumioNodeManagerFromHumioNodePool(hc, &hc.Spec.NodePools[idx]))
+	}
+	return humioNodePools
 }
