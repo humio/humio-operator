@@ -147,8 +147,13 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 			},
 			Volumes: []corev1.Volume{
 				{
-					Name:         "shared",
-					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+					Name: "shared",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{
+							Medium:    hnp.GetSharedVolumeStorageMedium(),
+							SizeLimit: hnp.GetSharedVolumeStorageSizeLimit(),
+						},
+					},
 				},
 			},
 			Affinity:                      hnp.GetAffinity(),

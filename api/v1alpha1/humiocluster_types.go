@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -256,6 +257,14 @@ type HumioNodeSpec struct {
 
 	// HumioNodePoolFeatures defines the features that are allowed by the node pool
 	NodePoolFeatures HumioNodePoolFeatures `json:"nodePoolFeatures,omitempty"`
+
+	// SharedVolumeStorageMedium allows overriding the default storage medium of the shared volume used to share
+	// information between the init and humio containers
+	SharedVolumeStorageMedium corev1.StorageMedium `json:"sharedVolumeStorageMedium,omitempty"`
+
+	// SharedVolumeStorageSizeLimit allows overriding the default size limit of the shared volume used to share
+	// information between the init and humio containers
+	SharedVolumeStorageSizeLimit *resource.Quantity `json:"sharedVolumeStorageSizeLimit,omitempty"`
 }
 
 type HumioNodePoolFeatures struct {

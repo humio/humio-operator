@@ -11488,6 +11488,20 @@ spec:
                             process. This should not be enabled, unless you need this for debugging purposes.
                             https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/
                           type: boolean
+                        sharedVolumeStorageMedium:
+                          description: |-
+                            SharedVolumeStorageMedium allows overriding the default storage medium of the shared volume used to share
+                            information between the init and humio containers
+                          type: string
+                        sharedVolumeStorageSizeLimit:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: |-
+                            SharedVolumeStorageSizeLimit allows overriding the default size limit of the shared volume used to share
+                            information between the init and humio containers
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
                         sidecarContainer:
                           description: |-
                             SidecarContainers can be used in advanced use-cases where you want one or more sidecar container added to the
@@ -13402,6 +13416,20 @@ spec:
                   process. This should not be enabled, unless you need this for debugging purposes.
                   https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/
                 type: boolean
+              sharedVolumeStorageMedium:
+                description: |-
+                  SharedVolumeStorageMedium allows overriding the default storage medium of the shared volume used to share
+                  information between the init and humio containers
+                type: string
+              sharedVolumeStorageSizeLimit:
+                anyOf:
+                - type: integer
+                - type: string
+                description: |-
+                  SharedVolumeStorageSizeLimit allows overriding the default size limit of the shared volume used to share
+                  information between the init and humio containers
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
               sidecarContainer:
                 description: |-
                   SidecarContainers can be used in advanced use-cases where you want one or more sidecar container added to the

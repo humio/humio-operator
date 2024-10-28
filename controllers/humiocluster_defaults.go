@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/humio/humio-operator/pkg/kubernetes"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -767,6 +768,14 @@ func (hnp *HumioNodePool) GetPath() string {
 
 func (hnp *HumioNodePool) GetHumioServiceLabels() map[string]string {
 	return hnp.humioNodeSpec.HumioServiceLabels
+}
+
+func (hnp *HumioNodePool) GetSharedVolumeStorageMedium() corev1.StorageMedium {
+	return hnp.humioNodeSpec.SharedVolumeStorageMedium
+}
+
+func (hnp *HumioNodePool) GetSharedVolumeStorageSizeLimit() *resource.Quantity {
+	return hnp.humioNodeSpec.SharedVolumeStorageSizeLimit
 }
 
 func (hnp *HumioNodePool) GetTerminationGracePeriodSeconds() *int64 {
