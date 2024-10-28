@@ -59,12 +59,6 @@ func RemoveElement(list []string, s string) []string {
 	return list
 }
 
-// UseCertManager returns whether the operator will use cert-manager
-func UseCertManager() bool {
-	certmanagerEnabled, found := os.LookupEnv("USE_CERTMANAGER")
-	return found && certmanagerEnabled == "true"
-}
-
 // TLSEnabled returns whether we a cluster should configure TLS or not
 func TLSEnabled(hc *humiov1alpha1.HumioCluster) bool {
 	if hc.Spec.TLS == nil {
@@ -140,4 +134,40 @@ func GetWatchNamespace() (string, error) {
 		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
 	}
 	return ns, nil
+}
+
+// UseCertManager returns whether the operator will use cert-manager
+func UseCertManager() bool {
+	return !UseEnvtest() && os.Getenv("USE_CERTMANAGER") == "true"
+}
+
+// GetDefaultHumioCoreImageFromEnvVar returns the user-defined default image for humio-core containers
+func GetDefaultHumioCoreImageFromEnvVar() string {
+	return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE")
+}
+
+// GetDefaultHumioHelperImageFromEnvVar returns the user-defined default image for helper containers
+func GetDefaultHumioHelperImageFromEnvVar() string {
+	return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE")
+}
+
+// UseEnvtest returns whether the Kubernetes API is provided by envtest
+func UseEnvtest() bool {
+	return os.Getenv("TEST_USING_ENVTEST") == "true"
+}
+
+// UseDummyImage returns whether we are using a dummy image replacement instead of real container images
+func UseDummyImage() bool {
+	return os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true"
+}
+
+// GetE2ELicenseFromEnvVar returns the E2E license set as an environment variable
+func GetE2ELicenseFromEnvVar() string {
+	return os.Getenv("HUMIO_E2E_LICENSE")
+}
+
+// PreserveKindCluster returns true if the intention is to not delete kind cluster after test execution.
+// This is to allow reruns of tests to be performed where resources can be reused.
+func PreserveKindCluster() bool {
+	return os.Getenv("PRESERVE_KIND_CLUSTER") == "true"
 }

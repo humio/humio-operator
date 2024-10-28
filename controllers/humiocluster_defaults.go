@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -64,31 +63,43 @@ const (
 )
 
 type HumioNodePool struct {
-	clusterName              string
-	nodePoolName             string
-	namespace                string
-	hostname                 string
-	esHostname               string
-	hostnameSource           humiov1alpha1.HumioHostnameSource
-	esHostnameSource         humiov1alpha1.HumioESHostnameSource
-	humioNodeSpec            humiov1alpha1.HumioNodeSpec
-	tls                      *humiov1alpha1.HumioClusterTLSSpec
-	idpCertificateSecretName string
-	viewGroupPermissions     string // Deprecated: Replaced by rolePermissions
-	rolePermissions          string
-	targetReplicationFactor  int
-	digestPartitionsCount    int
-	path                     string
-	ingress                  humiov1alpha1.HumioClusterIngressSpec
-	clusterAnnotations       map[string]string
-	desiredPodRevision       int
+	clusterName               string
+	nodePoolName              string
+	namespace                 string
+	hostname                  string
+	esHostname                string
+	hostnameSource            humiov1alpha1.HumioHostnameSource
+	esHostnameSource          humiov1alpha1.HumioESHostnameSource
+	humioNodeSpec             humiov1alpha1.HumioNodeSpec
+	tls                       *humiov1alpha1.HumioClusterTLSSpec
+	idpCertificateSecretName  string
+	viewGroupPermissions      string // Deprecated: Replaced by rolePermissions
+	rolePermissions           string
+	targetReplicationFactor   int
+	digestPartitionsCount     int
+	path                      string
+	ingress                   humiov1alpha1.HumioClusterIngressSpec
+	clusterAnnotations        map[string]string
+	state                     string
+	zoneUnderMaintenance      string
+	desiredPodRevision        int
+	desiredPodHash            string
+	desiredBootstrapTokenHash string
 }
 
 func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioNodePool {
+	state := ""
+	zoneUnderMaintenance := ""
 	desiredPodRevision := 0
+	desiredPodHash := ""
+	desiredBootstrapTokenHash := ""
 	for _, status := range hc.Status.NodePoolStatus {
 		if status.Name == hc.Name {
+			state = status.State
+			zoneUnderMaintenance = status.ZoneUnderMaintenance
 			desiredPodRevision = status.DesiredPodRevision
+			desiredPodHash = status.DesiredPodHash
+			desiredBootstrapTokenHash = status.DesiredBootstrapTokenHash
 			break
 		}
 	}
@@ -141,24 +152,36 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			UpdateStrategy:                              hc.Spec.UpdateStrategy,
 			PriorityClassName:                           hc.Spec.PriorityClassName,
 		},
-		tls:                      hc.Spec.TLS,
-		idpCertificateSecretName: hc.Spec.IdpCertificateSecretName,
-		viewGroupPermissions:     hc.Spec.ViewGroupPermissions,
-		rolePermissions:          hc.Spec.RolePermissions,
-		targetReplicationFactor:  hc.Spec.TargetReplicationFactor,
-		digestPartitionsCount:    hc.Spec.DigestPartitionsCount,
-		path:                     hc.Spec.Path,
-		ingress:                  hc.Spec.Ingress,
-		clusterAnnotations:       hc.Annotations,
-		desiredPodRevision:       desiredPodRevision,
+		tls:                       hc.Spec.TLS,
+		idpCertificateSecretName:  hc.Spec.IdpCertificateSecretName,
+		viewGroupPermissions:      hc.Spec.ViewGroupPermissions,
+		rolePermissions:           hc.Spec.RolePermissions,
+		targetReplicationFactor:   hc.Spec.TargetReplicationFactor,
+		digestPartitionsCount:     hc.Spec.DigestPartitionsCount,
+		path:                      hc.Spec.Path,
+		ingress:                   hc.Spec.Ingress,
+		clusterAnnotations:        hc.Annotations,
+		state:                     state,
+		zoneUnderMaintenance:      zoneUnderMaintenance,
+		desiredPodRevision:        desiredPodRevision,
+		desiredPodHash:            desiredPodHash,
+		desiredBootstrapTokenHash: desiredBootstrapTokenHash,
 	}
 }
 
 func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *humiov1alpha1.HumioNodePoolSpec) *HumioNodePool {
+	state := ""
+	zoneUnderMaintenance := ""
 	desiredPodRevision := 0
+	desiredPodHash := ""
+	desiredBootstrapTokenHash := ""
 	for _, status := range hc.Status.NodePoolStatus {
 		if status.Name == strings.Join([]string{hc.Name, hnp.Name}, "-") {
+			state = status.State
+			zoneUnderMaintenance = status.ZoneUnderMaintenance
 			desiredPodRevision = status.DesiredPodRevision
+			desiredPodHash = status.DesiredPodHash
+			desiredBootstrapTokenHash = status.DesiredBootstrapTokenHash
 			break
 		}
 	}
@@ -211,16 +234,20 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			UpdateStrategy:                 hnp.UpdateStrategy,
 			PriorityClassName:              hnp.PriorityClassName,
 		},
-		tls:                      hc.Spec.TLS,
-		idpCertificateSecretName: hc.Spec.IdpCertificateSecretName,
-		viewGroupPermissions:     hc.Spec.ViewGroupPermissions,
-		rolePermissions:          hc.Spec.RolePermissions,
-		targetReplicationFactor:  hc.Spec.TargetReplicationFactor,
-		digestPartitionsCount:    hc.Spec.DigestPartitionsCount,
-		path:                     hc.Spec.Path,
-		ingress:                  hc.Spec.Ingress,
-		clusterAnnotations:       hc.Annotations,
-		desiredPodRevision:       desiredPodRevision,
+		tls:                       hc.Spec.TLS,
+		idpCertificateSecretName:  hc.Spec.IdpCertificateSecretName,
+		viewGroupPermissions:      hc.Spec.ViewGroupPermissions,
+		rolePermissions:           hc.Spec.RolePermissions,
+		targetReplicationFactor:   hc.Spec.TargetReplicationFactor,
+		digestPartitionsCount:     hc.Spec.DigestPartitionsCount,
+		path:                      hc.Spec.Path,
+		ingress:                   hc.Spec.Ingress,
+		clusterAnnotations:        hc.Annotations,
+		state:                     state,
+		zoneUnderMaintenance:      zoneUnderMaintenance,
+		desiredPodRevision:        desiredPodRevision,
+		desiredPodHash:            desiredPodHash,
+		desiredBootstrapTokenHash: desiredBootstrapTokenHash,
 	}
 }
 
@@ -252,8 +279,8 @@ func (hnp *HumioNodePool) GetImage() string {
 		return hnp.humioNodeSpec.Image
 	}
 
-	if os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE") != "" {
-		return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE")
+	if defaultImageFromEnvVar := helpers.GetDefaultHumioCoreImageFromEnvVar(); defaultImageFromEnvVar != "" {
+		return defaultImageFromEnvVar
 	}
 
 	return versions.DefaultHumioImageVersion()
@@ -268,8 +295,8 @@ func (hnp *HumioNodePool) GetHelperImage() string {
 		return hnp.humioNodeSpec.HelperImage
 	}
 
-	if os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE") != "" {
-		return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE")
+	if defaultHelperImageFromEnvVar := helpers.GetDefaultHumioHelperImageFromEnvVar(); defaultHelperImageFromEnvVar != "" {
+		return defaultHelperImageFromEnvVar
 	}
 
 	return versions.DefaultHelperImageVersion()
@@ -302,10 +329,23 @@ func (hnp *HumioNodePool) GetDigestPartitionsCount() int {
 }
 
 func (hnp *HumioNodePool) GetDesiredPodRevision() int {
-	if hnp.desiredPodRevision == 0 {
-		return 1
-	}
 	return hnp.desiredPodRevision
+}
+
+func (hnp *HumioNodePool) GetDesiredPodHash() string {
+	return hnp.desiredPodHash
+}
+
+func (hnp *HumioNodePool) GetDesiredBootstrapTokenHash() string {
+	return hnp.desiredBootstrapTokenHash
+}
+
+func (hnp *HumioNodePool) GetZoneUnderMaintenance() string {
+	return hnp.zoneUnderMaintenance
+}
+
+func (hnp *HumioNodePool) GetState() string {
+	return hnp.state
 }
 
 func (hnp *HumioNodePool) GetIngress() humiov1alpha1.HumioClusterIngressSpec {
@@ -575,7 +615,7 @@ func (hnp *HumioNodePool) GetContainerReadinessProbe() *corev1.Probe {
 			SuccessThreshold:    1,
 			FailureThreshold:    10,
 		}
-		if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+		if helpers.UseDummyImage() {
 			probe.InitialDelaySeconds = 0
 		}
 		return probe
@@ -817,13 +857,26 @@ func (hnp *HumioNodePool) GetProbeScheme() corev1.URIScheme {
 }
 
 func (hnp *HumioNodePool) GetUpdateStrategy() *humiov1alpha1.HumioUpdateStrategy {
+	defaultZoneAwareness := true
+	defaultMaxUnavailable := intstr.FromInt32(1)
+
 	if hnp.humioNodeSpec.UpdateStrategy != nil {
+		if hnp.humioNodeSpec.UpdateStrategy.EnableZoneAwareness == nil {
+			hnp.humioNodeSpec.UpdateStrategy.EnableZoneAwareness = &defaultZoneAwareness
+		}
+
+		if hnp.humioNodeSpec.UpdateStrategy.MaxUnavailable == nil {
+			hnp.humioNodeSpec.UpdateStrategy.MaxUnavailable = &defaultMaxUnavailable
+		}
+
 		return hnp.humioNodeSpec.UpdateStrategy
 	}
 
 	return &humiov1alpha1.HumioUpdateStrategy{
-		Type:            humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate,
-		MinReadySeconds: 0,
+		Type:                humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate,
+		MinReadySeconds:     0,
+		EnableZoneAwareness: &defaultZoneAwareness,
+		MaxUnavailable:      &defaultMaxUnavailable,
 	}
 }
 

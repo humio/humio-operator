@@ -1,13 +1,14 @@
 package versions
 
 import (
-	"os"
 	"strings"
+
+	"github.com/humio/humio-operator/pkg/helpers"
 )
 
 const (
 	defaultHelperImageVersion = "humio/humio-operator-helper:8f5ef6c7e470226e77d985f36cf39be9a100afea"
-	defaultHumioImageVersion  = "humio/humio-core:1.142.3"
+	defaultHumioImageVersion  = "humio/humio-core:1.153.3"
 
 	oldSupportedHumioVersion   = "humio/humio-core:1.118.0"
 	upgradeJumpHumioVersion    = "humio/humio-core:1.128.0"
@@ -28,70 +29,70 @@ const (
 
 func DefaultHelperImageVersion() string {
 	version := []string{defaultHelperImageVersion}
-	if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+	if helpers.UseDummyImage() {
 		version = append(version, dummyImageSuffix)
 	}
 	return strings.Join(version, "")
 }
 func DefaultHumioImageVersion() string {
 	version := []string{defaultHumioImageVersion}
-	if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+	if helpers.UseDummyImage() {
 		version = append(version, dummyImageSuffix)
 	}
 	return strings.Join(version, "")
 }
 func OldSupportedHumioVersion() string {
 	version := []string{oldSupportedHumioVersion}
-	if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+	if helpers.UseDummyImage() {
 		version = append(version, dummyImageSuffix)
 	}
 	return strings.Join(version, "")
 }
 func UpgradeJumpHumioVersion() string {
 	version := []string{upgradeJumpHumioVersion}
-	if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+	if helpers.UseDummyImage() {
 		version = append(version, dummyImageSuffix)
 	}
 	return strings.Join(version, "")
 }
 func OldUnsupportedHumioVersion() string {
 	version := []string{oldUnsupportedHumioVersion}
-	if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+	if helpers.UseDummyImage() {
 		version = append(version, dummyImageSuffix)
 	}
 	return strings.Join(version, "")
 }
 func UpgradeHelperImageVersion() string {
 	version := []string{upgradeHelperImageVersion}
-	if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+	if helpers.UseDummyImage() {
 		version = append(version, dummyImageSuffix)
 	}
 	return strings.Join(version, "")
 }
 func UpgradePatchBestEffortOldVersion() string {
 	version := []string{upgradePatchBestEffortOldVersion}
-	if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+	if helpers.UseDummyImage() {
 		version = append(version, dummyImageSuffix)
 	}
 	return strings.Join(version, "")
 }
 func UpgradePatchBestEffortNewVersion() string {
 	version := []string{upgradePatchBestEffortNewVersion}
-	if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+	if helpers.UseDummyImage() {
 		version = append(version, dummyImageSuffix)
 	}
 	return strings.Join(version, "")
 }
 func UpgradeRollingBestEffortVersionJumpOldVersion() string {
 	version := []string{upgradeRollingBestEffortVersionJumpOldVersion}
-	if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+	if helpers.UseDummyImage() {
 		version = append(version, dummyImageSuffix)
 	}
 	return strings.Join(version, "")
 }
 func UpgradeRollingBestEffortVersionJumpNewVersion() string {
 	version := []string{upgradeRollingBestEffortVersionJumpNewVersion}
-	if os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true" {
+	if helpers.UseDummyImage() {
 		version = append(version, dummyImageSuffix)
 	}
 	return strings.Join(version, "")
