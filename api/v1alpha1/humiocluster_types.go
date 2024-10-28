@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -282,8 +283,19 @@ type HumioUpdateStrategy struct {
 	// +kubebuilder:validation:Enum=OnDelete;RollingUpdate;ReplaceAllOnUpdate;RollingUpdateBestEffort
 	Type string `json:"type,omitempty"`
 
-	// The minimum time in seconds that a pod must be ready before the next pod can be deleted when doing rolling update.
+	// MinReadySeconds is the minimum time in seconds that a pod must be ready before the next pod can be deleted when doing rolling update.
 	MinReadySeconds int32 `json:"minReadySeconds,omitempty"`
+
+	// EnableZoneAwareness toggles zone awareness on or off during updates. When enabled, the pod replacement logic
+	// will go through all pods in a specific zone before it starts replacing pods in the next zone.
+	// If pods are failing, they bypass the zone limitation and are restarted immediately - ignoring the zone.
+	// Zone awareness is enabled by default.
+	EnableZoneAwareness *bool `json:"enableZoneAwareness,omitempty"`
+
+	// MaxUnavailable is the maximum number of pods that can be unavailable during a rolling update.
+	// This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".
+	// By default, the max unavailable pods is 1.
+	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 }
 
 type HumioNodePoolSpec struct {
@@ -382,8 +394,14 @@ type HumioNodePoolStatus struct {
 	Name string `json:"name"`
 	// State will be empty before the cluster is bootstrapped. From there it can be "Running", "Upgrading", "Restarting" or "Pending"
 	State string `json:"state,omitempty"`
+	// ZoneUnderMaintenance holds the name of the availability zone currently under maintenance
+	ZoneUnderMaintenance string `json:"zoneUnderMaintenance,omitempty"`
 	// DesiredPodRevision holds the desired pod revision for pods of the given node pool.
 	DesiredPodRevision int `json:"desiredPodRevision,omitempty"`
+	// DesiredPodHash holds a hashed representation of the pod spec
+	DesiredPodHash string `json:"desiredPodHash,omitempty"`
+	// DesiredBootstrapTokenHash holds a SHA256 of the value set in environment variable BOOTSTRAP_ROOT_TOKEN_HASHED
+	DesiredBootstrapTokenHash string `json:"desiredBootstrapTokenHash,omitempty"`
 }
 
 // HumioClusterStatus defines the observed state of HumioCluster

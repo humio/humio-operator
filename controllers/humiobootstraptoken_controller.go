@@ -383,7 +383,6 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 	if err != nil {
 		return err
 	}
-	// TODO: make tokenHash constant
 	updatedSecret.Data = map[string][]byte{BootstrapTokenSecretHashedTokenName: []byte(secretData.HashedToken), BootstrapTokenSecretSecretName: []byte(secretData.Secret)}
 
 	if err = r.Update(ctx, updatedSecret); err != nil {

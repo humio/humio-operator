@@ -10,11 +10,11 @@ import (
 
 func Test_podsStatusState_waitingOnPods(t *testing.T) {
 	type fields struct {
-		expectedRunningPods int
-		readyCount          int
-		notReadyCount       int
-		podRevisions        []int
-		podErrors           []corev1.Pod
+		nodeCount     int
+		readyCount    int
+		notReadyCount int
+		podRevisions  []int
+		podErrors     []corev1.Pod
 	}
 	tests := []struct {
 		name   string
@@ -75,11 +75,11 @@ func Test_podsStatusState_waitingOnPods(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &podsStatusState{
-				expectedRunningPods: tt.fields.expectedRunningPods,
-				readyCount:          tt.fields.readyCount,
-				notReadyCount:       tt.fields.notReadyCount,
-				podRevisions:        tt.fields.podRevisions,
-				podErrors:           tt.fields.podErrors,
+				nodeCount:     tt.fields.nodeCount,
+				readyCount:    tt.fields.readyCount,
+				notReadyCount: tt.fields.notReadyCount,
+				podRevisions:  tt.fields.podRevisions,
+				podAreUnschedulableOrHaveBadStatusConditions: tt.fields.podErrors,
 			}
 			if got := s.waitingOnPods(); got != tt.want {
 				t.Errorf("waitingOnPods() = %v, want %v", got, tt.want)
