@@ -84,6 +84,8 @@ jobs:
           echo "RELEASE_VERSION=master" >> $GITHUB_ENV
           echo "RELEASE_COMMIT=$(git rev-parse --verify HEAD)" >> $GITHUB_ENV
           echo "RELEASE_DATE=$(date --iso-8601=seconds)" >> $GITHUB_ENV
+      - name: copy license to helper image dir
+        run: cp LICENSE images/helper/
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
