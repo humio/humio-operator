@@ -3337,8 +3337,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-			initialExpectedVolumesCount := 5                    // shared, tmp, humio-data, extra-kafka-configs, init-service-account-secret
-			initialExpectedHumioContainerVolumeMountsCount := 4 // shared, tmp, humio-data, extra-kafka-configs
+			initialExpectedVolumesCount := 4                    // shared, humio-data, extra-kafka-configs, init-service-account-secret
+			initialExpectedHumioContainerVolumeMountsCount := 3 // shared, humio-data, extra-kafka-configs
 
 			if !helpers.UseEnvtest() {
 				// k8s will automatically inject a service account token
@@ -4453,6 +4453,13 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 
 				updatedHumioCluster.Spec.ShareProcessNamespace = helpers.BoolPtr(true)
+				tmpVolumeName := "tmp"
+				updatedHumioCluster.Spec.ExtraVolumes = []corev1.Volume{
+					{
+						Name:         tmpVolumeName,
+						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+					},
+				}
 				updatedHumioCluster.Spec.SidecarContainers = []corev1.Container{
 					{
 						Name:    "jmap",
@@ -4461,8 +4468,8 @@ var _ = Describe("HumioCluster Controller", func() {
 						Args:    []string{"-c", "HUMIO_PID=$(ps -e | grep java | awk '{print $1'}); while :; do sleep 30 ; jmap -histo:live $HUMIO_PID | head -n203 ; done"},
 						VolumeMounts: []corev1.VolumeMount{
 							{
-								Name:      "tmp",
-								MountPath: controllers.TmpPath,
+								Name:      tmpVolumeName,
+								MountPath: "/tmp",
 								ReadOnly:  false,
 							},
 						},
