@@ -48,7 +48,6 @@ const (
 	humioAppPath             = "/app/humio"
 	HumioDataPath            = "/data/humio-data"
 	sharedPath               = "/shared"
-	TmpPath                  = "/tmp"
 	waitForPodTimeoutSeconds = 10
 )
 
@@ -138,11 +137,6 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 							MountPath: sharedPath,
 							ReadOnly:  true,
 						},
-						{
-							Name:      "tmp",
-							MountPath: TmpPath,
-							ReadOnly:  false,
-						},
 					},
 					ReadinessProbe:  hnp.GetContainerReadinessProbe(),
 					LivenessProbe:   hnp.GetContainerLivenessProbe(),
@@ -154,10 +148,6 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 			Volumes: []corev1.Volume{
 				{
 					Name:         "shared",
-					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
-				},
-				{
-					Name:         "tmp",
 					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 				},
 			},
