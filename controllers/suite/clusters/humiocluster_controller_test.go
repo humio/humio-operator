@@ -354,24 +354,22 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			ensurePodsGoPending(ctx, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
 
-			if !helpers.UseEnvtest() {
-				Eventually(func() int {
-					var pendingPodsCount int
-					updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
-					for _, pod := range updatedClusterPods {
-						if pod.Status.Phase == corev1.PodPending {
-							for _, condition := range pod.Status.Conditions {
-								if condition.Type == corev1.PodScheduled {
-									if condition.Status == corev1.ConditionFalse && condition.Reason == controllers.PodConditionReasonUnschedulable {
-										pendingPodsCount++
-									}
+			Eventually(func() int {
+				var pendingPodsCount int
+				updatedClusterPods, _ = kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+				for _, pod := range updatedClusterPods {
+					if pod.Status.Phase == corev1.PodPending {
+						for _, condition := range pod.Status.Conditions {
+							if condition.Type == corev1.PodScheduled {
+								if condition.Status == corev1.ConditionFalse && condition.Reason == controllers.PodConditionReasonUnschedulable {
+									pendingPodsCount++
 								}
 							}
 						}
 					}
-					return pendingPodsCount
-				}, testTimeout, 250*time.Millisecond).Should(Equal(1))
-			}
+				}
+				return pendingPodsCount
+			}, testTimeout, 250*time.Millisecond).Should(Equal(1))
 
 			suite.UsingClusterBy(key.Name, "Updating the cluster resources successfully with working affinity")
 			Eventually(func() error {

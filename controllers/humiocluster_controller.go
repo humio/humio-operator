@@ -1829,8 +1829,13 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to get pod status")
 	}
 
-	// based on all pods we have, fetch compare list of all current pods with desired pods
-	desiredLifecycleState, desiredPod, err := r.getPodDesiredLifecycleState(ctx, hnp, listOfAllCurrentPodsForNodePool, attachments, podsStatus.foundEvictedPodsOrPodsWithOrpahanedPVCs() || podsStatus.haveUnschedulablePodsOrPodsWithBadStatusConditions())
+	podList := listOfAllCurrentPodsForNodePool
+	if podsStatus.haveUnschedulablePodsOrPodsWithBadStatusConditions() {
+		podList = podsStatus.podAreUnschedulableOrHaveBadStatusConditions
+	}
+
+	// based on all pods we have, fetch compare list of all current pods with desired pods, or the pods we have prioritized to delete
+	desiredLifecycleState, desiredPod, err := r.getPodDesiredLifecycleState(ctx, hnp, podList, attachments, podsStatus.foundEvictedPodsOrPodsWithOrpahanedPVCs() || podsStatus.haveUnschedulablePodsOrPodsWithBadStatusConditions())
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "got error when getting pod desired lifecycle")
 	}
@@ -1919,17 +1924,6 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 				withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s", podsStatus.podsEvictedOrUsesPVCAttachedToHostThatNoLongerExists[0].Name)).Error()))
 		}
 		return reconcile.Result{RequeueAfter: time.Second + 1}, nil
-	}
-
-	// delete unschedulable pods or pods with bad status conditions (crashing,exited)
-	if podsStatus.haveUnschedulablePodsOrPodsWithBadStatusConditions() {
-		r.Log.Info(fmt.Sprintf("found %d humio pods with errors", len(podsStatus.podAreUnschedulableOrHaveBadStatusConditions)))
-
-		for i, pod := range podsStatus.podAreUnschedulableOrHaveBadStatusConditions {
-			r.Log.Info(fmt.Sprintf("deleting pod with error[%d] %s", i, pod.Name))
-			err = r.Delete(ctx, &pod)
-			return reconcile.Result{Requeue: true}, err
-		}
 	}
 
 	podsForDeletion := desiredLifecycleState.podsToBeReplaced
