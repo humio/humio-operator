@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/humio/humio-operator/internal/kubernetes"
@@ -74,6 +75,15 @@ func FindNextAvailablePvc(pvcList []corev1.PersistentVolumeClaim, podList []core
 			}
 		}
 	}
+	sort.Slice(pvcList, func(i, j int) bool {
+		if pvcList[i].Status.Phase == corev1.ClaimBound && pvcList[j].Status.Phase != corev1.ClaimBound {
+			return true
+		}
+		if pvcList[i].Status.Phase != corev1.ClaimBound && pvcList[j].Status.Phase == corev1.ClaimBound {
+			return false
+		}
+		return pvcList[i].Name < pvcList[j].Name
+	})
 
 	// return first PVC that is not used by any pods
 	for _, pvc := range pvcList {
@@ -100,4 +110,39 @@ func (r *HumioClusterReconciler) waitForNewPvc(ctx context.Context, hnp *HumioNo
 		time.Sleep(time.Second * 1)
 	}
 	return fmt.Errorf("timed out waiting to validate new pvc with name %s was created", expectedPvc.Name)
+}
+
+func (r *HumioClusterReconciler) FilterSchedulablePVCs(ctx context.Context, persistentVolumeClaims []corev1.PersistentVolumeClaim) ([]corev1.PersistentVolumeClaim, error) {
+	// Ensure the PVCs are bound to nodes that are actually schedulable in the case of local PVs
+	schedulablePVCs := make([]corev1.PersistentVolumeClaim, 0)
+	for _, pvc := range persistentVolumeClaims {
+		if pvc.DeletionTimestamp != nil {
+			continue
+		}
+		//Unbound PVCs are schedulable
+		if pvc.Status.Phase == corev1.ClaimPending {
+			schedulablePVCs = append(schedulablePVCs, pvc)
+			continue
+		}
+		pv, err := kubernetes.GetPersistentVolume(ctx, r, pvc.Spec.VolumeName)
+		if err != nil {
+			return nil, r.logErrorAndReturn(err, fmt.Sprintf("failed to get persistent volume %s", pvc.Spec.VolumeName))
+		}
+		if pv.Spec.Local == nil {
+			schedulablePVCs = append(schedulablePVCs, pvc)
+			continue
+		}
+		node, err := kubernetes.GetNode(ctx, r, pv.Spec.NodeAffinity.Required.NodeSelectorTerms[0].MatchExpressions[0].Values[0])
+		if err != nil {
+			return nil, r.logErrorAndReturn(err, fmt.Sprintf("failed to get node %s", pv.Spec.NodeAffinity.Required.NodeSelectorTerms[0].MatchExpressions[0].Values[0]))
+		}
+		if node.Spec.Unschedulable {
+			r.Log.Info("PVC bound to unschedulable node skipping",
+				"pvc", pvc.Name,
+				"node", node.Name)
+			continue
+		}
+		schedulablePVCs = append(schedulablePVCs, pvc)
+	}
+	return schedulablePVCs, nil
 }
