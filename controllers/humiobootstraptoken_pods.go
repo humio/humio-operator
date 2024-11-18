@@ -15,6 +15,7 @@ func ConstructBootstrapPod(bootstrapConfig *HumioBootstrapTokenConfig) *corev1.P
 		},
 		Spec: corev1.PodSpec{
 			ImagePullSecrets: bootstrapConfig.imagePullSecrets(),
+			Affinity:         bootstrapConfig.affinity(),
 			Containers: []corev1.Container{
 				{
 					Name:    HumioContainerName,
