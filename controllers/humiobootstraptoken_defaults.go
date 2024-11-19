@@ -83,6 +83,22 @@ func (b *HumioBootstrapTokenConfig) imagePullSecrets() []corev1.LocalObjectRefer
 	return []corev1.LocalObjectReference{}
 }
 
+func (b *HumioBootstrapTokenConfig) affinity() *corev1.Affinity {
+	if b.BootstrapToken.Spec.Affinity != nil {
+		return b.BootstrapToken.Spec.Affinity
+	}
+	humioNodePools := getHumioNodePoolManagers(b.ManagedHumioCluster)
+	for idx := range humioNodePools.Items {
+		if humioNodePools.Items[idx].GetNodeCount() > 0 {
+			pod, err := ConstructPod(humioNodePools.Items[idx], "", &podAttachments{})
+			if err == nil {
+				return pod.Spec.Affinity
+			}
+		}
+	}
+	return nil
+}
+
 func (b *HumioBootstrapTokenConfig) resources() corev1.ResourceRequirements {
 	if b.BootstrapToken.Spec.Resources != nil {
 		return *b.BootstrapToken.Spec.Resources
