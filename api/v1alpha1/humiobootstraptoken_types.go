@@ -41,6 +41,9 @@ type HumioBootstrapTokenSpec struct {
 	// ImagePullSecrets defines the imagepullsecrets for the bootstrap image onetime pod. These secrets are not created by the operator. This will default to the imagePullSecrets
 	// that are used by either the HumioCluster resource or the first NodePool resource if ManagedClusterName is set on the HumioBootstrapTokenSpec
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	// Affinity defines the affinity for the bootstrap onetime pod. This will default to the affinity of the first
+	// non-empty node pool if ManagedClusterName is set on the HumioBootstrapTokenSpec
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 	// Resources is the kubernetes resource limits for the bootstrap onetime pod
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 	// TokenSecret is the secret reference that contains the token to use for this HumioBootstrapToken. This is used if one wants to use an existing
