@@ -133,9 +133,20 @@ func (r *HumioClusterReconciler) FilterSchedulablePVCs(ctx context.Context, pers
 			schedulablePVCs = append(schedulablePVCs, pvc)
 			continue
 		}
-		node, err := kubernetes.GetNode(ctx, r, pv.Spec.NodeAffinity.Required.NodeSelectorTerms[0].MatchExpressions[0].Values[0])
+		nodeName := ""
+		if pv.Spec.NodeAffinity != nil && len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) > 0 &&
+			len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms[0].MatchExpressions) > 0 &&
+			len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms[0].MatchExpressions[0].Values) > 0 {
+			nodeName = pv.Spec.NodeAffinity.Required.NodeSelectorTerms[0].MatchExpressions[0].Values[0]
+		}
+
+		if nodeName == "" {
+			return nil, fmt.Errorf("node name not found in PV spec")
+		}
+
+		node, err := kubernetes.GetNode(ctx, r, nodeName)
 		if err != nil {
-			return nil, r.logErrorAndReturn(err, fmt.Sprintf("failed to get node %s", pv.Spec.NodeAffinity.Required.NodeSelectorTerms[0].MatchExpressions[0].Values[0]))
+			return nil, r.logErrorAndReturn(err, fmt.Sprintf("failed to get node %s", nodeName))
 		}
 		if node.Spec.Unschedulable {
 			r.Log.Info("PVC bound to unschedulable node skipping",
