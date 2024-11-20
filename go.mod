@@ -3,17 +3,17 @@ module github.com/humio/humio-operator
 go 1.22
 
 require (
+	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/cert-manager/cert-manager v1.12.14
-	github.com/cli/shurcooL-graphql v0.0.4
 	github.com/go-jose/go-jose/v4 v4.0.1
 	github.com/go-logr/logr v1.4.1
 	github.com/go-logr/zapr v1.3.0
 	github.com/google/go-cmp v0.6.0
-	github.com/humio/cli v0.36.1-0.20240814103929-aacdf44666ce
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.34.1
 	github.com/prometheus/client_golang v1.19.0
+	github.com/vektah/gqlparser/v2 v2.5.20
 	go.uber.org/zap v1.27.0
 	k8s.io/api v0.29.7
 	k8s.io/apimachinery v0.29.7
@@ -23,6 +23,9 @@ require (
 )
 
 require (
+	github.com/agnivade/levenshtein v1.2.0 // indirect
+	github.com/alexflint/go-arg v1.4.2 // indirect
+	github.com/alexflint/go-scalar v1.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -59,6 +62,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
+	golang.org/x/mod v0.19.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/oauth2 v0.19.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect

@@ -25,7 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/humio/humio-operator/pkg/kubernetes"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/humio"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 
@@ -42,9 +44,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/humio"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -340,24 +339,38 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	if k8sClient != nil {
-		Expect(k8sClient.Delete(context.TODO(), &corev1alpha1.HumioRepository{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      testRepo.Name,
-				Namespace: testRepo.Namespace,
-			},
-		})).To(Succeed())
-		Expect(k8sClient.Delete(context.TODO(), &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      testService1.Name,
-				Namespace: testService1.Namespace,
-			},
-		})).To(Succeed())
-		Expect(k8sClient.Delete(context.TODO(), &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      testService2.Name,
-				Namespace: testService2.Namespace,
-			},
-		})).To(Succeed())
+		if testRepo.Name != "" {
+			Expect(k8sClient.Delete(context.TODO(), &corev1alpha1.HumioRepository{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testRepo.Name,
+					Namespace: testRepo.Namespace,
+				},
+			})).To(Succeed())
+			Eventually(func() bool {
+				return k8serrors.IsNotFound(
+					k8sClient.Get(ctx, types.NamespacedName{
+						Name:      testRepo.Name,
+						Namespace: testRepo.Namespace,
+					}, &corev1alpha1.HumioRepository{}),
+				)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		}
+		if testService1.Name != "" {
+			Expect(k8sClient.Delete(context.TODO(), &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testService1.Name,
+					Namespace: testService1.Namespace,
+				},
+			})).To(Succeed())
+		}
+		if testService2.Name != "" {
+			Expect(k8sClient.Delete(context.TODO(), &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testService2.Name,
+					Namespace: testService2.Namespace,
+				},
+			})).To(Succeed())
+		}
 
 		suite.UsingClusterBy(clusterKey.Name, "HumioCluster: Confirming resource generation wasn't updated excessively")
 		Expect(k8sClient.Get(context.Background(), clusterKey, cluster)).Should(Succeed())
@@ -375,7 +388,7 @@ var _ = AfterSuite(func() {
 			})).To(Succeed())
 		}
 
-		if testNamespace.ObjectMeta.Name != "" && !helpers.UseEnvtest() && helpers.PreserveKindCluster() {
+		if testNamespace.Name != "" && !helpers.UseEnvtest() && helpers.PreserveKindCluster() {
 			By(fmt.Sprintf("Removing test namespace: %s", clusterKey.Namespace))
 			err := k8sClient.Delete(context.TODO(), &testNamespace)
 			Expect(err).ToNot(HaveOccurred())

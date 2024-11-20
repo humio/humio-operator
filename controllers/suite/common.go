@@ -13,9 +13,9 @@ import (
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/controllers/versions"
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/humio"
-	"github.com/humio/humio-operator/pkg/kubernetes"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/humio"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -528,20 +528,23 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 				Expect(clusterConfig).ToNot(BeNil())
 				Expect(clusterConfig.Config()).ToNot(BeNil())
 
-				cluster, err := humioClient.GetClusters(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
+				humioHttpClient := humioClient.GetHumioHttpClient(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
+				cluster, err := humioClient.GetClusters(ctx, humioHttpClient, reconcile.Request{NamespacedName: key})
 				if err != nil {
 					return []string{fmt.Sprintf("got err: %s", err)}
 				}
-				if len(cluster.Nodes) < 1 {
+				getCluster := cluster.GetCluster()
+				if len(getCluster.GetNodes()) < 1 {
 					return []string{}
 				}
 				keys := make(map[string]bool)
 				var zoneList []string
-				for _, node := range cluster.Nodes {
-					if _, value := keys[node.Zone]; !value {
-						if node.Zone != "" {
-							keys[node.Zone] = true
-							zoneList = append(zoneList, node.Zone)
+				for _, node := range getCluster.GetNodes() {
+					zone := node.Zone
+					if zone != nil {
+						if _, value := keys[*zone]; !value {
+							keys[*zone] = true
+							zoneList = append(zoneList, *zone)
 						}
 					}
 				}
@@ -554,17 +557,20 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 				Expect(clusterConfig).ToNot(BeNil())
 				Expect(clusterConfig.Config()).ToNot(BeNil())
 
-				cluster, err := humioClient.GetClusters(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
-				if err != nil || len(cluster.Nodes) < 1 {
+				humioHttpClient := humioClient.GetHumioHttpClient(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
+				cluster, err := humioClient.GetClusters(ctx, humioHttpClient, reconcile.Request{NamespacedName: key})
+				getCluster := cluster.GetCluster()
+				if err != nil || len(getCluster.GetNodes()) < 1 {
 					return []string{}
 				}
 				keys := make(map[string]bool)
 				var zoneList []string
-				for _, node := range cluster.Nodes {
-					if _, value := keys[node.Zone]; !value {
-						if node.Zone != "" {
-							keys[node.Zone] = true
-							zoneList = append(zoneList, node.Zone)
+				for _, node := range getCluster.GetNodes() {
+					zone := node.Zone
+					if zone != nil {
+						if _, value := keys[*zone]; !value {
+							keys[*zone] = true
+							zoneList = append(zoneList, *zone)
 						}
 					}
 				}
