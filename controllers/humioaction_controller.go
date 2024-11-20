@@ -20,15 +20,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
-	humioapi "github.com/humio/cli/api"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/humio"
-	"github.com/humio/humio-operator/pkg/kubernetes"
+	humioapi "github.com/humio/humio-operator/internal/api"
+	"github.com/humio/humio-operator/internal/api/humiographql"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/humio"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -81,6 +83,7 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
+	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	err = r.resolveSecrets(ctx, ha)
 	if err != nil {
@@ -97,7 +100,7 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, ha *humiov1alpha1.HumioAction) {
-		_, err := r.HumioClient.GetAction(cluster.Config(), req, ha)
+		_, err := r.HumioClient.GetAction(ctx, humioHttpClient, req, ha)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioActionStateNotFound, ha)
 			return
@@ -109,31 +112,33 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		_ = r.setState(ctx, humiov1alpha1.HumioActionStateExists, ha)
 	}(ctx, r.HumioClient, ha)
 
-	return r.reconcileHumioAction(ctx, cluster.Config(), ha, req)
+	return r.reconcileHumioAction(ctx, humioHttpClient, ha, req)
 }
 
-func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config *humioapi.Config, ha *humiov1alpha1.HumioAction, req ctrl.Request) (reconcile.Result, error) {
+func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client *humioapi.Client, ha *humiov1alpha1.HumioAction, req ctrl.Request) (reconcile.Result, error) {
 	// Delete
 	r.Log.Info("Checking if Action is marked to be deleted")
-	isMarkedForDeletion := ha.GetDeletionTimestamp() != nil
-	if isMarkedForDeletion {
+	if ha.GetDeletionTimestamp() != nil {
 		r.Log.Info("Action marked to be deleted")
 		if helpers.ContainsElement(ha.GetFinalizers(), humioFinalizer) {
+			_, err := r.HumioClient.GetAction(ctx, client, req, ha)
+			if errors.As(err, &humioapi.EntityNotFound{}) {
+				ha.SetFinalizers(helpers.RemoveElement(ha.GetFinalizers(), humioFinalizer))
+				err := r.Update(ctx, ha)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+				r.Log.Info("Finalizer removed successfully")
+				return reconcile.Result{Requeue: true}, nil
+			}
+
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting Action")
-			if err := r.HumioClient.DeleteAction(config, req, ha); err != nil {
+			if err := r.HumioClient.DeleteAction(ctx, client, req, ha); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete Action returned error")
 			}
-
-			r.Log.Info("Action Deleted. Removing finalizer")
-			ha.SetFinalizers(helpers.RemoveElement(ha.GetFinalizers(), humioFinalizer))
-			err := r.Update(ctx, ha)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-			r.Log.Info("Finalizer removed successfully")
 		}
 		return reconcile.Result{}, nil
 	}
@@ -153,17 +158,19 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 
 	r.Log.Info("Checking if action needs to be created")
 	// Add Action
-	curAction, err := r.HumioClient.GetAction(config, req, ha)
-	if errors.As(err, &humioapi.EntityNotFound{}) {
-		r.Log.Info("Action doesn't exist. Now adding action")
-		addedAction, err := r.HumioClient.AddAction(config, req, ha)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create action")
-		}
-		r.Log.Info("Created action", "Action", ha.Spec.Name, "ID", addedAction.ID)
-		return reconcile.Result{Requeue: true}, nil
-	}
+	curAction, err := r.HumioClient.GetAction(ctx, client, req, ha)
 	if err != nil {
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			r.Log.Info("Action doesn't exist. Now adding action")
+			addErr := r.HumioClient.AddAction(ctx, client, req, ha)
+			if addErr != nil {
+				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create action")
+			}
+			r.Log.Info("Created action",
+				"Action", ha.Spec.Name,
+			)
+			return reconcile.Result{Requeue: true}, nil
+		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if action exists")
 	}
 
@@ -173,17 +180,18 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, config
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not parse expected action")
 	}
-	sanitizeAction(curAction)
-	sanitizeAction(expectedAction)
-	if !cmp.Equal(*curAction, *expectedAction) {
-		r.Log.Info("Action differs, triggering update", "actionDiff", cmp.Diff(*curAction, *expectedAction))
-		action, err := r.HumioClient.UpdateAction(config, req, ha)
+
+	if asExpected, diff := actionAlreadyAsExpected(expectedAction, curAction); !asExpected {
+		r.Log.Info("information differs, triggering update",
+			"diff", diff,
+		)
+		err = r.HumioClient.UpdateAction(ctx, client, req, ha)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update action")
 		}
-		if action != nil {
-			r.Log.Info(fmt.Sprintf("Updated action %q", ha.Spec.Name), "newAction", fmt.Sprintf("%#+v", action))
-		}
+		r.Log.Info("Updated action",
+			"Action", ha.Spec.Name,
+		)
 	}
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
@@ -307,6 +315,167 @@ func (r *HumioActionReconciler) logErrorAndReturn(err error, msg string) error {
 	return fmt.Errorf("%s: %w", msg, err)
 }
 
-func sanitizeAction(action *humioapi.Action) {
-	action.ID = ""
+// actionAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
+// if the details from GraphQL already matches what is in the desired state of the custom resource.
+// If they do not match, a string is returned with details on what the diff is.
+func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentAction humiographql.ActionDetails) (bool, string) {
+	var diffs []string
+
+	switch e := (expectedAction).(type) {
+	case *humiographql.ActionDetailsEmailAction:
+		switch c := (currentAction).(type) {
+		case *humiographql.ActionDetailsEmailAction:
+			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetRecipients(), e.GetRecipients()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.recipients=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetSubjectTemplate(), e.GetSubjectTemplate()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.subjectTemplate()=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetEmailBodyTemplate(), e.GetEmailBodyTemplate()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.bodyTemplate=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.useProxy=%q", e, diff))
+			}
+		default:
+			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+		}
+	case *humiographql.ActionDetailsHumioRepoAction:
+		switch c := (currentAction).(type) {
+		case *humiographql.ActionDetailsHumioRepoAction:
+			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetIngestToken(), e.GetIngestToken()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.ingestToken=%q", e, "<redacted>"))
+			}
+		default:
+			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+		}
+	case *humiographql.ActionDetailsOpsGenieAction:
+		switch c := (currentAction).(type) {
+		case *humiographql.ActionDetailsOpsGenieAction:
+			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetApiUrl(), e.GetApiUrl()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.apiUrl=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetGenieKey(), e.GetGenieKey()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.genieKey=%q", e, "<redacted>"))
+			}
+			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.useProxy=%q", e, diff))
+			}
+		default:
+			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+		}
+	case *humiographql.ActionDetailsPagerDutyAction:
+		switch c := (currentAction).(type) {
+		case *humiographql.ActionDetailsPagerDutyAction:
+			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetRoutingKey(), e.GetRoutingKey()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.apiUrl=%q", e, "<redacted>"))
+			}
+			if diff := cmp.Diff(c.GetSeverity(), e.GetSeverity()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.genieKey=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.useProxy=%q", e, diff))
+			}
+		default:
+			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+		}
+	case *humiographql.ActionDetailsSlackAction:
+		switch c := (currentAction).(type) {
+		case *humiographql.ActionDetailsSlackAction:
+			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetFields(), e.GetFields()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.fields=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetUrl(), e.GetUrl()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.url=%q", e, "<redacted>"))
+			}
+			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.useProxy=%q", e, diff))
+			}
+		default:
+			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+		}
+	case *humiographql.ActionDetailsSlackPostMessageAction:
+		switch c := (currentAction).(type) {
+		case *humiographql.ActionDetailsSlackPostMessageAction:
+			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetApiToken(), e.GetApiToken()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.apiToken=%q", e, "<redacted>"))
+			}
+			if diff := cmp.Diff(c.GetChannels(), e.GetChannels()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.channels=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetFields(), e.GetFields()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.fields=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.useProxy=%q", e, diff))
+			}
+		default:
+			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+		}
+	case *humiographql.ActionDetailsVictorOpsAction:
+		switch c := (currentAction).(type) {
+		case *humiographql.ActionDetailsVictorOpsAction:
+			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetMessageType(), e.GetMessageType()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.messageType=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetNotifyUrl(), e.GetNotifyUrl()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.notifyUrl=%q", e, "<redacted>"))
+			}
+			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.useProxy=%q", e, diff))
+			}
+		default:
+			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+		}
+	case *humiographql.ActionDetailsWebhookAction:
+		switch c := (currentAction).(type) {
+		case *humiographql.ActionDetailsWebhookAction:
+			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetWebhookBodyTemplate(), e.GetWebhookBodyTemplate()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.bodyTemplate=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetHeaders(), e.GetHeaders()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.headers=%q", e, "<redacted>"))
+			}
+			if diff := cmp.Diff(c.GetMethod(), e.GetMethod()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.method=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetUrl(), e.GetUrl()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.url=%q", e, "<redacted>"))
+			}
+			if diff := cmp.Diff(c.GetIgnoreSSL(), e.GetIgnoreSSL()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.ignoreSSL=%q", e, diff))
+			}
+			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
+				diffs = append(diffs, fmt.Sprintf("%T.useProxy=%q", e, diff))
+			}
+		default:
+			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+		}
+	}
+
+	return len(diffs) == 0, strings.Join(diffs, ", ")
 }
