@@ -2,11 +2,12 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	"github.com/humio/humio-operator/pkg/helpers"
-
-	"github.com/humio/humio-operator/pkg/kubernetes"
+	humioapi "github.com/humio/humio-operator/internal/api"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -16,55 +17,31 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	humioapi "github.com/humio/cli/api"
 	corev1 "k8s.io/api/core/v1"
 )
 
-// extractExistingHumioAdminUserID finds the user ID of the Humio user for the admin account, and returns
-// empty string and no error if the user doesn't exist
-func (r *HumioClusterReconciler) extractExistingHumioAdminUserID(config *humioapi.Config, req reconcile.Request, username string) (string, error) {
-	allUsers, err := r.HumioClient.ListAllHumioUsersInCurrentOrganization(config, req)
-	if err != nil {
-		// unable to list all users
-		return "", err
-	}
-	for _, user := range allUsers {
-		if user.Username == username {
-			return user.Id, nil
-		}
-	}
-
-	return "", nil
-}
-
 // createAndGetAdminAccountUserID ensures a Humio admin account exists and returns the user ID for it
-func (r *HumioClusterReconciler) createAndGetAdminAccountUserID(config *humioapi.Config, req reconcile.Request, username string) (string, error) {
+func (r *HumioClusterReconciler) createAndGetAdminAccountUserID(ctx context.Context, client *humioapi.Client, req reconcile.Request, username string) (string, error) {
 	// List all users and grab the user ID for an existing user
-	userID, err := r.extractExistingHumioAdminUserID(config, req, username)
+	currentUserID, err := r.HumioClient.GetUserIDForUsername(ctx, client, req, username)
 	if err != nil {
-		// Error while grabbing the user ID
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			// If we didn't find a user ID, create a user, extract the user ID and return it
+			newUserID, err := r.HumioClient.AddUserAndGetUserID(ctx, client, req, username, true)
+			if err != nil {
+				return "", err
+			}
+			if newUserID != "" {
+				return newUserID, nil
+			}
+		}
+		// Error while grabbing the user
 		return "", err
-	}
-	if userID != "" {
-		// If we found a user ID, return it
-		return userID, nil
 	}
 
-	// If we didn't find a user ID, create a user, extract the user ID and return it
-	user, err := r.HumioClient.AddUser(config, req, username, true)
-	if err != nil {
-		return "", err
-	}
-	userID, err = r.extractExistingHumioAdminUserID(config, req, username)
-	if err != nil {
-		return "", err
-	}
-	if userID != "" {
+	if currentUserID != "" {
 		// If we found a user ID, return it
-		return userID, nil
-	}
-	if userID != user.ID {
-		return "", fmt.Errorf("unexpected error. userid %s does not match %s", userID, user.ID)
+		return currentUserID, nil
 	}
 
 	// Return error if we didn't find a valid user ID
@@ -100,7 +77,8 @@ func (r *HumioClusterReconciler) validateAdminSecretContent(ctx context.Context,
 			}
 		}
 
-		_, err = r.HumioClient.GetClusters(cluster.Config(), req)
+		client := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
+		_, err = r.HumioClient.GetClusters(ctx, client, req)
 		if err != nil {
 			return fmt.Errorf("got err while trying to use apiToken: %w", err)
 		}
@@ -154,11 +132,11 @@ func (r *HumioClusterReconciler) ensureAdminSecretContent(ctx context.Context, h
 	return nil
 }
 
-func (r *HumioClusterReconciler) createPersonalAPIToken(ctx context.Context, config *humioapi.Config, req reconcile.Request, hc *v1alpha1.HumioCluster, username string, organization string) error {
+func (r *HumioClusterReconciler) createPersonalAPIToken(ctx context.Context, client *humioapi.Client, req reconcile.Request, hc *v1alpha1.HumioCluster, username string) error {
 	r.Log.Info("ensuring admin user")
 
 	// Get user ID of admin account
-	userID, err := r.createAndGetAdminAccountUserID(config, req, username)
+	userID, err := r.createAndGetAdminAccountUserID(ctx, client, req, username)
 	if err != nil {
 		return fmt.Errorf("got err trying to obtain user ID of admin user: %s", err)
 	}
@@ -168,7 +146,7 @@ func (r *HumioClusterReconciler) createPersonalAPIToken(ctx context.Context, con
 	}
 
 	// Get API token for user ID of admin account
-	apiToken, err := r.HumioClient.RotateUserApiTokenAndGet(config, req, userID)
+	apiToken, err := r.HumioClient.RotateUserApiTokenAndGet(ctx, client, req, userID)
 	if err != nil {
 		return r.logErrorAndReturn(err, fmt.Sprintf("failed to rotate api key for userID %s", userID))
 	}
