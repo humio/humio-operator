@@ -30,13 +30,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/kubernetes"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -66,7 +67,7 @@ func validCASecret(ctx context.Context, k8sclient client.Client, namespace, secr
 	if err != nil {
 		return false, err
 	}
-	keys := []string{"tls.crt", "tls.key"}
+	keys := []string{corev1.TLSCertKey, corev1.TLSPrivateKeyKey}
 	for _, key := range keys {
 		_, found := secret.Data[key]
 		if !found {

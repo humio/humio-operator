@@ -29,10 +29,11 @@ import (
 
 	"github.com/humio/humio-operator/controllers"
 	"github.com/humio/humio-operator/controllers/suite"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/humio"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
-
-	"github.com/humio/humio-operator/pkg/kubernetes"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
@@ -43,9 +44,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/humio"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

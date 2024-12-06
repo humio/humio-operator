@@ -47,7 +47,7 @@ type HumioIngestTokenSpec struct {
 	// ParserName is the name of the parser which will be assigned to the ingest token.
 	//+kubebuilder:validation:MinLength=1
 	//+required
-	ParserName string `json:"parserName,omitempty"`
+	ParserName *string `json:"parserName,omitempty"`
 	// RepositoryName is the name of the Humio repository under which the ingest token will be created
 	//+kubebuilder:validation:MinLength=1
 	//+required

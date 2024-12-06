@@ -3,24 +3,24 @@ package versions
 import (
 	"strings"
 
-	"github.com/humio/humio-operator/pkg/helpers"
+	"github.com/humio/humio-operator/internal/helpers"
 )
 
 const (
 	defaultHelperImageVersion = "humio/humio-operator-helper:0801827ac0aeec0976097099ae00742209677a70"
-	defaultHumioImageVersion  = "humio/humio-core:1.153.3"
+	defaultHumioImageVersion  = "humio/humio-core:1.159.1"
 
-	oldSupportedHumioVersion   = "humio/humio-core:1.118.0"
-	upgradeJumpHumioVersion    = "humio/humio-core:1.128.0"
+	oldSupportedHumioVersion   = "humio/humio-core:1.130.0"
+	upgradeJumpHumioVersion    = "humio/humio-core:1.142.3"
 	oldUnsupportedHumioVersion = "humio/humio-core:1.18.4"
 
 	upgradeHelperImageVersion = "humio/humio-operator-helper:master"
 
-	upgradePatchBestEffortOldVersion = "humio/humio-core:1.124.1"
-	upgradePatchBestEffortNewVersion = "humio/humio-core:1.124.2"
+	upgradePatchBestEffortOldVersion = "humio/humio-core:1.136.1"
+	upgradePatchBestEffortNewVersion = "humio/humio-core:1.136.2"
 
-	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.124.1"
-	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.131.1"
+	upgradeRollingBestEffortVersionJumpOldVersion = "humio/humio-core:1.136.1"
+	upgradeRollingBestEffortVersionJumpNewVersion = "humio/humio-core:1.142.3"
 
 	sidecarWaitForGlobalImageVersion = "alpine:20240329"
 

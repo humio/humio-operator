@@ -19,10 +19,9 @@ package controllers
 import (
 	"fmt"
 
-	"github.com/humio/humio-operator/pkg/helpers"
-
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/pkg/kubernetes"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -133,7 +132,7 @@ func ConstructESIngestIngress(hc *humiov1alpha1.HumioCluster, esHostname string)
 	)
 }
 
-func constructIngress(hc *humiov1alpha1.HumioCluster, name string, hostname string, paths []string, port int, secretName string, annotations map[string]string) *networkingv1.Ingress {
+func constructIngress(hc *humiov1alpha1.HumioCluster, name string, hostname string, paths []string, port int32, secretName string, annotations map[string]string) *networkingv1.Ingress {
 	var httpIngressPaths []networkingv1.HTTPIngressPath
 	pathTypeImplementationSpecific := networkingv1.PathTypeImplementationSpecific
 	for _, path := range paths {
@@ -144,7 +143,7 @@ func constructIngress(hc *humiov1alpha1.HumioCluster, name string, hostname stri
 				Service: &networkingv1.IngressServiceBackend{
 					Name: (*ConstructService(NewHumioNodeManagerFromHumioCluster(hc))).Name,
 					Port: networkingv1.ServiceBackendPort{
-						Number: int32(port),
+						Number: port,
 					},
 				},
 			},

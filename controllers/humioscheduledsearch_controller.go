@@ -20,14 +20,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
+	"sort"
+	"strings"
 	"time"
 
-	"github.com/humio/humio-operator/pkg/kubernetes"
-
-	humioapi "github.com/humio/cli/api"
-
-	"github.com/humio/humio-operator/pkg/helpers"
+	"github.com/google/go-cmp/cmp"
+	humioapi "github.com/humio/humio-operator/internal/api"
+	"github.com/humio/humio-operator/internal/api/humiographql"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/humio"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
@@ -36,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/pkg/humio"
 )
 
 // HumioScheduledSearchReconciler reconciles a HumioScheduledSearch object
@@ -85,9 +86,10 @@ func (r *HumioScheduledSearchReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
+	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	defer func(ctx context.Context, humioClient humio.Client, hss *humiov1alpha1.HumioScheduledSearch) {
-		_, err := r.HumioClient.GetScheduledSearch(cluster.Config(), req, hss)
+		_, err := r.HumioClient.GetScheduledSearch(ctx, humioHttpClient, req, hss)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateNotFound, hss)
 			return
@@ -99,30 +101,33 @@ func (r *HumioScheduledSearchReconciler) Reconcile(ctx context.Context, req ctrl
 		_ = r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateExists, hss)
 	}(ctx, r.HumioClient, hss)
 
-	return r.reconcileHumioScheduledSearch(ctx, cluster.Config(), hss, req)
+	return r.reconcileHumioScheduledSearch(ctx, humioHttpClient, hss, req)
 }
 
-func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx context.Context, config *humioapi.Config, hss *humiov1alpha1.HumioScheduledSearch, req ctrl.Request) (reconcile.Result, error) {
+func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx context.Context, client *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch, req ctrl.Request) (reconcile.Result, error) {
 	r.Log.Info("Checking if scheduled search is marked to be deleted")
 	isMarkedForDeletion := hss.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
 		r.Log.Info("ScheduledSearch marked to be deleted")
 		if helpers.ContainsElement(hss.GetFinalizers(), humioFinalizer) {
+			_, err := r.HumioClient.GetScheduledSearch(ctx, client, req, hss)
+			if errors.As(err, &humioapi.EntityNotFound{}) {
+				hss.SetFinalizers(helpers.RemoveElement(hss.GetFinalizers(), humioFinalizer))
+				err := r.Update(ctx, hss)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+				r.Log.Info("Finalizer removed successfully")
+				return reconcile.Result{Requeue: true}, nil
+			}
+
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting scheduled search")
-			if err := r.HumioClient.DeleteScheduledSearch(config, req, hss); err != nil {
+			if err := r.HumioClient.DeleteScheduledSearch(ctx, client, req, hss); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete scheduled search returned error")
 			}
-
-			r.Log.Info("ScheduledSearch Deleted. Removing finalizer")
-			hss.SetFinalizers(helpers.RemoveElement(hss.GetFinalizers(), humioFinalizer))
-			err := r.Update(ctx, hss)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-			r.Log.Info("Finalizer removed successfully")
 		}
 		return reconcile.Result{}, nil
 	}
@@ -141,38 +146,36 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 	}
 
 	r.Log.Info("Checking if scheduled search needs to be created")
-	curScheduledSearch, err := r.HumioClient.GetScheduledSearch(config, req, hss)
-	if errors.As(err, &humioapi.EntityNotFound{}) {
-		r.Log.Info("ScheduledSearch doesn't exist. Now adding scheduled search")
-		addedScheduledSearch, err := r.HumioClient.AddScheduledSearch(config, req, hss)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create scheduled search")
-		}
-		r.Log.Info("Created scheduled search", "ScheduledSearch", hss.Spec.Name, "ID", addedScheduledSearch.ID)
-		return reconcile.Result{Requeue: true}, nil
-	}
+	curScheduledSearch, err := r.HumioClient.GetScheduledSearch(ctx, client, req, hss)
 	if err != nil {
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			r.Log.Info("ScheduledSearch doesn't exist. Now adding scheduled search")
+			addErr := r.HumioClient.AddScheduledSearch(ctx, client, req, hss)
+			if addErr != nil {
+				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create scheduled search")
+			}
+			r.Log.Info("Created scheduled search", "ScheduledSearch", hss.Spec.Name)
+			return reconcile.Result{Requeue: true}, nil
+		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if scheduled search")
 	}
 
 	r.Log.Info("Checking if scheduled search needs to be updated")
-	if err := r.HumioClient.ValidateActionsForScheduledSearch(config, req, hss); err != nil {
+	if err := r.HumioClient.ValidateActionsForScheduledSearch(ctx, client, req, hss); err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not get action id mapping")
 	}
-	expectedScheduledSearch := humio.ScheduledSearchTransform(hss)
 
-	sanitizeScheduledSearch(curScheduledSearch)
-	if !reflect.DeepEqual(*curScheduledSearch, *expectedScheduledSearch) {
-		r.Log.Info(fmt.Sprintf("ScheduledSearch differs, triggering update, expected %#v, got: %#v",
-			expectedScheduledSearch,
-			curScheduledSearch))
-		scheduledSearch, err := r.HumioClient.UpdateScheduledSearch(config, req, hss)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update scheduled search")
+	if asExpected, diff := scheduledSearchAlreadyAsExpected(hss, curScheduledSearch); !asExpected {
+		r.Log.Info("information differs, triggering update",
+			"diff", diff,
+		)
+		updateErr := r.HumioClient.UpdateScheduledSearch(ctx, client, req, hss)
+		if updateErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(updateErr, "could not update scheduled search")
 		}
-		if scheduledSearch != nil {
-			r.Log.Info(fmt.Sprintf("Updated scheduled search %q", scheduledSearch.Name))
-		}
+		r.Log.Info("Updated scheduled search",
+			"ScheduledSearch", hss.Spec.Name,
+		)
 	}
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
@@ -200,7 +203,51 @@ func (r *HumioScheduledSearchReconciler) logErrorAndReturn(err error, msg string
 	return fmt.Errorf("%s: %w", msg, err)
 }
 
-func sanitizeScheduledSearch(scheduledSearch *humioapi.ScheduledSearch) {
-	scheduledSearch.ID = ""
-	scheduledSearch.RunAsUserID = ""
+// scheduledSearchAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
+// if the details from GraphQL already matches what is in the desired state of the custom resource.
+// If they do not match, a string is returned with details on what the diff is.
+func scheduledSearchAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioScheduledSearch, fromGraphQL *humiographql.ScheduledSearchDetails) (bool, string) {
+	var diffs []string
+
+	if diff := cmp.Diff(fromGraphQL.GetDescription(), &fromKubernetesCustomResource.Spec.Description); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("description=%q", diff))
+	}
+	labelsFromGraphQL := fromGraphQL.GetLabels()
+	sort.Strings(labelsFromGraphQL)
+	sort.Strings(fromKubernetesCustomResource.Spec.Labels)
+	if diff := cmp.Diff(labelsFromGraphQL, fromKubernetesCustomResource.Spec.Labels); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("labels=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetStart(), fromKubernetesCustomResource.Spec.QueryStart); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("throttleField=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetEnd(), fromKubernetesCustomResource.Spec.QueryEnd); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("throttleTimeSeconds=%q", diff))
+	}
+	actionsFromGraphQL := humioapi.GetActionNames(fromGraphQL.GetActionsV2())
+	sort.Strings(actionsFromGraphQL)
+	sort.Strings(fromKubernetesCustomResource.Spec.Actions)
+	if diff := cmp.Diff(actionsFromGraphQL, fromKubernetesCustomResource.Spec.Actions); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("actions=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetTimeZone(), fromKubernetesCustomResource.Spec.TimeZone); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("queryTimestampType=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetQueryString(), fromKubernetesCustomResource.Spec.QueryString); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("queryString=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetSchedule(), fromKubernetesCustomResource.Spec.Schedule); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("triggerMode=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetBackfillLimit(), fromKubernetesCustomResource.Spec.BackfillLimit); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("searchIntervalSeconds=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetEnabled(), fromKubernetesCustomResource.Spec.Enabled); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("enabled=%q", diff))
+	}
+	if !humioapi.QueryOwnershipIsOrganizationOwnership(fromGraphQL.GetQueryOwnership()) {
+		diffs = append(diffs, fmt.Sprintf("queryOwnership=%+v", fromGraphQL.GetQueryOwnership()))
+	}
+
+	return len(diffs) == 0, strings.Join(diffs, ", ")
 }

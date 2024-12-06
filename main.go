@@ -22,6 +22,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/humio"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -37,9 +39,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/humio"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"

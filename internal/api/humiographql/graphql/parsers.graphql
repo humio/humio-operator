@@ -1,0 +1,76 @@
+fragment ParserDetails on Parser {
+    id
+    name
+    script
+    fieldsToTag
+    testCases {
+        event {
+            rawString
+        }
+        outputAssertions {
+            __typename
+        }
+    }
+}
+
+query ListParsers(
+    $RepositoryName: String!
+) {
+    repository(
+        name: $RepositoryName
+    ) {
+        parsers {
+            id
+            name
+        }
+    }
+}
+
+mutation DeleteParserByID(
+    $RepositoryName: RepoOrViewName!
+    $ParserID: String!
+) {
+    deleteParser(input: {
+        repositoryName: $RepositoryName
+        id: $ParserID
+    }) {
+        __typename
+    }
+}
+
+mutation CreateParserOrUpdate(
+    $RepositoryName: RepoOrViewName!
+    $Name: String!
+    $Script: String!
+    $TestCases: [ParserTestCaseInput!]!
+    $FieldsToTag: [String!]!
+    $FieldsToBeRemovedBeforeParsing: [String!]!
+    $AllowOverridingExistingParser: Boolean!
+) {
+    createParserV2(input: {
+        name: $Name
+        script: $Script
+        testCases: $TestCases
+        repositoryName: $RepositoryName
+        fieldsToTag: $FieldsToTag
+        fieldsToBeRemovedBeforeParsing: $FieldsToBeRemovedBeforeParsing
+        allowOverwritingExistingParser: $AllowOverridingExistingParser
+    }) {
+        ...ParserDetails
+    }
+}
+
+query GetParserByID(
+    $RepositoryName: String!
+    $ParserID: String!
+) {
+    repository(
+        name: $RepositoryName
+    ) {
+        parser(
+            id: $ParserID
+        ) {
+            ...ParserDetails
+        }
+    }
+}

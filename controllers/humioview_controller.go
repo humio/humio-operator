@@ -21,13 +21,16 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
-	humioapi "github.com/humio/cli/api"
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/humio"
-	"github.com/humio/humio-operator/pkg/kubernetes"
+	"github.com/google/go-cmp/cmp"
+	humioapi "github.com/humio/humio-operator/internal/api"
+	"github.com/humio/humio-operator/internal/api/humiographql"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/humio"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -83,6 +86,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
+	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	// Delete
 	r.Log.Info("Checking if view is marked to be deleted")
@@ -90,21 +94,24 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if isMarkedForDeletion {
 		r.Log.Info("View marked to be deleted")
 		if helpers.ContainsElement(hv.GetFinalizers(), humioFinalizer) {
+			_, err := r.HumioClient.GetView(ctx, humioHttpClient, req, hv)
+			if errors.As(err, &humioapi.EntityNotFound{}) {
+				hv.SetFinalizers(helpers.RemoveElement(hv.GetFinalizers(), humioFinalizer))
+				err := r.Update(ctx, hv)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+				r.Log.Info("Finalizer removed successfully")
+				return reconcile.Result{Requeue: true}, nil
+			}
+
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting View")
-			if err := r.HumioClient.DeleteView(cluster.Config(), req, hv); err != nil {
+			if err := r.HumioClient.DeleteView(ctx, humioHttpClient, req, hv); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete view returned error")
 			}
-
-			r.Log.Info("View Deleted. Removing finalizer")
-			hv.SetFinalizers(helpers.RemoveElement(hv.GetFinalizers(), humioFinalizer))
-			err := r.Update(ctx, hv)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-			r.Log.Info("Finalizer removed successfully")
 		}
 		return reconcile.Result{}, nil
 	}
@@ -120,9 +127,8 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		return reconcile.Result{Requeue: true}, nil
 	}
-
 	defer func(ctx context.Context, humioClient humio.Client, hv *humiov1alpha1.HumioView) {
-		_, err := r.HumioClient.GetView(cluster.Config(), req, hv)
+		_, err := r.HumioClient.GetView(ctx, humioHttpClient, req, hv)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioViewStateNotFound, hv)
 			return
@@ -135,70 +141,32 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}(ctx, r.HumioClient, hv)
 
 	r.Log.Info("get current view")
-	curView, err := r.HumioClient.GetView(cluster.Config(), req, hv)
-	if errors.As(err, &humioapi.EntityNotFound{}) {
-		r.Log.Info("View doesn't exist. Now adding view")
-		_, err := r.HumioClient.AddView(cluster.Config(), req, hv)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create view")
-		}
-		r.Log.Info("created view", "ViewName", hv.Spec.Name)
-		return reconcile.Result{Requeue: true}, nil
-	}
+	curView, err := r.HumioClient.GetView(ctx, humioHttpClient, req, hv)
 	if err != nil {
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			r.Log.Info("View doesn't exist. Now adding view")
+			addErr := r.HumioClient.AddView(ctx, humioHttpClient, req, hv)
+			if addErr != nil {
+				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create view")
+			}
+			r.Log.Info("created view", "ViewName", hv.Spec.Name)
+			return reconcile.Result{Requeue: true}, nil
+		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if view exists")
 	}
 
-	// Update
-	if viewConnectionsDiffer(curView.Connections, hv.GetViewConnections()) ||
-		curView.Description != hv.Spec.Description ||
-		curView.AutomaticSearch != helpers.BoolTrue(hv.Spec.AutomaticSearch) {
-		r.Log.Info(fmt.Sprintf("view information differs, triggering update, expected %v/%v/%v, got: %v/%v/%v",
-			hv.Spec.Connections,
-			hv.Spec.Description,
-			helpers.BoolTrue(hv.Spec.AutomaticSearch),
-			curView.Connections,
-			curView.Description,
-			curView.AutomaticSearch))
-		_, err := r.HumioClient.UpdateView(cluster.Config(), req, hv)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update view")
+	if asExpected, diff := viewAlreadyAsExpected(hv, curView); !asExpected {
+		r.Log.Info("information differs, triggering update",
+			"diff", diff,
+		)
+		updateErr := r.HumioClient.UpdateView(ctx, humioHttpClient, req, hv)
+		if updateErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(updateErr, "could not update view")
 		}
 	}
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
 	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
-}
-
-// viewConnectionsDiffer returns whether two slices of connections differ.
-// Connections are compared by repo name and filter so the ordering is not taken
-// into account.
-func viewConnectionsDiffer(curConnections, newConnections []humioapi.ViewConnection) bool {
-	if len(curConnections) != len(newConnections) {
-		return true
-	}
-	// sort the slices to avoid changes to the order of items in the slice to
-	// trigger an update. Kubernetes does not guarantee that slice items are
-	// deterministic ordered, so without this we could trigger updates to views
-	// without any functional changes. As the result of a view update in Humio is
-	// live queries against it are refreshed it can lead to dashboards and queries
-	// refreshing all the time.
-	sortConnections(curConnections)
-	sortConnections(newConnections)
-
-	for i := range curConnections {
-		if curConnections[i] != newConnections[i] {
-			return true
-		}
-	}
-
-	return false
-}
-
-func sortConnections(connections []humioapi.ViewConnection) {
-	sort.SliceStable(connections, func(i, j int) bool {
-		return connections[i].RepoName > connections[j].RepoName || connections[i].Filter > connections[j].Filter
-	})
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -220,4 +188,33 @@ func (r *HumioViewReconciler) setState(ctx context.Context, state string, hr *hu
 func (r *HumioViewReconciler) logErrorAndReturn(err error, msg string) error {
 	r.Log.Error(err, msg)
 	return fmt.Errorf("%s: %w", msg, err)
+}
+
+// viewAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
+// if the details from GraphQL already matches what is in the desired state of the custom resource.
+// If they do not match, a string is returned with details on what the diff is.
+func viewAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioView, fromGraphQL *humiographql.GetSearchDomainSearchDomainView) (bool, string) {
+	var diffs []string
+
+	currentConnections := fromGraphQL.GetConnections()
+	expectedConnections := fromKubernetesCustomResource.GetViewConnections()
+	sortConnections(currentConnections)
+	sortConnections(expectedConnections)
+	if diff := cmp.Diff(currentConnections, expectedConnections); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("viewConnections=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetDescription(), &fromKubernetesCustomResource.Spec.Description); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("description=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetAutomaticSearch(), helpers.BoolTrue(fromKubernetesCustomResource.Spec.AutomaticSearch)); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("automaticSearch=%q", diff))
+	}
+
+	return len(diffs) == 0, strings.Join(diffs, ", ")
+}
+
+func sortConnections(connections []humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection) {
+	sort.SliceStable(connections, func(i, j int) bool {
+		return connections[i].Repository.Name > connections[j].Repository.Name || connections[i].Filter > connections[j].Filter
+	})
 }

@@ -1,0 +1,7 @@
+fragment QueryOwnership on QueryOwnership {
+    __typename
+}
+
+fragment ActionName on Action {
+    name
+}

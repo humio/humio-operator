@@ -20,14 +20,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
+	"sort"
+	"strings"
 	"time"
 
-	"github.com/humio/humio-operator/pkg/kubernetes"
-
-	humioapi "github.com/humio/cli/api"
-
-	"github.com/humio/humio-operator/pkg/helpers"
+	"github.com/google/go-cmp/cmp"
+	humioapi "github.com/humio/humio-operator/internal/api"
+	"github.com/humio/humio-operator/internal/api/humiographql"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/humio"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
@@ -36,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/pkg/humio"
 )
 
 // HumioFilterAlertReconciler reconciles a HumioFilterAlert object
@@ -85,9 +86,10 @@ func (r *HumioFilterAlertReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
+	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	defer func(ctx context.Context, humioClient humio.Client, hfa *humiov1alpha1.HumioFilterAlert) {
-		_, err := r.HumioClient.GetFilterAlert(cluster.Config(), req, hfa)
+		_, err := r.HumioClient.GetFilterAlert(ctx, humioHttpClient, req, hfa)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioFilterAlertStateNotFound, hfa)
 			return
@@ -99,30 +101,33 @@ func (r *HumioFilterAlertReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		_ = r.setState(ctx, humiov1alpha1.HumioFilterAlertStateExists, hfa)
 	}(ctx, r.HumioClient, hfa)
 
-	return r.reconcileHumioFilterAlert(ctx, cluster.Config(), hfa, req)
+	return r.reconcileHumioFilterAlert(ctx, humioHttpClient, hfa, req)
 }
 
-func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Context, config *humioapi.Config, hfa *humiov1alpha1.HumioFilterAlert, req ctrl.Request) (reconcile.Result, error) {
+func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Context, client *humioapi.Client, hfa *humiov1alpha1.HumioFilterAlert, req ctrl.Request) (reconcile.Result, error) {
 	r.Log.Info("Checking if filter alert is marked to be deleted")
 	isMarkedForDeletion := hfa.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
 		r.Log.Info("FilterAlert marked to be deleted")
 		if helpers.ContainsElement(hfa.GetFinalizers(), humioFinalizer) {
+			_, err := r.HumioClient.GetFilterAlert(ctx, client, req, hfa)
+			if errors.As(err, &humioapi.EntityNotFound{}) {
+				hfa.SetFinalizers(helpers.RemoveElement(hfa.GetFinalizers(), humioFinalizer))
+				err := r.Update(ctx, hfa)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+				r.Log.Info("Finalizer removed successfully")
+				return reconcile.Result{Requeue: true}, nil
+			}
+
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting filter alert")
-			if err := r.HumioClient.DeleteFilterAlert(config, req, hfa); err != nil {
+			if err := r.HumioClient.DeleteFilterAlert(ctx, client, req, hfa); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete filter alert returned error")
 			}
-
-			r.Log.Info("FilterAlert Deleted. Removing finalizer")
-			hfa.SetFinalizers(helpers.RemoveElement(hfa.GetFinalizers(), humioFinalizer))
-			err := r.Update(ctx, hfa)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-			r.Log.Info("Finalizer removed successfully")
 		}
 		return reconcile.Result{}, nil
 	}
@@ -150,37 +155,38 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 	}
 
 	r.Log.Info("Checking if filter alert needs to be created")
-	curFilterAlert, err := r.HumioClient.GetFilterAlert(config, req, hfa)
-	if errors.As(err, &humioapi.EntityNotFound{}) {
-		r.Log.Info("FilterAlert doesn't exist. Now adding filter alert")
-		addedFilterAlert, err := r.HumioClient.AddFilterAlert(config, req, hfa)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create filter alert")
-		}
-		r.Log.Info("Created filter alert", "FilterAlert", hfa.Spec.Name, "ID", addedFilterAlert.ID)
-		return reconcile.Result{Requeue: true}, nil
-	}
+	curFilterAlert, err := r.HumioClient.GetFilterAlert(ctx, client, req, hfa)
 	if err != nil {
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			r.Log.Info("FilterAlert doesn't exist. Now adding filter alert")
+			addErr := r.HumioClient.AddFilterAlert(ctx, client, req, hfa)
+			if addErr != nil {
+				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create filter alert")
+			}
+			r.Log.Info("Created filter alert",
+				"FilterAlert", hfa.Spec.Name,
+			)
+			return reconcile.Result{Requeue: true}, nil
+		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if alert exists")
 	}
 
 	r.Log.Info("Checking if filter alert needs to be updated")
-	if err := r.HumioClient.ValidateActionsForFilterAlert(config, req, hfa); err != nil {
+	if err := r.HumioClient.ValidateActionsForFilterAlert(ctx, client, req, hfa); err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not get action id mapping")
 	}
-	expectedFilterAlert := humio.FilterAlertTransform(hfa)
-	sanitizeFilterAlert(curFilterAlert)
-	if !reflect.DeepEqual(*curFilterAlert, *expectedFilterAlert) {
-		r.Log.Info(fmt.Sprintf("FilterAlert differs, triggering update, expected %#v, got: %#v",
-			expectedFilterAlert,
-			curFilterAlert))
-		filterAlert, err := r.HumioClient.UpdateFilterAlert(config, req, hfa)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update filter alert")
+
+	if asExpected, diff := filterAlertAlreadyAsExpected(hfa, curFilterAlert); !asExpected {
+		r.Log.Info("information differs, triggering update",
+			"diff", diff,
+		)
+		updateErr := r.HumioClient.UpdateFilterAlert(ctx, client, req, hfa)
+		if updateErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(updateErr, "could not update filter alert")
 		}
-		if filterAlert != nil {
-			r.Log.Info(fmt.Sprintf("Updated filter alert %q", filterAlert.Name))
-		}
+		r.Log.Info("Updated filter alert",
+			"FilterAlert", hfa.Spec.Name,
+		)
 	}
 
 	r.Log.Info("done reconciling, will requeue after 15 seconds")
@@ -208,7 +214,42 @@ func (r *HumioFilterAlertReconciler) logErrorAndReturn(err error, msg string) er
 	return fmt.Errorf("%s: %w", msg, err)
 }
 
-func sanitizeFilterAlert(filterAlert *humioapi.FilterAlert) {
-	filterAlert.ID = ""
-	filterAlert.RunAsUserID = ""
+// filterAlertAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
+// if the details from GraphQL already matches what is in the desired state of the custom resource.
+// If they do not match, a string is returned with details on what the diff is.
+func filterAlertAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioFilterAlert, fromGraphQL *humiographql.FilterAlertDetails) (bool, string) {
+	var diffs []string
+
+	if diff := cmp.Diff(fromGraphQL.GetDescription(), &fromKubernetesCustomResource.Spec.Description); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("description=%q", diff))
+	}
+	labelsFromGraphQL := fromGraphQL.GetLabels()
+	sort.Strings(labelsFromGraphQL)
+	sort.Strings(fromKubernetesCustomResource.Spec.Labels)
+	if diff := cmp.Diff(labelsFromGraphQL, fromKubernetesCustomResource.Spec.Labels); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("labels=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetThrottleField(), fromKubernetesCustomResource.Spec.ThrottleField); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("throttleField=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetThrottleTimeSeconds(), helpers.Int64Ptr(int64(fromKubernetesCustomResource.Spec.ThrottleTimeSeconds))); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("throttleTimeSeconds=%q", diff))
+	}
+	actionsFromGraphQL := humioapi.GetActionNames(fromGraphQL.GetActions())
+	sort.Strings(actionsFromGraphQL)
+	sort.Strings(fromKubernetesCustomResource.Spec.Actions)
+	if diff := cmp.Diff(actionsFromGraphQL, fromKubernetesCustomResource.Spec.Actions); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("actions=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetQueryString(), fromKubernetesCustomResource.Spec.QueryString); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("queryString=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetEnabled(), fromKubernetesCustomResource.Spec.Enabled); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("enabled=%q", diff))
+	}
+	if !humioapi.QueryOwnershipIsOrganizationOwnership(fromGraphQL.GetQueryOwnership()) {
+		diffs = append(diffs, fmt.Sprintf("queryOwnership=%+v", fromGraphQL.GetQueryOwnership()))
+	}
+
+	return len(diffs) == 0, strings.Join(diffs, ", ")
 }
