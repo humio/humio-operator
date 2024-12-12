@@ -60,7 +60,7 @@ type HumioAggregateAlertSpec struct {
 	// ThrottleTimeSeconds is the throttle time in seconds. An aggregate alert is triggered at most once per the throttle time
 	ThrottleTimeSeconds int `json:"throttleTimeSeconds,omitempty"`
 	// ThrottleField is the field on which to throttle
-	ThrottleField string `json:"throttleField,omitempty"`
+	ThrottleField *string `json:"throttleField,omitempty"`
 	// Aggregate Alert trigger mode
 	TriggerMode string `json:"triggerMode,omitempty"`
 	// Enabled will set the AggregateAlert to enabled when set to true

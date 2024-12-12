@@ -1,0 +1,8 @@
+query GetCluster {
+    cluster {
+        nodes {
+            id
+            zone
+        }
+    }
+}

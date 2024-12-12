@@ -20,11 +20,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
-	humioapi "github.com/humio/cli/api"
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/kubernetes"
+	"github.com/google/go-cmp/cmp"
+	humioapi "github.com/humio/humio-operator/internal/api"
+	"github.com/humio/humio-operator/internal/api/humiographql"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/humio"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -33,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/pkg/humio"
 )
 
 // HumioRepositoryReconciler reconciles a HumioRepository object
@@ -83,6 +86,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
+	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	r.Log.Info("Checking if repository is marked to be deleted")
 	// Check if the HumioRepository instance is marked to be deleted, which is
@@ -91,23 +95,24 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if isHumioRepositoryMarkedToBeDeleted {
 		r.Log.Info("Repository marked to be deleted")
 		if helpers.ContainsElement(hr.GetFinalizers(), humioFinalizer) {
+			_, err := r.HumioClient.GetRepository(ctx, humioHttpClient, req, hr)
+			if errors.As(err, &humioapi.EntityNotFound{}) {
+				hr.SetFinalizers(helpers.RemoveElement(hr.GetFinalizers(), humioFinalizer))
+				err := r.Update(ctx, hr)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+				r.Log.Info("Finalizer removed successfully")
+				return reconcile.Result{Requeue: true}, nil
+			}
+
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Repository contains finalizer so run finalizer method")
-			if err := r.finalize(ctx, cluster.Config(), req, hr); err != nil {
+			if err := r.finalize(ctx, humioHttpClient, req, hr); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
-
-			// Remove humioFinalizer. Once all finalizers have been
-			// removed, the object will be deleted.
-			r.Log.Info("Finalizer done. Removing finalizer")
-			hr.SetFinalizers(helpers.RemoveElement(hr.GetFinalizers(), humioFinalizer))
-			err := r.Update(ctx, hr)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-			r.Log.Info("Finalizer removed successfully")
 		}
 		return reconcile.Result{}, nil
 	}
@@ -121,7 +126,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hr *humiov1alpha1.HumioRepository) {
-		_, err := humioClient.GetRepository(cluster.Config(), req, hr)
+		_, err := humioClient.GetRepository(ctx, humioHttpClient, req, hr)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioRepositoryStateNotFound, hr)
 			return
@@ -135,38 +140,26 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// Get current repository
 	r.Log.Info("get current repository")
-	curRepository, err := r.HumioClient.GetRepository(cluster.Config(), req, hr)
-	if errors.As(err, &humioapi.EntityNotFound{}) {
-		r.Log.Info("repository doesn't exist. Now adding repository")
-		// create repository
-		_, err := r.HumioClient.AddRepository(cluster.Config(), req, hr)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create repository")
-		}
-		r.Log.Info("created repository", "RepositoryName", hr.Spec.Name)
-		return reconcile.Result{Requeue: true}, nil
-	}
+	curRepository, err := r.HumioClient.GetRepository(ctx, humioHttpClient, req, hr)
 	if err != nil {
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			r.Log.Info("repository doesn't exist. Now adding repository")
+			// create repository
+			addErr := r.HumioClient.AddRepository(ctx, humioHttpClient, req, hr)
+			if addErr != nil {
+				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create repository")
+			}
+			r.Log.Info("created repository", "RepositoryName", hr.Spec.Name)
+			return reconcile.Result{Requeue: true}, nil
+		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if repository exists")
 	}
 
-	if (curRepository.Description != hr.Spec.Description) ||
-		(curRepository.RetentionDays != float64(hr.Spec.Retention.TimeInDays)) ||
-		(curRepository.IngestRetentionSizeGB != float64(hr.Spec.Retention.IngestSizeInGB)) ||
-		(curRepository.StorageRetentionSizeGB != float64(hr.Spec.Retention.StorageSizeInGB)) ||
-		(curRepository.AutomaticSearch != helpers.BoolTrue(hr.Spec.AutomaticSearch)) {
-		r.Log.Info(fmt.Sprintf("repository information differs, triggering update, expected %v/%v/%v/%v/%v, got: %v/%v/%v/%v/%v",
-			hr.Spec.Description,
-			float64(hr.Spec.Retention.TimeInDays),
-			float64(hr.Spec.Retention.IngestSizeInGB),
-			float64(hr.Spec.Retention.StorageSizeInGB),
-			helpers.BoolTrue(hr.Spec.AutomaticSearch),
-			curRepository.Description,
-			curRepository.RetentionDays,
-			curRepository.IngestRetentionSizeGB,
-			curRepository.StorageRetentionSizeGB,
-			curRepository.AutomaticSearch))
-		_, err = r.HumioClient.UpdateRepository(cluster.Config(), req, hr)
+	if asExpected, diff := repositoryAlreadyAsExpected(hr, curRepository); !asExpected {
+		r.Log.Info("information differs, triggering update",
+			"diff", diff,
+		)
+		err = r.HumioClient.UpdateRepository(ctx, humioHttpClient, req, hr)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update repository")
 		}
@@ -188,7 +181,7 @@ func (r *HumioRepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *HumioRepositoryReconciler) finalize(ctx context.Context, config *humioapi.Config, req reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
+func (r *HumioRepositoryReconciler) finalize(ctx context.Context, client *humioapi.Client, req reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
 	_, err := helpers.NewCluster(ctx, r, hr.Spec.ManagedClusterName, hr.Spec.ExternalClusterName, hr.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -197,7 +190,7 @@ func (r *HumioRepositoryReconciler) finalize(ctx context.Context, config *humioa
 		return err
 	}
 
-	return r.HumioClient.DeleteRepository(config, req, hr)
+	return r.HumioClient.DeleteRepository(ctx, client, req, hr)
 }
 
 func (r *HumioRepositoryReconciler) addFinalizer(ctx context.Context, hr *humiov1alpha1.HumioRepository) error {
@@ -224,4 +217,29 @@ func (r *HumioRepositoryReconciler) setState(ctx context.Context, state string, 
 func (r *HumioRepositoryReconciler) logErrorAndReturn(err error, msg string) error {
 	r.Log.Error(err, msg)
 	return fmt.Errorf("%s: %w", msg, err)
+}
+
+// repositoryAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
+// if the details from GraphQL already matches what is in the desired state of the custom resource.
+// If they do not match, a string is returned with details on what the diff is.
+func repositoryAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioRepository, fromGraphQL *humiographql.RepositoryDetails) (bool, string) {
+	var diffs []string
+
+	if diff := cmp.Diff(fromGraphQL.GetDescription(), &fromKubernetesCustomResource.Spec.Description); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("description=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetTimeBasedRetention(), helpers.Int32PtrToFloat64Ptr(fromKubernetesCustomResource.Spec.Retention.TimeInDays)); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("timeInDays=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetIngestSizeBasedRetention(), helpers.Int32PtrToFloat64Ptr(fromKubernetesCustomResource.Spec.Retention.IngestSizeInGB)); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("ingestSizeInGB=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetStorageSizeBasedRetention(), helpers.Int32PtrToFloat64Ptr(fromKubernetesCustomResource.Spec.Retention.StorageSizeInGB)); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("storageSizeInGB=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetAutomaticSearch(), helpers.BoolTrue(fromKubernetesCustomResource.Spec.AutomaticSearch)); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("automaticSearch=%q", diff))
+	}
+
+	return len(diffs) == 0, strings.Join(diffs, ", ")
 }

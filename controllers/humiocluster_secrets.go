@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/humio/humio-operator/pkg/kubernetes"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 )
 

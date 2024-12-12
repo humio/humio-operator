@@ -1,0 +1,27 @@
+fragment UserDetails on User {
+    id
+    username
+    isRoot
+}
+
+query GetUsersByUsername(
+    $Username: String!
+) {
+    users(search: $Username) {
+        ...UserDetails
+    }
+}
+
+mutation AddUser(
+    $Username: String!
+    $IsRoot: Boolean
+) {
+    addUserV2(input: {
+        username: $Username
+        isRoot: $IsRoot
+    }) {
+        ... on User {
+            ...UserDetails
+        }
+    }
+}
