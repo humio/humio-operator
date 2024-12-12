@@ -898,11 +898,16 @@ func findHumioNodeNameAndCertHash(ctx context.Context, c client.Client, hnp *Hum
 		return podNameAndCertificateHash{}, err
 	}
 	for _, certificate := range certificates {
+		certificateUsedByNewlyCreatedPods := false
 		for _, newPod := range newlyCreatedPods {
 			if certificate.Name == newPod.Name {
-				// ignore any certificates that matches names of pods we've just created
-				continue
+				certificateUsedByNewlyCreatedPods = true
 			}
+		}
+
+		if certificateUsedByNewlyCreatedPods {
+			// ignore any certificates that matches names of pods we've just created
+			continue
 		}
 
 		if certificate.Spec.Keystores == nil {
