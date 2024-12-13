@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -156,9 +155,9 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if parser exists")
 	}
 
-	if asExpected, diff := parserAlreadyAsExpected(hp, curParser); !asExpected {
+	if asExpected, diffKeysAndValues := parserAlreadyAsExpected(hp, curParser); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			"diff", diff,
+			helpers.MapToAnySlice(diffKeysAndValues)...,
 		)
 		err = r.HumioClient.UpdateParser(ctx, humioHttpClient, req, hp)
 		if err != nil {
@@ -222,22 +221,22 @@ func (r *HumioParserReconciler) logErrorAndReturn(err error, msg string) error {
 
 // parserAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
 // if the details from GraphQL already matches what is in the desired state of the custom resource.
-// If they do not match, a string is returned with details on what the diff is.
-func parserAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioParser, fromGraphQL *humiographql.ParserDetails) (bool, string) {
-	var diffs []string
+// If they do not match, a map is returned with details on what the diff is.
+func parserAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioParser, fromGraphQL *humiographql.ParserDetails) (bool, map[string]string) {
+	keyValues := map[string]string{}
 
 	if diff := cmp.Diff(fromGraphQL.GetScript(), &fromKubernetesCustomResource.Spec.ParserScript); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("parserScript=%q", diff))
+		keyValues["parserScript"] = diff
 	}
 	tagFieldsFromGraphQL := fromGraphQL.GetFieldsToTag()
 	sort.Strings(tagFieldsFromGraphQL)
 	sort.Strings(fromKubernetesCustomResource.Spec.TagFields)
 	if diff := cmp.Diff(tagFieldsFromGraphQL, fromKubernetesCustomResource.Spec.TagFields); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("tagFields=%q", diff))
+		keyValues["tagFields"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetTestCases(), humioapi.TestDataToParserDetailsTestCasesParserTestCase(fromKubernetesCustomResource.Spec.TestData)); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("testData=%q", diff))
+		keyValues["testData"] = diff
 	}
 
-	return len(diffs) == 0, strings.Join(diffs, ", ")
+	return len(keyValues) == 0, keyValues
 }

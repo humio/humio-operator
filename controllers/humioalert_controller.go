@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -165,9 +164,9 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, client *
 
 	r.Log.Info("Checking if alert needs to be updated")
 
-	if asExpected, diff := alertAlreadyAsExpected(ha, curAlert); !asExpected {
+	if asExpected, diffKeysAndValues := alertAlreadyAsExpected(ha, curAlert); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			"diff", diff,
+			helpers.MapToAnySlice(diffKeysAndValues)...,
 		)
 		err = r.HumioClient.UpdateAlert(ctx, client, req, ha)
 		if err != nil {
@@ -205,43 +204,43 @@ func (r *HumioAlertReconciler) logErrorAndReturn(err error, msg string) error {
 
 // alertAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
 // if the details from GraphQL already matches what is in the desired state of the custom resource.
-// If they do not match, a string is returned with details on what the diff is.
-func alertAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioAlert, fromGraphQL *humiographql.AlertDetails) (bool, string) {
-	var diffs []string
+// If they do not match, a map is returned with details on what the diff is.
+func alertAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioAlert, fromGraphQL *humiographql.AlertDetails) (bool, map[string]string) {
+	keyValues := map[string]string{}
 
 	if diff := cmp.Diff(fromGraphQL.GetDescription(), &fromKubernetesCustomResource.Spec.Description); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("description=%q", diff))
+		keyValues["description"] = diff
 	}
 	labelsFromGraphQL := fromGraphQL.GetLabels()
 	sort.Strings(labelsFromGraphQL)
 	sort.Strings(fromKubernetesCustomResource.Spec.Labels)
 	if diff := cmp.Diff(labelsFromGraphQL, fromKubernetesCustomResource.Spec.Labels); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("labels=%q", diff))
+		keyValues["labels"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetThrottleField(), fromKubernetesCustomResource.Spec.ThrottleField); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("throttleField=%q", diff))
+		keyValues["throttleField"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetThrottleTimeMillis(), int64(fromKubernetesCustomResource.Spec.ThrottleTimeMillis)); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("throttleTimeMillis=%q", diff))
+		keyValues["throttleTimeMillis"] = diff
 	}
 	actionsFromGraphQL := humioapi.GetActionNames(fromGraphQL.GetActionsV2())
 	sort.Strings(actionsFromGraphQL)
 	sort.Strings(fromKubernetesCustomResource.Spec.Actions)
 	if diff := cmp.Diff(actionsFromGraphQL, fromKubernetesCustomResource.Spec.Actions); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("actions=%q", diff))
+		keyValues["actions"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetQueryString(), fromKubernetesCustomResource.Spec.Query.QueryString); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("queryString=%q", diff))
+		keyValues["queryString"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetQueryStart(), fromKubernetesCustomResource.Spec.Query.Start); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("queryString=%q", diff))
+		keyValues["queryString"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetEnabled(), !fromKubernetesCustomResource.Spec.Silenced); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("enabled=%q", diff))
+		keyValues["enabled"] = diff
 	}
 	if !humioapi.QueryOwnershipIsOrganizationOwnership(fromGraphQL.GetQueryOwnership()) {
-		diffs = append(diffs, fmt.Sprintf("queryOwnership=%+v", fromGraphQL.GetQueryOwnership()))
+		keyValues["queryOwnership"] = fmt.Sprintf("%+v", fromGraphQL.GetQueryOwnership())
 	}
 
-	return len(diffs) == 0, strings.Join(diffs, ", ")
+	return len(keyValues) == 0, keyValues
 }
