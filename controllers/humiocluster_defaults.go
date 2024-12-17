@@ -22,14 +22,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/humio/humio-operator/pkg/kubernetes"
-
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/humio/humio-operator/controllers/versions"
-	"github.com/humio/humio-operator/pkg/helpers"
-
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/controllers/versions"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -493,17 +491,6 @@ func (hnp *HumioNodePool) GetPodLabels() map[string]string {
 
 func (hnp *HumioNodePool) GetCommonClusterLabels() map[string]string {
 	return kubernetes.LabelsForHumio(hnp.clusterName)
-}
-
-func (hnp *HumioNodePool) GetCASecretName() string {
-	if hnp.tls != nil && hnp.tls.CASecretName != "" {
-		return hnp.tls.CASecretName
-	}
-	return fmt.Sprintf("%s-ca-keypair", hnp.GetClusterName())
-}
-
-func (hnp *HumioNodePool) UseExistingCA() bool {
-	return hnp.tls != nil && hnp.tls.CASecretName != ""
 }
 
 func (hnp *HumioNodePool) GetLabelsForSecret(secretName string) map[string]string {

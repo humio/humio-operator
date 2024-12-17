@@ -21,8 +21,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/kubernetes"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/humio"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -31,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/pkg/humio"
 )
 
 // HumioExternalClusterReconciler reconciles a HumioExternalCluster object
@@ -85,7 +85,7 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, r.logErrorAndReturn(fmt.Errorf("unable to obtain humio client config: %w", err), "unable to obtain humio client config")
 	}
 
-	err = r.HumioClient.TestAPIToken(cluster.Config(), req)
+	err = r.HumioClient.TestAPIToken(ctx, cluster.Config(), req)
 	if err != nil {
 		r.Log.Error(err, "unable to test if the API token is works")
 		err = r.Client.Get(ctx, req.NamespacedName, hec)

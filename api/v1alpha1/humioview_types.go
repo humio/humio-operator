@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	humioapi "github.com/humio/cli/api"
+	"github.com/humio/humio-operator/internal/api/humiographql"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -97,13 +97,14 @@ func init() {
 	SchemeBuilder.Register(&HumioView{}, &HumioViewList{})
 }
 
-func (hv *HumioView) GetViewConnections() []humioapi.ViewConnection {
-	viewConnections := make([]humioapi.ViewConnection, 0)
-
+func (hv *HumioView) GetViewConnections() []humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection {
+	viewConnections := make([]humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection, 0)
 	for _, connection := range hv.Spec.Connections {
-		viewConnections = append(viewConnections, humioapi.ViewConnection{
-			RepoName: connection.RepositoryName,
-			Filter:   connection.Filter,
+		viewConnections = append(viewConnections, humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection{
+			Repository: humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnectionRepository{
+				Name: connection.RepositoryName,
+			},
+			Filter: connection.Filter,
 		})
 	}
 	return viewConnections

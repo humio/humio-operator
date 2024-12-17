@@ -83,10 +83,12 @@ spec:
                 type: string
               throttleField:
                 description: ThrottleField is the field on which to throttle
+                minLength: 1
                 type: string
               throttleTimeSeconds:
                 description: ThrottleTimeSeconds is the throttle time in seconds.
                   A filter alert is triggered at most once per the throttle time
+                minimum: 60
                 type: integer
               viewName:
                 description: ViewName is the name of the Humio View under which the
