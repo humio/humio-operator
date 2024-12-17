@@ -2,14 +2,15 @@ on: push
 name: CI
 jobs:
   checks:
-    name: Run Tests
+    name: Run Checks
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-go@v5
       with:
         go-version: '1.22.2'
-    - shell: bash
+    - name: Generate manifests
+      shell: bash
       run: |
         make manifests
         if [[ -n $(git status -s) ]] ; then
@@ -20,6 +21,26 @@ jobs:
           git diff
           exit 1
         fi
+    - name: Generate API docs
+      shell: bash
+      run: |
+        make apidocs
+        if [[ -n $(git status -s) ]] ; then
+          echo "Generating API docs leaves tracked files in a modified state."
+          echo "Ensure to include updated API docs in this PR."
+          echo "This is usually done by running 'make apidocs' and running 'git add ...' for the files that was modified by generating manifests."
+          git status -s
+          git diff
+          exit 1
+        fi
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
+      with:
+        go-version: '1.22.2'
     - shell: bash
       run: |
         make test
