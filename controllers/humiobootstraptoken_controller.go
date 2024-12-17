@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -32,8 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -146,7 +146,7 @@ func (r *HumioBootstrapTokenReconciler) updateStatus(ctx context.Context, hbt *h
 	return r.Client.Status().Update(ctx, hbt)
 }
 
-func (r *HumioBootstrapTokenReconciler) execCommand(pod *corev1.Pod, args []string) (string, error) {
+func (r *HumioBootstrapTokenReconciler) execCommand(ctx context.Context, pod *corev1.Pod, args []string) (string, error) {
 	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		clientcmd.NewDefaultClientConfigLoadingRules(),
 		&clientcmd.ConfigOverrides{},
@@ -188,7 +188,7 @@ func (r *HumioBootstrapTokenReconciler) execCommand(pod *corev1.Pod, args []stri
 		return "", err
 	}
 	var stdout, stderr bytes.Buffer
-	err = exec.StreamWithContext(context.TODO(), remotecommand.StreamOptions{
+	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:  nil,
 		Stdout: &stdout,
 		Stderr: &stderr,
@@ -353,7 +353,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 	}
 
 	r.Log.Info("execing onetime pod")
-	output, err := r.execCommand(&foundPod, commandArgs)
+	output, err := r.execCommand(ctx, &foundPod, commandArgs)
 	if err != nil {
 		return r.logErrorAndReturn(err, "failed to exec pod")
 	}
