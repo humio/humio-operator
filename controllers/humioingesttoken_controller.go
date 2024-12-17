@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -158,9 +157,9 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if ingest token exists")
 	}
 
-	if asExpected, diff := ingestTokenAlreadyAsExpected(hit, curToken); !asExpected {
+	if asExpected, diffKeysAndValues := ingestTokenAlreadyAsExpected(hit, curToken); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			"diff", diff,
+			helpers.MapToAnySlice(diffKeysAndValues)...,
 		)
 		err = r.HumioClient.UpdateIngestToken(ctx, humioHttpClient, req, hit)
 		if err != nil {
@@ -269,26 +268,26 @@ func (r *HumioIngestTokenReconciler) logErrorAndReturn(err error, msg string) er
 
 // ingestTokenAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
 // if the details from GraphQL already matches what is in the desired state of the custom resource.
-// If they do not match, a string is returned with details on what the diff is.
-func ingestTokenAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioIngestToken, fromGraphQL *humiographql.IngestTokenDetails) (bool, string) {
-	var diffs []string
+// If they do not match, a map is returned with details on what the diff is.
+func ingestTokenAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioIngestToken, fromGraphQL *humiographql.IngestTokenDetails) (bool, map[string]string) {
+	keyValues := map[string]string{}
 
 	// Expects a parser assigned, but none found
 	if fromGraphQL.GetParser() == nil && fromKubernetesCustomResource.Spec.ParserName != nil {
-		diffs = append(diffs, fmt.Sprintf("shouldAssignParser=%q", *fromKubernetesCustomResource.Spec.ParserName))
+		keyValues["shouldAssignParser"] = *fromKubernetesCustomResource.Spec.ParserName
 	}
 
 	// Expects no parser assigned, but found one
 	if fromGraphQL.GetParser() != nil && fromKubernetesCustomResource.Spec.ParserName == nil {
-		diffs = append(diffs, fmt.Sprintf("shouldUnassignParser=%q", fromGraphQL.GetParser().GetName()))
+		keyValues["shouldUnassignParser"] = fromGraphQL.GetParser().GetName()
 	}
 
 	// Parser already assigned, but not the one we expected
 	if fromGraphQL.GetParser() != nil && fromKubernetesCustomResource.Spec.ParserName != nil {
 		if diff := cmp.Diff(fromGraphQL.GetParser().GetName(), *fromKubernetesCustomResource.Spec.ParserName); diff != "" {
-			diffs = append(diffs, fmt.Sprintf("parserName=%q", diff))
+			keyValues["parserName"] = diff
 		}
 	}
 
-	return len(diffs) == 0, strings.Join(diffs, ", ")
+	return len(keyValues) == 0, keyValues
 }

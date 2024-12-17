@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -155,9 +154,9 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if repository exists")
 	}
 
-	if asExpected, diff := repositoryAlreadyAsExpected(hr, curRepository); !asExpected {
+	if asExpected, diffKeysAndValues := repositoryAlreadyAsExpected(hr, curRepository); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			"diff", diff,
+			helpers.MapToAnySlice(diffKeysAndValues)...,
 		)
 		err = r.HumioClient.UpdateRepository(ctx, humioHttpClient, req, hr)
 		if err != nil {
@@ -221,25 +220,25 @@ func (r *HumioRepositoryReconciler) logErrorAndReturn(err error, msg string) err
 
 // repositoryAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
 // if the details from GraphQL already matches what is in the desired state of the custom resource.
-// If they do not match, a string is returned with details on what the diff is.
-func repositoryAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioRepository, fromGraphQL *humiographql.RepositoryDetails) (bool, string) {
-	var diffs []string
+// If they do not match, a map is returned with details on what the diff is.
+func repositoryAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioRepository, fromGraphQL *humiographql.RepositoryDetails) (bool, map[string]string) {
+	keyValues := map[string]string{}
 
 	if diff := cmp.Diff(fromGraphQL.GetDescription(), &fromKubernetesCustomResource.Spec.Description); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("description=%q", diff))
+		keyValues["description"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetTimeBasedRetention(), helpers.Int32PtrToFloat64Ptr(fromKubernetesCustomResource.Spec.Retention.TimeInDays)); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("timeInDays=%q", diff))
+		keyValues["timeInDays"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetIngestSizeBasedRetention(), helpers.Int32PtrToFloat64Ptr(fromKubernetesCustomResource.Spec.Retention.IngestSizeInGB)); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("ingestSizeInGB=%q", diff))
+		keyValues["ingestSizeInGB"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetStorageSizeBasedRetention(), helpers.Int32PtrToFloat64Ptr(fromKubernetesCustomResource.Spec.Retention.StorageSizeInGB)); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("storageSizeInGB=%q", diff))
+		keyValues["storageSizeInGB"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetAutomaticSearch(), helpers.BoolTrue(fromKubernetesCustomResource.Spec.AutomaticSearch)); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("automaticSearch=%q", diff))
+		keyValues["automaticSearch"] = diff
 	}
 
-	return len(diffs) == 0, strings.Join(diffs, ", ")
+	return len(keyValues) == 0, keyValues
 }

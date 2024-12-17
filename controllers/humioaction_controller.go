@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -181,9 +180,9 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not parse expected action")
 	}
 
-	if asExpected, diff := actionAlreadyAsExpected(expectedAction, curAction); !asExpected {
+	if asExpected, diffKeysAndValues := actionAlreadyAsExpected(expectedAction, curAction); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			"diff", diff,
+			helpers.MapToAnySlice(diffKeysAndValues)...,
 		)
 		err = r.HumioClient.UpdateAction(ctx, client, req, ha)
 		if err != nil {
@@ -317,165 +316,165 @@ func (r *HumioActionReconciler) logErrorAndReturn(err error, msg string) error {
 
 // actionAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
 // if the details from GraphQL already matches what is in the desired state of the custom resource.
-// If they do not match, a string is returned with details on what the diff is.
-func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentAction humiographql.ActionDetails) (bool, string) {
-	var diffs []string
+// If they do not match, a map is returned with details on what the diff is.
+func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentAction humiographql.ActionDetails) (bool, map[string]string) {
+	keyValues := map[string]string{}
 
 	switch e := (expectedAction).(type) {
 	case *humiographql.ActionDetailsEmailAction:
 		switch c := (currentAction).(type) {
 		case *humiographql.ActionDetailsEmailAction:
 			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.name", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetRecipients(), e.GetRecipients()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.recipients=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.recipients", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetSubjectTemplate(), e.GetSubjectTemplate()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.subjectTemplate()=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.subjectTemplate", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetEmailBodyTemplate(), e.GetEmailBodyTemplate()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.bodyTemplate=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.bodyTemplate", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.useProxy=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.useProxy", e)] = diff
 			}
 		default:
-			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+			keyValues["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
 		}
 	case *humiographql.ActionDetailsHumioRepoAction:
 		switch c := (currentAction).(type) {
 		case *humiographql.ActionDetailsHumioRepoAction:
 			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.name", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetIngestToken(), e.GetIngestToken()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.ingestToken=%q", e, "<redacted>"))
+				keyValues[fmt.Sprintf("%T.ingestToken", e)] = "<redacted>"
 			}
 		default:
-			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+			keyValues["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
 		}
 	case *humiographql.ActionDetailsOpsGenieAction:
 		switch c := (currentAction).(type) {
 		case *humiographql.ActionDetailsOpsGenieAction:
 			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.name", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetApiUrl(), e.GetApiUrl()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.apiUrl=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.apiUrl", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetGenieKey(), e.GetGenieKey()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.genieKey=%q", e, "<redacted>"))
+				keyValues[fmt.Sprintf("%T.genieKey", e)] = "<redacted>"
 			}
 			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.useProxy=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.useProxy", e)] = diff
 			}
 		default:
-			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+			keyValues["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
 		}
 	case *humiographql.ActionDetailsPagerDutyAction:
 		switch c := (currentAction).(type) {
 		case *humiographql.ActionDetailsPagerDutyAction:
 			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.name", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetRoutingKey(), e.GetRoutingKey()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.apiUrl=%q", e, "<redacted>"))
+				keyValues[fmt.Sprintf("%T.apiUrl", e)] = "<redacted>"
 			}
 			if diff := cmp.Diff(c.GetSeverity(), e.GetSeverity()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.genieKey=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.genieKey", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.useProxy=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.useProxy", e)] = diff
 			}
 		default:
-			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+			keyValues["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
 		}
 	case *humiographql.ActionDetailsSlackAction:
 		switch c := (currentAction).(type) {
 		case *humiographql.ActionDetailsSlackAction:
 			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.name", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetFields(), e.GetFields()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.fields=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.fields", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetUrl(), e.GetUrl()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.url=%q", e, "<redacted>"))
+				keyValues[fmt.Sprintf("%T.url", e)] = "<redacted>"
 			}
 			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.useProxy=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.useProxy", e)] = diff
 			}
 		default:
-			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+			keyValues["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
 		}
 	case *humiographql.ActionDetailsSlackPostMessageAction:
 		switch c := (currentAction).(type) {
 		case *humiographql.ActionDetailsSlackPostMessageAction:
 			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.name", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetApiToken(), e.GetApiToken()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.apiToken=%q", e, "<redacted>"))
+				keyValues[fmt.Sprintf("%T.apiToken", e)] = "<redacted>"
 			}
 			if diff := cmp.Diff(c.GetChannels(), e.GetChannels()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.channels=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.channels", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetFields(), e.GetFields()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.fields=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.fields", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.useProxy=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.useProxy", e)] = diff
 			}
 		default:
-			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+			keyValues["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
 		}
 	case *humiographql.ActionDetailsVictorOpsAction:
 		switch c := (currentAction).(type) {
 		case *humiographql.ActionDetailsVictorOpsAction:
 			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.name", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetMessageType(), e.GetMessageType()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.messageType=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.messageType", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetNotifyUrl(), e.GetNotifyUrl()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.notifyUrl=%q", e, "<redacted>"))
+				keyValues[fmt.Sprintf("%T.notifyUrl", e)] = "<redacted>"
 			}
 			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.useProxy=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.useProxy", e)] = diff
 			}
 		default:
-			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+			keyValues["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
 		}
 	case *humiographql.ActionDetailsWebhookAction:
 		switch c := (currentAction).(type) {
 		case *humiographql.ActionDetailsWebhookAction:
 			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.name=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.name", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetWebhookBodyTemplate(), e.GetWebhookBodyTemplate()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.bodyTemplate=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.bodyTemplate", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetHeaders(), e.GetHeaders()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.headers=%q", e, "<redacted>"))
+				keyValues[fmt.Sprintf("%T.headers", e)] = "<redacted>"
 			}
 			if diff := cmp.Diff(c.GetMethod(), e.GetMethod()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.method=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.method", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetUrl(), e.GetUrl()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.url=%q", e, "<redacted>"))
+				keyValues[fmt.Sprintf("%T.url", e)] = "<redacted>"
 			}
 			if diff := cmp.Diff(c.GetIgnoreSSL(), e.GetIgnoreSSL()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.ignoreSSL=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.ignoreSSL", e)] = diff
 			}
 			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
-				diffs = append(diffs, fmt.Sprintf("%T.useProxy=%q", e, diff))
+				keyValues[fmt.Sprintf("%T.useProxy", e)] = diff
 			}
 		default:
-			diffs = append(diffs, fmt.Sprintf("expected type %T but current is %T", e, c))
+			keyValues["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
 		}
 	}
 
-	return len(diffs) == 0, strings.Join(diffs, ", ")
+	return len(keyValues) == 0, keyValues
 }
