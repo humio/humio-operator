@@ -35101,6 +35101,8 @@ This conflicts with ExternalClusterName.<br/>
         <td>integer</td>
         <td>
           ThrottleTimeSeconds is the throttle time in seconds. A filter alert is triggered at most once per the throttle time<br/>
+          <br/>
+            <i>Minimum</i>: 60<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -35594,6 +35596,7 @@ Retention defines the retention settings for the repository
 https://github.com/kubernetes-sigs/controller-tools/issues/245<br/>
           <br/>
             <i>Format</i>: int32<br/>
+            <i>Minimum</i>: 1<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -35603,6 +35606,7 @@ https://github.com/kubernetes-sigs/controller-tools/issues/245<br/>
           <br/>
           <br/>
             <i>Format</i>: int32<br/>
+            <i>Minimum</i>: 1<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -35612,6 +35616,7 @@ https://github.com/kubernetes-sigs/controller-tools/issues/245<br/>
           <br/>
           <br/>
             <i>Format</i>: int32<br/>
+            <i>Minimum</i>: 1<br/>
         </td>
         <td>false</td>
       </tr></tbody>

@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -155,9 +154,9 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if view exists")
 	}
 
-	if asExpected, diff := viewAlreadyAsExpected(hv, curView); !asExpected {
+	if asExpected, diffKeysAndValues := viewAlreadyAsExpected(hv, curView); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			"diff", diff,
+			helpers.MapToAnySlice(diffKeysAndValues)...,
 		)
 		updateErr := r.HumioClient.UpdateView(ctx, humioHttpClient, req, hv)
 		if updateErr != nil {
@@ -192,25 +191,25 @@ func (r *HumioViewReconciler) logErrorAndReturn(err error, msg string) error {
 
 // viewAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
 // if the details from GraphQL already matches what is in the desired state of the custom resource.
-// If they do not match, a string is returned with details on what the diff is.
-func viewAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioView, fromGraphQL *humiographql.GetSearchDomainSearchDomainView) (bool, string) {
-	var diffs []string
+// If they do not match, a map is returned with details on what the diff is.
+func viewAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioView, fromGraphQL *humiographql.GetSearchDomainSearchDomainView) (bool, map[string]string) {
+	keyValues := map[string]string{}
 
 	currentConnections := fromGraphQL.GetConnections()
 	expectedConnections := fromKubernetesCustomResource.GetViewConnections()
 	sortConnections(currentConnections)
 	sortConnections(expectedConnections)
 	if diff := cmp.Diff(currentConnections, expectedConnections); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("viewConnections=%q", diff))
+		keyValues["viewConnections"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetDescription(), &fromKubernetesCustomResource.Spec.Description); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("description=%q", diff))
+		keyValues["description"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetAutomaticSearch(), helpers.BoolTrue(fromKubernetesCustomResource.Spec.AutomaticSearch)); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("automaticSearch=%q", diff))
+		keyValues["automaticSearch"] = diff
 	}
 
-	return len(diffs) == 0, strings.Join(diffs, ", ")
+	return len(keyValues) == 0, keyValues
 }
 
 func sortConnections(connections []humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection) {
