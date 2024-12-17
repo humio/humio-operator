@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -165,9 +164,9 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not get action id mapping")
 	}
 
-	if asExpected, diff := scheduledSearchAlreadyAsExpected(hss, curScheduledSearch); !asExpected {
+	if asExpected, diffKeysAndValues := scheduledSearchAlreadyAsExpected(hss, curScheduledSearch); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			"diff", diff,
+			helpers.MapToAnySlice(diffKeysAndValues)...,
 		)
 		updateErr := r.HumioClient.UpdateScheduledSearch(ctx, client, req, hss)
 		if updateErr != nil {
@@ -205,49 +204,49 @@ func (r *HumioScheduledSearchReconciler) logErrorAndReturn(err error, msg string
 
 // scheduledSearchAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
 // if the details from GraphQL already matches what is in the desired state of the custom resource.
-// If they do not match, a string is returned with details on what the diff is.
-func scheduledSearchAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioScheduledSearch, fromGraphQL *humiographql.ScheduledSearchDetails) (bool, string) {
-	var diffs []string
+// If they do not match, a map is returned with details on what the diff is.
+func scheduledSearchAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioScheduledSearch, fromGraphQL *humiographql.ScheduledSearchDetails) (bool, map[string]string) {
+	keyValues := map[string]string{}
 
 	if diff := cmp.Diff(fromGraphQL.GetDescription(), &fromKubernetesCustomResource.Spec.Description); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("description=%q", diff))
+		keyValues["description"] = diff
 	}
 	labelsFromGraphQL := fromGraphQL.GetLabels()
 	sort.Strings(labelsFromGraphQL)
 	sort.Strings(fromKubernetesCustomResource.Spec.Labels)
 	if diff := cmp.Diff(labelsFromGraphQL, fromKubernetesCustomResource.Spec.Labels); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("labels=%q", diff))
+		keyValues["labels"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetStart(), fromKubernetesCustomResource.Spec.QueryStart); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("throttleField=%q", diff))
+		keyValues["throttleField"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetEnd(), fromKubernetesCustomResource.Spec.QueryEnd); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("throttleTimeSeconds=%q", diff))
+		keyValues["throttleTimeSeconds"] = diff
 	}
 	actionsFromGraphQL := humioapi.GetActionNames(fromGraphQL.GetActionsV2())
 	sort.Strings(actionsFromGraphQL)
 	sort.Strings(fromKubernetesCustomResource.Spec.Actions)
 	if diff := cmp.Diff(actionsFromGraphQL, fromKubernetesCustomResource.Spec.Actions); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("actions=%q", diff))
+		keyValues["actions"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetTimeZone(), fromKubernetesCustomResource.Spec.TimeZone); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("queryTimestampType=%q", diff))
+		keyValues["queryTimestampType"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetQueryString(), fromKubernetesCustomResource.Spec.QueryString); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("queryString=%q", diff))
+		keyValues["queryString"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetSchedule(), fromKubernetesCustomResource.Spec.Schedule); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("triggerMode=%q", diff))
+		keyValues["triggerMode"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetBackfillLimit(), fromKubernetesCustomResource.Spec.BackfillLimit); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("searchIntervalSeconds=%q", diff))
+		keyValues["searchIntervalSeconds"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetEnabled(), fromKubernetesCustomResource.Spec.Enabled); diff != "" {
-		diffs = append(diffs, fmt.Sprintf("enabled=%q", diff))
+		keyValues["enabled"] = diff
 	}
 	if !humioapi.QueryOwnershipIsOrganizationOwnership(fromGraphQL.GetQueryOwnership()) {
-		diffs = append(diffs, fmt.Sprintf("queryOwnership=%+v", fromGraphQL.GetQueryOwnership()))
+		keyValues["queryOwnership"] = fmt.Sprintf("%+v", fromGraphQL.GetQueryOwnership())
 	}
 
-	return len(diffs) == 0, strings.Join(diffs, ", ")
+	return len(keyValues) == 0, keyValues
 }
