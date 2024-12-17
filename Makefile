@@ -162,3 +162,23 @@ ifeq (,$(shell PATH=$$PATH:$(GOBIN) which ginkgo))
 endif
 GINKGO=$(GOBIN)/ginkgo
 endif
+
+.PHONY: crdoc
+crdoc:
+ifneq (,$(shell which crdoc))
+CRDOC=$(shell which crdoc)
+else
+ifeq (,$(shell PATH=$$PATH:$(GOBIN) which crdoc))
+	@{ \
+	set -ex ;\
+	which go ;\
+	go version ;\
+	go install fybrik.io/crdoc@6247ceaefc6bdb5d1a038278477feeda509e4e0c ;\
+	crdoc --version ;\
+	}
+endif
+CRDOC=$(GOBIN)/crdoc
+endif
+
+apidocs: manifests crdoc
+	$(CRDOC) --resources config/crd/bases --output docs/api.md
