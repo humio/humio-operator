@@ -21,12 +21,15 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	humioapi "github.com/humio/cli/api"
-	"github.com/humio/humio-operator/pkg/helpers"
-	"github.com/humio/humio-operator/pkg/kubernetes"
+	humioapi "github.com/humio/humio-operator/internal/api"
+	"github.com/humio/humio-operator/internal/api/humiographql"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/humio"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -35,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/pkg/humio"
 )
 
 // HumioParserReconciler reconciles a HumioParser object
@@ -85,6 +87,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
+	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	r.Log.Info("Checking if parser is marked to be deleted")
 	// Check if the HumioParser instance is marked to be deleted, which is
@@ -93,23 +96,24 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if isHumioParserMarkedToBeDeleted {
 		r.Log.Info("Parser marked to be deleted")
 		if helpers.ContainsElement(hp.GetFinalizers(), humioFinalizer) {
+			_, err := r.HumioClient.GetParser(ctx, humioHttpClient, req, hp)
+			if errors.As(err, &humioapi.EntityNotFound{}) {
+				hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), humioFinalizer))
+				err := r.Update(ctx, hp)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+				r.Log.Info("Finalizer removed successfully")
+				return reconcile.Result{Requeue: true}, nil
+			}
+
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Parser contains finalizer so run finalizer method")
-			if err := r.finalize(ctx, cluster.Config(), req, hp); err != nil {
+			if err := r.finalize(ctx, humioHttpClient, req, hp); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
-
-			// Remove humioFinalizer. Once all finalizers have been
-			// removed, the object will be deleted.
-			r.Log.Info("Finalizer done. Removing finalizer")
-			hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), humioFinalizer))
-			err := r.Update(ctx, hp)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-			r.Log.Info("Finalizer removed successfully")
 		}
 		return reconcile.Result{}, nil
 	}
@@ -123,7 +127,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioParser) {
-		_, err := humioClient.GetParser(cluster.Config(), req, hp)
+		_, err := humioClient.GetParser(ctx, humioHttpClient, req, hp)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioParserStateNotFound, hp)
 			return
@@ -137,48 +141,26 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Get current parser
 	r.Log.Info("get current parser")
-	curParser, err := r.HumioClient.GetParser(cluster.Config(), req, hp)
-	if errors.As(err, &humioapi.EntityNotFound{}) {
-		r.Log.Info("parser doesn't exist. Now adding parser")
-		// create parser
-		_, err := r.HumioClient.AddParser(cluster.Config(), req, hp)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create parser")
-		}
-		r.Log.Info("created parser")
-		return reconcile.Result{Requeue: true}, nil
-	}
+	curParser, err := r.HumioClient.GetParser(ctx, humioHttpClient, req, hp)
 	if err != nil {
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			r.Log.Info("parser doesn't exist. Now adding parser")
+			// create parser
+			addErr := r.HumioClient.AddParser(ctx, humioHttpClient, req, hp)
+			if addErr != nil {
+				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create parser")
+			}
+			r.Log.Info("created parser")
+			return reconcile.Result{Requeue: true}, nil
+		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if parser exists")
 	}
 
-	currentFieldsToTag := make([]string, len(curParser.FieldsToTag))
-	expectedTagFields := make([]string, len(hp.Spec.TagFields))
-	curParserTests := make([]string, len(curParser.TestCases))
-	expectedTests := make([]string, len(hp.Spec.TestData))
-	_ = copy(currentFieldsToTag, curParser.FieldsToTag)
-	_ = copy(expectedTagFields, hp.Spec.TagFields)
-	for i := range curParser.TestCases {
-		curParserTests[i] = curParser.TestCases[i].Event.RawString
-	}
-	if hp.Spec.TagFields == nil {
-		hp.Spec.TagFields = []string{}
-	}
-	_ = copy(expectedTests, hp.Spec.TestData)
-	if hp.Spec.TestData == nil {
-		hp.Spec.TestData = []string{}
-	}
-	sort.Strings(currentFieldsToTag)
-	sort.Strings(expectedTagFields)
-	sort.Strings(curParserTests)
-	sort.Strings(expectedTests)
-	parserScriptDiff := cmp.Diff(curParser.Script, hp.Spec.ParserScript)
-	tagFieldsDiff := cmp.Diff(curParser.FieldsToTag, hp.Spec.TagFields)
-	testDataDiff := cmp.Diff(curParserTests, hp.Spec.TestData)
-
-	if parserScriptDiff != "" || tagFieldsDiff != "" || testDataDiff != "" {
-		r.Log.Info("parser information differs, triggering update", "parserScriptDiff", parserScriptDiff, "tagFieldsDiff", tagFieldsDiff, "testDataDiff", testDataDiff)
-		_, err = r.HumioClient.UpdateParser(cluster.Config(), req, hp)
+	if asExpected, diff := parserAlreadyAsExpected(hp, curParser); !asExpected {
+		r.Log.Info("information differs, triggering update",
+			"diff", diff,
+		)
+		err = r.HumioClient.UpdateParser(ctx, humioHttpClient, req, hp)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update parser")
 		}
@@ -200,7 +182,7 @@ func (r *HumioParserReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *HumioParserReconciler) finalize(ctx context.Context, config *humioapi.Config, req reconcile.Request, hp *humiov1alpha1.HumioParser) error {
+func (r *HumioParserReconciler) finalize(ctx context.Context, client *humioapi.Client, req reconcile.Request, hp *humiov1alpha1.HumioParser) error {
 	_, err := helpers.NewCluster(ctx, r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -209,7 +191,7 @@ func (r *HumioParserReconciler) finalize(ctx context.Context, config *humioapi.C
 		return err
 	}
 
-	return r.HumioClient.DeleteParser(config, req, hp)
+	return r.HumioClient.DeleteParser(ctx, client, req, hp)
 }
 
 func (r *HumioParserReconciler) addFinalizer(ctx context.Context, hp *humiov1alpha1.HumioParser) error {
@@ -236,4 +218,26 @@ func (r *HumioParserReconciler) setState(ctx context.Context, state string, hp *
 func (r *HumioParserReconciler) logErrorAndReturn(err error, msg string) error {
 	r.Log.Error(err, msg)
 	return fmt.Errorf("%s: %w", msg, err)
+}
+
+// parserAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
+// if the details from GraphQL already matches what is in the desired state of the custom resource.
+// If they do not match, a string is returned with details on what the diff is.
+func parserAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioParser, fromGraphQL *humiographql.ParserDetails) (bool, string) {
+	var diffs []string
+
+	if diff := cmp.Diff(fromGraphQL.GetScript(), &fromKubernetesCustomResource.Spec.ParserScript); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("parserScript=%q", diff))
+	}
+	tagFieldsFromGraphQL := fromGraphQL.GetFieldsToTag()
+	sort.Strings(tagFieldsFromGraphQL)
+	sort.Strings(fromKubernetesCustomResource.Spec.TagFields)
+	if diff := cmp.Diff(tagFieldsFromGraphQL, fromKubernetesCustomResource.Spec.TagFields); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("tagFields=%q", diff))
+	}
+	if diff := cmp.Diff(fromGraphQL.GetTestCases(), humioapi.TestDataToParserDetailsTestCasesParserTestCase(fromKubernetesCustomResource.Spec.TestData)); diff != "" {
+		diffs = append(diffs, fmt.Sprintf("testData=%q", diff))
+	}
+
+	return len(diffs) == 0, strings.Join(diffs, ", ")
 }

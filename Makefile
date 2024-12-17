@@ -1,3 +1,5 @@
+SCHEMA_CLUSTER?=${HUMIO_ENDPOINT}
+SCHEMA_CLUSTER_API_TOKEN?=${HUMIO_TOKEN}
 
 # Image URL to use all building/pushing image targets
 IMG ?= humio/humio-operator:latest
@@ -39,7 +41,12 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	hack/gen-crds.sh # NOTE: This line was custom added for the humio-operator project.
 
+update-schema:
+	go run github.com/suessflorian/gqlfetch/gqlfetch@607d6757018016bba0ba7fd1cb9fed6aefa853b5 --endpoint ${SCHEMA_CLUSTER}/graphql --header "Authorization=Bearer ${SCHEMA_CLUSTER_API_TOKEN}" > internal/api/humiographql/schema/_schema.graphql
+	printf "# Fetched from version %s" $$(curl --silent --location '${SCHEMA_CLUSTER}/api/v1/status' | jq -r ".version") >> internal/api/humiographql/schema/_schema.graphql
+
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	go generate ./...
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 fmt: ## Run go fmt against code.

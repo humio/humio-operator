@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	HumioVersionMinimumSupported = "1.118.0"
+	HumioVersionMinimumSupported = "1.130.0"
 )
 
 type HumioVersion struct {

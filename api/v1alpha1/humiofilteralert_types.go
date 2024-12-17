@@ -54,9 +54,13 @@ type HumioFilterAlertSpec struct {
 	//+optional
 	Description string `json:"description,omitempty"`
 	// ThrottleTimeSeconds is the throttle time in seconds. A filter alert is triggered at most once per the throttle time
+	//+kubebuilder:validation:Minimum=60
+	//+required
 	ThrottleTimeSeconds int `json:"throttleTimeSeconds,omitempty"`
 	// ThrottleField is the field on which to throttle
-	ThrottleField string `json:"throttleField,omitempty"`
+	//+kubebuilder:validation:MinLength=1
+	//+required
+	ThrottleField *string `json:"throttleField,omitempty"`
 	// Enabled will set the FilterAlert to enabled when set to true
 	Enabled bool `json:"enabled,omitempty"`
 	// Actions is the list of Humio Actions by name that will be triggered by this filter alert
