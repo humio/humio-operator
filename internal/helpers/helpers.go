@@ -184,3 +184,13 @@ func GetE2ELicenseFromEnvVar() string {
 func PreserveKindCluster() bool {
 	return os.Getenv("PRESERVE_KIND_CLUSTER") == "true"
 }
+
+// MapToAnySlice converts a given map[string]string and converts it to []any.
+// This is useful when e.g. passing on key-value pairs to a logger.
+func MapToAnySlice(m map[string]string) []any {
+	result := make([]any, 0, len(m)*2)
+	for k, v := range m {
+		result = append(result, k, v)
+	}
+	return result
+}
