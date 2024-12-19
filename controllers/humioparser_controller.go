@@ -225,7 +225,7 @@ func (r *HumioParserReconciler) logErrorAndReturn(err error, msg string) error {
 func parserAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioParser, fromGraphQL *humiographql.ParserDetails) (bool, map[string]string) {
 	keyValues := map[string]string{}
 
-	if diff := cmp.Diff(fromGraphQL.GetScript(), &fromKubernetesCustomResource.Spec.ParserScript); diff != "" {
+	if diff := cmp.Diff(fromGraphQL.GetScript(), fromKubernetesCustomResource.Spec.ParserScript); diff != "" {
 		keyValues["parserScript"] = diff
 	}
 	tagFieldsFromGraphQL := fromGraphQL.GetFieldsToTag()
