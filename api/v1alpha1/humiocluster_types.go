@@ -108,6 +108,7 @@ type HumioNodeSpec struct {
 	Image string `json:"image,omitempty"`
 
 	// NodeCount is the desired number of humio cluster nodes
+	//+kubebuilder:default=0
 	NodeCount int `json:"nodeCount,omitempty"`
 
 	// DataVolumePersistentVolumeClaimSpecTemplate is the PersistentVolumeClaimSpec that will be used with for the humio data volume. This conflicts with DataVolumeSource.
