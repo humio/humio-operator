@@ -156,7 +156,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if asExpected, diffKeysAndValues := viewAlreadyAsExpected(hv, curView); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			helpers.MapToAnySlice(diffKeysAndValues)...,
+			"diff", diffKeysAndValues,
 		)
 		updateErr := r.HumioClient.UpdateView(ctx, humioHttpClient, req, hv)
 		if updateErr != nil {

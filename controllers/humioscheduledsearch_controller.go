@@ -166,7 +166,7 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 
 	if asExpected, diffKeysAndValues := scheduledSearchAlreadyAsExpected(hss, curScheduledSearch); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			helpers.MapToAnySlice(diffKeysAndValues)...,
+			"diff", diffKeysAndValues,
 		)
 		updateErr := r.HumioClient.UpdateScheduledSearch(ctx, client, req, hss)
 		if updateErr != nil {

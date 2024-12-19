@@ -166,7 +166,7 @@ func (r *HumioAlertReconciler) reconcileHumioAlert(ctx context.Context, client *
 
 	if asExpected, diffKeysAndValues := alertAlreadyAsExpected(ha, curAlert); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			helpers.MapToAnySlice(diffKeysAndValues)...,
+			"diff", diffKeysAndValues,
 		)
 		err = r.HumioClient.UpdateAlert(ctx, client, req, ha)
 		if err != nil {
