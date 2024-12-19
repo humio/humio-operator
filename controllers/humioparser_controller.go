@@ -157,7 +157,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if asExpected, diffKeysAndValues := parserAlreadyAsExpected(hp, curParser); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			helpers.MapToAnySlice(diffKeysAndValues)...,
+			"diff", diffKeysAndValues,
 		)
 		err = r.HumioClient.UpdateParser(ctx, humioHttpClient, req, hp)
 		if err != nil {
