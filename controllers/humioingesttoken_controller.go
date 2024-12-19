@@ -159,7 +159,7 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if asExpected, diffKeysAndValues := ingestTokenAlreadyAsExpected(hit, curToken); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			helpers.MapToAnySlice(diffKeysAndValues)...,
+			"diff", diffKeysAndValues,
 		)
 		err = r.HumioClient.UpdateIngestToken(ctx, humioHttpClient, req, hit)
 		if err != nil {
