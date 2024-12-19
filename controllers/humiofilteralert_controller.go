@@ -177,7 +177,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 
 	if asExpected, diffKeysAndValues := filterAlertAlreadyAsExpected(hfa, curFilterAlert); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			helpers.MapToAnySlice(diffKeysAndValues)...,
+			"diff", diffKeysAndValues,
 		)
 		updateErr := r.HumioClient.UpdateFilterAlert(ctx, client, req, hfa)
 		if updateErr != nil {

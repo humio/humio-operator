@@ -179,7 +179,7 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 
 	if asExpected, diffKeysAndValues := aggregateAlertAlreadyAsExpected(haa, curAggregateAlert); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			helpers.MapToAnySlice(diffKeysAndValues)...,
+			"diff", diffKeysAndValues,
 		)
 		updateErr := r.HumioClient.UpdateAggregateAlert(ctx, client, req, haa)
 		if updateErr != nil {

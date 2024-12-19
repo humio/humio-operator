@@ -156,7 +156,7 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	if asExpected, diffKeysAndValues := repositoryAlreadyAsExpected(hr, curRepository); !asExpected {
 		r.Log.Info("information differs, triggering update",
-			helpers.MapToAnySlice(diffKeysAndValues)...,
+			"diff", diffKeysAndValues,
 		)
 		err = r.HumioClient.UpdateRepository(ctx, humioHttpClient, req, hr)
 		if err != nil {
