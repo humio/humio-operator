@@ -5714,6 +5714,7 @@ spec:
                     x-kubernetes-map-type: atomic
                 type: object
               nodeCount:
+                default: 0
                 description: NodeCount is the desired number of humio cluster nodes
                 type: integer
               nodePoolFeatures:
@@ -11211,6 +11212,7 @@ spec:
                             in the humio pod.
                           type: string
                         nodeCount:
+                          default: 0
                           description: NodeCount is the desired number of humio cluster
                             nodes
                           type: integer

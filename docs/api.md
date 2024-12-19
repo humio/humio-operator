@@ -4267,6 +4267,8 @@ the Humio pods.<br/>
         <td>integer</td>
         <td>
           NodeCount is the desired number of humio cluster nodes<br/>
+          <br/>
+            <i>Default</i>: 0<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16237,6 +16239,8 @@ the Humio pods.<br/>
         <td>integer</td>
         <td>
           NodeCount is the desired number of humio cluster nodes<br/>
+          <br/>
+            <i>Default</i>: 0<br/>
         </td>
         <td>false</td>
       </tr><tr>
