@@ -234,7 +234,7 @@ func aggregateAlertAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1
 	if diff := cmp.Diff(fromGraphQL.GetThrottleField(), fromKubernetesCustomResource.Spec.ThrottleField); diff != "" {
 		keyValues["throttleField"] = diff
 	}
-	if diff := cmp.Diff(fromGraphQL.GetThrottleTimeSeconds(), fromKubernetesCustomResource.Spec.ThrottleTimeSeconds); diff != "" {
+	if diff := cmp.Diff(fromGraphQL.GetThrottleTimeSeconds(), int64(fromKubernetesCustomResource.Spec.ThrottleTimeSeconds)); diff != "" {
 		keyValues["throttleTimeSeconds"] = diff
 	}
 	actionsFromGraphQL := humioapi.GetActionNames(fromGraphQL.GetActions())
