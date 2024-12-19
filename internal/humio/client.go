@@ -1108,7 +1108,7 @@ func (h *ClientConfig) GetLicenseUIDAndExpiry(ctx context.Context, client *humio
 	case *humiographql.GetLicenseInstalledLicenseOnPremLicense:
 		return v.GetUid(), v.GetExpiresAt(), nil
 	default:
-		return "", time.Time{}, fmt.Errorf("unknown license type %t", v)
+		return "", time.Time{}, fmt.Errorf("unknown license type %T", v)
 	}
 }
 
