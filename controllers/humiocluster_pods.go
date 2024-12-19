@@ -720,23 +720,43 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 	sanitizedDesiredPod := sanitizePod(hnp, desiredPodCopy)
 	podSpecDiff := cmp.Diff(sanitizedCurrentPod.Spec, sanitizedDesiredPod.Spec)
 	if !specMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", PodHashAnnotation, pod.Annotations[PodHashAnnotation], desiredPod.Annotations[PodHashAnnotation]), "podSpecDiff", podSpecDiff)
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v",
+			PodHashAnnotation,
+			pod.Annotations[PodHashAnnotation], desiredPod.Annotations[PodHashAnnotation]),
+			"diff", podSpecDiff,
+		)
 		return false
 	}
 	if !revisionMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", PodRevisionAnnotation, pod.Annotations[PodRevisionAnnotation], desiredPod.Annotations[PodRevisionAnnotation]), "podSpecDiff", podSpecDiff)
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v",
+			PodRevisionAnnotation,
+			pod.Annotations[PodRevisionAnnotation], desiredPod.Annotations[PodRevisionAnnotation]),
+			"diff", podSpecDiff,
+		)
 		return false
 	}
 	if !bootstrapTokenAnnotationMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", BootstrapTokenHashAnnotation, pod.Annotations[BootstrapTokenHashAnnotation], desiredPod.Annotations[BootstrapTokenHashAnnotation]), "podSpecDiff", podSpecDiff)
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v",
+			BootstrapTokenHashAnnotation,
+			pod.Annotations[BootstrapTokenHashAnnotation], desiredPod.Annotations[BootstrapTokenHashAnnotation]),
+			"diff", podSpecDiff,
+		)
 		return false
 	}
 	if !envVarSourceMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", envVarSourceHashAnnotation, pod.Annotations[envVarSourceHashAnnotation], desiredPod.Annotations[envVarSourceHashAnnotation]), "podSpecDiff", podSpecDiff)
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v",
+			envVarSourceHashAnnotation,
+			pod.Annotations[envVarSourceHashAnnotation], desiredPod.Annotations[envVarSourceHashAnnotation]),
+			"diff", podSpecDiff,
+		)
 		return false
 	}
 	if !certHashAnnotationMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v", certHashAnnotation, pod.Annotations[certHashAnnotation], desiredPod.Annotations[certHashAnnotation]), "podSpecDiff", podSpecDiff)
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v",
+			certHashAnnotation,
+			pod.Annotations[certHashAnnotation], desiredPod.Annotations[certHashAnnotation]),
+			"diff", podSpecDiff,
+		)
 		return false
 	}
 	return true
