@@ -6043,7 +6043,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("HumioCluster PodDisruptionBudget", Label("envtest"), func() {
+	Context("HumioCluster PodDisruptionBudget", Label("envtest", "dummy", "real", func() {
 		var (
 			key           types.NamespacedName
 			toCreate      *humiov1alpha1.HumioCluster
