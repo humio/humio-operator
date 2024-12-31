@@ -2394,7 +2394,7 @@ func (r *HumioClusterReconciler) reconcilePodDisruptionBudget(ctx context.Contex
 		}
 	} else {
 		// Set default values if not specified in the CR
-		defaultMinAvailable := intstr.FromInt(2) // Example default: at least 2 pods available
+		defaultMinAvailable := intstr.FromInt32(2) // Example default: at least 2 pods available
 		pdb.Spec.MinAvailable = &defaultMinAvailable
 	}
 

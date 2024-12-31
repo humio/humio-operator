@@ -6045,10 +6045,10 @@ var _ = Describe("HumioCluster Controller", func() {
 
 	Context("HumioCluster PodDisruptionBudget", Label("envtest", "dummy", "real"), func() {
 		var (
-			key           types.NamespacedName
-			toCreate      *humiov1alpha1.HumioCluster
-			ctx           context.Context
-			
+			key      types.NamespacedName
+			toCreate *humiov1alpha1.HumioCluster
+			ctx      context.Context
+
 			cancel        context.CancelFunc
 			cleanupHelper func()
 		)
@@ -6088,7 +6088,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 
 		It("Should create PDB with user-specified minAvailable", func() {
-			minAvailable := intstr.FromInt(1)
+			minAvailable := intstr.FromInt32(1)
 			toCreate.Spec.PodDisruptionBudget = &humiov1alpha1.PodDisruptionBudgetSpec{
 				MinAvailable: &minAvailable,
 			}
@@ -6107,7 +6107,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 
 		It("Should create PDB with user-specified maxUnavailable", func() {
-			maxUnavailable := intstr.FromInt(1)
+			maxUnavailable := intstr.FromInt32(1)
 			toCreate.Spec.PodDisruptionBudget = &humiov1alpha1.PodDisruptionBudgetSpec{
 				MaxUnavailable: &maxUnavailable,
 			}
@@ -6135,7 +6135,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(k8sClient.Get(ctx, key, updatedHumioCluster)).Should(Succeed())
 
 			// Update HumioCluster with new PDB spec
-			minAvailable := intstr.FromInt(1)
+			minAvailable := intstr.FromInt32(1)
 			Eventually(func() error {
 				updatedHumioCluster = &humiov1alpha1.HumioCluster{}
 				err := k8sClient.Get(ctx, key, updatedHumioCluster)
