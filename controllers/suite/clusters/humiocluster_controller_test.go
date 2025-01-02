@@ -35,6 +35,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -6041,6 +6042,162 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(mostSeenUnavailable).To(BeNumerically("==", toCreate.Spec.NodeCount))
 		})
 	})
+
+	Context("HumioCluster PodDisruptionBudget", Label("envtest", "dummy", "real"), func() {
+		var (
+			key      types.NamespacedName
+			toCreate *humiov1alpha1.HumioCluster
+			ctx      context.Context
+
+			cancel        context.CancelFunc
+			cleanupHelper func()
+		)
+
+		BeforeEach(func() {
+			ctx, cancel = context.WithTimeout(context.Background(), testTimeout)
+			key = types.NamespacedName{
+				Name:      "humiocluster-pdb-test",
+				Namespace: testProcessNamespace,
+			}
+
+			cleanupHelper = func() {
+				resourcesToDelete := []client.Object{
+					&policyv1.PodDisruptionBudget{ObjectMeta: metav1.ObjectMeta{Name: key.Name + "-pdb", Namespace: key.Namespace}},
+					&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: key.Name + "-admin-token", Namespace: key.Namespace}},
+					&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: key.Name + "-bootstrap-token", Namespace: key.Namespace}},
+					&humiov1alpha1.HumioBootstrapToken{ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace}},
+					&humiov1alpha1.HumioCluster{ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace}},
+				}
+
+				for _, obj := range resourcesToDelete {
+					err := k8sClient.Delete(ctx, obj)
+					if err != nil && !k8serrors.IsNotFound(err) {
+						Expect(err).NotTo(HaveOccurred())
+					}
+				}
+			}
+
+			// Create basic cluster configuration
+			toCreate = suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.NodeCount = 3
+		})
+
+		AfterEach(func() {
+			cleanupHelper()
+			cancel()
+		})
+
+		It("Should create PDB with user-specified minAvailable", func() {
+			minAvailable := intstr.FromInt32(1)
+			toCreate.Spec.PodDisruptionBudget = &humiov1alpha1.PodDisruptionBudgetSpec{
+				MinAvailable: &minAvailable,
+			}
+
+			// Create the HumioCluster
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			foundPdb := &policyv1.PodDisruptionBudget{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: toCreate.Name + "-pdb", Namespace: toCreate.Namespace}, foundPdb)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Expect(foundPdb.Spec.MinAvailable.IntValue()).To(Equal(1))
+			Expect(foundPdb.Spec.MaxUnavailable).To(BeNil())
+		})
+
+		It("Should create PDB with user-specified maxUnavailable", func() {
+			maxUnavailable := intstr.FromInt32(1)
+			toCreate.Spec.PodDisruptionBudget = &humiov1alpha1.PodDisruptionBudgetSpec{
+				MaxUnavailable: &maxUnavailable,
+			}
+
+			// Create the HumioCluster
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			foundPdb := &policyv1.PodDisruptionBudget{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: toCreate.Name + "-pdb", Namespace: toCreate.Namespace}, foundPdb)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Expect(foundPdb.Spec.MaxUnavailable.IntValue()).To(Equal(1))
+			Expect(foundPdb.Spec.MinAvailable).To(BeNil())
+		})
+
+		It("Should update PDB if spec changes", func() {
+			// Create the HumioCluster
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			// Get the HumioCluster
+			updatedHumioCluster := &humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, updatedHumioCluster)).Should(Succeed())
+
+			// Update HumioCluster with new PDB spec
+			minAvailable := intstr.FromInt32(1)
+			Eventually(func() error {
+				updatedHumioCluster = &humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.PodDisruptionBudget = &humiov1alpha1.PodDisruptionBudgetSpec{
+					MinAvailable: &minAvailable,
+				}
+				return k8sClient.Update(ctx, updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Check if PDB is updated
+			foundPdb := &policyv1.PodDisruptionBudget{}
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: toCreate.Name + "-pdb", Namespace: toCreate.Namespace}, foundPdb)
+				if err != nil {
+					return err
+				}
+				if foundPdb.Spec.MinAvailable == nil {
+					return fmt.Errorf("minAvailable not set on PDB")
+				}
+				if foundPdb.Spec.MinAvailable.IntValue() != 1 {
+					return fmt.Errorf("minAvailable value is not 1 on PDB")
+				}
+				return nil
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+		})
+
+		It("Should not update PDB if spec does not change", func() {
+			// Create the HumioCluster
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			// Get the PDB
+			var initialResourceVersion string
+			foundPdb := &policyv1.PodDisruptionBudget{}
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: toCreate.Name + "-pdb", Namespace: toCreate.Namespace}, foundPdb)
+				if err == nil {
+					initialResourceVersion = foundPdb.ResourceVersion
+				}
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Reconcile again without changes, this is done by fetching a new HumioCluster
+			updatedHumioCluster := &humiov1alpha1.HumioCluster{}
+			Expect(k8sClient.Get(ctx, key, updatedHumioCluster)).Should(Succeed())
+
+			// Check if PDB's resource version is the same
+			Consistently(func() string {
+				// Get the updated PDB
+				var updatedPdb policyv1.PodDisruptionBudget
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: foundPdb.Name, Namespace: foundPdb.Namespace}, &updatedPdb)
+				if err != nil {
+					return ""
+				}
+				return updatedPdb.ResourceVersion
+			}, "2s", suite.TestInterval).Should(Equal(initialResourceVersion))
+		})
+	})
+
 })
 
 // TODO: Consider refactoring goroutine to a "watcher". https://book-v1.book.kubebuilder.io/beyond_basics/controller_watches
