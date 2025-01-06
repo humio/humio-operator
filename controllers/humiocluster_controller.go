@@ -32,11 +32,8 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	policyv1 "k8s.io/api/policy/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -82,9 +79,6 @@ const (
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=create;delete;get;list;patch;update;watch
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=create;delete;get;list;patch;update;watch
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingress,verbs=create;delete;get;list;patch;update;watch
-//+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 
 func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// when running tests, ignore resources that are not in the correct namespace
@@ -312,13 +306,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return result, err
 	}
 
-	// Set podDisruptionBudget
-	if err = r.reconcilePodDisruptionBudget(ctx, hc); err != nil {
-		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-			withMessage(r.logErrorAndReturn(err, "unable to set pod disruption budget").Error()),
-		)
-	}
-
 	r.Log.Info("done reconciling")
 	return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().withState(hc.Status.State).withMessage(""))
 }
@@ -334,7 +321,6 @@ func (r *HumioClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&networkingv1.Ingress{}).
-		Owns(&policyv1.PodDisruptionBudget{}).
 		Complete(r)
 }
 
@@ -2362,81 +2348,4 @@ func getHumioNodePoolManagers(hc *humiov1alpha1.HumioCluster) HumioNodePoolList 
 		humioNodePools.Add(NewHumioNodeManagerFromHumioNodePool(hc, &hc.Spec.NodePools[idx]))
 	}
 	return humioNodePools
-}
-
-// podLabelsForHumio returns the labels for selecting the resources
-// belonging to the given humioCluster CR name.
-func (r *HumioClusterReconciler) podLabelsForHumio(name string) map[string]string {
-	return map[string]string{"app": "humio", "humio_cr": name}
-}
-
-func (r *HumioClusterReconciler) reconcilePodDisruptionBudget(ctx context.Context, humioCluster *humiov1alpha1.HumioCluster) error {
-	// Define the desired PodDisruptionBudget object
-	pdb := &policyv1.PodDisruptionBudget{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      humioCluster.Name + "-pdb", // Or a more suitable name
-			Namespace: humioCluster.Namespace,
-			Labels:    r.podLabelsForHumio(humioCluster.Name), // Make sure labels are correct
-		},
-		Spec: policyv1.PodDisruptionBudgetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: r.podLabelsForHumio(humioCluster.Name),
-			},
-		},
-	}
-
-	// Set the MinAvailable or MaxUnavailable value
-	if humioCluster.Spec.PodDisruptionBudget != nil {
-		if humioCluster.Spec.PodDisruptionBudget.MinAvailable != nil {
-			pdb.Spec.MinAvailable = humioCluster.Spec.PodDisruptionBudget.MinAvailable
-		} else if humioCluster.Spec.PodDisruptionBudget.MaxUnavailable != nil {
-			pdb.Spec.MaxUnavailable = humioCluster.Spec.PodDisruptionBudget.MaxUnavailable
-		}
-	} else {
-		// Set default values if not specified in the CR
-		defaultMinAvailable := intstr.FromInt32(2) // Example default: at least 2 pods available
-		pdb.Spec.MinAvailable = &defaultMinAvailable
-	}
-
-	// Check if the PodDisruptionBudget already exists
-	foundPdb := &policyv1.PodDisruptionBudget{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: pdb.Name, Namespace: pdb.Namespace}, foundPdb)
-	if err != nil && k8serrors.IsNotFound(err) {
-		// Create the PodDisruptionBudget
-		r.Log.Info("Creating a new PodDisruptionBudget", "PDB.Namespace", pdb.Namespace, "PDB.Name", pdb.Name)
-		err = r.Client.Create(ctx, pdb)
-		if err != nil {
-			return err
-		}
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	// Update the PodDisruptionBudget if it exists and needs updating
-	if humioCluster.Spec.PodDisruptionBudget != nil {
-		if needsPDBUpdate(foundPdb, pdb) {
-			foundPdb.Spec = pdb.Spec
-			r.Log.Info("Updating PodDisruptionBudget", "PDB.Namespace", foundPdb.Namespace, "PDB.Name", foundPdb.Name)
-			err = r.Client.Update(ctx, foundPdb)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func needsPDBUpdate(current, desired *policyv1.PodDisruptionBudget) bool {
-	if current.Spec.MinAvailable != nil && desired.Spec.MinAvailable != nil {
-		if current.Spec.MinAvailable.String() != desired.Spec.MinAvailable.String() {
-			return true
-		}
-	}
-	if current.Spec.MaxUnavailable != nil && desired.Spec.MaxUnavailable != nil {
-		if current.Spec.MaxUnavailable.String() != desired.Spec.MaxUnavailable.String() {
-			return true
-		}
-	}
-	return false
 }

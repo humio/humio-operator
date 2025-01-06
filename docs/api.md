@@ -4310,13 +4310,6 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humioclusterspecpoddisruptionbudget">podDisruptionBudget</a></b></td>
-        <td>object</td>
-        <td>
-          PodDisruptionBudget defines the configuration for the PodDisruptionBudget<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
         <td><b>podLabels</b></td>
         <td>map[string]string</td>
         <td>
@@ -30956,40 +30949,6 @@ When set to RollingUpdateBestEffort, the operator will evaluate the Humio versio
 Humio pods can be updated in a rolling fashion or if they must be replaced at the same time.<br/>
           <br/>
             <i>Enum</i>: OnDelete, RollingUpdate, ReplaceAllOnUpdate, RollingUpdateBestEffort<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioCluster.spec.podDisruptionBudget
-<sup><sup>[↩ Parent](#humioclusterspec)</sup></sup>
-
-
-
-PodDisruptionBudget defines the configuration for the PodDisruptionBudget
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>maxUnavailable</b></td>
-        <td>int or string</td>
-        <td>
-          MaxUnavailable specifies the maximum number of pods that can be unavailable<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>minAvailable</b></td>
-        <td>int or string</td>
-        <td>
-          MinAvailable specifies the minimum number of pods that must be available<br/>
         </td>
         <td>false</td>
       </tr></tbody>
