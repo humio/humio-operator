@@ -64,6 +64,7 @@ type HumioScheduledSearchSpec struct {
 	// BackfillLimit is the user-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown.
 	BackfillLimit int `json:"backfillLimit"`
 	// Enabled will set the ScheduledSearch to enabled when set to true
+	//+kubebuilder:default=false
 	Enabled bool `json:"enabled,omitempty"`
 	// Actions is the list of Humio Actions by name that will be triggered by this scheduled search
 	Actions []string `json:"actions"`
