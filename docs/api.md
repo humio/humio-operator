@@ -637,6 +637,8 @@ If both ApiToken and ApiTokenSource are specified, ApiToken will be used.<br/>
         <td>map[string]string</td>
         <td>
           <br/>
+          <br/>
+            <i>Default</i>: map[]<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -644,6 +646,8 @@ If both ApiToken and ApiTokenSource are specified, ApiToken will be used.<br/>
         <td>boolean</td>
         <td>
           <br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1014,6 +1018,8 @@ If both Headers and SecretHeaders are specified, they will be merged together.<b
         <td>
           SecretHeaders specifies what HTTP headers to use and where to fetch the values from.
 If both Headers and SecretHeaders are specified, they will be merged together.<br/>
+          <br/>
+            <i>Default</i>: []<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1354,6 +1360,8 @@ HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert
         <td>boolean</td>
         <td>
           Enabled will set the AggregateAlert to enabled when set to true<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4056,6 +4064,8 @@ Otherwise, use the built in default startup probe configuration.<br/>
         <td>
           DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
 This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4328,6 +4338,8 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         <td>string</td>
         <td>
           PriorityClassName is the name of the priority class that will be used by the Humio pods<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15841,6 +15853,8 @@ Ingress is used to set up ingress-related objects in order to reach Humio extern
         <td>
           Enabled enables the logic for the Humio operator to create ingress-related objects. Requires one of the following
 to be set: spec.hostname, spec.hostnameSource, spec.esHostname or spec.esHostnameSource<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16094,6 +16108,8 @@ Otherwise, use the built in default startup probe configuration.<br/>
         <td>
           DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
 This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16286,6 +16302,8 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         <td>string</td>
         <td>
           PriorityClassName is the name of the priority class that will be used by the Humio pods<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -30912,8 +30930,9 @@ Zone awareness is enabled by default.<br/>
         <td>int or string</td>
         <td>
           MaxUnavailable is the maximum number of pods that can be unavailable during a rolling update.
-This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".
-By default, the max unavailable pods is 1.<br/>
+This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".<br/>
+          <br/>
+            <i>Default</i>: 1<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -34557,8 +34576,9 @@ Zone awareness is enabled by default.<br/>
         <td>int or string</td>
         <td>
           MaxUnavailable is the maximum number of pods that can be unavailable during a rolling update.
-This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".
-By default, the max unavailable pods is 1.<br/>
+This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".<br/>
+          <br/>
+            <i>Default</i>: 1<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -35067,6 +35087,8 @@ HumioFilterAlertSpec defines the desired state of HumioFilterAlert
         <td>boolean</td>
         <td>
           Enabled will set the FilterAlert to enabled when set to true<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -35798,6 +35820,8 @@ HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch
         <td>boolean</td>
         <td>
           Enabled will set the ScheduledSearch to enabled when set to true<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
