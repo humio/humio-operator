@@ -13154,25 +13154,6 @@ spec:
                 description: PodAnnotations can be used to specify annotations that
                   will be added to the Humio pods
                 type: object
-              podDisruptionBudget:
-                description: PodDisruptionBudget defines the configuration for the
-                  PodDisruptionBudget
-                properties:
-                  maxUnavailable:
-                    anyOf:
-                    - type: integer
-                    - type: string
-                    description: MaxUnavailable specifies the maximum number of pods
-                      that can be unavailable
-                    x-kubernetes-int-or-string: true
-                  minAvailable:
-                    anyOf:
-                    - type: integer
-                    - type: string
-                    description: MinAvailable specifies the minimum number of pods
-                      that must be available
-                    x-kubernetes-int-or-string: true
-                type: object
               podLabels:
                 additionalProperties:
                   type: string
