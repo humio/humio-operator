@@ -62,6 +62,7 @@ type HumioFilterAlertSpec struct {
 	//+required
 	ThrottleField *string `json:"throttleField,omitempty"`
 	// Enabled will set the FilterAlert to enabled when set to true
+	//+kubebuilder:default=false
 	Enabled bool `json:"enabled,omitempty"`
 	// Actions is the list of Humio Actions by name that will be triggered by this filter alert
 	Actions []string `json:"actions"`
