@@ -56,6 +56,7 @@ spec:
                 description: Description is the description of the Aggregate alert
                 type: string
               enabled:
+                default: false
                 description: Enabled will set the AggregateAlert to enabled when set
                   to true
                 type: boolean
