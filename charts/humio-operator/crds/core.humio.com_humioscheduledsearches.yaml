@@ -60,6 +60,7 @@ spec:
                 description: Description is the description of the scheduled search
                 type: string
               enabled:
+                default: false
                 description: Enabled will set the ScheduledSearch to enabled when
                   set to true
                 type: boolean

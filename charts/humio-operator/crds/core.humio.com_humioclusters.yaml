@@ -3576,6 +3576,7 @@ spec:
                   partitions
                 type: integer
               disableInitContainer:
+                default: false
                 description: |-
                   DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
                   This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.
@@ -5664,6 +5665,7 @@ spec:
                       supported.
                     type: string
                   enabled:
+                    default: false
                     description: |-
                       Enabled enables the logic for the Humio operator to create ingress-related objects. Requires one of the following
                       to be set: spec.hostname, spec.hostnameSource, spec.esHostname or spec.esHostnameSource
@@ -9178,6 +9180,7 @@ spec:
                               type: object
                           type: object
                         disableInitContainer:
+                          default: false
                           description: |-
                             DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
                             This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.
@@ -11424,6 +11427,7 @@ spec:
                               type: object
                           type: object
                         priorityClassName:
+                          default: ""
                           description: PriorityClassName is the name of the priority
                             class that will be used by the Humio pods
                           type: string
@@ -13095,10 +13099,10 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
+                              default: 1
                               description: |-
                                 MaxUnavailable is the maximum number of pods that can be unavailable during a rolling update.
                                 This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".
-                                By default, the max unavailable pods is 1.
                               x-kubernetes-int-or-string: true
                             minReadySeconds:
                               description: MinReadySeconds is the minimum time in
@@ -13336,6 +13340,7 @@ spec:
                     type: object
                 type: object
               priorityClassName:
+                default: ""
                 description: PriorityClassName is the name of the priority class that
                   will be used by the Humio pods
                 type: string
@@ -15016,10 +15021,10 @@ spec:
                     anyOf:
                     - type: integer
                     - type: string
+                    default: 1
                     description: |-
                       MaxUnavailable is the maximum number of pods that can be unavailable during a rolling update.
                       This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".
-                      By default, the max unavailable pods is 1.
                     x-kubernetes-int-or-string: true
                   minReadySeconds:
                     description: MinReadySeconds is the minimum time in seconds that
