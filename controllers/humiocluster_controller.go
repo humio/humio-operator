@@ -68,18 +68,6 @@ const (
 
 	// waitingOnPodsMessage is the message that is populated as the message in the cluster status when waiting on pods
 	waitingOnPodsMessage = "waiting for pods to become ready"
-
-	//Or make this configurable via a CR field or environment variable
-	defaultMinAvailable = "1"
-
-	// Suffix for the PodDisruptionBudget name
-	pdbNameSuffix = "-pdb"
-
-	// Maximum length of a name in k8s
-	maxPDBNameLength = 253
-
-	// Label used to identify which node pool a pod belongs to
-	nodePoolLabel = "humio_pool_name"
 )
 
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
