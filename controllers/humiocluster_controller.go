@@ -2430,12 +2430,6 @@ func getHumioNodePoolManagers(hc *humiov1alpha1.HumioCluster) HumioNodePoolList 
 	return humioNodePools
 }
 
-// podLabelsForHumio returns the labels for selecting the resources
-// belonging to the given humioCluster CR name.
-func (r *HumioClusterReconciler) podLabelsForHumio(name string) map[string]string {
-	return map[string]string{"app": "humio", "humio_cr": name}
-}
-
 // PDB implementation
 // shouldCreatePDBForNodePool determines if we should create a PDB for the node pool
 func shouldCreatePDBForNodePool(nodePool humiov1alpha1.HumioNodePoolSpec) bool {
