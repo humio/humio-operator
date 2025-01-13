@@ -53,11 +53,14 @@ type Client interface {
 }
 
 type ClusterClient interface {
-	GetClusters(context.Context, *humioapi.Client, reconcile.Request) (*humiographql.GetClusterResponse, error)
+	GetCluster(context.Context, *humioapi.Client, reconcile.Request) (*humiographql.GetClusterResponse, error)
 	GetHumioHttpClient(*humioapi.Config, reconcile.Request) *humioapi.Client
 	ClearHumioClientConnections(string)
 	TestAPIToken(context.Context, *humioapi.Config, reconcile.Request) error
 	Status(context.Context, *humioapi.Client, reconcile.Request) (*humioapi.StatusResponse, error)
+	GetEvictionStatus(context.Context, *humioapi.Client, reconcile.Request) (*humiographql.GetEvictionStatusResponse, error)
+	SetIsBeingEvicted(context.Context, *humioapi.Client, reconcile.Request, int, bool) error
+	UnregisterClusterNode(context.Context, *humioapi.Client, reconcile.Request, int, bool) (*humiographql.UnregisterClusterNodeResponse, error)
 }
 
 type IngestTokensClient interface {
@@ -229,11 +232,50 @@ func (h *ClientConfig) Status(ctx context.Context, client *humioapi.Client, _ re
 	return client.Status(ctx)
 }
 
-// GetClusters returns a humio cluster and can be mocked via the Client interface
-func (h *ClientConfig) GetClusters(ctx context.Context, client *humioapi.Client, _ reconcile.Request) (*humiographql.GetClusterResponse, error) {
+// GetCluster returns a humio cluster and can be mocked via the Client interface
+func (h *ClientConfig) GetCluster(ctx context.Context, client *humioapi.Client, _ reconcile.Request) (*humiographql.GetClusterResponse, error) {
 	resp, err := humiographql.GetCluster(
 		ctx,
 		client,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// GetEvictionStatus returns the EvictionStatus of the humio cluster nodes and can be mocked via the Client interface
+func (h *ClientConfig) GetEvictionStatus(ctx context.Context, client *humioapi.Client, _ reconcile.Request) (*humiographql.GetEvictionStatusResponse, error) {
+	resp, err := humiographql.GetEvictionStatus(
+		ctx,
+		client,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// SetIsBeingEvicted sets the EvictionStatus of a humio cluster node and can be mocked via the Client interface
+func (h *ClientConfig) SetIsBeingEvicted(ctx context.Context, client *humioapi.Client, _ reconcile.Request, vhost int, isBeingEvicted bool) error {
+	_, err := humiographql.SetIsBeingEvicted(
+		ctx,
+		client,
+		vhost,
+		isBeingEvicted,
+	)
+	return err
+}
+
+// UnregisterClusterNode unregisters a humio node from the cluster and can be mocked via the Client interface
+func (h *ClientConfig) UnregisterClusterNode(ctx context.Context, client *humioapi.Client, _ reconcile.Request, nodeId int, force bool) (*humiographql.UnregisterClusterNodeResponse, error) {
+	resp, err := humiographql.UnregisterClusterNode(
+		ctx,
+		client,
+		nodeId,
+		force,
 	)
 	if err != nil {
 		return nil, err

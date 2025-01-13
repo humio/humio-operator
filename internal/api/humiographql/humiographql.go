@@ -4782,6 +4782,9 @@ func (v *GetClusterCluster) GetNodes() []GetClusterClusterNodesClusterNode { ret
 type GetClusterClusterNodesClusterNode struct {
 	Id   int     `json:"id"`
 	Zone *string `json:"zone"`
+	Uri  string  `json:"uri"`
+	// A flag indicating whether the node is considered up or down by the cluster coordinated. This is based on the `lastHeartbeat` field.
+	IsAvailable bool `json:"isAvailable"`
 }
 
 // GetId returns GetClusterClusterNodesClusterNode.Id, and is useful for accessing the field via an interface.
@@ -4789,6 +4792,12 @@ func (v *GetClusterClusterNodesClusterNode) GetId() int { return v.Id }
 
 // GetZone returns GetClusterClusterNodesClusterNode.Zone, and is useful for accessing the field via an interface.
 func (v *GetClusterClusterNodesClusterNode) GetZone() *string { return v.Zone }
+
+// GetUri returns GetClusterClusterNodesClusterNode.Uri, and is useful for accessing the field via an interface.
+func (v *GetClusterClusterNodesClusterNode) GetUri() string { return v.Uri }
+
+// GetIsAvailable returns GetClusterClusterNodesClusterNode.IsAvailable, and is useful for accessing the field via an interface.
+func (v *GetClusterClusterNodesClusterNode) GetIsAvailable() bool { return v.IsAvailable }
 
 // GetClusterResponse is returned by GetCluster on success.
 type GetClusterResponse struct {
@@ -4798,6 +4807,88 @@ type GetClusterResponse struct {
 
 // GetCluster returns GetClusterResponse.Cluster, and is useful for accessing the field via an interface.
 func (v *GetClusterResponse) GetCluster() GetClusterCluster { return v.Cluster }
+
+// GetEvictionStatusCluster includes the requested fields of the GraphQL type Cluster.
+// The GraphQL type's documentation follows.
+//
+// Information about the LogScale cluster.
+type GetEvictionStatusCluster struct {
+	Nodes []GetEvictionStatusClusterNodesClusterNode `json:"nodes"`
+}
+
+// GetNodes returns GetEvictionStatusCluster.Nodes, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusCluster) GetNodes() []GetEvictionStatusClusterNodesClusterNode {
+	return v.Nodes
+}
+
+// GetEvictionStatusClusterNodesClusterNode includes the requested fields of the GraphQL type ClusterNode.
+// The GraphQL type's documentation follows.
+//
+// A node in the a LogScale Cluster.
+type GetEvictionStatusClusterNodesClusterNode struct {
+	Id int `json:"id"`
+	// A flag indicating whether the node is marked for eviction. The Falcon LogScale cluster will start to move segments, digesters and queries away from any node marked for eviction
+	IsBeingEvicted *bool `json:"isBeingEvicted"`
+	// Contains data describing the status of eviction
+	EvictionStatus GetEvictionStatusClusterNodesClusterNodeEvictionStatus `json:"evictionStatus"`
+}
+
+// GetId returns GetEvictionStatusClusterNodesClusterNode.Id, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNode) GetId() int { return v.Id }
+
+// GetIsBeingEvicted returns GetEvictionStatusClusterNodesClusterNode.IsBeingEvicted, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNode) GetIsBeingEvicted() *bool { return v.IsBeingEvicted }
+
+// GetEvictionStatus returns GetEvictionStatusClusterNodesClusterNode.EvictionStatus, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNode) GetEvictionStatus() GetEvictionStatusClusterNodesClusterNodeEvictionStatus {
+	return v.EvictionStatus
+}
+
+// GetEvictionStatusClusterNodesClusterNodeEvictionStatus includes the requested fields of the GraphQL type EvictionStatus.
+// The GraphQL type's documentation follows.
+//
+// Fields that helps describe the status of eviction
+type GetEvictionStatusClusterNodesClusterNodeEvictionStatus struct {
+	CurrentlyUnderReplicatedBytes int64   `json:"currentlyUnderReplicatedBytes"`
+	TotalSegmentBytes             int64   `json:"totalSegmentBytes"`
+	IsDigester                    bool    `json:"isDigester"`
+	BytesThatExistOnlyOnThisNode  float64 `json:"bytesThatExistOnlyOnThisNode"`
+	Typename                      *string `json:"__typename"`
+}
+
+// GetCurrentlyUnderReplicatedBytes returns GetEvictionStatusClusterNodesClusterNodeEvictionStatus.CurrentlyUnderReplicatedBytes, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNodeEvictionStatus) GetCurrentlyUnderReplicatedBytes() int64 {
+	return v.CurrentlyUnderReplicatedBytes
+}
+
+// GetTotalSegmentBytes returns GetEvictionStatusClusterNodesClusterNodeEvictionStatus.TotalSegmentBytes, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNodeEvictionStatus) GetTotalSegmentBytes() int64 {
+	return v.TotalSegmentBytes
+}
+
+// GetIsDigester returns GetEvictionStatusClusterNodesClusterNodeEvictionStatus.IsDigester, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNodeEvictionStatus) GetIsDigester() bool {
+	return v.IsDigester
+}
+
+// GetBytesThatExistOnlyOnThisNode returns GetEvictionStatusClusterNodesClusterNodeEvictionStatus.BytesThatExistOnlyOnThisNode, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNodeEvictionStatus) GetBytesThatExistOnlyOnThisNode() float64 {
+	return v.BytesThatExistOnlyOnThisNode
+}
+
+// GetTypename returns GetEvictionStatusClusterNodesClusterNodeEvictionStatus.Typename, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNodeEvictionStatus) GetTypename() *string {
+	return v.Typename
+}
+
+// GetEvictionStatusResponse is returned by GetEvictionStatus on success.
+type GetEvictionStatusResponse struct {
+	// This is used to retrieve information about a cluster.
+	Cluster GetEvictionStatusCluster `json:"cluster"`
+}
+
+// GetCluster returns GetEvictionStatusResponse.Cluster, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusResponse) GetCluster() GetEvictionStatusCluster { return v.Cluster }
 
 // GetFilterAlertByIDResponse is returned by GetFilterAlertByID on success.
 type GetFilterAlertByIDResponse struct {
@@ -10191,6 +10282,15 @@ type SetAutomaticSearchingSetAutomaticSearching struct {
 // GetTypename returns SetAutomaticSearchingSetAutomaticSearching.Typename, and is useful for accessing the field via an interface.
 func (v *SetAutomaticSearchingSetAutomaticSearching) GetTypename() *string { return v.Typename }
 
+// SetIsBeingEvictedResponse is returned by SetIsBeingEvicted on success.
+type SetIsBeingEvictedResponse struct {
+	// [PREVIEW: Feature still in development] Toggle whether the specified host should be prepared for eviction from the cluster. If preparing for eviction, the cluster will attempt to move data and work away from the host.
+	SetIsBeingEvicted bool `json:"setIsBeingEvicted"`
+}
+
+// GetSetIsBeingEvicted returns SetIsBeingEvictedResponse.SetIsBeingEvicted, and is useful for accessing the field via an interface.
+func (v *SetIsBeingEvictedResponse) GetSetIsBeingEvicted() bool { return v.SetIsBeingEvicted }
+
 // SharedActionNameType includes the requested fields of the GraphQL interface Action.
 //
 // SharedActionNameType is implemented by the following types:
@@ -11202,6 +11302,66 @@ type UnassignParserToIngestTokenUnassignIngestTokenUnassignIngestTokenMutation s
 // GetTypename returns UnassignParserToIngestTokenUnassignIngestTokenUnassignIngestTokenMutation.Typename, and is useful for accessing the field via an interface.
 func (v *UnassignParserToIngestTokenUnassignIngestTokenUnassignIngestTokenMutation) GetTypename() *string {
 	return v.Typename
+}
+
+// UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation includes the requested fields of the GraphQL type UnregisterNodeMutation.
+type UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation struct {
+	Cluster UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationCluster `json:"cluster"`
+}
+
+// GetCluster returns UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation.Cluster, and is useful for accessing the field via an interface.
+func (v *UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation) GetCluster() UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationCluster {
+	return v.Cluster
+}
+
+// UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationCluster includes the requested fields of the GraphQL type Cluster.
+// The GraphQL type's documentation follows.
+//
+// Information about the LogScale cluster.
+type UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationCluster struct {
+	Nodes []UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode `json:"nodes"`
+}
+
+// GetNodes returns UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationCluster.Nodes, and is useful for accessing the field via an interface.
+func (v *UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationCluster) GetNodes() []UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode {
+	return v.Nodes
+}
+
+// UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode includes the requested fields of the GraphQL type ClusterNode.
+// The GraphQL type's documentation follows.
+//
+// A node in the a LogScale Cluster.
+type UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode struct {
+	Id   int     `json:"id"`
+	Zone *string `json:"zone"`
+	// A flag indicating whether the node is marked for eviction. The Falcon LogScale cluster will start to move segments, digesters and queries away from any node marked for eviction
+	IsBeingEvicted *bool `json:"isBeingEvicted"`
+}
+
+// GetId returns UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode.Id, and is useful for accessing the field via an interface.
+func (v *UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode) GetId() int {
+	return v.Id
+}
+
+// GetZone returns UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode.Zone, and is useful for accessing the field via an interface.
+func (v *UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode) GetZone() *string {
+	return v.Zone
+}
+
+// GetIsBeingEvicted returns UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode.IsBeingEvicted, and is useful for accessing the field via an interface.
+func (v *UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode) GetIsBeingEvicted() *bool {
+	return v.IsBeingEvicted
+}
+
+// UnregisterClusterNodeResponse is returned by UnregisterClusterNode on success.
+type UnregisterClusterNodeResponse struct {
+	// Unregisters a node from the cluster.
+	ClusterUnregisterNode UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation `json:"clusterUnregisterNode"`
+}
+
+// GetClusterUnregisterNode returns UnregisterClusterNodeResponse.ClusterUnregisterNode, and is useful for accessing the field via an interface.
+func (v *UnregisterClusterNodeResponse) GetClusterUnregisterNode() UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation {
+	return v.ClusterUnregisterNode
 }
 
 // UpdateAggregateAlertResponse is returned by UpdateAggregateAlert on success.
@@ -13212,6 +13372,18 @@ func (v *__SetAutomaticSearchingInput) GetSearchDomainName() string { return v.S
 // GetAutomaticSearch returns __SetAutomaticSearchingInput.AutomaticSearch, and is useful for accessing the field via an interface.
 func (v *__SetAutomaticSearchingInput) GetAutomaticSearch() bool { return v.AutomaticSearch }
 
+// __SetIsBeingEvictedInput is used internally by genqlient
+type __SetIsBeingEvictedInput struct {
+	Vhost          int  `json:"Vhost"`
+	IsBeingEvicted bool `json:"IsBeingEvicted"`
+}
+
+// GetVhost returns __SetIsBeingEvictedInput.Vhost, and is useful for accessing the field via an interface.
+func (v *__SetIsBeingEvictedInput) GetVhost() int { return v.Vhost }
+
+// GetIsBeingEvicted returns __SetIsBeingEvictedInput.IsBeingEvicted, and is useful for accessing the field via an interface.
+func (v *__SetIsBeingEvictedInput) GetIsBeingEvicted() bool { return v.IsBeingEvicted }
+
 // __UnassignParserToIngestTokenInput is used internally by genqlient
 type __UnassignParserToIngestTokenInput struct {
 	RepositoryName  string `json:"RepositoryName"`
@@ -13223,6 +13395,18 @@ func (v *__UnassignParserToIngestTokenInput) GetRepositoryName() string { return
 
 // GetIngestTokenName returns __UnassignParserToIngestTokenInput.IngestTokenName, and is useful for accessing the field via an interface.
 func (v *__UnassignParserToIngestTokenInput) GetIngestTokenName() string { return v.IngestTokenName }
+
+// __UnregisterClusterNodeInput is used internally by genqlient
+type __UnregisterClusterNodeInput struct {
+	NodeId int  `json:"NodeId"`
+	Force  bool `json:"Force"`
+}
+
+// GetNodeId returns __UnregisterClusterNodeInput.NodeId, and is useful for accessing the field via an interface.
+func (v *__UnregisterClusterNodeInput) GetNodeId() int { return v.NodeId }
+
+// GetForce returns __UnregisterClusterNodeInput.Force, and is useful for accessing the field via an interface.
+func (v *__UnregisterClusterNodeInput) GetForce() bool { return v.Force }
 
 // __UpdateAggregateAlertInput is used internally by genqlient
 type __UpdateAggregateAlertInput struct {
@@ -15232,6 +15416,8 @@ query GetCluster {
 		nodes {
 			id
 			zone
+			uri
+			isAvailable
 		}
 	}
 }
@@ -15248,6 +15434,47 @@ func GetCluster(
 	var err_ error
 
 	var data_ GetClusterResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by GetEvictionStatus.
+const GetEvictionStatus_Operation = `
+query GetEvictionStatus {
+	cluster {
+		nodes {
+			id
+			isBeingEvicted
+			evictionStatus {
+				currentlyUnderReplicatedBytes
+				totalSegmentBytes
+				isDigester
+				bytesThatExistOnlyOnThisNode
+				__typename
+			}
+		}
+	}
+}
+`
+
+func GetEvictionStatus(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*GetEvictionStatusResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "GetEvictionStatus",
+		Query:  GetEvictionStatus_Operation,
+	}
+	var err_ error
+
+	var data_ GetEvictionStatusResponse
 	resp_ := &graphql.Response{Data: &data_}
 
 	err_ = client_.MakeRequest(
@@ -16252,6 +16479,41 @@ func SetAutomaticSearching(
 	return &data_, err_
 }
 
+// The query or mutation executed by SetIsBeingEvicted.
+const SetIsBeingEvicted_Operation = `
+mutation SetIsBeingEvicted ($Vhost: Int!, $IsBeingEvicted: Boolean!) {
+	setIsBeingEvicted(vhost: $Vhost, isBeingEvicted: $IsBeingEvicted)
+}
+`
+
+func SetIsBeingEvicted(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	Vhost int,
+	IsBeingEvicted bool,
+) (*SetIsBeingEvictedResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "SetIsBeingEvicted",
+		Query:  SetIsBeingEvicted_Operation,
+		Variables: &__SetIsBeingEvictedInput{
+			Vhost:          Vhost,
+			IsBeingEvicted: IsBeingEvicted,
+		},
+	}
+	var err_ error
+
+	var data_ SetIsBeingEvictedResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
 // The query or mutation executed by UnassignParserToIngestToken.
 const UnassignParserToIngestToken_Operation = `
 mutation UnassignParserToIngestToken ($RepositoryName: String!, $IngestTokenName: String!) {
@@ -16278,6 +16540,49 @@ func UnassignParserToIngestToken(
 	var err_ error
 
 	var data_ UnassignParserToIngestTokenResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by UnregisterClusterNode.
+const UnregisterClusterNode_Operation = `
+mutation UnregisterClusterNode ($NodeId: Int!, $Force: Boolean!) {
+	clusterUnregisterNode(nodeID: $NodeId, force: $Force) {
+		cluster {
+			nodes {
+				id
+				zone
+				isBeingEvicted
+			}
+		}
+	}
+}
+`
+
+func UnregisterClusterNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	NodeId int,
+	Force bool,
+) (*UnregisterClusterNodeResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "UnregisterClusterNode",
+		Query:  UnregisterClusterNode_Operation,
+		Variables: &__UnregisterClusterNodeInput{
+			NodeId: NodeId,
+			Force:  Force,
+		},
+	}
+	var err_ error
+
+	var data_ UnregisterClusterNodeResponse
 	resp_ := &graphql.Response{Data: &data_}
 
 	err_ = client_.MakeRequest(
