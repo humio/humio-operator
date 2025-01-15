@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/humio/humio-operator/internal/api/humiographql"
 	"reflect"
 	"strings"
 	"time"
@@ -244,7 +245,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// create pods if needed
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
-			if result, err := r.ensurePodsExist(ctx, hc, pool); result != emptyResult || err != nil {
+			if result, err := r.ensurePodsExist(ctx, hc, pool, req); result != emptyResult || err != nil {
 				if err != nil {
 					_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 						withMessage(err.Error()))
@@ -2040,10 +2041,14 @@ func (r *HumioClusterReconciler) ingressesMatch(ingress *networkingv1.Ingress, d
 	return true
 }
 
-func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (reconcile.Result, error) {
+func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, req ctrl.Request) (reconcile.Result, error) {
 	// Ensure we have pods for the defined NodeCount.
-	// If scaling down, we will handle the extra/obsolete pods later.
-	foundPodList, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
+
+	// Exclude pods that are currently being evicted --> Ensures K8s keeps track of the pods waiting for eviction and doesn't remove pods continuously
+	labelsToMatch := hnp.GetNodePoolLabels()
+	labelsToMatch[kubernetes.PodMarkedForDataEviction] = "false"
+
+	foundPodList, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), labelsToMatch)
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods")
 	}
@@ -2074,8 +2079,168 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// TODO: what should happen if we have more pods than are expected?
+	if len(foundPodList) > hnp.GetNodeCount() {
+		err := r.removePodGracefully(ctx, hc, foundPodList, req)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
 	return reconcile.Result{}, nil
+}
+
+// Gracefully removes a LogScale pod from the nodepool using the following steps:
+//
+//  1. Matches pod names to node ids
+//  2. Computes the zone from which the pod will be removed base on the current node allocation
+//  3. Iterates through pods and for the first one found in the specified zone, sends an eviction request to the node
+//  4. Checks if the eviction has started (with a timeout of 10 seconds)
+//  5. If the eviction has started, it periodically checks every 60 seconds if the eviction has been completed
+//  6. When the eviction is completed and there is no more data on that node, the node is unregistered from the cluster, and the pod is removed.
+func (r *HumioClusterReconciler) removePodGracefully(ctx context.Context, hc *humiov1alpha1.HumioCluster, podsInNodePool []corev1.Pod, req ctrl.Request) error {
+	// GetCluster gql query returns node ID and Zone
+	clusterConfig, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
+	if err != nil {
+		return r.logErrorAndReturn(err, fmt.Sprintf("could not create a cluster config for the http client."))
+	}
+	humioHttpClient := r.HumioClient.GetHumioHttpClient(clusterConfig.Config(), req)
+	cluster, err := r.HumioClient.GetCluster(ctx, humioHttpClient, req)
+	if err != nil {
+		return r.logErrorAndReturn(err, "failed to get humio cluster through the GraphQL API")
+	}
+	getCluster := cluster.GetCluster()
+	nodeIdToPodMap := r.matchPodsToHosts(podsInNodePool, getCluster.GetNodes())
+
+	// Check Node Zones and gets the one with the most nodes. In case of a tie, the first zone is used
+	podRemovalZone, err := r.getZoneForPodRemoval(ctx, podsInNodePool)
+	if err != nil {
+		return r.logErrorAndReturn(err, "failed to get pod removal zone")
+	}
+	for _, pod := range podsInNodePool {
+		if pod.Labels[kubernetes.TopologyKubernetesZone] != podRemovalZone {
+			continue
+		}
+		if pod.Spec.NodeName == "" {
+			r.Log.Info(fmt.Sprintf("NodeName is empty for pod %s.", pod.Name))
+			continue
+		}
+		vhost := nodeIdToPodMap[pod.GetName()]
+		err = r.HumioClient.SetIsBeingEvicted(ctx, humioHttpClient, req, vhost, true)
+		if err != nil {
+			return r.logErrorAndReturn(err, fmt.Sprintf("failed to set eviction for vhost %d", vhost))
+		}
+		// wait for eviction status to be updated
+		isEvicted := false
+		for i := 0; i < waitForPodTimeoutSeconds && !isEvicted; i++ {
+			nodesStatus, err := r.getClusterNodesStatus(ctx, humioHttpClient, req)
+			if err != nil {
+				return err
+			}
+
+			for _, node := range nodesStatus {
+				if node.GetId() == vhost && *node.GetIsBeingEvicted() {
+					isEvicted = true
+					break
+				}
+			}
+
+			r.Log.Info(fmt.Sprintf("validating node data eviction is in progress for vhost %d", vhost))
+			time.Sleep(time.Second * 1)
+		}
+
+		if !isEvicted {
+			return r.logErrorAndReturn(err, fmt.Sprintf("failed to set eviction status for vhost %d", vhost))
+		}
+
+		pod.Annotations[kubernetes.PodMarkedForDataEviction] = "true"
+
+		// poll eviction status
+		pollTick := time.Tick(60 * time.Second)
+		for _ = range pollTick {
+			nodesStatus, err := r.getClusterNodesStatus(ctx, humioHttpClient, req)
+			if err != nil {
+				return err
+			}
+			readyForRemoval := false
+			for _, node := range nodesStatus {
+				if node.GetId() == vhost {
+					evictionStatus := node.GetEvictionStatus()
+					if evictionStatus.GetTotalSegmentBytes() == 0 {
+						readyForRemoval = true
+					}
+				}
+			}
+			if readyForRemoval {
+				r.Log.Info(fmt.Sprintf("successfully evicted data from vhost %d", vhost))
+				r.Log.Info(fmt.Sprintf("removing vhost %d", vhost))
+				if _, err := r.HumioClient.UnregisterClusterNode(ctx, humioHttpClient, req, vhost, false); err != nil {
+					return r.logErrorAndReturn(err, fmt.Sprintf("could not unregister vhost %d!", vhost))
+				}
+				if err := r.Delete(ctx, &pod); err != nil {
+					return r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s for vhost %d!", pod.Name, vhost))
+				}
+				humioClusterPrometheusMetrics.Counters.PodsDeleted.Inc()
+			}
+		}
+	}
+
+	return nil
+}
+
+func (r *HumioClusterReconciler) getClusterNodesStatus(ctx context.Context, humioHttpClient *humioapi.Client, req ctrl.Request) ([]humiographql.GetEvictionStatusClusterNodesClusterNode, error) {
+	newClusterStatus, err := r.HumioClient.GetEvictionStatus(ctx, humioHttpClient, req)
+	if err != nil {
+		return nil, r.logErrorAndReturn(err, "failed to get eviction status")
+	}
+	getCluster := newClusterStatus.GetCluster()
+	return getCluster.GetNodes(), nil
+}
+
+// Matches the set of pods in a node pool to host ids by checking the host URI and availability.
+// The result is a map from pod name ---to---> node id (vhost)
+func (r *HumioClusterReconciler) matchPodsToHosts(podsInNodePool []corev1.Pod, clusterNodes []humiographql.GetClusterClusterNodesClusterNode) map[string]int {
+	vhostToPodMap := make(map[string]int)
+	for _, pod := range podsInNodePool {
+		for _, node := range clusterNodes {
+			if node.GetIsAvailable() {
+				podNameFromUri, err := GetPodNameFromNodeUri(node.GetUri())
+				if err != nil {
+					r.Log.Info(fmt.Sprintf("unable to get pod name from node uri: %s", err))
+					continue
+				}
+				if podNameFromUri == pod.GetName() {
+					vhostToPodMap[pod.GetName()] = node.GetId()
+				}
+			}
+		}
+	}
+	return vhostToPodMap
+}
+
+func (r *HumioClusterReconciler) getZoneForPodRemoval(ctx context.Context, podsInNodePool []corev1.Pod) (string, error) {
+	zoneCount := map[string]int{}
+	for _, pod := range podsInNodePool {
+		if pod.Spec.NodeName == "" {
+			return "", errors.New("pod node name is empty. Cannot properly compute Zone distribution for pods")
+		}
+		podNode, err := kubernetes.GetNode(ctx, r.Client, pod.Spec.NodeName)
+		if err != nil || podNode == nil {
+			r.Log.Info(fmt.Sprintf("could not get Node for pod %s.", pod.Name))
+			continue
+		}
+		nodeLabel := podNode.Labels[kubernetes.TopologyKubernetesZone]
+		if nodeLabel != "" {
+			if _, ok := zoneCount[nodeLabel]; !ok {
+				zoneCount[nodeLabel] = 0
+			}
+			zoneCount[nodeLabel]++
+		}
+	}
+
+	zoneForPodRemoval, err := GetKeyWithHighestValue(zoneCount)
+	if err != nil {
+		return "", errors.New("could compute find zone for pod removal")
+	}
+	return zoneForPodRemoval, nil
 }
 
 func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {

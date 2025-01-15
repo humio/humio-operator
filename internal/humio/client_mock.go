@@ -109,8 +109,20 @@ func (h *MockClientConfig) Status(_ context.Context, _ *humioapi.Client, _ recon
 	}, nil
 }
 
-func (h *MockClientConfig) GetClusters(_ context.Context, _ *humioapi.Client, _ reconcile.Request) (*humiographql.GetClusterResponse, error) {
+func (h *MockClientConfig) GetCluster(_ context.Context, _ *humioapi.Client, _ reconcile.Request) (*humiographql.GetClusterResponse, error) {
 	return nil, nil
+}
+
+func (h *MockClientConfig) GetEvictionStatus(_ context.Context, _ *humioapi.Client, _ reconcile.Request) (*humiographql.GetEvictionStatusResponse, error) {
+	return nil, nil
+}
+
+func (h *MockClientConfig) SetIsBeingEvicted(_ context.Context, _ *humioapi.Client, _ reconcile.Request, vhost int, isBeingEvicted bool) error {
+	return nil
+}
+
+func (h *MockClientConfig) UnregisterClusterNode(ctx context.Context, client *humioapi.Client, request reconcile.Request, i int, b bool) (*humiographql.UnregisterClusterNodeResponse, error) {
+	return &humiographql.UnregisterClusterNodeResponse{}, nil
 }
 
 func (h *MockClientConfig) TestAPIToken(_ context.Context, _ *humioapi.Config, _ reconcile.Request) error {
