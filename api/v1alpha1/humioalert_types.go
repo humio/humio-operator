@@ -55,18 +55,18 @@ type HumioAlertSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the alert inside Humio
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the Alert will be managed. This can also be a Repository
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	ViewName string `json:"viewName"`
 	// Query defines the desired state of the Humio query
-	//+required
+	// +required
 	Query HumioQuery `json:"query"`
 	// Description is the description of the Alert
-	//+optional
+	// +optional
 	Description string `json:"description,omitempty"`
 	// ThrottleTimeMillis is the throttle time in milliseconds. An Alert is triggered at most once per the throttle time
 	ThrottleTimeMillis int `json:"throttleTimeMillis,omitempty"`
@@ -86,8 +86,8 @@ type HumioAlertStatus struct {
 	State string `json:"state,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // HumioAlert is the Schema for the humioalerts API
 type HumioAlert struct {
@@ -98,7 +98,7 @@ type HumioAlert struct {
 	Status HumioAlertStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // HumioAlertList contains a list of HumioAlert
 type HumioAlertList struct {

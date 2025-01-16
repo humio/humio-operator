@@ -1,9 +1,12 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioAction
 metadata:
-  name: humioaction-example
+  labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humioaction-sample
 spec:
-  managedClusterName: example-humiocluster
+  managedClusterName: humiocluster-sample
   name: example-email-action
   viewName: humio
   emailProperties:

@@ -41,19 +41,19 @@ type HumioAggregateAlertSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the aggregate alert inside Humio
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the aggregate alert will be managed. This can also be a Repository
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	ViewName string `json:"viewName"`
 	// QueryString defines the desired Humio query string
 	QueryString string `json:"queryString"`
 	// QueryTimestampType defines the timestamp type to use for a query
 	QueryTimestampType string `json:"queryTimestampType,omitempty"`
 	// Description is the description of the Aggregate alert
-	//+optional
+	// +optional
 	Description string `json:"description,omitempty"`
 	// Search Interval time in seconds
 	SearchIntervalSeconds int `json:"searchIntervalSeconds,omitempty"`
@@ -64,7 +64,7 @@ type HumioAggregateAlertSpec struct {
 	// Aggregate Alert trigger mode
 	TriggerMode string `json:"triggerMode,omitempty"`
 	// Enabled will set the AggregateAlert to enabled when set to true
-	//+kubebuilder:default=false
+	// +kubebuilder:default=false
 	Enabled bool `json:"enabled,omitempty"`
 	// Actions is the list of Humio Actions by name that will be triggered by this Aggregate alert
 	Actions []string `json:"actions"`
@@ -78,8 +78,8 @@ type HumioAggregateAlertStatus struct {
 	State string `json:"state,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // HumioAggregateAlert is the Schema for the humioAggregateAlerts API
 type HumioAggregateAlert struct {
@@ -90,7 +90,7 @@ type HumioAggregateAlert struct {
 	Status HumioAggregateAlertStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // HumioAggregateAlertList contains a list of HumioAggregateAlert
 type HumioAggregateAlertList struct {

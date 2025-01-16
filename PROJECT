@@ -4,7 +4,7 @@
 # More info: https://book.kubebuilder.io/reference/project-config.html
 domain: humio.com
 layout:
-- go.kubebuilder.io/v3
+- go.kubebuilder.io/v4
 projectName: humio-operator
 repo: github.com/humio/humio-operator
 resources:
@@ -14,7 +14,25 @@ resources:
   controller: true
   domain: humio.com
   group: core
+  kind: HumioCluster
+  path: github.com/humio/humio-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: humio.com
+  group: core
   kind: HumioAction
+  path: github.com/humio/humio-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: humio.com
+  group: core
+  kind: HumioAggregateAlert
   path: github.com/humio/humio-operator/api/v1alpha1
   version: v1alpha1
 - api:
@@ -32,7 +50,7 @@ resources:
   controller: true
   domain: humio.com
   group: core
-  kind: HumioCluster
+  kind: HumioBootstrapToken
   path: github.com/humio/humio-operator/api/v1alpha1
   version: v1alpha1
 - api:
@@ -96,15 +114,6 @@ resources:
   domain: humio.com
   group: core
   kind: HumioView
-  path: github.com/humio/humio-operator/api/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: humio.com
-  group: core
-  kind: HumioAggregateAlert
   path: github.com/humio/humio-operator/api/v1alpha1
   version: v1alpha1
 version: "3"

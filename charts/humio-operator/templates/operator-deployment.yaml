@@ -54,8 +54,6 @@ spec:
         command:
         - /manager
         env:
-        - name: WATCH_NAMESPACE
-          value: {{ .Values.operator.watchNamespaces | join "," | quote }}
         - name: POD_NAME
           valueFrom:
             fieldRef:

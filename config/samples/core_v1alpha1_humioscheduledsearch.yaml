@@ -1,9 +1,12 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioScheduledSearch
 metadata:
-  name: humioscheduledsearch-example
+  labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humioscheduledsearch-sample
 spec:
-  managedClusterName: example-humiocluster
+  managedClusterName: humiocluster-sample
   name: example-scheduledsearch
   viewName: humio
   queryString: "#repo = humio | error = true | count() | _count > 0"
