@@ -77,9 +77,6 @@ const (
 
 	// Maximum length of a name in k8s
 	maxPDBNameLength = 253
-
-	// Label used to identify which node pool a pod belongs to
-	nodePoolLabel = "humio_pool_name"
 )
 
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
@@ -2460,7 +2457,7 @@ func (r *HumioClusterReconciler) podLabelsForHumio(name string) map[string]strin
 }
 
 // shouldCreatePDBForNodePool determines if we should create a PDB for the node pool
-func shouldCreatePDBForNodePool(hnp *HumioNodePool, hc *humiov1alpha1.HumioCluster) bool {
+func shouldCreatePDBForNodePool(hnp *HumioNodePool) bool {
 	if hnp == nil {
 		return false
 	}
@@ -2513,7 +2510,7 @@ func (r *HumioClusterReconciler) cleanupOrphanedNodePoolPDBs(ctx context.Context
 func (r *HumioClusterReconciler) reconcilePodDisruptionBudgets(ctx context.Context, humioNodePools HumioNodePoolList) (ctrl.Result, error) {
 	// Handle all node pools
 	for _, hnp := range humioNodePools.Items {
-		if shouldCreatePDBForNodePool(hnp, nil) {
+		if shouldCreatePDBForNodePool(hnp) {
 			if err := r.reconcileSinglePDB(ctx, hnp); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to reconcile PDB for node pool %s: %w", hnp.GetNodePoolName(), err)
 			}
