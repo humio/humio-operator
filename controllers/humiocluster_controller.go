@@ -2463,43 +2463,6 @@ func shouldCreatePDBForNodePool(hnp *HumioNodePool) bool {
 	return hnp.GetNodeCount() > 0 && (pdb.MinAvailable != nil || pdb.MaxUnavailable != nil)
 }
 
-// cleanupOrphanedNodePoolPDBs removes PDBs that no longer have a corresponding node pool
-func (r *HumioClusterReconciler) cleanupOrphanedNodePoolPDBs(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	// Get all PDBs with labels matching the cluster
-	existingPDBs := &policyv1.PodDisruptionBudgetList{}
-	if err := r.List(ctx, existingPDBs, client.InNamespace(hc.Namespace), client.MatchingLabels(kubernetes.LabelsForHumio(hc.Name))); err != nil {
-		return fmt.Errorf("failed to list PDBs: %w", err)
-	}
-
-	// Create a map of valid node pool names
-	validNodePools := make(map[string]bool)
-	// Add main pool if it has nodes and PDB
-	if hc.Spec.NodeCount > 0 && hc.Spec.PodDisruptionBudget != nil {
-		validNodePools[fmt.Sprintf("%s%s", hc.Name, pdbNameSuffix)] = true
-	}
-
-	// Add additional node pools if they have nodes and PDB
-	for _, pool := range hc.Spec.NodePools {
-		if pool.NodeCount > 0 && pool.PodDisruptionBudget != nil {
-			validNodePools[fmt.Sprintf("%s-%s%s", hc.Name, pool.Name, pdbNameSuffix)] = true
-		}
-	}
-
-	// Delete any PDBs that don't correspond to a valid node pool
-	for _, pdb := range existingPDBs.Items {
-		if _, exists := validNodePools[pdb.Name]; !exists {
-			r.Log.Info("Deleting orphaned PDB", "pdbName", pdb.Name)
-			if err := r.Delete(ctx, &pdb); err != nil {
-				if !k8serrors.IsNotFound(err) {
-					return fmt.Errorf("failed to delete orphaned PDB %s: %w", pdb.Name, err)
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
 // reconcilePodDisruptionBudgets handles PDB reconciliation for all node pools
 func (r *HumioClusterReconciler) reconcilePodDisruptionBudgets(ctx context.Context, humioNodePools HumioNodePoolList) (ctrl.Result, error) {
 	r.Log.Info("reconciling pod disruption budgets")
