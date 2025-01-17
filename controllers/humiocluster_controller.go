@@ -2467,14 +2467,12 @@ func shouldCreatePDBForNodePool(hnp *HumioNodePool) bool {
 func (r *HumioClusterReconciler) reconcilePodDisruptionBudgets(ctx context.Context, humioNodePools HumioNodePoolList) (ctrl.Result, error) {
 	r.Log.Info("reconciling pod disruption budgets")
 
-	// Handle PDBs for all node pools (including the default pool from NodeCount)
 	for _, pool := range humioNodePools.Items {
 		if err := r.reconcileSinglePDB(ctx, pool); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile PDB for node pool %s: %w", pool.GetNodePoolName(), err)
 		}
 	}
 
-	// Clean up any orphaned PDBs
 	if err := r.cleanupOrphanedPDBs(ctx, humioNodePools); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to cleanup orphaned PDBs: %w", err)
 	}
@@ -2491,7 +2489,6 @@ func (r *HumioClusterReconciler) reconcileSinglePDB(ctx context.Context, pool *H
 		return nil
 	}
 
-	// Check if pods exist for this node pool
 	pods, err := kubernetes.ListPods(ctx, r, pool.GetNamespace(), pool.GetNodePoolLabels())
 	if err != nil {
 		return fmt.Errorf("failed to list pods for node pool %s: %w", pool.GetNodePoolName(), err)
@@ -2503,7 +2500,6 @@ func (r *HumioClusterReconciler) reconcileSinglePDB(ctx context.Context, pool *H
 		return nil
 	}
 
-	// Build the desired PDB
 	desiredPDB, err := r.constructPDB(pool)
 	if err != nil {
 		return fmt.Errorf("failed to construct PDB for node pool %s: %w", pool.GetNodePoolName(), err)
@@ -2533,7 +2529,6 @@ func (r *HumioClusterReconciler) constructPDB(pool *HumioNodePool) (*policyv1.Po
 		},
 	}
 
-	// Apply PDB configuration from the node pool
 	pdbConfig := pool.GetPodDisruptionBudget()
 	if pdbConfig != nil {
 		if pdbConfig.MinAvailable != nil {
@@ -2550,12 +2545,10 @@ func (r *HumioClusterReconciler) constructPDB(pool *HumioNodePool) (*policyv1.Po
 			pdb.Spec.UnhealthyPodEvictionPolicy = (*policyv1.UnhealthyPodEvictionPolicyType)(pdbConfig.UnhealthyPodEvictionPolicy)
 		}
 	} else {
-		// Set default MinAvailable if no PDB config provided
 		defaultMin := intstr.FromString(defaultMinAvailable)
 		pdb.Spec.MinAvailable = &defaultMin
 	}
 
-	// Set controller reference
 	clusterRef := &humiov1alpha1.HumioCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pool.GetClusterName(),
@@ -2612,11 +2605,9 @@ func (r *HumioClusterReconciler) cleanupOrphanedPDBs(ctx context.Context, humioN
 		return nil
 	}
 
-	// Get cluster details from the first node pool
 	clusterName := humioNodePools.Items[0].GetClusterName()
 	namespace := humioNodePools.Items[0].GetNamespace()
 
-	// List all existing PDBs for this cluster
 	existingPDBs := &policyv1.PodDisruptionBudgetList{}
 	if err := r.List(ctx, existingPDBs,
 		client.InNamespace(namespace),
@@ -2624,7 +2615,6 @@ func (r *HumioClusterReconciler) cleanupOrphanedPDBs(ctx context.Context, humioN
 		return fmt.Errorf("failed to list PDBs: %w", err)
 	}
 
-	// Create a map of valid PDB names based on active node pools
 	validPDBs := make(map[string]bool)
 	for _, pool := range humioNodePools.Items {
 		if shouldCreatePDBForNodePool(pool) {
@@ -2632,7 +2622,6 @@ func (r *HumioClusterReconciler) cleanupOrphanedPDBs(ctx context.Context, humioN
 		}
 	}
 
-	// Delete orphaned PDBs
 	for _, pdb := range existingPDBs.Items {
 		if !validPDBs[pdb.Name] {
 			r.Log.Info("deleting orphaned PDB", "pdbName", pdb.Name)
