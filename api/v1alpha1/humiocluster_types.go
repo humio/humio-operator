@@ -102,9 +102,6 @@ type HumioClusterSpec struct {
 
 	// NodePools can be used to define additional groups of Humio cluster pods that share a set of configuration.
 	NodePools []HumioNodePoolSpec `json:"nodePools,omitempty"`
-
-	// PodDisruptionBudget allows configuring PDB for the cluster
-	PodDisruptionBudget *HumioPodDisruptionBudgetSpec `json:"podDisruptionBudget,omitempty"`
 }
 
 type HumioNodeSpec struct {
@@ -263,6 +260,9 @@ type HumioNodeSpec struct {
 
 	// HumioNodePoolFeatures defines the features that are allowed by the node pool
 	NodePoolFeatures HumioNodePoolFeatures `json:"nodePoolFeatures,omitempty"`
+
+	// PodDisruptionBudget defines the PDB configuration for this node pool
+	PodDisruptionBudget *HumioPodDisruptionBudgetSpec `json:"podDisruptionBudget,omitempty"`
 }
 
 type HumioNodePoolFeatures struct {
@@ -308,9 +308,6 @@ type HumioNodePoolSpec struct {
 	//+kubebuilder:validation:MinLength:=1
 	//+required
 	Name string `json:"name"`
-
-	// PodDisruptionBudget defines the PDB configuration for this node pool
-	PodDisruptionBudget *HumioPodDisruptionBudgetSpec `json:"podDisruptionBudget,omitempty"`
 
 	HumioNodeSpec `json:"spec,omitempty"`
 }
