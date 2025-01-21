@@ -4323,7 +4323,7 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         <td><b><a href="#humioclusterspecpoddisruptionbudget">podDisruptionBudget</a></b></td>
         <td>object</td>
         <td>
-          PodDisruptionBudget allows configuring PDB for the cluster<br/>
+          PodDisruptionBudget defines the PDB configuration for this node spec<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16011,64 +16011,10 @@ OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request ty
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#humioclusterspecnodepoolsindexpoddisruptionbudget">podDisruptionBudget</a></b></td>
-        <td>object</td>
-        <td>
-          PodDisruptionBudget defines the PDB configuration for this node pool<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
         <td><b><a href="#humioclusterspecnodepoolsindexspec">spec</a></b></td>
         <td>object</td>
         <td>
           <br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioCluster.spec.nodePools[index].podDisruptionBudget
-<sup><sup>[↩ Parent](#humioclusterspecnodepoolsindex)</sup></sup>
-
-
-
-PodDisruptionBudget defines the PDB configuration for this node pool
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>maxUnavailable</b></td>
-        <td>int or string</td>
-        <td>
-          MaxUnavailable represents the maximum number of pods that can be unavailable for this Humio node pool
-If not set, the operator will not use a MaxUnavailable value for the node pool's PodDisruptionBudget.
-Can be a percentage or a fixed number.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>minAvailable</b></td>
-        <td>int or string</td>
-        <td>
-          MinAvailable represents the minimum number of pods that should be available for this Humio node pool.
-If not set, the operator will not create a PodDisruptionBudget for the node pool.
-Can be a percentage or a fixed number.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>unhealthyPodEvictionPolicy</b></td>
-        <td>enum</td>
-        <td>
-          UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods<br/>
-          <br/>
-            <i>Enum</i>: AlwaysAllow, IfHealthyBudget<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -16342,6 +16288,13 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         <td>map[string]string</td>
         <td>
           PodAnnotations can be used to specify annotations that will be added to the Humio pods<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioclusterspecnodepoolsindexspecpoddisruptionbudget">podDisruptionBudget</a></b></td>
+        <td>object</td>
+        <td>
+          PodDisruptionBudget defines the PDB configuration for this node spec<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -27430,6 +27383,53 @@ OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request ty
 </table>
 
 
+### HumioCluster.spec.nodePools[index].spec.podDisruptionBudget
+<sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspec)</sup></sup>
+
+
+
+PodDisruptionBudget defines the PDB configuration for this node spec
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>maxUnavailable</b></td>
+        <td>int or string</td>
+        <td>
+          MaxUnavailable represents the maximum number of pods that can be unavailable for this Humio node pool
+If not set, the operator will not use a MaxUnavailable value for the node pool's PodDisruptionBudget.
+Can be a percentage or a fixed number.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>minAvailable</b></td>
+        <td>int or string</td>
+        <td>
+          MinAvailable represents the minimum number of pods that should be available for this Humio node pool.
+If not set, the operator will not create a PodDisruptionBudget for the node pool.
+Can be a percentage or a fixed number.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>unhealthyPodEvictionPolicy</b></td>
+        <td>enum</td>
+        <td>
+          UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods<br/>
+          <br/>
+            <i>Enum</i>: AlwaysAllow, IfHealthyBudget<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### HumioCluster.spec.nodePools[index].spec.podSecurityContext
 <sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspec)</sup></sup>
 
@@ -31040,7 +31040,7 @@ Humio pods can be updated in a rolling fashion or if they must be replaced at th
 
 
 
-PodDisruptionBudget allows configuring PDB for the cluster
+PodDisruptionBudget defines the PDB configuration for this node spec
 
 <table>
     <thead>
