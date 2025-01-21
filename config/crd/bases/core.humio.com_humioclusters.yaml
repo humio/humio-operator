@@ -11246,7 +11246,7 @@ spec:
                           type: object
                         podDisruptionBudget:
                           description: PodDisruptionBudget defines the PDB configuration
-                            for this node pool
+                            for this node spec
                           properties:
                             maxUnavailable:
                               anyOf:
@@ -13190,7 +13190,7 @@ spec:
                 type: object
               podDisruptionBudget:
                 description: PodDisruptionBudget defines the PDB configuration for
-                  this node pool
+                  this node spec
                 properties:
                   maxUnavailable:
                     anyOf:

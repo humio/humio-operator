@@ -261,7 +261,7 @@ type HumioNodeSpec struct {
 	// HumioNodePoolFeatures defines the features that are allowed by the node pool
 	NodePoolFeatures HumioNodePoolFeatures `json:"nodePoolFeatures,omitempty"`
 
-	// PodDisruptionBudget defines the PDB configuration for this node pool
+	// PodDisruptionBudget defines the PDB configuration for this node spec
 	PodDisruptionBudget *HumioPodDisruptionBudgetSpec `json:"podDisruptionBudget,omitempty"`
 }
 
