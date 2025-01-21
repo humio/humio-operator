@@ -226,9 +226,12 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// Then create PDBs after pods exist
-	if err := r.ensurePodDisruptionBudgets(ctx, hc, &hc.Spec.HumioNodeSpec); err != nil {
-		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-			withMessage(err.Error()))
+	if result, err := r.reconcilePodDisruptionBudgets(ctx, hc, &hc.Spec.HumioNodeSpec); result != emptyResult || err != nil {
+		if err != nil {
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(err.Error()))
+		}
+		return result, nil
 	}
 
 	// update annotations on ServiceAccount object and trigger pod restart if annotations were changed
@@ -2467,6 +2470,7 @@ func shouldCreatePDBForNodePool(spec *humiov1alpha1.HumioNodeSpec) bool {
 func (r *HumioClusterReconciler) reconcilePodDisruptionBudgets(ctx context.Context, hc *humiov1alpha1.HumioCluster, nodeSpec *humiov1alpha1.HumioNodeSpec) (ctrl.Result, error) {
 	r.Log.Info("reconciling pod disruption budgets")
 
+	// First reconcile the main PDB
 	if err := r.reconcileSinglePDB(ctx, hc, nodeSpec); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to reconcile PDB: %w", err)
 	}
