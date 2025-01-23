@@ -68,15 +68,6 @@ const (
 
 	// waitingOnPodsMessage is the message that is populated as the message in the cluster status when waiting on pods
 	waitingOnPodsMessage = "waiting for pods to become ready"
-
-	//Or make this configurable via a CR field or environment variable
-	defaultMinAvailable = "1"
-
-	// PDBNameSuffix is the suffix appended to PodDisruptionBudget names
-	pdbNameSuffix = "-pdb"
-
-	// Maximum length of a name in k8s
-	maxPDBNameLength = 253
 )
 
 //+kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
@@ -200,6 +191,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.ensureValidCAIssuer,
 		r.ensureHumioClusterCACertBundle,
 		r.ensureHumioClusterKeystoreSecret,
+		r.ensureViewGroupPermissionsConfigMap,
 		r.ensureRolePermissionsConfigMap,
 		r.ensureNoIngressesIfIngressNotEnabled, // TODO: cleanupUnusedResources seems like a better place for this
 		r.ensureIngress,
