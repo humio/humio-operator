@@ -2391,19 +2391,6 @@ func getHumioNodePoolManagers(hc *humiov1alpha1.HumioCluster) HumioNodePoolList 
 	return humioNodePools
 }
 
-// shouldCreatePDBForNodePool determines if we should create a PDB for the node pool
-func shouldCreatePDBForNodePool(spec *humiov1alpha1.HumioNodeSpec) bool {
-	if spec == nil {
-		return false
-	}
-	pdb := spec.PodDisruptionBudget
-	if pdb == nil {
-		return false
-	}
-	// Only create PDB if node pool has nodes and either MinAvailable or MaxUnavailable is set
-	return spec.NodeCount > 0 && (pdb.MinAvailable != nil || pdb.MaxUnavailable != nil)
-}
-
 // reconcileSinglePDB handles creation/update of a PDB for a single node pool
 func (r *HumioClusterReconciler) reconcileSinglePDB(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
 	pdbSpec := hnp.GetPodDisruptionBudget()
