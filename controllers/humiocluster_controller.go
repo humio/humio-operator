@@ -2299,12 +2299,6 @@ func (r *HumioClusterReconciler) cleanupUnusedResources(ctx context.Context, hc 
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()))
 		}
-
-		// Call cleanupOrphanedPDBs *once* after the loop, passing humioNodePools
-		if err := r.cleanupOrphanedPDBs(ctx, hc, &humioNodePools); err != nil {
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage(err.Error()))
-		}
 	}
 
 	for _, nodePool := range humioNodePools.Filter(NodePoolFilterDoesNotHaveNodes) {
@@ -2324,6 +2318,12 @@ func (r *HumioClusterReconciler) cleanupUnusedResources(ctx context.Context, hc 
 				withMessage(err.Error()))
 		}
 	}
+
+	if err := r.cleanupOrphanedPDBs(ctx, hc, &humioNodePools); err != nil {
+		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+			withMessage(err.Error()))
+	}
+
 	return reconcile.Result{}, nil
 }
 
