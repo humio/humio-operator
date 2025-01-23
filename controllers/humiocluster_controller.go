@@ -216,7 +216,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			r.ensureInitContainerPermissions,
 			r.ensureHumioNodeCertificates,
 			r.ensureExtraKafkaConfigsConfigMap,
-			r.ensureViewGroupPermissionsConfigMap,
 			r.reconcileSinglePDB,
 		} {
 			if err := fun(ctx, hc, pool); err != nil {
