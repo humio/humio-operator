@@ -1959,30 +1959,60 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 
 	pdbSpec := hnp.GetPodDisruptionBudget() // Pass the HumioCluster instance
 	r.Log.Info("Entering PDB enforcement check", "nodePool", hnp.GetNodePoolName(), "pdbSpec", pdbSpec, "pdbSpec.Enabled", pdbSpec != nil && pdbSpec.Enabled)
-	if pdbSpec != nil && pdbSpec.Enabled { // Check if PDB is enabled for this NodePool
+	if pdbSpec != nil && pdbSpec.Enabled {
+		pdbName := fmt.Sprintf("%s-%s-pdb", hc.Name, hnp.GetNodePoolName())
 		pdb := &policyv1.PodDisruptionBudget{}
-		pdbName := fmt.Sprintf("%s-%s-pdb", hc.Name, hnp.GetNodePoolName()) // Generate PDB name using cluster name and nodepool name
-		r.Log.Info("Fetching PDB", "pdbName", pdbName, "namespace", hnp.GetNamespace())
-		err := r.Get(ctx, types.NamespacedName{Name: pdbName, Namespace: hnp.GetNamespace()}, pdb) // Use NodePool namespace
+
+		r.Log.Info("Fetching PDB",
+			"pdbName", pdbName,
+			"namespace", hnp.GetNamespace())
+
+		err := r.Get(ctx, types.NamespacedName{
+			Name:      pdbName,
+			Namespace: hnp.GetNamespace(),
+		}, pdb)
+
 		if err != nil {
-			r.Log.Error(err, "Error fetching PDB", "pdbName", pdbName, "namespace", hnp.GetNamespace())
-			if !k8serrors.IsNotFound(err) {
-				return reconcile.Result{}, fmt.Errorf("failed to get PDB for node pool %s: %w", hnp.GetNodePoolName(), err)
+			if k8serrors.IsNotFound(err) {
+				r.Log.Info("PDB not found for node pool, proceeding without PDB check",
+					"pdb", pdbName,
+					"namespace", hnp.GetNamespace(),
+					"nodePool", hnp.GetNodePoolName())
+			} else {
+				return reconcile.Result{}, fmt.Errorf("failed to get PDB for node pool %s: %w",
+					hnp.GetNodePoolName(), err)
 			}
-			r.Log.Info("PDB not found for node pool, proceeding without PDB check", "pdb", pdbName, "namespace", hnp.GetNamespace(), "nodePool", hnp.GetNodePoolName())
 		} else {
 			disruptionsAllowed := pdb.Status.DisruptionsAllowed
 			podsToDeleteCount := len(podsForDeletion)
-			r.Log.Info("PDB Status", "pdbName", pdbName, "disruptionsAllowed", disruptionsAllowed, "podsToDeleteCount", podsToDeleteCount)
 
-			if int32(podsToDeleteCount) > disruptionsAllowed {
-				r.Log.Info("PDB BLOCKING deletion", "pdbName", pdbName, "disruptionsAllowed", disruptionsAllowed, "podsToDeleteCount", podsToDeleteCount)
-				return reconcile.Result{RequeueAfter: time.Minute}, fmt.Errorf("scale down blocked by PDB for node pool %s, disruptions not allowed", hnp.GetNodePoolName())
+			r.Log.Info("PDB Status",
+				"pdbName", pdbName,
+				"disruptionsAllowed", disruptionsAllowed,
+				"podsToDeleteCount", podsToDeleteCount)
+
+			if podsToDeleteCount > int(disruptionsAllowed) {
+				r.Log.Info("PDB preventing pod deletion",
+					"pdbName", pdbName,
+					"disruptionsAllowed", disruptionsAllowed,
+					"podsToDeleteCount", podsToDeleteCount)
+
+				return reconcile.Result{RequeueAfter: time.Minute}, fmt.Errorf(
+					"scale down blocked by PDB for node pool %s: disruptions allowed=%d, pods to delete=%d",
+					hnp.GetNodePoolName(),
+					disruptionsAllowed,
+					podsToDeleteCount)
 			}
-			r.Log.Info("PDB ALLOWING deletion", "pdbName", pdbName, "disruptionsAllowed", disruptionsAllowed, "podsToDeleteCount", podsToDeleteCount)
+
+			r.Log.Info("PDB allows pod deletion",
+				"pdbName", pdbName,
+				"disruptionsAllowed", disruptionsAllowed,
+				"podsToDeleteCount", podsToDeleteCount)
 		}
 	} else {
-		r.Log.Info("PDB enforcement NOT ENABLED or no PDB spec", "nodePool", hnp.GetNodePoolName(), "pdbSpec", pdbSpec)
+		r.Log.Info("PDB enforcement NOT ENABLED or no PDB spec",
+			"nodePool", hnp.GetNodePoolName(),
+			"pdbSpec", pdbSpec)
 	}
 
 	// if zone awareness is enabled, we pin a zone until we're done replacing all pods in that zone,
