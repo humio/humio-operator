@@ -1957,7 +1957,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 
 	podsForDeletion := desiredLifecycleState.podsToBeReplaced
 
-	pdbSpec := hnp.GetPodDisruptionBudget() // Pass the HumioCluster instance
+	pdbSpec := hnp.GetPodDisruptionBudget()
 	r.Log.Info("Entering PDB enforcement check", "nodePool", hnp.GetNodePoolName(), "pdbSpec", pdbSpec, "pdbSpec.Enabled", pdbSpec != nil && pdbSpec.Enabled)
 	if pdbSpec != nil && pdbSpec.Enabled {
 		pdbName := fmt.Sprintf("%s-%s-pdb", hc.Name, hnp.GetNodePoolName())
@@ -2343,6 +2343,13 @@ func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx cont
 }
 
 func (r *HumioClusterReconciler) cleanupUnusedResources(ctx context.Context, hc *humiov1alpha1.HumioCluster, humioNodePools HumioNodePoolList) (reconcile.Result, error) {
+	if !hc.DeletionTimestamp.IsZero() {
+		if err := r.handlePDBFinalizers(ctx, hc); err != nil {
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+				withMessage(fmt.Sprintf("failed to handle PDB finalizers: %s", err)))
+		}
+	}
+
 	for _, pool := range humioNodePools.Items {
 		if err := r.ensureOrphanedPvcsAreDeleted(ctx, hc, pool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
