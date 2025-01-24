@@ -11248,30 +11248,35 @@ spec:
                           description: PodDisruptionBudget defines the PDB configuration
                             for this node spec
                           properties:
+                            enabled:
+                              description: Enabled indicates whether PodDisruptionBudget
+                                is enabled for this NodePool.
+                              type: boolean
                             maxUnavailable:
                               anyOf:
                               - type: integer
                               - type: string
-                              description: |-
-                                MaxUnavailable represents the maximum number of pods that can be unavailable for this Humio node pool
-                                If not set, the operator will not use a MaxUnavailable value for the node pool's PodDisruptionBudget.
-                                Can be a percentage or a fixed number.
+                              description: MaxUnavailable is the maximum number of
+                                pods that can be unavailable during a disruption.
+                              format: int-or-string
+                              type: string
                               x-kubernetes-int-or-string: true
                             minAvailable:
                               anyOf:
                               - type: integer
                               - type: string
-                              description: |-
-                                MinAvailable represents the minimum number of pods that should be available for this Humio node pool.
-                                If not set, the operator will not create a PodDisruptionBudget for the node pool.
-                                Can be a percentage or a fixed number.
+                              description: MinAvailable is the minimum number of pods
+                                that must be available during a disruption.
+                              format: int-or-string
+                              type: string
                               x-kubernetes-int-or-string: true
                             unhealthyPodEvictionPolicy:
-                              description: UnhealthyPodEvictionPolicy defines the
-                                policy for evicting unhealthy pods
+                              description: |-
+                                UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods.
+                                Requires Kubernetes 1.26+.
                               enum:
-                              - AlwaysAllow
                               - IfHealthyBudget
+                              - AlwaysAllow
                               type: string
                           type: object
                         podLabels:
@@ -13192,30 +13197,35 @@ spec:
                 description: PodDisruptionBudget defines the PDB configuration for
                   this node spec
                 properties:
+                  enabled:
+                    description: Enabled indicates whether PodDisruptionBudget is
+                      enabled for this NodePool.
+                    type: boolean
                   maxUnavailable:
                     anyOf:
                     - type: integer
                     - type: string
-                    description: |-
-                      MaxUnavailable represents the maximum number of pods that can be unavailable for this Humio node pool
-                      If not set, the operator will not use a MaxUnavailable value for the node pool's PodDisruptionBudget.
-                      Can be a percentage or a fixed number.
+                    description: MaxUnavailable is the maximum number of pods that
+                      can be unavailable during a disruption.
+                    format: int-or-string
+                    type: string
                     x-kubernetes-int-or-string: true
                   minAvailable:
                     anyOf:
                     - type: integer
                     - type: string
-                    description: |-
-                      MinAvailable represents the minimum number of pods that should be available for this Humio node pool.
-                      If not set, the operator will not create a PodDisruptionBudget for the node pool.
-                      Can be a percentage or a fixed number.
+                    description: MinAvailable is the minimum number of pods that must
+                      be available during a disruption.
+                    format: int-or-string
+                    type: string
                     x-kubernetes-int-or-string: true
                   unhealthyPodEvictionPolicy:
-                    description: UnhealthyPodEvictionPolicy defines the policy for
-                      evicting unhealthy pods
+                    description: |-
+                      UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods.
+                      Requires Kubernetes 1.26+.
                     enum:
-                    - AlwaysAllow
                     - IfHealthyBudget
+                    - AlwaysAllow
                     type: string
                 type: object
               podLabels:
