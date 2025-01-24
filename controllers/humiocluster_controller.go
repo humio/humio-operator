@@ -1957,7 +1957,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 
 	podsForDeletion := desiredLifecycleState.podsToBeReplaced
 
-	pdbSpec := hnp.GetPodDisruptionBudget(hc) // Pass the HumioCluster instance
+	pdbSpec := hnp.GetPodDisruptionBudget() // Pass the HumioCluster instance
 	r.Log.Info("Entering PDB enforcement check", "nodePool", hnp.GetNodePoolName(), "pdbSpec", pdbSpec, "pdbSpec.Enabled", pdbSpec != nil && pdbSpec.Enabled)
 	if pdbSpec != nil && pdbSpec.Enabled { // Check if PDB is enabled for this NodePool
 		pdb := &policyv1.PodDisruptionBudget{}
@@ -2421,7 +2421,7 @@ func getHumioNodePoolManagers(hc *humiov1alpha1.HumioCluster) HumioNodePoolList 
 
 // reconcileSinglePDB handles creation/update of a PDB for a single node pool
 func (r *HumioClusterReconciler) reconcileSinglePDB(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
-	pdbSpec := hnp.GetPodDisruptionBudget(hc)
+	pdbSpec := hnp.GetPodDisruptionBudget()
 	if pdbSpec == nil {
 		r.Log.Info("skipping PDB creation - node pool does not have PDB configured",
 			"nodePool", hnp.GetNodePoolName()) // Use NodePool Name here
