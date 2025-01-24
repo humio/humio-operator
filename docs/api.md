@@ -27400,30 +27400,38 @@ PodDisruptionBudget defines the PDB configuration for this node spec
         </tr>
     </thead>
     <tbody><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled indicates whether PodDisruptionBudget is enabled for this NodePool.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>maxUnavailable</b></td>
         <td>int or string</td>
         <td>
-          MaxUnavailable represents the maximum number of pods that can be unavailable for this Humio node pool
-If not set, the operator will not use a MaxUnavailable value for the node pool's PodDisruptionBudget.
-Can be a percentage or a fixed number.<br/>
+          MaxUnavailable is the maximum number of pods that can be unavailable during a disruption.<br/>
+          <br/>
+            <i>Format</i>: int-or-string<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>minAvailable</b></td>
         <td>int or string</td>
         <td>
-          MinAvailable represents the minimum number of pods that should be available for this Humio node pool.
-If not set, the operator will not create a PodDisruptionBudget for the node pool.
-Can be a percentage or a fixed number.<br/>
+          MinAvailable is the minimum number of pods that must be available during a disruption.<br/>
+          <br/>
+            <i>Format</i>: int-or-string<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>unhealthyPodEvictionPolicy</b></td>
         <td>enum</td>
         <td>
-          UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods<br/>
+          UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods.
+Requires Kubernetes 1.26+.<br/>
           <br/>
-            <i>Enum</i>: AlwaysAllow, IfHealthyBudget<br/>
+            <i>Enum</i>: IfHealthyBudget, AlwaysAllow<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -31052,30 +31060,38 @@ PodDisruptionBudget defines the PDB configuration for this node spec
         </tr>
     </thead>
     <tbody><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled indicates whether PodDisruptionBudget is enabled for this NodePool.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>maxUnavailable</b></td>
         <td>int or string</td>
         <td>
-          MaxUnavailable represents the maximum number of pods that can be unavailable for this Humio node pool
-If not set, the operator will not use a MaxUnavailable value for the node pool's PodDisruptionBudget.
-Can be a percentage or a fixed number.<br/>
+          MaxUnavailable is the maximum number of pods that can be unavailable during a disruption.<br/>
+          <br/>
+            <i>Format</i>: int-or-string<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>minAvailable</b></td>
         <td>int or string</td>
         <td>
-          MinAvailable represents the minimum number of pods that should be available for this Humio node pool.
-If not set, the operator will not create a PodDisruptionBudget for the node pool.
-Can be a percentage or a fixed number.<br/>
+          MinAvailable is the minimum number of pods that must be available during a disruption.<br/>
+          <br/>
+            <i>Format</i>: int-or-string<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>unhealthyPodEvictionPolicy</b></td>
         <td>enum</td>
         <td>
-          UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods<br/>
+          UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods.
+Requires Kubernetes 1.26+.<br/>
           <br/>
-            <i>Enum</i>: AlwaysAllow, IfHealthyBudget<br/>
+            <i>Enum</i>: IfHealthyBudget, AlwaysAllow<br/>
         </td>
         <td>false</td>
       </tr></tbody>
