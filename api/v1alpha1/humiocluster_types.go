@@ -312,21 +312,33 @@ type HumioNodePoolSpec struct {
 	HumioNodeSpec `json:"spec,omitempty"`
 }
 
-// HumioPodDisruptionBudgetSpec defines the PDB configuration for a node pool
+// PodDisruptionBudgetSpec defines the desired pod disruption budget configuration
 type HumioPodDisruptionBudgetSpec struct {
-	// MinAvailable represents the minimum number of pods that should be available for this Humio node pool.
-	// If not set, the operator will not create a PodDisruptionBudget for the node pool.
-	// Can be a percentage or a fixed number.
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Format=int-or-string
+	// +kubebuilder:validation:Immutable
+	// MinAvailable is the minimum number of pods that must be available during a disruption.
 	MinAvailable *intstr.IntOrString `json:"minAvailable,omitempty"`
 
-	// MaxUnavailable represents the maximum number of pods that can be unavailable for this Humio node pool
-	// If not set, the operator will not use a MaxUnavailable value for the node pool's PodDisruptionBudget.
-	// Can be a percentage or a fixed number.
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Format=int-or-string
+	// +kubebuilder:validation:Immutable
+	// MaxUnavailable is the maximum number of pods that can be unavailable during a disruption.
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 
-	// UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods
-	// +kubebuilder:validation:Enum=AlwaysAllow;IfHealthyBudget
+	// +kubebuilder:validation:Enum=IfHealthyBudget;AlwaysAllow
+	// +kubebuilder:validation:default="IfHealthyBudget"
+	// UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods.
+	// Requires Kubernetes 1.26+.
+	// +optional
 	UnhealthyPodEvictionPolicy *string `json:"unhealthyPodEvictionPolicy,omitempty"`
+
+	// +kubebuilder:validation:Xor={"minAvailable","maxUnavailable"}
+	// +kubebuilder:validation:Required
+
+	// Enabled indicates whether PodDisruptionBudget is enabled for this NodePool.
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // HumioHostnameSource is the possible references to a hostname value that is stored outside of the HumioCluster resource
