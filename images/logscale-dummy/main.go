@@ -8,7 +8,7 @@ import (
 
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		fmt.Fprintf(w, "\n")
+		_, _ = fmt.Fprintf(w, "\n")
 	})
 
 	humioPort := os.Getenv("HUMIO_PORT")
@@ -30,7 +30,9 @@ func main() {
 
 func runHTTPS(humioPort, esPort string) {
 	if esPort != "" {
-		go http.ListenAndServeTLS(fmt.Sprintf(":%s", esPort), "cert.pem", "key.pem", nil)
+		go func() {
+			_ = http.ListenAndServeTLS(fmt.Sprintf(":%s", esPort), "cert.pem", "key.pem", nil)
+		}()
 	}
 	err := http.ListenAndServeTLS(fmt.Sprintf(":%s", humioPort), "cert.pem", "key.pem", nil)
 	if err != nil {
@@ -40,7 +42,9 @@ func runHTTPS(humioPort, esPort string) {
 
 func runHTTP(humioPort, esPort string) {
 	if esPort != "" {
-		go http.ListenAndServe(fmt.Sprintf(":%s", esPort), nil)
+		go func() {
+			_ = http.ListenAndServe(fmt.Sprintf(":%s", esPort), nil)
+		}()
 
 	}
 	err := http.ListenAndServe(fmt.Sprintf(":%s", humioPort), nil)
@@ -50,7 +54,8 @@ func runHTTP(humioPort, esPort string) {
 }
 
 /*
- TODO: Consider loading in the "real" certificate from the keystore instead of baking in a cert.pem and key.pem during build.
+ TODO: Consider loading in the "real" certificate from the keystore instead of baking in a cert.pem and key.pem during
+       build.
 
  TODO: Consider adding functionality that writes a file so "wait for global file in test cases" will pass.
 								"ls /mnt/global*.json",

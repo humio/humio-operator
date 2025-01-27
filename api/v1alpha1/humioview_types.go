@@ -34,8 +34,8 @@ const (
 
 type HumioViewConnection struct {
 	// RepositoryName contains the name of the target repository
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	RepositoryName string `json:"repositoryName,omitempty"`
 	// Filter contains the prefix filter that will be applied for the given RepositoryName
 	Filter string `json:"filter,omitempty"`
@@ -51,11 +51,11 @@ type HumioViewSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the view inside Humio
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	Name string `json:"name"`
 	// Description contains the description that will be set on the view
-	//+optional
+	// +optional
 	Description string `json:"description,omitempty"`
 	// Connections contains the connections to the Humio repositories which is accessible in this view
 	Connections []HumioViewConnection `json:"connections,omitempty"`
@@ -69,11 +69,11 @@ type HumioViewStatus struct {
 	State string `json:"state,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:path=humioviews,scope=Namespaced
-//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the view"
-//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio View"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:path=humioviews,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the view"
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio View"
 
 // HumioView is the Schema for the humioviews API
 type HumioView struct {
@@ -84,7 +84,7 @@ type HumioView struct {
 	Status HumioViewStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // HumioViewList contains a list of HumioView
 type HumioViewList struct {

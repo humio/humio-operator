@@ -2,9 +2,11 @@ apiVersion: core.humio.com/v1alpha1
 kind: HumioAggregateAlert
 metadata:
   labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
   name: humioaggregatealert-sample
 spec:
-  managedClusterName: example-humiocluster
+  managedClusterName: humiocluster-sample
   name: "example-aggregatealert"
   queryString: "#repo = humio | error = true | count() | _count > 0"
   viewName: "humio"

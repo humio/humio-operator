@@ -213,15 +213,15 @@ EmailProperties indicates this is an Email Action, and contains the correspondin
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>bodyTemplate</b></td>
-        <td>string</td>
+        <td><b>recipients</b></td>
+        <td>[]string</td>
         <td>
           <br/>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
-        <td><b>recipients</b></td>
-        <td>[]string</td>
+        <td><b>bodyTemplate</b></td>
+        <td>string</td>
         <td>
           <br/>
         </td>
@@ -336,8 +336,12 @@ SecretKeyRef allows specifying which secret and what key in that secret holds th
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -457,8 +461,12 @@ SecretKeyRef allows specifying which secret and what key in that secret holds th
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -578,8 +586,12 @@ SecretKeyRef allows specifying which secret and what key in that secret holds th
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -710,8 +722,12 @@ SecretKeyRef allows specifying which secret and what key in that secret holds th
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -831,8 +847,12 @@ SecretKeyRef allows specifying which secret and what key in that secret holds th
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -952,8 +972,12 @@ SecretKeyRef allows specifying which secret and what key in that secret holds th
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1138,8 +1162,12 @@ SecretKeyRef allows specifying which secret and what key in that secret holds th
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1209,8 +1237,12 @@ SecretKeyRef allows specifying which secret and what key in that secret holds th
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2359,13 +2391,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2374,13 +2406,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2623,13 +2655,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2638,13 +2670,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2967,13 +2999,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2982,13 +3014,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3231,13 +3263,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3246,13 +3278,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3505,8 +3537,12 @@ SecretKeyRef is the secret key reference to a kubernetes secret containing the b
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3542,8 +3578,12 @@ referenced object inside the same namespace.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3573,10 +3613,8 @@ Resources is the kubernetes resource limits for the bootstrap onetime pod
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-
 This is an alpha field and requires enabling the
 DynamicResourceAllocation feature gate.
-
 
 This field is immutable. It can only be set for containers.<br/>
         </td>
@@ -3628,6 +3666,15 @@ the Pod where this field is used. It makes that resource available
 inside a container.<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>request</b></td>
+        <td>string</td>
+        <td>
+          Request is the name chosen for a request in the referenced claim.
+If empty, everything from the claim is made available, otherwise
+only the result of this request.<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -3688,8 +3735,12 @@ SecretKeyRef is the secret key reference to a kubernetes secret containing the b
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3804,8 +3855,12 @@ in the spec or automatically created
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3877,8 +3932,12 @@ in the spec or automatically created
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3962,6 +4021,13 @@ HumioClusterSpec defines the desired state of HumioCluster
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioclusterspeclicense">license</a></b></td>
+        <td>object</td>
+        <td>
+          License is the kubernetes secret reference which contains the Humio license<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
         <td><b><a href="#humioclusterspecaffinity">affinity</a></b></td>
         <td>object</td>
         <td>
@@ -4266,13 +4332,6 @@ the Humio pods.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humioclusterspeclicense">license</a></b></td>
-        <td>object</td>
-        <td>
-          License is the kubernetes secret reference which contains the Humio license<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
         <td><b>nodeCount</b></td>
         <td>integer</td>
         <td>
@@ -4434,6 +4493,80 @@ in a change to the Humio pods<br/>
         <td>
           ViewGroupPermissions is a multi-line string containing view-group-permissions.json.
 Deprecated: Use RolePermissions instead.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.license
+<sup><sup>[↩ Parent](#humioclusterspec)</sup></sup>
+
+
+
+License is the kubernetes secret reference which contains the Humio license
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humioclusterspeclicensesecretkeyref">secretKeyRef</a></b></td>
+        <td>object</td>
+        <td>
+          SecretKeySelector selects a key of a Secret.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.license.secretKeyRef
+<sup><sup>[↩ Parent](#humioclusterspeclicense)</sup></sup>
+
+
+
+SecretKeySelector selects a key of a Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -4979,13 +5112,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4994,13 +5127,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -5243,13 +5376,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -5258,13 +5391,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -5587,13 +5720,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -5602,13 +5735,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -5851,13 +5984,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -5866,13 +5999,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -6196,8 +6329,12 @@ Selects a key of a ConfigMap.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -6316,8 +6453,12 @@ Selects a key of a secret in the pod's namespace
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -6514,8 +6655,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -6835,8 +6977,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -7003,6 +7146,15 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humioclusterspeccontainersecuritycontextapparmorprofile">appArmorProfile</a></b></td>
+        <td>object</td>
+        <td>
+          appArmorProfile is the AppArmor options to use by this container. If set, this profile
+overrides the pod's appArmorProfile.
+Note that this field cannot be set when spec.os.name is windows.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humioclusterspeccontainersecuritycontextcapabilities">capabilities</a></b></td>
         <td>object</td>
         <td>
@@ -7026,7 +7178,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         <td>string</td>
         <td>
           procMount denotes the type of proc mount to use for the containers.
-The default is DefaultProcMount which uses the container runtime defaults for
+The default value is Default which uses the container runtime defaults for
 readonly paths and masked paths.
 This requires the ProcMountType feature flag to be enabled.
 Note that this field cannot be set when spec.os.name is windows.<br/>
@@ -7108,6 +7260,49 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
 If unspecified, the options from the PodSecurityContext will be used.
 If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
 Note that this field cannot be set when spec.os.name is linux.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.containerSecurityContext.appArmorProfile
+<sup><sup>[↩ Parent](#humioclusterspeccontainersecuritycontext)</sup></sup>
+
+
+
+appArmorProfile is the AppArmor options to use by this container. If set, this profile
+overrides the pod's appArmorProfile.
+Note that this field cannot be set when spec.os.name is windows.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type indicates which kind of AppArmor profile will be applied.
+Valid options are:
+  Localhost - a profile pre-loaded on the node.
+  RuntimeDefault - the container runtime's default profile.
+  Unconfined - no AppArmor enforcement.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>localhostProfile</b></td>
+        <td>string</td>
+        <td>
+          localhostProfile indicates a profile loaded on the node that should be used.
+The profile must be preconfigured on the node to work.
+Must match the loaded name of the profile.
+Must be set if and only if type is "Localhost".<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -7227,7 +7422,6 @@ Note that this field cannot be set when spec.os.name is windows.
         <td>
           type indicates which kind of seccomp profile will be applied.
 Valid options are:
-
 
 Localhost - a profile defined in a file on the node should be used.
 RuntimeDefault - the container runtime default profile should be used.
@@ -7490,8 +7684,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -7764,8 +7959,8 @@ will be set by the persistentvolume controller if it exists.
 If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
 set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
 exists.
-More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#volumeattributesclass
-(Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
+(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -8126,7 +8321,6 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir<br/>
 The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts,
 and deleted when the pod is removed.
 
-
 Use this if:
 a) the volume is only needed while the pod runs,
 b) features of normal volumes like restoring from snapshot or capacity
@@ -8137,16 +8331,13 @@ d) the storage driver supports dynamic volume provisioning through
    information on the connection between this volume type
    and PersistentVolumeClaim).
 
-
 Use PersistentVolumeClaim or one of the vendor-specific
 APIs for volumes that persist for longer than the lifecycle
 of an individual pod.
 
-
 Use CSI for light-weight local ephemeral volumes if the CSI driver is meant to
 be used that way - see the documentation of the driver for
 more information.
-
 
 A pod can use both types of ephemeral volumes and
 persistent volumes at the same time.<br/>
@@ -8209,10 +8400,27 @@ More info: https://examples.k8s.io/volumes/glusterfs/README.md<br/>
 machine that is directly exposed to the container. This is generally
 used for system agents or other privileged things that are allowed
 to see the host machine. Most containers will NOT need this.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath
----
-TODO(jonesdl) We need to restrict who can use host directory mounts and who can/can not
-mount host directories as read/write.<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioclusterspecdatavolumesourceimage">image</a></b></td>
+        <td>object</td>
+        <td>
+          image represents an OCI object (a container image or artifact) pulled and mounted on the kubelet's host machine.
+The volume is resolved at pod startup depending on which PullPolicy value is provided:
+
+- Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+- Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+- IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+
+The volume gets re-resolved if the pod gets deleted and recreated, which means that new remote content will become available on pod recreation.
+A failure to resolve or pull the image during pod startup will block containers from starting and may add significant latency. Failures will be retried using normal volume backoff and will be reported on the pod reason and message.
+The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
+The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
+The volume will be mounted read-only (ro) and non-executable files (noexec).
+Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath).
+The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -8343,8 +8551,7 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockst
           fsType is the filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -8415,6 +8622,8 @@ azureDisk represents an Azure Data Disk mount on the host and bind mount to the 
           fsType is Filesystem type to mount.
 Must be a filesystem type supported by the host operating system.
 Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
+          <br/>
+            <i>Default</i>: ext4<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -8430,6 +8639,8 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
         <td>
           readOnly Defaults to false (read/write). ReadOnly here will force
 the ReadOnly setting in VolumeMounts.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -8568,8 +8779,12 @@ More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -8654,8 +8869,12 @@ to OpenStack.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -8711,8 +8930,12 @@ relative and may not contain the '..' path or start with '..'.<br/>
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -8866,8 +9089,12 @@ secret object contains more than one secret, all secret references are passed.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -8944,7 +9171,7 @@ DownwardAPIVolumeFile represents information to create the file containing the p
         <td><b><a href="#humioclusterspecdatavolumesourcedownwardapiitemsindexfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
-          Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.<br/>
+          Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -8978,7 +9205,7 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 
 
 
-Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.
+Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.
 
 <table>
     <thead>
@@ -9101,7 +9328,6 @@ ephemeral represents a volume that is handled by a cluster storage driver.
 The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts,
 and deleted when the pod is removed.
 
-
 Use this if:
 a) the volume is only needed while the pod runs,
 b) features of normal volumes like restoring from snapshot or capacity
@@ -9112,16 +9338,13 @@ d) the storage driver supports dynamic volume provisioning through
    information on the connection between this volume type
    and PersistentVolumeClaim).
 
-
 Use PersistentVolumeClaim or one of the vendor-specific
 APIs for volumes that persist for longer than the lifecycle
 of an individual pod.
 
-
 Use CSI for light-weight local ephemeral volumes if the CSI driver is meant to
 be used that way - see the documentation of the driver for
 more information.
-
 
 A pod can use both types of ephemeral volumes and
 persistent volumes at the same time.
@@ -9147,7 +9370,6 @@ pod.  The name of the PVC will be `<pod name>-<volume name>` where
 entry. Pod validation will reject the pod if the concatenated name
 is not valid for a PVC (for example, too long).
 
-
 An existing PVC with that name that is not owned by the pod
 will *not* be used for the pod to avoid using an unrelated
 volume by mistake. Starting the pod is then blocked until
@@ -9157,10 +9379,8 @@ owner reference to the pod once the pod exists. Normally
 this should not be necessary, but it may be useful when
 manually reconstructing a broken cluster.
 
-
 This field is read-only and no changes will be made by Kubernetes
 to the PVC after it has been created.
-
 
 Required, must not be nil.<br/>
         </td>
@@ -9182,7 +9402,6 @@ pod.  The name of the PVC will be `<pod name>-<volume name>` where
 entry. Pod validation will reject the pod if the concatenated name
 is not valid for a PVC (for example, too long).
 
-
 An existing PVC with that name that is not owned by the pod
 will *not* be used for the pod to avoid using an unrelated
 volume by mistake. Starting the pod is then blocked until
@@ -9192,10 +9411,8 @@ owner reference to the pod once the pod exists. Normally
 this should not be necessary, but it may be useful when
 manually reconstructing a broken cluster.
 
-
 This field is read-only and no changes will be made by Kubernetes
 to the PVC after it has been created.
-
 
 Required, must not be nil.
 
@@ -9341,8 +9558,8 @@ will be set by the persistentvolume controller if it exists.
 If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
 set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
 exists.
-More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#volumeattributesclass
-(Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
+(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -9634,8 +9851,7 @@ fc represents a Fibre Channel resource that is attached to a kubelet's host mach
         <td>
           fsType is the filesystem type to mount.
 Must be a filesystem type supported by the host operating system.
-Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -9762,8 +9978,12 @@ scripts.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -9838,8 +10058,7 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk
           fsType is filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -9971,9 +10190,6 @@ machine that is directly exposed to the container. This is generally
 used for system agents or other privileged things that are allowed
 to see the host machine. Most containers will NOT need this.
 More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath
----
-TODO(jonesdl) We need to restrict who can use host directory mounts and who can/can not
-mount host directories as read/write.
 
 <table>
     <thead>
@@ -10000,6 +10216,62 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
           type for HostPath Volume
 Defaults to ""
 More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.dataVolumeSource.image
+<sup><sup>[↩ Parent](#humioclusterspecdatavolumesource)</sup></sup>
+
+
+
+image represents an OCI object (a container image or artifact) pulled and mounted on the kubelet's host machine.
+The volume is resolved at pod startup depending on which PullPolicy value is provided:
+
+- Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+- Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+- IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+
+The volume gets re-resolved if the pod gets deleted and recreated, which means that new remote content will become available on pod recreation.
+A failure to resolve or pull the image during pod startup will block containers from starting and may add significant latency. Failures will be retried using normal volume backoff and will be reported on the pod reason and message.
+The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
+The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
+The volume will be mounted read-only (ro) and non-executable files (noexec).
+Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath).
+The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>pullPolicy</b></td>
+        <td>string</td>
+        <td>
+          Policy for pulling OCI objects. Possible values are:
+Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>reference</b></td>
+        <td>string</td>
+        <td>
+          Required: Image or artifact reference to be used.
+Behaves in the same way as pod.spec.containers[*].image.
+Pull secrets will be assembled in the same way as for the container image by looking up node credentials, SA image pull secrets, and pod spec image pull secrets.
+More info: https://kubernetes.io/docs/concepts/containers/images
+This field is optional to allow higher level config management to default or override
+container images in workload controllers like Deployments and StatefulSets.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -10069,8 +10341,7 @@ is other than default (typically TCP ports 860 and 3260).<br/>
           fsType is the filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#iscsi
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#iscsi<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -10088,6 +10359,8 @@ If initiatorName is specified with iscsiInterface simultaneously, new iSCSI inte
         <td>
           iscsiInterface is the interface Name that uses an iSCSI transport.
 Defaults to 'default' (tcp).<br/>
+          <br/>
+            <i>Default</i>: default<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -10138,8 +10411,12 @@ secretRef is the CHAP Secret for iSCSI target and initiator authentication
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -10344,7 +10621,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
         <td><b><a href="#humioclusterspecdatavolumesourceprojectedsourcesindex">sources</a></b></td>
         <td>[]object</td>
         <td>
-          sources is the list of volume projections<br/>
+          sources is the list of volume projections. Each entry in this list
+handles one source.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -10356,7 +10634,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 
 
 
-Projection that may be projected along with other supported volume types
+Projection that may be projected along with other supported volume types.
+Exactly one of these fields must be set.
 
 <table>
     <thead>
@@ -10374,13 +10653,10 @@ Projection that may be projected along with other supported volume types
           ClusterTrustBundle allows a pod to access the `.spec.trustBundle` field
 of ClusterTrustBundle objects in an auto-updating file.
 
-
 Alpha, gated by the ClusterTrustBundleProjection feature gate.
-
 
 ClusterTrustBundle objects can either be selected by name, or by the
 combination of signer name and a label selector.
-
 
 Kubelet performs aggressive normalization of the PEM contents written
 into the pod filesystem.  Esoteric PEM features such as inter-block
@@ -10429,13 +10705,10 @@ may change the order over time.<br/>
 ClusterTrustBundle allows a pod to access the `.spec.trustBundle` field
 of ClusterTrustBundle objects in an auto-updating file.
 
-
 Alpha, gated by the ClusterTrustBundleProjection feature gate.
-
 
 ClusterTrustBundle objects can either be selected by name, or by the
 combination of signer name and a label selector.
-
 
 Kubelet performs aggressive normalization of the PEM contents written
 into the pod filesystem.  Esoteric PEM features such as inter-block
@@ -10620,8 +10893,12 @@ relative and may not contain the '..' path or start with '..'.<br/>
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -10740,7 +11017,7 @@ DownwardAPIVolumeFile represents information to create the file containing the p
         <td><b><a href="#humioclusterspecdatavolumesourceprojectedsourcesindexdownwardapiitemsindexfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
-          Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.<br/>
+          Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -10774,7 +11051,7 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 
 
 
-Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.
+Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.
 
 <table>
     <thead>
@@ -10879,8 +11156,12 @@ relative and may not contain the '..' path or start with '..'.<br/>
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -11105,8 +11386,7 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
           fsType is the filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#rbd
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#rbd<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -11116,6 +11396,8 @@ TODO: how do we prevent errors in the filesystem from compromising the machine<b
           keyring is the path to key ring for RBDUser.
 Default is /etc/ceph/keyring.
 More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: /etc/ceph/keyring<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -11125,6 +11407,8 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
           pool is the rados pool name.
 Default is rbd.
 More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: rbd<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -11153,6 +11437,8 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
           user is the rados user name.
 Default is admin.
 More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: admin<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -11183,8 +11469,12 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -11237,6 +11527,8 @@ sensitive information. If this is not provided, Login operation will fail.<br/>
 Must be a filesystem type supported by the host operating system.
 Ex. "ext4", "xfs", "ntfs".
 Default is "xfs".<br/>
+          <br/>
+            <i>Default</i>: xfs<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -11267,6 +11559,8 @@ the ReadOnly setting in VolumeMounts.<br/>
         <td>
           storageMode indicates whether the storage for a volume should be ThickProvisioned or ThinProvisioned.
 Default is ThinProvisioned.<br/>
+          <br/>
+            <i>Default</i>: ThinProvisioned<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -11310,8 +11604,12 @@ sensitive information. If this is not provided, Login operation will fail.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -11520,8 +11818,12 @@ credentials.  If not specified, default values will be attempted.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -11705,8 +12007,12 @@ Selects a key of a ConfigMap.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -11825,8 +12131,12 @@ Selects a key of a secret in the pod's namespace
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -11902,8 +12212,12 @@ The ConfigMap to select from
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -11938,8 +12252,12 @@ The Secret to select from
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -12009,8 +12327,12 @@ SecretKeyRef contains the secret key reference when an es hostname is pulled fro
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -12062,7 +12384,9 @@ not contain ':'.<br/>
           mountPropagation determines how mounts are propagated from the host
 to container and the other way around.
 When not set, MountPropagationNone is used.
-This field is beta in 1.10.<br/>
+This field is beta in 1.10.
+When RecursiveReadOnly is set to IfPossible or to Enabled, MountPropagation must be None or unspecified
+(which defaults to None).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -12071,6 +12395,28 @@ This field is beta in 1.10.<br/>
         <td>
           Mounted read-only if true, read-write otherwise (false or unspecified).
 Defaults to false.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>recursiveReadOnly</b></td>
+        <td>string</td>
+        <td>
+          RecursiveReadOnly specifies whether read-only mounts should be handled
+recursively.
+
+If ReadOnly is false, this field has no meaning and must be unspecified.
+
+If ReadOnly is true, and this field is set to Disabled, the mount is not made
+recursively read-only.  If this field is set to IfPossible, the mount is made
+recursively read-only, if it is supported by the container runtime.  If this
+field is set to Enabled, the mount is made recursively read-only if it is
+supported by the container runtime, otherwise the pod will not be started and
+an error will be generated to indicate the reason.
+
+If this field is set to IfPossible or Enabled, MountPropagation must be set to
+None (or be unspecified, which defaults to None).
+
+If this field is not specified, it is treated as an equivalent of Disabled.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -12195,7 +12541,6 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir<br/>
 The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts,
 and deleted when the pod is removed.
 
-
 Use this if:
 a) the volume is only needed while the pod runs,
 b) features of normal volumes like restoring from snapshot or capacity
@@ -12206,16 +12551,13 @@ d) the storage driver supports dynamic volume provisioning through
    information on the connection between this volume type
    and PersistentVolumeClaim).
 
-
 Use PersistentVolumeClaim or one of the vendor-specific
 APIs for volumes that persist for longer than the lifecycle
 of an individual pod.
 
-
 Use CSI for light-weight local ephemeral volumes if the CSI driver is meant to
 be used that way - see the documentation of the driver for
 more information.
-
 
 A pod can use both types of ephemeral volumes and
 persistent volumes at the same time.<br/>
@@ -12278,10 +12620,27 @@ More info: https://examples.k8s.io/volumes/glusterfs/README.md<br/>
 machine that is directly exposed to the container. This is generally
 used for system agents or other privileged things that are allowed
 to see the host machine. Most containers will NOT need this.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath
----
-TODO(jonesdl) We need to restrict who can use host directory mounts and who can/can not
-mount host directories as read/write.<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioclusterspecextravolumesindeximage">image</a></b></td>
+        <td>object</td>
+        <td>
+          image represents an OCI object (a container image or artifact) pulled and mounted on the kubelet's host machine.
+The volume is resolved at pod startup depending on which PullPolicy value is provided:
+
+- Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+- Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+- IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+
+The volume gets re-resolved if the pod gets deleted and recreated, which means that new remote content will become available on pod recreation.
+A failure to resolve or pull the image during pod startup will block containers from starting and may add significant latency. Failures will be retried using normal volume backoff and will be reported on the pod reason and message.
+The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
+The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
+The volume will be mounted read-only (ro) and non-executable files (noexec).
+Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath).
+The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -12412,8 +12771,7 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockst
           fsType is the filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -12484,6 +12842,8 @@ azureDisk represents an Azure Data Disk mount on the host and bind mount to the 
           fsType is Filesystem type to mount.
 Must be a filesystem type supported by the host operating system.
 Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
+          <br/>
+            <i>Default</i>: ext4<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -12499,6 +12859,8 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
         <td>
           readOnly Defaults to false (read/write). ReadOnly here will force
 the ReadOnly setting in VolumeMounts.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -12637,8 +12999,12 @@ More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -12723,8 +13089,12 @@ to OpenStack.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -12780,8 +13150,12 @@ relative and may not contain the '..' path or start with '..'.<br/>
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -12935,8 +13309,12 @@ secret object contains more than one secret, all secret references are passed.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -13013,7 +13391,7 @@ DownwardAPIVolumeFile represents information to create the file containing the p
         <td><b><a href="#humioclusterspecextravolumesindexdownwardapiitemsindexfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
-          Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.<br/>
+          Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -13047,7 +13425,7 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 
 
 
-Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.
+Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.
 
 <table>
     <thead>
@@ -13170,7 +13548,6 @@ ephemeral represents a volume that is handled by a cluster storage driver.
 The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts,
 and deleted when the pod is removed.
 
-
 Use this if:
 a) the volume is only needed while the pod runs,
 b) features of normal volumes like restoring from snapshot or capacity
@@ -13181,16 +13558,13 @@ d) the storage driver supports dynamic volume provisioning through
    information on the connection between this volume type
    and PersistentVolumeClaim).
 
-
 Use PersistentVolumeClaim or one of the vendor-specific
 APIs for volumes that persist for longer than the lifecycle
 of an individual pod.
 
-
 Use CSI for light-weight local ephemeral volumes if the CSI driver is meant to
 be used that way - see the documentation of the driver for
 more information.
-
 
 A pod can use both types of ephemeral volumes and
 persistent volumes at the same time.
@@ -13216,7 +13590,6 @@ pod.  The name of the PVC will be `<pod name>-<volume name>` where
 entry. Pod validation will reject the pod if the concatenated name
 is not valid for a PVC (for example, too long).
 
-
 An existing PVC with that name that is not owned by the pod
 will *not* be used for the pod to avoid using an unrelated
 volume by mistake. Starting the pod is then blocked until
@@ -13226,10 +13599,8 @@ owner reference to the pod once the pod exists. Normally
 this should not be necessary, but it may be useful when
 manually reconstructing a broken cluster.
 
-
 This field is read-only and no changes will be made by Kubernetes
 to the PVC after it has been created.
-
 
 Required, must not be nil.<br/>
         </td>
@@ -13251,7 +13622,6 @@ pod.  The name of the PVC will be `<pod name>-<volume name>` where
 entry. Pod validation will reject the pod if the concatenated name
 is not valid for a PVC (for example, too long).
 
-
 An existing PVC with that name that is not owned by the pod
 will *not* be used for the pod to avoid using an unrelated
 volume by mistake. Starting the pod is then blocked until
@@ -13261,10 +13631,8 @@ owner reference to the pod once the pod exists. Normally
 this should not be necessary, but it may be useful when
 manually reconstructing a broken cluster.
 
-
 This field is read-only and no changes will be made by Kubernetes
 to the PVC after it has been created.
-
 
 Required, must not be nil.
 
@@ -13410,8 +13778,8 @@ will be set by the persistentvolume controller if it exists.
 If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
 set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
 exists.
-More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#volumeattributesclass
-(Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
+(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -13703,8 +14071,7 @@ fc represents a Fibre Channel resource that is attached to a kubelet's host mach
         <td>
           fsType is the filesystem type to mount.
 Must be a filesystem type supported by the host operating system.
-Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -13831,8 +14198,12 @@ scripts.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -13907,8 +14278,7 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk
           fsType is filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -14040,9 +14410,6 @@ machine that is directly exposed to the container. This is generally
 used for system agents or other privileged things that are allowed
 to see the host machine. Most containers will NOT need this.
 More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath
----
-TODO(jonesdl) We need to restrict who can use host directory mounts and who can/can not
-mount host directories as read/write.
 
 <table>
     <thead>
@@ -14069,6 +14436,62 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
           type for HostPath Volume
 Defaults to ""
 More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.extraVolumes[index].image
+<sup><sup>[↩ Parent](#humioclusterspecextravolumesindex)</sup></sup>
+
+
+
+image represents an OCI object (a container image or artifact) pulled and mounted on the kubelet's host machine.
+The volume is resolved at pod startup depending on which PullPolicy value is provided:
+
+- Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+- Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+- IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+
+The volume gets re-resolved if the pod gets deleted and recreated, which means that new remote content will become available on pod recreation.
+A failure to resolve or pull the image during pod startup will block containers from starting and may add significant latency. Failures will be retried using normal volume backoff and will be reported on the pod reason and message.
+The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
+The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
+The volume will be mounted read-only (ro) and non-executable files (noexec).
+Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath).
+The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>pullPolicy</b></td>
+        <td>string</td>
+        <td>
+          Policy for pulling OCI objects. Possible values are:
+Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>reference</b></td>
+        <td>string</td>
+        <td>
+          Required: Image or artifact reference to be used.
+Behaves in the same way as pod.spec.containers[*].image.
+Pull secrets will be assembled in the same way as for the container image by looking up node credentials, SA image pull secrets, and pod spec image pull secrets.
+More info: https://kubernetes.io/docs/concepts/containers/images
+This field is optional to allow higher level config management to default or override
+container images in workload controllers like Deployments and StatefulSets.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -14138,8 +14561,7 @@ is other than default (typically TCP ports 860 and 3260).<br/>
           fsType is the filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#iscsi
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#iscsi<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -14157,6 +14579,8 @@ If initiatorName is specified with iscsiInterface simultaneously, new iSCSI inte
         <td>
           iscsiInterface is the interface Name that uses an iSCSI transport.
 Defaults to 'default' (tcp).<br/>
+          <br/>
+            <i>Default</i>: default<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -14207,8 +14631,12 @@ secretRef is the CHAP Secret for iSCSI target and initiator authentication
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -14413,7 +14841,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
         <td><b><a href="#humioclusterspecextravolumesindexprojectedsourcesindex">sources</a></b></td>
         <td>[]object</td>
         <td>
-          sources is the list of volume projections<br/>
+          sources is the list of volume projections. Each entry in this list
+handles one source.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -14425,7 +14854,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 
 
 
-Projection that may be projected along with other supported volume types
+Projection that may be projected along with other supported volume types.
+Exactly one of these fields must be set.
 
 <table>
     <thead>
@@ -14443,13 +14873,10 @@ Projection that may be projected along with other supported volume types
           ClusterTrustBundle allows a pod to access the `.spec.trustBundle` field
 of ClusterTrustBundle objects in an auto-updating file.
 
-
 Alpha, gated by the ClusterTrustBundleProjection feature gate.
-
 
 ClusterTrustBundle objects can either be selected by name, or by the
 combination of signer name and a label selector.
-
 
 Kubelet performs aggressive normalization of the PEM contents written
 into the pod filesystem.  Esoteric PEM features such as inter-block
@@ -14498,13 +14925,10 @@ may change the order over time.<br/>
 ClusterTrustBundle allows a pod to access the `.spec.trustBundle` field
 of ClusterTrustBundle objects in an auto-updating file.
 
-
 Alpha, gated by the ClusterTrustBundleProjection feature gate.
-
 
 ClusterTrustBundle objects can either be selected by name, or by the
 combination of signer name and a label selector.
-
 
 Kubelet performs aggressive normalization of the PEM contents written
 into the pod filesystem.  Esoteric PEM features such as inter-block
@@ -14689,8 +15113,12 @@ relative and may not contain the '..' path or start with '..'.<br/>
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -14809,7 +15237,7 @@ DownwardAPIVolumeFile represents information to create the file containing the p
         <td><b><a href="#humioclusterspecextravolumesindexprojectedsourcesindexdownwardapiitemsindexfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
-          Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.<br/>
+          Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -14843,7 +15271,7 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 
 
 
-Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.
+Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.
 
 <table>
     <thead>
@@ -14948,8 +15376,12 @@ relative and may not contain the '..' path or start with '..'.<br/>
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15174,8 +15606,7 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
           fsType is the filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#rbd
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#rbd<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15185,6 +15616,8 @@ TODO: how do we prevent errors in the filesystem from compromising the machine<b
           keyring is the path to key ring for RBDUser.
 Default is /etc/ceph/keyring.
 More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: /etc/ceph/keyring<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15194,6 +15627,8 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
           pool is the rados pool name.
 Default is rbd.
 More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: rbd<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15222,6 +15657,8 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
           user is the rados user name.
 Default is admin.
 More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: admin<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -15252,8 +15689,12 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -15306,6 +15747,8 @@ sensitive information. If this is not provided, Login operation will fail.<br/>
 Must be a filesystem type supported by the host operating system.
 Ex. "ext4", "xfs", "ntfs".
 Default is "xfs".<br/>
+          <br/>
+            <i>Default</i>: xfs<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15336,6 +15779,8 @@ the ReadOnly setting in VolumeMounts.<br/>
         <td>
           storageMode indicates whether the storage for a volume should be ThickProvisioned or ThinProvisioned.
 Default is ThinProvisioned.<br/>
+          <br/>
+            <i>Default</i>: ThinProvisioned<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15379,8 +15824,12 @@ sensitive information. If this is not provided, Login operation will fail.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -15589,8 +16038,12 @@ credentials.  If not specified, default values will be attempted.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -15702,8 +16155,12 @@ SecretKeyRef contains the secret key reference when a hostname is pulled from a 
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15739,8 +16196,12 @@ referenced object inside the same namespace.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -15802,8 +16263,12 @@ ConfigMapRef contains the reference to the configmap name and key containing the
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15876,76 +16341,6 @@ to be set: spec.hostname, spec.hostnameSource, spec.esHostname or spec.esHostnam
         <td>boolean</td>
         <td>
           TLS is used to specify whether the ingress controller will be using TLS for requests from external clients<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioCluster.spec.license
-<sup><sup>[↩ Parent](#humioclusterspec)</sup></sup>
-
-
-
-License is the kubernetes secret reference which contains the Humio license
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b><a href="#humioclusterspeclicensesecretkeyref">secretKeyRef</a></b></td>
-        <td>object</td>
-        <td>
-          SecretKeySelector selects a key of a Secret.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioCluster.spec.license.secretKeyRef
-<sup><sup>[↩ Parent](#humioclusterspeclicense)</sup></sup>
-
-
-
-SecretKeySelector selects a key of a Secret.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>key</b></td>
-        <td>string</td>
-        <td>
-          The key of the secret to select from.  Must be a valid secret key.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>name</b></td>
-        <td>string</td>
-        <td>
-          Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>optional</b></td>
-        <td>boolean</td>
-        <td>
-          Specify whether the Secret or its key must be defined<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -16906,13 +17301,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16921,13 +17316,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -17170,13 +17565,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -17185,13 +17580,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -17514,13 +17909,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -17529,13 +17924,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -17778,13 +18173,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -17793,13 +18188,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -18179,8 +18574,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -18500,8 +18896,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -18668,6 +19065,15 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humioclusterspecnodepoolsindexspeccontainersecuritycontextapparmorprofile">appArmorProfile</a></b></td>
+        <td>object</td>
+        <td>
+          appArmorProfile is the AppArmor options to use by this container. If set, this profile
+overrides the pod's appArmorProfile.
+Note that this field cannot be set when spec.os.name is windows.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humioclusterspecnodepoolsindexspeccontainersecuritycontextcapabilities">capabilities</a></b></td>
         <td>object</td>
         <td>
@@ -18691,7 +19097,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         <td>string</td>
         <td>
           procMount denotes the type of proc mount to use for the containers.
-The default is DefaultProcMount which uses the container runtime defaults for
+The default value is Default which uses the container runtime defaults for
 readonly paths and masked paths.
 This requires the ProcMountType feature flag to be enabled.
 Note that this field cannot be set when spec.os.name is windows.<br/>
@@ -18773,6 +19179,49 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
 If unspecified, the options from the PodSecurityContext will be used.
 If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
 Note that this field cannot be set when spec.os.name is linux.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.nodePools[index].spec.containerSecurityContext.appArmorProfile
+<sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspeccontainersecuritycontext)</sup></sup>
+
+
+
+appArmorProfile is the AppArmor options to use by this container. If set, this profile
+overrides the pod's appArmorProfile.
+Note that this field cannot be set when spec.os.name is windows.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type indicates which kind of AppArmor profile will be applied.
+Valid options are:
+  Localhost - a profile pre-loaded on the node.
+  RuntimeDefault - the container runtime's default profile.
+  Unconfined - no AppArmor enforcement.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>localhostProfile</b></td>
+        <td>string</td>
+        <td>
+          localhostProfile indicates a profile loaded on the node that should be used.
+The profile must be preconfigured on the node to work.
+Must match the loaded name of the profile.
+Must be set if and only if type is "Localhost".<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -18892,7 +19341,6 @@ Note that this field cannot be set when spec.os.name is windows.
         <td>
           type indicates which kind of seccomp profile will be applied.
 Valid options are:
-
 
 Localhost - a profile defined in a file on the node should be used.
 RuntimeDefault - the container runtime default profile should be used.
@@ -19155,8 +19603,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -19429,8 +19878,8 @@ will be set by the persistentvolume controller if it exists.
 If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
 set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
 exists.
-More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#volumeattributesclass
-(Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
+(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -19791,7 +20240,6 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir<br/>
 The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts,
 and deleted when the pod is removed.
 
-
 Use this if:
 a) the volume is only needed while the pod runs,
 b) features of normal volumes like restoring from snapshot or capacity
@@ -19802,16 +20250,13 @@ d) the storage driver supports dynamic volume provisioning through
    information on the connection between this volume type
    and PersistentVolumeClaim).
 
-
 Use PersistentVolumeClaim or one of the vendor-specific
 APIs for volumes that persist for longer than the lifecycle
 of an individual pod.
 
-
 Use CSI for light-weight local ephemeral volumes if the CSI driver is meant to
 be used that way - see the documentation of the driver for
 more information.
-
 
 A pod can use both types of ephemeral volumes and
 persistent volumes at the same time.<br/>
@@ -19874,10 +20319,27 @@ More info: https://examples.k8s.io/volumes/glusterfs/README.md<br/>
 machine that is directly exposed to the container. This is generally
 used for system agents or other privileged things that are allowed
 to see the host machine. Most containers will NOT need this.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath
----
-TODO(jonesdl) We need to restrict who can use host directory mounts and who can/can not
-mount host directories as read/write.<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioclusterspecnodepoolsindexspecdatavolumesourceimage">image</a></b></td>
+        <td>object</td>
+        <td>
+          image represents an OCI object (a container image or artifact) pulled and mounted on the kubelet's host machine.
+The volume is resolved at pod startup depending on which PullPolicy value is provided:
+
+- Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+- Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+- IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+
+The volume gets re-resolved if the pod gets deleted and recreated, which means that new remote content will become available on pod recreation.
+A failure to resolve or pull the image during pod startup will block containers from starting and may add significant latency. Failures will be retried using normal volume backoff and will be reported on the pod reason and message.
+The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
+The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
+The volume will be mounted read-only (ro) and non-executable files (noexec).
+Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath).
+The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20008,8 +20470,7 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockst
           fsType is the filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20080,6 +20541,8 @@ azureDisk represents an Azure Data Disk mount on the host and bind mount to the 
           fsType is Filesystem type to mount.
 Must be a filesystem type supported by the host operating system.
 Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
+          <br/>
+            <i>Default</i>: ext4<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20095,6 +20558,8 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
         <td>
           readOnly Defaults to false (read/write). ReadOnly here will force
 the ReadOnly setting in VolumeMounts.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -20233,8 +20698,12 @@ More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -20319,8 +20788,12 @@ to OpenStack.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -20376,8 +20849,12 @@ relative and may not contain the '..' path or start with '..'.<br/>
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20531,8 +21008,12 @@ secret object contains more than one secret, all secret references are passed.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -20609,7 +21090,7 @@ DownwardAPIVolumeFile represents information to create the file containing the p
         <td><b><a href="#humioclusterspecnodepoolsindexspecdatavolumesourcedownwardapiitemsindexfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
-          Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.<br/>
+          Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20643,7 +21124,7 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 
 
 
-Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.
+Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.
 
 <table>
     <thead>
@@ -20766,7 +21247,6 @@ ephemeral represents a volume that is handled by a cluster storage driver.
 The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts,
 and deleted when the pod is removed.
 
-
 Use this if:
 a) the volume is only needed while the pod runs,
 b) features of normal volumes like restoring from snapshot or capacity
@@ -20777,16 +21257,13 @@ d) the storage driver supports dynamic volume provisioning through
    information on the connection between this volume type
    and PersistentVolumeClaim).
 
-
 Use PersistentVolumeClaim or one of the vendor-specific
 APIs for volumes that persist for longer than the lifecycle
 of an individual pod.
 
-
 Use CSI for light-weight local ephemeral volumes if the CSI driver is meant to
 be used that way - see the documentation of the driver for
 more information.
-
 
 A pod can use both types of ephemeral volumes and
 persistent volumes at the same time.
@@ -20812,7 +21289,6 @@ pod.  The name of the PVC will be `<pod name>-<volume name>` where
 entry. Pod validation will reject the pod if the concatenated name
 is not valid for a PVC (for example, too long).
 
-
 An existing PVC with that name that is not owned by the pod
 will *not* be used for the pod to avoid using an unrelated
 volume by mistake. Starting the pod is then blocked until
@@ -20822,10 +21298,8 @@ owner reference to the pod once the pod exists. Normally
 this should not be necessary, but it may be useful when
 manually reconstructing a broken cluster.
 
-
 This field is read-only and no changes will be made by Kubernetes
 to the PVC after it has been created.
-
 
 Required, must not be nil.<br/>
         </td>
@@ -20847,7 +21321,6 @@ pod.  The name of the PVC will be `<pod name>-<volume name>` where
 entry. Pod validation will reject the pod if the concatenated name
 is not valid for a PVC (for example, too long).
 
-
 An existing PVC with that name that is not owned by the pod
 will *not* be used for the pod to avoid using an unrelated
 volume by mistake. Starting the pod is then blocked until
@@ -20857,10 +21330,8 @@ owner reference to the pod once the pod exists. Normally
 this should not be necessary, but it may be useful when
 manually reconstructing a broken cluster.
 
-
 This field is read-only and no changes will be made by Kubernetes
 to the PVC after it has been created.
-
 
 Required, must not be nil.
 
@@ -21006,8 +21477,8 @@ will be set by the persistentvolume controller if it exists.
 If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
 set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
 exists.
-More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#volumeattributesclass
-(Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
+(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -21299,8 +21770,7 @@ fc represents a Fibre Channel resource that is attached to a kubelet's host mach
         <td>
           fsType is the filesystem type to mount.
 Must be a filesystem type supported by the host operating system.
-Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -21427,8 +21897,12 @@ scripts.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -21503,8 +21977,7 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk
           fsType is filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -21636,9 +22109,6 @@ machine that is directly exposed to the container. This is generally
 used for system agents or other privileged things that are allowed
 to see the host machine. Most containers will NOT need this.
 More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath
----
-TODO(jonesdl) We need to restrict who can use host directory mounts and who can/can not
-mount host directories as read/write.
 
 <table>
     <thead>
@@ -21665,6 +22135,62 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
           type for HostPath Volume
 Defaults to ""
 More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.nodePools[index].spec.dataVolumeSource.image
+<sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspecdatavolumesource)</sup></sup>
+
+
+
+image represents an OCI object (a container image or artifact) pulled and mounted on the kubelet's host machine.
+The volume is resolved at pod startup depending on which PullPolicy value is provided:
+
+- Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+- Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+- IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+
+The volume gets re-resolved if the pod gets deleted and recreated, which means that new remote content will become available on pod recreation.
+A failure to resolve or pull the image during pod startup will block containers from starting and may add significant latency. Failures will be retried using normal volume backoff and will be reported on the pod reason and message.
+The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
+The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
+The volume will be mounted read-only (ro) and non-executable files (noexec).
+Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath).
+The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>pullPolicy</b></td>
+        <td>string</td>
+        <td>
+          Policy for pulling OCI objects. Possible values are:
+Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>reference</b></td>
+        <td>string</td>
+        <td>
+          Required: Image or artifact reference to be used.
+Behaves in the same way as pod.spec.containers[*].image.
+Pull secrets will be assembled in the same way as for the container image by looking up node credentials, SA image pull secrets, and pod spec image pull secrets.
+More info: https://kubernetes.io/docs/concepts/containers/images
+This field is optional to allow higher level config management to default or override
+container images in workload controllers like Deployments and StatefulSets.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -21734,8 +22260,7 @@ is other than default (typically TCP ports 860 and 3260).<br/>
           fsType is the filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#iscsi
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#iscsi<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -21753,6 +22278,8 @@ If initiatorName is specified with iscsiInterface simultaneously, new iSCSI inte
         <td>
           iscsiInterface is the interface Name that uses an iSCSI transport.
 Defaults to 'default' (tcp).<br/>
+          <br/>
+            <i>Default</i>: default<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -21803,8 +22330,12 @@ secretRef is the CHAP Secret for iSCSI target and initiator authentication
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -22009,7 +22540,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
         <td><b><a href="#humioclusterspecnodepoolsindexspecdatavolumesourceprojectedsourcesindex">sources</a></b></td>
         <td>[]object</td>
         <td>
-          sources is the list of volume projections<br/>
+          sources is the list of volume projections. Each entry in this list
+handles one source.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -22021,7 +22553,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 
 
 
-Projection that may be projected along with other supported volume types
+Projection that may be projected along with other supported volume types.
+Exactly one of these fields must be set.
 
 <table>
     <thead>
@@ -22039,13 +22572,10 @@ Projection that may be projected along with other supported volume types
           ClusterTrustBundle allows a pod to access the `.spec.trustBundle` field
 of ClusterTrustBundle objects in an auto-updating file.
 
-
 Alpha, gated by the ClusterTrustBundleProjection feature gate.
-
 
 ClusterTrustBundle objects can either be selected by name, or by the
 combination of signer name and a label selector.
-
 
 Kubelet performs aggressive normalization of the PEM contents written
 into the pod filesystem.  Esoteric PEM features such as inter-block
@@ -22094,13 +22624,10 @@ may change the order over time.<br/>
 ClusterTrustBundle allows a pod to access the `.spec.trustBundle` field
 of ClusterTrustBundle objects in an auto-updating file.
 
-
 Alpha, gated by the ClusterTrustBundleProjection feature gate.
-
 
 ClusterTrustBundle objects can either be selected by name, or by the
 combination of signer name and a label selector.
-
 
 Kubelet performs aggressive normalization of the PEM contents written
 into the pod filesystem.  Esoteric PEM features such as inter-block
@@ -22285,8 +22812,12 @@ relative and may not contain the '..' path or start with '..'.<br/>
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22405,7 +22936,7 @@ DownwardAPIVolumeFile represents information to create the file containing the p
         <td><b><a href="#humioclusterspecnodepoolsindexspecdatavolumesourceprojectedsourcesindexdownwardapiitemsindexfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
-          Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.<br/>
+          Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22439,7 +22970,7 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 
 
 
-Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.
+Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.
 
 <table>
     <thead>
@@ -22544,8 +23075,12 @@ relative and may not contain the '..' path or start with '..'.<br/>
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22770,8 +23305,7 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
           fsType is the filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#rbd
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#rbd<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22781,6 +23315,8 @@ TODO: how do we prevent errors in the filesystem from compromising the machine<b
           keyring is the path to key ring for RBDUser.
 Default is /etc/ceph/keyring.
 More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: /etc/ceph/keyring<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22790,6 +23326,8 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
           pool is the rados pool name.
 Default is rbd.
 More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: rbd<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22818,6 +23356,8 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
           user is the rados user name.
 Default is admin.
 More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: admin<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -22848,8 +23388,12 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -22902,6 +23446,8 @@ sensitive information. If this is not provided, Login operation will fail.<br/>
 Must be a filesystem type supported by the host operating system.
 Ex. "ext4", "xfs", "ntfs".
 Default is "xfs".<br/>
+          <br/>
+            <i>Default</i>: xfs<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22932,6 +23478,8 @@ the ReadOnly setting in VolumeMounts.<br/>
         <td>
           storageMode indicates whether the storage for a volume should be ThickProvisioned or ThinProvisioned.
 Default is ThinProvisioned.<br/>
+          <br/>
+            <i>Default</i>: ThinProvisioned<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22975,8 +23523,12 @@ sensitive information. If this is not provided, Login operation will fail.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -23185,8 +23737,12 @@ credentials.  If not specified, default values will be attempted.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -23370,8 +23926,12 @@ Selects a key of a ConfigMap.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -23490,8 +24050,12 @@ Selects a key of a secret in the pod's namespace
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -23567,8 +24131,12 @@ The ConfigMap to select from
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -23603,8 +24171,12 @@ The Secret to select from
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -23656,7 +24228,9 @@ not contain ':'.<br/>
           mountPropagation determines how mounts are propagated from the host
 to container and the other way around.
 When not set, MountPropagationNone is used.
-This field is beta in 1.10.<br/>
+This field is beta in 1.10.
+When RecursiveReadOnly is set to IfPossible or to Enabled, MountPropagation must be None or unspecified
+(which defaults to None).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -23665,6 +24239,28 @@ This field is beta in 1.10.<br/>
         <td>
           Mounted read-only if true, read-write otherwise (false or unspecified).
 Defaults to false.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>recursiveReadOnly</b></td>
+        <td>string</td>
+        <td>
+          RecursiveReadOnly specifies whether read-only mounts should be handled
+recursively.
+
+If ReadOnly is false, this field has no meaning and must be unspecified.
+
+If ReadOnly is true, and this field is set to Disabled, the mount is not made
+recursively read-only.  If this field is set to IfPossible, the mount is made
+recursively read-only, if it is supported by the container runtime.  If this
+field is set to Enabled, the mount is made recursively read-only if it is
+supported by the container runtime, otherwise the pod will not be started and
+an error will be generated to indicate the reason.
+
+If this field is set to IfPossible or Enabled, MountPropagation must be set to
+None (or be unspecified, which defaults to None).
+
+If this field is not specified, it is treated as an equivalent of Disabled.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -23789,7 +24385,6 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir<br/>
 The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts,
 and deleted when the pod is removed.
 
-
 Use this if:
 a) the volume is only needed while the pod runs,
 b) features of normal volumes like restoring from snapshot or capacity
@@ -23800,16 +24395,13 @@ d) the storage driver supports dynamic volume provisioning through
    information on the connection between this volume type
    and PersistentVolumeClaim).
 
-
 Use PersistentVolumeClaim or one of the vendor-specific
 APIs for volumes that persist for longer than the lifecycle
 of an individual pod.
 
-
 Use CSI for light-weight local ephemeral volumes if the CSI driver is meant to
 be used that way - see the documentation of the driver for
 more information.
-
 
 A pod can use both types of ephemeral volumes and
 persistent volumes at the same time.<br/>
@@ -23872,10 +24464,27 @@ More info: https://examples.k8s.io/volumes/glusterfs/README.md<br/>
 machine that is directly exposed to the container. This is generally
 used for system agents or other privileged things that are allowed
 to see the host machine. Most containers will NOT need this.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath
----
-TODO(jonesdl) We need to restrict who can use host directory mounts and who can/can not
-mount host directories as read/write.<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioclusterspecnodepoolsindexspecextravolumesindeximage">image</a></b></td>
+        <td>object</td>
+        <td>
+          image represents an OCI object (a container image or artifact) pulled and mounted on the kubelet's host machine.
+The volume is resolved at pod startup depending on which PullPolicy value is provided:
+
+- Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+- Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+- IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+
+The volume gets re-resolved if the pod gets deleted and recreated, which means that new remote content will become available on pod recreation.
+A failure to resolve or pull the image during pod startup will block containers from starting and may add significant latency. Failures will be retried using normal volume backoff and will be reported on the pod reason and message.
+The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
+The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
+The volume will be mounted read-only (ro) and non-executable files (noexec).
+Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath).
+The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -24006,8 +24615,7 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockst
           fsType is the filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -24078,6 +24686,8 @@ azureDisk represents an Azure Data Disk mount on the host and bind mount to the 
           fsType is Filesystem type to mount.
 Must be a filesystem type supported by the host operating system.
 Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
+          <br/>
+            <i>Default</i>: ext4<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -24093,6 +24703,8 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
         <td>
           readOnly Defaults to false (read/write). ReadOnly here will force
 the ReadOnly setting in VolumeMounts.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -24231,8 +24843,12 @@ More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -24317,8 +24933,12 @@ to OpenStack.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -24374,8 +24994,12 @@ relative and may not contain the '..' path or start with '..'.<br/>
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -24529,8 +25153,12 @@ secret object contains more than one secret, all secret references are passed.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -24607,7 +25235,7 @@ DownwardAPIVolumeFile represents information to create the file containing the p
         <td><b><a href="#humioclusterspecnodepoolsindexspecextravolumesindexdownwardapiitemsindexfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
-          Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.<br/>
+          Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -24641,7 +25269,7 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 
 
 
-Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.
+Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.
 
 <table>
     <thead>
@@ -24764,7 +25392,6 @@ ephemeral represents a volume that is handled by a cluster storage driver.
 The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts,
 and deleted when the pod is removed.
 
-
 Use this if:
 a) the volume is only needed while the pod runs,
 b) features of normal volumes like restoring from snapshot or capacity
@@ -24775,16 +25402,13 @@ d) the storage driver supports dynamic volume provisioning through
    information on the connection between this volume type
    and PersistentVolumeClaim).
 
-
 Use PersistentVolumeClaim or one of the vendor-specific
 APIs for volumes that persist for longer than the lifecycle
 of an individual pod.
 
-
 Use CSI for light-weight local ephemeral volumes if the CSI driver is meant to
 be used that way - see the documentation of the driver for
 more information.
-
 
 A pod can use both types of ephemeral volumes and
 persistent volumes at the same time.
@@ -24810,7 +25434,6 @@ pod.  The name of the PVC will be `<pod name>-<volume name>` where
 entry. Pod validation will reject the pod if the concatenated name
 is not valid for a PVC (for example, too long).
 
-
 An existing PVC with that name that is not owned by the pod
 will *not* be used for the pod to avoid using an unrelated
 volume by mistake. Starting the pod is then blocked until
@@ -24820,10 +25443,8 @@ owner reference to the pod once the pod exists. Normally
 this should not be necessary, but it may be useful when
 manually reconstructing a broken cluster.
 
-
 This field is read-only and no changes will be made by Kubernetes
 to the PVC after it has been created.
-
 
 Required, must not be nil.<br/>
         </td>
@@ -24845,7 +25466,6 @@ pod.  The name of the PVC will be `<pod name>-<volume name>` where
 entry. Pod validation will reject the pod if the concatenated name
 is not valid for a PVC (for example, too long).
 
-
 An existing PVC with that name that is not owned by the pod
 will *not* be used for the pod to avoid using an unrelated
 volume by mistake. Starting the pod is then blocked until
@@ -24855,10 +25475,8 @@ owner reference to the pod once the pod exists. Normally
 this should not be necessary, but it may be useful when
 manually reconstructing a broken cluster.
 
-
 This field is read-only and no changes will be made by Kubernetes
 to the PVC after it has been created.
-
 
 Required, must not be nil.
 
@@ -25004,8 +25622,8 @@ will be set by the persistentvolume controller if it exists.
 If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
 set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
 exists.
-More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#volumeattributesclass
-(Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
+(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -25297,8 +25915,7 @@ fc represents a Fibre Channel resource that is attached to a kubelet's host mach
         <td>
           fsType is the filesystem type to mount.
 Must be a filesystem type supported by the host operating system.
-Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -25425,8 +26042,12 @@ scripts.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -25501,8 +26122,7 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk
           fsType is filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -25634,9 +26254,6 @@ machine that is directly exposed to the container. This is generally
 used for system agents or other privileged things that are allowed
 to see the host machine. Most containers will NOT need this.
 More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath
----
-TODO(jonesdl) We need to restrict who can use host directory mounts and who can/can not
-mount host directories as read/write.
 
 <table>
     <thead>
@@ -25663,6 +26280,62 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
           type for HostPath Volume
 Defaults to ""
 More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.nodePools[index].spec.extraVolumes[index].image
+<sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspecextravolumesindex)</sup></sup>
+
+
+
+image represents an OCI object (a container image or artifact) pulled and mounted on the kubelet's host machine.
+The volume is resolved at pod startup depending on which PullPolicy value is provided:
+
+- Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+- Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+- IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+
+The volume gets re-resolved if the pod gets deleted and recreated, which means that new remote content will become available on pod recreation.
+A failure to resolve or pull the image during pod startup will block containers from starting and may add significant latency. Failures will be retried using normal volume backoff and will be reported on the pod reason and message.
+The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
+The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
+The volume will be mounted read-only (ro) and non-executable files (noexec).
+Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath).
+The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>pullPolicy</b></td>
+        <td>string</td>
+        <td>
+          Policy for pulling OCI objects. Possible values are:
+Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>reference</b></td>
+        <td>string</td>
+        <td>
+          Required: Image or artifact reference to be used.
+Behaves in the same way as pod.spec.containers[*].image.
+Pull secrets will be assembled in the same way as for the container image by looking up node credentials, SA image pull secrets, and pod spec image pull secrets.
+More info: https://kubernetes.io/docs/concepts/containers/images
+This field is optional to allow higher level config management to default or override
+container images in workload controllers like Deployments and StatefulSets.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -25732,8 +26405,7 @@ is other than default (typically TCP ports 860 and 3260).<br/>
           fsType is the filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#iscsi
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#iscsi<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -25751,6 +26423,8 @@ If initiatorName is specified with iscsiInterface simultaneously, new iSCSI inte
         <td>
           iscsiInterface is the interface Name that uses an iSCSI transport.
 Defaults to 'default' (tcp).<br/>
+          <br/>
+            <i>Default</i>: default<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -25801,8 +26475,12 @@ secretRef is the CHAP Secret for iSCSI target and initiator authentication
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -26007,7 +26685,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
         <td><b><a href="#humioclusterspecnodepoolsindexspecextravolumesindexprojectedsourcesindex">sources</a></b></td>
         <td>[]object</td>
         <td>
-          sources is the list of volume projections<br/>
+          sources is the list of volume projections. Each entry in this list
+handles one source.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -26019,7 +26698,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 
 
 
-Projection that may be projected along with other supported volume types
+Projection that may be projected along with other supported volume types.
+Exactly one of these fields must be set.
 
 <table>
     <thead>
@@ -26037,13 +26717,10 @@ Projection that may be projected along with other supported volume types
           ClusterTrustBundle allows a pod to access the `.spec.trustBundle` field
 of ClusterTrustBundle objects in an auto-updating file.
 
-
 Alpha, gated by the ClusterTrustBundleProjection feature gate.
-
 
 ClusterTrustBundle objects can either be selected by name, or by the
 combination of signer name and a label selector.
-
 
 Kubelet performs aggressive normalization of the PEM contents written
 into the pod filesystem.  Esoteric PEM features such as inter-block
@@ -26092,13 +26769,10 @@ may change the order over time.<br/>
 ClusterTrustBundle allows a pod to access the `.spec.trustBundle` field
 of ClusterTrustBundle objects in an auto-updating file.
 
-
 Alpha, gated by the ClusterTrustBundleProjection feature gate.
-
 
 ClusterTrustBundle objects can either be selected by name, or by the
 combination of signer name and a label selector.
-
 
 Kubelet performs aggressive normalization of the PEM contents written
 into the pod filesystem.  Esoteric PEM features such as inter-block
@@ -26283,8 +26957,12 @@ relative and may not contain the '..' path or start with '..'.<br/>
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -26403,7 +27081,7 @@ DownwardAPIVolumeFile represents information to create the file containing the p
         <td><b><a href="#humioclusterspecnodepoolsindexspecextravolumesindexprojectedsourcesindexdownwardapiitemsindexfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
-          Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.<br/>
+          Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -26437,7 +27115,7 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 
 
 
-Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.
+Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.
 
 <table>
     <thead>
@@ -26542,8 +27220,12 @@ relative and may not contain the '..' path or start with '..'.<br/>
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -26768,8 +27450,7 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
           fsType is the filesystem type of the volume that you want to mount.
 Tip: Ensure that the filesystem type is supported by the host operating system.
 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-More info: https://kubernetes.io/docs/concepts/storage/volumes#rbd
-TODO: how do we prevent errors in the filesystem from compromising the machine<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes#rbd<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -26779,6 +27460,8 @@ TODO: how do we prevent errors in the filesystem from compromising the machine<b
           keyring is the path to key ring for RBDUser.
 Default is /etc/ceph/keyring.
 More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: /etc/ceph/keyring<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -26788,6 +27471,8 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
           pool is the rados pool name.
 Default is rbd.
 More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: rbd<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -26816,6 +27501,8 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
           user is the rados user name.
 Default is admin.
 More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: admin<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -26846,8 +27533,12 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -26900,6 +27591,8 @@ sensitive information. If this is not provided, Login operation will fail.<br/>
 Must be a filesystem type supported by the host operating system.
 Ex. "ext4", "xfs", "ntfs".
 Default is "xfs".<br/>
+          <br/>
+            <i>Default</i>: xfs<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -26930,6 +27623,8 @@ the ReadOnly setting in VolumeMounts.<br/>
         <td>
           storageMode indicates whether the storage for a volume should be ThickProvisioned or ThinProvisioned.
 Default is ThinProvisioned.<br/>
+          <br/>
+            <i>Default</i>: ThinProvisioned<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -26973,8 +27668,12 @@ sensitive information. If this is not provided, Login operation will fail.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -27183,8 +27882,12 @@ credentials.  If not specified, default values will be attempted.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -27263,8 +27966,12 @@ referenced object inside the same namespace.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -27326,8 +28033,12 @@ ConfigMapRef contains the reference to the configmap name and key containing the
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -27386,6 +28097,14 @@ PodSecurityContext is the security context applied to the Humio pod
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioclusterspecnodepoolsindexspecpodsecuritycontextapparmorprofile">appArmorProfile</a></b></td>
+        <td>object</td>
+        <td>
+          appArmorProfile is the AppArmor options to use by the containers in this pod.
+Note that this field cannot be set when spec.os.name is windows.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>fsGroup</b></td>
         <td>integer</td>
         <td>
@@ -27393,11 +28112,9 @@ PodSecurityContext is the security context applied to the Humio pod
 Some volume types allow the Kubelet to change the ownership of that volume
 to be owned by the pod:
 
-
 1. The owning GID will be the FSGroup
 2. The setgid bit is set (new files created in the volume will be owned by FSGroup)
 3. The permission bits are OR'd with rw-rw----
-
 
 If unset, the Kubelet will not modify the ownership and permissions of any volume.
 Note that this field cannot be set when spec.os.name is windows.<br/>
@@ -27482,12 +28199,25 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         <td><b>supplementalGroups</b></td>
         <td>[]integer</td>
         <td>
-          A list of groups applied to the first process run in each container, in addition
-to the container's primary GID, the fsGroup (if specified), and group memberships
-defined in the container image for the uid of the container process. If unspecified,
-no additional groups are added to any container. Note that group memberships
-defined in the container image for the uid of the container process are still effective,
-even if they are not included in this list.
+          A list of groups applied to the first process run in each container, in
+addition to the container's primary GID and fsGroup (if specified).  If
+the SupplementalGroupsPolicy feature is enabled, the
+supplementalGroupsPolicy field determines whether these are in addition
+to or instead of any group memberships defined in the container image.
+If unspecified, no additional groups are added, though group memberships
+defined in the container image may still be used, depending on the
+supplementalGroupsPolicy field.
+Note that this field cannot be set when spec.os.name is windows.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>supplementalGroupsPolicy</b></td>
+        <td>string</td>
+        <td>
+          Defines how supplemental groups of the first container processes are calculated.
+Valid values are "Merge" and "Strict". If not specified, "Merge" is used.
+(Alpha) Using the field requires the SupplementalGroupsPolicy feature gate to be enabled
+and the container runtime must implement support for this feature.
 Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
@@ -27508,6 +28238,48 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
 If unspecified, the options within a container's SecurityContext will be used.
 If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
 Note that this field cannot be set when spec.os.name is linux.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.nodePools[index].spec.podSecurityContext.appArmorProfile
+<sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspecpodsecuritycontext)</sup></sup>
+
+
+
+appArmorProfile is the AppArmor options to use by the containers in this pod.
+Note that this field cannot be set when spec.os.name is windows.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type indicates which kind of AppArmor profile will be applied.
+Valid options are:
+  Localhost - a profile pre-loaded on the node.
+  RuntimeDefault - the container runtime's default profile.
+  Unconfined - no AppArmor enforcement.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>localhostProfile</b></td>
+        <td>string</td>
+        <td>
+          localhostProfile indicates a profile loaded on the node that should be used.
+The profile must be preconfigured on the node to work.
+Must match the loaded name of the profile.
+Must be set if and only if type is "Localhost".<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -27590,7 +28362,6 @@ Note that this field cannot be set when spec.os.name is windows.
         <td>
           type indicates which kind of seccomp profile will be applied.
 Valid options are:
-
 
 Localhost - a profile defined in a file on the node should be used.
 RuntimeDefault - the container runtime default profile should be used.
@@ -27727,10 +28498,8 @@ Resources is the kubernetes resource limits for the humio pod
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-
 This is an alpha field and requires enabling the
 DynamicResourceAllocation feature gate.
-
 
 This field is immutable. It can only be set for containers.<br/>
         </td>
@@ -27782,6 +28551,15 @@ the Pod where this field is used. It makes that resource available
 inside a container.<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>request</b></td>
+        <td>string</td>
+        <td>
+          Request is the name chosen for a request in the referenced claim.
+If empty, everything from the claim is made available, otherwise
+only the result of this request.<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -28192,8 +28970,12 @@ Selects a key of a ConfigMap.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -28312,8 +29094,12 @@ Selects a key of a secret in the pod's namespace
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -28389,8 +29175,12 @@ The ConfigMap to select from
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -28425,8 +29215,12 @@ The Secret to select from
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -29164,8 +29958,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -29553,8 +30348,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -29752,10 +30548,8 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-
 This is an alpha field and requires enabling the
 DynamicResourceAllocation feature gate.
-
 
 This field is immutable. It can only be set for containers.<br/>
         </td>
@@ -29807,6 +30601,15 @@ the Pod where this field is used. It makes that resource available
 inside a container.<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>request</b></td>
+        <td>string</td>
+        <td>
+          Request is the name chosen for a request in the referenced claim.
+If empty, everything from the claim is made available, otherwise
+only the result of this request.<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -29843,6 +30646,15 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humioclusterspecnodepoolsindexspecsidecarcontainerindexsecuritycontextapparmorprofile">appArmorProfile</a></b></td>
+        <td>object</td>
+        <td>
+          appArmorProfile is the AppArmor options to use by this container. If set, this profile
+overrides the pod's appArmorProfile.
+Note that this field cannot be set when spec.os.name is windows.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humioclusterspecnodepoolsindexspecsidecarcontainerindexsecuritycontextcapabilities">capabilities</a></b></td>
         <td>object</td>
         <td>
@@ -29866,7 +30678,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         <td>string</td>
         <td>
           procMount denotes the type of proc mount to use for the containers.
-The default is DefaultProcMount which uses the container runtime defaults for
+The default value is Default which uses the container runtime defaults for
 readonly paths and masked paths.
 This requires the ProcMountType feature flag to be enabled.
 Note that this field cannot be set when spec.os.name is windows.<br/>
@@ -29948,6 +30760,49 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
 If unspecified, the options from the PodSecurityContext will be used.
 If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
 Note that this field cannot be set when spec.os.name is linux.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.nodePools[index].spec.sidecarContainer[index].securityContext.appArmorProfile
+<sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspecsidecarcontainerindexsecuritycontext)</sup></sup>
+
+
+
+appArmorProfile is the AppArmor options to use by this container. If set, this profile
+overrides the pod's appArmorProfile.
+Note that this field cannot be set when spec.os.name is windows.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type indicates which kind of AppArmor profile will be applied.
+Valid options are:
+  Localhost - a profile pre-loaded on the node.
+  RuntimeDefault - the container runtime's default profile.
+  Unconfined - no AppArmor enforcement.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>localhostProfile</b></td>
+        <td>string</td>
+        <td>
+          localhostProfile indicates a profile loaded on the node that should be used.
+The profile must be preconfigured on the node to work.
+Must match the loaded name of the profile.
+Must be set if and only if type is "Localhost".<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -30067,7 +30922,6 @@ Note that this field cannot be set when spec.os.name is windows.
         <td>
           type indicates which kind of seccomp profile will be applied.
 Valid options are:
-
 
 Localhost - a profile defined in a file on the node should be used.
 RuntimeDefault - the container runtime default profile should be used.
@@ -30333,8 +31187,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -30543,7 +31398,9 @@ not contain ':'.<br/>
           mountPropagation determines how mounts are propagated from the host
 to container and the other way around.
 When not set, MountPropagationNone is used.
-This field is beta in 1.10.<br/>
+This field is beta in 1.10.
+When RecursiveReadOnly is set to IfPossible or to Enabled, MountPropagation must be None or unspecified
+(which defaults to None).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -30552,6 +31409,28 @@ This field is beta in 1.10.<br/>
         <td>
           Mounted read-only if true, read-write otherwise (false or unspecified).
 Defaults to false.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>recursiveReadOnly</b></td>
+        <td>string</td>
+        <td>
+          RecursiveReadOnly specifies whether read-only mounts should be handled
+recursively.
+
+If ReadOnly is false, this field has no meaning and must be unspecified.
+
+If ReadOnly is true, and this field is set to Disabled, the mount is not made
+recursively read-only.  If this field is set to IfPossible, the mount is made
+recursively read-only, if it is supported by the container runtime.  If this
+field is set to Enabled, the mount is made recursively read-only if it is
+supported by the container runtime, otherwise the pod will not be started and
+an error will be generated to indicate the reason.
+
+If this field is set to IfPossible or Enabled, MountPropagation must be set to
+None (or be unspecified, which defaults to None).
+
+If this field is not specified, it is treated as an equivalent of Disabled.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -30746,7 +31625,6 @@ MatchLabelKeys cannot be set when LabelSelector isn't set.
 Keys that don't exist in the incoming pod labels will
 be ignored. A null or empty list means only match against labelSelector.
 
-
 This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).<br/>
         </td>
         <td>false</td>
@@ -30765,7 +31643,6 @@ If value is nil, the constraint behaves as if MinDomains is equal to 1.
 Valid values are integers greater than 0.
 When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
 
-
 For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
 labelSelector spread as 2/2/2:
 | zone1 | zone2 | zone3 |
@@ -30773,10 +31650,7 @@ labelSelector spread as 2/2/2:
 The number of domains is less than 5(MinDomains), so "global minimum" is treated as 0.
 In this situation, new pod with the same labelSelector cannot be scheduled,
 because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones,
-it will violate MaxSkew.
-
-
-This is a beta field and requires the MinDomainsInPodTopologySpread feature gate to be enabled (enabled by default).<br/>
+it will violate MaxSkew.<br/>
           <br/>
             <i>Format</i>: int32<br/>
         </td>
@@ -30789,7 +31663,6 @@ This is a beta field and requires the MinDomainsInPodTopologySpread feature gate
 when calculating pod topology spread skew. Options are:
 - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
 - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
-
 
 If this value is nil, the behavior is equivalent to the Honor policy.
 This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.<br/>
@@ -30804,7 +31677,6 @@ pod topology spread skew. Options are:
 - Honor: nodes without taints, along with tainted nodes for which the incoming pod
 has a toleration, are included.
 - Ignore: node taints are ignored. All nodes are included.
-
 
 If this value is nil, the behavior is equivalent to the Ignore policy.
 This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.<br/>
@@ -30951,18 +31823,15 @@ This can be configured to an absolute number or a percentage, e.g. "maxUnavailab
           Type controls how Humio pods are updated  when changes are made to the HumioCluster resource that results
 in a change to the Humio pods. The available values are: OnDelete, RollingUpdate, ReplaceAllOnUpdate, and
 RollingUpdateBestEffort.
-/
+
 When set to OnDelete, no Humio pods will be terminated but new pods will be created with the new spec. Replacing
 existing pods will require each pod to be deleted by the user.
-
 
 When set to RollingUpdate, pods will always be replaced one pod at a time. There may be some Humio updates where
 rolling updates are not supported, so it is not recommended to have this set all the time.
 
-
 When set to ReplaceAllOnUpdate, all Humio pods will be replaced at the same time during an update.
 This is the default behavior.
-
 
 When set to RollingUpdateBestEffort, the operator will evaluate the Humio version change and determine if the
 Humio pods can be updated in a rolling fashion or if they must be replaced at the same time.<br/>
@@ -30991,6 +31860,14 @@ PodSecurityContext is the security context applied to the Humio pod
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humioclusterspecpodsecuritycontextapparmorprofile">appArmorProfile</a></b></td>
+        <td>object</td>
+        <td>
+          appArmorProfile is the AppArmor options to use by the containers in this pod.
+Note that this field cannot be set when spec.os.name is windows.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>fsGroup</b></td>
         <td>integer</td>
         <td>
@@ -30998,11 +31875,9 @@ PodSecurityContext is the security context applied to the Humio pod
 Some volume types allow the Kubelet to change the ownership of that volume
 to be owned by the pod:
 
-
 1. The owning GID will be the FSGroup
 2. The setgid bit is set (new files created in the volume will be owned by FSGroup)
 3. The permission bits are OR'd with rw-rw----
-
 
 If unset, the Kubelet will not modify the ownership and permissions of any volume.
 Note that this field cannot be set when spec.os.name is windows.<br/>
@@ -31087,12 +31962,25 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         <td><b>supplementalGroups</b></td>
         <td>[]integer</td>
         <td>
-          A list of groups applied to the first process run in each container, in addition
-to the container's primary GID, the fsGroup (if specified), and group memberships
-defined in the container image for the uid of the container process. If unspecified,
-no additional groups are added to any container. Note that group memberships
-defined in the container image for the uid of the container process are still effective,
-even if they are not included in this list.
+          A list of groups applied to the first process run in each container, in
+addition to the container's primary GID and fsGroup (if specified).  If
+the SupplementalGroupsPolicy feature is enabled, the
+supplementalGroupsPolicy field determines whether these are in addition
+to or instead of any group memberships defined in the container image.
+If unspecified, no additional groups are added, though group memberships
+defined in the container image may still be used, depending on the
+supplementalGroupsPolicy field.
+Note that this field cannot be set when spec.os.name is windows.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>supplementalGroupsPolicy</b></td>
+        <td>string</td>
+        <td>
+          Defines how supplemental groups of the first container processes are calculated.
+Valid values are "Merge" and "Strict". If not specified, "Merge" is used.
+(Alpha) Using the field requires the SupplementalGroupsPolicy feature gate to be enabled
+and the container runtime must implement support for this feature.
 Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
@@ -31113,6 +32001,48 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
 If unspecified, the options within a container's SecurityContext will be used.
 If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
 Note that this field cannot be set when spec.os.name is linux.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.podSecurityContext.appArmorProfile
+<sup><sup>[↩ Parent](#humioclusterspecpodsecuritycontext)</sup></sup>
+
+
+
+appArmorProfile is the AppArmor options to use by the containers in this pod.
+Note that this field cannot be set when spec.os.name is windows.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type indicates which kind of AppArmor profile will be applied.
+Valid options are:
+  Localhost - a profile pre-loaded on the node.
+  RuntimeDefault - the container runtime's default profile.
+  Unconfined - no AppArmor enforcement.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>localhostProfile</b></td>
+        <td>string</td>
+        <td>
+          localhostProfile indicates a profile loaded on the node that should be used.
+The profile must be preconfigured on the node to work.
+Must match the loaded name of the profile.
+Must be set if and only if type is "Localhost".<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -31195,7 +32125,6 @@ Note that this field cannot be set when spec.os.name is windows.
         <td>
           type indicates which kind of seccomp profile will be applied.
 Valid options are:
-
 
 Localhost - a profile defined in a file on the node should be used.
 RuntimeDefault - the container runtime default profile should be used.
@@ -31332,10 +32261,8 @@ Resources is the kubernetes resource limits for the humio pod
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-
 This is an alpha field and requires enabling the
 DynamicResourceAllocation feature gate.
-
 
 This field is immutable. It can only be set for containers.<br/>
         </td>
@@ -31387,6 +32314,15 @@ the Pod where this field is used. It makes that resource available
 inside a container.<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>request</b></td>
+        <td>string</td>
+        <td>
+          Request is the name chosen for a request in the referenced claim.
+If empty, everything from the claim is made available, otherwise
+only the result of this request.<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -31797,8 +32733,12 @@ Selects a key of a ConfigMap.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -31917,8 +32857,12 @@ Selects a key of a secret in the pod's namespace
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -31994,8 +32938,12 @@ The ConfigMap to select from
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -32030,8 +32978,12 @@ The Secret to select from
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -32769,8 +33721,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -33158,8 +34111,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -33357,10 +34311,8 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-
 This is an alpha field and requires enabling the
 DynamicResourceAllocation feature gate.
-
 
 This field is immutable. It can only be set for containers.<br/>
         </td>
@@ -33412,6 +34364,15 @@ the Pod where this field is used. It makes that resource available
 inside a container.<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>request</b></td>
+        <td>string</td>
+        <td>
+          Request is the name chosen for a request in the referenced claim.
+If empty, everything from the claim is made available, otherwise
+only the result of this request.<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -33448,6 +34409,15 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humioclusterspecsidecarcontainerindexsecuritycontextapparmorprofile">appArmorProfile</a></b></td>
+        <td>object</td>
+        <td>
+          appArmorProfile is the AppArmor options to use by this container. If set, this profile
+overrides the pod's appArmorProfile.
+Note that this field cannot be set when spec.os.name is windows.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humioclusterspecsidecarcontainerindexsecuritycontextcapabilities">capabilities</a></b></td>
         <td>object</td>
         <td>
@@ -33471,7 +34441,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         <td>string</td>
         <td>
           procMount denotes the type of proc mount to use for the containers.
-The default is DefaultProcMount which uses the container runtime defaults for
+The default value is Default which uses the container runtime defaults for
 readonly paths and masked paths.
 This requires the ProcMountType feature flag to be enabled.
 Note that this field cannot be set when spec.os.name is windows.<br/>
@@ -33553,6 +34523,49 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
 If unspecified, the options from the PodSecurityContext will be used.
 If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
 Note that this field cannot be set when spec.os.name is linux.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.sidecarContainer[index].securityContext.appArmorProfile
+<sup><sup>[↩ Parent](#humioclusterspecsidecarcontainerindexsecuritycontext)</sup></sup>
+
+
+
+appArmorProfile is the AppArmor options to use by this container. If set, this profile
+overrides the pod's appArmorProfile.
+Note that this field cannot be set when spec.os.name is windows.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type indicates which kind of AppArmor profile will be applied.
+Valid options are:
+  Localhost - a profile pre-loaded on the node.
+  RuntimeDefault - the container runtime's default profile.
+  Unconfined - no AppArmor enforcement.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>localhostProfile</b></td>
+        <td>string</td>
+        <td>
+          localhostProfile indicates a profile loaded on the node that should be used.
+The profile must be preconfigured on the node to work.
+Must match the loaded name of the profile.
+Must be set if and only if type is "Localhost".<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -33672,7 +34685,6 @@ Note that this field cannot be set when spec.os.name is windows.
         <td>
           type indicates which kind of seccomp profile will be applied.
 Valid options are:
-
 
 Localhost - a profile defined in a file on the node should be used.
 RuntimeDefault - the container runtime default profile should be used.
@@ -33938,8 +34950,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -34148,7 +35161,9 @@ not contain ':'.<br/>
           mountPropagation determines how mounts are propagated from the host
 to container and the other way around.
 When not set, MountPropagationNone is used.
-This field is beta in 1.10.<br/>
+This field is beta in 1.10.
+When RecursiveReadOnly is set to IfPossible or to Enabled, MountPropagation must be None or unspecified
+(which defaults to None).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -34157,6 +35172,28 @@ This field is beta in 1.10.<br/>
         <td>
           Mounted read-only if true, read-write otherwise (false or unspecified).
 Defaults to false.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>recursiveReadOnly</b></td>
+        <td>string</td>
+        <td>
+          RecursiveReadOnly specifies whether read-only mounts should be handled
+recursively.
+
+If ReadOnly is false, this field has no meaning and must be unspecified.
+
+If ReadOnly is true, and this field is set to Disabled, the mount is not made
+recursively read-only.  If this field is set to IfPossible, the mount is made
+recursively read-only, if it is supported by the container runtime.  If this
+field is set to Enabled, the mount is made recursively read-only if it is
+supported by the container runtime, otherwise the pod will not be started and
+an error will be generated to indicate the reason.
+
+If this field is set to IfPossible or Enabled, MountPropagation must be set to
+None (or be unspecified, which defaults to None).
+
+If this field is not specified, it is treated as an equivalent of Disabled.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -34392,7 +35429,6 @@ MatchLabelKeys cannot be set when LabelSelector isn't set.
 Keys that don't exist in the incoming pod labels will
 be ignored. A null or empty list means only match against labelSelector.
 
-
 This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).<br/>
         </td>
         <td>false</td>
@@ -34411,7 +35447,6 @@ If value is nil, the constraint behaves as if MinDomains is equal to 1.
 Valid values are integers greater than 0.
 When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
 
-
 For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
 labelSelector spread as 2/2/2:
 | zone1 | zone2 | zone3 |
@@ -34419,10 +35454,7 @@ labelSelector spread as 2/2/2:
 The number of domains is less than 5(MinDomains), so "global minimum" is treated as 0.
 In this situation, new pod with the same labelSelector cannot be scheduled,
 because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones,
-it will violate MaxSkew.
-
-
-This is a beta field and requires the MinDomainsInPodTopologySpread feature gate to be enabled (enabled by default).<br/>
+it will violate MaxSkew.<br/>
           <br/>
             <i>Format</i>: int32<br/>
         </td>
@@ -34435,7 +35467,6 @@ This is a beta field and requires the MinDomainsInPodTopologySpread feature gate
 when calculating pod topology spread skew. Options are:
 - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
 - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
-
 
 If this value is nil, the behavior is equivalent to the Honor policy.
 This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.<br/>
@@ -34450,7 +35481,6 @@ pod topology spread skew. Options are:
 - Honor: nodes without taints, along with tainted nodes for which the incoming pod
 has a toleration, are included.
 - Ignore: node taints are ignored. All nodes are included.
-
 
 If this value is nil, the behavior is equivalent to the Ignore policy.
 This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.<br/>
@@ -34597,18 +35627,15 @@ This can be configured to an absolute number or a percentage, e.g. "maxUnavailab
           Type controls how Humio pods are updated  when changes are made to the HumioCluster resource that results
 in a change to the Humio pods. The available values are: OnDelete, RollingUpdate, ReplaceAllOnUpdate, and
 RollingUpdateBestEffort.
-/
+
 When set to OnDelete, no Humio pods will be terminated but new pods will be created with the new spec. Replacing
 existing pods will require each pod to be deleted by the user.
-
 
 When set to RollingUpdate, pods will always be replaced one pod at a time. There may be some Humio updates where
 rolling updates are not supported, so it is not recommended to have this set all the time.
 
-
 When set to ReplaceAllOnUpdate, all Humio pods will be replaced at the same time during an update.
 This is the default behavior.
-
 
 When set to RollingUpdateBestEffort, the operator will evaluate the Humio version change and determine if the
 Humio pods can be updated in a rolling fashion or if they must be replaced at the same time.<br/>
@@ -35069,6 +36096,22 @@ HumioFilterAlertSpec defines the desired state of HumioFilterAlert
         </td>
         <td>true</td>
       </tr><tr>
+        <td><b>throttleField</b></td>
+        <td>string</td>
+        <td>
+          ThrottleField is the field on which to throttle<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>throttleTimeSeconds</b></td>
+        <td>integer</td>
+        <td>
+          ThrottleTimeSeconds is the throttle time in seconds. A filter alert is triggered at most once per the throttle time<br/>
+          <br/>
+            <i>Minimum</i>: 60<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
         <td><b>viewName</b></td>
         <td>string</td>
         <td>
@@ -35113,22 +36156,6 @@ This conflicts with ManagedClusterName.<br/>
           ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 resources should be created.
 This conflicts with ExternalClusterName.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>throttleField</b></td>
-        <td>string</td>
-        <td>
-          ThrottleField is the field on which to throttle<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>throttleTimeSeconds</b></td>
-        <td>integer</td>
-        <td>
-          ThrottleTimeSeconds is the throttle time in seconds. A filter alert is triggered at most once per the throttle time<br/>
-          <br/>
-            <i>Minimum</i>: 60<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -35239,6 +36266,20 @@ HumioIngestTokenSpec defines the desired state of HumioIngestToken
         </td>
         <td>true</td>
       </tr><tr>
+        <td><b>parserName</b></td>
+        <td>string</td>
+        <td>
+          ParserName is the name of the parser which will be assigned to the ingest token.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>repositoryName</b></td>
+        <td>string</td>
+        <td>
+          RepositoryName is the name of the Humio repository under which the ingest token will be created<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
         <td><b>externalClusterName</b></td>
         <td>string</td>
         <td>
@@ -35253,20 +36294,6 @@ This conflicts with ManagedClusterName.<br/>
           ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 resources should be created.
 This conflicts with ExternalClusterName.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>parserName</b></td>
-        <td>string</td>
-        <td>
-          ParserName is the name of the parser which will be assigned to the ingest token.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>repositoryName</b></td>
-        <td>string</td>
-        <td>
-          RepositoryName is the name of the Humio repository under which the ingest token will be created<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -35395,6 +36422,13 @@ HumioParserSpec defines the desired state of HumioParser
         </td>
         <td>true</td>
       </tr><tr>
+        <td><b>repositoryName</b></td>
+        <td>string</td>
+        <td>
+          RepositoryName defines what repository this parser should be managed in<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
         <td><b>externalClusterName</b></td>
         <td>string</td>
         <td>
@@ -35416,13 +36450,6 @@ This conflicts with ExternalClusterName.<br/>
         <td>string</td>
         <td>
           ParserScript contains the code for the Humio parser<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>repositoryName</b></td>
-        <td>string</td>
-        <td>
-          RepositoryName defines what repository this parser should be managed in<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -36014,17 +37041,17 @@ This conflicts with ExternalClusterName.<br/>
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>filter</b></td>
-        <td>string</td>
-        <td>
-          Filter contains the prefix filter that will be applied for the given RepositoryName<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
         <td><b>repositoryName</b></td>
         <td>string</td>
         <td>
           RepositoryName contains the name of the target repository<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>filter</b></td>
+        <td>string</td>
+        <td>
+          Filter contains the prefix filter that will be applied for the given RepositoryName<br/>
         </td>
         <td>false</td>
       </tr></tbody>

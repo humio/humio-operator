@@ -62,7 +62,7 @@ type HumioClusterSpec struct {
 	// DigestPartitionsCount is the desired number of digest partitions
 	DigestPartitionsCount int `json:"digestPartitionsCount,omitempty"`
 	// License is the kubernetes secret reference which contains the Humio license
-	//+required
+	// +required
 	License HumioClusterLicenseSpec `json:"license,omitempty"`
 	// IdpCertificateSecretName is the name of the secret that contains the IDP Certificate when using SAML authentication
 	IdpCertificateSecretName string `json:"idpCertificateSecretName,omitempty"`
@@ -109,7 +109,7 @@ type HumioNodeSpec struct {
 	Image string `json:"image,omitempty"`
 
 	// NodeCount is the desired number of humio cluster nodes
-	//+kubebuilder:default=0
+	// +kubebuilder:default=0
 	NodeCount int `json:"nodeCount,omitempty"`
 
 	// DataVolumePersistentVolumeClaimSpecTemplate is the PersistentVolumeClaimSpec that will be used with for the humio data volume. This conflicts with DataVolumeSource.
@@ -126,7 +126,7 @@ type HumioNodeSpec struct {
 
 	// DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
 	// This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.
-	//+kubebuilder:default=false
+	// +kubebuilder:default=false
 	DisableInitContainer bool `json:"disableInitContainer,omitempty"`
 
 	// EnvironmentVariablesSource is the reference to an external source of environment variables that will be merged with environmentVariables
@@ -255,7 +255,7 @@ type HumioNodeSpec struct {
 	UpdateStrategy *HumioUpdateStrategy `json:"updateStrategy,omitempty"`
 
 	// PriorityClassName is the name of the priority class that will be used by the Humio pods
-	//+kubebuilder:default=""
+	// +kubebuilder:default=""
 	PriorityClassName string `json:"priorityClassName,omitempty"`
 
 	// HumioNodePoolFeatures defines the features that are allowed by the node pool
@@ -272,7 +272,7 @@ type HumioUpdateStrategy struct {
 	// Type controls how Humio pods are updated  when changes are made to the HumioCluster resource that results
 	// in a change to the Humio pods. The available values are: OnDelete, RollingUpdate, ReplaceAllOnUpdate, and
 	// RollingUpdateBestEffort.
-	///
+	//
 	// When set to OnDelete, no Humio pods will be terminated but new pods will be created with the new spec. Replacing
 	// existing pods will require each pod to be deleted by the user.
 	//
@@ -298,13 +298,13 @@ type HumioUpdateStrategy struct {
 
 	// MaxUnavailable is the maximum number of pods that can be unavailable during a rolling update.
 	// This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".
-	//+kubebuilder:default=1
+	// +kubebuilder:default=1
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 }
 
 type HumioNodePoolSpec struct {
-	//+kubebuilder:validation:MinLength:=1
-	//+required
+	// +kubebuilder:validation:MinLength:=1
+	// +required
 	Name string `json:"name"`
 
 	HumioNodeSpec `json:"spec,omitempty"`
@@ -326,7 +326,7 @@ type HumioESHostnameSource struct {
 type HumioClusterIngressSpec struct {
 	// Enabled enables the logic for the Humio operator to create ingress-related objects. Requires one of the following
 	// to be set: spec.hostname, spec.hostnameSource, spec.esHostname or spec.esHostnameSource
-	//+kubebuilder:default=false
+	// +kubebuilder:default=false
 	Enabled bool `json:"enabled,omitempty"`
 	// Controller is used to specify the controller used for ingress in the Kubernetes cluster. For now, only nginx is supported.
 	Controller string `json:"controller,omitempty"`
@@ -394,8 +394,8 @@ type HumioNodePoolStatusList []HumioNodePoolStatus
 // HumioNodePoolStatus shows the status of each node pool
 type HumioNodePoolStatus struct {
 	// Name is the name of the node pool
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	Name string `json:"name"`
 	// State will be empty before the cluster is bootstrapped. From there it can be "Running", "Upgrading", "Restarting" or "Pending"
 	State string `json:"state,omitempty"`
@@ -429,13 +429,13 @@ type HumioClusterStatus struct {
 	ObservedGeneration string `json:"observedGeneration,omitempty"` // TODO: We should change the type to int64 so we don't have to convert back and forth between int64 and string
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:path=humioclusters,scope=Namespaced
-//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the cluster"
-//+kubebuilder:printcolumn:name="Nodes",type="string",JSONPath=".status.nodeCount",description="The number of nodes in the cluster"
-//+kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version",description="The version of humio"
-//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Cluster"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:path=humioclusters,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the cluster"
+// +kubebuilder:printcolumn:name="Nodes",type="string",JSONPath=".status.nodeCount",description="The number of nodes in the cluster"
+// +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version",description="The version of humio"
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Cluster"
 
 // HumioCluster is the Schema for the humioclusters API
 type HumioCluster struct {
@@ -446,7 +446,7 @@ type HumioCluster struct {
 	Status HumioClusterStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // HumioClusterList contains a list of HumioCluster
 type HumioClusterList struct {
