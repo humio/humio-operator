@@ -15065,8 +15065,6 @@ spec:
                   ViewGroupPermissions is a multi-line string containing view-group-permissions.json.
                   Deprecated: Use RolePermissions instead.
                 type: string
-            required:
-            - enableDownscalingFeature
             type: object
           status:
             description: HumioClusterStatus defines the observed state of HumioCluster
