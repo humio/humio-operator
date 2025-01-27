@@ -32,7 +32,6 @@ import (
 )
 
 const (
-	enableDownscalingFeature     = false
 	targetReplicationFactor      = 2
 	digestPartitionsCount        = 24
 	HumioPort                    = 8080
