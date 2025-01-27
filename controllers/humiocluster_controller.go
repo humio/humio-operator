@@ -2100,7 +2100,7 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 		if len(foundPodList) > 0 {
 			clusterConfig, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
 			if err != nil {
-				return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("could not create a cluster config for the http client."))
+				return reconcile.Result{}, r.logErrorAndReturn(err, "could not create a cluster config for the http client.")
 			}
 			humioHttpClient := r.HumioClient.GetHumioHttpClient(clusterConfig.Config(), req)
 			podsSuccessfullyEvicted := 0
@@ -2169,7 +2169,7 @@ func (r *HumioClusterReconciler) markPodForEviction(ctx context.Context, hc *hum
 	// GetCluster gql query returns node ID and Zone
 	clusterConfig, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil {
-		return r.logErrorAndReturn(err, fmt.Sprintf("could not create a cluster config for the http client."))
+		return r.logErrorAndReturn(err, "could not create a cluster config for the http client.")
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(clusterConfig.Config(), req)
 	cluster, err := r.HumioClient.GetCluster(ctx, humioHttpClient, req)
