@@ -32,6 +32,7 @@ import (
 )
 
 const (
+	enableDownscalingFeature     = false
 	targetReplicationFactor      = 2
 	digestPartitionsCount        = 24
 	HumioPort                    = 8080
@@ -73,6 +74,7 @@ type HumioNodePool struct {
 	idpCertificateSecretName  string
 	viewGroupPermissions      string // Deprecated: Replaced by rolePermissions
 	rolePermissions           string
+	enableDownscalingFeature  bool
 	targetReplicationFactor   int
 	digestPartitionsCount     int
 	path                      string
@@ -154,6 +156,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 		idpCertificateSecretName:  hc.Spec.IdpCertificateSecretName,
 		viewGroupPermissions:      hc.Spec.ViewGroupPermissions,
 		rolePermissions:           hc.Spec.RolePermissions,
+		enableDownscalingFeature:  hc.Spec.EnableDownscalingFeature,
 		targetReplicationFactor:   hc.Spec.TargetReplicationFactor,
 		digestPartitionsCount:     hc.Spec.DigestPartitionsCount,
 		path:                      hc.Spec.Path,
@@ -236,6 +239,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 		idpCertificateSecretName:  hc.Spec.IdpCertificateSecretName,
 		viewGroupPermissions:      hc.Spec.ViewGroupPermissions,
 		rolePermissions:           hc.Spec.RolePermissions,
+		enableDownscalingFeature:  hc.Spec.EnableDownscalingFeature,
 		targetReplicationFactor:   hc.Spec.TargetReplicationFactor,
 		digestPartitionsCount:     hc.Spec.DigestPartitionsCount,
 		path:                      hc.Spec.Path,
@@ -310,6 +314,10 @@ func (hnp *HumioNodePool) GetImagePullPolicy() corev1.PullPolicy {
 
 func (hnp *HumioNodePool) GetEnvironmentVariablesSource() []corev1.EnvFromSource {
 	return hnp.humioNodeSpec.EnvironmentVariablesSource
+}
+
+func (hnp *HumioNodePool) IsDownscalingFeatureEnabled() bool {
+	return hnp.enableDownscalingFeature
 }
 
 func (hnp *HumioNodePool) GetTargetReplicationFactor() int {
