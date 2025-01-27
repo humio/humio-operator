@@ -3954,6 +3954,15 @@ HumioClusterSpec defines the desired state of HumioCluster
         </tr>
     </thead>
     <tbody><tr>
+        <td><b>enableDownscalingFeature</b></td>
+        <td>boolean</td>
+        <td>
+          EnableDownscalingFeature (PREVIEW) is a feature flag for enabling the downscaling functionality of the humio operator for this humio cluster.
+Default: false
+Preview: this feature is in a preview state<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
         <td><b><a href="#humioclusterspecaffinity">affinity</a></b></td>
         <td>object</td>
         <td>
@@ -3965,6 +3974,15 @@ HumioClusterSpec defines the desired state of HumioCluster
         <td>string</td>
         <td>
           *Deprecated: AuthServiceAccountName is no longer used as the auth sidecar container has been removed.*<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>autoRebalancePartitions</b></td>
+        <td>boolean</td>
+        <td>
+          AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes.
+If all Kubernetes worker nodes are located in the same availability zone, you must set DisableInitContainer to true to use auto rebalancing of partitions.
+Deprecated: No longer needed as of 1.89.0 as partitions and segment distribution is now automatically managed by LogScale itself.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4047,15 +4065,6 @@ Otherwise, use the built in default startup probe configuration.<br/>
         <td>
           DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
 This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>enableDownscalingFeature</b></td>
-        <td>boolean</td>
-        <td>
-          EnableDownscalingFeature (PREVIEW) is a feature flag for enabling the downscaling functionality of the humio operator for this humio cluster.
-Default: false
-Preview: this feature is in a preview state<br/>
         </td>
         <td>false</td>
       </tr><tr>
