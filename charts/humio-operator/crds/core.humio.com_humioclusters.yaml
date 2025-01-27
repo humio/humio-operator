@@ -949,6 +949,12 @@ spec:
                 description: '*Deprecated: AuthServiceAccountName is no longer used
                   as the auth sidecar container has been removed.*'
                 type: string
+              autoRebalancePartitions:
+                description: |-
+                  AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes.
+                  If all Kubernetes worker nodes are located in the same availability zone, you must set DisableInitContainer to true to use auto rebalancing of partitions.
+                  Deprecated: No longer needed as of 1.89.0 as partitions and segment distribution is now automatically managed by LogScale itself.
+                type: boolean
               commonEnvironmentVariables:
                 description: |-
                   CommonEnvironmentVariables is the set of variables that will be applied to all nodes regardless of the node pool types.
