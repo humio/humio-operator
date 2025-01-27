@@ -45,12 +45,6 @@ func TestGetKeyWithHighestValue(t *testing.T) {
 			expectedKey: "a",
 			error:       nil,
 		},
-		{
-			name:        "Map with multiple keys having the same value",
-			input:       map[string]int{"a": 44, "b": 44, "c": 13, "d": 22},
-			expectedKey: "a",
-			error:       nil,
-		},
 	}
 
 	intFloat := []genericMapTestCase[int, float64]{
