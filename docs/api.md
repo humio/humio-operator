@@ -3954,15 +3954,6 @@ HumioClusterSpec defines the desired state of HumioCluster
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>enableDownscalingFeature</b></td>
-        <td>boolean</td>
-        <td>
-          EnableDownscalingFeature (PREVIEW) is a feature flag for enabling the downscaling functionality of the humio operator for this humio cluster.
-Default: false
-Preview: this feature is in a preview state<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
         <td><b><a href="#humioclusterspecaffinity">affinity</a></b></td>
         <td>object</td>
         <td>
@@ -4065,6 +4056,15 @@ Otherwise, use the built in default startup probe configuration.<br/>
         <td>
           DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
 This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>enableDownscalingFeature</b></td>
+        <td>boolean</td>
+        <td>
+          EnableDownscalingFeature (PREVIEW) is a feature flag for enabling the downscaling functionality of the humio operator for this humio cluster.
+Default: false
+Preview: this feature is in a preview state<br/>
         </td>
         <td>false</td>
       </tr><tr>
