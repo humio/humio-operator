@@ -2513,51 +2513,6 @@ func SemanticPDBsEqual(desired *policyv1.PodDisruptionBudget, current *policyv1.
 	return true
 }
 
-// cleanupOrphanedPDBs deletes PodDisruptionBudgets that are orphaned
-func (r *HumioClusterReconciler) cleanupOrphanedPDBs(ctx context.Context, hc *humiov1alpha1.HumioCluster, humioNodePools *HumioNodePoolList) error {
-	// Get all valid node pool names
-	validNodePools := make(map[string]struct{})
-	for _, hnp := range humioNodePools.Items {
-		validNodePools[hnp.GetNodePoolName()] = struct{}{}
-	}
-
-	existingPDBs := &policyv1.PodDisruptionBudgetList{}
-	if err := r.List(ctx, existingPDBs, client.InNamespace(hc.Namespace)); err != nil {
-		return fmt.Errorf("failed to list PDBs: %w", err)
-	}
-
-	for _, pdb := range existingPDBs.Items {
-		nodePoolName := pdb.Labels["humio.com/node-pool"]
-		if nodePoolName == "" {
-			continue
-		}
-
-		if isOwnedByCluster(&pdb, hc) && !isValidNodePool(nodePoolName, validNodePools) {
-			r.Log.Info("Deleting orphaned PDB", "name", pdb.Name, "nodePool", nodePoolName)
-			if err := r.Delete(ctx, &pdb); err != nil && !k8serrors.IsNotFound(err) {
-				return fmt.Errorf("failed to delete PDB %s: %w", pdb.Name, err)
-			}
-		}
-	}
-	return nil
-}
-
-// isValidNodePool checks if a node pool name is valid
-func isValidNodePool(name string, validPools map[string]struct{}) bool {
-	_, exists := validPools[name]
-	return exists
-}
-
-// isOwnedByCluster checks if a PodDisruptionBudget is owned by a HumioCluster
-func isOwnedByCluster(pdb *policyv1.PodDisruptionBudget, hc *humiov1alpha1.HumioCluster) bool {
-	for _, ownerRef := range pdb.OwnerReferences {
-		if ownerRef.UID == hc.UID && ownerRef.Kind == "HumioCluster" {
-			return true
-		}
-	}
-	return false
-}
-
 // handlePDBFinalizers removes finalizers from PodDisruptionBudgets
 func (r *HumioClusterReconciler) handlePDBFinalizers(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	pdbs := &policyv1.PodDisruptionBudgetList{}
