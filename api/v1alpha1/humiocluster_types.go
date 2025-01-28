@@ -316,13 +316,11 @@ type HumioNodePoolSpec struct {
 type HumioPodDisruptionBudgetSpec struct {
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Format=int-or-string
-	// +kubebuilder:validation:Immutable
 	// MinAvailable is the minimum number of pods that must be available during a disruption.
 	MinAvailable *intstr.IntOrString `json:"minAvailable,omitempty"`
 
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Format=int-or-string
-	// +kubebuilder:validation:Immutable
 	// MaxUnavailable is the maximum number of pods that can be unavailable during a disruption.
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 
