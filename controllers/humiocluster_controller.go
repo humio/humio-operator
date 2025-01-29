@@ -32,6 +32,7 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/strings/slices"
@@ -447,31 +448,48 @@ func (r *HumioClusterReconciler) validateNodeCount(hc *humiov1alpha1.HumioCluste
 func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
 	extraKafkaConfigsConfigMapData := hnp.GetExtraKafkaConfigs()
 	if extraKafkaConfigsConfigMapData == "" {
+		extraKafkaConfigsConfigMap, err := kubernetes.GetConfigMap(ctx, r, hnp.GetExtraKafkaConfigsConfigMapName(), hc.Namespace)
+		if err == nil {
+			// TODO: refactor and move deletion to cleanupUnusedResources
+			if err = r.Delete(ctx, &extraKafkaConfigsConfigMap); err != nil {
+				r.Log.Error(err, "unable to delete extra kafka configs configmap")
+			}
+		}
 		return nil
 	}
-	_, err := kubernetes.GetConfigMap(ctx, r, hnp.GetExtraKafkaConfigsConfigMapName(), hnp.GetNamespace())
+
+	desiredConfigMap := kubernetes.ConstructExtraKafkaConfigsConfigMap(
+		hnp.GetExtraKafkaConfigsConfigMapName(),
+		ExtraKafkaPropertiesFilename,
+		extraKafkaConfigsConfigMapData,
+		hnp.GetClusterName(),
+		hnp.GetNamespace(),
+	)
+	if err := controllerutil.SetControllerReference(hc, &desiredConfigMap, r.Scheme()); err != nil {
+		return r.logErrorAndReturn(err, "could not set controller reference")
+	}
+
+	existingConfigMap, err := kubernetes.GetConfigMap(ctx, r, hnp.GetExtraKafkaConfigsConfigMapName(), hnp.GetNamespace())
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			configMap := kubernetes.ConstructExtraKafkaConfigsConfigMap(
-				hnp.GetExtraKafkaConfigsConfigMapName(),
-				ExtraKafkaPropertiesFilename,
-				extraKafkaConfigsConfigMapData,
-				hnp.GetClusterName(),
-				hnp.GetNamespace(),
-			)
-			if err := controllerutil.SetControllerReference(hc, configMap, r.Scheme()); err != nil {
-				return r.logErrorAndReturn(err, "could not set controller reference")
-			}
-			r.Log.Info(fmt.Sprintf("creating configMap: %s", configMap.Name))
-			if err = r.Create(ctx, configMap); err != nil {
+			r.Log.Info(fmt.Sprintf("creating configMap: %s", desiredConfigMap.Name))
+			if err = r.Create(ctx, &desiredConfigMap); err != nil {
 				return r.logErrorAndReturn(err, "unable to create extra kafka configs configmap")
 			}
-			r.Log.Info(fmt.Sprintf("successfully created extra kafka configs configmap name %s", configMap.Name))
+			r.Log.Info(fmt.Sprintf("successfully created extra kafka configs configmap name %s", desiredConfigMap.Name))
 			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
 			return nil
 		}
-		return r.logErrorAndReturn(err, "unable to get extra kakfa configs configmap")
+		return r.logErrorAndReturn(err, "unable to fetch extra kafka configs configmap")
 	}
+
+	if !equality.Semantic.DeepEqual(existingConfigMap.Data, desiredConfigMap.Data) {
+		existingConfigMap.Data = desiredConfigMap.Data
+		if updateErr := r.Update(ctx, &existingConfigMap); updateErr != nil {
+			return fmt.Errorf("unable to update extra kafka configs configmap: %w", updateErr)
+		}
+	}
+
 	return nil
 }
 
@@ -537,34 +555,46 @@ func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context
 	if viewGroupPermissionsConfigMapData == "" {
 		viewGroupPermissionsConfigMap, err := kubernetes.GetConfigMap(ctx, r, ViewGroupPermissionsConfigMapName(hc), hc.Namespace)
 		if err == nil {
-			if err = r.Delete(ctx, viewGroupPermissionsConfigMap); err != nil {
-				r.Log.Error(err, "unable to delete view group permissions config map")
+			// TODO: refactor and move deletion to cleanupUnusedResources
+			if err = r.Delete(ctx, &viewGroupPermissionsConfigMap); err != nil {
+				r.Log.Error(err, "unable to delete view group permissions configmap")
 			}
 		}
 		return nil
 	}
-	_, err := kubernetes.GetConfigMap(ctx, r, ViewGroupPermissionsConfigMapName(hc), hc.Namespace)
+
+	desiredConfigMap := kubernetes.ConstructViewGroupPermissionsConfigMap(
+		ViewGroupPermissionsConfigMapName(hc),
+		ViewGroupPermissionsFilename,
+		viewGroupPermissionsConfigMapData,
+		hc.Name,
+		hc.Namespace,
+	)
+	if err := controllerutil.SetControllerReference(hc, &desiredConfigMap, r.Scheme()); err != nil {
+		return r.logErrorAndReturn(err, "could not set controller reference")
+	}
+
+	existingConfigMap, err := kubernetes.GetConfigMap(ctx, r, ViewGroupPermissionsConfigMapName(hc), hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			configMap := kubernetes.ConstructViewGroupPermissionsConfigMap(
-				ViewGroupPermissionsConfigMapName(hc),
-				ViewGroupPermissionsFilename,
-				viewGroupPermissionsConfigMapData,
-				hc.Name,
-				hc.Namespace,
-			)
-			if err := controllerutil.SetControllerReference(hc, configMap, r.Scheme()); err != nil {
-				return r.logErrorAndReturn(err, "could not set controller reference")
-			}
-
-			r.Log.Info(fmt.Sprintf("creating configMap: %s", configMap.Name))
-			if err = r.Create(ctx, configMap); err != nil {
+			r.Log.Info(fmt.Sprintf("creating configMap: %s", desiredConfigMap.Name))
+			if err = r.Create(ctx, &desiredConfigMap); err != nil {
 				return r.logErrorAndReturn(err, "unable to create view group permissions configmap")
 			}
-			r.Log.Info(fmt.Sprintf("successfully created view group permissions configmap name %s", configMap.Name))
+			r.Log.Info(fmt.Sprintf("successfully created view group permissions configmap name %s", desiredConfigMap.Name))
 			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
+			return nil
+		}
+		return fmt.Errorf("unable to fetch view group permissions configmap: %w", err)
+	}
+
+	if !equality.Semantic.DeepEqual(existingConfigMap.Data, desiredConfigMap.Data) {
+		existingConfigMap.Data = desiredConfigMap.Data
+		if updateErr := r.Update(ctx, &existingConfigMap); updateErr != nil {
+			return fmt.Errorf("unable to update view group permissions configmap: %w", updateErr)
 		}
 	}
+
 	return nil
 }
 
@@ -575,34 +605,46 @@ func (r *HumioClusterReconciler) ensureRolePermissionsConfigMap(ctx context.Cont
 	if rolePermissionsConfigMapData == "" {
 		rolePermissionsConfigMap, err := kubernetes.GetConfigMap(ctx, r, RolePermissionsConfigMapName(hc), hc.Namespace)
 		if err == nil {
-			if err = r.Delete(ctx, rolePermissionsConfigMap); err != nil {
-				r.Log.Error(err, "unable to delete role permissions config map")
+			// TODO: refactor and move deletion to cleanupUnusedResources
+			if err = r.Delete(ctx, &rolePermissionsConfigMap); err != nil {
+				return fmt.Errorf("unable to delete role permissions configmap")
 			}
 		}
 		return nil
 	}
-	_, err := kubernetes.GetConfigMap(ctx, r, RolePermissionsConfigMapName(hc), hc.Namespace)
+
+	desiredConfigMap := kubernetes.ConstructRolePermissionsConfigMap(
+		RolePermissionsConfigMapName(hc),
+		RolePermissionsFilename,
+		rolePermissionsConfigMapData,
+		hc.Name,
+		hc.Namespace,
+	)
+	if err := controllerutil.SetControllerReference(hc, &desiredConfigMap, r.Scheme()); err != nil {
+		return r.logErrorAndReturn(err, "could not set controller reference")
+	}
+
+	existingConfigMap, err := kubernetes.GetConfigMap(ctx, r, RolePermissionsConfigMapName(hc), hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			configMap := kubernetes.ConstructRolePermissionsConfigMap(
-				RolePermissionsConfigMapName(hc),
-				RolePermissionsFilename,
-				rolePermissionsConfigMapData,
-				hc.Name,
-				hc.Namespace,
-			)
-			if err := controllerutil.SetControllerReference(hc, configMap, r.Scheme()); err != nil {
-				return r.logErrorAndReturn(err, "could not set controller reference")
+			r.Log.Info(fmt.Sprintf("creating configMap: %s", desiredConfigMap.Name))
+			if createErr := r.Create(ctx, &desiredConfigMap); createErr != nil {
+				return r.logErrorAndReturn(createErr, "unable to create role permissions configmap")
 			}
-
-			r.Log.Info(fmt.Sprintf("creating configMap: %s", configMap.Name))
-			if err = r.Create(ctx, configMap); err != nil {
-				return r.logErrorAndReturn(err, "unable to create role permissions configmap")
-			}
-			r.Log.Info(fmt.Sprintf("successfully created role permissions configmap name %s", configMap.Name))
+			r.Log.Info(fmt.Sprintf("successfully created role permissions configmap name %s", desiredConfigMap.Name))
 			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
+			return nil
+		}
+		return fmt.Errorf("unable to fetch role permissions configmap: %w", err)
+	}
+
+	if !equality.Semantic.DeepEqual(existingConfigMap.Data, desiredConfigMap.Data) {
+		existingConfigMap.Data = desiredConfigMap.Data
+		if updateErr := r.Update(ctx, &existingConfigMap); updateErr != nil {
+			return fmt.Errorf("unable to update role permissions configmap: %w", updateErr)
 		}
 	}
+
 	return nil
 }
 

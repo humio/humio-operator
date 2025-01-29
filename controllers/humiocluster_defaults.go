@@ -22,13 +22,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/humio/humio-operator/internal/helpers"
-	"github.com/humio/humio-operator/internal/kubernetes"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers/versions"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
