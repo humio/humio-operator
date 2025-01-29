@@ -3815,8 +3815,11 @@ spec:
                   type: object
                 type: array
               extraKafkaConfigs:
-                description: ExtraKafkaConfigs is a multi-line string containing kafka
-                  properties
+                description: |-
+                  ExtraKafkaConfigs is a multi-line string containing kafka properties.
+                  Deprecated: This underlying LogScale environment variable used by this field has been marked deprecated as of
+                  LogScale 1.173.0. Going forward, it is possible to provide additional Kafka configuration through a collection
+                  of new environment variables. For more details, see the LogScale release notes.
                 type: string
               extraVolumes:
                 description: ExtraVolumes is the list of additional volumes that will
@@ -9393,8 +9396,11 @@ spec:
                             type: object
                           type: array
                         extraKafkaConfigs:
-                          description: ExtraKafkaConfigs is a multi-line string containing
-                            kafka properties
+                          description: |-
+                            ExtraKafkaConfigs is a multi-line string containing kafka properties.
+                            Deprecated: This underlying LogScale environment variable used by this field has been marked deprecated as of
+                            LogScale 1.173.0. Going forward, it is possible to provide additional Kafka configuration through a collection
+                            of new environment variables. For more details, see the LogScale release notes.
                           type: string
                         extraVolumes:
                           description: ExtraVolumes is the list of additional volumes
