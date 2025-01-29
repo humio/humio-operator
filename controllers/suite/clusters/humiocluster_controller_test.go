@@ -2880,8 +2880,24 @@ var _ = Describe("HumioCluster Controller", func() {
 			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetExtraKafkaConfigsConfigMapName(), key.Namespace)
 			Expect(configMap.Data[controllers.ExtraKafkaPropertiesFilename]).To(Equal(toCreate.Spec.ExtraKafkaConfigs))
 
-			suite.UsingClusterBy(key.Name, "Removing extra kafka configs")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
+			updatedExtraKafkaConfigs := "client.id=EXAMPLE"
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.ExtraKafkaConfigs = updatedExtraKafkaConfigs
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetExtraKafkaConfigsConfigMapName(), key.Namespace)
+				return configMap.Data[controllers.ExtraKafkaPropertiesFilename]
+
+			}, testTimeout, suite.TestInterval).Should(Equal(updatedExtraKafkaConfigs))
+
+			suite.UsingClusterBy(key.Name, "Removing extra kafka configs")
 			Eventually(func() error {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
 				if err != nil {
@@ -3013,8 +3029,33 @@ var _ = Describe("HumioCluster Controller", func() {
 			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.ViewGroupPermissionsConfigMapName(toCreate), key.Namespace)
 			Expect(configMap.Data[controllers.ViewGroupPermissionsFilename]).To(Equal(toCreate.Spec.ViewGroupPermissions))
 
-			suite.UsingClusterBy(key.Name, "Removing view group permissions")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
+			updatedViewGroupPermissions := `
+{
+  "views": {
+    "REPO2": {
+      "newgroup": {
+        "queryPrefix": "newquery"
+      }
+    }
+  }
+}
+`
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.ViewGroupPermissions = updatedViewGroupPermissions
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.ViewGroupPermissionsConfigMapName(toCreate), key.Namespace)
+				return configMap.Data[controllers.ViewGroupPermissionsFilename]
+			}, testTimeout, suite.TestInterval).Should(Equal(updatedViewGroupPermissions))
+
+			suite.UsingClusterBy(key.Name, "Removing view group permissions")
 			Eventually(func() error {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
 				if err != nil {
@@ -3183,8 +3224,76 @@ var _ = Describe("HumioCluster Controller", func() {
 			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.RolePermissionsConfigMapName(toCreate), key.Namespace)
 			Expect(configMap.Data[controllers.RolePermissionsFilename]).To(Equal(toCreate.Spec.RolePermissions))
 
-			suite.UsingClusterBy(key.Name, "Removing role permissions")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
+			updatedRolePermissions := `
+{
+  "roles": {
+    "Admin": {
+      "permissions": [
+        "ChangeUserAccess",
+        "ChangeDashboards",
+        "ChangeFiles",
+        "ChangeParsers",
+        "ChangeSavedQueries",
+        "ChangeDataDeletionPermissions",
+        "ChangeDefaultSearchSettings",
+        "ChangeS3ArchivingSettings",
+        "ConnectView",
+        "ReadAccess",
+        "ChangeIngestTokens",
+        "EventForwarding",
+        "ChangeFdrFeeds"
+      ]
+    },
+    "Searcher": {
+      "permissions": [
+        "ChangeTriggersAndActions",
+        "ChangeFiles",
+        "ChangeDashboards",
+        "ChangeSavedQueries",
+        "ReadAccess"
+      ]
+    }
+  },
+  "views": {
+    "Audit Log": {
+      "Devs DK": {
+        "role": "Searcher",
+        "queryPrefix": "secret=false updated=true"
+      },
+      "Support UK": {
+        "role": "Admin",
+        "queryPrefix": "* updated=true"
+      }
+    },
+    "Web Log": {
+      "Devs DK": {
+        "role": "Admin",
+        "queryPrefix": "* updated=true"
+      },
+      "Support UK": {
+        "role": "Searcher",
+        "queryPrefix": "* updated=true"
+      }
+    }
+  }
+}
+`
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.RolePermissions = updatedRolePermissions
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.RolePermissionsConfigMapName(toCreate), key.Namespace)
+				return configMap.Data[controllers.RolePermissionsFilename]
+			}, testTimeout, suite.TestInterval).Should(Equal(updatedRolePermissions))
+
+			suite.UsingClusterBy(key.Name, "Removing role permissions")
 			Eventually(func() error {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
 				if err != nil {
