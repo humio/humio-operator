@@ -14,6 +14,11 @@ query GetEvictionStatus {
         nodes {
             id
             isBeingEvicted
+            reasonsNodeCannotBeSafelyUnregistered {
+                hasUnderReplicatedData
+                hasDataThatExistsOnlyOnThisNode
+                leadsDigest
+            }
             evictionStatus {
                 currentlyUnderReplicatedBytes
                 totalSegmentBytes

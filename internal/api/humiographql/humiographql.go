@@ -4828,7 +4828,8 @@ func (v *GetEvictionStatusCluster) GetNodes() []GetEvictionStatusClusterNodesClu
 type GetEvictionStatusClusterNodesClusterNode struct {
 	Id int `json:"id"`
 	// A flag indicating whether the node is marked for eviction. The Falcon LogScale cluster will start to move segments, digesters and queries away from any node marked for eviction
-	IsBeingEvicted *bool `json:"isBeingEvicted"`
+	IsBeingEvicted                        *bool                                                                         `json:"isBeingEvicted"`
+	ReasonsNodeCannotBeSafelyUnregistered GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered `json:"reasonsNodeCannotBeSafelyUnregistered"`
 	// Contains data describing the status of eviction
 	EvictionStatus GetEvictionStatusClusterNodesClusterNodeEvictionStatus `json:"evictionStatus"`
 }
@@ -4838,6 +4839,11 @@ func (v *GetEvictionStatusClusterNodesClusterNode) GetId() int { return v.Id }
 
 // GetIsBeingEvicted returns GetEvictionStatusClusterNodesClusterNode.IsBeingEvicted, and is useful for accessing the field via an interface.
 func (v *GetEvictionStatusClusterNodesClusterNode) GetIsBeingEvicted() *bool { return v.IsBeingEvicted }
+
+// GetReasonsNodeCannotBeSafelyUnregistered returns GetEvictionStatusClusterNodesClusterNode.ReasonsNodeCannotBeSafelyUnregistered, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNode) GetReasonsNodeCannotBeSafelyUnregistered() GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered {
+	return v.ReasonsNodeCannotBeSafelyUnregistered
+}
 
 // GetEvictionStatus returns GetEvictionStatusClusterNodesClusterNode.EvictionStatus, and is useful for accessing the field via an interface.
 func (v *GetEvictionStatusClusterNodesClusterNode) GetEvictionStatus() GetEvictionStatusClusterNodesClusterNodeEvictionStatus {
@@ -4879,6 +4885,31 @@ func (v *GetEvictionStatusClusterNodesClusterNodeEvictionStatus) GetBytesThatExi
 // GetTypename returns GetEvictionStatusClusterNodesClusterNodeEvictionStatus.Typename, and is useful for accessing the field via an interface.
 func (v *GetEvictionStatusClusterNodesClusterNodeEvictionStatus) GetTypename() *string {
 	return v.Typename
+}
+
+// GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered includes the requested fields of the GraphQL type ReasonsNodeCannotBeSafelyUnregistered.
+// The GraphQL type's documentation follows.
+//
+// A map from reasons why a node might not be able to be unregistered safely, to the boolean value indicating whether a given reason applies to this node. For a node to be unregistered without any undue disruption, none of the reasons must apply.
+type GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered struct {
+	HasUnderReplicatedData          bool `json:"hasUnderReplicatedData"`
+	HasDataThatExistsOnlyOnThisNode bool `json:"hasDataThatExistsOnlyOnThisNode"`
+	LeadsDigest                     bool `json:"leadsDigest"`
+}
+
+// GetHasUnderReplicatedData returns GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered.HasUnderReplicatedData, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered) GetHasUnderReplicatedData() bool {
+	return v.HasUnderReplicatedData
+}
+
+// GetHasDataThatExistsOnlyOnThisNode returns GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered.HasDataThatExistsOnlyOnThisNode, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered) GetHasDataThatExistsOnlyOnThisNode() bool {
+	return v.HasDataThatExistsOnlyOnThisNode
+}
+
+// GetLeadsDigest returns GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered.LeadsDigest, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered) GetLeadsDigest() bool {
+	return v.LeadsDigest
 }
 
 // GetEvictionStatusResponse is returned by GetEvictionStatus on success.
@@ -15452,6 +15483,11 @@ query GetEvictionStatus {
 		nodes {
 			id
 			isBeingEvicted
+			reasonsNodeCannotBeSafelyUnregistered {
+				hasUnderReplicatedData
+				hasDataThatExistsOnlyOnThisNode
+				leadsDigest
+			}
 			evictionStatus {
 				currentlyUnderReplicatedBytes
 				totalSegmentBytes
