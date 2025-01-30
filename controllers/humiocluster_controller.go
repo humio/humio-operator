@@ -2117,13 +2117,15 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 				if podEvictionStatus {
 					r.Log.Info(fmt.Sprintf("successfully evicted data from vhost %d", vhost))
 					r.Log.Info(fmt.Sprintf("removing vhost %d", vhost))
-					if _, err := r.HumioClient.UnregisterClusterNode(ctx, humioHttpClient, req, vhost, false); err != nil {
-						return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("failed to unregister vhost %d", vhost))
-					}
-					if err := r.Delete(ctx, &pod); err != nil {
+					if err := r.Delete(ctx, &pod); err != nil { // Delete pod before unregistering node
 						return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("failed to delete pod %s for vhost %d!", pod.Name, vhost))
 					}
-					humioClusterPrometheusMetrics.Counters.PodsDeleted.Inc()
+					for i := 0; i < waitForPodTimeoutSeconds; i++ { // Poll check for unregistering
+						if _, err := r.HumioClient.UnregisterClusterNode(ctx, humioHttpClient, req, vhost, false); err != nil {
+							return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("failed to unregister vhost %d", vhost))
+						}
+						humioClusterPrometheusMetrics.Counters.PodsDeleted.Inc()
+					}
 				} else {
 					podsSuccessfullyEvicted++
 				}
@@ -2138,6 +2140,18 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 	return reconcile.Result{}, nil
 }
 
+func (r *HumioClusterReconciler) nodeCanBeSafelyUnregistered(node humiographql.GetEvictionStatusClusterNodesClusterNode) bool {
+	evictionStatus := node.GetEvictionStatus()
+	reasonsNodeCannotBeSafelyUnregistered := node.GetReasonsNodeCannotBeSafelyUnregistered()
+
+	return evictionStatus.GetCurrentlyUnderReplicatedBytes() == 0 &&
+		evictionStatus.GetBytesThatExistOnlyOnThisNode() == 0 &&
+		!evictionStatus.IsDigester &&
+		reasonsNodeCannotBeSafelyUnregistered.GetHasDataThatExistsOnlyOnThisNode() &&
+		reasonsNodeCannotBeSafelyUnregistered.GetHasUnderReplicatedData() &&
+		reasonsNodeCannotBeSafelyUnregistered.GetLeadsDigest()
+}
+
 func (r *HumioClusterReconciler) checkEvictionStatusForPod(ctx context.Context, humioHttpClient *humioapi.Client, req ctrl.Request, vhost int) (bool, error) {
 	for i := 0; i < waitForPodTimeoutSeconds; i++ {
 		nodesStatus, err := r.getClusterNodesStatus(ctx, humioHttpClient, req)
@@ -2146,8 +2160,7 @@ func (r *HumioClusterReconciler) checkEvictionStatusForPod(ctx context.Context, 
 		}
 		for _, node := range nodesStatus {
 			if node.GetId() == vhost {
-				evictionStatus := node.GetEvictionStatus()
-				if evictionStatus.GetTotalSegmentBytes() == 0 {
+				if r.nodeCanBeSafelyUnregistered(node) {
 					return true, nil
 				}
 			}
