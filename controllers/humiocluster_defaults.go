@@ -82,6 +82,7 @@ type HumioNodePool struct {
 	desiredPodRevision        int
 	desiredPodHash            string
 	desiredBootstrapTokenHash string
+	podDisruptionBudget       *humiov1alpha1.HumioPodDisruptionBudgetSpec
 }
 
 func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioNodePool {
@@ -102,12 +103,13 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 	}
 
 	return &HumioNodePool{
-		namespace:        hc.Namespace,
-		clusterName:      hc.Name,
-		hostname:         hc.Spec.Hostname,
-		esHostname:       hc.Spec.ESHostname,
-		hostnameSource:   hc.Spec.HostnameSource,
-		esHostnameSource: hc.Spec.ESHostnameSource,
+		namespace:           hc.Namespace,
+		clusterName:         hc.Name,
+		hostname:            hc.Spec.Hostname,
+		esHostname:          hc.Spec.ESHostname,
+		hostnameSource:      hc.Spec.HostnameSource,
+		esHostnameSource:    hc.Spec.ESHostnameSource,
+		podDisruptionBudget: hc.Spec.PodDisruptionBudget,
 		humioNodeSpec: humiov1alpha1.HumioNodeSpec{
 			Image:     hc.Spec.Image,
 			NodeCount: hc.Spec.NodeCount,
@@ -309,6 +311,14 @@ func (hnp *HumioNodePool) GetImagePullPolicy() corev1.PullPolicy {
 
 func (hnp *HumioNodePool) GetEnvironmentVariablesSource() []corev1.EnvFromSource {
 	return hnp.humioNodeSpec.EnvironmentVariablesSource
+}
+
+func (hnp *HumioNodePool) GetPodDisruptionBudget() *humiov1alpha1.HumioPodDisruptionBudgetSpec {
+	return hnp.podDisruptionBudget
+}
+
+func (hnp *HumioNodePool) GetPodDisruptionBudgetName() string {
+	return fmt.Sprintf("%s-pdb", hnp.GetNodePoolName())
 }
 
 func (hnp *HumioNodePool) GetTargetReplicationFactor() int {
