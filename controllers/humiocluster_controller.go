@@ -560,34 +560,46 @@ func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context
 	if viewGroupPermissionsConfigMapData == "" {
 		viewGroupPermissionsConfigMap, err := kubernetes.GetConfigMap(ctx, r, ViewGroupPermissionsConfigMapName(hc), hc.Namespace)
 		if err == nil {
-			if err = r.Delete(ctx, viewGroupPermissionsConfigMap); err != nil {
-				r.Log.Error(err, "unable to delete view group permissions config map")
+			// TODO: refactor and move deletion to cleanupUnusedResources
+			if err = r.Delete(ctx, &viewGroupPermissionsConfigMap); err != nil {
+				r.Log.Error(err, "unable to delete view group permissions configmap")
 			}
 		}
 		return nil
 	}
-	_, err := kubernetes.GetConfigMap(ctx, r, ViewGroupPermissionsConfigMapName(hc), hc.Namespace)
+
+	desiredConfigMap := kubernetes.ConstructViewGroupPermissionsConfigMap(
+		ViewGroupPermissionsConfigMapName(hc),
+		ViewGroupPermissionsFilename,
+		viewGroupPermissionsConfigMapData,
+		hc.Name,
+		hc.Namespace,
+	)
+	if err := controllerutil.SetControllerReference(hc, &desiredConfigMap, r.Scheme()); err != nil {
+		return r.logErrorAndReturn(err, "could not set controller reference")
+	}
+
+	existingConfigMap, err := kubernetes.GetConfigMap(ctx, r, ViewGroupPermissionsConfigMapName(hc), hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			configMap := kubernetes.ConstructViewGroupPermissionsConfigMap(
-				ViewGroupPermissionsConfigMapName(hc),
-				ViewGroupPermissionsFilename,
-				viewGroupPermissionsConfigMapData,
-				hc.Name,
-				hc.Namespace,
-			)
-			if err := controllerutil.SetControllerReference(hc, configMap, r.Scheme()); err != nil {
-				return r.logErrorAndReturn(err, "could not set controller reference")
-			}
-
-			r.Log.Info(fmt.Sprintf("creating configMap: %s", configMap.Name))
-			if err = r.Create(ctx, configMap); err != nil {
+			r.Log.Info(fmt.Sprintf("creating configMap: %s", desiredConfigMap.Name))
+			if err = r.Create(ctx, &desiredConfigMap); err != nil {
 				return r.logErrorAndReturn(err, "unable to create view group permissions configmap")
 			}
-			r.Log.Info(fmt.Sprintf("successfully created view group permissions configmap name %s", configMap.Name))
+			r.Log.Info(fmt.Sprintf("successfully created view group permissions configmap name %s", desiredConfigMap.Name))
 			humioClusterPrometheusMetrics.Counters.ConfigMapsCreated.Inc()
+			return nil
+		}
+		return fmt.Errorf("unable to fetch view group permissions configmap: %w", err)
+	}
+
+	if !equality.Semantic.DeepEqual(existingConfigMap.Data, desiredConfigMap.Data) {
+		existingConfigMap.Data = desiredConfigMap.Data
+		if updateErr := r.Update(ctx, &existingConfigMap); updateErr != nil {
+			return fmt.Errorf("unable to update view group permissions configmap: %w", updateErr)
 		}
 	}
+
 	return nil
 }
 
