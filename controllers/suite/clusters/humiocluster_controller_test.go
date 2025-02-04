@@ -6329,6 +6329,8 @@ var _ = Describe("HumioCluster Controller", func() {
 				}, &pdb)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
+			Expect(pdb.Spec.Selector.MatchLabels).To(Equal(kubernetes.MatchingLabelsForHumioNodePool(toCreate.Name, pool)))
+
 			if pool == "pool1" {
 				Expect(pdb.Spec.MaxUnavailable).To(Equal(&maxUnavailable))
 				Expect(pdb.Spec.MinAvailable).To(BeNil())
