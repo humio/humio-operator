@@ -2297,13 +2297,6 @@ func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx cont
 }
 
 func (r *HumioClusterReconciler) cleanupUnusedResources(ctx context.Context, hc *humiov1alpha1.HumioCluster, humioNodePools HumioNodePoolList) (reconcile.Result, error) {
-	if !hc.DeletionTimestamp.IsZero() {
-		if err := r.handlePDBFinalizers(ctx, hc); err != nil {
-			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-				withMessage(fmt.Sprintf("failed to handle PDB finalizers: %s", err)))
-		}
-	}
-
 	for _, pool := range humioNodePools.Items {
 		if err := r.ensureOrphanedPvcsAreDeleted(ctx, hc, pool); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
@@ -2408,9 +2401,19 @@ func getHumioNodePoolManagers(hc *humiov1alpha1.HumioCluster) HumioNodePoolList 
 // reconcileSinglePDB handles creation/update of a PDB for a single node pool
 func (r *HumioClusterReconciler) reconcileSinglePDB(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
 	pdbSpec := hnp.GetPodDisruptionBudget()
+	pdbName := hnp.GetPodDisruptionBudgetName()
 	if pdbSpec == nil {
-		r.Log.Info("skipping PDB creation - node pool does not have PDB configured",
-			"nodePool", hnp.GetNodePoolName()) // Use NodePool Name here
+		r.Log.Info("PDB not configured by user, deleting any existing PDB", "nodePool", hnp.GetNodePoolName(), "pdb", pdbName)
+		currentPDB := &policyv1.PodDisruptionBudget{}
+		err := r.Get(ctx, client.ObjectKey{Name: pdbName, Namespace: hc.Namespace}, currentPDB)
+		if err == nil {
+			if delErr := r.Delete(ctx, currentPDB); delErr != nil {
+				return fmt.Errorf("failed to delete orphaned PDB %s/%s: %w", hc.Namespace, pdbName, delErr)
+			}
+			r.Log.Info("deleted orphaned PDB", "pdb", pdbName)
+		} else if !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get PDB %s/%s: %w", hc.Namespace, pdbName, err)
+		}
 		return nil
 	}
 
@@ -2426,16 +2429,12 @@ func (r *HumioClusterReconciler) reconcileSinglePDB(ctx context.Context, hc *hum
 
 	desiredPDB, err := r.constructPDB(hc, hnp, pdbSpec)
 	if err != nil {
-		r.Log.Error(err, "failed to construct PDB", "pdbName", hnp.GetPodDisruptionBudgetName())
+		r.Log.Error(err, "failed to construct PDB", "pdbName", pdbName)
 		return fmt.Errorf("failed to construct PDB: %w", err)
 	}
 
 	return r.createOrUpdatePDB(ctx, hc, hnp, desiredPDB)
 }
-
-const (
-	HumioProtectionFinalizer = "humio.com/pdb-protection"
-)
 
 // constructPDB creates a PodDisruptionBudget object for a given HumioCluster and HumioNodePool
 func (r *HumioClusterReconciler) constructPDB(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, pdbSpec *humiov1alpha1.HumioPodDisruptionBudgetSpec) (*policyv1.PodDisruptionBudget, error) {
@@ -2451,10 +2450,9 @@ func (r *HumioClusterReconciler) constructPDB(hc *humiov1alpha1.HumioCluster, hn
 	minAvailable := pdbSpec.MinAvailable
 	pdb := &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       pdbName,
-			Namespace:  hc.Namespace,
-			Labels:     kubernetes.LabelsForHumio(hc.Name),
-			Finalizers: []string{HumioProtectionFinalizer},
+			Name:      pdbName,
+			Namespace: hc.Namespace,
+			Labels:    kubernetes.LabelsForHumio(hc.Name),
 		},
 		Spec: policyv1.PodDisruptionBudgetSpec{
 			Selector: selector,
@@ -2481,64 +2479,18 @@ func (r *HumioClusterReconciler) constructPDB(hc *humiov1alpha1.HumioCluster, hn
 
 // createOrUpdatePDB creates or updates a PodDisruptionBudget object
 func (r *HumioClusterReconciler) createOrUpdatePDB(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, desiredPDB *policyv1.PodDisruptionBudget) error {
-	currentPDB := &policyv1.PodDisruptionBudget{}
-	pdbName := hnp.GetPodDisruptionBudgetName()
-	err := r.Get(ctx, client.ObjectKey{Name: pdbName, Namespace: hc.Namespace}, currentPDB)
-	if err != nil && k8serrors.IsNotFound(err) {
-		r.Log.Info("creating PDB", "pdb", pdbName)
-		err = r.Create(ctx, desiredPDB)
-		if err != nil {
-			r.Log.Error(err, "failed to create PDB", "pdbName", desiredPDB.Name, "pdbNamespace", desiredPDB.Namespace)
-			return fmt.Errorf("failed to create PDB %s/%s: %w", desiredPDB.Namespace, desiredPDB.Name, err)
-		}
+	// Set owner reference so that the PDB is deleted when hc is deleted.
+	if err := controllerutil.SetControllerReference(hc, desiredPDB, r.Scheme()); err != nil {
+		return fmt.Errorf("failed to set owner reference on PDB %s/%s: %w", desiredPDB.Namespace, desiredPDB.Name, err)
+	}
+
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, desiredPDB, func() error {
 		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to get PDB: %w", err)
+	})
+	if err != nil {
+		r.Log.Error(err, "failed to create or update PDB", "pdb", desiredPDB.Name)
+		return fmt.Errorf("failed to create or update PDB %s/%s: %w", desiredPDB.Namespace, desiredPDB.Name, err)
 	}
-
-	if !SemanticPDBsEqual(desiredPDB, currentPDB) {
-		r.Log.Info("updating PDB", "pdb", pdbName)
-		updatedPDB := currentPDB.DeepCopy()
-		updatedPDB.Spec = desiredPDB.Spec
-		err = r.Update(ctx, updatedPDB)
-		if err != nil {
-			r.Log.Error(err, "failed to update PDB", "pdbName", desiredPDB.Name, "pdbNamespace", desiredPDB.Namespace)
-			return fmt.Errorf("could not update PDB %s/%s: %w", desiredPDB.Namespace, desiredPDB.Name, err) // Return Result{}, error on failure
-		}
-	}
-
-	r.Log.V(1).Info("pdb is up-to-date", "pdb", pdbName)
-	return nil
-}
-
-// SemanticPDBsEqual compares two PodDisruptionBudgets and returns true if they are equal
-func SemanticPDBsEqual(desired *policyv1.PodDisruptionBudget, current *policyv1.PodDisruptionBudget) bool {
-	if !equality.Semantic.DeepEqual(desired.Spec.MinAvailable, current.Spec.MinAvailable) {
-		return false
-	}
-	if !equality.Semantic.DeepEqual(desired.Spec.MaxUnavailable, current.Spec.MaxUnavailable) {
-		return false
-	}
-	if !equality.Semantic.DeepEqual(desired.Spec.Selector, current.Spec.Selector) {
-		return false
-	}
-	return true
-}
-
-// handlePDBFinalizers removes finalizers from PodDisruptionBudgets
-func (r *HumioClusterReconciler) handlePDBFinalizers(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	pdbs := &policyv1.PodDisruptionBudgetList{}
-	if err := r.List(ctx, pdbs, client.MatchingLabels(kubernetes.MatchingLabelsForHumio(hc.Name))); err != nil {
-		return err
-	}
-
-	for _, pdb := range pdbs.Items {
-		if controllerutil.ContainsFinalizer(&pdb, HumioProtectionFinalizer) {
-			controllerutil.RemoveFinalizer(&pdb, HumioProtectionFinalizer)
-			if err := r.Update(ctx, &pdb); err != nil {
-				return err
-			}
-		}
-	}
+	r.Log.Info("PDB operation completed", "operation", op, "pdb", desiredPDB.Name)
 	return nil
 }
