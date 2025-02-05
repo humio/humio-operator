@@ -203,7 +203,10 @@ type HumioNodeSpec struct {
 	// Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in LogScale 1.80.0
 	NodeUUIDPrefix string `json:"nodeUUIDPrefix,omitempty"`
 
-	// ExtraKafkaConfigs is a multi-line string containing kafka properties
+	// ExtraKafkaConfigs is a multi-line string containing kafka properties.
+	// Deprecated: This underlying LogScale environment variable used by this field has been marked deprecated as of
+	// LogScale 1.173.0. Going forward, it is possible to provide additional Kafka configuration through a collection
+	// of new environment variables. For more details, see the LogScale release notes.
 	ExtraKafkaConfigs string `json:"extraKafkaConfigs,omitempty"`
 
 	// ExtraHumioVolumeMounts is the list of additional volume mounts that will be added to the Humio container
