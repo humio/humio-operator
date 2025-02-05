@@ -11250,6 +11250,41 @@ spec:
                           description: PodAnnotations can be used to specify annotations
                             that will be added to the Humio pods
                           type: object
+                        podDisruptionBudget:
+                          description: PodDisruptionBudget defines the PDB configuration
+                            for this node spec
+                          properties:
+                            enabled:
+                              description: Enabled indicates whether PodDisruptionBudget
+                                is enabled for this NodePool.
+                              type: boolean
+                            maxUnavailable:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: MaxUnavailable is the maximum number of
+                                pods that can be unavailable during a disruption.
+                              format: int-or-string
+                              type: string
+                              x-kubernetes-int-or-string: true
+                            minAvailable:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: MinAvailable is the minimum number of pods
+                                that must be available during a disruption.
+                              format: int-or-string
+                              type: string
+                              x-kubernetes-int-or-string: true
+                            unhealthyPodEvictionPolicy:
+                              description: |-
+                                UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods.
+                                Requires Kubernetes 1.26+.
+                              enum:
+                              - IfHealthyBudget
+                              - AlwaysAllow
+                              type: string
+                          type: object
                         podLabels:
                           additionalProperties:
                             type: string
@@ -13163,6 +13198,41 @@ spec:
                   type: string
                 description: PodAnnotations can be used to specify annotations that
                   will be added to the Humio pods
+                type: object
+              podDisruptionBudget:
+                description: PodDisruptionBudget defines the PDB configuration for
+                  this node spec
+                properties:
+                  enabled:
+                    description: Enabled indicates whether PodDisruptionBudget is
+                      enabled for this NodePool.
+                    type: boolean
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: MaxUnavailable is the maximum number of pods that
+                      can be unavailable during a disruption.
+                    format: int-or-string
+                    type: string
+                    x-kubernetes-int-or-string: true
+                  minAvailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: MinAvailable is the minimum number of pods that must
+                      be available during a disruption.
+                    format: int-or-string
+                    type: string
+                    x-kubernetes-int-or-string: true
+                  unhealthyPodEvictionPolicy:
+                    description: |-
+                      UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods.
+                      Requires Kubernetes 1.26+.
+                    enum:
+                    - IfHealthyBudget
+                    - AlwaysAllow
+                    type: string
                 type: object
               podLabels:
                 additionalProperties:
