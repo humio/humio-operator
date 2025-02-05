@@ -2993,7 +2993,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming config map was created")
 			Eventually(func() error {
-				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.ViewGroupPermissionsConfigMapName(toCreate), toCreate.Namespace)
+				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetViewGroupPermissionsConfigMapName(), toCreate.Namespace)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -3017,7 +3017,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					VolumeSource: corev1.VolumeSource{
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{
-								Name: controllers.ViewGroupPermissionsConfigMapName(toCreate),
+								Name: controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetViewGroupPermissionsConfigMapName(),
 							},
 							DefaultMode: &mode,
 						},
@@ -3026,7 +3026,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Confirming config map contains desired view group permissions")
-			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.ViewGroupPermissionsConfigMapName(toCreate), key.Namespace)
+			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetViewGroupPermissionsConfigMapName(), key.Namespace)
 			Expect(configMap.Data[controllers.ViewGroupPermissionsFilename]).To(Equal(toCreate.Spec.ViewGroupPermissions))
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -3051,7 +3051,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			Eventually(func() string {
-				configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.ViewGroupPermissionsConfigMapName(toCreate), key.Namespace)
+				configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetViewGroupPermissionsConfigMapName(), key.Namespace)
 				return configMap.Data[controllers.ViewGroupPermissionsFilename]
 			}, testTimeout, suite.TestInterval).Should(Equal(updatedViewGroupPermissions))
 
@@ -3105,7 +3105,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: controllers.ViewGroupPermissionsConfigMapName(toCreate),
+							Name: controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetViewGroupPermissionsConfigMapName(),
 						},
 						DefaultMode: &mode,
 					},
@@ -3114,7 +3114,10 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming config map was cleaned up")
 			Eventually(func() bool {
-				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.ViewGroupPermissionsConfigMapName(toCreate), toCreate.Namespace)
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				_ = suite.MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
+
+				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetViewGroupPermissionsConfigMapName(), toCreate.Namespace)
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
@@ -3188,7 +3191,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming config map was created")
 			Eventually(func() error {
-				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.RolePermissionsConfigMapName(toCreate), toCreate.Namespace)
+				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetRolePermissionsConfigMapName(), toCreate.Namespace)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -3212,7 +3215,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					VolumeSource: corev1.VolumeSource{
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{
-								Name: controllers.RolePermissionsConfigMapName(toCreate),
+								Name: controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetRolePermissionsConfigMapName(),
 							},
 							DefaultMode: &mode,
 						},
@@ -3221,7 +3224,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Confirming config map contains desired role permissions")
-			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.RolePermissionsConfigMapName(toCreate), key.Namespace)
+			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetRolePermissionsConfigMapName(), key.Namespace)
 			Expect(configMap.Data[controllers.RolePermissionsFilename]).To(Equal(toCreate.Spec.RolePermissions))
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -3289,7 +3292,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			Eventually(func() string {
-				configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.RolePermissionsConfigMapName(toCreate), key.Namespace)
+				configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetRolePermissionsConfigMapName(), key.Namespace)
 				return configMap.Data[controllers.RolePermissionsFilename]
 			}, testTimeout, suite.TestInterval).Should(Equal(updatedRolePermissions))
 
@@ -3343,7 +3346,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: controllers.RolePermissionsConfigMapName(toCreate),
+							Name: controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetRolePermissionsConfigMapName(),
 						},
 						DefaultMode: &mode,
 					},
@@ -3352,7 +3355,10 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming config map was cleaned up")
 			Eventually(func() bool {
-				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.RolePermissionsConfigMapName(toCreate), toCreate.Namespace)
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				_ = suite.MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
+
+				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetRolePermissionsConfigMapName(), toCreate.Namespace)
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
