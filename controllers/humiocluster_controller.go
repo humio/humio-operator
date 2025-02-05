@@ -2433,7 +2433,7 @@ func (r *HumioClusterReconciler) reconcileSinglePDB(ctx context.Context, hc *hum
 		return fmt.Errorf("failed to construct PDB: %w", err)
 	}
 
-	return r.createOrUpdatePDB(ctx, hc, hnp, desiredPDB)
+	return r.createOrUpdatePDB(ctx, hc, desiredPDB)
 }
 
 // constructPDB creates a PodDisruptionBudget object for a given HumioCluster and HumioNodePool
@@ -2475,7 +2475,7 @@ func (r *HumioClusterReconciler) constructPDB(hc *humiov1alpha1.HumioCluster, hn
 }
 
 // createOrUpdatePDB creates or updates a PodDisruptionBudget object
-func (r *HumioClusterReconciler) createOrUpdatePDB(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, desiredPDB *policyv1.PodDisruptionBudget) error {
+func (r *HumioClusterReconciler) createOrUpdatePDB(ctx context.Context, hc *humiov1alpha1.HumioCluster, desiredPDB *policyv1.PodDisruptionBudget) error {
 	// Set owner reference so that the PDB is deleted when hc is deleted.
 	if err := controllerutil.SetControllerReference(hc, desiredPDB, r.Scheme()); err != nil {
 		return fmt.Errorf("failed to set owner reference on PDB %s/%s: %w", desiredPDB.Namespace, desiredPDB.Name, err)
