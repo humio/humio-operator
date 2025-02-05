@@ -32,9 +32,12 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -205,6 +208,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			r.ensureExtraKafkaConfigsConfigMap,
 			r.ensureViewGroupPermissionsConfigMap,
 			r.ensureRolePermissionsConfigMap,
+			r.reconcileSinglePDB,
 		} {
 			if err := fun(ctx, hc, pool); err != nil {
 				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
@@ -321,6 +325,7 @@ func (r *HumioClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&corev1.ConfigMap{}).
+		Owns(&policyv1.PodDisruptionBudget{}).
 		Owns(&networkingv1.Ingress{}).
 		Complete(r)
 }
@@ -2331,6 +2336,7 @@ func (r *HumioClusterReconciler) cleanupUnusedResources(ctx context.Context, hc 
 				withMessage(err.Error()))
 		}
 	}
+
 	return reconcile.Result{}, nil
 }
 
@@ -2405,4 +2411,98 @@ func getHumioNodePoolManagers(hc *humiov1alpha1.HumioCluster) HumioNodePoolList 
 		humioNodePools.Add(NewHumioNodeManagerFromHumioNodePool(hc, &hc.Spec.NodePools[idx]))
 	}
 	return humioNodePools
+}
+
+// reconcileSinglePDB handles creation/update of a PDB for a single node pool
+func (r *HumioClusterReconciler) reconcileSinglePDB(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
+	pdbSpec := hnp.GetPodDisruptionBudget()
+	pdbName := hnp.GetPodDisruptionBudgetName()
+	if pdbSpec == nil {
+		r.Log.Info("PDB not configured by user, deleting any existing PDB", "nodePool", hnp.GetNodePoolName(), "pdb", pdbName)
+		currentPDB := &policyv1.PodDisruptionBudget{}
+		err := r.Get(ctx, client.ObjectKey{Name: pdbName, Namespace: hc.Namespace}, currentPDB)
+		if err == nil {
+			if delErr := r.Delete(ctx, currentPDB); delErr != nil {
+				return fmt.Errorf("failed to delete orphaned PDB %s/%s: %w", hc.Namespace, pdbName, delErr)
+			}
+			r.Log.Info("deleted orphaned PDB", "pdb", pdbName)
+		} else if !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get PDB %s/%s: %w", hc.Namespace, pdbName, err)
+		}
+		return nil
+	}
+
+	pods, err := kubernetes.ListPods(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
+	if err != nil {
+		return fmt.Errorf("failed to list pods: %w", err)
+	}
+
+	if len(pods) == 0 {
+		r.Log.Info("no pods found, skipping PDB creation")
+		return nil
+	}
+
+	desiredPDB, err := r.constructPDB(hc, hnp, pdbSpec)
+	if err != nil {
+		r.Log.Error(err, "failed to construct PDB", "pdbName", pdbName)
+		return fmt.Errorf("failed to construct PDB: %w", err)
+	}
+
+	return r.createOrUpdatePDB(ctx, hc, desiredPDB)
+}
+
+// constructPDB creates a PodDisruptionBudget object for a given HumioCluster and HumioNodePool
+func (r *HumioClusterReconciler) constructPDB(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, pdbSpec *humiov1alpha1.HumioPodDisruptionBudgetSpec) (*policyv1.PodDisruptionBudget, error) {
+	pdbName := hnp.GetPodDisruptionBudgetName() // Use GetPodDisruptionBudgetName from HumioNodePool
+
+	selector := &metav1.LabelSelector{
+		MatchLabels: kubernetes.MatchingLabelsForHumioNodePool(hc.Name, hnp.GetNodePoolName()),
+	}
+
+	minAvailable := pdbSpec.MinAvailable
+	pdb := &policyv1.PodDisruptionBudget{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pdbName,
+			Namespace: hc.Namespace,
+			Labels:    hnp.GetNodePoolLabels(),
+		},
+		Spec: policyv1.PodDisruptionBudgetSpec{
+			Selector: selector,
+		},
+	}
+
+	// Set controller reference using controller-runtime utility
+	if err := controllerutil.SetControllerReference(hc, pdb, r.Scheme()); err != nil {
+		return nil, fmt.Errorf("failed to set controller reference: %w", err)
+	}
+
+	if minAvailable != nil {
+		pdb.Spec.MinAvailable = minAvailable
+	} else {
+		defaultMinAvailable := intstr.IntOrString{
+			Type:   intstr.Int,
+			IntVal: 1,
+		}
+		pdb.Spec.MinAvailable = &defaultMinAvailable
+	}
+
+	return pdb, nil
+}
+
+// createOrUpdatePDB creates or updates a PodDisruptionBudget object
+func (r *HumioClusterReconciler) createOrUpdatePDB(ctx context.Context, hc *humiov1alpha1.HumioCluster, desiredPDB *policyv1.PodDisruptionBudget) error {
+	// Set owner reference so that the PDB is deleted when hc is deleted.
+	if err := controllerutil.SetControllerReference(hc, desiredPDB, r.Scheme()); err != nil {
+		return fmt.Errorf("failed to set owner reference on PDB %s/%s: %w", desiredPDB.Namespace, desiredPDB.Name, err)
+	}
+
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, desiredPDB, func() error {
+		return nil
+	})
+	if err != nil {
+		r.Log.Error(err, "failed to create or update PDB", "pdb", desiredPDB.Name)
+		return fmt.Errorf("failed to create or update PDB %s/%s: %w", desiredPDB.Namespace, desiredPDB.Name, err)
+	}
+	r.Log.Info("PDB operation completed", "operation", op, "pdb", desiredPDB.Name)
+	return nil
 }

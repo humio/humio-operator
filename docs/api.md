@@ -4323,6 +4323,13 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humioclusterspecpoddisruptionbudget">podDisruptionBudget</a></b></td>
+        <td>object</td>
+        <td>
+          PodDisruptionBudget defines the PDB configuration for this node spec<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>podLabels</b></td>
         <td>map[string]string</td>
         <td>
@@ -16290,6 +16297,13 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humioclusterspecnodepoolsindexspecpoddisruptionbudget">podDisruptionBudget</a></b></td>
+        <td>object</td>
+        <td>
+          PodDisruptionBudget defines the PDB configuration for this node spec<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>podLabels</b></td>
         <td>map[string]string</td>
         <td>
@@ -27375,6 +27389,61 @@ OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request ty
 </table>
 
 
+### HumioCluster.spec.nodePools[index].spec.podDisruptionBudget
+<sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspec)</sup></sup>
+
+
+
+PodDisruptionBudget defines the PDB configuration for this node spec
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled indicates whether PodDisruptionBudget is enabled for this NodePool.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>maxUnavailable</b></td>
+        <td>int or string</td>
+        <td>
+          MaxUnavailable is the maximum number of pods that can be unavailable during a disruption.<br/>
+          <br/>
+            <i>Format</i>: int-or-string<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>minAvailable</b></td>
+        <td>int or string</td>
+        <td>
+          MinAvailable is the minimum number of pods that must be available during a disruption.<br/>
+          <br/>
+            <i>Format</i>: int-or-string<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>unhealthyPodEvictionPolicy</b></td>
+        <td>enum</td>
+        <td>
+          UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods.
+Requires Kubernetes 1.26+.<br/>
+          <br/>
+            <i>Enum</i>: IfHealthyBudget, AlwaysAllow<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### HumioCluster.spec.nodePools[index].spec.podSecurityContext
 <sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspec)</sup></sup>
 
@@ -30974,6 +31043,61 @@ When set to RollingUpdateBestEffort, the operator will evaluate the Humio versio
 Humio pods can be updated in a rolling fashion or if they must be replaced at the same time.<br/>
           <br/>
             <i>Enum</i>: OnDelete, RollingUpdate, ReplaceAllOnUpdate, RollingUpdateBestEffort<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.podDisruptionBudget
+<sup><sup>[↩ Parent](#humioclusterspec)</sup></sup>
+
+
+
+PodDisruptionBudget defines the PDB configuration for this node spec
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled indicates whether PodDisruptionBudget is enabled for this NodePool.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>maxUnavailable</b></td>
+        <td>int or string</td>
+        <td>
+          MaxUnavailable is the maximum number of pods that can be unavailable during a disruption.<br/>
+          <br/>
+            <i>Format</i>: int-or-string<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>minAvailable</b></td>
+        <td>int or string</td>
+        <td>
+          MinAvailable is the minimum number of pods that must be available during a disruption.<br/>
+          <br/>
+            <i>Format</i>: int-or-string<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>unhealthyPodEvictionPolicy</b></td>
+        <td>enum</td>
+        <td>
+          UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods.
+Requires Kubernetes 1.26+.<br/>
+          <br/>
+            <i>Enum</i>: IfHealthyBudget, AlwaysAllow<br/>
         </td>
         <td>false</td>
       </tr></tbody>
