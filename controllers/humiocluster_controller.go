@@ -191,8 +191,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.ensureValidCAIssuer,
 		r.ensureHumioClusterCACertBundle,
 		r.ensureHumioClusterKeystoreSecret,
-		r.ensureViewGroupPermissionsConfigMap,
-		r.ensureRolePermissionsConfigMap,
 		r.ensureNoIngressesIfIngressNotEnabled, // TODO: cleanupUnusedResources seems like a better place for this
 		r.ensureIngress,
 	} {
@@ -208,6 +206,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			r.ensureInitContainerPermissions,
 			r.ensureHumioNodeCertificates,
 			r.ensureExtraKafkaConfigsConfigMap,
+			r.ensureViewGroupPermissionsConfigMap,
+			r.ensureRolePermissionsConfigMap,
 			r.reconcileSinglePDB,
 		} {
 			if err := fun(ctx, hc, pool); err != nil {
@@ -453,13 +453,6 @@ func (r *HumioClusterReconciler) validateNodeCount(hc *humiov1alpha1.HumioCluste
 func (r *HumioClusterReconciler) ensureExtraKafkaConfigsConfigMap(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
 	extraKafkaConfigsConfigMapData := hnp.GetExtraKafkaConfigs()
 	if extraKafkaConfigsConfigMapData == "" {
-		extraKafkaConfigsConfigMap, err := kubernetes.GetConfigMap(ctx, r, hnp.GetExtraKafkaConfigsConfigMapName(), hc.Namespace)
-		if err == nil {
-			// TODO: refactor and move deletion to cleanupUnusedResources
-			if err = r.Delete(ctx, &extraKafkaConfigsConfigMap); err != nil {
-				r.Log.Error(err, "unable to delete extra kafka configs configmap")
-			}
-		}
 		return nil
 	}
 
@@ -555,21 +548,14 @@ func (r *HumioClusterReconciler) setImageFromSource(ctx context.Context, hnp *Hu
 
 // ensureViewGroupPermissionsConfigMap creates a configmap containing configs specified in viewGroupPermissions which will be mounted
 // into the Humio container and used by Humio's configuration option READ_GROUP_PERMISSIONS_FROM_FILE
-func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	viewGroupPermissionsConfigMapData := viewGroupPermissionsOrDefault(hc)
+func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
+	viewGroupPermissionsConfigMapData := hnp.GetViewGroupPermissions()
 	if viewGroupPermissionsConfigMapData == "" {
-		viewGroupPermissionsConfigMap, err := kubernetes.GetConfigMap(ctx, r, ViewGroupPermissionsConfigMapName(hc), hc.Namespace)
-		if err == nil {
-			// TODO: refactor and move deletion to cleanupUnusedResources
-			if err = r.Delete(ctx, &viewGroupPermissionsConfigMap); err != nil {
-				r.Log.Error(err, "unable to delete view group permissions configmap")
-			}
-		}
 		return nil
 	}
 
 	desiredConfigMap := kubernetes.ConstructViewGroupPermissionsConfigMap(
-		ViewGroupPermissionsConfigMapName(hc),
+		hnp.GetViewGroupPermissionsConfigMapName(),
 		ViewGroupPermissionsFilename,
 		viewGroupPermissionsConfigMapData,
 		hc.Name,
@@ -579,7 +565,7 @@ func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context
 		return r.logErrorAndReturn(err, "could not set controller reference")
 	}
 
-	existingConfigMap, err := kubernetes.GetConfigMap(ctx, r, ViewGroupPermissionsConfigMapName(hc), hc.Namespace)
+	existingConfigMap, err := kubernetes.GetConfigMap(ctx, r, hnp.GetViewGroupPermissionsConfigMapName(), hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			r.Log.Info(fmt.Sprintf("creating configMap: %s", desiredConfigMap.Name))
@@ -605,21 +591,14 @@ func (r *HumioClusterReconciler) ensureViewGroupPermissionsConfigMap(ctx context
 
 // ensureRolePermissionsConfigMap creates a configmap containing configs specified in rolePermissions which will be mounted
 // into the Humio container and used by Humio's configuration option READ_GROUP_PERMISSIONS_FROM_FILE
-func (r *HumioClusterReconciler) ensureRolePermissionsConfigMap(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	rolePermissionsConfigMapData := rolePermissionsOrDefault(hc)
+func (r *HumioClusterReconciler) ensureRolePermissionsConfigMap(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
+	rolePermissionsConfigMapData := hnp.GetRolePermissions()
 	if rolePermissionsConfigMapData == "" {
-		rolePermissionsConfigMap, err := kubernetes.GetConfigMap(ctx, r, RolePermissionsConfigMapName(hc), hc.Namespace)
-		if err == nil {
-			// TODO: refactor and move deletion to cleanupUnusedResources
-			if err = r.Delete(ctx, &rolePermissionsConfigMap); err != nil {
-				return fmt.Errorf("unable to delete role permissions configmap")
-			}
-		}
 		return nil
 	}
 
 	desiredConfigMap := kubernetes.ConstructRolePermissionsConfigMap(
-		RolePermissionsConfigMapName(hc),
+		hnp.GetRolePermissionsConfigMapName(),
 		RolePermissionsFilename,
 		rolePermissionsConfigMapData,
 		hc.Name,
@@ -629,7 +608,7 @@ func (r *HumioClusterReconciler) ensureRolePermissionsConfigMap(ctx context.Cont
 		return r.logErrorAndReturn(err, "could not set controller reference")
 	}
 
-	existingConfigMap, err := kubernetes.GetConfigMap(ctx, r, RolePermissionsConfigMapName(hc), hc.Namespace)
+	existingConfigMap, err := kubernetes.GetConfigMap(ctx, r, hnp.GetRolePermissionsConfigMapName(), hc.Namespace)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			r.Log.Info(fmt.Sprintf("creating configMap: %s", desiredConfigMap.Name))
@@ -2297,10 +2276,46 @@ func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx cont
 }
 
 func (r *HumioClusterReconciler) cleanupUnusedResources(ctx context.Context, hc *humiov1alpha1.HumioCluster, humioNodePools HumioNodePoolList) (reconcile.Result, error) {
-	for _, pool := range humioNodePools.Items {
-		if err := r.ensureOrphanedPvcsAreDeleted(ctx, hc, pool); err != nil {
+	for _, hnp := range humioNodePools.Items {
+		if err := r.ensureOrphanedPvcsAreDeleted(ctx, hc, hnp); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()))
+		}
+
+		if hnp.GetExtraKafkaConfigs() == "" {
+			extraKafkaConfigsConfigMap, err := kubernetes.GetConfigMap(ctx, r, hnp.GetExtraKafkaConfigsConfigMapName(), hc.Namespace)
+			if err == nil {
+				if err = r.Delete(ctx, &extraKafkaConfigsConfigMap); err != nil {
+					return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+						withMessage(err.Error()))
+				}
+			}
+		}
+	}
+
+	for _, hnp := range humioNodePools.Items {
+		if hnp.GetViewGroupPermissions() == "" {
+			viewGroupPermissionsConfigMap, err := kubernetes.GetConfigMap(ctx, r, hnp.GetViewGroupPermissionsConfigMapName(), hc.Namespace)
+			if err == nil {
+				if err = r.Delete(ctx, &viewGroupPermissionsConfigMap); err != nil {
+					return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+						withMessage(err.Error()))
+				}
+				break // only need to delete it once, since all node pools reference the same underlying configmap
+			}
+		}
+	}
+
+	for _, hnp := range humioNodePools.Items {
+		if hnp.GetRolePermissions() == "" {
+			rolePermissionsConfigMap, err := kubernetes.GetConfigMap(ctx, r, hnp.GetRolePermissionsConfigMapName(), hc.Namespace)
+			if err == nil {
+				if err = r.Delete(ctx, &rolePermissionsConfigMap); err != nil {
+					return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+						withMessage(err.Error()))
+				}
+				break // only need to delete it once, since all node pools reference the same underlying configmap
+			}
 		}
 	}
 

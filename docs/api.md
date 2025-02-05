@@ -4112,7 +4112,10 @@ access Humio<br/>
         <td><b>extraKafkaConfigs</b></td>
         <td>string</td>
         <td>
-          ExtraKafkaConfigs is a multi-line string containing kafka properties<br/>
+          ExtraKafkaConfigs is a multi-line string containing kafka properties.
+Deprecated: This underlying LogScale environment variable used by this field has been marked deprecated as of
+LogScale 1.173.0. Going forward, it is possible to provide additional Kafka configuration through a collection
+of new environment variables. For more details, see the LogScale release notes.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16148,7 +16151,10 @@ Precedence is given to more environment-specific variables, i.e. spec.environmen
         <td><b>extraKafkaConfigs</b></td>
         <td>string</td>
         <td>
-          ExtraKafkaConfigs is a multi-line string containing kafka properties<br/>
+          ExtraKafkaConfigs is a multi-line string containing kafka properties.
+Deprecated: This underlying LogScale environment variable used by this field has been marked deprecated as of
+LogScale 1.173.0. Going forward, it is possible to provide additional Kafka configuration through a collection
+of new environment variables. For more details, see the LogScale release notes.<br/>
         </td>
         <td>false</td>
       </tr><tr>

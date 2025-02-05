@@ -891,22 +891,6 @@ func (hnp *HumioNodePool) GetNodePoolFeatureAllowedAPIRequestTypes() []string {
 	return []string{NodePoolFeatureAllowedAPIRequestType}
 }
 
-func viewGroupPermissionsOrDefault(hc *humiov1alpha1.HumioCluster) string {
-	return hc.Spec.ViewGroupPermissions
-}
-
-func ViewGroupPermissionsConfigMapName(hc *humiov1alpha1.HumioCluster) string {
-	return fmt.Sprintf("%s-%s", hc.Name, viewGroupPermissionsConfigMapNameSuffix)
-}
-
-func rolePermissionsOrDefault(hc *humiov1alpha1.HumioCluster) string {
-	return hc.Spec.RolePermissions
-}
-
-func RolePermissionsConfigMapName(hc *humiov1alpha1.HumioCluster) string {
-	return fmt.Sprintf("%s-%s", hc.Name, rolePermissionsConfigMapNameSuffix)
-}
-
 func AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars []corev1.EnvVar, defaultEnvVar corev1.EnvVar) []corev1.EnvVar {
 	for _, envVar := range envVars {
 		if envVar.Name == defaultEnvVar.Name {
