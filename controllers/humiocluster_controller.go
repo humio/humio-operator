@@ -2439,9 +2439,6 @@ func (r *HumioClusterReconciler) reconcileSinglePDB(ctx context.Context, hc *hum
 // constructPDB creates a PodDisruptionBudget object for a given HumioCluster and HumioNodePool
 func (r *HumioClusterReconciler) constructPDB(hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, pdbSpec *humiov1alpha1.HumioPodDisruptionBudgetSpec) (*policyv1.PodDisruptionBudget, error) {
 	pdbName := hnp.GetPodDisruptionBudgetName() // Use GetPodDisruptionBudgetName from HumioNodePool
-	// Create and populate labels map
-	labels := kubernetes.LabelsForHumio(hc.Name)
-	labels["humio.com/node-pool"] = hnp.GetNodePoolName()
 
 	selector := &metav1.LabelSelector{
 		MatchLabels: kubernetes.MatchingLabelsForHumioNodePool(hc.Name, hnp.GetNodePoolName()),
