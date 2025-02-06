@@ -34,7 +34,13 @@ type HumioExternalClusterSpec struct {
 	//+required
 	Url string `json:"url"`
 	// APITokenSecretName is used to obtain the API token we need to use when communicating with the external Humio cluster.
-	// The secret must contain a key "token" which holds the Humio API token.
+	// It refers to a Kubernetes secret that must be located in the same namespace as the HumioExternalCluster.
+	// The humio-operator instance must be able to read the content of the Kubernetes secret.
+	// The Kubernetes secret must be of type opaque, and contain the key "token" which holds the Humio API token.
+	// Depending on the use-case it is possible to use different token types, depending on what resources it will be
+	// used to manage, e.g. HumioParser.
+	// In most cases, it is recommended to create a dedicated user within the LogScale cluster and grant the
+	// appropriate permissions to it, then use the personal API token for that user.
 	APITokenSecretName string `json:"apiTokenSecretName,omitempty"`
 	// Insecure is used to disable TLS certificate verification when communicating with Humio clusters over TLS.
 	Insecure bool `json:"insecure,omitempty"`
