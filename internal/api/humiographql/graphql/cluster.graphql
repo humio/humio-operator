@@ -19,16 +19,23 @@ query GetEvictionStatus {
                 hasDataThatExistsOnlyOnThisNode
                 leadsDigest
             }
-            evictionStatus {
-                currentlyUnderReplicatedBytes
-                totalSegmentBytes
-                isDigester
-                bytesThatExistOnlyOnThisNode
-                __typename
-            }
         }
     }
 }
+
+mutation RefreshClusterManagementStats(
+    $Vhost: Int!
+){
+    refreshClusterManagementStats(nodeId: $Vhost){
+        reasonsNodeCannotBeSafelyUnregistered {
+            isAlive
+            hasUnderReplicatedData
+            hasDataThatExistsOnlyOnThisNode
+            leadsDigest
+        }
+    }
+}
+
 
 mutation SetIsBeingEvicted(
     $Vhost: Int!
