@@ -121,6 +121,10 @@ func (h *MockClientConfig) SetIsBeingEvicted(_ context.Context, _ *humioapi.Clie
 	return nil
 }
 
+func (h *MockClientConfig) RefreshClusterManagementStats(_ context.Context, _ *humioapi.Client, _ reconcile.Request, vhost int) (*humiographql.RefreshClusterManagementStatsResponse, error) {
+	return nil, nil
+}
+
 func (h *MockClientConfig) UnregisterClusterNode(ctx context.Context, client *humioapi.Client, request reconcile.Request, i int, b bool) (*humiographql.UnregisterClusterNodeResponse, error) {
 	return &humiographql.UnregisterClusterNodeResponse{}, nil
 }

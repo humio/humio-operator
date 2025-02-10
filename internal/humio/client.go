@@ -60,6 +60,7 @@ type ClusterClient interface {
 	Status(context.Context, *humioapi.Client, reconcile.Request) (*humioapi.StatusResponse, error)
 	GetEvictionStatus(context.Context, *humioapi.Client, reconcile.Request) (*humiographql.GetEvictionStatusResponse, error)
 	SetIsBeingEvicted(context.Context, *humioapi.Client, reconcile.Request, int, bool) error
+	RefreshClusterManagementStats(context.Context, *humioapi.Client, reconcile.Request, int) (*humiographql.RefreshClusterManagementStatsResponse, error)
 	UnregisterClusterNode(context.Context, *humioapi.Client, reconcile.Request, int, bool) (*humiographql.UnregisterClusterNodeResponse, error)
 }
 
@@ -267,6 +268,17 @@ func (h *ClientConfig) SetIsBeingEvicted(ctx context.Context, client *humioapi.C
 		isBeingEvicted,
 	)
 	return err
+}
+
+// RefreshClusterManagementStats invalidates the cache and refreshes the stats related to the cluster management. This is useful for checking various cluster details,
+// such as whether a node can be safely unregistered.
+func (h *ClientConfig) RefreshClusterManagementStats(ctx context.Context, client *humioapi.Client, _ reconcile.Request, vhost int) (*humiographql.RefreshClusterManagementStatsResponse, error) {
+	response, err := humiographql.RefreshClusterManagementStats(
+		ctx,
+		client,
+		vhost,
+	)
+	return response, err
 }
 
 // UnregisterClusterNode unregisters a humio node from the cluster and can be mocked via the Client interface

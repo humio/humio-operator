@@ -315,7 +315,13 @@ func (hnp *HumioNodePool) GetEnvironmentVariablesSource() []corev1.EnvFromSource
 	return hnp.humioNodeSpec.EnvironmentVariablesSource
 }
 
+// IsDownscalingFeatureEnabled Checks if the LogScale version is >= v1.173.0 in order to use the reliable downscaling feature.
+// If the LogScale version checks out, then it returns the value of the enableDownscalingFeature feature flag from the cluster configuration
 func (hnp *HumioNodePool) IsDownscalingFeatureEnabled() bool {
+	humioVersion := HumioVersionFromString(hnp.GetImage())
+	if ok, _ := humioVersion.AtLeast(humioVersionMinimumForReliableDownscaling); !ok {
+		return false
+	}
 	return hnp.enableDownscalingFeature
 }
 
