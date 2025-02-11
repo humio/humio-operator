@@ -22,13 +22,15 @@ import (
 	"os"
 	"strings"
 
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/humio"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -40,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
+	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers"
 	//+kubebuilder:scaffold:imports
@@ -58,6 +61,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(humiov1alpha1.AddToScheme(scheme))
+	utilruntime.Must(corev1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -203,6 +207,13 @@ func main() {
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioScheduledSearch")
+		os.Exit(1)
+	}
+	if err = (&controllers.HumioPdfRenderServiceReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioPdfRenderService")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
