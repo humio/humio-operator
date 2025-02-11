@@ -1,7 +1,8 @@
 operator:
   image:
     repository: humio/humio-operator
-    tag: 0.27.1
+    # default for tag is the appVersion set in Chart.yaml
+    tag:
     pullPolicy: IfNotPresent
     pullSecrets: []
   prometheus:
