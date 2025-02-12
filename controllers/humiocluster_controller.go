@@ -1957,15 +1957,18 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 			podListForCurrentZoneWithWrongPodRevisionAndNonEmptyNodeName := FilterPodsExcludePodsWithEmptyNodeName(podListForCurrentZoneWithWrongPodRevisionOrPodHash)
 			r.Log.Info(fmt.Sprintf("zone awareness enabled, len(podListForCurrentZoneWithWrongPodRevisionOrPodHash)=%d len(podListForCurrentZoneWithWrongPodRevisionAndNonEmptyNodeName)=%d", len(podListForCurrentZoneWithWrongPodRevisionOrPodHash), len(podListForCurrentZoneWithWrongPodRevisionAndNonEmptyNodeName)))
 
-			if len(podListForCurrentZoneWithWrongPodRevisionAndNonEmptyNodeName) > 0 {
-				newZoneUnderMaintenance, err := kubernetes.GetZoneForNodeName(ctx, r, podListForCurrentZoneWithWrongPodRevisionAndNonEmptyNodeName[0].Spec.NodeName)
+			// pin the zone if we can find a non-empty zone
+			for _, pod := range podListForCurrentZoneWithWrongPodRevisionAndNonEmptyNodeName {
+				newZoneUnderMaintenance, err := kubernetes.GetZoneForNodeName(ctx, r, pod.Spec.NodeName)
 				if err != nil {
 					return reconcile.Result{}, r.logErrorAndReturn(err, "unable to fetch zone")
 				}
-				r.Log.Info(fmt.Sprintf("zone awareness enabled, pinning zone for nodePool=%s in oldZoneUnderMaintenance=%s newZoneUnderMaintenance=%s",
-					hnp.GetNodePoolName(), hnp.GetZoneUnderMaintenance(), newZoneUnderMaintenance))
-				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-					withNodePoolState(hnp.GetState(), hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), newZoneUnderMaintenance))
+				if newZoneUnderMaintenance != "" {
+					r.Log.Info(fmt.Sprintf("zone awareness enabled, pinning zone for nodePool=%s in oldZoneUnderMaintenance=%s newZoneUnderMaintenance=%s",
+						hnp.GetNodePoolName(), hnp.GetZoneUnderMaintenance(), newZoneUnderMaintenance))
+					return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+						withNodePoolState(hnp.GetState(), hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), newZoneUnderMaintenance))
+				}
 			}
 		} else {
 			// clear the zone-under-maintenance marker if no more work is left in that zone
