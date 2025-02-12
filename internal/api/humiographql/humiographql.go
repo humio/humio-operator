@@ -4954,11 +4954,18 @@ func (v *GetEvictionStatusClusterNodesClusterNode) GetReasonsNodeCannotBeSafelyU
 // A map from reasons why a node might not be able to be unregistered safely, to the boolean value indicating whether a given reason applies to this node. For a node to be unregistered without any undue disruption, none of the reasons must apply.
 type GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered struct {
 	// Stability: Long-term
+	IsAlive bool `json:"isAlive"`
+	// Stability: Long-term
 	HasUnderReplicatedData bool `json:"hasUnderReplicatedData"`
 	// Stability: Long-term
 	HasDataThatExistsOnlyOnThisNode bool `json:"hasDataThatExistsOnlyOnThisNode"`
 	// Stability: Long-term
 	LeadsDigest bool `json:"leadsDigest"`
+}
+
+// GetIsAlive returns GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered.IsAlive, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered) GetIsAlive() bool {
+	return v.IsAlive
 }
 
 // GetHasUnderReplicatedData returns GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered.HasUnderReplicatedData, and is useful for accessing the field via an interface.
@@ -15719,6 +15726,7 @@ query GetEvictionStatus {
 			id
 			isBeingEvicted
 			reasonsNodeCannotBeSafelyUnregistered {
+				isAlive
 				hasUnderReplicatedData
 				hasDataThatExistsOnlyOnThisNode
 				leadsDigest

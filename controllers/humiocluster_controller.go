@@ -2125,7 +2125,7 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 					if err := r.Delete(ctx, &pod); err != nil { // Delete pod before unregistering node
 						return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("failed to delete pod %s for vhost %d!", pod.Name, vhost))
 					}
-					for i := 0; i < waitForPodTimeoutSeconds; i++ { // Poll check for unregistering
+					if ok, _ := r.checkEvictedNodeAliveStatus(ctx, humioHttpClient, req, vhost); ok { // Poll check for unregistering
 						if _, err := r.HumioClient.UnregisterClusterNode(ctx, humioHttpClient, req, vhost, false); err != nil {
 							return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("failed to unregister vhost %d", vhost))
 						}
@@ -2144,18 +2144,58 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 	return reconcile.Result{}, nil
 }
 
-func (r *HumioClusterReconciler) checkEvictionStatusForPod(ctx context.Context, humioHttpClient *humioapi.Client, req ctrl.Request, vhost int) (bool, error) {
+func (r *HumioClusterReconciler) checkEvictedNodeAliveStatus(ctx context.Context, humioHttpClient *humioapi.Client, req ctrl.Request, vhost int) (bool, error) {
 	for i := 0; i < waitForPodTimeoutSeconds; i++ {
-		clusterManagementStatsResponse, err := r.HumioClient.RefreshClusterManagementStats(ctx, humioHttpClient, req, vhost)
+		nodesStatus, err := r.getClusterNodesStatus(ctx, humioHttpClient, req)
 		if err != nil {
 			return false, r.logErrorAndReturn(err, "could not get cluster nodes status")
 		}
-		clusterManagementStats := clusterManagementStatsResponse.GetRefreshClusterManagementStats()
-		reasonsNodeCannotBeSafelyUnregistered := clusterManagementStats.GetReasonsNodeCannotBeSafelyUnregistered()
-		if reasonsNodeCannotBeSafelyUnregistered.GetLeadsDigest() == false &&
-			reasonsNodeCannotBeSafelyUnregistered.GetHasUnderReplicatedData() == false &&
-			reasonsNodeCannotBeSafelyUnregistered.GetHasDataThatExistsOnlyOnThisNode() == false {
-			return true, nil
+		for _, node := range nodesStatus {
+			if node.GetId() == vhost {
+				reasonsNodeCannotBeSafelyUnregistered := node.GetReasonsNodeCannotBeSafelyUnregistered()
+				if reasonsNodeCannotBeSafelyUnregistered.IsAlive == false {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
+}
+
+func (r *HumioClusterReconciler) checkEvictionStatusForPodUsingClusterRefresh(ctx context.Context, humioHttpClient *humioapi.Client, req ctrl.Request, vhost int) (bool, error) {
+	clusterManagementStatsResponse, err := r.HumioClient.RefreshClusterManagementStats(ctx, humioHttpClient, req, vhost)
+	if err != nil {
+		return false, r.logErrorAndReturn(err, "could not get cluster nodes status")
+	}
+	clusterManagementStats := clusterManagementStatsResponse.GetRefreshClusterManagementStats()
+	reasonsNodeCannotBeSafelyUnregistered := clusterManagementStats.GetReasonsNodeCannotBeSafelyUnregistered()
+	if reasonsNodeCannotBeSafelyUnregistered.GetLeadsDigest() == false &&
+		reasonsNodeCannotBeSafelyUnregistered.GetHasUnderReplicatedData() == false &&
+		reasonsNodeCannotBeSafelyUnregistered.GetHasDataThatExistsOnlyOnThisNode() == false {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (r *HumioClusterReconciler) checkEvictionStatusForPod(ctx context.Context, humioHttpClient *humioapi.Client, req ctrl.Request, vhost int) (bool, error) {
+	for i := 0; i < waitForPodTimeoutSeconds; i++ {
+		nodesStatus, err := r.getClusterNodesStatus(ctx, humioHttpClient, req)
+		if err != nil {
+			return false, r.logErrorAndReturn(err, "could not get cluster nodes status")
+		}
+		for _, node := range nodesStatus {
+			if node.GetId() == vhost {
+				reasonsNodeCannotBeSafelyUnregistered := node.GetReasonsNodeCannotBeSafelyUnregistered()
+				if reasonsNodeCannotBeSafelyUnregistered.GetHasDataThatExistsOnlyOnThisNode() == false &&
+					reasonsNodeCannotBeSafelyUnregistered.GetHasUnderReplicatedData() == false &&
+					reasonsNodeCannotBeSafelyUnregistered.GetLeadsDigest() == false {
+					// if cheap check is ok, run a cache refresh check
+					if ok, _ := r.checkEvictionStatusForPodUsingClusterRefresh(ctx, humioHttpClient, req, vhost); ok {
+						return true, nil
+					}
+				}
+			}
 		}
 	}
 
