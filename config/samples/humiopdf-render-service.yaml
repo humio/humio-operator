@@ -11,6 +11,7 @@ metadata:
   annotations:
     iam.amazonaws.com/role: ''
 spec:
+  enabled: true
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -21,11 +22,11 @@ spec:
                 values:
                   - ''
   image:
-    repository: registry.dodo.eyrie.cloud:5000/cloud/cs-pdf-render-service
+    repository: my-registry.example.com/pdf-render-service
   ingress:
     enabled: true
     hosts:
-      - host: pdf-render-service-pool-main.red.dodo.eyrie.cloud
+      - host: pdf-render-service.example.com
         port: 5123
     shared:
       enabled: false

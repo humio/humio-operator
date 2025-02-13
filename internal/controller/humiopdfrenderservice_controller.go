@@ -49,6 +49,12 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// If the CR is disabled, skip reconciliation.
+	if humioPdfRenderService.Spec.Enabled != nil && !*humioPdfRenderService.Spec.Enabled {
+		logger.Info("HumioPdfRenderService is disabled, skipping reconciliation", "Name", humioPdfRenderService.Name)
+		return ctrl.Result{}, nil
+	}
+
 	// If the CR's namespace is empty, default it.
 	if humioPdfRenderService.Namespace == "" {
 		ns := r.Namespace
