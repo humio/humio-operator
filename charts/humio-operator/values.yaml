@@ -47,3 +47,6 @@ operator:
 certmanager: true
 defaultHumioCoreImage: ""
 defaultHumioHelperImage: ""
+
+ppdfRenderService:
+  enabled: true

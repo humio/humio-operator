@@ -39,6 +39,9 @@ type HumioPdfRenderServiceSpec struct {
 
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	// Enable indicates whether the PDF rendering service should be created.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// Image is the Docker image to use for the PDF rendering service.
 	Image string `json:"image"`
