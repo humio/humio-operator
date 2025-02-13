@@ -37064,6 +37064,15 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+Important: Run "make" to regenerate code after modifying this file
+Enable indicates whether the PDF rendering service should be created.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humiopdfrenderservicespecenvindex">env</a></b></td>
         <td>[]object</td>
         <td>
