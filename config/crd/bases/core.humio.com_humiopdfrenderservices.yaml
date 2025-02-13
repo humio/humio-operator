@@ -951,6 +951,12 @@ spec:
                 description: Annotations allows to specify custom annotations for
                   the pods.
                 type: object
+              enabled:
+                description: |-
+                  INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                  Important: Run "make" to regenerate code after modifying this file
+                  Enable indicates whether the PDF rendering service should be created.
+                type: boolean
               env:
                 description: Env allows to specify environment variables for the service.
                 items:
