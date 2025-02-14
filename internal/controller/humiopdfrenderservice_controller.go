@@ -203,6 +203,8 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(humioPdfRenderServ
 			Spec: corev1.PodSpec{
 				ServiceAccountName: humioPdfRenderService.Spec.ServiceAccountName,
 				Affinity:           humioPdfRenderService.Spec.Affinity,
+				SecurityContext:    humioPdfRenderService.Spec.SecurityContext,
+				ImagePullSecrets:   humioPdfRenderService.Spec.ImagePullSecrets,
 				Containers: []corev1.Container{{
 					Name:            "humio-pdf-render-service",
 					Image:           humioPdfRenderService.Spec.Image,

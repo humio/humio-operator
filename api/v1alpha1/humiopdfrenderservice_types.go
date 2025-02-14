@@ -95,6 +95,19 @@ type HumioPdfRenderServiceSpec struct {
 	// ServiceAccountName is the name of the Kubernetes Service Account to use.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// ImagePullPolicy defines the pull policy for the container image
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+
+	// ImagePullSecrets is a list of references to secrets for pulling images
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+
+	// SecurityContext defines pod-level security attributes
+	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
+
+	// ContainerSecurityContext defines container-level security attributes
+	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
+
 }
 
 // HumioPdfRenderServiceIngressSpec defines the desired state of the Ingress.
