@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22.2'
+          go-version: '1.23.6'
       - name: cleanup kind
         run: |
           curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
