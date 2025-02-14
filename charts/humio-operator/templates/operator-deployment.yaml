@@ -95,3 +95,21 @@ spec:
           capabilities:
             drop:
             - ALL
+
+{{- if .Values.pdfRenderService.enabled }}
+---
+apiVersion: core.humio.com/v1alpha1
+kind: HumioPdfRenderService
+metadata:
+  labels:
+    app.kubernetes.io/name: humiopdfrenderservice
+    app.kubernetes.io/instance: {{ .Release.Name }}-humiopdfrenderservice
+    app.kubernetes.io/part-of: humio-operator
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/created-by: humio-operator
+  name: {{ .Release.Name }}-humiopdfrenderservice
+spec:
+  enabled: {{ .Values.pdfRenderService.enabled }}
+  image: "{{ .Values.pdfRenderService.image.repository }}:{{ .Values.pdfRenderService.image.tag }}"
+  replicas: 1
+{{- end }}
