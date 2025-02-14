@@ -1,9 +1,9 @@
 operator:
   image:
-    repository: humio/humio-operator
+    repository: 471112840547.dkr.ecr.us-west-2.amazonaws.com/humio-operator
     # default for tag is the appVersion set in Chart.yaml
-    tag:
-    pullPolicy: IfNotPresent
+    tag: latest
+    pullPolicy: Always
     pullSecrets: []
   metrics:
     enabled: true
@@ -38,7 +38,7 @@ operator:
           - key: kubernetes.io/arch
             operator: In
             values:
-            - amd64
+              - amd64
           - key: kubernetes.io/os
             operator: In
             values:
@@ -51,9 +51,8 @@ defaultHumioHelperImage: ""
 pdfRenderService:
   enabled: true
   name: pdf-render-service
-  port: 5123
   image:
-    repository: my-registry.example.com/pdf-render-service
+    repository: humio/pdf-render-service:0.0.59--build-98--sha-b2bfadbc14733ce3ae1153d555148ee4f3a64013
     tag: "latest"
     pullPolicy: IfNotPresent
     pullSecrets: []
@@ -72,7 +71,7 @@ pdfRenderService:
   ingress:
     enabled: true
     hosts:
-      - host: pdf-render-service.example.com
+      - host: pdf-render-service
         port: 5123
     shared:
       enabled: false
@@ -91,7 +90,6 @@ pdfRenderService:
       failureThreshold: 1
       httpGet:
         path: /ready
-        port: 5123
         scheme: HTTP
       initialDelaySeconds: 30
       periodSeconds: 15
