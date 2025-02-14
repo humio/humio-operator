@@ -1,9 +1,9 @@
 operator:
   image:
-    repository: humio/humio-operator
+    repository: 471112840547.dkr.ecr.us-west-2.amazonaws.com/humio-operator
     # default for tag is the appVersion set in Chart.yaml
-    tag:
-    pullPolicy: IfNotPresent
+    tag: latest
+    pullPolicy: Always
     pullSecrets: []
   metrics:
     enabled: true
@@ -38,7 +38,7 @@ operator:
           - key: kubernetes.io/arch
             operator: In
             values:
-            - amd64
+              - amd64
           - key: kubernetes.io/os
             operator: In
             values:
@@ -47,4 +47,3 @@ operator:
 certmanager: true
 defaultHumioCoreImage: ""
 defaultHumioHelperImage: ""
-
