@@ -1,6 +1,6 @@
 module github.com/humio/humio-operator
 
-go 1.22
+go 1.23
 
 require (
 	github.com/Khan/genqlient v0.7.0

@@ -1,6 +1,6 @@
 module github.com/humio/humio-operator/images/helper
 
-go 1.22
+go 1.23
 
 require (
 	k8s.io/api v0.29.5
