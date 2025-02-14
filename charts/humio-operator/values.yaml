@@ -47,4 +47,4 @@ operator:
 certmanager: true
 defaultHumioCoreImage: ""
 defaultHumioHelperImage: ""
-defaultHumioHelperImageManaged: ""
+
