@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
 	"time"
 
 	"github.com/humio/humio-operator/internal/helpers"
@@ -111,7 +112,7 @@ var _ = BeforeSuite(func() {
 	} else {
 		testTimeout = time.Second * 30
 		testEnv = &envtest.Environment{
-			// TODO: If we want to add support for TLS-functionality, we need to install cert-manager's CRD's
+			// TODO: If we want to add support for TLS-functionality, we need to install cert-manager's CRDs
 			CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 			ErrorIfCRDPathMissing: true,
 		}
@@ -235,6 +236,22 @@ var _ = BeforeSuite(func() {
 		HumioClient: humioClient,
 		BaseLogger:  log,
 		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.HumioPdfRenderServiceReconciler{
+		Client:    k8sManager.GetClient(),
+		Scheme:    k8sManager.GetScheme(),
+		Log:       log,
+		Namespace: clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.HumioPdfRenderServiceReconciler{
+		Client:    k8sManager.GetClient(),
+		Scheme:    k8sManager.GetScheme(),
+		Log:       log,
+		Namespace: clusterKey.Namespace,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -376,8 +393,6 @@ var _ = AfterSuite(func() {
 		Expect(k8sClient.Get(context.Background(), clusterKey, cluster)).Should(Succeed())
 		Expect(cluster.GetGeneration()).ShouldNot(BeNumerically(">", 100))
 
-		suite.CleanupCluster(context.TODO(), k8sClient, cluster)
-
 		if suite.UseDockerCredentials() {
 			By(fmt.Sprintf("Removing regcred secret for namespace: %s", testNamespace.Name))
 			Expect(k8sClient.Delete(context.TODO(), &corev1.Secret{
@@ -387,6 +402,8 @@ var _ = AfterSuite(func() {
 				},
 			})).To(Succeed())
 		}
+
+		suite.CleanupCluster(context.TODO(), k8sClient, cluster)
 
 		if testNamespace.Name != "" && !helpers.UseEnvtest() && helpers.PreserveKindCluster() {
 			By(fmt.Sprintf("Removing test namespace: %s", clusterKey.Namespace))
