@@ -48,5 +48,64 @@ certmanager: true
 defaultHumioCoreImage: ""
 defaultHumioHelperImage: ""
 
-ppdfRenderService:
+pdfRenderService:
   enabled: true
+  name: pdf-render-service
+  port: 5123
+  image:
+    repository: my-registry.example.com/pdf-render-service
+    tag: "latest"
+    pullPolicy: IfNotPresent
+    pullSecrets: []
+  annotations:
+    iam.amazonaws.com/role: ""
+  app: pdf-render-service
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/restricted-egress
+                operator: In
+                values:
+                  - ""
+  ingress:
+    enabled: true
+    hosts:
+      - host: pdf-render-service.example.com
+        port: 5123
+    shared:
+      enabled: false
+  probes:
+    livenessProbe:
+      failureThreshold: 5
+      httpGet:
+        path: /health
+        port: 5123
+        scheme: HTTP
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      successThreshold: 1
+      timeoutSeconds: 60
+    readinessProbe:
+      failureThreshold: 1
+      httpGet:
+        path: /ready
+        port: 5123
+        scheme: HTTP
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      successThreshold: 1
+      timeoutSeconds: 60
+  resources:
+    limits:
+      cpu: 4
+      memory: 2Gi
+    requests:
+      cpu: 4
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    ports:
+      - name: http
+        port: 5123
