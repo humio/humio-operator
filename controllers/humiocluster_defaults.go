@@ -22,13 +22,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/humio/humio-operator/internal/helpers"
-	"github.com/humio/humio-operator/internal/kubernetes"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/controllers/versions"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -84,6 +83,7 @@ type HumioNodePool struct {
 	desiredPodRevision        int
 	desiredPodHash            string
 	desiredBootstrapTokenHash string
+	podDisruptionBudget       *humiov1alpha1.HumioPodDisruptionBudgetSpec
 }
 
 func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioNodePool {
@@ -104,12 +104,13 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 	}
 
 	return &HumioNodePool{
-		namespace:        hc.Namespace,
-		clusterName:      hc.Name,
-		hostname:         hc.Spec.Hostname,
-		esHostname:       hc.Spec.ESHostname,
-		hostnameSource:   hc.Spec.HostnameSource,
-		esHostnameSource: hc.Spec.ESHostnameSource,
+		namespace:           hc.Namespace,
+		clusterName:         hc.Name,
+		hostname:            hc.Spec.Hostname,
+		esHostname:          hc.Spec.ESHostname,
+		hostnameSource:      hc.Spec.HostnameSource,
+		esHostnameSource:    hc.Spec.ESHostnameSource,
+		podDisruptionBudget: hc.Spec.PodDisruptionBudget,
 		humioNodeSpec: humiov1alpha1.HumioNodeSpec{
 			Image:     hc.Spec.Image,
 			NodeCount: hc.Spec.NodeCount,
@@ -323,6 +324,14 @@ func (hnp *HumioNodePool) IsDownscalingFeatureEnabled() bool {
 		return false
 	}
 	return hnp.enableDownscalingFeature
+}
+
+func (hnp *HumioNodePool) GetPodDisruptionBudget() *humiov1alpha1.HumioPodDisruptionBudgetSpec {
+	return hnp.podDisruptionBudget
+}
+
+func (hnp *HumioNodePool) GetPodDisruptionBudgetName() string {
+	return fmt.Sprintf("%s-pdb", hnp.GetNodePoolName())
 }
 
 func (hnp *HumioNodePool) GetTargetReplicationFactor() int {
@@ -893,22 +902,6 @@ func (hnp *HumioNodePool) GetNodePoolFeatureAllowedAPIRequestTypes() []string {
 		return *hnp.humioNodeSpec.NodePoolFeatures.AllowedAPIRequestTypes
 	}
 	return []string{NodePoolFeatureAllowedAPIRequestType}
-}
-
-func viewGroupPermissionsOrDefault(hc *humiov1alpha1.HumioCluster) string {
-	return hc.Spec.ViewGroupPermissions
-}
-
-func ViewGroupPermissionsConfigMapName(hc *humiov1alpha1.HumioCluster) string {
-	return fmt.Sprintf("%s-%s", hc.Name, viewGroupPermissionsConfigMapNameSuffix)
-}
-
-func rolePermissionsOrDefault(hc *humiov1alpha1.HumioCluster) string {
-	return hc.Spec.RolePermissions
-}
-
-func RolePermissionsConfigMapName(hc *humiov1alpha1.HumioCluster) string {
-	return fmt.Sprintf("%s-%s", hc.Name, rolePermissionsConfigMapNameSuffix)
 }
 
 func AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars []corev1.EnvVar, defaultEnvVar corev1.EnvVar) []corev1.EnvVar {
