@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: 'humio-operator'
     app.kubernetes.io/instance: 'humio-operator'
     app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.26.1'
+    helm.sh/chart: 'humio-operator-0.27.2'
 spec:
   group: core.humio.com
   names:
@@ -54,7 +54,13 @@ spec:
               apiTokenSecretName:
                 description: |-
                   APITokenSecretName is used to obtain the API token we need to use when communicating with the external Humio cluster.
-                  The secret must contain a key "token" which holds the Humio API token.
+                  It refers to a Kubernetes secret that must be located in the same namespace as the HumioExternalCluster.
+                  The humio-operator instance must be able to read the content of the Kubernetes secret.
+                  The Kubernetes secret must be of type opaque, and contain the key "token" which holds the Humio API token.
+                  Depending on the use-case it is possible to use different token types, depending on what resources it will be
+                  used to manage, e.g. HumioParser.
+                  In most cases, it is recommended to create a dedicated user within the LogScale cluster and grant the
+                  appropriate permissions to it, then use the personal API token for that user.
                 type: string
               caSecretName:
                 description: |-
