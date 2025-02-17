@@ -248,7 +248,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// create pods if needed
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
-			if result, err := r.ensurePodsExist(ctx, hc, pool, req); result != emptyResult || err != nil {
+			if result, err := r.ensurePodsExist(ctx, hc, pool); result != emptyResult || err != nil {
 				if err != nil {
 					_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 						withMessage(err.Error()))
@@ -304,6 +304,21 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			_, _ = r.updateStatus(ctx, r.Client.Status(), hc, opts.withVersion(status.Version))
 		}
 	}(ctx, r.HumioClient, hc)
+
+	// downscale cluster if needed
+	// Feature is only available for LogScale versions >= v1.173.0
+	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
+		// Check if downscaling feature flag is enabled
+		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) && pool.IsDownscalingFeatureEnabled() {
+			if result, err := r.processDownscaling(ctx, hc, pool, req); result != emptyResult || err != nil {
+				if err != nil {
+					_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+						withMessage(err.Error()))
+				}
+				return result, err
+			}
+		}
+	}
 
 	// clean up various k8s objects we no longer need
 	if result, err := r.cleanupUnusedResources(ctx, hc, humioNodePools); result != emptyResult || err != nil {
@@ -2044,7 +2059,7 @@ func (r *HumioClusterReconciler) ingressesMatch(ingress *networkingv1.Ingress, d
 	return true
 }
 
-func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, req ctrl.Request) (reconcile.Result, error) {
+func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (reconcile.Result, error) {
 	// Ensure we have pods for the defined NodeCount.
 
 	// Exclude pods that are currently being evicted --> Ensures K8s keeps track of the pods waiting for eviction and doesn't remove pods continuously
@@ -2083,72 +2098,85 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// Feature is only available for LogScale versions >= v1.173.0
+	return reconcile.Result{}, nil
+}
+
+func (r *HumioClusterReconciler) processDownscaling(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, req ctrl.Request) (reconcile.Result, error) {
+	labelsToMatch := hnp.GetNodePoolLabels()
+	labelsToMatch[kubernetes.PodMarkedForDataEviction] = "false"
+	podsNotMarkedForEviction, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), labelsToMatch)
+	if err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods")
+	}
+
+	labelsToMatch[kubernetes.PodMarkedForDataEviction] = "true"
+	podsMarkedForEviction, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), labelsToMatch)
+	if err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods")
+	}
+
+	clusterConfig, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
+	if err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not create a cluster config for the http client.")
+	}
+	humioHttpClient := r.HumioClient.GetHumioHttpClient(clusterConfig.Config(), req)
+
+	// remove lingering nodes
+	for _, vhost := range hc.Status.EvictedNodeIds {
+		err = r.unregisterNode(ctx, hc, humioHttpClient, req, vhost)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	// If there are more pods than specified, evict pod
-	if hnp.IsDownscalingFeatureEnabled() {
-		labelsToMatch[kubernetes.PodMarkedForDataEviction] = "true"
-		podsMarkedForEviction, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), labelsToMatch)
+	if len(podsNotMarkedForEviction) > hnp.GetNodeCount() && len(podsMarkedForEviction) == 0 { // mark a single pod, to slowly reduce the node count.
+		err := r.markPodForEviction(ctx, hc, req, podsNotMarkedForEviction, hnp.GetNodePoolName())
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods")
+			return reconcile.Result{}, err
 		}
+	}
 
-		if len(podsNotMarkedForEviction) > hnp.GetNodeCount() && len(podsMarkedForEviction) == 0 { // mark a single pod, to slowly reduce the node count.
-			err := r.markPodForEviction(ctx, hc, req, podsNotMarkedForEviction, hnp.GetNodePoolName())
+	// if there are pods marked for eviction
+	if len(podsMarkedForEviction) > 0 {
+		// check the eviction process
+		for _, pod := range podsMarkedForEviction {
+			vhostStr := pod.Annotations[kubernetes.LogScaleClusterVhost]
+			vhost, err := strconv.Atoi(vhostStr)
+			if err != nil {
+				return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("could not parse vhost from annotation %s", vhostStr))
+			}
+			nodeCanBeSafelyUnregistered, err := r.checkEvictionStatusForPod(ctx, humioHttpClient, req, vhost)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-		}
-
-		clusterConfig, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not create a cluster config for the http client.")
-		}
-		humioHttpClient := r.HumioClient.GetHumioHttpClient(clusterConfig.Config(), req)
-
-		// remove lingering nodes
-		for vhost := range hc.Status.EvictedNodeIds {
-			err = r.unregisterNode(ctx, hc, humioHttpClient, req, vhost)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-		}
-
-		// if there are pods marked for eviction
-		if len(podsMarkedForEviction) > 0 {
-			// check the eviction process
-			for _, pod := range podsMarkedForEviction {
-				vhostStr := pod.Annotations[kubernetes.LogScaleClusterVhost]
-				vhost, err := strconv.Atoi(vhostStr)
+			if nodeCanBeSafelyUnregistered {
+				r.Log.Info(fmt.Sprintf("successfully evicted data from vhost %d", vhost))
+				hc.Status.EvictedNodeIds = append(hc.Status.EvictedNodeIds, vhost) // keep track of the evicted node for unregistering
+				err = r.Status().Update(ctx, hc)
 				if err != nil {
-					return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("could not parse vhost from annotation %s", vhostStr))
+					r.Log.Error(err, "failed to update cluster status")
+					return reconcile.Result{}, err
 				}
-				nodeCanBeSafelyUnregistered, err := r.checkEvictionStatusForPod(ctx, humioHttpClient, req, vhost)
+				r.Log.Info(fmt.Sprintf("removing pod %s containing vhost %d", pod.Name, vhost))
+				if err := r.Delete(ctx, &pod); err != nil { // delete pod before unregistering node
+					return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("failed to delete pod %s for vhost %d!", pod.Name, vhost))
+				}
+				humioClusterPrometheusMetrics.Counters.PodsDeleted.Inc()
+				err = r.unregisterNode(ctx, hc, humioHttpClient, req, vhost)
 				if err != nil {
 					return reconcile.Result{}, err
 				}
-				if nodeCanBeSafelyUnregistered {
-					r.Log.Info(fmt.Sprintf("successfully evicted data from vhost %d", vhost))
-					hc.Status.EvictedNodeIds = append(hc.Status.EvictedNodeIds, vhost) // keep track of the evicted node for unregistering
-					r.Log.Info(fmt.Sprintf("removing pod %s containing vhost %d", pod.Name, vhost))
-					if err := r.Delete(ctx, &pod); err != nil { // delete pod before unregistering node
-						return reconcile.Result{}, r.logErrorAndReturn(err, fmt.Sprintf("failed to delete pod %s for vhost %d!", pod.Name, vhost))
-					}
-					humioClusterPrometheusMetrics.Counters.PodsDeleted.Inc()
-					err = r.unregisterNode(ctx, hc, humioHttpClient, req, vhost)
-					if err != nil {
-						return reconcile.Result{}, err
-					}
-				}
 			}
-			// if there are pods still being evicted
-			podsMarkedForEviction, err = kubernetes.ListPods(ctx, r, hnp.GetNamespace(), labelsToMatch)
-			if err != nil {
-				return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods")
-			}
-			if len(podsMarkedForEviction) > 0 {
-				// requeue eviction check for 60 seconds
-				return reconcile.Result{RequeueAfter: time.Second * 60}, nil
-			}
+		}
+		// if there are pods still being evicted
+		podsMarkedForEviction, err = kubernetes.ListPods(ctx, r, hnp.GetNamespace(), labelsToMatch)
+		if err != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods")
+		}
+		if len(podsMarkedForEviction) > 0 {
+			// requeue eviction check for 60 seconds
+			return reconcile.Result{RequeueAfter: time.Second * 60}, nil
 		}
 	}
 	// check for pods currently being evicted ---> check the eviction status --> if evicted --> remove node --> else, requeue
@@ -2157,14 +2185,55 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 
 func (r *HumioClusterReconciler) unregisterNode(ctx context.Context, hc *humiov1alpha1.HumioCluster, humioHttpClient *humioapi.Client, req ctrl.Request, vhost int) error {
 	r.Log.Info(fmt.Sprintf("unregistering vhost %d", vhost))
+	if registered, _ := r.isNodeRegistered(ctx, humioHttpClient, req, vhost); !registered {
+		r.Log.Info(fmt.Sprintf("vhost %d is already unregistered", vhost))
+		hc.Status.EvictedNodeIds = RemoveIntFromSlice(hc.Status.EvictedNodeIds, vhost) // remove unregistered node from the status list
+		err := r.Status().Update(ctx, hc)
+		if err != nil {
+			r.Log.Error(err, "failed to update cluster status")
+			return err
+		}
+		return nil
+	}
+
 	if alive, _ := r.isEvictedNodeAlive(ctx, humioHttpClient, req, vhost); !alive { // poll check for unregistering
-		if _, err := r.HumioClient.UnregisterClusterNode(ctx, humioHttpClient, req, vhost, false); err != nil {
+		rawResponse, err := r.HumioClient.UnregisterClusterNode(ctx, humioHttpClient, req, vhost, false)
+		if err != nil {
 			return r.logErrorAndReturn(err, fmt.Sprintf("failed to unregister vhost %d", vhost))
 		}
+		response := rawResponse.GetClusterUnregisterNode()
+		cluster := response.GetCluster()
+		nodes := cluster.GetNodes()
+
+		for _, node := range nodes { // check if node still exists
+			if node.GetId() == vhost {
+				r.Log.Info(fmt.Sprintf("could not unregister vhost %d. Retrying...", vhost))
+				return nil
+			}
+		}
+
 		hc.Status.EvictedNodeIds = RemoveIntFromSlice(hc.Status.EvictedNodeIds, vhost) // remove unregistered node from the status list
-		r.Log.Info(fmt.Sprintf("Successfully unregistered vhost %d", vhost))
+		err = r.Status().Update(ctx, hc)
+		if err != nil {
+			r.Log.Error(err, "failed to update cluster status")
+			return err
+		}
+		r.Log.Info(fmt.Sprintf("successfully unregistered vhost %d", vhost))
 	}
 	return nil
+}
+
+func (r *HumioClusterReconciler) isNodeRegistered(ctx context.Context, humioHttpClient *humioapi.Client, req ctrl.Request, vhost int) (bool, error) {
+	nodesStatus, err := r.getClusterNodesStatus(ctx, humioHttpClient, req)
+	if err != nil {
+		return false, r.logErrorAndReturn(err, "could not get cluster nodes status")
+	}
+	for _, node := range nodesStatus {
+		if node.GetId() == vhost {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (r *HumioClusterReconciler) isEvictedNodeAlive(ctx context.Context, humioHttpClient *humioapi.Client, req ctrl.Request, vhost int) (bool, error) {

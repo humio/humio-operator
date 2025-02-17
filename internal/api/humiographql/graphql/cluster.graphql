@@ -56,8 +56,6 @@ mutation UnregisterClusterNode(
         cluster {
             nodes {
                 id
-                zone
-                isBeingEvicted
             }
         }
     }

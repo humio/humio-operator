@@ -11572,26 +11572,11 @@ func (v *UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationCluster
 type UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode struct {
 	// Stability: Long-term
 	Id int `json:"id"`
-	// Stability: Long-term
-	Zone *string `json:"zone"`
-	// A flag indicating whether the node is marked for eviction. The Falcon LogScale cluster will start to move segments, digesters and queries away from any node marked for eviction
-	// Stability: Long-term
-	IsBeingEvicted *bool `json:"isBeingEvicted"`
 }
 
 // GetId returns UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode.Id, and is useful for accessing the field via an interface.
 func (v *UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode) GetId() int {
 	return v.Id
-}
-
-// GetZone returns UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode.Zone, and is useful for accessing the field via an interface.
-func (v *UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode) GetZone() *string {
-	return v.Zone
-}
-
-// GetIsBeingEvicted returns UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode.IsBeingEvicted, and is useful for accessing the field via an interface.
-func (v *UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode) GetIsBeingEvicted() *bool {
-	return v.IsBeingEvicted
 }
 
 // UnregisterClusterNodeResponse is returned by UnregisterClusterNode on success.
@@ -16870,8 +16855,6 @@ mutation UnregisterClusterNode ($NodeId: Int!, $Force: Boolean!) {
 		cluster {
 			nodes {
 				id
-				zone
-				isBeingEvicted
 			}
 		}
 	}

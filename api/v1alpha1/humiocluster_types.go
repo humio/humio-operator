@@ -57,6 +57,7 @@ type HumioClusterSpec struct {
 	// EnableDownscalingFeature (PREVIEW) is a feature flag for enabling the downscaling functionality of the humio operator for this humio cluster.
 	// Default: false
 	// Preview: this feature is in a preview state
+	//+kubebuilder:default=false
 	EnableDownscalingFeature bool `json:"enableDownscalingFeature,omitempty"`
 	// TargetReplicationFactor is the desired number of replicas of both storage and ingest partitions
 	TargetReplicationFactor int `json:"targetReplicationFactor,omitempty"`
