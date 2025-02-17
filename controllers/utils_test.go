@@ -65,3 +65,48 @@ func TestGetKeyWithHighestValue(t *testing.T) {
 	processGenericMapTestCase(t, stringIntTests)
 	processGenericMapTestCase(t, intFloat)
 }
+
+func TestRemoveIntFromSlice(t *testing.T) {
+	testSuite := []struct {
+		name     string
+		slice    []int
+		value    int
+		expected []int
+	}{
+		{
+			name:     "Single-value test",
+			slice:    []int{1, 2, 3},
+			value:    1,
+			expected: []int{2, 3},
+		},
+		{
+			name:     "Missing value test",
+			slice:    []int{1, 2, 3},
+			value:    4,
+			expected: []int{1, 2, 3},
+		},
+		{
+			name:     "Multiple entries test",
+			slice:    []int{1, 2, 3, 2},
+			value:    2,
+			expected: []int{1, 3},
+		},
+		{
+			name:     "Empty slice test",
+			slice:    []int{},
+			value:    1,
+			expected: []int{},
+		},
+	}
+
+	for _, test := range testSuite {
+		t.Run(test.name, func(t *testing.T) {
+			result := RemoveIntFromSlice(test.slice, test.value)
+			for i := range test.expected {
+				if test.expected[i] != result[i] {
+					t.Errorf("Expected value: %v, got: %v", test.expected[i], result[i])
+				}
+			}
+		})
+	}
+}
