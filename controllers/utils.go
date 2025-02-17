@@ -49,3 +49,13 @@ func GetPodNameFromNodeUri(uri string) (string, error) {
 	}
 	return parts[0], nil
 }
+
+func RemoveIntFromSlice(slice []int, value int) []int {
+	var result []int
+	for _, v := range slice {
+		if v != value {
+			result = append(result, v)
+		}
+	}
+	return result
+}
