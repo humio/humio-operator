@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: 'humio-operator'
     app.kubernetes.io/instance: 'humio-operator'
     app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.26.1'
+    helm.sh/chart: 'humio-operator-0.27.2'
 spec:
   group: core.humio.com
   names:
@@ -54,6 +54,7 @@ spec:
                   recipients:
                     items:
                       type: string
+                    minItems: 1
                     type: array
                   subjectTemplate:
                     type: string
@@ -241,8 +242,10 @@ spec:
                   fields:
                     additionalProperties:
                       type: string
+                    default: {}
                     type: object
                   useProxy:
+                    default: false
                     type: boolean
                 type: object
               slackProperties:
@@ -356,6 +359,7 @@ spec:
                   method:
                     type: string
                   secretHeaders:
+                    default: []
                     description: |-
                       SecretHeaders specifies what HTTP headers to use and where to fetch the values from.
                       If both Headers and SecretHeaders are specified, they will be merged together.

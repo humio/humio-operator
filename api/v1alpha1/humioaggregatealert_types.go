@@ -64,6 +64,7 @@ type HumioAggregateAlertSpec struct {
 	// Aggregate Alert trigger mode
 	TriggerMode string `json:"triggerMode,omitempty"`
 	// Enabled will set the AggregateAlert to enabled when set to true
+	//+kubebuilder:default=false
 	Enabled bool `json:"enabled,omitempty"`
 	// Actions is the list of Humio Actions by name that will be triggered by this Aggregate alert
 	Actions []string `json:"actions"`

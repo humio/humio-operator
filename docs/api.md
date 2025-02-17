@@ -637,6 +637,8 @@ If both ApiToken and ApiTokenSource are specified, ApiToken will be used.<br/>
         <td>map[string]string</td>
         <td>
           <br/>
+          <br/>
+            <i>Default</i>: map[]<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -644,6 +646,8 @@ If both ApiToken and ApiTokenSource are specified, ApiToken will be used.<br/>
         <td>boolean</td>
         <td>
           <br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1014,6 +1018,8 @@ If both Headers and SecretHeaders are specified, they will be merged together.<b
         <td>
           SecretHeaders specifies what HTTP headers to use and where to fetch the values from.
 If both Headers and SecretHeaders are specified, they will be merged together.<br/>
+          <br/>
+            <i>Default</i>: []<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1354,6 +1360,8 @@ HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert
         <td>boolean</td>
         <td>
           Enabled will set the AggregateAlert to enabled when set to true<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4056,6 +4064,8 @@ Otherwise, use the built in default startup probe configuration.<br/>
         <td>
           DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
 This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4113,7 +4123,10 @@ access Humio<br/>
         <td><b>extraKafkaConfigs</b></td>
         <td>string</td>
         <td>
-          ExtraKafkaConfigs is a multi-line string containing kafka properties<br/>
+          ExtraKafkaConfigs is a multi-line string containing kafka properties.
+Deprecated: This underlying LogScale environment variable used by this field has been marked deprecated as of
+LogScale 1.173.0. Going forward, it is possible to provide additional Kafka configuration through a collection
+of new environment variables. For more details, see the LogScale release notes.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4321,6 +4334,13 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humioclusterspecpoddisruptionbudget">podDisruptionBudget</a></b></td>
+        <td>object</td>
+        <td>
+          PodDisruptionBudget defines the PDB configuration for this node spec<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>podLabels</b></td>
         <td>map[string]string</td>
         <td>
@@ -4339,6 +4359,8 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         <td>string</td>
         <td>
           PriorityClassName is the name of the priority class that will be used by the Humio pods<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15852,6 +15874,8 @@ Ingress is used to set up ingress-related objects in order to reach Humio extern
         <td>
           Enabled enables the logic for the Humio operator to create ingress-related objects. Requires one of the following
 to be set: spec.hostname, spec.hostnameSource, spec.esHostname or spec.esHostnameSource<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16105,6 +16129,8 @@ Otherwise, use the built in default startup probe configuration.<br/>
         <td>
           DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
 This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16136,7 +16162,10 @@ Precedence is given to more environment-specific variables, i.e. spec.environmen
         <td><b>extraKafkaConfigs</b></td>
         <td>string</td>
         <td>
-          ExtraKafkaConfigs is a multi-line string containing kafka properties<br/>
+          ExtraKafkaConfigs is a multi-line string containing kafka properties.
+Deprecated: This underlying LogScale environment variable used by this field has been marked deprecated as of
+LogScale 1.173.0. Going forward, it is possible to provide additional Kafka configuration through a collection
+of new environment variables. For more details, see the LogScale release notes.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16279,6 +16308,13 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humioclusterspecnodepoolsindexspecpoddisruptionbudget">podDisruptionBudget</a></b></td>
+        <td>object</td>
+        <td>
+          PodDisruptionBudget defines the PDB configuration for this node spec<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>podLabels</b></td>
         <td>map[string]string</td>
         <td>
@@ -16297,6 +16333,8 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         <td>string</td>
         <td>
           PriorityClassName is the name of the priority class that will be used by the Humio pods<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -27362,6 +27400,61 @@ OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request ty
 </table>
 
 
+### HumioCluster.spec.nodePools[index].spec.podDisruptionBudget
+<sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspec)</sup></sup>
+
+
+
+PodDisruptionBudget defines the PDB configuration for this node spec
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled indicates whether PodDisruptionBudget is enabled for this NodePool.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>maxUnavailable</b></td>
+        <td>int or string</td>
+        <td>
+          MaxUnavailable is the maximum number of pods that can be unavailable during a disruption.<br/>
+          <br/>
+            <i>Format</i>: int-or-string<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>minAvailable</b></td>
+        <td>int or string</td>
+        <td>
+          MinAvailable is the minimum number of pods that must be available during a disruption.<br/>
+          <br/>
+            <i>Format</i>: int-or-string<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>unhealthyPodEvictionPolicy</b></td>
+        <td>enum</td>
+        <td>
+          UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods.
+Requires Kubernetes 1.26+.<br/>
+          <br/>
+            <i>Enum</i>: IfHealthyBudget, AlwaysAllow<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### HumioCluster.spec.nodePools[index].spec.podSecurityContext
 <sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspec)</sup></sup>
 
@@ -30923,8 +31016,9 @@ Zone awareness is enabled by default.<br/>
         <td>int or string</td>
         <td>
           MaxUnavailable is the maximum number of pods that can be unavailable during a rolling update.
-This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".
-By default, the max unavailable pods is 1.<br/>
+This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".<br/>
+          <br/>
+            <i>Default</i>: 1<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -30960,6 +31054,61 @@ When set to RollingUpdateBestEffort, the operator will evaluate the Humio versio
 Humio pods can be updated in a rolling fashion or if they must be replaced at the same time.<br/>
           <br/>
             <i>Enum</i>: OnDelete, RollingUpdate, ReplaceAllOnUpdate, RollingUpdateBestEffort<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.podDisruptionBudget
+<sup><sup>[↩ Parent](#humioclusterspec)</sup></sup>
+
+
+
+PodDisruptionBudget defines the PDB configuration for this node spec
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled indicates whether PodDisruptionBudget is enabled for this NodePool.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>maxUnavailable</b></td>
+        <td>int or string</td>
+        <td>
+          MaxUnavailable is the maximum number of pods that can be unavailable during a disruption.<br/>
+          <br/>
+            <i>Format</i>: int-or-string<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>minAvailable</b></td>
+        <td>int or string</td>
+        <td>
+          MinAvailable is the minimum number of pods that must be available during a disruption.<br/>
+          <br/>
+            <i>Format</i>: int-or-string<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>unhealthyPodEvictionPolicy</b></td>
+        <td>enum</td>
+        <td>
+          UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods.
+Requires Kubernetes 1.26+.<br/>
+          <br/>
+            <i>Enum</i>: IfHealthyBudget, AlwaysAllow<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -34568,8 +34717,9 @@ Zone awareness is enabled by default.<br/>
         <td>int or string</td>
         <td>
           MaxUnavailable is the maximum number of pods that can be unavailable during a rolling update.
-This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".
-By default, the max unavailable pods is 1.<br/>
+This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".<br/>
+          <br/>
+            <i>Default</i>: 1<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -34920,7 +35070,13 @@ HumioExternalClusterSpec defines the desired state of HumioExternalCluster
         <td>string</td>
         <td>
           APITokenSecretName is used to obtain the API token we need to use when communicating with the external Humio cluster.
-The secret must contain a key "token" which holds the Humio API token.<br/>
+It refers to a Kubernetes secret that must be located in the same namespace as the HumioExternalCluster.
+The humio-operator instance must be able to read the content of the Kubernetes secret.
+The Kubernetes secret must be of type opaque, and contain the key "token" which holds the Humio API token.
+Depending on the use-case it is possible to use different token types, depending on what resources it will be
+used to manage, e.g. HumioParser.
+In most cases, it is recommended to create a dedicated user within the LogScale cluster and grant the
+appropriate permissions to it, then use the personal API token for that user.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -35085,6 +35241,8 @@ HumioFilterAlertSpec defines the desired state of HumioFilterAlert
         <td>boolean</td>
         <td>
           Enabled will set the FilterAlert to enabled when set to true<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -35816,6 +35974,8 @@ HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch
         <td>boolean</td>
         <td>
           Enabled will set the ScheduledSearch to enabled when set to true<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>

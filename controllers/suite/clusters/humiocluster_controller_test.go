@@ -18,6 +18,7 @@ package clusters
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -35,10 +36,12 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -2880,8 +2883,24 @@ var _ = Describe("HumioCluster Controller", func() {
 			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetExtraKafkaConfigsConfigMapName(), key.Namespace)
 			Expect(configMap.Data[controllers.ExtraKafkaPropertiesFilename]).To(Equal(toCreate.Spec.ExtraKafkaConfigs))
 
-			suite.UsingClusterBy(key.Name, "Removing extra kafka configs")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
+			updatedExtraKafkaConfigs := "client.id=EXAMPLE"
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.ExtraKafkaConfigs = updatedExtraKafkaConfigs
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetExtraKafkaConfigsConfigMapName(), key.Namespace)
+				return configMap.Data[controllers.ExtraKafkaPropertiesFilename]
+
+			}, testTimeout, suite.TestInterval).Should(Equal(updatedExtraKafkaConfigs))
+
+			suite.UsingClusterBy(key.Name, "Removing extra kafka configs")
 			Eventually(func() error {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
 				if err != nil {
@@ -2977,7 +2996,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming config map was created")
 			Eventually(func() error {
-				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.ViewGroupPermissionsConfigMapName(toCreate), toCreate.Namespace)
+				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetViewGroupPermissionsConfigMapName(), toCreate.Namespace)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -3001,7 +3020,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					VolumeSource: corev1.VolumeSource{
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{
-								Name: controllers.ViewGroupPermissionsConfigMapName(toCreate),
+								Name: controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetViewGroupPermissionsConfigMapName(),
 							},
 							DefaultMode: &mode,
 						},
@@ -3010,11 +3029,36 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Confirming config map contains desired view group permissions")
-			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.ViewGroupPermissionsConfigMapName(toCreate), key.Namespace)
+			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetViewGroupPermissionsConfigMapName(), key.Namespace)
 			Expect(configMap.Data[controllers.ViewGroupPermissionsFilename]).To(Equal(toCreate.Spec.ViewGroupPermissions))
 
-			suite.UsingClusterBy(key.Name, "Removing view group permissions")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
+			updatedViewGroupPermissions := `
+{
+  "views": {
+    "REPO2": {
+      "newgroup": {
+        "queryPrefix": "newquery"
+      }
+    }
+  }
+}
+`
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.ViewGroupPermissions = updatedViewGroupPermissions
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetViewGroupPermissionsConfigMapName(), key.Namespace)
+				return configMap.Data[controllers.ViewGroupPermissionsFilename]
+			}, testTimeout, suite.TestInterval).Should(Equal(updatedViewGroupPermissions))
+
+			suite.UsingClusterBy(key.Name, "Removing view group permissions")
 			Eventually(func() error {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
 				if err != nil {
@@ -3064,7 +3108,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: controllers.ViewGroupPermissionsConfigMapName(toCreate),
+							Name: controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetViewGroupPermissionsConfigMapName(),
 						},
 						DefaultMode: &mode,
 					},
@@ -3073,7 +3117,10 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming config map was cleaned up")
 			Eventually(func() bool {
-				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.ViewGroupPermissionsConfigMapName(toCreate), toCreate.Namespace)
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				_ = suite.MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
+
+				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetViewGroupPermissionsConfigMapName(), toCreate.Namespace)
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
@@ -3147,7 +3194,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming config map was created")
 			Eventually(func() error {
-				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.RolePermissionsConfigMapName(toCreate), toCreate.Namespace)
+				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetRolePermissionsConfigMapName(), toCreate.Namespace)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -3171,7 +3218,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					VolumeSource: corev1.VolumeSource{
 						ConfigMap: &corev1.ConfigMapVolumeSource{
 							LocalObjectReference: corev1.LocalObjectReference{
-								Name: controllers.RolePermissionsConfigMapName(toCreate),
+								Name: controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetRolePermissionsConfigMapName(),
 							},
 							DefaultMode: &mode,
 						},
@@ -3180,11 +3227,79 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			suite.UsingClusterBy(key.Name, "Confirming config map contains desired role permissions")
-			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.RolePermissionsConfigMapName(toCreate), key.Namespace)
+			configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetRolePermissionsConfigMapName(), key.Namespace)
 			Expect(configMap.Data[controllers.RolePermissionsFilename]).To(Equal(toCreate.Spec.RolePermissions))
 
-			suite.UsingClusterBy(key.Name, "Removing role permissions")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
+			updatedRolePermissions := `
+{
+  "roles": {
+    "Admin": {
+      "permissions": [
+        "ChangeUserAccess",
+        "ChangeDashboards",
+        "ChangeFiles",
+        "ChangeParsers",
+        "ChangeSavedQueries",
+        "ChangeDataDeletionPermissions",
+        "ChangeDefaultSearchSettings",
+        "ChangeS3ArchivingSettings",
+        "ConnectView",
+        "ReadAccess",
+        "ChangeIngestTokens",
+        "EventForwarding",
+        "ChangeFdrFeeds"
+      ]
+    },
+    "Searcher": {
+      "permissions": [
+        "ChangeTriggersAndActions",
+        "ChangeFiles",
+        "ChangeDashboards",
+        "ChangeSavedQueries",
+        "ReadAccess"
+      ]
+    }
+  },
+  "views": {
+    "Audit Log": {
+      "Devs DK": {
+        "role": "Searcher",
+        "queryPrefix": "secret=false updated=true"
+      },
+      "Support UK": {
+        "role": "Admin",
+        "queryPrefix": "* updated=true"
+      }
+    },
+    "Web Log": {
+      "Devs DK": {
+        "role": "Admin",
+        "queryPrefix": "* updated=true"
+      },
+      "Support UK": {
+        "role": "Searcher",
+        "queryPrefix": "* updated=true"
+      }
+    }
+  }
+}
+`
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.RolePermissions = updatedRolePermissions
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() string {
+				configMap, _ := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetRolePermissionsConfigMapName(), key.Namespace)
+				return configMap.Data[controllers.RolePermissionsFilename]
+			}, testTimeout, suite.TestInterval).Should(Equal(updatedRolePermissions))
+
+			suite.UsingClusterBy(key.Name, "Removing role permissions")
 			Eventually(func() error {
 				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
 				if err != nil {
@@ -3234,7 +3349,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				VolumeSource: corev1.VolumeSource{
 					ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: controllers.RolePermissionsConfigMapName(toCreate),
+							Name: controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetRolePermissionsConfigMapName(),
 						},
 						DefaultMode: &mode,
 					},
@@ -3243,7 +3358,10 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			suite.UsingClusterBy(key.Name, "Confirming config map was cleaned up")
 			Eventually(func() bool {
-				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.RolePermissionsConfigMapName(toCreate), toCreate.Namespace)
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				_ = suite.MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
+
+				_, err := kubernetes.GetConfigMap(ctx, k8sClient, controllers.NewHumioNodeManagerFromHumioCluster(toCreate).GetRolePermissionsConfigMapName(), toCreate.Namespace)
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
@@ -6041,6 +6159,332 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(mostSeenUnavailable).To(BeNumerically("==", toCreate.Spec.NodeCount))
 		})
 	})
+
+	Context("Node Pool PodDisruptionBudgets", func() {
+		It("Should enforce PDB rules at node pool level", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-nodepool-pdb",
+				Namespace: testProcessNamespace,
+			}
+			ctx := context.Background()
+
+			// Base valid cluster with node pools
+			validCluster := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			validCluster.Spec.NodePools = []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "valid-pool",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount: 2,
+						PodDisruptionBudget: &humiov1alpha1.HumioPodDisruptionBudgetSpec{
+							MinAvailable: &intstr.IntOrString{
+								Type:   intstr.Int,
+								IntVal: int32(1),
+							},
+						},
+					},
+				},
+			}
+
+			suite.UsingClusterBy(key.Name, "Testing invalid node pool configurations")
+
+			// Test mutual exclusivity in node pool
+			invalidNodePoolCluster := validCluster.DeepCopy()
+			invalidNodePoolCluster.Spec.NodePools[0].PodDisruptionBudget.MaxUnavailable =
+				&intstr.IntOrString{Type: intstr.Int, IntVal: 1}
+			Expect(k8sClient.Create(ctx, invalidNodePoolCluster)).To(MatchError(
+				ContainSubstring("podDisruptionBudget: minAvailable and maxUnavailable are mutually exclusive")))
+
+			// Test required field in node pool
+			missingFieldsCluster := validCluster.DeepCopy()
+			missingFieldsCluster.Spec.NodePools[0].PodDisruptionBudget =
+				&humiov1alpha1.HumioPodDisruptionBudgetSpec{}
+			Expect(k8sClient.Create(ctx, missingFieldsCluster)).To(MatchError(
+				ContainSubstring("podDisruptionBudget: either minAvailable or maxUnavailable must be specified")))
+
+			// Test immutability in node pool
+			validCluster = suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			validCluster.Spec.NodePools = []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "pool1",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount: 2,
+						PodDisruptionBudget: &humiov1alpha1.HumioPodDisruptionBudgetSpec{
+							MinAvailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, validCluster)).To(Succeed())
+			defer suite.CleanupCluster(ctx, k8sClient, validCluster)
+
+			suite.UsingClusterBy(key.Name, "Testing node pool PDB immutability")
+			updatedCluster := validCluster.DeepCopy()
+			updatedCluster.Spec.NodePools[0].PodDisruptionBudget.MinAvailable =
+				&intstr.IntOrString{Type: intstr.Int, IntVal: 2}
+			Expect(k8sClient.Update(ctx, updatedCluster)).To(MatchError(
+				ContainSubstring("minAvailable is immutable")))
+		})
+	})
+	It("Should correctly manage pod disruption budgets", func() {
+		key := types.NamespacedName{
+			Name:      "humiocluster-pdb",
+			Namespace: testProcessNamespace,
+		}
+		toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+		toCreate.Spec.NodeCount = 2
+		ctx := context.Background()
+
+		suite.UsingClusterBy(key.Name, "Creating the cluster successfully without PDB spec")
+		suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+		defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+		// Should not create a PDB by default
+		suite.UsingClusterBy(key.Name, "Verifying no PDB exists when no PDB spec is provided")
+		var pdb policyv1.PodDisruptionBudget
+		Consistently(func() error {
+			return k8sClient.Get(ctx, types.NamespacedName{
+				Name:      fmt.Sprintf("%s-pdb", toCreate.Name),
+				Namespace: toCreate.Namespace,
+			}, &pdb)
+		}, testTimeout, suite.TestInterval).Should(MatchError(k8serrors.IsNotFound))
+
+		suite.UsingClusterBy(key.Name, "Adding MinAvailable PDB configuration")
+		var updatedHumioCluster humiov1alpha1.HumioCluster
+		minAvailable := intstr.FromString("50%")
+		Eventually(func() error {
+			err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+			if err != nil {
+				return err
+			}
+			updatedHumioCluster.Spec.PodDisruptionBudget = &humiov1alpha1.HumioPodDisruptionBudgetSpec{
+				MinAvailable: &minAvailable,
+			}
+			return k8sClient.Update(ctx, &updatedHumioCluster)
+		}, testTimeout, suite.TestInterval).Should(Succeed())
+
+		suite.UsingClusterBy(key.Name, "Verifying PDB is created with MinAvailable")
+		Eventually(func() error {
+			return k8sClient.Get(ctx, types.NamespacedName{
+				Name:      fmt.Sprintf("%s-pdb", toCreate.Name),
+				Namespace: toCreate.Namespace,
+			}, &pdb)
+		}, testTimeout, suite.TestInterval).Should(Succeed())
+		Expect(pdb.Spec.MinAvailable).To(Equal(&minAvailable))
+		Expect(pdb.Spec.MaxUnavailable).To(BeNil())
+
+		suite.UsingClusterBy(key.Name, "Updating to use MaxUnavailable instead")
+		maxUnavailable := intstr.FromInt(1)
+		Eventually(func() error {
+			err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+			if err != nil {
+				return err
+			}
+			updatedHumioCluster.Spec.PodDisruptionBudget = &humiov1alpha1.HumioPodDisruptionBudgetSpec{
+				MaxUnavailable: &maxUnavailable,
+			}
+			return k8sClient.Update(ctx, &updatedHumioCluster)
+		}, testTimeout, suite.TestInterval).Should(Succeed())
+
+		suite.UsingClusterBy(key.Name, "Verifying PDB is updated with MaxUnavailable")
+		Eventually(func() *intstr.IntOrString {
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      fmt.Sprintf("%s-pdb", toCreate.Name),
+				Namespace: toCreate.Namespace,
+			}, &pdb)
+			if err != nil {
+				return nil
+			}
+			return pdb.Spec.MaxUnavailable
+		}, testTimeout, suite.TestInterval).Should(Equal(&maxUnavailable))
+
+		suite.UsingClusterBy(key.Name, "Setting up node pools with PDB configuration")
+		Eventually(func() error {
+			err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+			if err != nil {
+				return err
+			}
+			updatedHumioCluster.Spec.NodePools = []humiov1alpha1.HumioNodePoolSpec{
+				{
+					Name: "pool1",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount: 2,
+						PodDisruptionBudget: &humiov1alpha1.HumioPodDisruptionBudgetSpec{
+							MaxUnavailable: &maxUnavailable,
+						},
+					},
+				},
+				{
+					Name: "pool2",
+					HumioNodeSpec: humiov1alpha1.HumioNodeSpec{
+						NodeCount: 3,
+						PodDisruptionBudget: &humiov1alpha1.HumioPodDisruptionBudgetSpec{
+							MinAvailable: &minAvailable,
+						},
+					},
+				},
+			}
+			return k8sClient.Update(ctx, &updatedHumioCluster)
+		}, testTimeout, suite.TestInterval).Should(Succeed())
+
+		suite.UsingClusterBy(key.Name, "Verifying PDBs are created for each node pool")
+		for _, pool := range []string{"pool1", "pool2"} {
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Name:      fmt.Sprintf("%s-%s-pdb", toCreate.Name, pool),
+					Namespace: toCreate.Namespace,
+				}, &pdb)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Expect(pdb.Spec.Selector.MatchLabels).To(Equal(kubernetes.MatchingLabelsForHumioNodePool(toCreate.Name, pool)))
+
+			if pool == "pool1" {
+				Expect(pdb.Spec.MaxUnavailable).To(Equal(&maxUnavailable))
+				Expect(pdb.Spec.MinAvailable).To(BeNil())
+			} else {
+				Expect(pdb.Spec.MinAvailable).To(Equal(&minAvailable))
+				Expect(pdb.Spec.MaxUnavailable).To(BeNil())
+			}
+		}
+
+		suite.UsingClusterBy(key.Name, "Removing PDB configurations")
+		Eventually(func() error {
+			err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+			if err != nil {
+				return err
+			}
+			updatedHumioCluster.Spec.PodDisruptionBudget = nil
+			for i := range updatedHumioCluster.Spec.NodePools {
+				updatedHumioCluster.Spec.NodePools[i].PodDisruptionBudget = nil
+			}
+			return k8sClient.Update(ctx, &updatedHumioCluster)
+		}, testTimeout, suite.TestInterval).Should(Succeed())
+
+		suite.UsingClusterBy(key.Name, "Verifying PDBs are removed")
+		Eventually(func() bool {
+			var pdbs policyv1.PodDisruptionBudgetList
+			err := k8sClient.List(ctx, &pdbs, &client.ListOptions{
+				Namespace: toCreate.Namespace,
+				LabelSelector: labels.SelectorFromSet(map[string]string{
+					"app.kubernetes.io/managed-by": "humio-operator",
+				}),
+			})
+			return err == nil && len(pdbs.Items) == 0
+		}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+		suite.UsingClusterBy(key.Name, "Creating an orphaned PDB")
+		orphanedPdb := &policyv1.PodDisruptionBudget{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-orphaned-pdb", toCreate.Name),
+				Namespace: toCreate.Namespace,
+				Labels:    kubernetes.LabelsForHumio(toCreate.Name),
+			},
+			Spec: policyv1.PodDisruptionBudgetSpec{
+				MinAvailable: &minAvailable,
+				Selector: &metav1.LabelSelector{
+					MatchLabels: kubernetes.LabelsForHumio(toCreate.Name),
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, orphanedPdb)).Should(Succeed())
+
+		suite.UsingClusterBy(key.Name, "Verifying orphaned PDB is cleaned up")
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      fmt.Sprintf("%s-orphaned-pdb", toCreate.Name),
+				Namespace: toCreate.Namespace,
+			}, &pdb)
+			return k8serrors.IsNotFound(err)
+		}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+		suite.UsingClusterBy(key.Name, "Verifying PDB is created with MinAvailable and status is updated")
+		Eventually(func() error {
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      fmt.Sprintf("%s-pdb", toCreate.Name),
+				Namespace: toCreate.Namespace,
+			}, &pdb)
+			if err != nil {
+				return err
+			}
+			Expect(pdb.Spec.MinAvailable).To(Equal(&minAvailable))
+			Expect(pdb.Spec.MaxUnavailable).To(BeNil())
+
+			// Assert PDB status fields
+			Expect(pdb.Status.DesiredHealthy).To(BeEquivalentTo(toCreate.Spec.NodeCount))
+			Expect(pdb.Status.CurrentHealthy).To(BeEquivalentTo(toCreate.Spec.NodeCount))
+			Expect(pdb.Status.DisruptionsAllowed).To(BeEquivalentTo(toCreate.Spec.NodeCount - int(pdb.Spec.MinAvailable.IntVal)))
+
+			return nil
+		}, testTimeout, suite.TestInterval).Should(Succeed())
+	})
+	It("Should enforce MinAvailable PDB rule during pod deletion", func() {
+		key := types.NamespacedName{
+			Name:      "humiocluster-pdb-enforce",
+			Namespace: testProcessNamespace,
+		}
+		toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+		toCreate.Spec.NodeCount = 3
+		toCreate.Spec.PodDisruptionBudget = &humiov1alpha1.HumioPodDisruptionBudgetSpec{
+			MinAvailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 2},
+		}
+
+		suite.UsingClusterBy(key.Name, "Creating the cluster successfully with PDB spec")
+		ctx := context.Background()
+		suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+		defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+		suite.UsingClusterBy(key.Name, "Verifying PDB exists")
+		var pdb policyv1.PodDisruptionBudget
+		Eventually(func() error {
+			return k8sClient.Get(ctx, types.NamespacedName{
+				Name:      fmt.Sprintf("%s-pdb", toCreate.Name),
+				Namespace: key.Namespace,
+			}, &pdb)
+		}, testTimeout, suite.TestInterval).Should(Succeed())
+
+		suite.UsingClusterBy(key.Name, "Verifying initial pod count")
+		var pods []corev1.Pod
+		hnp := controllers.NewHumioNodeManagerFromHumioCluster(toCreate)
+		Eventually(func() int {
+			clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
+			if err != nil {
+				return 0
+			}
+			pods = clusterPods
+			return len(clusterPods)
+		}, testTimeout, suite.TestInterval).Should(Equal(3))
+
+		suite.UsingClusterBy(key.Name, "Marking pods as Ready")
+		for _, pod := range pods {
+			suite.MarkPodAsRunningIfUsingEnvtest(ctx, k8sClient, pod, key.Name)
+		}
+
+		suite.UsingClusterBy(key.Name, "Attempting to delete a pod")
+		podToDelete := &pods[0]
+		Expect(k8sClient.Delete(ctx, podToDelete)).To(Succeed())
+
+		suite.UsingClusterBy(key.Name, "Verifying pod count after deletion")
+		Eventually(func() int {
+			clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
+			if err != nil {
+				return 0
+			}
+			return len(clusterPods)
+		}, testTimeout, suite.TestInterval).Should(Equal(2))
+
+		suite.UsingClusterBy(key.Name, "Attempting to delete another pod")
+		clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, hnp.GetPodLabels())
+		Expect(err).NotTo(HaveOccurred())
+
+		podToDelete = &clusterPods[0]
+		err = k8sClient.Delete(ctx, podToDelete)
+		Expect(err).To(HaveOccurred())
+
+		var statusErr *k8serrors.StatusError
+		Expect(errors.As(err, &statusErr)).To(BeTrue())
+		Expect(statusErr.ErrStatus.Reason).To(Equal(metav1.StatusReasonForbidden))
+		Expect(statusErr.ErrStatus.Message).To(ContainSubstring("violates PodDisruptionBudget"))
+	})
+
 })
 
 // TODO: Consider refactoring goroutine to a "watcher". https://book-v1.book.kubebuilder.io/beyond_basics/controller_watches

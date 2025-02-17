@@ -18,8 +18,12 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 const (
@@ -67,6 +71,7 @@ type HumioClusterSpec struct {
 	// DigestPartitionsCount is the desired number of digest partitions
 	DigestPartitionsCount int `json:"digestPartitionsCount,omitempty"`
 	// License is the kubernetes secret reference which contains the Humio license
+	//+required
 	License HumioClusterLicenseSpec `json:"license,omitempty"`
 	// IdpCertificateSecretName is the name of the secret that contains the IDP Certificate when using SAML authentication
 	IdpCertificateSecretName string `json:"idpCertificateSecretName,omitempty"`
@@ -130,6 +135,7 @@ type HumioNodeSpec struct {
 
 	// DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
 	// This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.
+	//+kubebuilder:default=false
 	DisableInitContainer bool `json:"disableInitContainer,omitempty"`
 
 	// EnvironmentVariablesSource is the reference to an external source of environment variables that will be merged with environmentVariables
@@ -206,7 +212,10 @@ type HumioNodeSpec struct {
 	// Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in LogScale 1.80.0
 	NodeUUIDPrefix string `json:"nodeUUIDPrefix,omitempty"`
 
-	// ExtraKafkaConfigs is a multi-line string containing kafka properties
+	// ExtraKafkaConfigs is a multi-line string containing kafka properties.
+	// Deprecated: This underlying LogScale environment variable used by this field has been marked deprecated as of
+	// LogScale 1.173.0. Going forward, it is possible to provide additional Kafka configuration through a collection
+	// of new environment variables. For more details, see the LogScale release notes.
 	ExtraKafkaConfigs string `json:"extraKafkaConfigs,omitempty"`
 
 	// ExtraHumioVolumeMounts is the list of additional volume mounts that will be added to the Humio container
@@ -258,10 +267,14 @@ type HumioNodeSpec struct {
 	UpdateStrategy *HumioUpdateStrategy `json:"updateStrategy,omitempty"`
 
 	// PriorityClassName is the name of the priority class that will be used by the Humio pods
+	//+kubebuilder:default=""
 	PriorityClassName string `json:"priorityClassName,omitempty"`
 
 	// HumioNodePoolFeatures defines the features that are allowed by the node pool
 	NodePoolFeatures HumioNodePoolFeatures `json:"nodePoolFeatures,omitempty"`
+
+	// PodDisruptionBudget defines the PDB configuration for this node spec
+	PodDisruptionBudget *HumioPodDisruptionBudgetSpec `json:"podDisruptionBudget,omitempty"`
 }
 
 type HumioNodePoolFeatures struct {
@@ -300,16 +313,42 @@ type HumioUpdateStrategy struct {
 
 	// MaxUnavailable is the maximum number of pods that can be unavailable during a rolling update.
 	// This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".
-	// By default, the max unavailable pods is 1.
+	//+kubebuilder:default=1
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 }
-
 type HumioNodePoolSpec struct {
 	//+kubebuilder:validation:MinLength:=1
 	//+required
 	Name string `json:"name"`
 
 	HumioNodeSpec `json:"spec,omitempty"`
+}
+
+// PodDisruptionBudgetSpec defines the desired pod disruption budget configuration
+type HumioPodDisruptionBudgetSpec struct {
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Format=int-or-string
+	// MinAvailable is the minimum number of pods that must be available during a disruption.
+	MinAvailable *intstr.IntOrString `json:"minAvailable,omitempty"`
+
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Format=int-or-string
+	// MaxUnavailable is the maximum number of pods that can be unavailable during a disruption.
+	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
+
+	// +kubebuilder:validation:Enum=IfHealthyBudget;AlwaysAllow
+	// +kubebuilder:validation:default="IfHealthyBudget"
+	// UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods.
+	// Requires Kubernetes 1.26+.
+	// +optional
+	UnhealthyPodEvictionPolicy *string `json:"unhealthyPodEvictionPolicy,omitempty"`
+
+	// +kubebuilder:validation:Xor={"minAvailable","maxUnavailable"}
+	// +kubebuilder:validation:Required
+
+	// Enabled indicates whether PodDisruptionBudget is enabled for this NodePool.
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // HumioHostnameSource is the possible references to a hostname value that is stored outside of the HumioCluster resource
@@ -328,6 +367,7 @@ type HumioESHostnameSource struct {
 type HumioClusterIngressSpec struct {
 	// Enabled enables the logic for the Humio operator to create ingress-related objects. Requires one of the following
 	// to be set: spec.hostname, spec.hostnameSource, spec.esHostname or spec.esHostnameSource
+	//+kubebuilder:default=false
 	Enabled bool `json:"enabled,omitempty"`
 	// Controller is used to specify the controller used for ingress in the Kubernetes cluster. For now, only nginx is supported.
 	Controller string `json:"controller,omitempty"`
@@ -475,4 +515,42 @@ func (l HumioPodStatusList) Swap(i, j int) {
 
 func init() {
 	SchemeBuilder.Register(&HumioCluster{}, &HumioClusterList{})
+}
+
+// ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
+func (hc *HumioCluster) ValidateCreate() error {
+	return hc.validateMutualExclusivity()
+}
+
+// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
+func (hc *HumioCluster) ValidateUpdate(old runtime.Object) error {
+	return hc.validateMutualExclusivity()
+}
+
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
+func (hc *HumioCluster) ValidateDelete() error {
+	return nil
+}
+
+// validateMutualExclusivity validates that within each NodePool, only one of minAvailable or maxUnavailable is set.
+func (hc *HumioCluster) validateMutualExclusivity() error {
+	var allErrs field.ErrorList
+
+	// Validate PodDisruptionBudget of each NodePool.
+	for i, np := range hc.Spec.NodePools {
+		if np.PodDisruptionBudget != nil {
+			pdbPath := field.NewPath("spec", "nodePools").Index(i).Child("podDisruptionBudget")
+			if np.PodDisruptionBudget.MinAvailable != nil && np.PodDisruptionBudget.MaxUnavailable != nil {
+				allErrs = append(allErrs, field.Forbidden(
+					pdbPath.Child("minAvailable"),
+					"cannot set both minAvailable and maxUnavailable in PodDisruptionBudget; choose one"))
+			}
+		}
+	}
+
+	if len(allErrs) > 0 {
+		gk := schema.GroupKind{Group: "humio.com", Kind: "HumioCluster"}
+		return apierrors.NewInvalid(gk, hc.Name, allErrs)
+	}
+	return nil
 }
