@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: 'humio-operator'
     app.kubernetes.io/instance: 'humio-operator'
     app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.26.1'
+    helm.sh/chart: 'humio-operator-0.27.2'
 spec:
   group: core.humio.com
   names:
@@ -60,6 +60,7 @@ spec:
                 description: Description is the description of the scheduled search
                 type: string
               enabled:
+                default: false
                 description: Enabled will set the ScheduledSearch to enabled when
                   set to true
                 type: boolean

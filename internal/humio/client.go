@@ -375,6 +375,10 @@ func (h *ClientConfig) DeleteIngestToken(ctx context.Context, client *humioapi.C
 }
 
 func (h *ClientConfig) AddParser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hp *humiov1alpha1.HumioParser) error {
+	tagFields := []string{}
+	if hp.Spec.TagFields != nil {
+		tagFields = hp.Spec.TagFields
+	}
 	_, err := humiographql.CreateParserOrUpdate(
 		ctx,
 		client,
@@ -382,7 +386,7 @@ func (h *ClientConfig) AddParser(ctx context.Context, client *humioapi.Client, _
 		hp.Spec.Name,
 		hp.Spec.ParserScript,
 		humioapi.TestDataToParserTestCaseInput(hp.Spec.TestData),
-		hp.Spec.TagFields,
+		tagFields,
 		[]string{},
 		false,
 	)
