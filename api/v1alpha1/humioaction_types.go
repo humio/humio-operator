@@ -40,6 +40,7 @@ type HumioActionWebhookProperties struct {
 	Headers map[string]string `json:"headers,omitempty"`
 	// SecretHeaders specifies what HTTP headers to use and where to fetch the values from.
 	// If both Headers and SecretHeaders are specified, they will be merged together.
+	//+kubebuilder:default={}
 	SecretHeaders []HeadersSource `json:"secretHeaders,omitempty"`
 	Method        string          `json:"method,omitempty"`
 	// Url specifies what URL to use
@@ -64,10 +65,12 @@ type HeadersSource struct {
 
 // HumioActionEmailProperties defines the desired state of HumioActionEmailProperties
 type HumioActionEmailProperties struct {
-	BodyTemplate    string   `json:"bodyTemplate,omitempty"`
-	SubjectTemplate string   `json:"subjectTemplate,omitempty"`
-	Recipients      []string `json:"recipients,omitempty"`
-	UseProxy        bool     `json:"useProxy,omitempty"`
+	BodyTemplate    string `json:"bodyTemplate,omitempty"`
+	SubjectTemplate string `json:"subjectTemplate,omitempty"`
+	//+kubebuilder:validation:MinItems=1
+	//+required
+	Recipients []string `json:"recipients,omitempty"`
+	UseProxy   bool     `json:"useProxy,omitempty"`
 }
 
 // HumioActionRepositoryProperties defines the desired state of HumioActionRepositoryProperties
@@ -123,10 +126,12 @@ type HumioActionSlackPostMessageProperties struct {
 	ApiToken string `json:"apiToken,omitempty"`
 	// ApiTokenSource specifies where to fetch the API key from.
 	// If both ApiToken and ApiTokenSource are specified, ApiToken will be used.
-	ApiTokenSource VarSource         `json:"apiTokenSource,omitempty"`
-	Channels       []string          `json:"channels,omitempty"`
-	Fields         map[string]string `json:"fields,omitempty"`
-	UseProxy       bool              `json:"useProxy,omitempty"`
+	ApiTokenSource VarSource `json:"apiTokenSource,omitempty"`
+	Channels       []string  `json:"channels,omitempty"`
+	//+kubebuilder:default={}
+	Fields map[string]string `json:"fields,omitempty"`
+	//+kubebuilder:default=false
+	UseProxy bool `json:"useProxy,omitempty"`
 }
 
 // HumioActionVictorOpsProperties defines the desired state of HumioActionVictorOpsProperties

@@ -1,6 +1,6 @@
 # Humio-Operator
 
-[![Build Status](https://github.com/humio/humio-operator/workflows/CI/badge.svg)](https://github.com/humio/humio-operator/actions?query=workflow%3ACI)
+[![Build Status](https://github.com/humio/humio-operator/actions/workflows/ci.yaml/badge.svg?branch=master)](https://github.com/humio/humio-operator/actions?query=workflow%3ACI+branch%3Amaster)
 [![Go Report Card](https://goreportcard.com/badge/github.com/humio/humio-operator)](https://goreportcard.com/report/github.com/humio/humio-operator)
 
 The Humio operator is a Kubernetes operator to automate provisioning, management, ~~autoscaling~~ and operations of [Humio](https://humio.com) clusters deployed to Kubernetes.
