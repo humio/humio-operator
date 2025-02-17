@@ -427,6 +427,8 @@ type HumioClusterStatus struct {
 	NodePoolStatus HumioNodePoolStatusList `json:"nodePoolStatus,omitempty"`
 	// ObservedGeneration shows the generation of the HumioCluster which was last observed
 	ObservedGeneration string `json:"observedGeneration,omitempty"` // TODO: We should change the type to int64 so we don't have to convert back and forth between int64 and string
+	// EvictedNodeIds keeps track of evicted nodes for use within the downscaling functionality
+	EvictedNodeIds []int `json:"evictedNodeIds,omitempty"`
 }
 
 //+kubebuilder:object:root=true
