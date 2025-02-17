@@ -28,8 +28,8 @@ import (
 
 // ConstructExtraKafkaConfigsConfigMap constructs the ConfigMap object used to store the file which is passed on to
 // Humio using the configuration option EXTRA_KAFKA_CONFIGS_FILE
-func ConstructExtraKafkaConfigsConfigMap(extraKafkaConfigsConfigMapName, extraKafkaPropertiesFilename, extraKafkaConfigsConfigMapData, humioClusterName, humioClusterNamespace string) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
+func ConstructExtraKafkaConfigsConfigMap(extraKafkaConfigsConfigMapName, extraKafkaPropertiesFilename, extraKafkaConfigsConfigMapData, humioClusterName, humioClusterNamespace string) corev1.ConfigMap {
+	return corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      extraKafkaConfigsConfigMapName,
 			Namespace: humioClusterNamespace,
@@ -41,8 +41,8 @@ func ConstructExtraKafkaConfigsConfigMap(extraKafkaConfigsConfigMapName, extraKa
 
 // ConstructViewGroupPermissionsConfigMap constructs a ConfigMap object used to store the file which Humio uses when
 // enabling READ_GROUP_PERMISSIONS_FROM_FILE to control RBAC using a file rather than the Humio UI
-func ConstructViewGroupPermissionsConfigMap(viewGroupPermissionsConfigMapName, viewGroupPermissionsFilename, viewGroupPermissionsConfigMapData, humioClusterName, humioClusterNamespace string) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
+func ConstructViewGroupPermissionsConfigMap(viewGroupPermissionsConfigMapName, viewGroupPermissionsFilename, viewGroupPermissionsConfigMapData, humioClusterName, humioClusterNamespace string) corev1.ConfigMap {
+	return corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      viewGroupPermissionsConfigMapName,
 			Namespace: humioClusterNamespace,
@@ -54,8 +54,8 @@ func ConstructViewGroupPermissionsConfigMap(viewGroupPermissionsConfigMapName, v
 
 // ConstructRolePermissionsConfigMap constructs a ConfigMap object used to store the file which Humio uses when
 // enabling READ_GROUP_PERMISSIONS_FROM_FILE to control RBAC using a file rather than the Humio UI
-func ConstructRolePermissionsConfigMap(rolePermissionsConfigMapName, rolePermissionsFilename, rolePermissionsConfigMapData, humioClusterName, humioClusterNamespace string) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
+func ConstructRolePermissionsConfigMap(rolePermissionsConfigMapName, rolePermissionsFilename, rolePermissionsConfigMapData, humioClusterName, humioClusterNamespace string) corev1.ConfigMap {
+	return corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rolePermissionsConfigMapName,
 			Namespace: humioClusterNamespace,
@@ -66,11 +66,11 @@ func ConstructRolePermissionsConfigMap(rolePermissionsConfigMapName, rolePermiss
 }
 
 // GetConfigMap returns the configmap for the given configmap name if it exists
-func GetConfigMap(ctx context.Context, c client.Client, configMapName, humioClusterNamespace string) (*corev1.ConfigMap, error) {
+func GetConfigMap(ctx context.Context, c client.Client, configMapName, humioClusterNamespace string) (corev1.ConfigMap, error) {
 	var existingConfigMap corev1.ConfigMap
 	err := c.Get(ctx, types.NamespacedName{
 		Namespace: humioClusterNamespace,
 		Name:      configMapName,
 	}, &existingConfigMap)
-	return &existingConfigMap, err
+	return existingConfigMap, err
 }

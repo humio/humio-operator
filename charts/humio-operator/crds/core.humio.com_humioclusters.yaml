@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: 'humio-operator'
     app.kubernetes.io/instance: 'humio-operator'
     app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.26.1'
+    helm.sh/chart: 'humio-operator-0.27.2'
 spec:
   group: core.humio.com
   names:
@@ -3576,6 +3576,7 @@ spec:
                   partitions
                 type: integer
               disableInitContainer:
+                default: false
                 description: |-
                   DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
                   This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.
@@ -3821,8 +3822,11 @@ spec:
                   type: object
                 type: array
               extraKafkaConfigs:
-                description: ExtraKafkaConfigs is a multi-line string containing kafka
-                  properties
+                description: |-
+                  ExtraKafkaConfigs is a multi-line string containing kafka properties.
+                  Deprecated: This underlying LogScale environment variable used by this field has been marked deprecated as of
+                  LogScale 1.173.0. Going forward, it is possible to provide additional Kafka configuration through a collection
+                  of new environment variables. For more details, see the LogScale release notes.
                 type: string
               extraVolumes:
                 description: ExtraVolumes is the list of additional volumes that will
@@ -5671,6 +5675,7 @@ spec:
                       supported.
                     type: string
                   enabled:
+                    default: false
                     description: |-
                       Enabled enables the logic for the Humio operator to create ingress-related objects. Requires one of the following
                       to be set: spec.hostname, spec.hostnameSource, spec.esHostname or spec.esHostnameSource
@@ -9185,6 +9190,7 @@ spec:
                               type: object
                           type: object
                         disableInitContainer:
+                          default: false
                           description: |-
                             DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
                             This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.
@@ -9397,8 +9403,11 @@ spec:
                             type: object
                           type: array
                         extraKafkaConfigs:
-                          description: ExtraKafkaConfigs is a multi-line string containing
-                            kafka properties
+                          description: |-
+                            ExtraKafkaConfigs is a multi-line string containing kafka properties.
+                            Deprecated: This underlying LogScale environment variable used by this field has been marked deprecated as of
+                            LogScale 1.173.0. Going forward, it is possible to provide additional Kafka configuration through a collection
+                            of new environment variables. For more details, see the LogScale release notes.
                           type: string
                         extraVolumes:
                           description: ExtraVolumes is the list of additional volumes
@@ -11248,6 +11257,41 @@ spec:
                           description: PodAnnotations can be used to specify annotations
                             that will be added to the Humio pods
                           type: object
+                        podDisruptionBudget:
+                          description: PodDisruptionBudget defines the PDB configuration
+                            for this node spec
+                          properties:
+                            enabled:
+                              description: Enabled indicates whether PodDisruptionBudget
+                                is enabled for this NodePool.
+                              type: boolean
+                            maxUnavailable:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: MaxUnavailable is the maximum number of
+                                pods that can be unavailable during a disruption.
+                              format: int-or-string
+                              type: string
+                              x-kubernetes-int-or-string: true
+                            minAvailable:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: MinAvailable is the minimum number of pods
+                                that must be available during a disruption.
+                              format: int-or-string
+                              type: string
+                              x-kubernetes-int-or-string: true
+                            unhealthyPodEvictionPolicy:
+                              description: |-
+                                UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods.
+                                Requires Kubernetes 1.26+.
+                              enum:
+                              - IfHealthyBudget
+                              - AlwaysAllow
+                              type: string
+                          type: object
                         podLabels:
                           additionalProperties:
                             type: string
@@ -11431,6 +11475,7 @@ spec:
                               type: object
                           type: object
                         priorityClassName:
+                          default: ""
                           description: PriorityClassName is the name of the priority
                             class that will be used by the Humio pods
                           type: string
@@ -13102,10 +13147,10 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
+                              default: 1
                               description: |-
                                 MaxUnavailable is the maximum number of pods that can be unavailable during a rolling update.
                                 This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".
-                                By default, the max unavailable pods is 1.
                               x-kubernetes-int-or-string: true
                             minReadySeconds:
                               description: MinReadySeconds is the minimum time in
@@ -13160,6 +13205,41 @@ spec:
                   type: string
                 description: PodAnnotations can be used to specify annotations that
                   will be added to the Humio pods
+                type: object
+              podDisruptionBudget:
+                description: PodDisruptionBudget defines the PDB configuration for
+                  this node spec
+                properties:
+                  enabled:
+                    description: Enabled indicates whether PodDisruptionBudget is
+                      enabled for this NodePool.
+                    type: boolean
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: MaxUnavailable is the maximum number of pods that
+                      can be unavailable during a disruption.
+                    format: int-or-string
+                    type: string
+                    x-kubernetes-int-or-string: true
+                  minAvailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: MinAvailable is the minimum number of pods that must
+                      be available during a disruption.
+                    format: int-or-string
+                    type: string
+                    x-kubernetes-int-or-string: true
+                  unhealthyPodEvictionPolicy:
+                    description: |-
+                      UnhealthyPodEvictionPolicy defines the policy for evicting unhealthy pods.
+                      Requires Kubernetes 1.26+.
+                    enum:
+                    - IfHealthyBudget
+                    - AlwaysAllow
+                    type: string
                 type: object
               podLabels:
                 additionalProperties:
@@ -13343,6 +13423,7 @@ spec:
                     type: object
                 type: object
               priorityClassName:
+                default: ""
                 description: PriorityClassName is the name of the priority class that
                   will be used by the Humio pods
                 type: string
@@ -15023,10 +15104,10 @@ spec:
                     anyOf:
                     - type: integer
                     - type: string
+                    default: 1
                     description: |-
                       MaxUnavailable is the maximum number of pods that can be unavailable during a rolling update.
                       This can be configured to an absolute number or a percentage, e.g. "maxUnavailable: 5" or "maxUnavailable: 25%".
-                      By default, the max unavailable pods is 1.
                     x-kubernetes-int-or-string: true
                   minReadySeconds:
                     description: MinReadySeconds is the minimum time in seconds that

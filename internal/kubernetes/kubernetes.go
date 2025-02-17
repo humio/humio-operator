@@ -47,6 +47,14 @@ func MatchingLabelsForHumio(clusterName string) client.MatchingLabels {
 	return LabelsForHumio(clusterName)
 }
 
+// MatchingLabelsForHumioNodePool returns labels for Humio pods for a given cluster
+// and specific node pool.
+func MatchingLabelsForHumioNodePool(clusterName, nodePoolName string) map[string]string {
+	labels := MatchingLabelsForHumio(clusterName)
+	labels["humio.com/node-pool"] = nodePoolName
+	return labels
+}
+
 // RandomString returns a string of fixed length. The random strings are valid to use in Kubernetes object names.
 func RandomString() string {
 	chars := []rune("abcdefghijklmnopqrstuvwxyz")
