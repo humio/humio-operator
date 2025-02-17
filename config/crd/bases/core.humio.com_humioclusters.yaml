@@ -3581,6 +3581,7 @@ spec:
                   This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.
                 type: boolean
               enableDownscalingFeature:
+                default: false
                 description: |-
                   EnableDownscalingFeature (PREVIEW) is a feature flag for enabling the downscaling functionality of the humio operator for this humio cluster.
                   Default: false
@@ -15069,6 +15070,12 @@ spec:
           status:
             description: HumioClusterStatus defines the observed state of HumioCluster
             properties:
+              evictedNodeIds:
+                description: EvictedNodeIds keeps track of evicted nodes for use within
+                  the downscaling functionality
+                items:
+                  type: integer
+                type: array
               licenseStatus:
                 description: LicenseStatus shows the status of the Humio license attached
                   to the cluster
