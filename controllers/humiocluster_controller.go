@@ -2274,7 +2274,7 @@ func (r *HumioClusterReconciler) isEvictedNodeAlive(ctx context.Context, humioHt
 		for _, node := range nodesStatus {
 			if node.GetId() == vhost {
 				reasonsNodeCannotBeSafelyUnregistered := node.GetReasonsNodeCannotBeSafelyUnregistered()
-				if reasonsNodeCannotBeSafelyUnregistered.IsAlive == false {
+				if !reasonsNodeCannotBeSafelyUnregistered.IsAlive {
 					return false, nil
 				}
 			}
@@ -2291,9 +2291,9 @@ func (r *HumioClusterReconciler) checkEvictionStatusForPodUsingClusterRefresh(ct
 	}
 	clusterManagementStats := clusterManagementStatsResponse.GetRefreshClusterManagementStats()
 	reasonsNodeCannotBeSafelyUnregistered := clusterManagementStats.GetReasonsNodeCannotBeSafelyUnregistered()
-	if reasonsNodeCannotBeSafelyUnregistered.GetLeadsDigest() == false &&
-		reasonsNodeCannotBeSafelyUnregistered.GetHasUnderReplicatedData() == false &&
-		reasonsNodeCannotBeSafelyUnregistered.GetHasDataThatExistsOnlyOnThisNode() == false {
+	if !reasonsNodeCannotBeSafelyUnregistered.GetLeadsDigest() &&
+		!reasonsNodeCannotBeSafelyUnregistered.GetHasUnderReplicatedData() &&
+		!reasonsNodeCannotBeSafelyUnregistered.GetHasDataThatExistsOnlyOnThisNode() {
 		return true, nil
 	}
 	return false, nil
@@ -2308,9 +2308,9 @@ func (r *HumioClusterReconciler) checkEvictionStatusForPod(ctx context.Context, 
 		for _, node := range nodesStatus {
 			if node.GetId() == vhost {
 				reasonsNodeCannotBeSafelyUnregistered := node.GetReasonsNodeCannotBeSafelyUnregistered()
-				if reasonsNodeCannotBeSafelyUnregistered.GetHasDataThatExistsOnlyOnThisNode() == false &&
-					reasonsNodeCannotBeSafelyUnregistered.GetHasUnderReplicatedData() == false &&
-					reasonsNodeCannotBeSafelyUnregistered.GetLeadsDigest() == false {
+				if !reasonsNodeCannotBeSafelyUnregistered.GetHasDataThatExistsOnlyOnThisNode() &&
+					!reasonsNodeCannotBeSafelyUnregistered.GetHasUnderReplicatedData() &&
+					!reasonsNodeCannotBeSafelyUnregistered.GetLeadsDigest() {
 					// if cheap check is ok, run a cache refresh check
 					if ok, _ := r.checkEvictionStatusForPodUsingClusterRefresh(ctx, humioHttpClient, req, vhost); ok {
 						return true, nil
