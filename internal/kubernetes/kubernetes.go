@@ -24,8 +24,10 @@ import (
 )
 
 const (
-	NodePoolLabelName = "humio.com/node-pool"
-	FeatureLabelName  = "humio.com/feature"
+	NodePoolLabelName        = "humio.com/node-pool"
+	FeatureLabelName         = "humio.com/feature"
+	PodMarkedForDataEviction = "humio.com/marked-for-data-eviction"
+	LogScaleClusterVhost     = "humio.com/cluster-vhost"
 )
 
 // LabelsForHumio returns the set of common labels for Humio resources.

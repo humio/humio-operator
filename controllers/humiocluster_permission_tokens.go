@@ -78,7 +78,7 @@ func (r *HumioClusterReconciler) validateAdminSecretContent(ctx context.Context,
 		}
 
 		humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
-		_, err = r.HumioClient.GetClusters(ctx, humioHttpClient, req)
+		_, err = r.HumioClient.GetCluster(ctx, humioHttpClient, req)
 		if err != nil {
 			return fmt.Errorf("got err while trying to use apiToken: %w", err)
 		}
