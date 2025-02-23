@@ -3581,13 +3581,6 @@ spec:
                   DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
                   This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.
                 type: boolean
-              enableDownscalingFeature:
-                default: false
-                description: |-
-                  EnableDownscalingFeature (PREVIEW) is a feature flag for enabling the downscaling functionality of the humio operator for this humio cluster.
-                  Default: false
-                  Preview: this feature is in a preview state
-                type: boolean
               environmentVariables:
                 description: |-
                   EnvironmentVariables is the set of variables that will be supplied to all Pods in the given node pool.
@@ -5513,6 +5506,18 @@ spec:
                   - name
                   type: object
                 type: array
+              featureFlags:
+                description: FeatureFlags contains feature flags applied to this humio
+                  cluster.
+                properties:
+                  enableDownscalingFeature:
+                    default: false
+                    description: |-
+                      EnableDownscalingFeature (PREVIEW) is a feature flag for enabling the downscaling functionality of the humio operator for this humio cluster.
+                      Default: false
+                      Preview: this feature is in a preview state
+                    type: boolean
+                type: object
               helperImage:
                 description: HelperImage is the desired helper container image, including
                   image tag
