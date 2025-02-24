@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/humio/humio-operator/internal/api/humiographql"
 	"reflect"
+	goslices "slices"
 	"strconv"
 	"strings"
 	"time"
@@ -2186,11 +2187,13 @@ func (r *HumioClusterReconciler) processDownscaling(ctx context.Context, hc *hum
 			}
 			if nodeCanBeSafelyUnregistered {
 				r.Log.Info(fmt.Sprintf("successfully evicted data from vhost %d", vhost))
-				hc.Status.EvictedNodeIds = append(hc.Status.EvictedNodeIds, vhost) // keep track of the evicted node for unregistering
-				err = r.Status().Update(ctx, hc)
-				if err != nil {
-					r.Log.Error(err, "failed to update cluster status")
-					return reconcile.Result{}, err
+				if !goslices.Contains(hc.Status.EvictedNodeIds, vhost) {
+					hc.Status.EvictedNodeIds = append(hc.Status.EvictedNodeIds, vhost) // keep track of the evicted node for unregistering
+					err = r.Status().Update(ctx, hc)
+					if err != nil {
+						r.Log.Error(err, "failed to update cluster status")
+						return reconcile.Result{}, err
+					}
 				}
 				r.Log.Info(fmt.Sprintf("removing pod %s containing vhost %d", pod.Name, vhost))
 				if err := r.Delete(ctx, &pod); err != nil { // delete pod before unregistering node
