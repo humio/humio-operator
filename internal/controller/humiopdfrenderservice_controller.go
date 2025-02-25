@@ -184,10 +184,10 @@ func (r *HumioPdfRenderServiceReconciler) constructIngress(humioPdfRenderService
 // constructDeployment constructs a Deployment for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) constructDeployment(humioPdfRenderService *corev1alpha1.HumioPdfRenderService) *appsv1.Deployment {
 	// Use the CR name plus a fixed suffix.
-	deploymentName := humioPdfRenderService.Name + "-pdf-render-service"
+	deploymentName := "pdf-render-service"
 
 	labels := map[string]string{
-		"app":                           "humio-pdf-render-service",
+		"app":                           "pdf-render-service",
 		"humio-pdf-render-service-name": humioPdfRenderService.Name,
 	}
 	deployment := &appsv1.Deployment{
@@ -212,7 +212,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(humioPdfRenderServ
 				SecurityContext:    humioPdfRenderService.Spec.SecurityContext,
 				ImagePullSecrets:   humioPdfRenderService.Spec.ImagePullSecrets,
 				Containers: []corev1.Container{{
-					Name:            "humio-pdf-render-service",
+					Name:            "pdf-render-service",
 					Image:           humioPdfRenderService.Spec.Image,
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Resources:       humioPdfRenderService.Spec.Resources,
@@ -245,7 +245,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 
 		// Always update labels.
 		deployment.Spec.Template.ObjectMeta.Labels = map[string]string{
-			"app":                           "humio-pdf-render-service",
+			"app":                           "pdf-render-service",
 			"humio-pdf-render-service-name": humioPdfRenderService.Name,
 		}
 
@@ -264,7 +264,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 
 		// Update container details.
 		for i := range deployment.Spec.Template.Spec.Containers {
-			if deployment.Spec.Template.Spec.Containers[i].Name == "humio-pdf-render-service" {
+			if deployment.Spec.Template.Spec.Containers[i].Name == "pdf-render-service" {
 				deployment.Spec.Template.Spec.Containers[i].Image = humioPdfRenderService.Spec.Image
 				deployment.Spec.Template.Spec.Containers[i].ImagePullPolicy = corev1.PullIfNotPresent
 				deployment.Spec.Template.Spec.Containers[i].Resources = humioPdfRenderService.Spec.Resources
@@ -289,10 +289,10 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 // constructService constructs a Service for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) constructService(humioPdfRenderService *corev1alpha1.HumioPdfRenderService) *corev1.Service {
 	// Use a fixed short service name.
-	serviceName := "humio-pdf-render-service"
+	serviceName := "humio-pdf-render"
 
 	labels := map[string]string{
-		"app":                           "humio-pdf-render-service",
+		"app":                           "pdf-render-service",
 		"humio-pdf-render-service-name": humioPdfRenderService.Name,
 	}
 	service := &corev1.Service{
@@ -347,7 +347,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 
 	// Update labels and specification.
 	existingService.Labels = map[string]string{
-		"app":                           "humio-pdf-render-service",
+		"app":                           "pdf-render-service",
 		"humio-pdf-render-service-name": humioPdfRenderService.Name,
 	}
 	existingService.Spec.Type = humioPdfRenderService.Spec.ServiceType
