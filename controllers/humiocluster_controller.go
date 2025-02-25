@@ -315,7 +315,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Feature is only available for LogScale versions >= v1.173.0
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		// Check if downscaling feature flag is enabled
-		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) && pool.IsDownscalingFeatureEnabled() {
+		if pool.IsDownscalingFeatureEnabled() && r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
 			if result, err := r.processDownscaling(ctx, hc, pool, req); result != emptyResult || err != nil {
 				if err != nil {
 					_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
@@ -2091,20 +2091,17 @@ func (r *HumioClusterReconciler) ingressesMatch(ingress *networkingv1.Ingress, d
 
 func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (reconcile.Result, error) {
 	// Ensure we have pods for the defined NodeCount.
-
 	// Exclude pods that are currently being evicted --> Ensures K8s keeps track of the pods waiting for eviction and doesn't remove pods continuously
-	labelsToMatch := hnp.GetNodePoolLabels()
-	labelsToMatch[kubernetes.PodMarkedForDataEviction] = "false"
-
-	podsNotMarkedForEviction, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), labelsToMatch)
+	podsNotMarkedForEviction, err := r.getPodsNotMarkedForEviction(ctx, hnp)
 	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods")
+		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods not marked for eviction")
 	}
-	var expectedPodsList []corev1.Pod
-	pvcClaimNamesInUse := make(map[string]struct{})
 
 	// if there are fewer pods than specified, create pods
 	if len(podsNotMarkedForEviction) < hnp.GetNodeCount() {
+		var expectedPodsList []corev1.Pod
+		pvcClaimNamesInUse := make(map[string]struct{})
+
 		for i := 1; i+len(podsNotMarkedForEviction) <= hnp.GetNodeCount(); i++ {
 			attachments, err := r.newPodAttachments(ctx, hnp, podsNotMarkedForEviction, pvcClaimNamesInUse)
 			if err != nil {
@@ -2132,17 +2129,16 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 }
 
 func (r *HumioClusterReconciler) processDownscaling(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, req ctrl.Request) (reconcile.Result, error) {
-	labelsToMatch := hnp.GetNodePoolLabels()
-	labelsToMatch[kubernetes.PodMarkedForDataEviction] = "false"
-	podsNotMarkedForEviction, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), labelsToMatch)
+	podsNotMarkedForEviction, err := r.getPodsNotMarkedForEviction(ctx, hnp)
 	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods")
+		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods not marked for eviction")
 	}
 
+	labelsToMatch := hnp.GetNodePoolLabels()
 	labelsToMatch[kubernetes.PodMarkedForDataEviction] = "true"
 	podsMarkedForEviction, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), labelsToMatch)
 	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods")
+		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods marked for eviction")
 	}
 
 	clusterConfig, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
@@ -2218,6 +2214,20 @@ func (r *HumioClusterReconciler) processDownscaling(ctx context.Context, hc *hum
 	}
 	// check for pods currently being evicted ---> check the eviction status --> if evicted --> remove node --> else, requeue
 	return reconcile.Result{}, nil
+}
+
+func (r *HumioClusterReconciler) getPodsNotMarkedForEviction(ctx context.Context, hnp *HumioNodePool) ([]corev1.Pod, error) {
+	pods, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
+	if err != nil {
+		return nil, r.logErrorAndReturn(err, "failed to list pods")
+	}
+	var podsNotMarkedForEviction []corev1.Pod
+	for _, pod := range pods {
+		if pod.Labels[kubernetes.PodMarkedForDataEviction] != "true" {
+			podsNotMarkedForEviction = append(podsNotMarkedForEviction, pod)
+		}
+	}
+	return podsNotMarkedForEviction, nil
 }
 
 func (r *HumioClusterReconciler) handleActiveEvictions(ctx context.Context, humioHttpClient *humioapi.Client, req ctrl.Request, podsInNodePool []corev1.Pod) error {
@@ -2393,6 +2403,8 @@ func (r *HumioClusterReconciler) markPodForEviction(ctx context.Context, hc *hum
 			continue
 		}
 		vhost := podNameToNodeIdMap[pod.GetName()]
+
+		r.Log.Info(fmt.Sprintf("Marking pod %s with associated vhost %d for eviction.", pod.Name, vhost))
 		err = r.HumioClient.SetIsBeingEvicted(ctx, humioHttpClient, req, vhost, true)
 		if err != nil {
 			return r.logErrorAndReturn(err, fmt.Sprintf("failed to set data eviction for vhost %d", vhost))
@@ -2414,7 +2426,6 @@ func (r *HumioClusterReconciler) markPodForEviction(ctx context.Context, hc *hum
 func (r *HumioClusterReconciler) updateEvictionStatus(ctx context.Context, humioHttpClient *humioapi.Client, req ctrl.Request, pod corev1.Pod, vhost int) (bool, error) {
 	// wait for eviction status to be updated
 	isMarkedForEviction := false
-	r.Log.Info(fmt.Sprintf("validating node data eviction is in progress for vhost %d", vhost))
 	for i := 0; i < waitForPodTimeoutSeconds && !isMarkedForEviction; i++ {
 		nodesStatus, err := r.getClusterNodesStatus(ctx, humioHttpClient, req)
 		if err != nil {
@@ -2435,6 +2446,7 @@ func (r *HumioClusterReconciler) updateEvictionStatus(ctx context.Context, humio
 		return false, nil
 	}
 
+	r.Log.Info(fmt.Sprintf("marking node data eviction in progress for vhost %d", vhost))
 	pod.Labels[kubernetes.PodMarkedForDataEviction] = "true"
 	pod.Annotations[kubernetes.LogScaleClusterVhost] = strconv.Itoa(vhost)
 	err := r.Update(ctx, &pod)
