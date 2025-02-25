@@ -4232,7 +4232,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			// Verify that the Deployment exists.
 			deploymentKey := types.NamespacedName{
-				Name:      cr.Name + "-pdf-render-service",
+				Name:      "pdf-render-service",
 				Namespace: cr.Namespace,
 			}
 			deployment := &appsv1.Deployment{}
@@ -4243,7 +4243,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			// Verify that the Service exists and uses the fixed service name.
 			serviceKey := types.NamespacedName{
-				Name:      "humio-pdf-render-service",
+				Name:      "humio-pdf-render",
 				Namespace: cr.Namespace,
 			}
 			service := &corev1.Service{}
@@ -4277,7 +4277,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			// Wait for the Deployment to be created.
 			deploymentKey := types.NamespacedName{
-				Name:      cr.Name + "-pdf-render-service",
+				Name:      "pdf-render-service",
 				Namespace: cr.Namespace,
 			}
 			deployment := &appsv1.Deployment{}
@@ -4327,7 +4327,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			// Verify the Service exists.
 			serviceKey := types.NamespacedName{
-				Name:      "humio-pdf-render-service",
+				Name:      "humio-pdf-render",
 				Namespace: cr.Namespace,
 			}
 			service := &corev1.Service{}
