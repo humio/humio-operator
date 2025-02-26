@@ -5,17 +5,9 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - ""
+  - core.humio.com
   resources:
-  - configmaps
-  - endpoints
-  - events
-  - persistentvolumeclaims
-  - pods
-  - secrets
-  - serviceaccounts
-  - services
-  - services/finalizers
+  - humioactions
   verbs:
   - create
   - delete
@@ -27,14 +19,202 @@ rules:
 - apiGroups:
   - core.humio.com
   resources:
-  - humioactions
+  - humioactions/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioactions/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioaggregatealerts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioaggregatealerts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioaggregatealerts/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioalerts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioalerts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioalerts/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humiobootstraptokens
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiobootstraptokens/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiobootstraptokens/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioexternalclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioexternalclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioexternalclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humiofilteralerts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiofilteralerts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiofilteralerts/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioingesttokens
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioingesttokens/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioingesttokens/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioparsers
   verbs:
   - create
@@ -88,7 +268,57 @@ rules:
   - core.humio.com
   resources:
   - humiorepositories
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiorepositories/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humiorepositories/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioscheduledsearches
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioscheduledsearches/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
+  - humioscheduledsearches/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.humio.com
+  resources:
   - humioviews
   verbs:
   - create
@@ -101,48 +331,14 @@ rules:
 - apiGroups:
   - core.humio.com
   resources:
-  - humioactions/finalizers
-  - humioaggregatealerts/finalizers
-  - humioalerts/finalizers
-  - humiobootstraptokens/finalizers
-  - humioclusters/finalizers
-  - humioexternalclusters/finalizers
-  - humiofilteralerts/finalizers
-  - humioingesttokens/finalizers
-  - humioparsers/finalizers
-  - humiorepositories/finalizers
-  - humioscheduledsearches/finalizers
   - humioviews/finalizers
   verbs:
   - update
 - apiGroups:
   - core.humio.com
   resources:
-  - humioactions/status
-  - humioaggregatealerts/status
-  - humioalerts/status
-  - humiobootstraptokens/status
-  - humioclusters/status
-  - humioexternalclusters/status
-  - humiofilteralerts/status
-  - humioingesttokens/status
-  - humioparsers/status
-  - humiorepositories/status
-  - humioscheduledsearches/status
   - humioviews/status
   verbs:
   - get
   - patch
   - update
-- apiGroups:
-  - networking.k8s.io
-  resources:
-  - ingress
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch

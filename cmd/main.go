@@ -319,6 +319,97 @@ func main() {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioView")
 		os.Exit(1)
 	}
+	if err = (&controller.HumioActionReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HumioAction")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioAggregateAlertReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HumioAggregateAlert")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioAlertReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HumioAlert")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioBootstrapTokenReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HumioBootstrapToken")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioClusterReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HumioCluster")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioExternalClusterReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HumioExternalCluster")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioFilterAlertReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HumioFilterAlert")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioIngestTokenReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HumioIngestToken")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioParserReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HumioParser")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioRepositoryReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HumioRepository")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioScheduledSearchReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HumioScheduledSearch")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioViewReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HumioView")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioPdfRenderServiceReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HumioPdfRenderService")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {

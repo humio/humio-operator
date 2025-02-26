@@ -39,13 +39,13 @@ type HumioQuery struct {
 	Start string `json:"start,omitempty"`
 	// End is the end time for the query. Defaults to "now"
 	// Deprecated: Will be ignored. All alerts end at "now".
-	End string `json:"end,omitempty"`
+	DeprecatedEnd string `json:"end,omitempty"`
 	// IsLive sets whether the query is a live query. Defaults to "true"
 	// Deprecated: Will be ignored. All alerts are live.
-	IsLive *bool `json:"isLive,omitempty"`
+	DeprecatedIsLive *bool `json:"isLive,omitempty"`
 }
 
-// HumioAlertSpec defines the desired state of HumioAlert.
+// HumioAlertSpec defines the desired state of HumioAlert
 type HumioAlertSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
@@ -55,18 +55,18 @@ type HumioAlertSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the alert inside Humio
-	// +kubebuilder:validation:MinLength=1
-	// +required
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the Alert will be managed. This can also be a Repository
-	// +kubebuilder:validation:MinLength=1
-	// +required
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	ViewName string `json:"viewName"`
 	// Query defines the desired state of the Humio query
-	// +required
+	//+required
 	Query HumioQuery `json:"query"`
 	// Description is the description of the Alert
-	// +optional
+	//+optional
 	Description string `json:"description,omitempty"`
 	// ThrottleTimeMillis is the throttle time in milliseconds. An Alert is triggered at most once per the throttle time
 	ThrottleTimeMillis int `json:"throttleTimeMillis,omitempty"`
@@ -80,16 +80,16 @@ type HumioAlertSpec struct {
 	Labels []string `json:"labels,omitempty"`
 }
 
-// HumioAlertStatus defines the observed state of HumioAlert.
+// HumioAlertStatus defines the observed state of HumioAlert
 type HumioAlertStatus struct {
 	// State reflects the current state of the HumioAlert
 	State string `json:"state,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
 
-// HumioAlert is the Schema for the humioalerts API.
+// HumioAlert is the Schema for the humioalerts API
 type HumioAlert struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -98,9 +98,9 @@ type HumioAlert struct {
 	Status HumioAlertStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
-// HumioAlertList contains a list of HumioAlert.
+// HumioAlertList contains a list of HumioAlert
 type HumioAlertList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

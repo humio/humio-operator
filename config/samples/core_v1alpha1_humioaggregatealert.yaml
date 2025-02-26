@@ -2,18 +2,8 @@ apiVersion: core.humio.com/v1alpha1
 kind: HumioAggregateAlert
 metadata:
   labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
   name: humioaggregatealert-sample
 spec:
-  managedClusterName: example-humiocluster
-  name: "example-aggregatealert"
-  queryString: "#repo = humio | error = true | count() | _count > 0"
-  viewName: "humio"
-  actions:
-    - example-email-action
-  throttleTimeSeconds: 60
-  triggerMode: "CompleteMode"
-  searchInterval: 60
-  description: "This is an example of an aggregate alert"
-  enabled: true
-  labels:
-    - "example-label"
+  # TODO(user): Add fields here
