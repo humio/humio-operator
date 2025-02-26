@@ -166,7 +166,7 @@ func (r *HumioPdfRenderServiceReconciler) constructIngress(humioPdfRenderService
 							PathType: &pathType,
 							Backend: netv1.IngressBackend{
 								Service: &netv1.IngressServiceBackend{
-									Name: "humio-pdf-render-service", // Fixed service name
+									Name: "humio-pdf-render", // Fixed service name
 									Port: netv1.ServiceBackendPort{
 										Number: humioPdfRenderService.Spec.Port,
 									},
