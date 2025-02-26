@@ -35,10 +35,10 @@ const (
 type HumioRetention struct {
 	// perhaps we should migrate to resource.Quantity? the Humio API needs float64, but that is not supported here, see more here:
 	// https://github.com/kubernetes-sigs/controller-tools/issues/245
-	//+kubebuilder:validation:Minimum=1
+	//+kubebuilder:validation:Minimum=0
 	//+optional
 	IngestSizeInGB *int32 `json:"ingestSizeInGB,omitempty"`
-	//+kubebuilder:validation:Minimum=1
+	//+kubebuilder:validation:Minimum=0
 	//+optional
 	StorageSizeInGB *int32 `json:"storageSizeInGB,omitempty"`
 	//+kubebuilder:validation:Minimum=1
