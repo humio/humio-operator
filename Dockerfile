@@ -1,16 +1,19 @@
 # Build the manager binary
-FROM golang:1.22-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS builder
 
+ARG BUILDPLATFORM
+ARG TARGETPLATFORM
 ARG RELEASE_VERSION=master
 ARG RELEASE_COMMIT=none
 ARG RELEASE_DATE=unknown
 
 WORKDIR /workspace
+
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
-# cache deps before building and copying source so that we don't need to re-download as much
-# and so that source changes don't invalidate our downloaded layer
+
+# cache deps before building and copying source
 RUN go mod download
 
 # Copy the go source
@@ -20,9 +23,13 @@ COPY controllers/ controllers/
 COPY internal/ internal/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build -ldflags="-s -w -X 'main.version=$RELEASE_VERSION' -X 'main.commit=$RELEASE_COMMIT' -X 'main.date=$RELEASE_DATE'" -a -o manager main.go
+RUN export GOOS=$(echo $TARGETPLATFORM | cut -d'/' -f1) \
+    && export GOARCH=$(echo $TARGETPLATFORM | cut -d'/' -f2) \
+    && CGO_ENABLED=0 GO111MODULE=on go build \
+    -ldflags="-s -w -X 'main.version=$RELEASE_VERSION' -X 'main.commit=$RELEASE_COMMIT' -X 'main.date=$RELEASE_DATE'" \
+    -a -o manager main.go
 
-# Use ubi8 as base image to package the manager binary to comply with Red Hat image certification requirements
+# Use scratch as base image
 FROM scratch
 LABEL "name"="humio-operator"
 LABEL "vendor"="humio"
