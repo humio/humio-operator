@@ -28,7 +28,7 @@ const (
 	HumioBootstrapTokenStateReady = "Ready"
 )
 
-// HumioBootstrapTokenSpec defines the desired state of HumioBootstrapToken.
+// HumioBootstrapTokenSpec defines the bootstrap token that Humio will use to bootstrap authentication
 type HumioBootstrapTokenSpec struct {
 	// ManagedClusterName refers to the name of the HumioCluster which will use this bootstrap token
 	ManagedClusterName string `json:"managedClusterName,omitempty"`
@@ -54,30 +54,25 @@ type HumioBootstrapTokenSpec struct {
 	HashedTokenSecret HumioHashedTokenSecretSpec `json:"hashedTokenSecret,omitempty"`
 }
 
-// HumioTokenSecretSpec defines where the plaintext bootstrap token is stored.
 type HumioTokenSecretSpec struct {
 	// SecretKeyRef is the secret key reference to a kubernetes secret containing the bootstrap token secret
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
-// HumioHashedTokenSecretSpec defines where he hashed bootstrap token is stored.
 type HumioHashedTokenSecretSpec struct {
 	// SecretKeyRef is the secret key reference to a kubernetes secret containing the bootstrap hashed token secret
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
-// HumioBootstrapTokenStatus defines the observed state of HumioBootstrapToken.
 type HumioBootstrapTokenStatus struct {
 	// State can be "NotReady" or "Ready"
 	State string `json:"state,omitempty"`
 	// TokenSecretKeyRef contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
 	// in the spec or automatically created
 	TokenSecretKeyRef HumioTokenSecretStatus `json:"tokenSecretStatus,omitempty"`
-	// HashedTokenSecretKeyRef is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
+	// HashedTokenSecret is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
 	// in the spec or automatically created
 	HashedTokenSecretKeyRef HumioHashedTokenSecretStatus `json:"hashedTokenSecretStatus,omitempty"`
-	// BootstrapImage is the image that was used to issue the token
-	BootstrapImage string `json:"bootstrapImage,omitempty"`
 }
 
 // HumioTokenSecretStatus contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
@@ -88,7 +83,7 @@ type HumioTokenSecretStatus struct {
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
-// HumioHashedTokenSecretStatus contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
+// HumioTokenSecretStatus contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
 // in the spec or automatically created
 type HumioHashedTokenSecretStatus struct {
 	// SecretKeyRef is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
@@ -96,13 +91,13 @@ type HumioHashedTokenSecretStatus struct {
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:path=humiobootstraptokens,scope=Namespaced
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the bootstrap token"
-// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Bootstrap Token"
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+//+kubebuilder:resource:path=humiobootstraptokens,scope=Namespaced
+//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the bootstrap token"
+//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Bootstrap Token"
 
-// HumioBootstrapToken is the Schema for the humiobootstraptokens API.
+// HumioBootstrapToken defines the bootstrap token that Humio will use to bootstrap authentication
 type HumioBootstrapToken struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -111,9 +106,9 @@ type HumioBootstrapToken struct {
 	Status HumioBootstrapTokenStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
-// HumioBootstrapTokenList contains a list of HumioBootstrapToken.
+// HumioBootstrapTokenList contains a list of HumioBootstrapTokens
 type HumioBootstrapTokenList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

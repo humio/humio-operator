@@ -14,14 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package controllers
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"reflect"
-	"sort"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -47,9 +46,9 @@ type HumioActionReconciler struct {
 	Namespace   string
 }
 
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioactions,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioactions/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioactions/finalizers,verbs=update
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioactions,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioactions/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioactions/finalizers,verbs=update
 
 func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	if r.Namespace != "" {
@@ -86,7 +85,21 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
-	defer func(ctx context.Context, ha *humiov1alpha1.HumioAction) {
+	err = r.resolveSecrets(ctx, ha)
+	if err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not resolve secret references")
+	}
+
+	if _, validateErr := humio.ActionFromActionCR(ha); validateErr != nil {
+		r.Log.Error(validateErr, "unable to validate action")
+		setStateErr := r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
+		if setStateErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set action state")
+		}
+		return reconcile.Result{}, validateErr
+	}
+
+	defer func(ctx context.Context, humioClient humio.Client, ha *humiov1alpha1.HumioAction) {
 		_, err := r.HumioClient.GetAction(ctx, humioHttpClient, req, ha)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioActionStateNotFound, ha)
@@ -97,7 +110,7 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioActionStateExists, ha)
-	}(ctx, ha)
+	}(ctx, r.HumioClient, ha)
 
 	return r.reconcileHumioAction(ctx, humioHttpClient, ha, req)
 }
@@ -141,19 +154,6 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 		}
 
 		return reconcile.Result{Requeue: true}, nil
-	}
-
-	if err := r.resolveSecrets(ctx, ha); err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not resolve secret references")
-	}
-
-	if _, validateErr := humio.ActionFromActionCR(ha); validateErr != nil {
-		r.Log.Error(validateErr, "unable to validate action")
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
-		if setStateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set action state")
-		}
-		return reconcile.Result{}, validateErr
 	}
 
 	r.Log.Info("Checking if action needs to be created")
@@ -298,7 +298,6 @@ func (r *HumioActionReconciler) resolveField(ctx context.Context, namespace, val
 func (r *HumioActionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioAction{}).
-		Named("humioaction").
 		Complete(r)
 }
 
@@ -319,11 +318,9 @@ func (r *HumioActionReconciler) logErrorAndReturn(err error, msg string) error {
 // actionAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
 // if the details from GraphQL already matches what is in the desired state of the custom resource.
 // If they do not match, a map is returned with details on what the diff is.
-// nolint:gocyclo
 func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentAction humiographql.ActionDetails) (bool, map[string]string) {
 	diffMap := map[string]string{}
 	actionType := "unknown"
-	redactedValue := "<redacted>"
 
 	switch e := (expectedAction).(type) {
 	case *humiographql.ActionDetailsEmailAction:
@@ -356,7 +353,7 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 				diffMap["name"] = diff
 			}
 			if diff := cmp.Diff(c.GetIngestToken(), e.GetIngestToken()); diff != "" {
-				diffMap["ingestToken"] = redactedValue
+				diffMap["ingestToken"] = "<redacted>"
 			}
 		default:
 			diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
@@ -372,7 +369,7 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 				diffMap["apiUrl"] = diff
 			}
 			if diff := cmp.Diff(c.GetGenieKey(), e.GetGenieKey()); diff != "" {
-				diffMap["genieKey"] = redactedValue
+				diffMap["genieKey"] = "<redacted>"
 			}
 			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
 				diffMap["useProxy"] = diff
@@ -388,7 +385,7 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 				diffMap["name"] = diff
 			}
 			if diff := cmp.Diff(c.GetRoutingKey(), e.GetRoutingKey()); diff != "" {
-				diffMap["apiUrl"] = redactedValue
+				diffMap["apiUrl"] = "<redacted>"
 			}
 			if diff := cmp.Diff(c.GetSeverity(), e.GetSeverity()); diff != "" {
 				diffMap["genieKey"] = diff
@@ -410,7 +407,7 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 				diffMap["fields"] = diff
 			}
 			if diff := cmp.Diff(c.GetUrl(), e.GetUrl()); diff != "" {
-				diffMap["url"] = redactedValue
+				diffMap["url"] = "<redacted>"
 			}
 			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
 				diffMap["useProxy"] = diff
@@ -426,7 +423,7 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 				diffMap["name"] = diff
 			}
 			if diff := cmp.Diff(c.GetApiToken(), e.GetApiToken()); diff != "" {
-				diffMap["apiToken"] = redactedValue
+				diffMap["apiToken"] = "<redacted>"
 			}
 			if diff := cmp.Diff(c.GetChannels(), e.GetChannels()); diff != "" {
 				diffMap["channels"] = diff
@@ -451,7 +448,7 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 				diffMap["messageType"] = diff
 			}
 			if diff := cmp.Diff(c.GetNotifyUrl(), e.GetNotifyUrl()); diff != "" {
-				diffMap["notifyUrl"] = redactedValue
+				diffMap["notifyUrl"] = "<redacted>"
 			}
 			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
 				diffMap["useProxy"] = diff
@@ -463,25 +460,20 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 		switch c := (currentAction).(type) {
 		case *humiographql.ActionDetailsWebhookAction:
 			actionType = getTypeString(e)
-
-			currentHeaders := c.GetHeaders()
-			expectedHeaders := e.GetHeaders()
-			sortHeaders(currentHeaders)
-			sortHeaders(expectedHeaders)
-			if diff := cmp.Diff(c.GetMethod(), e.GetMethod()); diff != "" {
-				diffMap["method"] = diff
-			}
 			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
 				diffMap["name"] = diff
 			}
 			if diff := cmp.Diff(c.GetWebhookBodyTemplate(), e.GetWebhookBodyTemplate()); diff != "" {
 				diffMap["bodyTemplate"] = diff
 			}
-			if diff := cmp.Diff(currentHeaders, expectedHeaders); diff != "" {
-				diffMap["headers"] = redactedValue
+			if diff := cmp.Diff(c.GetHeaders(), e.GetHeaders()); diff != "" {
+				diffMap["headers"] = "<redacted>"
+			}
+			if diff := cmp.Diff(c.GetMethod(), e.GetMethod()); diff != "" {
+				diffMap["method"] = diff
 			}
 			if diff := cmp.Diff(c.GetUrl(), e.GetUrl()); diff != "" {
-				diffMap["url"] = redactedValue
+				diffMap["url"] = "<redacted>"
 			}
 			if diff := cmp.Diff(c.GetIgnoreSSL(), e.GetIgnoreSSL()); diff != "" {
 				diffMap["ignoreSSL"] = diff
@@ -507,10 +499,4 @@ func getTypeString(arg interface{}) string {
 		t = t.Elem()
 	}
 	return t.String()
-}
-
-func sortHeaders(headers []humiographql.ActionDetailsHeadersHttpHeaderEntry) {
-	sort.SliceStable(headers, func(i, j int) bool {
-		return headers[i].Header > headers[j].Header || headers[i].Value > headers[j].Value
-	})
 }
