@@ -1,15 +1,9 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioAction
 metadata:
-  name: humioaction-example
+  labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humioaction-sample
 spec:
-  managedClusterName: example-humiocluster
-  name: example-email-action
-  viewName: humio
-  emailProperties:
-    recipients:
-      - example@example.com
-    subjectTemplate: "{alert_name} has alerted"
-    bodyTemplate: |-
-      {alert_name} has alerted
-      click {url} to see the alert
+  # TODO(user): Add fields here
