@@ -2,7 +2,7 @@ operator:
   image:
     repository: 471112840547.dkr.ecr.us-west-2.amazonaws.com/humio-operator
     # default for tag is the appVersion set in Chart.yaml
-    tag: latest
+    tag: 0.27.3
     pullPolicy: Always
     pullSecrets: []
   prometheus:
