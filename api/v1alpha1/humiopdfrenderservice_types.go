@@ -110,7 +110,6 @@ type HumioPdfRenderServiceSpec struct {
 
 	// ContainerSecurityContext defines container-level security attributes
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
-
 }
 
 // HumioPdfRenderServiceIngressSpec defines the desired state of the Ingress.
