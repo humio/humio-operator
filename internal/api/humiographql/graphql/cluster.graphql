@@ -3,6 +3,60 @@ query GetCluster {
         nodes {
             id
             zone
+            uri
+            isAvailable
+        }
+    }
+}
+
+query GetEvictionStatus {
+    cluster {
+        nodes {
+            id
+            isBeingEvicted
+            reasonsNodeCannotBeSafelyUnregistered {
+                isAlive
+                hasUnderReplicatedData
+                hasDataThatExistsOnlyOnThisNode
+                leadsDigest
+            }
+        }
+    }
+}
+
+mutation RefreshClusterManagementStats(
+    $Vhost: Int!
+){
+    refreshClusterManagementStats(nodeId: $Vhost){
+        reasonsNodeCannotBeSafelyUnregistered {
+            isAlive
+            hasUnderReplicatedData
+            hasDataThatExistsOnlyOnThisNode
+            leadsDigest
+        }
+    }
+}
+
+
+mutation SetIsBeingEvicted(
+    $Vhost: Int!
+    $IsBeingEvicted: Boolean!
+){
+    setIsBeingEvicted(vhost: $Vhost, isBeingEvicted: $IsBeingEvicted)
+}
+
+mutation UnregisterClusterNode(
+    $NodeId: Int!
+    $Force: Boolean!
+) {
+    clusterUnregisterNode(
+        nodeID: $NodeId
+        force: $Force
+    ) {
+        cluster {
+            nodes {
+                id
+            }
         }
     }
 }
