@@ -87,11 +87,11 @@ spec:
                       perhaps we should migrate to resource.Quantity? the Humio API needs float64, but that is not supported here, see more here:
                       https://github.com/kubernetes-sigs/controller-tools/issues/245
                     format: int32
-                    minimum: 1
+                    minimum: 0
                     type: integer
                   storageSizeInGB:
                     format: int32
-                    minimum: 1
+                    minimum: 0
                     type: integer
                   timeInDays:
                     format: int32

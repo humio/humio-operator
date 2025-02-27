@@ -35758,7 +35758,7 @@ Retention defines the retention settings for the repository
 https://github.com/kubernetes-sigs/controller-tools/issues/245<br/>
           <br/>
             <i>Format</i>: int32<br/>
-            <i>Minimum</i>: 1<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -35768,7 +35768,7 @@ https://github.com/kubernetes-sigs/controller-tools/issues/245<br/>
           <br/>
           <br/>
             <i>Format</i>: int32<br/>
-            <i>Minimum</i>: 1<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr><tr>
