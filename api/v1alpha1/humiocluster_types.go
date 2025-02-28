@@ -109,8 +109,14 @@ type HumioClusterSpec struct {
 }
 
 type HumioNodeSpec struct {
-	// Image is the desired humio container image, including the image tag
+	// Image is the desired humio container image, including the image tag.
+	// The value from ImageSource takes precedence over Image.
 	Image string `json:"image,omitempty"`
+
+	// ImageSource is the reference to an external source identifying the image.
+	// The value from ImageSource takes precedence over Image.
+	//+optional
+	ImageSource *HumioImageSource `json:"imageSource,omitempty"`
 
 	// NodeCount is the desired number of humio cluster nodes
 	//+kubebuilder:default=0
@@ -232,9 +238,6 @@ type HumioNodeSpec struct {
 	// Precedence is given to more environment-specific variables, i.e. spec.environmentVariables
 	// (or spec.nodePools[].environmentVariables) has higher precedence than spec.commonEnvironmentVariables.
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
-
-	// ImageSource is the reference to an external source identifying the image
-	ImageSource *HumioImageSource `json:"imageSource,omitempty"`
 
 	// HumioServiceType is the ServiceType of the Humio Service that is used to direct traffic to the Humio pods
 	HumioServiceType corev1.ServiceType `json:"humioServiceType,omitempty"`
