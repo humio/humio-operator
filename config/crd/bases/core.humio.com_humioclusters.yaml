@@ -5601,8 +5601,9 @@ spec:
                   contains the IDP Certificate when using SAML authentication
                 type: string
               image:
-                description: Image is the desired humio container image, including
-                  the image tag
+                description: |-
+                  Image is the desired humio container image, including the image tag.
+                  The value from ImageSource takes precedence over Image.
                 type: string
               imagePullPolicy:
                 description: ImagePullPolicy sets the imagePullPolicy for all the
@@ -5626,8 +5627,9 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
               imageSource:
-                description: ImageSource is the reference to an external source identifying
-                  the image
+                description: |-
+                  ImageSource is the reference to an external source identifying the image.
+                  The value from ImageSource takes precedence over Image.
                 properties:
                   configMapRef:
                     description: ConfigMapRef contains the reference to the configmap
@@ -11164,8 +11166,9 @@ spec:
                             pods
                           type: string
                         image:
-                          description: Image is the desired humio container image,
-                            including the image tag
+                          description: |-
+                            Image is the desired humio container image, including the image tag.
+                            The value from ImageSource takes precedence over Image.
                           type: string
                         imagePullPolicy:
                           description: ImagePullPolicy sets the imagePullPolicy for
@@ -11190,8 +11193,9 @@ spec:
                             x-kubernetes-map-type: atomic
                           type: array
                         imageSource:
-                          description: ImageSource is the reference to an external
-                            source identifying the image
+                          description: |-
+                            ImageSource is the reference to an external source identifying the image.
+                            The value from ImageSource takes precedence over Image.
                           properties:
                             configMapRef:
                               description: ConfigMapRef contains the reference to

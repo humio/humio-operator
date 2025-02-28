@@ -4230,7 +4230,8 @@ the Humio pods.<br/>
         <td><b>image</b></td>
         <td>string</td>
         <td>
-          Image is the desired humio container image, including the image tag<br/>
+          Image is the desired humio container image, including the image tag.
+The value from ImageSource takes precedence over Image.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4251,7 +4252,8 @@ the Humio pods.<br/>
         <td><b><a href="#humioclusterspecimagesource">imageSource</a></b></td>
         <td>object</td>
         <td>
-          ImageSource is the reference to an external source identifying the image<br/>
+          ImageSource is the reference to an external source identifying the image.
+The value from ImageSource takes precedence over Image.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15762,7 +15764,8 @@ TODO: Add other useful fields. apiVersion, kind, uid?<br/>
 
 
 
-ImageSource is the reference to an external source identifying the image
+ImageSource is the reference to an external source identifying the image.
+The value from ImageSource takes precedence over Image.
 
 <table>
     <thead>
@@ -16232,7 +16235,8 @@ the Humio pods.<br/>
         <td><b>image</b></td>
         <td>string</td>
         <td>
-          Image is the desired humio container image, including the image tag<br/>
+          Image is the desired humio container image, including the image tag.
+The value from ImageSource takes precedence over Image.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16253,7 +16257,8 @@ the Humio pods.<br/>
         <td><b><a href="#humioclusterspecnodepoolsindexspecimagesource">imageSource</a></b></td>
         <td>object</td>
         <td>
-          ImageSource is the reference to an external source identifying the image<br/>
+          ImageSource is the reference to an external source identifying the image.
+The value from ImageSource takes precedence over Image.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -27296,7 +27301,8 @@ TODO: Add other useful fields. apiVersion, kind, uid?<br/>
 
 
 
-ImageSource is the reference to an external source identifying the image
+ImageSource is the reference to an external source identifying the image.
+The value from ImageSource takes precedence over Image.
 
 <table>
     <thead>
