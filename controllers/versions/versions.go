@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	defaultHelperImageVersion = "humio/humio-operator-helper:0801827ac0aeec0976097099ae00742209677a70"
+	defaultHelperImageVersion = "humio/humio-operator-helper:d3a8396d8921b47aee43c74cca813a37d3ebf29f"
 	defaultHumioImageVersion  = "humio/humio-core:1.159.1"
 
 	oldSupportedHumioVersion   = "humio/humio-core:1.130.0"
