@@ -5506,6 +5506,18 @@ spec:
                   - name
                   type: object
                 type: array
+              featureFlags:
+                description: FeatureFlags contains feature flags applied to this humio
+                  cluster.
+                properties:
+                  enableDownscalingFeature:
+                    default: false
+                    description: |-
+                      EnableDownscalingFeature (PREVIEW) is a feature flag for enabling the downscaling functionality of the humio operator for this humio cluster.
+                      Default: false
+                      Preview: this feature is in a preview state
+                    type: boolean
+                type: object
               helperImage:
                 description: HelperImage is the desired helper container image, including
                   image tag
@@ -15148,6 +15160,12 @@ spec:
           status:
             description: HumioClusterStatus defines the observed state of HumioCluster
             properties:
+              evictedNodeIds:
+                description: EvictedNodeIds keeps track of evicted nodes for use within
+                  the downscaling functionality
+                items:
+                  type: integer
+                type: array
               licenseStatus:
                 description: LicenseStatus shows the status of the Humio license attached
                   to the cluster

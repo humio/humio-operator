@@ -4126,6 +4126,13 @@ of new environment variables. For more details, see the LogScale release notes.<
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humioclusterspecfeatureflags">featureFlags</a></b></td>
+        <td>object</td>
+        <td>
+          FeatureFlags contains feature flags applied to this humio cluster.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>helperImage</b></td>
         <td>string</td>
         <td>
@@ -15653,6 +15660,37 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
         <td>string</td>
         <td>
           storagePolicyName is the storage Policy Based Management (SPBM) profile name.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.featureFlags
+<sup><sup>[↩ Parent](#humioclusterspec)</sup></sup>
+
+
+
+FeatureFlags contains feature flags applied to this humio cluster.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>enableDownscalingFeature</b></td>
+        <td>boolean</td>
+        <td>
+          EnableDownscalingFeature (PREVIEW) is a feature flag for enabling the downscaling functionality of the humio operator for this humio cluster.
+Default: false
+Preview: this feature is in a preview state<br/>
+          <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -34773,6 +34811,13 @@ HumioClusterStatus defines the observed state of HumioCluster
         </tr>
     </thead>
     <tbody><tr>
+        <td><b>evictedNodeIds</b></td>
+        <td>[]integer</td>
+        <td>
+          EvictedNodeIds keeps track of evicted nodes for use within the downscaling functionality<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humioclusterstatuslicensestatus">licenseStatus</a></b></td>
         <td>object</td>
         <td>

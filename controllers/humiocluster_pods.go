@@ -649,6 +649,7 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 	if hnp.TLSEnabled() {
 		pod.Annotations[certHashAnnotation] = podNameAndCertHash.certificateHash
 	}
+	pod.Labels[kubernetes.PodMarkedForDataEviction] = "false"
 
 	r.Log.Info(fmt.Sprintf("creating pod %s with podRevision=%d and podHash=%s",
 		pod.Name, hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash()))
