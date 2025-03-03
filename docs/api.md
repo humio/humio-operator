@@ -3771,6 +3771,13 @@ HumioBootstrapTokenStatus defines the observed state of HumioBootstrapToken.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b>bootstrapImage</b></td>
+        <td>string</td>
+        <td>
+          BootstrapImage is the image that was used to issue the token<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humiobootstraptokenstatushashedtokensecretstatus">hashedTokenSecretStatus</a></b></td>
         <td>object</td>
         <td>
