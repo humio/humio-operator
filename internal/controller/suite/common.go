@@ -422,7 +422,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		return
 	}
 
-	SimulateHumioBootstrapTokenCreatingSecretAndUpdatingStatus(ctx, key, k8sClient, testTimeout)
+	SimulateHumioBootstrapTokenCreatingSecretAndUpdatingStatus(ctx, key, k8sClient, testTimeout, cluster)
 
 	UsingClusterBy(key.Name, "Confirming cluster enters running state")
 	var updatedHumioCluster humiov1alpha1.HumioCluster
@@ -718,21 +718,41 @@ func CreateDockerRegredSecret(ctx context.Context, namespace corev1.Namespace, k
 	Expect(k8sClient.Create(ctx, &regcredSecret)).To(Succeed())
 }
 
-func SimulateHumioBootstrapTokenCreatingSecretAndUpdatingStatus(ctx context.Context, key types.NamespacedName, k8sClient client.Client, testTimeout time.Duration) {
+func SimulateHumioBootstrapTokenCreatingSecretAndUpdatingStatus(ctx context.Context, key types.NamespacedName, k8sClient client.Client, testTimeout time.Duration, cluster *humiov1alpha1.HumioCluster) {
 	UsingClusterBy(key.Name, "Simulating HumioBootstrapToken Controller running and adding the secret and status")
 	Eventually(func() error {
-		hbtList, err := kubernetes.ListHumioBootstrapTokens(ctx, k8sClient, key.Namespace, kubernetes.LabelsForHumioBootstrapToken(key.Name))
+		var bootstrapImage string
+		bootstrapImage = "test"
+		if cluster.Spec.Image != "" {
+			bootstrapImage = cluster.Spec.Image
+		}
+		if cluster.Spec.ImageSource != nil {
+			configMap, err := kubernetes.GetConfigMap(ctx, k8sClient, cluster.Spec.ImageSource.ConfigMapRef.Name, cluster.Namespace)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				Expect(err).Should(Succeed())
+			} else {
+				bootstrapImage = configMap.Data[cluster.Spec.ImageSource.ConfigMapRef.Key]
+			}
+		}
+		for _, nodePool := range cluster.Spec.NodePools {
+			if nodePool.HumioNodeSpec.Image != "" {
+				bootstrapImage = nodePool.HumioNodeSpec.Image
+				break
+			}
+			if nodePool.ImageSource != nil {
+				configMap, err := kubernetes.GetConfigMap(ctx, k8sClient, nodePool.ImageSource.ConfigMapRef.Name, cluster.Namespace)
+				if err != nil && !k8serrors.IsNotFound(err) {
+					Expect(err).Should(Succeed())
+				} else {
+					bootstrapImage = configMap.Data[nodePool.ImageSource.ConfigMapRef.Key]
+					break
+				}
+			}
+		}
+		updatedHumioBootstrapToken, err := GetHumioBootstrapToken(ctx, key, k8sClient)
 		if err != nil {
 			return err
 		}
-		if len(hbtList) == 0 {
-			return fmt.Errorf("no humiobootstraptokens for cluster %s", key.Name)
-		}
-		if len(hbtList) > 1 {
-			return fmt.Errorf("too many humiobootstraptokens for cluster %s. found list : %+v", key.Name, hbtList)
-		}
-
-		updatedHumioBootstrapToken := hbtList[0]
 		updatedHumioBootstrapToken.Status.State = humiov1alpha1.HumioBootstrapTokenStateReady
 		updatedHumioBootstrapToken.Status.TokenSecretKeyRef = humiov1alpha1.HumioTokenSecretStatus{
 			SecretKeyRef: &corev1.SecretKeySelector{
@@ -750,6 +770,21 @@ func SimulateHumioBootstrapTokenCreatingSecretAndUpdatingStatus(ctx context.Cont
 				Key: "hashedToken",
 			},
 		}
+		updatedHumioBootstrapToken.Status.BootstrapImage = bootstrapImage
 		return k8sClient.Status().Update(ctx, &updatedHumioBootstrapToken)
 	}, testTimeout, TestInterval).Should(Succeed())
+}
+
+func GetHumioBootstrapToken(ctx context.Context, key types.NamespacedName, k8sClient client.Client) (humiov1alpha1.HumioBootstrapToken, error) {
+	hbtList, err := kubernetes.ListHumioBootstrapTokens(ctx, k8sClient, key.Namespace, kubernetes.LabelsForHumioBootstrapToken(key.Name))
+	if err != nil {
+		return humiov1alpha1.HumioBootstrapToken{}, err
+	}
+	if len(hbtList) == 0 {
+		return humiov1alpha1.HumioBootstrapToken{}, fmt.Errorf("no humiobootstraptokens for cluster %s", key.Name)
+	}
+	if len(hbtList) > 1 {
+		return humiov1alpha1.HumioBootstrapToken{}, fmt.Errorf("too many humiobootstraptokens for cluster %s. found list : %+v", key.Name, hbtList)
+	}
+	return hbtList[0], nil
 }
