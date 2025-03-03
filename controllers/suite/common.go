@@ -529,7 +529,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 				Expect(clusterConfig.Config()).ToNot(BeNil())
 
 				humioHttpClient := humioClient.GetHumioHttpClient(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
-				cluster, err := humioClient.GetClusters(ctx, humioHttpClient, reconcile.Request{NamespacedName: key})
+				cluster, err := humioClient.GetCluster(ctx, humioHttpClient, reconcile.Request{NamespacedName: key})
 				if err != nil {
 					return []string{fmt.Sprintf("got err: %s", err)}
 				}
@@ -558,7 +558,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 				Expect(clusterConfig.Config()).ToNot(BeNil())
 
 				humioHttpClient := humioClient.GetHumioHttpClient(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
-				cluster, err := humioClient.GetClusters(ctx, humioHttpClient, reconcile.Request{NamespacedName: key})
+				cluster, err := humioClient.GetCluster(ctx, humioHttpClient, reconcile.Request{NamespacedName: key})
 				getCluster := cluster.GetCluster()
 				if err != nil || len(getCluster.GetNodes()) < 1 {
 					return []string{}

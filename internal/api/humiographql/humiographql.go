@@ -194,12 +194,16 @@ type ActionDetailsEmailAction struct {
 	// An action that can be invoked from a trigger.
 	Name string `json:"name"`
 	// List of email addresses to send an email to.
+	// Stability: Long-term
 	Recipients []string `json:"recipients"`
 	// Subject of the email. Can be templated with values from the result.
+	// Stability: Long-term
 	SubjectTemplate *string `json:"subjectTemplate"`
 	// Body of the email. Can be templated with values from the result.
+	// Stability: Long-term
 	EmailBodyTemplate *string `json:"emailBodyTemplate"`
 	// Defines whether the action should use the configured proxy to make web requests.
+	// Stability: Long-term
 	UseProxy bool `json:"useProxy"`
 }
 
@@ -227,8 +231,10 @@ func (v *ActionDetailsEmailAction) GetUseProxy() bool { return v.UseProxy }
 // Field entry in a Slack message
 type ActionDetailsFieldsSlackFieldEntry struct {
 	// Key of a Slack field.
+	// Stability: Long-term
 	FieldName string `json:"fieldName"`
 	// Value of a Slack field.
+	// Stability: Long-term
 	Value string `json:"value"`
 }
 
@@ -244,8 +250,10 @@ func (v *ActionDetailsFieldsSlackFieldEntry) GetValue() string { return v.Value 
 // A http request header.
 type ActionDetailsHeadersHttpHeaderEntry struct {
 	// Key of a http(s) header.
+	// Stability: Long-term
 	Header string `json:"header"`
 	// Value of a http(s) header.
+	// Stability: Long-term
 	Value string `json:"value"`
 }
 
@@ -265,6 +273,7 @@ type ActionDetailsHumioRepoAction struct {
 	// An action that can be invoked from a trigger.
 	Name string `json:"name"`
 	// Humio ingest token for the dataspace that the action should ingest into.
+	// Stability: Long-term
 	IngestToken string `json:"ingestToken"`
 }
 
@@ -287,10 +296,13 @@ type ActionDetailsOpsGenieAction struct {
 	// An action that can be invoked from a trigger.
 	Name string `json:"name"`
 	// OpsGenie webhook url to send the request to.
+	// Stability: Long-term
 	ApiUrl string `json:"apiUrl"`
 	// Key to authenticate with OpsGenie.
+	// Stability: Long-term
 	GenieKey string `json:"genieKey"`
 	// Defines whether the action should use the configured proxy to make web requests.
+	// Stability: Long-term
 	UseProxy bool `json:"useProxy"`
 }
 
@@ -319,10 +331,13 @@ type ActionDetailsPagerDutyAction struct {
 	// An action that can be invoked from a trigger.
 	Name string `json:"name"`
 	// Severity level to give to the message.
+	// Stability: Long-term
 	Severity string `json:"severity"`
 	// Routing key to authenticate with PagerDuty.
+	// Stability: Long-term
 	RoutingKey string `json:"routingKey"`
 	// Defines whether the action should use the configured proxy to make web requests.
+	// Stability: Long-term
 	UseProxy bool `json:"useProxy"`
 }
 
@@ -351,10 +366,13 @@ type ActionDetailsSlackAction struct {
 	// An action that can be invoked from a trigger.
 	Name string `json:"name"`
 	// Slack webhook url to send the request to.
+	// Stability: Long-term
 	Url string `json:"url"`
 	// Fields to include within the Slack message. Can be templated with values from the result.
+	// Stability: Long-term
 	Fields []ActionDetailsFieldsSlackFieldEntry `json:"fields"`
 	// Defines whether the action should use the configured proxy to make web requests.
+	// Stability: Long-term
 	UseProxy bool `json:"useProxy"`
 }
 
@@ -383,12 +401,16 @@ type ActionDetailsSlackPostMessageAction struct {
 	// An action that can be invoked from a trigger.
 	Name string `json:"name"`
 	// Api token to authenticate with Slack.
+	// Stability: Long-term
 	ApiToken string `json:"apiToken"`
 	// List of Slack channels to message.
+	// Stability: Long-term
 	Channels []string `json:"channels"`
 	// Fields to include within the Slack message. Can be templated with values from the result.
+	// Stability: Long-term
 	Fields []ActionDetailsFieldsSlackFieldEntry `json:"fields"`
 	// Defines whether the action should use the configured proxy to make web requests.
+	// Stability: Long-term
 	UseProxy bool `json:"useProxy"`
 }
 
@@ -439,10 +461,13 @@ type ActionDetailsVictorOpsAction struct {
 	// An action that can be invoked from a trigger.
 	Name string `json:"name"`
 	// Type of the VictorOps message to make.
+	// Stability: Long-term
 	MessageType string `json:"messageType"`
 	// VictorOps webhook url to send the request to.
+	// Stability: Long-term
 	NotifyUrl string `json:"notifyUrl"`
 	// Defines whether the action should use the configured proxy to make web requests.
+	// Stability: Long-term
 	UseProxy bool `json:"useProxy"`
 }
 
@@ -471,16 +496,22 @@ type ActionDetailsWebhookAction struct {
 	// An action that can be invoked from a trigger.
 	Name string `json:"name"`
 	// Method to use for the request.
+	// Stability: Long-term
 	Method string `json:"method"`
 	// Url to send the http(s) request to.
+	// Stability: Long-term
 	Url string `json:"url"`
 	// Headers of the http(s) request.
+	// Stability: Long-term
 	Headers []ActionDetailsHeadersHttpHeaderEntry `json:"headers"`
 	// Body of the http(s) request. Can be templated with values from the result.
+	// Stability: Long-term
 	WebhookBodyTemplate string `json:"WebhookBodyTemplate"`
 	// Flag indicating whether SSL should be ignored for the request.
+	// Stability: Long-term
 	IgnoreSSL bool `json:"ignoreSSL"`
 	// Defines whether the action should use the configured proxy to make web requests.
+	// Stability: Long-term
 	UseProxy bool `json:"useProxy"`
 }
 
@@ -862,6 +893,7 @@ func (v *AddIngestTokenAddIngestTokenV3IngestToken) __premarshalJSON() (*__prema
 // AddIngestTokenResponse is returned by AddIngestToken on success.
 type AddIngestTokenResponse struct {
 	// Create a new Ingest API Token.
+	// Stability: Long-term
 	AddIngestTokenV3 AddIngestTokenAddIngestTokenV3IngestToken `json:"addIngestTokenV3"`
 }
 
@@ -1036,6 +1068,7 @@ func __marshalAddUserAddUserV2UserOrPendingUser(v *AddUserAddUserV2UserOrPending
 // AddUserResponse is returned by AddUser on success.
 type AddUserResponse struct {
 	// Add or invite a user. Calling this with an invitation token, will activate the account. By activating the account the client accepts LogScale's Terms and Conditions: https://www.humio.com/terms-and-conditions
+	// Stability: Long-term
 	AddUserV2 AddUserAddUserV2UserOrPendingUser `json:"-"`
 }
 
@@ -1111,30 +1144,43 @@ func (v *AddUserResponse) __premarshalJSON() (*__premarshalAddUserResponse, erro
 // An aggregate alert.
 type AggregateAlertDetails struct {
 	// Id of the aggregate alert.
+	// Stability: Long-term
 	Id string `json:"id"`
 	// Name of the aggregate alert.
+	// Stability: Long-term
 	Name string `json:"name"`
 	// Description of the aggregate alert.
+	// Stability: Long-term
 	Description *string `json:"description"`
 	// LogScale query to execute.
+	// Stability: Long-term
 	QueryString string `json:"queryString"`
 	// Search interval in seconds.
+	// Stability: Long-term
 	SearchIntervalSeconds int64 `json:"searchIntervalSeconds"`
 	// Throttle time in seconds.
+	// Stability: Long-term
 	ThrottleTimeSeconds int64 `json:"throttleTimeSeconds"`
 	// A field to throttle on. Can only be set if throttleTimeSeconds is set.
+	// Stability: Long-term
 	ThrottleField *string `json:"throttleField"`
 	// Labels attached to the aggregate alert.
+	// Stability: Long-term
 	Labels []string `json:"labels"`
 	// Flag indicating whether the aggregate alert is enabled.
+	// Stability: Long-term
 	Enabled bool `json:"enabled"`
 	// Trigger mode used for triggering the alert.
+	// Stability: Long-term
 	TriggerMode TriggerMode `json:"triggerMode"`
 	// Timestamp type to use for a query.
+	// Stability: Long-term
 	QueryTimestampType QueryTimestampType `json:"queryTimestampType"`
 	// List of actions to fire on query result.
+	// Stability: Long-term
 	Actions []SharedActionNameType `json:"-"`
 	// Ownership of the query run by this alert
+	// Stability: Long-term
 	QueryOwnership SharedQueryOwnershipType `json:"-"`
 }
 
@@ -1321,26 +1367,37 @@ func (v *AggregateAlertDetails) __premarshalJSON() (*__premarshalAggregateAlertD
 // An alert.
 type AlertDetails struct {
 	// Id of the alert.
+	// Stability: Long-term
 	Id string `json:"id"`
 	// Name of the alert.
+	// Stability: Long-term
 	Name string `json:"name"`
 	// LogScale query to execute.
+	// Stability: Long-term
 	QueryString string `json:"queryString"`
 	// Start of the relative time interval for the query.
+	// Stability: Long-term
 	QueryStart string `json:"queryStart"`
 	// Field to throttle on.
+	// Stability: Long-term
 	ThrottleField *string `json:"throttleField"`
 	// Name of the alert.
+	// Stability: Long-term
 	Description *string `json:"description"`
 	// Throttle time in milliseconds.
+	// Stability: Long-term
 	ThrottleTimeMillis int64 `json:"throttleTimeMillis"`
 	// Flag indicating whether the alert is enabled.
+	// Stability: Long-term
 	Enabled bool `json:"enabled"`
 	// Labels attached to the alert.
+	// Stability: Long-term
 	Labels []string `json:"labels"`
 	// List of ids for actions to fire on query result.
+	// Stability: Long-term
 	ActionsV2 []SharedActionNameType `json:"-"`
 	// Ownership of the query run by this alert
+	// Stability: Long-term
 	QueryOwnership SharedQueryOwnershipType `json:"-"`
 }
 
@@ -1523,6 +1580,7 @@ func (v *AssignParserToIngestTokenAssignParserToIngestTokenV2IngestToken) GetTyp
 // AssignParserToIngestTokenResponse is returned by AssignParserToIngestToken on success.
 type AssignParserToIngestTokenResponse struct {
 	// Assign an ingest token to be associated with a parser.
+	// Stability: Long-term
 	AssignParserToIngestTokenV2 AssignParserToIngestTokenAssignParserToIngestTokenV2IngestToken `json:"assignParserToIngestTokenV2"`
 }
 
@@ -1713,6 +1771,7 @@ func (v *CreateAggregateAlertCreateAggregateAlert) __premarshalJSON() (*__premar
 // CreateAggregateAlertResponse is returned by CreateAggregateAlert on success.
 type CreateAggregateAlertResponse struct {
 	// Create an aggregate alert.
+	// Stability: Long-term
 	CreateAggregateAlert CreateAggregateAlertCreateAggregateAlert `json:"createAggregateAlert"`
 }
 
@@ -1873,6 +1932,7 @@ func (v *CreateAlertCreateAlert) __premarshalJSON() (*__premarshalCreateAlertCre
 // CreateAlertResponse is returned by CreateAlert on success.
 type CreateAlertResponse struct {
 	// Create an alert.
+	// Stability: Long-term
 	CreateAlert CreateAlertCreateAlert `json:"createAlert"`
 }
 
@@ -1893,6 +1953,7 @@ func (v *CreateEmailActionCreateEmailAction) GetTypename() *string { return v.Ty
 // CreateEmailActionResponse is returned by CreateEmailAction on success.
 type CreateEmailActionResponse struct {
 	// Create an email action.
+	// Stability: Long-term
 	CreateEmailAction CreateEmailActionCreateEmailAction `json:"createEmailAction"`
 }
 
@@ -2053,6 +2114,7 @@ func (v *CreateFilterAlertCreateFilterAlert) __premarshalJSON() (*__premarshalCr
 // CreateFilterAlertResponse is returned by CreateFilterAlert on success.
 type CreateFilterAlertResponse struct {
 	// Create a filter alert.
+	// Stability: Long-term
 	CreateFilterAlert CreateFilterAlertCreateFilterAlert `json:"createFilterAlert"`
 }
 
@@ -2075,6 +2137,7 @@ func (v *CreateHumioRepoActionCreateHumioRepoAction) GetTypename() *string { ret
 // CreateHumioRepoActionResponse is returned by CreateHumioRepoAction on success.
 type CreateHumioRepoActionResponse struct {
 	// Create a LogScale repository action.
+	// Stability: Long-term
 	CreateHumioRepoAction CreateHumioRepoActionCreateHumioRepoAction `json:"createHumioRepoAction"`
 }
 
@@ -2097,6 +2160,7 @@ func (v *CreateOpsGenieActionCreateOpsGenieAction) GetTypename() *string { retur
 // CreateOpsGenieActionResponse is returned by CreateOpsGenieAction on success.
 type CreateOpsGenieActionResponse struct {
 	// Create an OpsGenie action.
+	// Stability: Long-term
 	CreateOpsGenieAction CreateOpsGenieActionCreateOpsGenieAction `json:"createOpsGenieAction"`
 }
 
@@ -2119,6 +2183,7 @@ func (v *CreatePagerDutyActionCreatePagerDutyAction) GetTypename() *string { ret
 // CreatePagerDutyActionResponse is returned by CreatePagerDutyAction on success.
 type CreatePagerDutyActionResponse struct {
 	// Create a PagerDuty action.
+	// Stability: Long-term
 	CreatePagerDutyAction CreatePagerDutyActionCreatePagerDutyAction `json:"createPagerDutyAction"`
 }
 
@@ -2213,6 +2278,7 @@ func (v *CreateParserOrUpdateCreateParserV2Parser) __premarshalJSON() (*__premar
 // CreateParserOrUpdateResponse is returned by CreateParserOrUpdate on success.
 type CreateParserOrUpdateResponse struct {
 	// Create a parser.
+	// Stability: Long-term
 	CreateParserV2 CreateParserOrUpdateCreateParserV2Parser `json:"createParserV2"`
 }
 
@@ -2223,6 +2289,7 @@ func (v *CreateParserOrUpdateResponse) GetCreateParserV2() CreateParserOrUpdateC
 
 // CreateRepositoryCreateRepositoryCreateRepositoryMutation includes the requested fields of the GraphQL type CreateRepositoryMutation.
 type CreateRepositoryCreateRepositoryCreateRepositoryMutation struct {
+	// Stability: Long-term
 	Repository CreateRepositoryCreateRepositoryCreateRepositoryMutationRepository `json:"repository"`
 }
 
@@ -2355,6 +2422,7 @@ func (v *CreateRepositoryCreateRepositoryCreateRepositoryMutationRepository) __p
 // CreateRepositoryResponse is returned by CreateRepository on success.
 type CreateRepositoryResponse struct {
 	// Create a new repository.
+	// Stability: Short-term
 	CreateRepository CreateRepositoryCreateRepositoryCreateRepositoryMutation `json:"createRepository"`
 }
 
@@ -2547,6 +2615,7 @@ func (v *CreateScheduledSearchCreateScheduledSearch) __premarshalJSON() (*__prem
 // CreateScheduledSearchResponse is returned by CreateScheduledSearch on success.
 type CreateScheduledSearchResponse struct {
 	// Create a scheduled search.
+	// Stability: Long-term
 	CreateScheduledSearch CreateScheduledSearchCreateScheduledSearch `json:"createScheduledSearch"`
 }
 
@@ -2569,6 +2638,7 @@ func (v *CreateSlackActionCreateSlackAction) GetTypename() *string { return v.Ty
 // CreateSlackActionResponse is returned by CreateSlackAction on success.
 type CreateSlackActionResponse struct {
 	// Create a Slack action.
+	// Stability: Long-term
 	CreateSlackAction CreateSlackActionCreateSlackAction `json:"createSlackAction"`
 }
 
@@ -2593,6 +2663,7 @@ func (v *CreateSlackPostMessageActionCreateSlackPostMessageAction) GetTypename()
 // CreateSlackPostMessageActionResponse is returned by CreateSlackPostMessageAction on success.
 type CreateSlackPostMessageActionResponse struct {
 	// Create a post message Slack action.
+	// Stability: Long-term
 	CreateSlackPostMessageAction CreateSlackPostMessageActionCreateSlackPostMessageAction `json:"createSlackPostMessageAction"`
 }
 
@@ -2615,6 +2686,7 @@ func (v *CreateVictorOpsActionCreateVictorOpsAction) GetTypename() *string { ret
 // CreateVictorOpsActionResponse is returned by CreateVictorOpsAction on success.
 type CreateVictorOpsActionResponse struct {
 	// Create a VictorOps action.
+	// Stability: Long-term
 	CreateVictorOpsAction CreateVictorOpsActionCreateVictorOpsAction `json:"createVictorOpsAction"`
 }
 
@@ -2637,6 +2709,7 @@ func (v *CreateViewCreateView) GetTypename() *string { return v.Typename }
 // CreateViewResponse is returned by CreateView on success.
 type CreateViewResponse struct {
 	// Create a new view.
+	// Stability: Long-term
 	CreateView CreateViewCreateView `json:"createView"`
 }
 
@@ -2657,6 +2730,7 @@ func (v *CreateWebhookActionCreateWebhookAction) GetTypename() *string { return 
 // CreateWebhookActionResponse is returned by CreateWebhookAction on success.
 type CreateWebhookActionResponse struct {
 	// Create a webhook action.
+	// Stability: Long-term
 	CreateWebhookAction CreateWebhookActionCreateWebhookAction `json:"createWebhookAction"`
 }
 
@@ -2668,6 +2742,7 @@ func (v *CreateWebhookActionResponse) GetCreateWebhookAction() CreateWebhookActi
 // DeleteActionByIDResponse is returned by DeleteActionByID on success.
 type DeleteActionByIDResponse struct {
 	// Delete an action.
+	// Stability: Long-term
 	DeleteAction bool `json:"deleteAction"`
 }
 
@@ -2677,6 +2752,7 @@ func (v *DeleteActionByIDResponse) GetDeleteAction() bool { return v.DeleteActio
 // DeleteAggregateAlertResponse is returned by DeleteAggregateAlert on success.
 type DeleteAggregateAlertResponse struct {
 	// Delete an aggregate alert.
+	// Stability: Long-term
 	DeleteAggregateAlert bool `json:"deleteAggregateAlert"`
 }
 
@@ -2686,6 +2762,7 @@ func (v *DeleteAggregateAlertResponse) GetDeleteAggregateAlert() bool { return v
 // DeleteAlertByIDResponse is returned by DeleteAlertByID on success.
 type DeleteAlertByIDResponse struct {
 	// Delete an alert.
+	// Stability: Long-term
 	DeleteAlert bool `json:"deleteAlert"`
 }
 
@@ -2695,6 +2772,7 @@ func (v *DeleteAlertByIDResponse) GetDeleteAlert() bool { return v.DeleteAlert }
 // DeleteFilterAlertResponse is returned by DeleteFilterAlert on success.
 type DeleteFilterAlertResponse struct {
 	// Delete a filter alert.
+	// Stability: Long-term
 	DeleteFilterAlert bool `json:"deleteFilterAlert"`
 }
 
@@ -2712,6 +2790,7 @@ func (v *DeleteParserByIDDeleteParserBooleanResultType) GetTypename() *string { 
 // DeleteParserByIDResponse is returned by DeleteParserByID on success.
 type DeleteParserByIDResponse struct {
 	// Delete a parser.
+	// Stability: Long-term
 	DeleteParser DeleteParserByIDDeleteParserBooleanResultType `json:"deleteParser"`
 }
 
@@ -2723,6 +2802,7 @@ func (v *DeleteParserByIDResponse) GetDeleteParser() DeleteParserByIDDeleteParse
 // DeleteScheduledSearchByIDResponse is returned by DeleteScheduledSearchByID on success.
 type DeleteScheduledSearchByIDResponse struct {
 	// Delete a scheduled search.
+	// Stability: Long-term
 	DeleteScheduledSearch bool `json:"deleteScheduledSearch"`
 }
 
@@ -2744,6 +2824,7 @@ func (v *DeleteSearchDomainDeleteSearchDomainBooleanResultType) GetTypename() *s
 // DeleteSearchDomainResponse is returned by DeleteSearchDomain on success.
 type DeleteSearchDomainResponse struct {
 	// Delete a repository or view.
+	// Stability: Long-term
 	DeleteSearchDomain DeleteSearchDomainDeleteSearchDomainBooleanResultType `json:"deleteSearchDomain"`
 }
 
@@ -2755,6 +2836,7 @@ func (v *DeleteSearchDomainResponse) GetDeleteSearchDomain() DeleteSearchDomainD
 // DisableS3ArchivingResponse is returned by DisableS3Archiving on success.
 type DisableS3ArchivingResponse struct {
 	// Disables the archiving job for the repository.
+	// Stability: Short-term
 	S3DisableArchiving DisableS3ArchivingS3DisableArchivingBooleanResultType `json:"s3DisableArchiving"`
 }
 
@@ -2776,6 +2858,7 @@ func (v *DisableS3ArchivingS3DisableArchivingBooleanResultType) GetTypename() *s
 // EnableS3ArchivingResponse is returned by EnableS3Archiving on success.
 type EnableS3ArchivingResponse struct {
 	// Enables the archiving job for the repository.
+	// Stability: Short-term
 	S3EnableArchiving EnableS3ArchivingS3EnableArchivingBooleanResultType `json:"s3EnableArchiving"`
 }
 
@@ -2814,24 +2897,34 @@ func (v *FieldHasValueInput) GetExpectedValue() string { return v.ExpectedValue 
 // A filter alert.
 type FilterAlertDetails struct {
 	// Id of the filter alert.
+	// Stability: Long-term
 	Id string `json:"id"`
 	// Name of the filter alert.
+	// Stability: Long-term
 	Name string `json:"name"`
 	// Description of the filter alert.
+	// Stability: Long-term
 	Description *string `json:"description"`
 	// LogScale query to execute.
+	// Stability: Long-term
 	QueryString string `json:"queryString"`
 	// Throttle time in seconds.
+	// Stability: Long-term
 	ThrottleTimeSeconds *int64 `json:"throttleTimeSeconds"`
 	// A field to throttle on. Can only be set if throttleTimeSeconds is set.
+	// Stability: Long-term
 	ThrottleField *string `json:"throttleField"`
 	// Labels attached to the filter alert.
+	// Stability: Long-term
 	Labels []string `json:"labels"`
 	// Flag indicating whether the filter alert is enabled.
+	// Stability: Long-term
 	Enabled bool `json:"enabled"`
 	// List of ids for actions to fire on query result.
+	// Stability: Long-term
 	Actions []SharedActionNameType `json:"-"`
 	// Ownership of the query run by this alert
+	// Stability: Long-term
 	QueryOwnership SharedQueryOwnershipType `json:"-"`
 }
 
@@ -2994,6 +3087,7 @@ func (v *FilterAlertDetails) __premarshalJSON() (*__premarshalFilterAlertDetails
 
 // GetActionByIDResponse is returned by GetActionByID on success.
 type GetActionByIDResponse struct {
+	// Stability: Long-term
 	SearchDomain GetActionByIDSearchDomain `json:"-"`
 }
 
@@ -4395,6 +4489,7 @@ func (v *GetActionByIDSearchDomainView) __premarshalJSON() (*__premarshalGetActi
 
 // GetAggregateAlertByIDResponse is returned by GetAggregateAlertByID on success.
 type GetAggregateAlertByIDResponse struct {
+	// Stability: Long-term
 	SearchDomain GetAggregateAlertByIDSearchDomain `json:"-"`
 }
 
@@ -4769,6 +4864,7 @@ func (v *GetAggregateAlertByIDSearchDomainView) GetAggregateAlert() GetAggregate
 //
 // Information about the LogScale cluster.
 type GetClusterCluster struct {
+	// Stability: Long-term
 	Nodes []GetClusterClusterNodesClusterNode `json:"nodes"`
 }
 
@@ -4780,8 +4876,15 @@ func (v *GetClusterCluster) GetNodes() []GetClusterClusterNodesClusterNode { ret
 //
 // A node in the a LogScale Cluster.
 type GetClusterClusterNodesClusterNode struct {
-	Id   int     `json:"id"`
+	// Stability: Long-term
+	Id int `json:"id"`
+	// Stability: Long-term
 	Zone *string `json:"zone"`
+	// Stability: Long-term
+	Uri string `json:"uri"`
+	// A flag indicating whether the node is considered up or down by the cluster coordinated. This is based on the `lastHeartbeat` field.
+	// Stability: Long-term
+	IsAvailable bool `json:"isAvailable"`
 }
 
 // GetId returns GetClusterClusterNodesClusterNode.Id, and is useful for accessing the field via an interface.
@@ -4790,17 +4893,109 @@ func (v *GetClusterClusterNodesClusterNode) GetId() int { return v.Id }
 // GetZone returns GetClusterClusterNodesClusterNode.Zone, and is useful for accessing the field via an interface.
 func (v *GetClusterClusterNodesClusterNode) GetZone() *string { return v.Zone }
 
+// GetUri returns GetClusterClusterNodesClusterNode.Uri, and is useful for accessing the field via an interface.
+func (v *GetClusterClusterNodesClusterNode) GetUri() string { return v.Uri }
+
+// GetIsAvailable returns GetClusterClusterNodesClusterNode.IsAvailable, and is useful for accessing the field via an interface.
+func (v *GetClusterClusterNodesClusterNode) GetIsAvailable() bool { return v.IsAvailable }
+
 // GetClusterResponse is returned by GetCluster on success.
 type GetClusterResponse struct {
 	// This is used to retrieve information about a cluster.
+	// Stability: Long-term
 	Cluster GetClusterCluster `json:"cluster"`
 }
 
 // GetCluster returns GetClusterResponse.Cluster, and is useful for accessing the field via an interface.
 func (v *GetClusterResponse) GetCluster() GetClusterCluster { return v.Cluster }
 
+// GetEvictionStatusCluster includes the requested fields of the GraphQL type Cluster.
+// The GraphQL type's documentation follows.
+//
+// Information about the LogScale cluster.
+type GetEvictionStatusCluster struct {
+	// Stability: Long-term
+	Nodes []GetEvictionStatusClusterNodesClusterNode `json:"nodes"`
+}
+
+// GetNodes returns GetEvictionStatusCluster.Nodes, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusCluster) GetNodes() []GetEvictionStatusClusterNodesClusterNode {
+	return v.Nodes
+}
+
+// GetEvictionStatusClusterNodesClusterNode includes the requested fields of the GraphQL type ClusterNode.
+// The GraphQL type's documentation follows.
+//
+// A node in the a LogScale Cluster.
+type GetEvictionStatusClusterNodesClusterNode struct {
+	// Stability: Long-term
+	Id int `json:"id"`
+	// A flag indicating whether the node is marked for eviction. The Falcon LogScale cluster will start to move segments, digesters and queries away from any node marked for eviction
+	// Stability: Long-term
+	IsBeingEvicted *bool `json:"isBeingEvicted"`
+	// Stability: Long-term
+	ReasonsNodeCannotBeSafelyUnregistered GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered `json:"reasonsNodeCannotBeSafelyUnregistered"`
+}
+
+// GetId returns GetEvictionStatusClusterNodesClusterNode.Id, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNode) GetId() int { return v.Id }
+
+// GetIsBeingEvicted returns GetEvictionStatusClusterNodesClusterNode.IsBeingEvicted, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNode) GetIsBeingEvicted() *bool { return v.IsBeingEvicted }
+
+// GetReasonsNodeCannotBeSafelyUnregistered returns GetEvictionStatusClusterNodesClusterNode.ReasonsNodeCannotBeSafelyUnregistered, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNode) GetReasonsNodeCannotBeSafelyUnregistered() GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered {
+	return v.ReasonsNodeCannotBeSafelyUnregistered
+}
+
+// GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered includes the requested fields of the GraphQL type ReasonsNodeCannotBeSafelyUnregistered.
+// The GraphQL type's documentation follows.
+//
+// A map from reasons why a node might not be able to be unregistered safely, to the boolean value indicating whether a given reason applies to this node. For a node to be unregistered without any undue disruption, none of the reasons must apply.
+type GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered struct {
+	// Stability: Long-term
+	IsAlive bool `json:"isAlive"`
+	// Stability: Long-term
+	HasUnderReplicatedData bool `json:"hasUnderReplicatedData"`
+	// Stability: Long-term
+	HasDataThatExistsOnlyOnThisNode bool `json:"hasDataThatExistsOnlyOnThisNode"`
+	// Stability: Long-term
+	LeadsDigest bool `json:"leadsDigest"`
+}
+
+// GetIsAlive returns GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered.IsAlive, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered) GetIsAlive() bool {
+	return v.IsAlive
+}
+
+// GetHasUnderReplicatedData returns GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered.HasUnderReplicatedData, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered) GetHasUnderReplicatedData() bool {
+	return v.HasUnderReplicatedData
+}
+
+// GetHasDataThatExistsOnlyOnThisNode returns GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered.HasDataThatExistsOnlyOnThisNode, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered) GetHasDataThatExistsOnlyOnThisNode() bool {
+	return v.HasDataThatExistsOnlyOnThisNode
+}
+
+// GetLeadsDigest returns GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered.LeadsDigest, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusClusterNodesClusterNodeReasonsNodeCannotBeSafelyUnregistered) GetLeadsDigest() bool {
+	return v.LeadsDigest
+}
+
+// GetEvictionStatusResponse is returned by GetEvictionStatus on success.
+type GetEvictionStatusResponse struct {
+	// This is used to retrieve information about a cluster.
+	// Stability: Long-term
+	Cluster GetEvictionStatusCluster `json:"cluster"`
+}
+
+// GetCluster returns GetEvictionStatusResponse.Cluster, and is useful for accessing the field via an interface.
+func (v *GetEvictionStatusResponse) GetCluster() GetEvictionStatusCluster { return v.Cluster }
+
 // GetFilterAlertByIDResponse is returned by GetFilterAlertByID on success.
 type GetFilterAlertByIDResponse struct {
+	// Stability: Long-term
 	SearchDomain GetFilterAlertByIDSearchDomain `json:"-"`
 }
 
@@ -5227,8 +5422,10 @@ func __marshalGetLicenseInstalledLicense(v *GetLicenseInstalledLicense) ([]byte,
 type GetLicenseInstalledLicenseOnPremLicense struct {
 	Typename *string `json:"__typename"`
 	// license id.
+	// Stability: Long-term
 	Uid string `json:"uid"`
 	// The time at which the license expires.
+	// Stability: Long-term
 	ExpiresAt time.Time `json:"expiresAt"`
 }
 
@@ -5255,6 +5452,7 @@ func (v *GetLicenseInstalledLicenseTrialLicense) GetTypename() *string { return 
 // GetLicenseResponse is returned by GetLicense on success.
 type GetLicenseResponse struct {
 	// This returns information about the license for the LogScale instance, if any license installed.
+	// Stability: Long-term
 	InstalledLicense *GetLicenseInstalledLicense `json:"-"`
 }
 
@@ -5335,6 +5533,7 @@ func (v *GetLicenseResponse) __premarshalJSON() (*__premarshalGetLicenseResponse
 // A repository stores ingested data, configures parsers and data retention policies.
 type GetParserByIDRepository struct {
 	// A parser on the repository.
+	// Stability: Long-term
 	Parser *GetParserByIDRepositoryParser `json:"parser"`
 }
 
@@ -5425,6 +5624,7 @@ func (v *GetParserByIDRepositoryParser) __premarshalJSON() (*__premarshalGetPars
 // GetParserByIDResponse is returned by GetParserByID on success.
 type GetParserByIDResponse struct {
 	// Lookup a given repository by name.
+	// Stability: Long-term
 	Repository GetParserByIDRepository `json:"repository"`
 }
 
@@ -5549,6 +5749,7 @@ func (v *GetRepositoryRepository) __premarshalJSON() (*__premarshalGetRepository
 // GetRepositoryResponse is returned by GetRepository on success.
 type GetRepositoryResponse struct {
 	// Lookup a given repository by name.
+	// Stability: Long-term
 	Repository GetRepositoryRepository `json:"repository"`
 }
 
@@ -5557,6 +5758,7 @@ func (v *GetRepositoryResponse) GetRepository() GetRepositoryRepository { return
 
 // GetScheduledSearchByIDResponse is returned by GetScheduledSearchByID on success.
 type GetScheduledSearchByIDResponse struct {
+	// Stability: Long-term
 	SearchDomain GetScheduledSearchByIDSearchDomain `json:"-"`
 }
 
@@ -5928,6 +6130,7 @@ func (v *GetScheduledSearchByIDSearchDomainView) GetScheduledSearch() GetSchedul
 
 // GetSearchDomainResponse is returned by GetSearchDomain on success.
 type GetSearchDomainResponse struct {
+	// Stability: Long-term
 	SearchDomain GetSearchDomainSearchDomain `json:"-"`
 }
 
@@ -6137,9 +6340,10 @@ type GetSearchDomainSearchDomainView struct {
 	// Common interface for Repositories and Views.
 	Description *string `json:"description"`
 	// Common interface for Repositories and Views.
-	AutomaticSearch bool                                                       `json:"automaticSearch"`
-	Connections     []GetSearchDomainSearchDomainViewConnectionsViewConnection `json:"connections"`
-	Typename        *string                                                    `json:"__typename"`
+	AutomaticSearch bool `json:"automaticSearch"`
+	// Stability: Long-term
+	Connections []GetSearchDomainSearchDomainViewConnectionsViewConnection `json:"connections"`
+	Typename    *string                                                    `json:"__typename"`
 }
 
 // GetId returns GetSearchDomainSearchDomainView.Id, and is useful for accessing the field via an interface.
@@ -6168,8 +6372,10 @@ func (v *GetSearchDomainSearchDomainView) GetTypename() *string { return v.Typen
 // Represents the connection between a view and an underlying repository.
 type GetSearchDomainSearchDomainViewConnectionsViewConnection struct {
 	// The underlying repository
+	// Stability: Long-term
 	Repository GetSearchDomainSearchDomainViewConnectionsViewConnectionRepository `json:"repository"`
 	// The filter applied to all results from the repository.
+	// Stability: Long-term
 	Filter string `json:"filter"`
 }
 
@@ -6188,6 +6394,7 @@ func (v *GetSearchDomainSearchDomainViewConnectionsViewConnection) GetFilter() s
 //
 // A repository stores ingested data, configures parsers and data retention policies.
 type GetSearchDomainSearchDomainViewConnectionsViewConnectionRepository struct {
+	// Stability: Long-term
 	Name string `json:"name"`
 }
 
@@ -6199,6 +6406,7 @@ func (v *GetSearchDomainSearchDomainViewConnectionsViewConnectionRepository) Get
 // GetUsernameResponse is returned by GetUsername on success.
 type GetUsernameResponse struct {
 	// The currently authenticated user's account.
+	// Stability: Long-term
 	Viewer GetUsernameViewerAccount `json:"viewer"`
 }
 
@@ -6210,6 +6418,7 @@ func (v *GetUsernameResponse) GetViewer() GetUsernameViewerAccount { return v.Vi
 //
 // A user account.
 type GetUsernameViewerAccount struct {
+	// Stability: Long-term
 	Username string `json:"username"`
 }
 
@@ -6219,6 +6428,7 @@ func (v *GetUsernameViewerAccount) GetUsername() string { return v.Username }
 // GetUsersByUsernameResponse is returned by GetUsersByUsername on success.
 type GetUsersByUsernameResponse struct {
 	// Requires manage cluster permission; Returns all users in the system.
+	// Stability: Long-term
 	Users []GetUsersByUsernameUsersUser `json:"users"`
 }
 
@@ -6311,8 +6521,11 @@ func (v *HttpHeaderEntryInput) GetValue() string { return v.Value }
 //
 // An API ingest token used for sending data to LogScale.
 type IngestTokenDetails struct {
-	Name   string                    `json:"name"`
-	Token  string                    `json:"token"`
+	// Stability: Long-term
+	Name string `json:"name"`
+	// Stability: Long-term
+	Token string `json:"token"`
+	// Stability: Long-term
 	Parser *IngestTokenDetailsParser `json:"parser"`
 }
 
@@ -6331,6 +6544,7 @@ func (v *IngestTokenDetails) GetParser() *IngestTokenDetailsParser { return v.Pa
 // A configured parser for incoming data.
 type IngestTokenDetailsParser struct {
 	// Name of the parser.
+	// Stability: Long-term
 	Name string `json:"name"`
 }
 
@@ -6350,6 +6564,7 @@ const (
 
 // ListActionsResponse is returned by ListActions on success.
 type ListActionsResponse struct {
+	// Stability: Long-term
 	SearchDomain ListActionsSearchDomain `json:"-"`
 }
 
@@ -7777,6 +7992,7 @@ func (v *ListActionsSearchDomainView) __premarshalJSON() (*__premarshalListActio
 
 // ListAggregateAlertsResponse is returned by ListAggregateAlerts on success.
 type ListAggregateAlertsResponse struct {
+	// Stability: Long-term
 	SearchDomain ListAggregateAlertsSearchDomain `json:"-"`
 }
 
@@ -8148,6 +8364,7 @@ func (v *ListAggregateAlertsSearchDomainView) GetAggregateAlerts() []ListAggrega
 
 // ListAlertsResponse is returned by ListAlerts on success.
 type ListAlertsResponse struct {
+	// Stability: Long-term
 	SearchDomain ListAlertsSearchDomain `json:"-"`
 }
 
@@ -8487,6 +8704,7 @@ func (v *ListAlertsSearchDomainView) GetAlerts() []ListAlertsSearchDomainAlertsA
 
 // ListFilterAlertsResponse is returned by ListFilterAlerts on success.
 type ListFilterAlertsResponse struct {
+	// Stability: Long-term
 	SearchDomain ListFilterAlertsSearchDomain `json:"-"`
 }
 
@@ -8836,6 +9054,7 @@ func (v *ListFilterAlertsSearchDomainView) GetFilterAlerts() []ListFilterAlertsS
 //
 // A repository stores ingested data, configures parsers and data retention policies.
 type ListIngestTokensRepository struct {
+	// Stability: Long-term
 	IngestTokens []ListIngestTokensRepositoryIngestTokensIngestToken `json:"ingestTokens"`
 }
 
@@ -8920,6 +9139,7 @@ func (v *ListIngestTokensRepositoryIngestTokensIngestToken) __premarshalJSON() (
 // ListIngestTokensResponse is returned by ListIngestTokens on success.
 type ListIngestTokensResponse struct {
 	// Lookup a given repository by name.
+	// Stability: Long-term
 	Repository ListIngestTokensRepository `json:"repository"`
 }
 
@@ -8932,6 +9152,7 @@ func (v *ListIngestTokensResponse) GetRepository() ListIngestTokensRepository { 
 // A repository stores ingested data, configures parsers and data retention policies.
 type ListParsersRepository struct {
 	// Saved parsers.
+	// Stability: Long-term
 	Parsers []ListParsersRepositoryParsersParser `json:"parsers"`
 }
 
@@ -8944,8 +9165,10 @@ func (v *ListParsersRepository) GetParsers() []ListParsersRepositoryParsersParse
 // A configured parser for incoming data.
 type ListParsersRepositoryParsersParser struct {
 	// The id of the parser.
+	// Stability: Long-term
 	Id string `json:"id"`
 	// Name of the parser.
+	// Stability: Long-term
 	Name string `json:"name"`
 }
 
@@ -8958,6 +9181,7 @@ func (v *ListParsersRepositoryParsersParser) GetName() string { return v.Name }
 // ListParsersResponse is returned by ListParsers on success.
 type ListParsersResponse struct {
 	// Lookup a given repository by name.
+	// Stability: Long-term
 	Repository ListParsersRepository `json:"repository"`
 }
 
@@ -8969,9 +9193,12 @@ func (v *ListParsersResponse) GetRepository() ListParsersRepository { return v.R
 //
 // A repository stores ingested data, configures parsers and data retention policies.
 type ListRepositoriesRepositoriesRepository struct {
-	Id   string `json:"id"`
+	// Stability: Long-term
+	Id string `json:"id"`
+	// Stability: Long-term
 	Name string `json:"name"`
 	// Total size of data. Size is measured as the size after compression.
+	// Stability: Long-term
 	CompressedByteSize int64 `json:"compressedByteSize"`
 }
 
@@ -8988,6 +9215,7 @@ func (v *ListRepositoriesRepositoriesRepository) GetCompressedByteSize() int64 {
 
 // ListRepositoriesResponse is returned by ListRepositories on success.
 type ListRepositoriesResponse struct {
+	// Stability: Long-term
 	Repositories []ListRepositoriesRepositoriesRepository `json:"repositories"`
 }
 
@@ -8998,6 +9226,7 @@ func (v *ListRepositoriesResponse) GetRepositories() []ListRepositoriesRepositor
 
 // ListScheduledSearchesResponse is returned by ListScheduledSearches on success.
 type ListScheduledSearchesResponse struct {
+	// Stability: Long-term
 	SearchDomain ListScheduledSearchesSearchDomain `json:"-"`
 }
 
@@ -9369,6 +9598,7 @@ func (v *ListScheduledSearchesSearchDomainView) GetScheduledSearches() []ListSch
 
 // ListSearchDomainsResponse is returned by ListSearchDomains on success.
 type ListSearchDomainsResponse struct {
+	// Stability: Long-term
 	SearchDomains []ListSearchDomainsSearchDomainsSearchDomain `json:"-"`
 }
 
@@ -9588,14 +9818,19 @@ func (v *ListSearchDomainsSearchDomainsView) GetAutomaticSearch() bool { return 
 // A configured parser for incoming data.
 type ParserDetails struct {
 	// The id of the parser.
+	// Stability: Long-term
 	Id string `json:"id"`
 	// Name of the parser.
+	// Stability: Long-term
 	Name string `json:"name"`
 	// The parser script that is executed for every incoming event.
+	// Stability: Long-term
 	Script string `json:"script"`
 	// Fields that are used as tags.
+	// Stability: Long-term
 	FieldsToTag []string `json:"fieldsToTag"`
 	// Test cases that can be used to help verify that the parser works as expected.
+	// Stability: Long-term
 	TestCases []ParserDetailsTestCasesParserTestCase `json:"testCases"`
 }
 
@@ -9620,8 +9855,10 @@ func (v *ParserDetails) GetTestCases() []ParserDetailsTestCasesParserTestCase { 
 // A test case for a parser.
 type ParserDetailsTestCasesParserTestCase struct {
 	// The event to parse and test on.
+	// Stability: Long-term
 	Event ParserDetailsTestCasesParserTestCaseEventParserTestEvent `json:"event"`
 	// Assertions on the shape of the test case output events. The list consists of key-value pairs to be treated as a map-construct, where the index of the output event is the key, and the assertions are the value.
+	// Stability: Long-term
 	OutputAssertions []ParserDetailsTestCasesParserTestCaseOutputAssertionsParserTestCaseAssertionsForOutput `json:"outputAssertions"`
 }
 
@@ -9641,6 +9878,7 @@ func (v *ParserDetailsTestCasesParserTestCase) GetOutputAssertions() []ParserDet
 // An event for a parser to parse during testing.
 type ParserDetailsTestCasesParserTestCaseEventParserTestEvent struct {
 	// The contents of the `@rawstring` field when the event begins parsing.
+	// Stability: Long-term
 	RawString string `json:"rawString"`
 }
 
@@ -9837,6 +10075,64 @@ const (
 	QueryTimestampTypeIngesttimestamp QueryTimestampType = "IngestTimestamp"
 )
 
+// RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutation includes the requested fields of the GraphQL type RefreshClusterManagementStatsMutation.
+type RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutation struct {
+	// Stability: Preview
+	ReasonsNodeCannotBeSafelyUnregistered RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutationReasonsNodeCannotBeSafelyUnregistered `json:"reasonsNodeCannotBeSafelyUnregistered"`
+}
+
+// GetReasonsNodeCannotBeSafelyUnregistered returns RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutation.ReasonsNodeCannotBeSafelyUnregistered, and is useful for accessing the field via an interface.
+func (v *RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutation) GetReasonsNodeCannotBeSafelyUnregistered() RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutationReasonsNodeCannotBeSafelyUnregistered {
+	return v.ReasonsNodeCannotBeSafelyUnregistered
+}
+
+// RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutationReasonsNodeCannotBeSafelyUnregistered includes the requested fields of the GraphQL type ReasonsNodeCannotBeSafelyUnregistered.
+// The GraphQL type's documentation follows.
+//
+// A map from reasons why a node might not be able to be unregistered safely, to the boolean value indicating whether a given reason applies to this node. For a node to be unregistered without any undue disruption, none of the reasons must apply.
+type RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutationReasonsNodeCannotBeSafelyUnregistered struct {
+	// Stability: Long-term
+	IsAlive bool `json:"isAlive"`
+	// Stability: Long-term
+	HasUnderReplicatedData bool `json:"hasUnderReplicatedData"`
+	// Stability: Long-term
+	HasDataThatExistsOnlyOnThisNode bool `json:"hasDataThatExistsOnlyOnThisNode"`
+	// Stability: Long-term
+	LeadsDigest bool `json:"leadsDigest"`
+}
+
+// GetIsAlive returns RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutationReasonsNodeCannotBeSafelyUnregistered.IsAlive, and is useful for accessing the field via an interface.
+func (v *RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutationReasonsNodeCannotBeSafelyUnregistered) GetIsAlive() bool {
+	return v.IsAlive
+}
+
+// GetHasUnderReplicatedData returns RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutationReasonsNodeCannotBeSafelyUnregistered.HasUnderReplicatedData, and is useful for accessing the field via an interface.
+func (v *RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutationReasonsNodeCannotBeSafelyUnregistered) GetHasUnderReplicatedData() bool {
+	return v.HasUnderReplicatedData
+}
+
+// GetHasDataThatExistsOnlyOnThisNode returns RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutationReasonsNodeCannotBeSafelyUnregistered.HasDataThatExistsOnlyOnThisNode, and is useful for accessing the field via an interface.
+func (v *RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutationReasonsNodeCannotBeSafelyUnregistered) GetHasDataThatExistsOnlyOnThisNode() bool {
+	return v.HasDataThatExistsOnlyOnThisNode
+}
+
+// GetLeadsDigest returns RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutationReasonsNodeCannotBeSafelyUnregistered.LeadsDigest, and is useful for accessing the field via an interface.
+func (v *RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutationReasonsNodeCannotBeSafelyUnregistered) GetLeadsDigest() bool {
+	return v.LeadsDigest
+}
+
+// RefreshClusterManagementStatsResponse is returned by RefreshClusterManagementStats on success.
+type RefreshClusterManagementStatsResponse struct {
+	// Force a refresh of the ClusterManagementStats cache and return reasonsNodeCannotBeSafelyUnregistered for the specified node.
+	// Stability: Preview
+	RefreshClusterManagementStats RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutation `json:"refreshClusterManagementStats"`
+}
+
+// GetRefreshClusterManagementStats returns RefreshClusterManagementStatsResponse.RefreshClusterManagementStats, and is useful for accessing the field via an interface.
+func (v *RefreshClusterManagementStatsResponse) GetRefreshClusterManagementStats() RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutation {
+	return v.RefreshClusterManagementStats
+}
+
 // RemoveIngestTokenRemoveIngestTokenBooleanResultType includes the requested fields of the GraphQL type BooleanResultType.
 type RemoveIngestTokenRemoveIngestTokenBooleanResultType struct {
 	Typename *string `json:"__typename"`
@@ -9850,6 +10146,7 @@ func (v *RemoveIngestTokenRemoveIngestTokenBooleanResultType) GetTypename() *str
 // RemoveIngestTokenResponse is returned by RemoveIngestToken on success.
 type RemoveIngestTokenResponse struct {
 	// Remove an Ingest Token.
+	// Stability: Long-term
 	RemoveIngestToken RemoveIngestTokenRemoveIngestTokenBooleanResultType `json:"removeIngestToken"`
 }
 
@@ -9863,19 +10160,28 @@ func (v *RemoveIngestTokenResponse) GetRemoveIngestToken() RemoveIngestTokenRemo
 //
 // A repository stores ingested data, configures parsers and data retention policies.
 type RepositoryDetails struct {
-	Id          string  `json:"id"`
-	Name        string  `json:"name"`
+	// Stability: Long-term
+	Id string `json:"id"`
+	// Stability: Long-term
+	Name string `json:"name"`
+	// Stability: Long-term
 	Description *string `json:"description"`
 	// The maximum time (in days) to keep data. Data old than this will be deleted.
+	// Stability: Long-term
 	TimeBasedRetention *float64 `json:"timeBasedRetention"`
 	// Retention (in Gigabytes) based on the size of data when it arrives to LogScale, that is before parsing and compression. LogScale will keep `at most` this amount of data.
+	// Stability: Long-term
 	IngestSizeBasedRetention *float64 `json:"ingestSizeBasedRetention"`
 	// Retention (in Gigabytes) based on the size of data when in storage, that is, after parsing and compression. LogScale will keep `at least` this amount of data, but as close to this number as possible.
+	// Stability: Long-term
 	StorageSizeBasedRetention *float64 `json:"storageSizeBasedRetention"`
 	// Total size of data. Size is measured as the size after compression.
+	// Stability: Long-term
 	CompressedByteSize int64 `json:"compressedByteSize"`
-	AutomaticSearch    bool  `json:"automaticSearch"`
+	// Stability: Long-term
+	AutomaticSearch bool `json:"automaticSearch"`
 	// Configuration for S3 archiving. E.g. bucket name and region.
+	// Stability: Long-term
 	S3ArchivingConfiguration *RepositoryDetailsS3ArchivingConfigurationS3Configuration `json:"s3ArchivingConfiguration"`
 }
 
@@ -9916,12 +10222,16 @@ func (v *RepositoryDetails) GetS3ArchivingConfiguration() *RepositoryDetailsS3Ar
 // Configuration for S3 archiving. E.g. bucket name and region.
 type RepositoryDetailsS3ArchivingConfigurationS3Configuration struct {
 	// S3 bucket name for storing archived data. Example: acme-bucket.
+	// Stability: Short-term
 	Bucket string `json:"bucket"`
 	// The region the S3 bucket belongs to. Example: eu-central-1.
+	// Stability: Short-term
 	Region string `json:"region"`
 	// Whether the archiving has been disabled.
+	// Stability: Short-term
 	Disabled *bool `json:"disabled"`
 	// The format to store the archived data in on S3.
+	// Stability: Short-term
 	Format *S3ArchivingFormat `json:"format"`
 }
 
@@ -9948,6 +10258,7 @@ func (v *RepositoryDetailsS3ArchivingConfigurationS3Configuration) GetFormat() *
 // RotateTokenByIDResponse is returned by RotateTokenByID on success.
 type RotateTokenByIDResponse struct {
 	// Rotate a token
+	// Stability: Long-term
 	RotateToken string `json:"rotateToken"`
 }
 
@@ -9968,30 +10279,43 @@ const (
 // Information about a scheduled search
 type ScheduledSearchDetails struct {
 	// Id of the scheduled search.
+	// Stability: Long-term
 	Id string `json:"id"`
 	// Name of the scheduled search.
+	// Stability: Long-term
 	Name string `json:"name"`
 	// Description of the scheduled search.
+	// Stability: Long-term
 	Description *string `json:"description"`
 	// LogScale query to execute.
+	// Stability: Long-term
 	QueryString string `json:"queryString"`
 	// Start of the relative time interval for the query.
+	// Stability: Long-term
 	Start string `json:"start"`
 	// End of the relative time interval for the query.
+	// Stability: Long-term
 	End string `json:"end"`
 	// Time zone of the schedule. Currently this field only supports UTC offsets like 'UTC', 'UTC-01' or 'UTC+12:45'.
+	// Stability: Long-term
 	TimeZone string `json:"timeZone"`
 	// Cron pattern describing the schedule to execute the query on.
+	// Stability: Long-term
 	Schedule string `json:"schedule"`
 	// User-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown.
+	// Stability: Long-term
 	BackfillLimit int `json:"backfillLimit"`
 	// Flag indicating whether the scheduled search is enabled.
+	// Stability: Long-term
 	Enabled bool `json:"enabled"`
 	// Labels added to the scheduled search.
+	// Stability: Long-term
 	Labels []string `json:"labels"`
 	// List of actions to fire on query result.
+	// Stability: Long-term
 	ActionsV2 []SharedActionNameType `json:"-"`
 	// Ownership of the query run by this scheduled search
+	// Stability: Long-term
 	QueryOwnership SharedQueryOwnershipType `json:"-"`
 }
 
@@ -10175,6 +10499,7 @@ func (v *ScheduledSearchDetails) __premarshalJSON() (*__premarshalScheduledSearc
 // SetAutomaticSearchingResponse is returned by SetAutomaticSearching on success.
 type SetAutomaticSearchingResponse struct {
 	// Automatically search when arriving at the search page
+	// Stability: Long-term
 	SetAutomaticSearching SetAutomaticSearchingSetAutomaticSearching `json:"setAutomaticSearching"`
 }
 
@@ -10190,6 +10515,16 @@ type SetAutomaticSearchingSetAutomaticSearching struct {
 
 // GetTypename returns SetAutomaticSearchingSetAutomaticSearching.Typename, and is useful for accessing the field via an interface.
 func (v *SetAutomaticSearchingSetAutomaticSearching) GetTypename() *string { return v.Typename }
+
+// SetIsBeingEvictedResponse is returned by SetIsBeingEvicted on success.
+type SetIsBeingEvictedResponse struct {
+	// Toggle whether the specified host should be prepared for eviction from the cluster. If preparing for eviction, the cluster will attempt to move data and work away from the host.
+	// Stability: Short-term
+	SetIsBeingEvicted bool `json:"setIsBeingEvicted"`
+}
+
+// GetSetIsBeingEvicted returns SetIsBeingEvictedResponse.SetIsBeingEvicted, and is useful for accessing the field via an interface.
+func (v *SetIsBeingEvictedResponse) GetSetIsBeingEvicted() bool { return v.SetIsBeingEvicted }
 
 // SharedActionNameType includes the requested fields of the GraphQL interface Action.
 //
@@ -11186,6 +11521,7 @@ const (
 // UnassignParserToIngestTokenResponse is returned by UnassignParserToIngestToken on success.
 type UnassignParserToIngestTokenResponse struct {
 	// Un-associates a token with its currently assigned parser.
+	// Stability: Long-term
 	UnassignIngestToken UnassignParserToIngestTokenUnassignIngestTokenUnassignIngestTokenMutation `json:"unassignIngestToken"`
 }
 
@@ -11204,9 +11540,61 @@ func (v *UnassignParserToIngestTokenUnassignIngestTokenUnassignIngestTokenMutati
 	return v.Typename
 }
 
+// UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation includes the requested fields of the GraphQL type UnregisterNodeMutation.
+type UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation struct {
+	// Stability: Long-term
+	Cluster UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationCluster `json:"cluster"`
+}
+
+// GetCluster returns UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation.Cluster, and is useful for accessing the field via an interface.
+func (v *UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation) GetCluster() UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationCluster {
+	return v.Cluster
+}
+
+// UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationCluster includes the requested fields of the GraphQL type Cluster.
+// The GraphQL type's documentation follows.
+//
+// Information about the LogScale cluster.
+type UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationCluster struct {
+	// Stability: Long-term
+	Nodes []UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode `json:"nodes"`
+}
+
+// GetNodes returns UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationCluster.Nodes, and is useful for accessing the field via an interface.
+func (v *UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationCluster) GetNodes() []UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode {
+	return v.Nodes
+}
+
+// UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode includes the requested fields of the GraphQL type ClusterNode.
+// The GraphQL type's documentation follows.
+//
+// A node in the a LogScale Cluster.
+type UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode struct {
+	// Stability: Long-term
+	Id int `json:"id"`
+}
+
+// GetId returns UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode.Id, and is useful for accessing the field via an interface.
+func (v *UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutationClusterNodesClusterNode) GetId() int {
+	return v.Id
+}
+
+// UnregisterClusterNodeResponse is returned by UnregisterClusterNode on success.
+type UnregisterClusterNodeResponse struct {
+	// Unregisters a node from the cluster.
+	// Stability: Long-term
+	ClusterUnregisterNode UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation `json:"clusterUnregisterNode"`
+}
+
+// GetClusterUnregisterNode returns UnregisterClusterNodeResponse.ClusterUnregisterNode, and is useful for accessing the field via an interface.
+func (v *UnregisterClusterNodeResponse) GetClusterUnregisterNode() UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation {
+	return v.ClusterUnregisterNode
+}
+
 // UpdateAggregateAlertResponse is returned by UpdateAggregateAlert on success.
 type UpdateAggregateAlertResponse struct {
 	// Update an aggregate alert.
+	// Stability: Long-term
 	UpdateAggregateAlert UpdateAggregateAlertUpdateAggregateAlert `json:"updateAggregateAlert"`
 }
 
@@ -11397,6 +11785,7 @@ func (v *UpdateAggregateAlertUpdateAggregateAlert) __premarshalJSON() (*__premar
 // UpdateAlertResponse is returned by UpdateAlert on success.
 type UpdateAlertResponse struct {
 	// Update an alert.
+	// Stability: Long-term
 	UpdateAlert UpdateAlertUpdateAlert `json:"updateAlert"`
 }
 
@@ -11554,6 +11943,7 @@ func (v *UpdateAlertUpdateAlert) __premarshalJSON() (*__premarshalUpdateAlertUpd
 
 // UpdateDescriptionForSearchDomainResponse is returned by UpdateDescriptionForSearchDomain on success.
 type UpdateDescriptionForSearchDomainResponse struct {
+	// Stability: Long-term
 	UpdateDescriptionForSearchDomain UpdateDescriptionForSearchDomainUpdateDescriptionForSearchDomainUpdateDescriptionMutation `json:"updateDescriptionForSearchDomain"`
 }
 
@@ -11575,6 +11965,7 @@ func (v *UpdateDescriptionForSearchDomainUpdateDescriptionForSearchDomainUpdateD
 // UpdateEmailActionResponse is returned by UpdateEmailAction on success.
 type UpdateEmailActionResponse struct {
 	// Update an email action.
+	// Stability: Long-term
 	UpdateEmailAction UpdateEmailActionUpdateEmailAction `json:"updateEmailAction"`
 }
 
@@ -11597,6 +11988,7 @@ func (v *UpdateEmailActionUpdateEmailAction) GetTypename() *string { return v.Ty
 // UpdateFilterAlertResponse is returned by UpdateFilterAlert on success.
 type UpdateFilterAlertResponse struct {
 	// Update a filter alert.
+	// Stability: Long-term
 	UpdateFilterAlert UpdateFilterAlertUpdateFilterAlert `json:"updateFilterAlert"`
 }
 
@@ -11757,6 +12149,7 @@ func (v *UpdateFilterAlertUpdateFilterAlert) __premarshalJSON() (*__premarshalUp
 // UpdateHumioRepoActionResponse is returned by UpdateHumioRepoAction on success.
 type UpdateHumioRepoActionResponse struct {
 	// Update a LogScale repository action.
+	// Stability: Long-term
 	UpdateHumioRepoAction UpdateHumioRepoActionUpdateHumioRepoAction `json:"updateHumioRepoAction"`
 }
 
@@ -11779,6 +12172,7 @@ func (v *UpdateHumioRepoActionUpdateHumioRepoAction) GetTypename() *string { ret
 // UpdateIngestBasedRetentionResponse is returned by UpdateIngestBasedRetention on success.
 type UpdateIngestBasedRetentionResponse struct {
 	// Update the retention policy of a repository.
+	// Stability: Long-term
 	UpdateRetention UpdateIngestBasedRetentionUpdateRetentionUpdateRetentionMutation `json:"updateRetention"`
 }
 
@@ -11800,6 +12194,7 @@ func (v *UpdateIngestBasedRetentionUpdateRetentionUpdateRetentionMutation) GetTy
 // UpdateLicenseKeyResponse is returned by UpdateLicenseKey on success.
 type UpdateLicenseKeyResponse struct {
 	// Update the license key for the LogScale cluster. If there is an existing license on this cluster this operation requires permission to manage cluster.
+	// Stability: Long-term
 	UpdateLicenseKey UpdateLicenseKeyUpdateLicenseKeyLicense `json:"-"`
 }
 
@@ -11972,6 +12367,7 @@ func (v *UpdateLicenseKeyUpdateLicenseKeyTrialLicense) GetTypename() *string { r
 // UpdateOpsGenieActionResponse is returned by UpdateOpsGenieAction on success.
 type UpdateOpsGenieActionResponse struct {
 	// Update an OpsGenie action.
+	// Stability: Long-term
 	UpdateOpsGenieAction UpdateOpsGenieActionUpdateOpsGenieAction `json:"updateOpsGenieAction"`
 }
 
@@ -11994,6 +12390,7 @@ func (v *UpdateOpsGenieActionUpdateOpsGenieAction) GetTypename() *string { retur
 // UpdatePagerDutyActionResponse is returned by UpdatePagerDutyAction on success.
 type UpdatePagerDutyActionResponse struct {
 	// Update a PagerDuty action.
+	// Stability: Long-term
 	UpdatePagerDutyAction UpdatePagerDutyActionUpdatePagerDutyAction `json:"updatePagerDutyAction"`
 }
 
@@ -12016,6 +12413,7 @@ func (v *UpdatePagerDutyActionUpdatePagerDutyAction) GetTypename() *string { ret
 // UpdateS3ArchivingConfigurationResponse is returned by UpdateS3ArchivingConfiguration on success.
 type UpdateS3ArchivingConfigurationResponse struct {
 	// Configures S3 archiving for a repository. E.g. bucket and region.
+	// Stability: Short-term
 	S3ConfigureArchiving UpdateS3ArchivingConfigurationS3ConfigureArchivingBooleanResultType `json:"s3ConfigureArchiving"`
 }
 
@@ -12037,6 +12435,7 @@ func (v *UpdateS3ArchivingConfigurationS3ConfigureArchivingBooleanResultType) Ge
 // UpdateScheduledSearchResponse is returned by UpdateScheduledSearch on success.
 type UpdateScheduledSearchResponse struct {
 	// Update a scheduled search.
+	// Stability: Long-term
 	UpdateScheduledSearch UpdateScheduledSearchUpdateScheduledSearch `json:"updateScheduledSearch"`
 }
 
@@ -12229,6 +12628,7 @@ func (v *UpdateScheduledSearchUpdateScheduledSearch) __premarshalJSON() (*__prem
 // UpdateSlackActionResponse is returned by UpdateSlackAction on success.
 type UpdateSlackActionResponse struct {
 	// Update a Slack action.
+	// Stability: Long-term
 	UpdateSlackAction UpdateSlackActionUpdateSlackAction `json:"updateSlackAction"`
 }
 
@@ -12251,6 +12651,7 @@ func (v *UpdateSlackActionUpdateSlackAction) GetTypename() *string { return v.Ty
 // UpdateSlackPostMessageActionResponse is returned by UpdateSlackPostMessageAction on success.
 type UpdateSlackPostMessageActionResponse struct {
 	// Update a post-message Slack action.
+	// Stability: Long-term
 	UpdateSlackPostMessageAction UpdateSlackPostMessageActionUpdateSlackPostMessageAction `json:"updateSlackPostMessageAction"`
 }
 
@@ -12275,6 +12676,7 @@ func (v *UpdateSlackPostMessageActionUpdateSlackPostMessageAction) GetTypename()
 // UpdateStorageBasedRetentionResponse is returned by UpdateStorageBasedRetention on success.
 type UpdateStorageBasedRetentionResponse struct {
 	// Update the retention policy of a repository.
+	// Stability: Long-term
 	UpdateRetention UpdateStorageBasedRetentionUpdateRetentionUpdateRetentionMutation `json:"updateRetention"`
 }
 
@@ -12296,6 +12698,7 @@ func (v *UpdateStorageBasedRetentionUpdateRetentionUpdateRetentionMutation) GetT
 // UpdateTimeBasedRetentionResponse is returned by UpdateTimeBasedRetention on success.
 type UpdateTimeBasedRetentionResponse struct {
 	// Update the retention policy of a repository.
+	// Stability: Long-term
 	UpdateRetention UpdateTimeBasedRetentionUpdateRetentionUpdateRetentionMutation `json:"updateRetention"`
 }
 
@@ -12317,6 +12720,7 @@ func (v *UpdateTimeBasedRetentionUpdateRetentionUpdateRetentionMutation) GetType
 // UpdateVictorOpsActionResponse is returned by UpdateVictorOpsAction on success.
 type UpdateVictorOpsActionResponse struct {
 	// Update a VictorOps action.
+	// Stability: Long-term
 	UpdateVictorOpsAction UpdateVictorOpsActionUpdateVictorOpsAction `json:"updateVictorOpsAction"`
 }
 
@@ -12339,6 +12743,7 @@ func (v *UpdateVictorOpsActionUpdateVictorOpsAction) GetTypename() *string { ret
 // UpdateViewConnectionsResponse is returned by UpdateViewConnections on success.
 type UpdateViewConnectionsResponse struct {
 	// Update a view.
+	// Stability: Long-term
 	UpdateView UpdateViewConnectionsUpdateView `json:"updateView"`
 }
 
@@ -12352,6 +12757,7 @@ func (v *UpdateViewConnectionsResponse) GetUpdateView() UpdateViewConnectionsUpd
 //
 // Represents information about a view, pulling data from one or several repositories.
 type UpdateViewConnectionsUpdateView struct {
+	// Stability: Long-term
 	Name string `json:"name"`
 }
 
@@ -12361,6 +12767,7 @@ func (v *UpdateViewConnectionsUpdateView) GetName() string { return v.Name }
 // UpdateWebhookActionResponse is returned by UpdateWebhookAction on success.
 type UpdateWebhookActionResponse struct {
 	// Update a webhook action.
+	// Stability: Long-term
 	UpdateWebhookAction UpdateWebhookActionUpdateWebhookAction `json:"updateWebhookAction"`
 }
 
@@ -12385,9 +12792,12 @@ func (v *UpdateWebhookActionUpdateWebhookAction) GetTypename() *string { return 
 //
 // A user profile.
 type UserDetails struct {
-	Id       string `json:"id"`
+	// Stability: Long-term
+	Id string `json:"id"`
+	// Stability: Long-term
 	Username string `json:"username"`
-	IsRoot   bool   `json:"isRoot"`
+	// Stability: Long-term
+	IsRoot bool `json:"isRoot"`
 }
 
 // GetId returns UserDetails.Id, and is useful for accessing the field via an interface.
@@ -13180,6 +13590,14 @@ type __ListScheduledSearchesInput struct {
 // GetSearchDomainName returns __ListScheduledSearchesInput.SearchDomainName, and is useful for accessing the field via an interface.
 func (v *__ListScheduledSearchesInput) GetSearchDomainName() string { return v.SearchDomainName }
 
+// __RefreshClusterManagementStatsInput is used internally by genqlient
+type __RefreshClusterManagementStatsInput struct {
+	Vhost int `json:"Vhost"`
+}
+
+// GetVhost returns __RefreshClusterManagementStatsInput.Vhost, and is useful for accessing the field via an interface.
+func (v *__RefreshClusterManagementStatsInput) GetVhost() int { return v.Vhost }
+
 // __RemoveIngestTokenInput is used internally by genqlient
 type __RemoveIngestTokenInput struct {
 	RepositoryName string `json:"RepositoryName"`
@@ -13212,6 +13630,18 @@ func (v *__SetAutomaticSearchingInput) GetSearchDomainName() string { return v.S
 // GetAutomaticSearch returns __SetAutomaticSearchingInput.AutomaticSearch, and is useful for accessing the field via an interface.
 func (v *__SetAutomaticSearchingInput) GetAutomaticSearch() bool { return v.AutomaticSearch }
 
+// __SetIsBeingEvictedInput is used internally by genqlient
+type __SetIsBeingEvictedInput struct {
+	Vhost          int  `json:"Vhost"`
+	IsBeingEvicted bool `json:"IsBeingEvicted"`
+}
+
+// GetVhost returns __SetIsBeingEvictedInput.Vhost, and is useful for accessing the field via an interface.
+func (v *__SetIsBeingEvictedInput) GetVhost() int { return v.Vhost }
+
+// GetIsBeingEvicted returns __SetIsBeingEvictedInput.IsBeingEvicted, and is useful for accessing the field via an interface.
+func (v *__SetIsBeingEvictedInput) GetIsBeingEvicted() bool { return v.IsBeingEvicted }
+
 // __UnassignParserToIngestTokenInput is used internally by genqlient
 type __UnassignParserToIngestTokenInput struct {
 	RepositoryName  string `json:"RepositoryName"`
@@ -13223,6 +13653,18 @@ func (v *__UnassignParserToIngestTokenInput) GetRepositoryName() string { return
 
 // GetIngestTokenName returns __UnassignParserToIngestTokenInput.IngestTokenName, and is useful for accessing the field via an interface.
 func (v *__UnassignParserToIngestTokenInput) GetIngestTokenName() string { return v.IngestTokenName }
+
+// __UnregisterClusterNodeInput is used internally by genqlient
+type __UnregisterClusterNodeInput struct {
+	NodeId int  `json:"NodeId"`
+	Force  bool `json:"Force"`
+}
+
+// GetNodeId returns __UnregisterClusterNodeInput.NodeId, and is useful for accessing the field via an interface.
+func (v *__UnregisterClusterNodeInput) GetNodeId() int { return v.NodeId }
+
+// GetForce returns __UnregisterClusterNodeInput.Force, and is useful for accessing the field via an interface.
+func (v *__UnregisterClusterNodeInput) GetForce() bool { return v.Force }
 
 // __UpdateAggregateAlertInput is used internally by genqlient
 type __UpdateAggregateAlertInput struct {
@@ -15232,6 +15674,8 @@ query GetCluster {
 		nodes {
 			id
 			zone
+			uri
+			isAvailable
 		}
 	}
 }
@@ -15248,6 +15692,46 @@ func GetCluster(
 	var err_ error
 
 	var data_ GetClusterResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by GetEvictionStatus.
+const GetEvictionStatus_Operation = `
+query GetEvictionStatus {
+	cluster {
+		nodes {
+			id
+			isBeingEvicted
+			reasonsNodeCannotBeSafelyUnregistered {
+				isAlive
+				hasUnderReplicatedData
+				hasDataThatExistsOnlyOnThisNode
+				leadsDigest
+			}
+		}
+	}
+}
+`
+
+func GetEvictionStatus(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*GetEvictionStatusResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "GetEvictionStatus",
+		Query:  GetEvictionStatus_Operation,
+	}
+	var err_ error
+
+	var data_ GetEvictionStatusResponse
 	resp_ := &graphql.Response{Data: &data_}
 
 	err_ = client_.MakeRequest(
@@ -16145,6 +16629,46 @@ func ListSearchDomains(
 	return &data_, err_
 }
 
+// The query or mutation executed by RefreshClusterManagementStats.
+const RefreshClusterManagementStats_Operation = `
+mutation RefreshClusterManagementStats ($Vhost: Int!) {
+	refreshClusterManagementStats(nodeId: $Vhost) {
+		reasonsNodeCannotBeSafelyUnregistered {
+			isAlive
+			hasUnderReplicatedData
+			hasDataThatExistsOnlyOnThisNode
+			leadsDigest
+		}
+	}
+}
+`
+
+func RefreshClusterManagementStats(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	Vhost int,
+) (*RefreshClusterManagementStatsResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "RefreshClusterManagementStats",
+		Query:  RefreshClusterManagementStats_Operation,
+		Variables: &__RefreshClusterManagementStatsInput{
+			Vhost: Vhost,
+		},
+	}
+	var err_ error
+
+	var data_ RefreshClusterManagementStatsResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
 // The query or mutation executed by RemoveIngestToken.
 const RemoveIngestToken_Operation = `
 mutation RemoveIngestToken ($RepositoryName: String!, $Name: String!) {
@@ -16252,6 +16776,41 @@ func SetAutomaticSearching(
 	return &data_, err_
 }
 
+// The query or mutation executed by SetIsBeingEvicted.
+const SetIsBeingEvicted_Operation = `
+mutation SetIsBeingEvicted ($Vhost: Int!, $IsBeingEvicted: Boolean!) {
+	setIsBeingEvicted(vhost: $Vhost, isBeingEvicted: $IsBeingEvicted)
+}
+`
+
+func SetIsBeingEvicted(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	Vhost int,
+	IsBeingEvicted bool,
+) (*SetIsBeingEvictedResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "SetIsBeingEvicted",
+		Query:  SetIsBeingEvicted_Operation,
+		Variables: &__SetIsBeingEvictedInput{
+			Vhost:          Vhost,
+			IsBeingEvicted: IsBeingEvicted,
+		},
+	}
+	var err_ error
+
+	var data_ SetIsBeingEvictedResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
 // The query or mutation executed by UnassignParserToIngestToken.
 const UnassignParserToIngestToken_Operation = `
 mutation UnassignParserToIngestToken ($RepositoryName: String!, $IngestTokenName: String!) {
@@ -16278,6 +16837,47 @@ func UnassignParserToIngestToken(
 	var err_ error
 
 	var data_ UnassignParserToIngestTokenResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by UnregisterClusterNode.
+const UnregisterClusterNode_Operation = `
+mutation UnregisterClusterNode ($NodeId: Int!, $Force: Boolean!) {
+	clusterUnregisterNode(nodeID: $NodeId, force: $Force) {
+		cluster {
+			nodes {
+				id
+			}
+		}
+	}
+}
+`
+
+func UnregisterClusterNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	NodeId int,
+	Force bool,
+) (*UnregisterClusterNodeResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "UnregisterClusterNode",
+		Query:  UnregisterClusterNode_Operation,
+		Variables: &__UnregisterClusterNodeInput{
+			NodeId: NodeId,
+			Force:  Force,
+		},
+	}
+	var err_ error
+
+	var data_ UnregisterClusterNodeResponse
 	resp_ := &graphql.Response{Data: &data_}
 
 	err_ = client_.MakeRequest(
