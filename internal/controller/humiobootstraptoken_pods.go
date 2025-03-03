@@ -1,12 +1,14 @@
 package controller
 
 import (
+	"context"
+
 	"github.com/humio/humio-operator/internal/helpers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ConstructBootstrapPod(bootstrapConfig *HumioBootstrapTokenConfig) *corev1.Pod {
+func ConstructBootstrapPod(ctx context.Context, bootstrapConfig *HumioBootstrapTokenConfig) *corev1.Pod {
 	userID := int64(65534)
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

@@ -74,6 +74,8 @@ type HumioBootstrapTokenStatus struct {
 	// HashedTokenSecret is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
 	// in the spec or automatically created
 	HashedTokenSecretKeyRef HumioHashedTokenSecretStatus `json:"hashedTokenSecretStatus,omitempty"`
+	// BootstrapImage is the image that was used to issue the token
+	BootstrapImage string `json:"bootstrapImage,omitempty"`
 }
 
 // HumioTokenSecretStatus contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
