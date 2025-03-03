@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -85,20 +86,6 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
-	err = r.resolveSecrets(ctx, ha)
-	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not resolve secret references")
-	}
-
-	if _, validateErr := humio.ActionFromActionCR(ha); validateErr != nil {
-		r.Log.Error(validateErr, "unable to validate action")
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
-		if setStateErr != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set action state")
-		}
-		return reconcile.Result{}, validateErr
-	}
-
 	defer func(ctx context.Context, humioClient humio.Client, ha *humiov1alpha1.HumioAction) {
 		_, err := r.HumioClient.GetAction(ctx, humioHttpClient, req, ha)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
@@ -154,6 +141,19 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 		}
 
 		return reconcile.Result{Requeue: true}, nil
+	}
+
+	if err := r.resolveSecrets(ctx, ha); err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not resolve secret references")
+	}
+
+	if _, validateErr := humio.ActionFromActionCR(ha); validateErr != nil {
+		r.Log.Error(validateErr, "unable to validate action")
+		setStateErr := r.setState(ctx, humiov1alpha1.HumioActionStateConfigError, ha)
+		if setStateErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set action state")
+		}
+		return reconcile.Result{}, validateErr
 	}
 
 	r.Log.Info("Checking if action needs to be created")
@@ -460,17 +460,22 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 		switch c := (currentAction).(type) {
 		case *humiographql.ActionDetailsWebhookAction:
 			actionType = getTypeString(e)
+
+			currentHeaders := c.GetHeaders()
+			expectedHeaders := e.GetHeaders()
+			sortHeaders(currentHeaders)
+			sortHeaders(expectedHeaders)
+			if diff := cmp.Diff(c.GetMethod(), e.GetMethod()); diff != "" {
+				diffMap["method"] = diff
+			}
 			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
 				diffMap["name"] = diff
 			}
 			if diff := cmp.Diff(c.GetWebhookBodyTemplate(), e.GetWebhookBodyTemplate()); diff != "" {
 				diffMap["bodyTemplate"] = diff
 			}
-			if diff := cmp.Diff(c.GetHeaders(), e.GetHeaders()); diff != "" {
+			if diff := cmp.Diff(currentHeaders, expectedHeaders); diff != "" {
 				diffMap["headers"] = "<redacted>"
-			}
-			if diff := cmp.Diff(c.GetMethod(), e.GetMethod()); diff != "" {
-				diffMap["method"] = diff
 			}
 			if diff := cmp.Diff(c.GetUrl(), e.GetUrl()); diff != "" {
 				diffMap["url"] = "<redacted>"
@@ -499,4 +504,10 @@ func getTypeString(arg interface{}) string {
 		t = t.Elem()
 	}
 	return t.String()
+}
+
+func sortHeaders(headers []humiographql.ActionDetailsHeadersHttpHeaderEntry) {
+	sort.SliceStable(headers, func(i, j int) bool {
+		return headers[i].Header > headers[j].Header || headers[i].Value > headers[j].Value
+	})
 }
