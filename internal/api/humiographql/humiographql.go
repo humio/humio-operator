@@ -6562,6 +6562,14 @@ const (
 	LanguageVersionEnumFederated1  LanguageVersionEnum = "federated1"
 )
 
+var AllLanguageVersionEnum = []LanguageVersionEnum{
+	LanguageVersionEnumLegacy,
+	LanguageVersionEnumXdr1,
+	LanguageVersionEnumXdrdetects1,
+	LanguageVersionEnumFilteralert,
+	LanguageVersionEnumFederated1,
+}
+
 // ListActionsResponse is returned by ListActions on success.
 type ListActionsResponse struct {
 	// Stability: Long-term
@@ -10054,6 +10062,11 @@ const (
 	QueryOwnershipTypeOrganization QueryOwnershipType = "Organization"
 )
 
+var AllQueryOwnershipType = []QueryOwnershipType{
+	QueryOwnershipTypeUser,
+	QueryOwnershipTypeOrganization,
+}
+
 // QueryOwnership includes the GraphQL fields of UserOwnership requested by the fragment QueryOwnership.
 // The GraphQL type's documentation follows.
 //
@@ -10074,6 +10087,11 @@ const (
 	// Use @ingesttimestamp for the query.
 	QueryTimestampTypeIngesttimestamp QueryTimestampType = "IngestTimestamp"
 )
+
+var AllQueryTimestampType = []QueryTimestampType{
+	QueryTimestampTypeEventtimestamp,
+	QueryTimestampTypeIngesttimestamp,
+}
 
 // RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutation includes the requested fields of the GraphQL type RefreshClusterManagementStatsMutation.
 type RefreshClusterManagementStatsRefreshClusterManagementStatsRefreshClusterManagementStatsMutation struct {
@@ -10272,6 +10290,11 @@ const (
 	S3ArchivingFormatRaw    S3ArchivingFormat = "RAW"
 	S3ArchivingFormatNdjson S3ArchivingFormat = "NDJSON"
 )
+
+var AllS3ArchivingFormat = []S3ArchivingFormat{
+	S3ArchivingFormatRaw,
+	S3ArchivingFormatNdjson,
+}
 
 // ScheduledSearchDetails includes the GraphQL fields of ScheduledSearch requested by the fragment ScheduledSearchDetails.
 // The GraphQL type's documentation follows.
@@ -11517,6 +11540,11 @@ const (
 	// Trigger immediately, even on incomplete results. If nothing to trigger on, wait for up to 20 minutes for there to be a result to trigger on.
 	TriggerModeImmediatemode TriggerMode = "ImmediateMode"
 )
+
+var AllTriggerMode = []TriggerMode{
+	TriggerModeCompletemode,
+	TriggerModeImmediatemode,
+}
 
 // UnassignParserToIngestTokenResponse is returned by UnassignParserToIngestToken on success.
 type UnassignParserToIngestTokenResponse struct {
@@ -14222,7 +14250,7 @@ func (v *__UpdateWebhookActionInput) GetIgnoreSSL() bool { return v.IgnoreSSL }
 // GetUseProxy returns __UpdateWebhookActionInput.UseProxy, and is useful for accessing the field via an interface.
 func (v *__UpdateWebhookActionInput) GetUseProxy() bool { return v.UseProxy }
 
-// The query or mutation executed by AddIngestToken.
+// The mutation executed by AddIngestToken.
 const AddIngestToken_Operation = `
 mutation AddIngestToken ($RepositoryName: String!, $Name: String!, $ParserName: String) {
 	addIngestTokenV3(input: {repositoryName:$RepositoryName,name:$Name,parser:$ParserName}) {
@@ -14244,7 +14272,7 @@ func AddIngestToken(
 	RepositoryName string,
 	Name string,
 	ParserName *string,
-) (*AddIngestTokenResponse, error) {
+) (data_ *AddIngestTokenResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AddIngestToken",
 		Query:  AddIngestToken_Operation,
@@ -14254,10 +14282,9 @@ func AddIngestToken(
 			ParserName:     ParserName,
 		},
 	}
-	var err_ error
 
-	var data_ AddIngestTokenResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &AddIngestTokenResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -14265,10 +14292,10 @@ func AddIngestToken(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by AddUser.
+// The mutation executed by AddUser.
 const AddUser_Operation = `
 mutation AddUser ($Username: String!, $IsRoot: Boolean) {
 	addUserV2(input: {username:$Username,isRoot:$IsRoot}) {
@@ -14290,7 +14317,7 @@ func AddUser(
 	client_ graphql.Client,
 	Username string,
 	IsRoot *bool,
-) (*AddUserResponse, error) {
+) (data_ *AddUserResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AddUser",
 		Query:  AddUser_Operation,
@@ -14299,10 +14326,9 @@ func AddUser(
 			IsRoot:   IsRoot,
 		},
 	}
-	var err_ error
 
-	var data_ AddUserResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &AddUserResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -14310,10 +14336,10 @@ func AddUser(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by AssignParserToIngestToken.
+// The mutation executed by AssignParserToIngestToken.
 const AssignParserToIngestToken_Operation = `
 mutation AssignParserToIngestToken ($RepositoryName: String!, $IngestTokenName: String!, $ParserName: String!) {
 	assignParserToIngestTokenV2(input: {repositoryName:$RepositoryName,parser:$ParserName,tokenName:$IngestTokenName}) {
@@ -14328,7 +14354,7 @@ func AssignParserToIngestToken(
 	RepositoryName string,
 	IngestTokenName string,
 	ParserName string,
-) (*AssignParserToIngestTokenResponse, error) {
+) (data_ *AssignParserToIngestTokenResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AssignParserToIngestToken",
 		Query:  AssignParserToIngestToken_Operation,
@@ -14338,10 +14364,9 @@ func AssignParserToIngestToken(
 			ParserName:      ParserName,
 		},
 	}
-	var err_ error
 
-	var data_ AssignParserToIngestTokenResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &AssignParserToIngestTokenResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -14349,10 +14374,10 @@ func AssignParserToIngestToken(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateAggregateAlert.
+// The mutation executed by CreateAggregateAlert.
 const CreateAggregateAlert_Operation = `
 mutation CreateAggregateAlert ($SearchDomainName: RepoOrViewName!, $Name: String!, $Description: String, $QueryString: String!, $SearchIntervalSeconds: Long!, $ActionIdsOrNames: [String!]!, $Labels: [String!]!, $Enabled: Boolean!, $ThrottleField: String, $ThrottleTimeSeconds: Long!, $TriggerMode: TriggerMode!, $QueryTimestampMode: QueryTimestampType!, $QueryOwnershipType: QueryOwnershipType!) {
 	createAggregateAlert(input: {viewName:$SearchDomainName,name:$Name,description:$Description,queryString:$QueryString,searchIntervalSeconds:$SearchIntervalSeconds,actionIdsOrNames:$ActionIdsOrNames,labels:$Labels,enabled:$Enabled,throttleField:$ThrottleField,throttleTimeSeconds:$ThrottleTimeSeconds,triggerMode:$TriggerMode,queryTimestampType:$QueryTimestampMode,queryOwnershipType:$QueryOwnershipType}) {
@@ -14404,7 +14429,7 @@ func CreateAggregateAlert(
 	TriggerMode TriggerMode,
 	QueryTimestampMode QueryTimestampType,
 	QueryOwnershipType QueryOwnershipType,
-) (*CreateAggregateAlertResponse, error) {
+) (data_ *CreateAggregateAlertResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateAggregateAlert",
 		Query:  CreateAggregateAlert_Operation,
@@ -14424,10 +14449,9 @@ func CreateAggregateAlert(
 			QueryOwnershipType:    QueryOwnershipType,
 		},
 	}
-	var err_ error
 
-	var data_ CreateAggregateAlertResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateAggregateAlertResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -14435,10 +14459,10 @@ func CreateAggregateAlert(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateAlert.
+// The mutation executed by CreateAlert.
 const CreateAlert_Operation = `
 mutation CreateAlert ($SearchDomainName: String!, $Name: String!, $Description: String, $QueryString: String!, $QueryStart: String!, $ThrottleTimeMillis: Long!, $Enabled: Boolean, $Actions: [String!]!, $Labels: [String!], $QueryOwnershipType: QueryOwnershipType, $ThrottleField: String) {
 	createAlert(input: {viewName:$SearchDomainName,name:$Name,description:$Description,queryString:$QueryString,queryStart:$QueryStart,throttleTimeMillis:$ThrottleTimeMillis,enabled:$Enabled,actions:$Actions,labels:$Labels,queryOwnershipType:$QueryOwnershipType,throttleField:$ThrottleField}) {
@@ -14486,7 +14510,7 @@ func CreateAlert(
 	Labels []string,
 	QueryOwnershipType *QueryOwnershipType,
 	ThrottleField *string,
-) (*CreateAlertResponse, error) {
+) (data_ *CreateAlertResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateAlert",
 		Query:  CreateAlert_Operation,
@@ -14504,10 +14528,9 @@ func CreateAlert(
 			ThrottleField:      ThrottleField,
 		},
 	}
-	var err_ error
 
-	var data_ CreateAlertResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateAlertResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -14515,10 +14538,10 @@ func CreateAlert(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateEmailAction.
+// The mutation executed by CreateEmailAction.
 const CreateEmailAction_Operation = `
 mutation CreateEmailAction ($SearchDomainName: String!, $ActionName: String!, $Recipients: [String!]!, $SubjectTemplate: String, $BodyTemplate: String, $UseProxy: Boolean!) {
 	createEmailAction(input: {viewName:$SearchDomainName,name:$ActionName,recipients:$Recipients,subjectTemplate:$SubjectTemplate,bodyTemplate:$BodyTemplate,useProxy:$UseProxy}) {
@@ -14536,7 +14559,7 @@ func CreateEmailAction(
 	SubjectTemplate *string,
 	BodyTemplate *string,
 	UseProxy bool,
-) (*CreateEmailActionResponse, error) {
+) (data_ *CreateEmailActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateEmailAction",
 		Query:  CreateEmailAction_Operation,
@@ -14549,10 +14572,9 @@ func CreateEmailAction(
 			UseProxy:         UseProxy,
 		},
 	}
-	var err_ error
 
-	var data_ CreateEmailActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateEmailActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -14560,10 +14582,10 @@ func CreateEmailAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateFilterAlert.
+// The mutation executed by CreateFilterAlert.
 const CreateFilterAlert_Operation = `
 mutation CreateFilterAlert ($SearchDomainName: RepoOrViewName!, $Name: String!, $Description: String, $QueryString: String!, $ActionIdsOrNames: [String!]!, $Labels: [String!]!, $Enabled: Boolean!, $ThrottleField: String, $ThrottleTimeSeconds: Long!, $QueryOwnershipType: QueryOwnershipType!) {
 	createFilterAlert(input: {viewName:$SearchDomainName,name:$Name,description:$Description,queryString:$QueryString,actionIdsOrNames:$ActionIdsOrNames,labels:$Labels,enabled:$Enabled,throttleField:$ThrottleField,throttleTimeSeconds:$ThrottleTimeSeconds,queryOwnershipType:$QueryOwnershipType}) {
@@ -14609,7 +14631,7 @@ func CreateFilterAlert(
 	ThrottleField *string,
 	ThrottleTimeSeconds int64,
 	QueryOwnershipType QueryOwnershipType,
-) (*CreateFilterAlertResponse, error) {
+) (data_ *CreateFilterAlertResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateFilterAlert",
 		Query:  CreateFilterAlert_Operation,
@@ -14626,10 +14648,9 @@ func CreateFilterAlert(
 			QueryOwnershipType:  QueryOwnershipType,
 		},
 	}
-	var err_ error
 
-	var data_ CreateFilterAlertResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateFilterAlertResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -14637,10 +14658,10 @@ func CreateFilterAlert(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateHumioRepoAction.
+// The mutation executed by CreateHumioRepoAction.
 const CreateHumioRepoAction_Operation = `
 mutation CreateHumioRepoAction ($SearchDomainName: String!, $ActionName: String!, $IngestToken: String!) {
 	createHumioRepoAction(input: {viewName:$SearchDomainName,name:$ActionName,ingestToken:$IngestToken}) {
@@ -14655,7 +14676,7 @@ func CreateHumioRepoAction(
 	SearchDomainName string,
 	ActionName string,
 	IngestToken string,
-) (*CreateHumioRepoActionResponse, error) {
+) (data_ *CreateHumioRepoActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateHumioRepoAction",
 		Query:  CreateHumioRepoAction_Operation,
@@ -14665,10 +14686,9 @@ func CreateHumioRepoAction(
 			IngestToken:      IngestToken,
 		},
 	}
-	var err_ error
 
-	var data_ CreateHumioRepoActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateHumioRepoActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -14676,10 +14696,10 @@ func CreateHumioRepoAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateOpsGenieAction.
+// The mutation executed by CreateOpsGenieAction.
 const CreateOpsGenieAction_Operation = `
 mutation CreateOpsGenieAction ($SearchDomainName: String!, $ActionName: String!, $ApiUrl: String!, $GenieKey: String!, $UseProxy: Boolean!) {
 	createOpsGenieAction(input: {viewName:$SearchDomainName,name:$ActionName,apiUrl:$ApiUrl,genieKey:$GenieKey,useProxy:$UseProxy}) {
@@ -14696,7 +14716,7 @@ func CreateOpsGenieAction(
 	ApiUrl string,
 	GenieKey string,
 	UseProxy bool,
-) (*CreateOpsGenieActionResponse, error) {
+) (data_ *CreateOpsGenieActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateOpsGenieAction",
 		Query:  CreateOpsGenieAction_Operation,
@@ -14708,10 +14728,9 @@ func CreateOpsGenieAction(
 			UseProxy:         UseProxy,
 		},
 	}
-	var err_ error
 
-	var data_ CreateOpsGenieActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateOpsGenieActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -14719,10 +14738,10 @@ func CreateOpsGenieAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreatePagerDutyAction.
+// The mutation executed by CreatePagerDutyAction.
 const CreatePagerDutyAction_Operation = `
 mutation CreatePagerDutyAction ($SearchDomainName: String!, $ActionName: String!, $Severity: String!, $RoutingKey: String!, $UseProxy: Boolean!) {
 	createPagerDutyAction(input: {viewName:$SearchDomainName,name:$ActionName,severity:$Severity,routingKey:$RoutingKey,useProxy:$UseProxy}) {
@@ -14739,7 +14758,7 @@ func CreatePagerDutyAction(
 	Severity string,
 	RoutingKey string,
 	UseProxy bool,
-) (*CreatePagerDutyActionResponse, error) {
+) (data_ *CreatePagerDutyActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreatePagerDutyAction",
 		Query:  CreatePagerDutyAction_Operation,
@@ -14751,10 +14770,9 @@ func CreatePagerDutyAction(
 			UseProxy:         UseProxy,
 		},
 	}
-	var err_ error
 
-	var data_ CreatePagerDutyActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreatePagerDutyActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -14762,10 +14780,10 @@ func CreatePagerDutyAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateParserOrUpdate.
+// The mutation executed by CreateParserOrUpdate.
 const CreateParserOrUpdate_Operation = `
 mutation CreateParserOrUpdate ($RepositoryName: RepoOrViewName!, $Name: String!, $Script: String!, $TestCases: [ParserTestCaseInput!]!, $FieldsToTag: [String!]!, $FieldsToBeRemovedBeforeParsing: [String!]!, $AllowOverridingExistingParser: Boolean!) {
 	createParserV2(input: {name:$Name,script:$Script,testCases:$TestCases,repositoryName:$RepositoryName,fieldsToTag:$FieldsToTag,fieldsToBeRemovedBeforeParsing:$FieldsToBeRemovedBeforeParsing,allowOverwritingExistingParser:$AllowOverridingExistingParser}) {
@@ -14798,7 +14816,7 @@ func CreateParserOrUpdate(
 	FieldsToTag []string,
 	FieldsToBeRemovedBeforeParsing []string,
 	AllowOverridingExistingParser bool,
-) (*CreateParserOrUpdateResponse, error) {
+) (data_ *CreateParserOrUpdateResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateParserOrUpdate",
 		Query:  CreateParserOrUpdate_Operation,
@@ -14812,10 +14830,9 @@ func CreateParserOrUpdate(
 			AllowOverridingExistingParser:  AllowOverridingExistingParser,
 		},
 	}
-	var err_ error
 
-	var data_ CreateParserOrUpdateResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateParserOrUpdateResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -14823,10 +14840,10 @@ func CreateParserOrUpdate(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateRepository.
+// The mutation executed by CreateRepository.
 const CreateRepository_Operation = `
 mutation CreateRepository ($RepositoryName: String!) {
 	createRepository(name: $RepositoryName) {
@@ -14857,7 +14874,7 @@ func CreateRepository(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	RepositoryName string,
-) (*CreateRepositoryResponse, error) {
+) (data_ *CreateRepositoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateRepository",
 		Query:  CreateRepository_Operation,
@@ -14865,10 +14882,9 @@ func CreateRepository(
 			RepositoryName: RepositoryName,
 		},
 	}
-	var err_ error
 
-	var data_ CreateRepositoryResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateRepositoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -14876,10 +14892,10 @@ func CreateRepository(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateScheduledSearch.
+// The mutation executed by CreateScheduledSearch.
 const CreateScheduledSearch_Operation = `
 mutation CreateScheduledSearch ($SearchDomainName: String!, $Name: String!, $Description: String, $QueryString: String!, $QueryStart: String!, $QueryEnd: String!, $Schedule: String!, $TimeZone: String!, $BackfillLimit: Int!, $Enabled: Boolean!, $ActionIdsOrNames: [String!]!, $Labels: [String!]!, $QueryOwnershipType: QueryOwnershipType) {
 	createScheduledSearch(input: {viewName:$SearchDomainName,name:$Name,description:$Description,queryString:$QueryString,queryStart:$QueryStart,queryEnd:$QueryEnd,schedule:$Schedule,timeZone:$TimeZone,backfillLimit:$BackfillLimit,enabled:$Enabled,actions:$ActionIdsOrNames,labels:$Labels,queryOwnershipType:$QueryOwnershipType}) {
@@ -14931,7 +14947,7 @@ func CreateScheduledSearch(
 	ActionIdsOrNames []string,
 	Labels []string,
 	QueryOwnershipType *QueryOwnershipType,
-) (*CreateScheduledSearchResponse, error) {
+) (data_ *CreateScheduledSearchResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateScheduledSearch",
 		Query:  CreateScheduledSearch_Operation,
@@ -14951,10 +14967,9 @@ func CreateScheduledSearch(
 			QueryOwnershipType: QueryOwnershipType,
 		},
 	}
-	var err_ error
 
-	var data_ CreateScheduledSearchResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateScheduledSearchResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -14962,10 +14977,10 @@ func CreateScheduledSearch(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateSlackAction.
+// The mutation executed by CreateSlackAction.
 const CreateSlackAction_Operation = `
 mutation CreateSlackAction ($SearchDomainName: String!, $ActionName: String!, $Fields: [SlackFieldEntryInput!]!, $Url: String!, $UseProxy: Boolean!) {
 	createSlackAction(input: {viewName:$SearchDomainName,name:$ActionName,fields:$Fields,url:$Url,useProxy:$UseProxy}) {
@@ -14982,7 +14997,7 @@ func CreateSlackAction(
 	Fields []SlackFieldEntryInput,
 	Url string,
 	UseProxy bool,
-) (*CreateSlackActionResponse, error) {
+) (data_ *CreateSlackActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateSlackAction",
 		Query:  CreateSlackAction_Operation,
@@ -14994,10 +15009,9 @@ func CreateSlackAction(
 			UseProxy:         UseProxy,
 		},
 	}
-	var err_ error
 
-	var data_ CreateSlackActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateSlackActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15005,10 +15019,10 @@ func CreateSlackAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateSlackPostMessageAction.
+// The mutation executed by CreateSlackPostMessageAction.
 const CreateSlackPostMessageAction_Operation = `
 mutation CreateSlackPostMessageAction ($SearchDomainName: String!, $ActionName: String!, $ApiToken: String!, $Channels: [String!]!, $Fields: [SlackFieldEntryInput!]!, $UseProxy: Boolean!) {
 	createSlackPostMessageAction(input: {viewName:$SearchDomainName,name:$ActionName,apiToken:$ApiToken,channels:$Channels,fields:$Fields,useProxy:$UseProxy}) {
@@ -15026,7 +15040,7 @@ func CreateSlackPostMessageAction(
 	Channels []string,
 	Fields []SlackFieldEntryInput,
 	UseProxy bool,
-) (*CreateSlackPostMessageActionResponse, error) {
+) (data_ *CreateSlackPostMessageActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateSlackPostMessageAction",
 		Query:  CreateSlackPostMessageAction_Operation,
@@ -15039,10 +15053,9 @@ func CreateSlackPostMessageAction(
 			UseProxy:         UseProxy,
 		},
 	}
-	var err_ error
 
-	var data_ CreateSlackPostMessageActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateSlackPostMessageActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15050,10 +15063,10 @@ func CreateSlackPostMessageAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateVictorOpsAction.
+// The mutation executed by CreateVictorOpsAction.
 const CreateVictorOpsAction_Operation = `
 mutation CreateVictorOpsAction ($SearchDomainName: String!, $ActionName: String!, $MessageType: String!, $NotifyUrl: String!, $UseProxy: Boolean!) {
 	createVictorOpsAction(input: {viewName:$SearchDomainName,name:$ActionName,messageType:$MessageType,notifyUrl:$NotifyUrl,useProxy:$UseProxy}) {
@@ -15070,7 +15083,7 @@ func CreateVictorOpsAction(
 	MessageType string,
 	NotifyUrl string,
 	UseProxy bool,
-) (*CreateVictorOpsActionResponse, error) {
+) (data_ *CreateVictorOpsActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateVictorOpsAction",
 		Query:  CreateVictorOpsAction_Operation,
@@ -15082,10 +15095,9 @@ func CreateVictorOpsAction(
 			UseProxy:         UseProxy,
 		},
 	}
-	var err_ error
 
-	var data_ CreateVictorOpsActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateVictorOpsActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15093,10 +15105,10 @@ func CreateVictorOpsAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateView.
+// The mutation executed by CreateView.
 const CreateView_Operation = `
 mutation CreateView ($ViewName: String!, $Description: String, $Connections: [ViewConnectionInput!]) {
 	createView(name: $ViewName, description: $Description, connections: $Connections) {
@@ -15111,7 +15123,7 @@ func CreateView(
 	ViewName string,
 	Description *string,
 	Connections []ViewConnectionInput,
-) (*CreateViewResponse, error) {
+) (data_ *CreateViewResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateView",
 		Query:  CreateView_Operation,
@@ -15121,10 +15133,9 @@ func CreateView(
 			Connections: Connections,
 		},
 	}
-	var err_ error
 
-	var data_ CreateViewResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateViewResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15132,10 +15143,10 @@ func CreateView(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateWebhookAction.
+// The mutation executed by CreateWebhookAction.
 const CreateWebhookAction_Operation = `
 mutation CreateWebhookAction ($SearchDomainName: String!, $ActionName: String!, $Url: String!, $Method: String!, $Headers: [HttpHeaderEntryInput!]!, $BodyTemplate: String!, $IgnoreSSL: Boolean!, $UseProxy: Boolean!) {
 	createWebhookAction(input: {viewName:$SearchDomainName,name:$ActionName,url:$Url,method:$Method,headers:$Headers,bodyTemplate:$BodyTemplate,ignoreSSL:$IgnoreSSL,useProxy:$UseProxy}) {
@@ -15155,7 +15166,7 @@ func CreateWebhookAction(
 	BodyTemplate string,
 	IgnoreSSL bool,
 	UseProxy bool,
-) (*CreateWebhookActionResponse, error) {
+) (data_ *CreateWebhookActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateWebhookAction",
 		Query:  CreateWebhookAction_Operation,
@@ -15170,10 +15181,9 @@ func CreateWebhookAction(
 			UseProxy:         UseProxy,
 		},
 	}
-	var err_ error
 
-	var data_ CreateWebhookActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateWebhookActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15181,10 +15191,10 @@ func CreateWebhookAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by DeleteActionByID.
+// The mutation executed by DeleteActionByID.
 const DeleteActionByID_Operation = `
 mutation DeleteActionByID ($SearchDomainName: String!, $ActionID: String!) {
 	deleteAction(input: {viewName:$SearchDomainName,id:$ActionID})
@@ -15196,7 +15206,7 @@ func DeleteActionByID(
 	client_ graphql.Client,
 	SearchDomainName string,
 	ActionID string,
-) (*DeleteActionByIDResponse, error) {
+) (data_ *DeleteActionByIDResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteActionByID",
 		Query:  DeleteActionByID_Operation,
@@ -15205,10 +15215,9 @@ func DeleteActionByID(
 			ActionID:         ActionID,
 		},
 	}
-	var err_ error
 
-	var data_ DeleteActionByIDResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &DeleteActionByIDResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15216,10 +15225,10 @@ func DeleteActionByID(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by DeleteAggregateAlert.
+// The mutation executed by DeleteAggregateAlert.
 const DeleteAggregateAlert_Operation = `
 mutation DeleteAggregateAlert ($SearchDomainName: RepoOrViewName!, $AggregateAlertID: String!) {
 	deleteAggregateAlert(input: {id:$AggregateAlertID,viewName:$SearchDomainName})
@@ -15231,7 +15240,7 @@ func DeleteAggregateAlert(
 	client_ graphql.Client,
 	SearchDomainName string,
 	AggregateAlertID string,
-) (*DeleteAggregateAlertResponse, error) {
+) (data_ *DeleteAggregateAlertResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteAggregateAlert",
 		Query:  DeleteAggregateAlert_Operation,
@@ -15240,10 +15249,9 @@ func DeleteAggregateAlert(
 			AggregateAlertID: AggregateAlertID,
 		},
 	}
-	var err_ error
 
-	var data_ DeleteAggregateAlertResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &DeleteAggregateAlertResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15251,10 +15259,10 @@ func DeleteAggregateAlert(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by DeleteAlertByID.
+// The mutation executed by DeleteAlertByID.
 const DeleteAlertByID_Operation = `
 mutation DeleteAlertByID ($SearchDomainName: String!, $AlertID: String!) {
 	deleteAlert(input: {viewName:$SearchDomainName,id:$AlertID})
@@ -15266,7 +15274,7 @@ func DeleteAlertByID(
 	client_ graphql.Client,
 	SearchDomainName string,
 	AlertID string,
-) (*DeleteAlertByIDResponse, error) {
+) (data_ *DeleteAlertByIDResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteAlertByID",
 		Query:  DeleteAlertByID_Operation,
@@ -15275,10 +15283,9 @@ func DeleteAlertByID(
 			AlertID:          AlertID,
 		},
 	}
-	var err_ error
 
-	var data_ DeleteAlertByIDResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &DeleteAlertByIDResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15286,10 +15293,10 @@ func DeleteAlertByID(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by DeleteFilterAlert.
+// The mutation executed by DeleteFilterAlert.
 const DeleteFilterAlert_Operation = `
 mutation DeleteFilterAlert ($SearchDomainName: RepoOrViewName!, $FilterAlertID: String!) {
 	deleteFilterAlert(input: {id:$FilterAlertID,viewName:$SearchDomainName})
@@ -15301,7 +15308,7 @@ func DeleteFilterAlert(
 	client_ graphql.Client,
 	SearchDomainName string,
 	FilterAlertID string,
-) (*DeleteFilterAlertResponse, error) {
+) (data_ *DeleteFilterAlertResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteFilterAlert",
 		Query:  DeleteFilterAlert_Operation,
@@ -15310,10 +15317,9 @@ func DeleteFilterAlert(
 			FilterAlertID:    FilterAlertID,
 		},
 	}
-	var err_ error
 
-	var data_ DeleteFilterAlertResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &DeleteFilterAlertResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15321,10 +15327,10 @@ func DeleteFilterAlert(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by DeleteParserByID.
+// The mutation executed by DeleteParserByID.
 const DeleteParserByID_Operation = `
 mutation DeleteParserByID ($RepositoryName: RepoOrViewName!, $ParserID: String!) {
 	deleteParser(input: {repositoryName:$RepositoryName,id:$ParserID}) {
@@ -15338,7 +15344,7 @@ func DeleteParserByID(
 	client_ graphql.Client,
 	RepositoryName string,
 	ParserID string,
-) (*DeleteParserByIDResponse, error) {
+) (data_ *DeleteParserByIDResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteParserByID",
 		Query:  DeleteParserByID_Operation,
@@ -15347,10 +15353,9 @@ func DeleteParserByID(
 			ParserID:       ParserID,
 		},
 	}
-	var err_ error
 
-	var data_ DeleteParserByIDResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &DeleteParserByIDResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15358,10 +15363,10 @@ func DeleteParserByID(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by DeleteScheduledSearchByID.
+// The mutation executed by DeleteScheduledSearchByID.
 const DeleteScheduledSearchByID_Operation = `
 mutation DeleteScheduledSearchByID ($SearchDomainName: String!, $ScheduledSearchID: String!) {
 	deleteScheduledSearch(input: {viewName:$SearchDomainName,id:$ScheduledSearchID})
@@ -15373,7 +15378,7 @@ func DeleteScheduledSearchByID(
 	client_ graphql.Client,
 	SearchDomainName string,
 	ScheduledSearchID string,
-) (*DeleteScheduledSearchByIDResponse, error) {
+) (data_ *DeleteScheduledSearchByIDResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteScheduledSearchByID",
 		Query:  DeleteScheduledSearchByID_Operation,
@@ -15382,10 +15387,9 @@ func DeleteScheduledSearchByID(
 			ScheduledSearchID: ScheduledSearchID,
 		},
 	}
-	var err_ error
 
-	var data_ DeleteScheduledSearchByIDResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &DeleteScheduledSearchByIDResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15393,10 +15397,10 @@ func DeleteScheduledSearchByID(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by DeleteSearchDomain.
+// The mutation executed by DeleteSearchDomain.
 const DeleteSearchDomain_Operation = `
 mutation DeleteSearchDomain ($SearchDomainName: String!, $DeleteMessage: String!) {
 	deleteSearchDomain(name: $SearchDomainName, deleteMessage: $DeleteMessage) {
@@ -15410,7 +15414,7 @@ func DeleteSearchDomain(
 	client_ graphql.Client,
 	SearchDomainName string,
 	DeleteMessage string,
-) (*DeleteSearchDomainResponse, error) {
+) (data_ *DeleteSearchDomainResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteSearchDomain",
 		Query:  DeleteSearchDomain_Operation,
@@ -15419,10 +15423,9 @@ func DeleteSearchDomain(
 			DeleteMessage:    DeleteMessage,
 		},
 	}
-	var err_ error
 
-	var data_ DeleteSearchDomainResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &DeleteSearchDomainResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15430,10 +15433,10 @@ func DeleteSearchDomain(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by DisableS3Archiving.
+// The mutation executed by DisableS3Archiving.
 const DisableS3Archiving_Operation = `
 mutation DisableS3Archiving ($RepositoryName: String!) {
 	s3DisableArchiving(repositoryName: $RepositoryName) {
@@ -15446,7 +15449,7 @@ func DisableS3Archiving(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	RepositoryName string,
-) (*DisableS3ArchivingResponse, error) {
+) (data_ *DisableS3ArchivingResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DisableS3Archiving",
 		Query:  DisableS3Archiving_Operation,
@@ -15454,10 +15457,9 @@ func DisableS3Archiving(
 			RepositoryName: RepositoryName,
 		},
 	}
-	var err_ error
 
-	var data_ DisableS3ArchivingResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &DisableS3ArchivingResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15465,10 +15467,10 @@ func DisableS3Archiving(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by EnableS3Archiving.
+// The mutation executed by EnableS3Archiving.
 const EnableS3Archiving_Operation = `
 mutation EnableS3Archiving ($RepositoryName: String!) {
 	s3EnableArchiving(repositoryName: $RepositoryName) {
@@ -15481,7 +15483,7 @@ func EnableS3Archiving(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	RepositoryName string,
-) (*EnableS3ArchivingResponse, error) {
+) (data_ *EnableS3ArchivingResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "EnableS3Archiving",
 		Query:  EnableS3Archiving_Operation,
@@ -15489,10 +15491,9 @@ func EnableS3Archiving(
 			RepositoryName: RepositoryName,
 		},
 	}
-	var err_ error
 
-	var data_ EnableS3ArchivingResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &EnableS3ArchivingResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15500,10 +15501,10 @@ func EnableS3Archiving(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetActionByID.
+// The query executed by GetActionByID.
 const GetActionByID_Operation = `
 query GetActionByID ($SearchDomainName: String!, $ActionID: String!) {
 	searchDomain(name: $SearchDomainName) {
@@ -15577,7 +15578,7 @@ func GetActionByID(
 	client_ graphql.Client,
 	SearchDomainName string,
 	ActionID string,
-) (*GetActionByIDResponse, error) {
+) (data_ *GetActionByIDResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetActionByID",
 		Query:  GetActionByID_Operation,
@@ -15586,10 +15587,9 @@ func GetActionByID(
 			ActionID:         ActionID,
 		},
 	}
-	var err_ error
 
-	var data_ GetActionByIDResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetActionByIDResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15597,10 +15597,10 @@ func GetActionByID(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetAggregateAlertByID.
+// The query executed by GetAggregateAlertByID.
 const GetAggregateAlertByID_Operation = `
 query GetAggregateAlertByID ($SearchDomainName: String!, $AggregateAlertID: String!) {
 	searchDomain(name: $SearchDomainName) {
@@ -15644,7 +15644,7 @@ func GetAggregateAlertByID(
 	client_ graphql.Client,
 	SearchDomainName string,
 	AggregateAlertID string,
-) (*GetAggregateAlertByIDResponse, error) {
+) (data_ *GetAggregateAlertByIDResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetAggregateAlertByID",
 		Query:  GetAggregateAlertByID_Operation,
@@ -15653,10 +15653,9 @@ func GetAggregateAlertByID(
 			AggregateAlertID: AggregateAlertID,
 		},
 	}
-	var err_ error
 
-	var data_ GetAggregateAlertByIDResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetAggregateAlertByIDResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15664,10 +15663,10 @@ func GetAggregateAlertByID(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetCluster.
+// The query executed by GetCluster.
 const GetCluster_Operation = `
 query GetCluster {
 	cluster {
@@ -15684,15 +15683,14 @@ query GetCluster {
 func GetCluster(
 	ctx_ context.Context,
 	client_ graphql.Client,
-) (*GetClusterResponse, error) {
+) (data_ *GetClusterResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetCluster",
 		Query:  GetCluster_Operation,
 	}
-	var err_ error
 
-	var data_ GetClusterResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetClusterResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15700,10 +15698,10 @@ func GetCluster(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetEvictionStatus.
+// The query executed by GetEvictionStatus.
 const GetEvictionStatus_Operation = `
 query GetEvictionStatus {
 	cluster {
@@ -15724,15 +15722,14 @@ query GetEvictionStatus {
 func GetEvictionStatus(
 	ctx_ context.Context,
 	client_ graphql.Client,
-) (*GetEvictionStatusResponse, error) {
+) (data_ *GetEvictionStatusResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetEvictionStatus",
 		Query:  GetEvictionStatus_Operation,
 	}
-	var err_ error
 
-	var data_ GetEvictionStatusResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetEvictionStatusResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15740,10 +15737,10 @@ func GetEvictionStatus(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetFilterAlertByID.
+// The query executed by GetFilterAlertByID.
 const GetFilterAlertByID_Operation = `
 query GetFilterAlertByID ($SearchDomainName: String!, $FilterAlertID: String!) {
 	searchDomain(name: $SearchDomainName) {
@@ -15784,7 +15781,7 @@ func GetFilterAlertByID(
 	client_ graphql.Client,
 	SearchDomainName string,
 	FilterAlertID string,
-) (*GetFilterAlertByIDResponse, error) {
+) (data_ *GetFilterAlertByIDResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetFilterAlertByID",
 		Query:  GetFilterAlertByID_Operation,
@@ -15793,10 +15790,9 @@ func GetFilterAlertByID(
 			FilterAlertID:    FilterAlertID,
 		},
 	}
-	var err_ error
 
-	var data_ GetFilterAlertByIDResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetFilterAlertByIDResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15804,10 +15800,10 @@ func GetFilterAlertByID(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetLicense.
+// The query executed by GetLicense.
 const GetLicense_Operation = `
 query GetLicense {
 	installedLicense {
@@ -15823,15 +15819,14 @@ query GetLicense {
 func GetLicense(
 	ctx_ context.Context,
 	client_ graphql.Client,
-) (*GetLicenseResponse, error) {
+) (data_ *GetLicenseResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetLicense",
 		Query:  GetLicense_Operation,
 	}
-	var err_ error
 
-	var data_ GetLicenseResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetLicenseResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15839,10 +15834,10 @@ func GetLicense(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetParserByID.
+// The query executed by GetParserByID.
 const GetParserByID_Operation = `
 query GetParserByID ($RepositoryName: String!, $ParserID: String!) {
 	repository(name: $RepositoryName) {
@@ -15872,7 +15867,7 @@ func GetParserByID(
 	client_ graphql.Client,
 	RepositoryName string,
 	ParserID string,
-) (*GetParserByIDResponse, error) {
+) (data_ *GetParserByIDResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetParserByID",
 		Query:  GetParserByID_Operation,
@@ -15881,10 +15876,9 @@ func GetParserByID(
 			ParserID:       ParserID,
 		},
 	}
-	var err_ error
 
-	var data_ GetParserByIDResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetParserByIDResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15892,10 +15886,10 @@ func GetParserByID(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetRepository.
+// The query executed by GetRepository.
 const GetRepository_Operation = `
 query GetRepository ($RepositoryName: String!) {
 	repository(name: $RepositoryName) {
@@ -15924,7 +15918,7 @@ func GetRepository(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	RepositoryName string,
-) (*GetRepositoryResponse, error) {
+) (data_ *GetRepositoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetRepository",
 		Query:  GetRepository_Operation,
@@ -15932,10 +15926,9 @@ func GetRepository(
 			RepositoryName: RepositoryName,
 		},
 	}
-	var err_ error
 
-	var data_ GetRepositoryResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetRepositoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -15943,10 +15936,10 @@ func GetRepository(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetScheduledSearchByID.
+// The query executed by GetScheduledSearchByID.
 const GetScheduledSearchByID_Operation = `
 query GetScheduledSearchByID ($SearchDomainName: String!, $ScheduledSearchID: String!) {
 	searchDomain(name: $SearchDomainName) {
@@ -15990,7 +15983,7 @@ func GetScheduledSearchByID(
 	client_ graphql.Client,
 	SearchDomainName string,
 	ScheduledSearchID string,
-) (*GetScheduledSearchByIDResponse, error) {
+) (data_ *GetScheduledSearchByIDResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetScheduledSearchByID",
 		Query:  GetScheduledSearchByID_Operation,
@@ -15999,10 +15992,9 @@ func GetScheduledSearchByID(
 			ScheduledSearchID: ScheduledSearchID,
 		},
 	}
-	var err_ error
 
-	var data_ GetScheduledSearchByIDResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetScheduledSearchByIDResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16010,10 +16002,10 @@ func GetScheduledSearchByID(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetSearchDomain.
+// The query executed by GetSearchDomain.
 const GetSearchDomain_Operation = `
 query GetSearchDomain ($SearchDomainName: String!) {
 	searchDomain(name: $SearchDomainName) {
@@ -16038,7 +16030,7 @@ func GetSearchDomain(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	SearchDomainName string,
-) (*GetSearchDomainResponse, error) {
+) (data_ *GetSearchDomainResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetSearchDomain",
 		Query:  GetSearchDomain_Operation,
@@ -16046,10 +16038,9 @@ func GetSearchDomain(
 			SearchDomainName: SearchDomainName,
 		},
 	}
-	var err_ error
 
-	var data_ GetSearchDomainResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetSearchDomainResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16057,10 +16048,10 @@ func GetSearchDomain(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetUsername.
+// The query executed by GetUsername.
 const GetUsername_Operation = `
 query GetUsername {
 	viewer {
@@ -16072,15 +16063,14 @@ query GetUsername {
 func GetUsername(
 	ctx_ context.Context,
 	client_ graphql.Client,
-) (*GetUsernameResponse, error) {
+) (data_ *GetUsernameResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetUsername",
 		Query:  GetUsername_Operation,
 	}
-	var err_ error
 
-	var data_ GetUsernameResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetUsernameResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16088,10 +16078,10 @@ func GetUsername(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetUsersByUsername.
+// The query executed by GetUsersByUsername.
 const GetUsersByUsername_Operation = `
 query GetUsersByUsername ($Username: String!) {
 	users(search: $Username) {
@@ -16109,7 +16099,7 @@ func GetUsersByUsername(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	Username string,
-) (*GetUsersByUsernameResponse, error) {
+) (data_ *GetUsersByUsernameResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetUsersByUsername",
 		Query:  GetUsersByUsername_Operation,
@@ -16117,10 +16107,9 @@ func GetUsersByUsername(
 			Username: Username,
 		},
 	}
-	var err_ error
 
-	var data_ GetUsersByUsernameResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetUsersByUsernameResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16128,10 +16117,10 @@ func GetUsersByUsername(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by ListActions.
+// The query executed by ListActions.
 const ListActions_Operation = `
 query ListActions ($SearchDomainName: String!) {
 	searchDomain(name: $SearchDomainName) {
@@ -16204,7 +16193,7 @@ func ListActions(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	SearchDomainName string,
-) (*ListActionsResponse, error) {
+) (data_ *ListActionsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ListActions",
 		Query:  ListActions_Operation,
@@ -16212,10 +16201,9 @@ func ListActions(
 			SearchDomainName: SearchDomainName,
 		},
 	}
-	var err_ error
 
-	var data_ ListActionsResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &ListActionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16223,10 +16211,10 @@ func ListActions(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by ListAggregateAlerts.
+// The query executed by ListAggregateAlerts.
 const ListAggregateAlerts_Operation = `
 query ListAggregateAlerts ($SearchDomainName: String!) {
 	searchDomain(name: $SearchDomainName) {
@@ -16269,7 +16257,7 @@ func ListAggregateAlerts(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	SearchDomainName string,
-) (*ListAggregateAlertsResponse, error) {
+) (data_ *ListAggregateAlertsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ListAggregateAlerts",
 		Query:  ListAggregateAlerts_Operation,
@@ -16277,10 +16265,9 @@ func ListAggregateAlerts(
 			SearchDomainName: SearchDomainName,
 		},
 	}
-	var err_ error
 
-	var data_ ListAggregateAlertsResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &ListAggregateAlertsResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16288,10 +16275,10 @@ func ListAggregateAlerts(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by ListAlerts.
+// The query executed by ListAlerts.
 const ListAlerts_Operation = `
 query ListAlerts ($SearchDomainName: String!) {
 	searchDomain(name: $SearchDomainName) {
@@ -16332,7 +16319,7 @@ func ListAlerts(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	SearchDomainName string,
-) (*ListAlertsResponse, error) {
+) (data_ *ListAlertsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ListAlerts",
 		Query:  ListAlerts_Operation,
@@ -16340,10 +16327,9 @@ func ListAlerts(
 			SearchDomainName: SearchDomainName,
 		},
 	}
-	var err_ error
 
-	var data_ ListAlertsResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &ListAlertsResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16351,10 +16337,10 @@ func ListAlerts(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by ListFilterAlerts.
+// The query executed by ListFilterAlerts.
 const ListFilterAlerts_Operation = `
 query ListFilterAlerts ($SearchDomainName: String!) {
 	searchDomain(name: $SearchDomainName) {
@@ -16394,7 +16380,7 @@ func ListFilterAlerts(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	SearchDomainName string,
-) (*ListFilterAlertsResponse, error) {
+) (data_ *ListFilterAlertsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ListFilterAlerts",
 		Query:  ListFilterAlerts_Operation,
@@ -16402,10 +16388,9 @@ func ListFilterAlerts(
 			SearchDomainName: SearchDomainName,
 		},
 	}
-	var err_ error
 
-	var data_ ListFilterAlertsResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &ListFilterAlertsResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16413,10 +16398,10 @@ func ListFilterAlerts(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by ListIngestTokens.
+// The query executed by ListIngestTokens.
 const ListIngestTokens_Operation = `
 query ListIngestTokens ($RepositoryName: String!) {
 	repository(name: $RepositoryName) {
@@ -16438,7 +16423,7 @@ func ListIngestTokens(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	RepositoryName string,
-) (*ListIngestTokensResponse, error) {
+) (data_ *ListIngestTokensResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ListIngestTokens",
 		Query:  ListIngestTokens_Operation,
@@ -16446,10 +16431,9 @@ func ListIngestTokens(
 			RepositoryName: RepositoryName,
 		},
 	}
-	var err_ error
 
-	var data_ ListIngestTokensResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &ListIngestTokensResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16457,10 +16441,10 @@ func ListIngestTokens(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by ListParsers.
+// The query executed by ListParsers.
 const ListParsers_Operation = `
 query ListParsers ($RepositoryName: String!) {
 	repository(name: $RepositoryName) {
@@ -16476,7 +16460,7 @@ func ListParsers(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	RepositoryName string,
-) (*ListParsersResponse, error) {
+) (data_ *ListParsersResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ListParsers",
 		Query:  ListParsers_Operation,
@@ -16484,10 +16468,9 @@ func ListParsers(
 			RepositoryName: RepositoryName,
 		},
 	}
-	var err_ error
 
-	var data_ ListParsersResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &ListParsersResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16495,10 +16478,10 @@ func ListParsers(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by ListRepositories.
+// The query executed by ListRepositories.
 const ListRepositories_Operation = `
 query ListRepositories {
 	repositories {
@@ -16512,15 +16495,14 @@ query ListRepositories {
 func ListRepositories(
 	ctx_ context.Context,
 	client_ graphql.Client,
-) (*ListRepositoriesResponse, error) {
+) (data_ *ListRepositoriesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ListRepositories",
 		Query:  ListRepositories_Operation,
 	}
-	var err_ error
 
-	var data_ ListRepositoriesResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &ListRepositoriesResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16528,10 +16510,10 @@ func ListRepositories(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by ListScheduledSearches.
+// The query executed by ListScheduledSearches.
 const ListScheduledSearches_Operation = `
 query ListScheduledSearches ($SearchDomainName: String!) {
 	searchDomain(name: $SearchDomainName) {
@@ -16574,7 +16556,7 @@ func ListScheduledSearches(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	SearchDomainName string,
-) (*ListScheduledSearchesResponse, error) {
+) (data_ *ListScheduledSearchesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ListScheduledSearches",
 		Query:  ListScheduledSearches_Operation,
@@ -16582,10 +16564,9 @@ func ListScheduledSearches(
 			SearchDomainName: SearchDomainName,
 		},
 	}
-	var err_ error
 
-	var data_ ListScheduledSearchesResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &ListScheduledSearchesResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16593,10 +16574,10 @@ func ListScheduledSearches(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by ListSearchDomains.
+// The query executed by ListSearchDomains.
 const ListSearchDomains_Operation = `
 query ListSearchDomains {
 	searchDomains {
@@ -16610,15 +16591,14 @@ query ListSearchDomains {
 func ListSearchDomains(
 	ctx_ context.Context,
 	client_ graphql.Client,
-) (*ListSearchDomainsResponse, error) {
+) (data_ *ListSearchDomainsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ListSearchDomains",
 		Query:  ListSearchDomains_Operation,
 	}
-	var err_ error
 
-	var data_ ListSearchDomainsResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &ListSearchDomainsResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16626,10 +16606,10 @@ func ListSearchDomains(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by RefreshClusterManagementStats.
+// The mutation executed by RefreshClusterManagementStats.
 const RefreshClusterManagementStats_Operation = `
 mutation RefreshClusterManagementStats ($Vhost: Int!) {
 	refreshClusterManagementStats(nodeId: $Vhost) {
@@ -16647,7 +16627,7 @@ func RefreshClusterManagementStats(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	Vhost int,
-) (*RefreshClusterManagementStatsResponse, error) {
+) (data_ *RefreshClusterManagementStatsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RefreshClusterManagementStats",
 		Query:  RefreshClusterManagementStats_Operation,
@@ -16655,10 +16635,9 @@ func RefreshClusterManagementStats(
 			Vhost: Vhost,
 		},
 	}
-	var err_ error
 
-	var data_ RefreshClusterManagementStatsResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &RefreshClusterManagementStatsResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16666,10 +16645,10 @@ func RefreshClusterManagementStats(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by RemoveIngestToken.
+// The mutation executed by RemoveIngestToken.
 const RemoveIngestToken_Operation = `
 mutation RemoveIngestToken ($RepositoryName: String!, $Name: String!) {
 	removeIngestToken(repositoryName: $RepositoryName, name: $Name) {
@@ -16683,7 +16662,7 @@ func RemoveIngestToken(
 	client_ graphql.Client,
 	RepositoryName string,
 	Name string,
-) (*RemoveIngestTokenResponse, error) {
+) (data_ *RemoveIngestTokenResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RemoveIngestToken",
 		Query:  RemoveIngestToken_Operation,
@@ -16692,10 +16671,9 @@ func RemoveIngestToken(
 			Name:           Name,
 		},
 	}
-	var err_ error
 
-	var data_ RemoveIngestTokenResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &RemoveIngestTokenResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16703,10 +16681,10 @@ func RemoveIngestToken(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by RotateTokenByID.
+// The mutation executed by RotateTokenByID.
 const RotateTokenByID_Operation = `
 mutation RotateTokenByID ($TokenID: String!) {
 	rotateToken(input: {id:$TokenID})
@@ -16717,7 +16695,7 @@ func RotateTokenByID(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	TokenID string,
-) (*RotateTokenByIDResponse, error) {
+) (data_ *RotateTokenByIDResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RotateTokenByID",
 		Query:  RotateTokenByID_Operation,
@@ -16725,10 +16703,9 @@ func RotateTokenByID(
 			TokenID: TokenID,
 		},
 	}
-	var err_ error
 
-	var data_ RotateTokenByIDResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &RotateTokenByIDResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16736,10 +16713,10 @@ func RotateTokenByID(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by SetAutomaticSearching.
+// The mutation executed by SetAutomaticSearching.
 const SetAutomaticSearching_Operation = `
 mutation SetAutomaticSearching ($SearchDomainName: String!, $AutomaticSearch: Boolean!) {
 	setAutomaticSearching(name: $SearchDomainName, automaticSearch: $AutomaticSearch) {
@@ -16753,7 +16730,7 @@ func SetAutomaticSearching(
 	client_ graphql.Client,
 	SearchDomainName string,
 	AutomaticSearch bool,
-) (*SetAutomaticSearchingResponse, error) {
+) (data_ *SetAutomaticSearchingResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "SetAutomaticSearching",
 		Query:  SetAutomaticSearching_Operation,
@@ -16762,10 +16739,9 @@ func SetAutomaticSearching(
 			AutomaticSearch:  AutomaticSearch,
 		},
 	}
-	var err_ error
 
-	var data_ SetAutomaticSearchingResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &SetAutomaticSearchingResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16773,10 +16749,10 @@ func SetAutomaticSearching(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by SetIsBeingEvicted.
+// The mutation executed by SetIsBeingEvicted.
 const SetIsBeingEvicted_Operation = `
 mutation SetIsBeingEvicted ($Vhost: Int!, $IsBeingEvicted: Boolean!) {
 	setIsBeingEvicted(vhost: $Vhost, isBeingEvicted: $IsBeingEvicted)
@@ -16788,7 +16764,7 @@ func SetIsBeingEvicted(
 	client_ graphql.Client,
 	Vhost int,
 	IsBeingEvicted bool,
-) (*SetIsBeingEvictedResponse, error) {
+) (data_ *SetIsBeingEvictedResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "SetIsBeingEvicted",
 		Query:  SetIsBeingEvicted_Operation,
@@ -16797,10 +16773,9 @@ func SetIsBeingEvicted(
 			IsBeingEvicted: IsBeingEvicted,
 		},
 	}
-	var err_ error
 
-	var data_ SetIsBeingEvictedResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &SetIsBeingEvictedResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16808,10 +16783,10 @@ func SetIsBeingEvicted(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UnassignParserToIngestToken.
+// The mutation executed by UnassignParserToIngestToken.
 const UnassignParserToIngestToken_Operation = `
 mutation UnassignParserToIngestToken ($RepositoryName: String!, $IngestTokenName: String!) {
 	unassignIngestToken(repositoryName: $RepositoryName, tokenName: $IngestTokenName) {
@@ -16825,7 +16800,7 @@ func UnassignParserToIngestToken(
 	client_ graphql.Client,
 	RepositoryName string,
 	IngestTokenName string,
-) (*UnassignParserToIngestTokenResponse, error) {
+) (data_ *UnassignParserToIngestTokenResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UnassignParserToIngestToken",
 		Query:  UnassignParserToIngestToken_Operation,
@@ -16834,10 +16809,9 @@ func UnassignParserToIngestToken(
 			IngestTokenName: IngestTokenName,
 		},
 	}
-	var err_ error
 
-	var data_ UnassignParserToIngestTokenResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UnassignParserToIngestTokenResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16845,10 +16819,10 @@ func UnassignParserToIngestToken(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UnregisterClusterNode.
+// The mutation executed by UnregisterClusterNode.
 const UnregisterClusterNode_Operation = `
 mutation UnregisterClusterNode ($NodeId: Int!, $Force: Boolean!) {
 	clusterUnregisterNode(nodeID: $NodeId, force: $Force) {
@@ -16866,7 +16840,7 @@ func UnregisterClusterNode(
 	client_ graphql.Client,
 	NodeId int,
 	Force bool,
-) (*UnregisterClusterNodeResponse, error) {
+) (data_ *UnregisterClusterNodeResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UnregisterClusterNode",
 		Query:  UnregisterClusterNode_Operation,
@@ -16875,10 +16849,9 @@ func UnregisterClusterNode(
 			Force:  Force,
 		},
 	}
-	var err_ error
 
-	var data_ UnregisterClusterNodeResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UnregisterClusterNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16886,10 +16859,10 @@ func UnregisterClusterNode(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateAggregateAlert.
+// The mutation executed by UpdateAggregateAlert.
 const UpdateAggregateAlert_Operation = `
 mutation UpdateAggregateAlert ($SearchDomainName: RepoOrViewName!, $ID: String!, $Name: String!, $Description: String, $QueryString: String!, $SearchIntervalSeconds: Long!, $ActionIdsOrNames: [String!]!, $Labels: [String!]!, $Enabled: Boolean!, $ThrottleField: String, $ThrottleTimeSeconds: Long!, $TriggerMode: TriggerMode!, $QueryTimestampMode: QueryTimestampType!, $QueryOwnershipType: QueryOwnershipType!) {
 	updateAggregateAlert(input: {viewName:$SearchDomainName,id:$ID,name:$Name,description:$Description,queryString:$QueryString,searchIntervalSeconds:$SearchIntervalSeconds,actionIdsOrNames:$ActionIdsOrNames,labels:$Labels,enabled:$Enabled,throttleField:$ThrottleField,throttleTimeSeconds:$ThrottleTimeSeconds,triggerMode:$TriggerMode,queryTimestampType:$QueryTimestampMode,queryOwnershipType:$QueryOwnershipType}) {
@@ -16942,7 +16915,7 @@ func UpdateAggregateAlert(
 	TriggerMode TriggerMode,
 	QueryTimestampMode QueryTimestampType,
 	QueryOwnershipType QueryOwnershipType,
-) (*UpdateAggregateAlertResponse, error) {
+) (data_ *UpdateAggregateAlertResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateAggregateAlert",
 		Query:  UpdateAggregateAlert_Operation,
@@ -16963,10 +16936,9 @@ func UpdateAggregateAlert(
 			QueryOwnershipType:    QueryOwnershipType,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateAggregateAlertResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateAggregateAlertResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -16974,10 +16946,10 @@ func UpdateAggregateAlert(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateAlert.
+// The mutation executed by UpdateAlert.
 const UpdateAlert_Operation = `
 mutation UpdateAlert ($SearchDomainName: String!, $AlertID: String!, $Name: String!, $Description: String, $QueryString: String!, $QueryStart: String!, $ThrottleTimeMillis: Long!, $Enabled: Boolean!, $Actions: [String!]!, $Labels: [String!]!, $QueryOwnershipType: QueryOwnershipType, $ThrottleField: String) {
 	updateAlert(input: {id:$AlertID,viewName:$SearchDomainName,name:$Name,description:$Description,queryString:$QueryString,queryStart:$QueryStart,throttleTimeMillis:$ThrottleTimeMillis,enabled:$Enabled,actions:$Actions,labels:$Labels,queryOwnershipType:$QueryOwnershipType,throttleField:$ThrottleField}) {
@@ -17026,7 +16998,7 @@ func UpdateAlert(
 	Labels []string,
 	QueryOwnershipType *QueryOwnershipType,
 	ThrottleField *string,
-) (*UpdateAlertResponse, error) {
+) (data_ *UpdateAlertResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateAlert",
 		Query:  UpdateAlert_Operation,
@@ -17045,10 +17017,9 @@ func UpdateAlert(
 			ThrottleField:      ThrottleField,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateAlertResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateAlertResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17056,10 +17027,10 @@ func UpdateAlert(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateDescriptionForSearchDomain.
+// The mutation executed by UpdateDescriptionForSearchDomain.
 const UpdateDescriptionForSearchDomain_Operation = `
 mutation UpdateDescriptionForSearchDomain ($SearchDomainName: String!, $NewDescription: String!) {
 	updateDescriptionForSearchDomain(name: $SearchDomainName, newDescription: $NewDescription) {
@@ -17073,7 +17044,7 @@ func UpdateDescriptionForSearchDomain(
 	client_ graphql.Client,
 	SearchDomainName string,
 	NewDescription string,
-) (*UpdateDescriptionForSearchDomainResponse, error) {
+) (data_ *UpdateDescriptionForSearchDomainResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateDescriptionForSearchDomain",
 		Query:  UpdateDescriptionForSearchDomain_Operation,
@@ -17082,10 +17053,9 @@ func UpdateDescriptionForSearchDomain(
 			NewDescription:   NewDescription,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateDescriptionForSearchDomainResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateDescriptionForSearchDomainResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17093,10 +17063,10 @@ func UpdateDescriptionForSearchDomain(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateEmailAction.
+// The mutation executed by UpdateEmailAction.
 const UpdateEmailAction_Operation = `
 mutation UpdateEmailAction ($SearchDomainName: String!, $ActionID: String!, $ActionName: String!, $Recipients: [String!]!, $SubjectTemplate: String, $BodyTemplate: String, $UseProxy: Boolean!) {
 	updateEmailAction(input: {viewName:$SearchDomainName,id:$ActionID,name:$ActionName,recipients:$Recipients,subjectTemplate:$SubjectTemplate,bodyTemplate:$BodyTemplate,useProxy:$UseProxy}) {
@@ -17115,7 +17085,7 @@ func UpdateEmailAction(
 	SubjectTemplate *string,
 	BodyTemplate *string,
 	UseProxy bool,
-) (*UpdateEmailActionResponse, error) {
+) (data_ *UpdateEmailActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateEmailAction",
 		Query:  UpdateEmailAction_Operation,
@@ -17129,10 +17099,9 @@ func UpdateEmailAction(
 			UseProxy:         UseProxy,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateEmailActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateEmailActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17140,10 +17109,10 @@ func UpdateEmailAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateFilterAlert.
+// The mutation executed by UpdateFilterAlert.
 const UpdateFilterAlert_Operation = `
 mutation UpdateFilterAlert ($SearchDomainName: RepoOrViewName!, $ID: String!, $Name: String!, $Description: String, $QueryString: String!, $ActionIdsOrNames: [String!]!, $Labels: [String!]!, $Enabled: Boolean!, $ThrottleField: String, $ThrottleTimeSeconds: Long!, $QueryOwnershipType: QueryOwnershipType!) {
 	updateFilterAlert(input: {viewName:$SearchDomainName,id:$ID,name:$Name,description:$Description,queryString:$QueryString,actionIdsOrNames:$ActionIdsOrNames,labels:$Labels,enabled:$Enabled,throttleField:$ThrottleField,throttleTimeSeconds:$ThrottleTimeSeconds,queryOwnershipType:$QueryOwnershipType}) {
@@ -17190,7 +17159,7 @@ func UpdateFilterAlert(
 	ThrottleField *string,
 	ThrottleTimeSeconds int64,
 	QueryOwnershipType QueryOwnershipType,
-) (*UpdateFilterAlertResponse, error) {
+) (data_ *UpdateFilterAlertResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateFilterAlert",
 		Query:  UpdateFilterAlert_Operation,
@@ -17208,10 +17177,9 @@ func UpdateFilterAlert(
 			QueryOwnershipType:  QueryOwnershipType,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateFilterAlertResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateFilterAlertResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17219,10 +17187,10 @@ func UpdateFilterAlert(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateHumioRepoAction.
+// The mutation executed by UpdateHumioRepoAction.
 const UpdateHumioRepoAction_Operation = `
 mutation UpdateHumioRepoAction ($SearchDomainName: String!, $ActionID: String!, $ActionName: String!, $IngestToken: String!) {
 	updateHumioRepoAction(input: {viewName:$SearchDomainName,id:$ActionID,name:$ActionName,ingestToken:$IngestToken}) {
@@ -17238,7 +17206,7 @@ func UpdateHumioRepoAction(
 	ActionID string,
 	ActionName string,
 	IngestToken string,
-) (*UpdateHumioRepoActionResponse, error) {
+) (data_ *UpdateHumioRepoActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateHumioRepoAction",
 		Query:  UpdateHumioRepoAction_Operation,
@@ -17249,10 +17217,9 @@ func UpdateHumioRepoAction(
 			IngestToken:      IngestToken,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateHumioRepoActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateHumioRepoActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17260,10 +17227,10 @@ func UpdateHumioRepoAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateIngestBasedRetention.
+// The mutation executed by UpdateIngestBasedRetention.
 const UpdateIngestBasedRetention_Operation = `
 mutation UpdateIngestBasedRetention ($RepositoryName: String!, $IngestInGB: Float) {
 	updateRetention(repositoryName: $RepositoryName, ingestSizeBasedRetention: $IngestInGB) {
@@ -17277,7 +17244,7 @@ func UpdateIngestBasedRetention(
 	client_ graphql.Client,
 	RepositoryName string,
 	IngestInGB *float64,
-) (*UpdateIngestBasedRetentionResponse, error) {
+) (data_ *UpdateIngestBasedRetentionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateIngestBasedRetention",
 		Query:  UpdateIngestBasedRetention_Operation,
@@ -17286,10 +17253,9 @@ func UpdateIngestBasedRetention(
 			IngestInGB:     IngestInGB,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateIngestBasedRetentionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateIngestBasedRetentionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17297,10 +17263,10 @@ func UpdateIngestBasedRetention(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateLicenseKey.
+// The mutation executed by UpdateLicenseKey.
 const UpdateLicenseKey_Operation = `
 mutation UpdateLicenseKey ($LicenseKey: String!) {
 	updateLicenseKey(license: $LicenseKey) {
@@ -17313,7 +17279,7 @@ func UpdateLicenseKey(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	LicenseKey string,
-) (*UpdateLicenseKeyResponse, error) {
+) (data_ *UpdateLicenseKeyResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateLicenseKey",
 		Query:  UpdateLicenseKey_Operation,
@@ -17321,10 +17287,9 @@ func UpdateLicenseKey(
 			LicenseKey: LicenseKey,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateLicenseKeyResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateLicenseKeyResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17332,10 +17297,10 @@ func UpdateLicenseKey(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateOpsGenieAction.
+// The mutation executed by UpdateOpsGenieAction.
 const UpdateOpsGenieAction_Operation = `
 mutation UpdateOpsGenieAction ($SearchDomainName: String!, $ActionID: String!, $ActionName: String!, $ApiUrl: String!, $GenieKey: String!, $UseProxy: Boolean!) {
 	updateOpsGenieAction(input: {viewName:$SearchDomainName,id:$ActionID,name:$ActionName,apiUrl:$ApiUrl,genieKey:$GenieKey,useProxy:$UseProxy}) {
@@ -17353,7 +17318,7 @@ func UpdateOpsGenieAction(
 	ApiUrl string,
 	GenieKey string,
 	UseProxy bool,
-) (*UpdateOpsGenieActionResponse, error) {
+) (data_ *UpdateOpsGenieActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateOpsGenieAction",
 		Query:  UpdateOpsGenieAction_Operation,
@@ -17366,10 +17331,9 @@ func UpdateOpsGenieAction(
 			UseProxy:         UseProxy,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateOpsGenieActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateOpsGenieActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17377,10 +17341,10 @@ func UpdateOpsGenieAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdatePagerDutyAction.
+// The mutation executed by UpdatePagerDutyAction.
 const UpdatePagerDutyAction_Operation = `
 mutation UpdatePagerDutyAction ($SearchDomainName: String!, $ActionID: String!, $ActionName: String!, $Severity: String!, $RoutingKey: String!, $UseProxy: Boolean!) {
 	updatePagerDutyAction(input: {viewName:$SearchDomainName,id:$ActionID,name:$ActionName,severity:$Severity,routingKey:$RoutingKey,useProxy:$UseProxy}) {
@@ -17398,7 +17362,7 @@ func UpdatePagerDutyAction(
 	Severity string,
 	RoutingKey string,
 	UseProxy bool,
-) (*UpdatePagerDutyActionResponse, error) {
+) (data_ *UpdatePagerDutyActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdatePagerDutyAction",
 		Query:  UpdatePagerDutyAction_Operation,
@@ -17411,10 +17375,9 @@ func UpdatePagerDutyAction(
 			UseProxy:         UseProxy,
 		},
 	}
-	var err_ error
 
-	var data_ UpdatePagerDutyActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdatePagerDutyActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17422,10 +17385,10 @@ func UpdatePagerDutyAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateS3ArchivingConfiguration.
+// The mutation executed by UpdateS3ArchivingConfiguration.
 const UpdateS3ArchivingConfiguration_Operation = `
 mutation UpdateS3ArchivingConfiguration ($RepositoryName: String!, $BucketName: String!, $BucketRegion: String!, $Format: S3ArchivingFormat!) {
 	s3ConfigureArchiving(repositoryName: $RepositoryName, bucket: $BucketName, region: $BucketRegion, format: $Format) {
@@ -17441,7 +17404,7 @@ func UpdateS3ArchivingConfiguration(
 	BucketName string,
 	BucketRegion string,
 	Format S3ArchivingFormat,
-) (*UpdateS3ArchivingConfigurationResponse, error) {
+) (data_ *UpdateS3ArchivingConfigurationResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateS3ArchivingConfiguration",
 		Query:  UpdateS3ArchivingConfiguration_Operation,
@@ -17452,10 +17415,9 @@ func UpdateS3ArchivingConfiguration(
 			Format:         Format,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateS3ArchivingConfigurationResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateS3ArchivingConfigurationResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17463,10 +17425,10 @@ func UpdateS3ArchivingConfiguration(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateScheduledSearch.
+// The mutation executed by UpdateScheduledSearch.
 const UpdateScheduledSearch_Operation = `
 mutation UpdateScheduledSearch ($SearchDomainName: String!, $ID: String!, $Name: String!, $Description: String, $QueryString: String!, $QueryStart: String!, $QueryEnd: String!, $Schedule: String!, $TimeZone: String!, $BackfillLimit: Int!, $Enabled: Boolean!, $ActionIdsOrNames: [String!]!, $Labels: [String!]!, $QueryOwnershipType: QueryOwnershipType) {
 	updateScheduledSearch(input: {viewName:$SearchDomainName,id:$ID,name:$Name,description:$Description,queryString:$QueryString,queryStart:$QueryStart,queryEnd:$QueryEnd,schedule:$Schedule,timeZone:$TimeZone,backfillLimit:$BackfillLimit,enabled:$Enabled,actions:$ActionIdsOrNames,labels:$Labels,queryOwnershipType:$QueryOwnershipType}) {
@@ -17519,7 +17481,7 @@ func UpdateScheduledSearch(
 	ActionIdsOrNames []string,
 	Labels []string,
 	QueryOwnershipType *QueryOwnershipType,
-) (*UpdateScheduledSearchResponse, error) {
+) (data_ *UpdateScheduledSearchResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateScheduledSearch",
 		Query:  UpdateScheduledSearch_Operation,
@@ -17540,10 +17502,9 @@ func UpdateScheduledSearch(
 			QueryOwnershipType: QueryOwnershipType,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateScheduledSearchResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateScheduledSearchResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17551,10 +17512,10 @@ func UpdateScheduledSearch(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateSlackAction.
+// The mutation executed by UpdateSlackAction.
 const UpdateSlackAction_Operation = `
 mutation UpdateSlackAction ($SearchDomainName: String!, $ActionID: String!, $ActionName: String!, $Fields: [SlackFieldEntryInput!]!, $Url: String!, $UseProxy: Boolean!) {
 	updateSlackAction(input: {viewName:$SearchDomainName,id:$ActionID,name:$ActionName,fields:$Fields,url:$Url,useProxy:$UseProxy}) {
@@ -17572,7 +17533,7 @@ func UpdateSlackAction(
 	Fields []SlackFieldEntryInput,
 	Url string,
 	UseProxy bool,
-) (*UpdateSlackActionResponse, error) {
+) (data_ *UpdateSlackActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateSlackAction",
 		Query:  UpdateSlackAction_Operation,
@@ -17585,10 +17546,9 @@ func UpdateSlackAction(
 			UseProxy:         UseProxy,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateSlackActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateSlackActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17596,10 +17556,10 @@ func UpdateSlackAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateSlackPostMessageAction.
+// The mutation executed by UpdateSlackPostMessageAction.
 const UpdateSlackPostMessageAction_Operation = `
 mutation UpdateSlackPostMessageAction ($SearchDomainName: String!, $ActionID: String!, $ActionName: String!, $ApiToken: String!, $Channels: [String!]!, $Fields: [SlackFieldEntryInput!]!, $UseProxy: Boolean!) {
 	updateSlackPostMessageAction(input: {viewName:$SearchDomainName,id:$ActionID,name:$ActionName,apiToken:$ApiToken,channels:$Channels,fields:$Fields,useProxy:$UseProxy}) {
@@ -17618,7 +17578,7 @@ func UpdateSlackPostMessageAction(
 	Channels []string,
 	Fields []SlackFieldEntryInput,
 	UseProxy bool,
-) (*UpdateSlackPostMessageActionResponse, error) {
+) (data_ *UpdateSlackPostMessageActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateSlackPostMessageAction",
 		Query:  UpdateSlackPostMessageAction_Operation,
@@ -17632,10 +17592,9 @@ func UpdateSlackPostMessageAction(
 			UseProxy:         UseProxy,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateSlackPostMessageActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateSlackPostMessageActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17643,10 +17602,10 @@ func UpdateSlackPostMessageAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateStorageBasedRetention.
+// The mutation executed by UpdateStorageBasedRetention.
 const UpdateStorageBasedRetention_Operation = `
 mutation UpdateStorageBasedRetention ($RepositoryName: String!, $StorageInGB: Float) {
 	updateRetention(repositoryName: $RepositoryName, storageSizeBasedRetention: $StorageInGB) {
@@ -17660,7 +17619,7 @@ func UpdateStorageBasedRetention(
 	client_ graphql.Client,
 	RepositoryName string,
 	StorageInGB *float64,
-) (*UpdateStorageBasedRetentionResponse, error) {
+) (data_ *UpdateStorageBasedRetentionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateStorageBasedRetention",
 		Query:  UpdateStorageBasedRetention_Operation,
@@ -17669,10 +17628,9 @@ func UpdateStorageBasedRetention(
 			StorageInGB:    StorageInGB,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateStorageBasedRetentionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateStorageBasedRetentionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17680,10 +17638,10 @@ func UpdateStorageBasedRetention(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateTimeBasedRetention.
+// The mutation executed by UpdateTimeBasedRetention.
 const UpdateTimeBasedRetention_Operation = `
 mutation UpdateTimeBasedRetention ($RepositoryName: String!, $RetentionInDays: Float) {
 	updateRetention(repositoryName: $RepositoryName, timeBasedRetention: $RetentionInDays) {
@@ -17697,7 +17655,7 @@ func UpdateTimeBasedRetention(
 	client_ graphql.Client,
 	RepositoryName string,
 	RetentionInDays *float64,
-) (*UpdateTimeBasedRetentionResponse, error) {
+) (data_ *UpdateTimeBasedRetentionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateTimeBasedRetention",
 		Query:  UpdateTimeBasedRetention_Operation,
@@ -17706,10 +17664,9 @@ func UpdateTimeBasedRetention(
 			RetentionInDays: RetentionInDays,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateTimeBasedRetentionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateTimeBasedRetentionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17717,10 +17674,10 @@ func UpdateTimeBasedRetention(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateVictorOpsAction.
+// The mutation executed by UpdateVictorOpsAction.
 const UpdateVictorOpsAction_Operation = `
 mutation UpdateVictorOpsAction ($SearchDomainName: String!, $ActionID: String!, $ActionName: String!, $MessageType: String!, $NotifyUrl: String!, $UseProxy: Boolean!) {
 	updateVictorOpsAction(input: {viewName:$SearchDomainName,id:$ActionID,name:$ActionName,messageType:$MessageType,notifyUrl:$NotifyUrl,useProxy:$UseProxy}) {
@@ -17738,7 +17695,7 @@ func UpdateVictorOpsAction(
 	MessageType string,
 	NotifyUrl string,
 	UseProxy bool,
-) (*UpdateVictorOpsActionResponse, error) {
+) (data_ *UpdateVictorOpsActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateVictorOpsAction",
 		Query:  UpdateVictorOpsAction_Operation,
@@ -17751,10 +17708,9 @@ func UpdateVictorOpsAction(
 			UseProxy:         UseProxy,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateVictorOpsActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateVictorOpsActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17762,10 +17718,10 @@ func UpdateVictorOpsAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateViewConnections.
+// The mutation executed by UpdateViewConnections.
 const UpdateViewConnections_Operation = `
 mutation UpdateViewConnections ($ViewName: String!, $Connections: [ViewConnectionInput!]!) {
 	updateView(viewName: $ViewName, connections: $Connections) {
@@ -17779,7 +17735,7 @@ func UpdateViewConnections(
 	client_ graphql.Client,
 	ViewName string,
 	Connections []ViewConnectionInput,
-) (*UpdateViewConnectionsResponse, error) {
+) (data_ *UpdateViewConnectionsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateViewConnections",
 		Query:  UpdateViewConnections_Operation,
@@ -17788,10 +17744,9 @@ func UpdateViewConnections(
 			Connections: Connections,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateViewConnectionsResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateViewConnectionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17799,10 +17754,10 @@ func UpdateViewConnections(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateWebhookAction.
+// The mutation executed by UpdateWebhookAction.
 const UpdateWebhookAction_Operation = `
 mutation UpdateWebhookAction ($SearchDomainName: String!, $ActionID: String!, $ActionName: String!, $Url: String!, $Method: String!, $Headers: [HttpHeaderEntryInput!]!, $BodyTemplate: String!, $IgnoreSSL: Boolean!, $UseProxy: Boolean!) {
 	updateWebhookAction(input: {viewName:$SearchDomainName,id:$ActionID,name:$ActionName,url:$Url,method:$Method,headers:$Headers,bodyTemplate:$BodyTemplate,ignoreSSL:$IgnoreSSL,useProxy:$UseProxy}) {
@@ -17823,7 +17778,7 @@ func UpdateWebhookAction(
 	BodyTemplate string,
 	IgnoreSSL bool,
 	UseProxy bool,
-) (*UpdateWebhookActionResponse, error) {
+) (data_ *UpdateWebhookActionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateWebhookAction",
 		Query:  UpdateWebhookAction_Operation,
@@ -17839,10 +17794,9 @@ func UpdateWebhookAction(
 			UseProxy:         UseProxy,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateWebhookActionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateWebhookActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -17850,5 +17804,5 @@ func UpdateWebhookAction(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }

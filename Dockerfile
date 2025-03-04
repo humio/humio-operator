@@ -1,5 +1,7 @@
 # Build the manager binary
 FROM golang:1.23-alpine AS builder
+ARG TARGETOS
+ARG TARGETARCH
 
 ARG RELEASE_VERSION=master
 ARG RELEASE_COMMIT=none
@@ -14,15 +16,13 @@ COPY go.sum go.sum
 RUN go mod download
 
 # Copy the go source
-COPY main.go main.go
+COPY cmd/main.go cmd/main.go
 COPY api/ api/
-COPY controllers/ controllers/
 COPY internal/ internal/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build -ldflags="-s -w -X 'main.version=$RELEASE_VERSION' -X 'main.commit=$RELEASE_COMMIT' -X 'main.date=$RELEASE_DATE'" -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build -ldflags="-s -w -X 'main.version=$RELEASE_VERSION' -X 'main.commit=$RELEASE_COMMIT' -X 'main.date=$RELEASE_DATE'" -a -o manager cmd/main.go
 
-# Use ubi8 as base image to package the manager binary to comply with Red Hat image certification requirements
 FROM scratch
 LABEL "name"="humio-operator"
 LABEL "vendor"="humio"
@@ -35,6 +35,7 @@ COPY LICENSE /licenses/LICENSE
 WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
 USER 1001
 
 ENTRYPOINT ["/manager"]

@@ -133,13 +133,13 @@ preload_container_images() {
     make docker-build-helper IMG=humio/humio-operator-helper:dummy
     $kind load docker-image humio/humio-core:dummy &
     $kind load docker-image humio/humio-operator-helper:dummy &
-    grep --only-matching --extended-regexp "humio/humio-core:[0-9.]+" controllers/versions/versions.go | awk '{print $1"-dummy"}' | xargs -I{} docker tag humio/humio-core:dummy {}
-    grep --only-matching --extended-regexp "humio/humio-core:[0-9.]+" controllers/versions/versions.go | awk '{print $1"-dummy"}' | xargs -I{} kind load docker-image {}
-    grep --only-matching --extended-regexp "humio/humio-operator-helper:[^\"]+" controllers/versions/versions.go | awk '{print $1"-dummy"}' | xargs -I{} docker tag humio/humio-operator-helper:dummy {}
-    grep --only-matching --extended-regexp "humio/humio-operator-helper:[^\"]+" controllers/versions/versions.go | awk '{print $1"-dummy"}' | xargs -I{} kind load docker-image {}
+    grep --only-matching --extended-regexp "humio/humio-core:[0-9.]+" internal/controller/versions/versions.go | awk '{print $1"-dummy"}' | xargs -I{} docker tag humio/humio-core:dummy {}
+    grep --only-matching --extended-regexp "humio/humio-core:[0-9.]+" internal/controller/versions/versions.go | awk '{print $1"-dummy"}' | xargs -I{} kind load docker-image {}
+    grep --only-matching --extended-regexp "humio/humio-operator-helper:[^\"]+" internal/controller/versions/versions.go | awk '{print $1"-dummy"}' | xargs -I{} docker tag humio/humio-operator-helper:dummy {}
+    grep --only-matching --extended-regexp "humio/humio-operator-helper:[^\"]+" internal/controller/versions/versions.go | awk '{print $1"-dummy"}' | xargs -I{} kind load docker-image {}
   else
     # Extract container image tags used by tests from go source
-    TEST_CONTAINER_IMAGES=$(grep 'Version\s*=\s*"' controllers/versions/versions.go | grep -v oldUnsupportedHumioVersion | grep -v 1.x.x | cut -d '"' -f 2 | sort -u)
+    TEST_CONTAINER_IMAGES=$(grep 'Version\s*=\s*"' internal/controller/versions/versions.go | grep -v oldUnsupportedHumioVersion | grep -v 1.x.x | cut -d '"' -f 2 | sort -u)
 
     # Preload image used by e2e tests
     for image in $TEST_CONTAINER_IMAGES
