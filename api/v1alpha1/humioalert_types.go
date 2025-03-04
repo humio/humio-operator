@@ -45,7 +45,7 @@ type HumioQuery struct {
 	DeprecatedIsLive *bool `json:"isLive,omitempty"`
 }
 
-// HumioAlertSpec defines the desired state of HumioAlert
+// HumioAlertSpec defines the desired state of HumioAlert.
 type HumioAlertSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
@@ -80,16 +80,16 @@ type HumioAlertSpec struct {
 	Labels []string `json:"labels,omitempty"`
 }
 
-// HumioAlertStatus defines the observed state of HumioAlert
+// HumioAlertStatus defines the observed state of HumioAlert.
 type HumioAlertStatus struct {
 	// State reflects the current state of the HumioAlert
 	State string `json:"state,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
-// HumioAlert is the Schema for the humioalerts API
+// HumioAlert is the Schema for the humioalerts API.
 type HumioAlert struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -98,9 +98,9 @@ type HumioAlert struct {
 	Status HumioAlertStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// HumioAlertList contains a list of HumioAlert
+// HumioAlertList contains a list of HumioAlert.
 type HumioAlertList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

@@ -31,7 +31,7 @@ const (
 	HumioAggregateAlertStateConfigError = "ConfigError"
 )
 
-// HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert
+// HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert.
 type HumioAggregateAlertSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
@@ -72,16 +72,16 @@ type HumioAggregateAlertSpec struct {
 	Labels []string `json:"labels,omitempty"`
 }
 
-// HumioAggregateAlertStatus defines the observed state of HumioAggregateAlert
+// HumioAggregateAlertStatus defines the observed state of HumioAggregateAlert.
 type HumioAggregateAlertStatus struct {
 	// State reflects the current state of HumioAggregateAlert
 	State string `json:"state,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
-// HumioAggregateAlert is the Schema for the humioAggregateAlerts API
+// HumioAggregateAlert is the Schema for the humioaggregatealerts API.
 type HumioAggregateAlert struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -90,9 +90,9 @@ type HumioAggregateAlert struct {
 	Status HumioAggregateAlertStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// HumioAggregateAlertList contains a list of HumioAggregateAlert
+// HumioAggregateAlertList contains a list of HumioAggregateAlert.
 type HumioAggregateAlertList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

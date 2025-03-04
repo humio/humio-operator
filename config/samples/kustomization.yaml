@@ -1,0 +1,15 @@
+## Append samples of your project ##
+resources:
+- core_v1alpha1_humioaction.yaml
+- core_v1alpha1_humioaggregatealert.yaml
+- core_v1alpha1_humioalert.yaml
+- core_v1alpha1_humiobootstraptoken.yaml
+- core_v1alpha1_humiocluster.yaml
+- core_v1alpha1_humioexternalcluster.yaml
+- core_v1alpha1_humiofilteralert.yaml
+- core_v1alpha1_humioingesttoken.yaml
+- core_v1alpha1_humioparser.yaml
+- core_v1alpha1_humiorepository.yaml
+- core_v1alpha1_humioscheduledsearch.yaml
+- core_v1alpha1_humioview.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

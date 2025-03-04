@@ -19,7 +19,6 @@ operator:
     requests:
       cpu: 250m
       memory: 200Mi
-  watchNamespaces: []
   podAnnotations: {}
 
   nodeSelector: {}

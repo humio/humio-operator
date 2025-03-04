@@ -20,7 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -52,7 +52,7 @@ const (
 	HumioPersistentVolumeReclaimTypeOnNodeDelete = "OnNodeDelete"
 )
 
-// HumioClusterSpec defines the desired state of HumioCluster
+// HumioClusterSpec defines the desired state of HumioCluster.
 type HumioClusterSpec struct {
 	// AutoRebalancePartitions will enable auto-rebalancing of both digest and storage partitions assigned to humio cluster nodes.
 	// If all Kubernetes worker nodes are located in the same availability zone, you must set DisableInitContainer to true to use auto rebalancing of partitions.
@@ -459,7 +459,7 @@ type HumioNodePoolStatus struct {
 	DesiredBootstrapTokenHash string `json:"desiredBootstrapTokenHash,omitempty"`
 }
 
-// HumioClusterStatus defines the observed state of HumioCluster
+// HumioClusterStatus defines the observed state of HumioCluster.
 type HumioClusterStatus struct {
 	// State will be empty before the cluster is bootstrapped. From there it can be "Running", "Upgrading", "Restarting" or "Pending"
 	State string `json:"state,omitempty"`
@@ -481,15 +481,15 @@ type HumioClusterStatus struct {
 	EvictedNodeIds []int `json:"evictedNodeIds,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:path=humioclusters,scope=Namespaced
-//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the cluster"
-//+kubebuilder:printcolumn:name="Nodes",type="string",JSONPath=".status.nodeCount",description="The number of nodes in the cluster"
-//+kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version",description="The version of humio"
-//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Cluster"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:path=humioclusters,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the cluster"
+// +kubebuilder:printcolumn:name="Nodes",type="string",JSONPath=".status.nodeCount",description="The number of nodes in the cluster"
+// +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version",description="The version of humio"
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Cluster"
 
-// HumioCluster is the Schema for the humioclusters API
+// HumioCluster is the Schema for the humioclusters API.
 type HumioCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -498,13 +498,17 @@ type HumioCluster struct {
 	Status HumioClusterStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// HumioClusterList contains a list of HumioCluster
+// HumioClusterList contains a list of HumioCluster.
 type HumioClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HumioCluster `json:"items"`
+}
+
+func init() {
+	SchemeBuilder.Register(&HumioCluster{}, &HumioClusterList{})
 }
 
 // Len is the number of elements in the collection
@@ -520,10 +524,6 @@ func (l HumioPodStatusList) Less(i, j int) bool {
 // Swap swaps the elements with indexes i and j
 func (l HumioPodStatusList) Swap(i, j int) {
 	l[i], l[j] = l[j], l[i]
-}
-
-func init() {
-	SchemeBuilder.Register(&HumioCluster{}, &HumioClusterList{})
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.

@@ -1,8 +1,0 @@
-apiVersion: core.humio.com/v1alpha1
-kind: HumioExternalCluster
-metadata:
-  name: example-humioexternalcluster
-spec:
-  url: "https://example-humiocluster.default:8080/"
-  apiTokenSecretName: "example-humiocluster-admin-token"
-  caSecretName: "example-humiocluster"

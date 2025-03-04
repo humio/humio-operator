@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.17.0
   name: humioviews.core.humio.com
   labels:
     app: 'humio-operator'
@@ -28,7 +28,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HumioView is the Schema for the humioviews API
+        description: HumioView is the Schema for the humioviews API.
         properties:
           apiVersion:
             description: |-
@@ -48,7 +48,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioViewSpec defines the desired state of HumioView
+            description: HumioViewSpec defines the desired state of HumioView.
             properties:
               automaticSearch:
                 description: AutomaticSearch is used to specify the start search automatically
@@ -68,6 +68,8 @@ spec:
                         repository
                       minLength: 1
                       type: string
+                  required:
+                  - repositoryName
                   type: object
                 type: array
               description:
@@ -93,7 +95,7 @@ spec:
             - name
             type: object
           status:
-            description: HumioViewStatus defines the observed state of HumioView
+            description: HumioViewStatus defines the observed state of HumioView.
             properties:
               state:
                 description: State reflects the current state of the HumioView
