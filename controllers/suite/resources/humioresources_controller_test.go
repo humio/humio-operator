@@ -210,7 +210,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				fetchedIngestToken.Spec.TokenSecretLabels = map[string]string{
 					"custom-label": "custom-value",
 				}
-				fetchedIngestToken.Spec.TokenSecretLabels = map[string]string{
+				fetchedIngestToken.Spec.TokenSecretAnnotations = map[string]string{
 					"custom-annotation": "custom-value",
 				}
 				return k8sClient.Update(ctx, fetchedIngestToken)
