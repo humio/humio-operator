@@ -32163,7 +32163,7 @@ This can be configured to an absolute number or a percentage, e.g. "maxUnavailab
           Type controls how Humio pods are updated  when changes are made to the HumioCluster resource that results
 in a change to the Humio pods. The available values are: OnDelete, RollingUpdate, ReplaceAllOnUpdate, and
 RollingUpdateBestEffort.
-/
+
 When set to OnDelete, no Humio pods will be terminated but new pods will be created with the new spec. Replacing
 existing pods will require each pod to be deleted by the user.
 
@@ -36051,7 +36051,7 @@ This can be configured to an absolute number or a percentage, e.g. "maxUnavailab
           Type controls how Humio pods are updated  when changes are made to the HumioCluster resource that results
 in a change to the Humio pods. The available values are: OnDelete, RollingUpdate, ReplaceAllOnUpdate, and
 RollingUpdateBestEffort.
-/
+
 When set to OnDelete, no Humio pods will be terminated but new pods will be created with the new spec. Replacing
 existing pods will require each pod to be deleted by the user.
 

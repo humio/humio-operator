@@ -85,7 +85,7 @@ func (r *HumioAggregateAlertReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
-	defer func(ctx context.Context, HumioClient humio.Client, haa *humiov1alpha1.HumioAggregateAlert) {
+	defer func(ctx context.Context, haa *humiov1alpha1.HumioAggregateAlert) {
 		curAggregateAlert, err := r.HumioClient.GetAggregateAlert(ctx, humioHttpClient, req, haa)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioAggregateAlertStateNotFound, haa)
@@ -96,7 +96,7 @@ func (r *HumioAggregateAlertReconciler) Reconcile(ctx context.Context, req ctrl.
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioAggregateAlertStateExists, haa)
-	}(ctx, r.HumioClient, haa)
+	}(ctx, haa)
 
 	return r.reconcileHumioAggregateAlert(ctx, humioHttpClient, haa, req)
 }

@@ -85,7 +85,7 @@ func (r *HumioScheduledSearchReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
-	defer func(ctx context.Context, humioClient humio.Client, hss *humiov1alpha1.HumioScheduledSearch) {
+	defer func(ctx context.Context, hss *humiov1alpha1.HumioScheduledSearch) {
 		_, err := r.HumioClient.GetScheduledSearch(ctx, humioHttpClient, req, hss)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateNotFound, hss)
@@ -96,7 +96,7 @@ func (r *HumioScheduledSearchReconciler) Reconcile(ctx context.Context, req ctrl
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateExists, hss)
-	}(ctx, r.HumioClient, hss)
+	}(ctx, hss)
 
 	return r.reconcileHumioScheduledSearch(ctx, humioHttpClient, hss, req)
 }
