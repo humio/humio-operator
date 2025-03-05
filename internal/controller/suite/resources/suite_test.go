@@ -28,6 +28,7 @@ import (
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
+	uberzap "go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -51,7 +52,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	//+kubebuilder:scaffold:imports
+	// +kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -83,7 +84,9 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	var log logr.Logger
 	zapLog, _ := helpers.NewLogger()
-	defer zapLog.Sync()
+	defer func(zapLog *uberzap.Logger) {
+		_ = zapLog.Sync()
+	}(zapLog)
 	log = zapr.NewLogger(zapLog)
 	logf.SetLogger(log)
 
@@ -135,7 +138,7 @@ var _ = BeforeSuite(func() {
 	err = corev1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:  scheme.Scheme,
@@ -264,7 +267,7 @@ var _ = BeforeSuite(func() {
 	suite.CreateAndBootstrapCluster(context.TODO(), k8sClient, humioClient, cluster, true, corev1alpha1.HumioClusterStateRunning, testTimeout)
 
 	sharedCluster, err = helpers.NewCluster(context.TODO(), k8sClient, clusterKey.Name, "", clusterKey.Namespace, helpers.UseCertManager(), true, false)
-	Expect(err).To(BeNil())
+	Expect(err).ToNot(HaveOccurred())
 	Expect(sharedCluster).ToNot(BeNil())
 	Expect(sharedCluster.Config()).ToNot(BeNil())
 
@@ -416,8 +419,8 @@ var _ = ReportAfterSuite("HumioCluster Controller Suite", func(suiteReport ginkg
 		// 1. regular container stdout
 		// 2. ReportAfterEach
 		// 3. ReportAfterSuite
-		//suite.PrintLinesWithRunID(testRunID, strings.Split(r.CapturedGinkgoWriterOutput, "\n"), r.State)
-		//suite.PrintLinesWithRunID(testRunID, strings.Split(r.CapturedStdOutErr, "\n"), r.State)
+		// suite.PrintLinesWithRunID(testRunID, strings.Split(r.CapturedGinkgoWriterOutput, "\n"), r.State)
+		// suite.PrintLinesWithRunID(testRunID, strings.Split(r.CapturedStdOutErr, "\n"), r.State)
 
 		r.CapturedGinkgoWriterOutput = testRunID
 		r.CapturedStdOutErr = testRunID
@@ -439,8 +442,8 @@ var _ = ReportAfterEach(func(specReport ginkgotypes.SpecReport) {
 	// 1. regular container stdout
 	// 2. ReportAfterEach
 	// 3. ReportAfterSuite
-	//suite.PrintLinesWithRunID(testRunID, strings.Split(specReport.CapturedGinkgoWriterOutput, "\n"), specReport.State)
-	//suite.PrintLinesWithRunID(testRunID, strings.Split(specReport.CapturedStdOutErr, "\n"), specReport.State)
+	// suite.PrintLinesWithRunID(testRunID, strings.Split(specReport.CapturedGinkgoWriterOutput, "\n"), specReport.State)
+	// suite.PrintLinesWithRunID(testRunID, strings.Split(specReport.CapturedStdOutErr, "\n"), specReport.State)
 
 	specReport.CapturedGinkgoWriterOutput = testRunID
 	specReport.CapturedStdOutErr = testRunID

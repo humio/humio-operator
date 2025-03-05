@@ -45,7 +45,7 @@ func constructPersistentVolumeClaim(hnp *HumioNodePool) *corev1.PersistentVolume
 func FindPvcForPod(pvcList []corev1.PersistentVolumeClaim, pod corev1.Pod) (corev1.PersistentVolumeClaim, error) {
 	for _, pvc := range pvcList {
 		for _, volume := range pod.Spec.Volumes {
-			if volume.Name == "humio-data" {
+			if volume.Name == HumioDataVolumeName {
 				if volume.VolumeSource.PersistentVolumeClaim == nil {
 					continue
 				}
@@ -63,10 +63,10 @@ func FindNextAvailablePvc(pvcList []corev1.PersistentVolumeClaim, podList []core
 	if pvcClaimNamesInUse == nil {
 		return "", fmt.Errorf("pvcClaimNamesInUse must not be nil")
 	}
-	// run through all pods and record PVC claim name for "humio-data" volume
+	// run through all pods and record PVC claim name for HumioDataVolumeName volume
 	for _, pod := range podList {
 		for _, volume := range pod.Spec.Volumes {
-			if volume.Name == "humio-data" {
+			if volume.Name == HumioDataVolumeName {
 				if volume.PersistentVolumeClaim == nil {
 					continue
 				}

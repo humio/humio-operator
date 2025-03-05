@@ -125,7 +125,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		return reconcile.Result{Requeue: true}, nil
 	}
-	defer func(ctx context.Context, humioClient humio.Client, hv *humiov1alpha1.HumioView) {
+	defer func(ctx context.Context, hv *humiov1alpha1.HumioView) {
 		_, err := r.HumioClient.GetView(ctx, humioHttpClient, req, hv)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioViewStateNotFound, hv)
@@ -136,7 +136,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioViewStateExists, hv)
-	}(ctx, r.HumioClient, hv)
+	}(ctx, hv)
 
 	r.Log.Info("get current view")
 	curView, err := r.HumioClient.GetView(ctx, humioHttpClient, req, hv)
