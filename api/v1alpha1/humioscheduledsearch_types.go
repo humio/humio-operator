@@ -31,7 +31,7 @@ const (
 	HumioScheduledSearchStateConfigError = "ConfigError"
 )
 
-// HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch
+// HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch.
 type HumioScheduledSearchSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
@@ -72,16 +72,16 @@ type HumioScheduledSearchSpec struct {
 	Labels []string `json:"labels,omitempty"`
 }
 
-// HumioScheduledSearchStatus defines the observed state of HumioScheduledSearch
+// HumioScheduledSearchStatus defines the observed state of HumioScheduledSearch.
 type HumioScheduledSearchStatus struct {
 	// State reflects the current state of the HumioScheduledSearch
 	State string `json:"state,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
-// HumioScheduledSearch is the Schema for the HumioScheduledSearches API
+// HumioScheduledSearch is the Schema for the humioscheduledsearches API.
 type HumioScheduledSearch struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -90,9 +90,9 @@ type HumioScheduledSearch struct {
 	Status HumioScheduledSearchStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// HumioScheduledSearchList contains a list of HumioScheduledSearch
+// HumioScheduledSearchList contains a list of HumioScheduledSearch.
 type HumioScheduledSearchList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

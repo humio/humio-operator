@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.17.0
   name: humiorepositories.core.humio.com
   labels:
     app: 'humio-operator'
@@ -28,7 +28,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HumioRepository is the Schema for the humiorepositories API
+        description: HumioRepository is the Schema for the humiorepositories API.
         properties:
           apiVersion:
             description: |-
@@ -48,7 +48,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioRepositorySpec defines the desired state of HumioRepository
+            description: HumioRepositorySpec defines the desired state of HumioRepository.
             properties:
               allowDataDeletion:
                 description: |-
@@ -102,7 +102,7 @@ spec:
             - name
             type: object
           status:
-            description: HumioRepositoryStatus defines the observed state of HumioRepository
+            description: HumioRepositoryStatus defines the observed state of HumioRepository.
             properties:
               state:
                 description: State reflects the current state of the HumioRepository
