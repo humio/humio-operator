@@ -33,8 +33,10 @@ import (
 const (
 	targetReplicationFactor      = 2
 	digestPartitionsCount        = 24
+	HumioPortName                = "http"
 	HumioPort                    = 8080
-	elasticPort                  = 9200
+	ElasticPortName              = "es"
+	ElasticPort                  = 9200
 	idpCertificateFilename       = "idp-certificate.pem"
 	ExtraKafkaPropertiesFilename = "extra-kafka-properties.properties"
 	ViewGroupPermissionsFilename = "view-group-permissions.json"
@@ -415,7 +417,7 @@ func (hnp *HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 		},
 
 		{Name: "HUMIO_PORT", Value: strconv.Itoa(HumioPort)},
-		{Name: "ELASTIC_PORT", Value: strconv.Itoa(elasticPort)},
+		{Name: "ELASTIC_PORT", Value: strconv.Itoa(ElasticPort)},
 		{Name: "DEFAULT_DIGEST_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
 		{Name: "DEFAULT_SEGMENT_REPLICATION_FACTOR", Value: strconv.Itoa(hnp.GetTargetReplicationFactor())},
 		{Name: "INGEST_QUEUE_INITIAL_PARTITIONS", Value: strconv.Itoa(hnp.GetDigestPartitionsCount())},
@@ -815,7 +817,7 @@ func (hnp *HumioNodePool) GetHumioESServicePort() int32 {
 	if hnp.humioNodeSpec.HumioESServicePort != 0 {
 		return hnp.humioNodeSpec.HumioESServicePort
 	}
-	return elasticPort
+	return ElasticPort
 }
 
 func (hnp *HumioNodePool) GetServiceType() corev1.ServiceType {

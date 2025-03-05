@@ -40,7 +40,7 @@ type HumioActionWebhookProperties struct {
 	Headers map[string]string `json:"headers,omitempty"`
 	// SecretHeaders specifies what HTTP headers to use and where to fetch the values from.
 	// If both Headers and SecretHeaders are specified, they will be merged together.
-	//+kubebuilder:default={}
+	// +kubebuilder:default={}
 	SecretHeaders []HeadersSource `json:"secretHeaders,omitempty"`
 	Method        string          `json:"method,omitempty"`
 	// Url specifies what URL to use
@@ -56,8 +56,8 @@ type HumioActionWebhookProperties struct {
 // HeadersSource defines a header and corresponding source for the value of it.
 type HeadersSource struct {
 	// Name is the name of the header.
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	Name string `json:"name"`
 	// ValueFrom defines where to fetch the value of the header from.
 	ValueFrom VarSource `json:"valueFrom,omitempty"`
@@ -67,8 +67,8 @@ type HeadersSource struct {
 type HumioActionEmailProperties struct {
 	BodyTemplate    string `json:"bodyTemplate,omitempty"`
 	SubjectTemplate string `json:"subjectTemplate,omitempty"`
-	//+kubebuilder:validation:MinItems=1
-	//+required
+	// +kubebuilder:validation:MinItems=1
+	// +required
 	Recipients []string `json:"recipients,omitempty"`
 	UseProxy   bool     `json:"useProxy,omitempty"`
 }
@@ -128,9 +128,9 @@ type HumioActionSlackPostMessageProperties struct {
 	// If both ApiToken and ApiTokenSource are specified, ApiToken will be used.
 	ApiTokenSource VarSource `json:"apiTokenSource,omitempty"`
 	Channels       []string  `json:"channels,omitempty"`
-	//+kubebuilder:default={}
+	// +kubebuilder:default={}
 	Fields map[string]string `json:"fields,omitempty"`
-	//+kubebuilder:default=false
+	// +kubebuilder:default=false
 	UseProxy bool `json:"useProxy,omitempty"`
 }
 
@@ -162,12 +162,12 @@ type HumioActionSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the Action
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the Action will be managed. This can also be a Repository
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	ViewName string `json:"viewName"`
 	// EmailProperties indicates this is an Email Action, and contains the corresponding properties
 	EmailProperties *HumioActionEmailProperties `json:"emailProperties,omitempty"`

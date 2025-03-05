@@ -31,6 +31,7 @@ import (
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
+	uberzap "go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -53,7 +54,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	//+kubebuilder:scaffold:imports
+	// +kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -76,7 +77,9 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	var log logr.Logger
 	zapLog, _ := helpers.NewLogger()
-	defer zapLog.Sync()
+	defer func(zapLog *uberzap.Logger) {
+		_ = zapLog.Sync()
+	}(zapLog)
 	log = zapr.NewLogger(zapLog)
 	logf.SetLogger(log)
 
@@ -130,7 +133,7 @@ var _ = BeforeSuite(func() {
 	err = humiov1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:  scheme.Scheme,
@@ -209,8 +212,8 @@ var _ = ReportAfterSuite("HumioCluster Controller Suite", func(suiteReport ginkg
 		// 1. regular container stdout
 		// 2. ReportAfterEach
 		// 3. ReportAfterSuite
-		//suite.PrintLinesWithRunID(testRunID, strings.Split(r.CapturedGinkgoWriterOutput, "\n"), r.State)
-		//suite.PrintLinesWithRunID(testRunID, strings.Split(r.CapturedStdOutErr, "\n"), r.State)
+		// suite.PrintLinesWithRunID(testRunID, strings.Split(r.CapturedGinkgoWriterOutput, "\n"), r.State)
+		// suite.PrintLinesWithRunID(testRunID, strings.Split(r.CapturedStdOutErr, "\n"), r.State)
 
 		r.CapturedGinkgoWriterOutput = testRunID
 		r.CapturedStdOutErr = testRunID
@@ -232,8 +235,8 @@ var _ = ReportAfterEach(func(specReport ginkgotypes.SpecReport) {
 	// 1. regular container stdout
 	// 2. ReportAfterEach
 	// 3. ReportAfterSuite
-	//suite.PrintLinesWithRunID(testRunID, strings.Split(specReport.CapturedGinkgoWriterOutput, "\n"), specReport.State)
-	//suite.PrintLinesWithRunID(testRunID, strings.Split(specReport.CapturedStdOutErr, "\n"), specReport.State)
+	// suite.PrintLinesWithRunID(testRunID, strings.Split(specReport.CapturedGinkgoWriterOutput, "\n"), specReport.State)
+	// suite.PrintLinesWithRunID(testRunID, strings.Split(specReport.CapturedStdOutErr, "\n"), specReport.State)
 
 	specReport.CapturedGinkgoWriterOutput = testRunID
 	specReport.CapturedStdOutErr = testRunID
@@ -242,12 +245,8 @@ var _ = ReportAfterEach(func(specReport ginkgotypes.SpecReport) {
 	fmt.Println(string(u))
 })
 
-func createAndBootstrapMultiNodePoolCluster(ctx context.Context, k8sClient client.Client, humioClient humio.Client, cluster *humiov1alpha1.HumioCluster, autoCreateLicense bool, expectedState string) {
-	suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClient, cluster, autoCreateLicense, expectedState, testTimeout)
-
-	if expectedState != humiov1alpha1.HumioClusterStateRunning {
-		return
-	}
+func createAndBootstrapMultiNodePoolCluster(ctx context.Context, k8sClient client.Client, humioClient humio.Client, cluster *humiov1alpha1.HumioCluster) {
+	suite.CreateAndBootstrapCluster(ctx, k8sClient, humioClient, cluster, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 
 	key := types.NamespacedName{
 		Namespace: cluster.Namespace,
@@ -262,16 +261,16 @@ func createAndBootstrapMultiNodePoolCluster(ctx context.Context, k8sClient clien
 			Expect(err).Should(Succeed())
 		}
 		for _, pool := range updatedHumioCluster.Status.NodePoolStatus {
-			if pool.State != expectedState {
+			if pool.State != humiov1alpha1.HumioClusterStateRunning {
 				return pool.State
 			}
 		}
-		return expectedState
+		return humiov1alpha1.HumioClusterStateRunning
 	}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
 }
 
-func constructBasicMultiNodePoolHumioCluster(key types.NamespacedName, useAutoCreatedLicense bool, numberOfAdditionalNodePools int) *humiov1alpha1.HumioCluster {
-	toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, useAutoCreatedLicense)
+func constructBasicMultiNodePoolHumioCluster(key types.NamespacedName, numberOfAdditionalNodePools int) *humiov1alpha1.HumioCluster {
+	toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 
 	nodeSpec := suite.ConstructBasicNodeSpecForHumioCluster(key)
 	for i := 1; i <= numberOfAdditionalNodePools; i++ {

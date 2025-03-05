@@ -52,14 +52,14 @@ func ConstructService(hnp *HumioNodePool) *corev1.Service {
 			Selector: hnp.GetNodePoolLabels(),
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "http",
+					Name:       HumioPortName,
 					Port:       hnp.GetHumioServicePort(),
 					TargetPort: intstr.IntOrString{IntVal: HumioPort},
 				},
 				{
-					Name:       "es",
+					Name:       ElasticPortName,
 					Port:       hnp.GetHumioESServicePort(),
-					TargetPort: intstr.IntOrString{IntVal: elasticPort},
+					TargetPort: intstr.IntOrString{IntVal: ElasticPort},
 				},
 			},
 		},
@@ -81,12 +81,12 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			PublishNotReadyAddresses: true,
 			Ports: []corev1.ServicePort{
 				{
-					Name: "http",
+					Name: HumioPortName,
 					Port: HumioPort,
 				},
 				{
-					Name: "es",
-					Port: elasticPort,
+					Name: ElasticPortName,
+					Port: ElasticPort,
 				},
 			},
 		},
@@ -107,12 +107,12 @@ func constructInternalService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			}),
 			Ports: []corev1.ServicePort{
 				{
-					Name: "http",
+					Name: HumioPortName,
 					Port: HumioPort,
 				},
 				{
-					Name: "es",
-					Port: elasticPort,
+					Name: ElasticPortName,
+					Port: ElasticPort,
 				},
 			},
 		},

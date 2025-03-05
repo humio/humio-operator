@@ -124,7 +124,9 @@ func (c *Client) MakeRequest(ctx context.Context, req *graphql.Request, resp *gr
 	if httpResp == nil {
 		return fmt.Errorf("could not execute http request")
 	}
-	defer httpResp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(httpResp.Body)
 
 	if httpResp.StatusCode != http.StatusOK {
 		var respBody []byte
@@ -156,11 +158,11 @@ func (c *Client) MakeRequest(ctx context.Context, req *graphql.Request, resp *gr
 	}
 
 	// This prints all extensions. To use this properly, use a logger
-	//if len(actualResponse.Extensions) > 0 {
-	//	for _, extension := range resp.Extensions {
-	//		fmt.Printf("%v\n", extension)
-	//	}
-	//}
+	// if len(actualResponse.Extensions) > 0 {
+	//	 for _, extension := range resp.Extensions {
+	//     fmt.Printf("%v\n", extension)
+	//   }
+	// }
 	if len(actualResponse.Errors) > 0 {
 		return actualResponse.Errors
 	}
