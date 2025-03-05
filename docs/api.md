@@ -35457,6 +35457,15 @@ This conflicts with ExternalClusterName.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>tokenSecretAnnotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          TokenSecretAnnotations specifies additional key,value pairs to add as annotations on the Kubernetes Secret containing
+the ingest token.
+This field is optional.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>tokenSecretLabels</b></td>
         <td>map[string]string</td>
         <td>

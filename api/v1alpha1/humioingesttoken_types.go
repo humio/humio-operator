@@ -60,6 +60,10 @@ type HumioIngestTokenSpec struct {
 	// the ingest token.
 	// This field is optional.
 	TokenSecretLabels map[string]string `json:"tokenSecretLabels,omitempty"`
+	// TokenSecretAnnotations specifies additional key,value pairs to add as annotations on the Kubernetes Secret containing
+	// the ingest token.
+	// This field is optional.
+	TokenSecretAnnotations map[string]string `json:"tokenSecretAnnotations,omitempty"`
 }
 
 // HumioIngestTokenStatus defines the observed state of HumioIngestToken

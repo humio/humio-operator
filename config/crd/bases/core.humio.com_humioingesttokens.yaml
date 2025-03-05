@@ -75,6 +75,14 @@ spec:
                   which the ingest token will be created
                 minLength: 1
                 type: string
+              tokenSecretAnnotations:
+                additionalProperties:
+                  type: string
+                description: |-
+                  TokenSecretAnnotations specifies additional key,value pairs to add as annotations on the Kubernetes Secret containing
+                  the ingest token.
+                  This field is optional.
+                type: object
               tokenSecretLabels:
                 additionalProperties:
                   type: string
