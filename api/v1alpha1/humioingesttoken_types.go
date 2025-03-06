@@ -31,7 +31,7 @@ const (
 	HumioIngestTokenStateConfigError = "ConfigError"
 )
 
-// HumioIngestTokenSpec defines the desired state of HumioIngestToken
+// HumioIngestTokenSpec defines the desired state of HumioIngestToken.
 type HumioIngestTokenSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
@@ -41,16 +41,16 @@ type HumioIngestTokenSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the ingest token inside Humio
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	Name string `json:"name"`
 	// ParserName is the name of the parser which will be assigned to the ingest token.
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	ParserName *string `json:"parserName,omitempty"`
 	// RepositoryName is the name of the Humio repository under which the ingest token will be created
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	RepositoryName string `json:"repositoryName,omitempty"`
 	// TokenSecretName specifies the name of the Kubernetes secret that will be created
 	// and contain the ingest token. The key in the secret storing the ingest token is "token".
@@ -66,19 +66,19 @@ type HumioIngestTokenSpec struct {
 	TokenSecretAnnotations map[string]string `json:"tokenSecretAnnotations,omitempty"`
 }
 
-// HumioIngestTokenStatus defines the observed state of HumioIngestToken
+// HumioIngestTokenStatus defines the observed state of HumioIngestToken.
 type HumioIngestTokenStatus struct {
 	// State reflects the current state of the HumioIngestToken
 	State string `json:"state,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:path=humioingesttokens,scope=Namespaced
-//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the ingest token"
-//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Ingest Token"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:path=humioingesttokens,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the ingest token"
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Ingest Token"
 
-// HumioIngestToken is the Schema for the humioingesttokens API
+// HumioIngestToken is the Schema for the humioingesttokens API.
 type HumioIngestToken struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -87,9 +87,9 @@ type HumioIngestToken struct {
 	Status HumioIngestTokenStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// HumioIngestTokenList contains a list of HumioIngestToken
+// HumioIngestTokenList contains a list of HumioIngestToken.
 type HumioIngestTokenList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

@@ -27,11 +27,11 @@ const (
 	HumioExternalClusterStateReady = "Ready"
 )
 
-// HumioExternalClusterSpec defines the desired state of HumioExternalCluster
+// HumioExternalClusterSpec defines the desired state of HumioExternalCluster.
 type HumioExternalClusterSpec struct {
 	// Url is used to connect to the Humio cluster we want to use.
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	Url string `json:"url"`
 	// APITokenSecretName is used to obtain the API token we need to use when communicating with the external Humio cluster.
 	// It refers to a Kubernetes secret that must be located in the same namespace as the HumioExternalCluster.
@@ -49,7 +49,7 @@ type HumioExternalClusterSpec struct {
 	CASecretName string `json:"caSecretName,omitempty"`
 }
 
-// HumioExternalClusterStatus defines the observed state of HumioExternalCluster
+// HumioExternalClusterStatus defines the observed state of HumioExternalCluster.
 type HumioExternalClusterStatus struct {
 	// State reflects the current state of the HumioExternalCluster
 	State string `json:"state,omitempty"`
@@ -57,13 +57,13 @@ type HumioExternalClusterStatus struct {
 	Version string `json:"version,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:path=humioexternalclusters,scope=Namespaced
-//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the external Humio cluster"
-//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio External Cluster"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:path=humioexternalclusters,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the external Humio cluster"
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio External Cluster"
 
-// HumioExternalCluster is the Schema for the humioexternalclusters API
+// HumioExternalCluster is the Schema for the humioexternalclusters API.
 type HumioExternalCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -72,9 +72,9 @@ type HumioExternalCluster struct {
 	Status HumioExternalClusterStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// HumioExternalClusterList contains a list of HumioExternalCluster
+// HumioExternalClusterList contains a list of HumioExternalCluster.
 type HumioExternalClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

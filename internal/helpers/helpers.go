@@ -30,6 +30,10 @@ import (
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
 
+const (
+	TrueStr string = "true"
+)
+
 // GetTypeName returns the name of the type of object which is obtained by using reflection
 func GetTypeName(myvar interface{}) string {
 	t := reflect.TypeOf(myvar)
@@ -117,9 +121,11 @@ func MapToSortedString(m map[string]string) string {
 	if len(m) == 0 {
 		return `"":""`
 	}
-	var a []string
+	a := make([]string, len(m))
+	idx := 0
 	for k, v := range m {
-		a = append(a, fmt.Sprintf("%s=%s", k, v))
+		a[idx] = fmt.Sprintf("%s=%s", k, v)
+		idx++
 	}
 	sort.SliceStable(a, func(i, j int) bool {
 		return a[i] > a[j]
@@ -136,22 +142,9 @@ func NewLogger() (*uberzap.Logger, error) {
 	return loggerCfg.Build(uberzap.AddCaller())
 }
 
-func GetWatchNamespace() (string, error) {
-	// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
-	// which specifies the Namespace to watch.
-	// An empty value means the operator is running with cluster scope.
-	var watchNamespaceEnvVar = "WATCH_NAMESPACE"
-
-	ns, found := os.LookupEnv(watchNamespaceEnvVar)
-	if !found {
-		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
-	}
-	return ns, nil
-}
-
 // UseCertManager returns whether the operator will use cert-manager
 func UseCertManager() bool {
-	return !UseEnvtest() && os.Getenv("USE_CERTMANAGER") == "true"
+	return !UseEnvtest() && os.Getenv("USE_CERTMANAGER") == TrueStr
 }
 
 // GetDefaultHumioCoreImageFromEnvVar returns the user-defined default image for humio-core containers
@@ -166,12 +159,12 @@ func GetDefaultHumioHelperImageFromEnvVar() string {
 
 // UseEnvtest returns whether the Kubernetes API is provided by envtest
 func UseEnvtest() bool {
-	return os.Getenv("TEST_USING_ENVTEST") == "true"
+	return os.Getenv("TEST_USING_ENVTEST") == TrueStr
 }
 
 // UseDummyImage returns whether we are using a dummy image replacement instead of real container images
 func UseDummyImage() bool {
-	return os.Getenv("DUMMY_LOGSCALE_IMAGE") == "true"
+	return os.Getenv("DUMMY_LOGSCALE_IMAGE") == TrueStr
 }
 
 // GetE2ELicenseFromEnvVar returns the E2E license set as an environment variable
@@ -182,5 +175,5 @@ func GetE2ELicenseFromEnvVar() string {
 // PreserveKindCluster returns true if the intention is to not delete kind cluster after test execution.
 // This is to allow reruns of tests to be performed where resources can be reused.
 func PreserveKindCluster() bool {
-	return os.Getenv("PRESERVE_KIND_CLUSTER") == "true"
+	return os.Getenv("PRESERVE_KIND_CLUSTER") == TrueStr
 }
