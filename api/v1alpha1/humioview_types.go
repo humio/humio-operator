@@ -41,7 +41,7 @@ type HumioViewConnection struct {
 	Filter string `json:"filter,omitempty"`
 }
 
-// HumioViewSpec defines the desired state of HumioView
+// HumioViewSpec defines the desired state of HumioView.
 type HumioViewSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
@@ -63,19 +63,19 @@ type HumioViewSpec struct {
 	AutomaticSearch *bool `json:"automaticSearch,omitempty"`
 }
 
-// HumioViewStatus defines the observed state of HumioView
+// HumioViewStatus defines the observed state of HumioView.
 type HumioViewStatus struct {
 	// State reflects the current state of the HumioView
 	State string `json:"state,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:path=humioviews,scope=Namespaced
-//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the view"
-//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio View"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:path=humioviews,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the view"
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio View"
 
-// HumioView is the Schema for the humioviews API
+// HumioView is the Schema for the humioviews API.
 type HumioView struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -84,9 +84,9 @@ type HumioView struct {
 	Status HumioViewStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// HumioViewList contains a list of HumioView
+// HumioViewList contains a list of HumioView.
 type HumioViewList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

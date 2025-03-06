@@ -28,7 +28,7 @@ const (
 	HumioBootstrapTokenStateReady = "Ready"
 )
 
-// HumioBootstrapTokenSpec defines the bootstrap token that Humio will use to bootstrap authentication
+// HumioBootstrapTokenSpec defines the desired state of HumioBootstrapToken.
 type HumioBootstrapTokenSpec struct {
 	// ManagedClusterName refers to the name of the HumioCluster which will use this bootstrap token
 	ManagedClusterName string `json:"managedClusterName,omitempty"`
@@ -64,6 +64,7 @@ type HumioHashedTokenSecretSpec struct {
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
+// HumioBootstrapTokenStatus defines the observed state of HumioBootstrapToken.
 type HumioBootstrapTokenStatus struct {
 	// State can be "NotReady" or "Ready"
 	State string `json:"state,omitempty"`
@@ -91,13 +92,13 @@ type HumioHashedTokenSecretStatus struct {
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:path=humiobootstraptokens,scope=Namespaced
-//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the bootstrap token"
-//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Bootstrap Token"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:path=humiobootstraptokens,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the bootstrap token"
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Bootstrap Token"
 
-// HumioBootstrapToken defines the bootstrap token that Humio will use to bootstrap authentication
+// HumioBootstrapToken is the Schema for the humiobootstraptokens API.
 type HumioBootstrapToken struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -106,9 +107,9 @@ type HumioBootstrapToken struct {
 	Status HumioBootstrapTokenStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// HumioBootstrapTokenList contains a list of HumioBootstrapTokens
+// HumioBootstrapTokenList contains a list of HumioBootstrapToken.
 type HumioBootstrapTokenList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
