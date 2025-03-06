@@ -46,6 +46,7 @@ import (
 const (
 	humioAppPath             = "/app/humio"
 	HumioDataPath            = "/data/humio-data"
+	HumioDataVolumeName      = "humio-data"
 	sharedPath               = "/shared"
 	waitForPodTimeoutSeconds = 10
 )
@@ -115,20 +116,20 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 					Command:         []string{"/bin/sh"},
 					Ports: []corev1.ContainerPort{
 						{
-							Name:          "http",
+							Name:          HumioPortName,
 							ContainerPort: HumioPort,
 							Protocol:      "TCP",
 						},
 						{
-							Name:          "es",
-							ContainerPort: elasticPort,
+							Name:          ElasticPortName,
+							ContainerPort: ElasticPort,
 							Protocol:      "TCP",
 						},
 					},
 					Env: hnp.GetEnvironmentVariables(),
 					VolumeMounts: []corev1.VolumeMount{
 						{
-							Name:      "humio-data",
+							Name:      HumioDataVolumeName,
 							MountPath: HumioDataPath,
 						},
 						{
@@ -159,7 +160,7 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 	}
 
 	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-		Name:         "humio-data",
+		Name:         HumioDataVolumeName,
 		VolumeSource: attachments.dataVolumeSource,
 	})
 
@@ -534,14 +535,14 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 	}
 
 	for _, volume := range pod.Spec.Volumes {
-		if volume.Name == "humio-data" && reflect.DeepEqual(volume.PersistentVolumeClaim, emptyPersistentVolumeClaimSource) {
+		if volume.Name == HumioDataVolumeName && reflect.DeepEqual(volume.PersistentVolumeClaim, emptyPersistentVolumeClaimSource) {
 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
-				Name:         "humio-data",
+				Name:         HumioDataVolumeName,
 				VolumeSource: hnp.GetDataVolumeSource(),
 			})
-		} else if volume.Name == "humio-data" && !reflect.DeepEqual(volume.PersistentVolumeClaim, emptyPersistentVolumeClaimSource) {
+		} else if volume.Name == HumioDataVolumeName && !reflect.DeepEqual(volume.PersistentVolumeClaim, emptyPersistentVolumeClaimSource) {
 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
-				Name:         "humio-data",
+				Name:         HumioDataVolumeName,
 				VolumeSource: hnp.GetDataVolumePersistentVolumeClaimSpecTemplate(""),
 			})
 		} else if volume.Name == "tls-cert" {
@@ -1048,7 +1049,7 @@ func (r *HumioClusterReconciler) getPodStatusList(ctx context.Context, hc *humio
 			}
 			if pool.PVCsEnabled() {
 				for _, volume := range pod.Spec.Volumes {
-					if volume.Name == "humio-data" {
+					if volume.Name == HumioDataVolumeName {
 						if volume.PersistentVolumeClaim != nil {
 							podStatus.PvcName = volume.PersistentVolumeClaim.ClaimName
 						} else {

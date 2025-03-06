@@ -86,6 +86,7 @@ const (
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingress,verbs=create;delete;get;list;patch;update;watch
 
+// nolint:gocyclo
 func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// when running tests, ignore resources that are not in the correct namespace
 	if r.Namespace != "" {
@@ -125,10 +126,10 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	//       on conflicts which they'll be on many of the status updates.
 	//       We should be able to bundle all the options together and do a single update using StatusWriter.
 	//       Bundling options in a single StatusWriter.Update() should help reduce the number of conflicts.
-	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
+	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
 		_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withObservedGeneration(hc.GetGeneration()))
-	}(ctx, r.HumioClient, hc)
+	}(ctx, hc)
 
 	// validate details in HumioCluster resource is valid
 	if result, err := r.verifyHumioClusterConfigurationIsValid(ctx, hc, humioNodePools); result != emptyResult || err != nil {
@@ -1480,6 +1481,8 @@ func (r *HumioClusterReconciler) ensureInternalServiceExists(ctx context.Context
 
 // ensureNodePoolSpecificResourcesHaveLabelWithNodePoolName updates resources that were created prior to the introduction of node pools.
 // We need this because multiple resources now includes an additional label containing the name of the node pool a given resource belongs to.
+//
+// nolint:gocyclo
 func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNodePoolName(ctx context.Context, hnp *HumioNodePool) error {
 	allPods, err := kubernetes.ListPods(ctx, r.Client, hnp.GetNamespace(), hnp.GetCommonClusterLabels())
 	if err != nil {
@@ -1846,6 +1849,8 @@ func (r *HumioClusterReconciler) ensureHumioServiceAccountAnnotations(ctx contex
 // If there are changes that fall under a recreate update, then the pod restart policy is set to PodRestartPolicyRecreate
 // and the reconciliation will requeue and the deletions will continue to be executed until all the pods have been
 // removed.
+//
+// nolint:gocyclo
 func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (reconcile.Result, error) {
 	r.Log.Info("ensuring mismatching pods are deleted")
 
@@ -2155,7 +2160,7 @@ func (r *HumioClusterReconciler) processDownscaling(ctx context.Context, hc *hum
 	}
 
 	labelsToMatch := hnp.GetNodePoolLabels()
-	labelsToMatch[kubernetes.PodMarkedForDataEviction] = "true"
+	labelsToMatch[kubernetes.PodMarkedForDataEviction] = helpers.TrueStr
 	podsMarkedForEviction, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), labelsToMatch)
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods marked for eviction.")
@@ -2222,7 +2227,7 @@ func (r *HumioClusterReconciler) getPodsNotMarkedForEviction(ctx context.Context
 	}
 	var podsNotMarkedForEviction []corev1.Pod
 	for _, pod := range pods {
-		if val, found := pod.Labels[kubernetes.PodMarkedForDataEviction]; !found || val != "true" {
+		if val, found := pod.Labels[kubernetes.PodMarkedForDataEviction]; !found || val != helpers.TrueStr {
 			podsNotMarkedForEviction = append(podsNotMarkedForEviction, pod)
 		}
 	}
@@ -2266,7 +2271,7 @@ func (r *HumioClusterReconciler) unregisterNode(ctx context.Context, hc *humiov1
 		return false, r.logErrorAndReturn(err, "failed to get cluster nodes using GraphQL")
 	}
 
-	if registered, _ := r.isNodeRegistered(nodesStatus, vhost); !registered {
+	if registered := r.isNodeRegistered(nodesStatus, vhost); !registered {
 		r.Log.Info(fmt.Sprintf("vhost %d is already unregistered", vhost))
 		hc.Status.EvictedNodeIds = RemoveIntFromSlice(hc.Status.EvictedNodeIds, vhost) // remove unregistered node from the status list
 		err := r.Status().Update(ctx, hc)
@@ -2277,7 +2282,7 @@ func (r *HumioClusterReconciler) unregisterNode(ctx context.Context, hc *humiov1
 		return true, nil
 	}
 
-	if alive, _ := r.isEvictedNodeAlive(nodesStatus, vhost); !alive { // poll check for unregistering
+	if alive := r.isEvictedNodeAlive(nodesStatus, vhost); !alive { // poll check for unregistering
 		rawResponse, err := r.HumioClient.UnregisterClusterNode(ctx, humioHttpClient, req, vhost, false)
 		if err != nil {
 			return false, r.logErrorAndReturn(err, fmt.Sprintf("failed to unregister vhost %d", vhost))
@@ -2304,28 +2309,28 @@ func (r *HumioClusterReconciler) unregisterNode(ctx context.Context, hc *humiov1
 	return true, nil
 }
 
-func (r *HumioClusterReconciler) isNodeRegistered(nodesStatus []humiographql.GetEvictionStatusClusterNodesClusterNode, vhost int) (bool, error) {
+func (r *HumioClusterReconciler) isNodeRegistered(nodesStatus []humiographql.GetEvictionStatusClusterNodesClusterNode, vhost int) bool {
 	for _, node := range nodesStatus {
 		if node.GetId() == vhost {
-			return true, nil
+			return true
 		}
 	}
-	return false, nil
+	return false
 }
 
-func (r *HumioClusterReconciler) isEvictedNodeAlive(nodesStatus []humiographql.GetEvictionStatusClusterNodesClusterNode, vhost int) (bool, error) {
+func (r *HumioClusterReconciler) isEvictedNodeAlive(nodesStatus []humiographql.GetEvictionStatusClusterNodesClusterNode, vhost int) bool {
 	for i := 0; i < waitForPodTimeoutSeconds; i++ {
 		for _, node := range nodesStatus {
 			if node.GetId() == vhost {
 				reasonsNodeCannotBeSafelyUnregistered := node.GetReasonsNodeCannotBeSafelyUnregistered()
 				if !reasonsNodeCannotBeSafelyUnregistered.IsAlive {
-					return false, nil
+					return false
 				}
 			}
 		}
 	}
 
-	return true, nil
+	return true
 }
 
 func (r *HumioClusterReconciler) checkEvictionStatusForPodUsingClusterRefresh(ctx context.Context, humioHttpClient *humioapi.Client, req ctrl.Request, vhost int) (bool, error) {
@@ -2452,7 +2457,7 @@ func (r *HumioClusterReconciler) updateEvictionStatus(ctx context.Context, nodes
 	}
 
 	r.Log.Info(fmt.Sprintf("marking node data eviction in progress for vhost %d", vhost))
-	pod.Labels[kubernetes.PodMarkedForDataEviction] = "true"
+	pod.Labels[kubernetes.PodMarkedForDataEviction] = helpers.TrueStr
 	pod.Annotations[kubernetes.LogScaleClusterVhost] = strconv.Itoa(vhost)
 	err := r.Update(ctx, &pod)
 	if err != nil {
