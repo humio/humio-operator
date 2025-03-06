@@ -86,7 +86,7 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
-	defer func(ctx context.Context, humioClient humio.Client, ha *humiov1alpha1.HumioAction) {
+	defer func(ctx context.Context, ha *humiov1alpha1.HumioAction) {
 		_, err := r.HumioClient.GetAction(ctx, humioHttpClient, req, ha)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioActionStateNotFound, ha)
@@ -97,7 +97,7 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioActionStateExists, ha)
-	}(ctx, r.HumioClient, ha)
+	}(ctx, ha)
 
 	return r.reconcileHumioAction(ctx, humioHttpClient, ha, req)
 }
@@ -319,9 +319,12 @@ func (r *HumioActionReconciler) logErrorAndReturn(err error, msg string) error {
 // actionAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
 // if the details from GraphQL already matches what is in the desired state of the custom resource.
 // If they do not match, a map is returned with details on what the diff is.
+//
+// nolint:gocyclo
 func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentAction humiographql.ActionDetails) (bool, map[string]string) {
 	diffMap := map[string]string{}
 	actionType := "unknown"
+	redactedValue := "<redacted>"
 
 	switch e := (expectedAction).(type) {
 	case *humiographql.ActionDetailsEmailAction:
@@ -354,7 +357,7 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 				diffMap["name"] = diff
 			}
 			if diff := cmp.Diff(c.GetIngestToken(), e.GetIngestToken()); diff != "" {
-				diffMap["ingestToken"] = "<redacted>"
+				diffMap["ingestToken"] = redactedValue
 			}
 		default:
 			diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
@@ -370,7 +373,7 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 				diffMap["apiUrl"] = diff
 			}
 			if diff := cmp.Diff(c.GetGenieKey(), e.GetGenieKey()); diff != "" {
-				diffMap["genieKey"] = "<redacted>"
+				diffMap["genieKey"] = redactedValue
 			}
 			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
 				diffMap["useProxy"] = diff
@@ -386,7 +389,7 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 				diffMap["name"] = diff
 			}
 			if diff := cmp.Diff(c.GetRoutingKey(), e.GetRoutingKey()); diff != "" {
-				diffMap["apiUrl"] = "<redacted>"
+				diffMap["apiUrl"] = redactedValue
 			}
 			if diff := cmp.Diff(c.GetSeverity(), e.GetSeverity()); diff != "" {
 				diffMap["genieKey"] = diff
@@ -408,7 +411,7 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 				diffMap["fields"] = diff
 			}
 			if diff := cmp.Diff(c.GetUrl(), e.GetUrl()); diff != "" {
-				diffMap["url"] = "<redacted>"
+				diffMap["url"] = redactedValue
 			}
 			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
 				diffMap["useProxy"] = diff
@@ -424,7 +427,7 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 				diffMap["name"] = diff
 			}
 			if diff := cmp.Diff(c.GetApiToken(), e.GetApiToken()); diff != "" {
-				diffMap["apiToken"] = "<redacted>"
+				diffMap["apiToken"] = redactedValue
 			}
 			if diff := cmp.Diff(c.GetChannels(), e.GetChannels()); diff != "" {
 				diffMap["channels"] = diff
@@ -449,7 +452,7 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 				diffMap["messageType"] = diff
 			}
 			if diff := cmp.Diff(c.GetNotifyUrl(), e.GetNotifyUrl()); diff != "" {
-				diffMap["notifyUrl"] = "<redacted>"
+				diffMap["notifyUrl"] = redactedValue
 			}
 			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
 				diffMap["useProxy"] = diff
@@ -476,10 +479,10 @@ func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentA
 				diffMap["bodyTemplate"] = diff
 			}
 			if diff := cmp.Diff(currentHeaders, expectedHeaders); diff != "" {
-				diffMap["headers"] = "<redacted>"
+				diffMap["headers"] = redactedValue
 			}
 			if diff := cmp.Diff(c.GetUrl(), e.GetUrl()); diff != "" {
-				diffMap["url"] = "<redacted>"
+				diffMap["url"] = redactedValue
 			}
 			if diff := cmp.Diff(c.GetIgnoreSSL(), e.GetIgnoreSSL()); diff != "" {
 				diffMap["ignoreSSL"] = diff

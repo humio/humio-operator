@@ -38,7 +38,10 @@ import (
 	"github.com/humio/humio-operator/internal/controller/suite"
 )
 
-const EmailActionExample string = "example@example.com"
+const (
+	emailActionExample         string = "example@example.com"
+	expectedSecretValueExample string = "secret-token"
+)
 
 var _ = Describe("Humio Resources Controllers", func() {
 	BeforeEach(func() {
@@ -83,7 +86,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedIngestToken := &humiov1alpha1.HumioIngestToken{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedIngestToken)
+				_ = k8sClient.Get(ctx, key, fetchedIngestToken)
 				return fetchedIngestToken.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
 
@@ -188,13 +191,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedIngestToken := &humiov1alpha1.HumioIngestToken{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedIngestToken)
+				_ = k8sClient.Get(ctx, key, fetchedIngestToken)
 				return fetchedIngestToken.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateExists))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIngestToken: Checking we do not create a token secret")
 			var allSecrets corev1.SecretList
-			k8sClient.List(ctx, &allSecrets, client.InNamespace(fetchedIngestToken.Namespace))
+			_ = k8sClient.List(ctx, &allSecrets, client.InNamespace(fetchedIngestToken.Namespace))
 			for _, secret := range allSecrets.Items {
 				for _, owner := range secret.OwnerReferences {
 					Expect(owner.Name).ShouldNot(BeIdenticalTo(fetchedIngestToken.Name))
@@ -258,7 +261,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioIngestToken: Validates resource enters state %s", humiov1alpha1.HumioIngestTokenStateConfigError))
 			fetchedIngestToken := &humiov1alpha1.HumioIngestToken{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, keyErr, fetchedIngestToken)
+				_ = k8sClient.Get(ctx, keyErr, fetchedIngestToken)
 				return fetchedIngestToken.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateConfigError))
 
@@ -292,7 +295,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioIngestToken: Validates resource enters state %s", humiov1alpha1.HumioIngestTokenStateConfigError))
 			fetchedIngestToken = &humiov1alpha1.HumioIngestToken{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, keyErr, fetchedIngestToken)
+				_ = k8sClient.Get(ctx, keyErr, fetchedIngestToken)
 				return fetchedIngestToken.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIngestTokenStateConfigError))
 
@@ -337,7 +340,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedRepository := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedRepository)
+				_ = k8sClient.Get(ctx, key, fetchedRepository)
 				return fetchedRepository.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
 
@@ -491,7 +494,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedRepo := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, viewKey, fetchedRepo)
+				_ = k8sClient.Get(ctx, viewKey, fetchedRepo)
 				return fetchedRepo.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateExists))
 
@@ -500,7 +503,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, viewKey, fetchedView)
+				_ = k8sClient.Get(ctx, viewKey, fetchedView)
 				return fetchedView.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewStateExists))
 
@@ -627,7 +630,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedParser := &humiov1alpha1.HumioParser{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedParser)
+				_ = k8sClient.Get(ctx, key, fetchedParser)
 				return fetchedParser.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateExists))
 
@@ -740,7 +743,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioExternalCluster: Confirming external cluster gets marked as ready")
 			fetchedExternalCluster := &humiov1alpha1.HumioExternalCluster{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedExternalCluster)
+				_ = k8sClient.Get(ctx, key, fetchedExternalCluster)
 				return fetchedExternalCluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioExternalClusterStateReady))
 
@@ -777,7 +780,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioParser: Validates resource enters state %s", humiov1alpha1.HumioParserStateConfigError))
 			fetchedParser := &humiov1alpha1.HumioParser{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, keyErr, fetchedParser)
+				_ = k8sClient.Get(ctx, keyErr, fetchedParser)
 				return fetchedParser.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateConfigError))
 
@@ -812,7 +815,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioParser: Validates resource enters state %s", humiov1alpha1.HumioParserStateConfigError))
 			fetchedParser := &humiov1alpha1.HumioParser{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, keyErr, fetchedParser)
+				_ = k8sClient.Get(ctx, keyErr, fetchedParser)
 				return fetchedParser.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioParserStateConfigError))
 
@@ -846,7 +849,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioRepository: Validates resource enters state %s", humiov1alpha1.HumioRepositoryStateConfigError))
 			fetchedRepository := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, keyErr, fetchedRepository)
+				_ = k8sClient.Get(ctx, keyErr, fetchedRepository)
 				return fetchedRepository.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateConfigError))
 
@@ -880,7 +883,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioRepository: Validates resource enters state %s", humiov1alpha1.HumioRepositoryStateConfigError))
 			fetchedRepository := &humiov1alpha1.HumioRepository{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, keyErr, fetchedRepository)
+				_ = k8sClient.Get(ctx, keyErr, fetchedRepository)
 				return fetchedRepository.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioRepositoryStateConfigError))
 
@@ -919,7 +922,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioView: Validates resource enters state %s", humiov1alpha1.HumioViewStateConfigError))
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, keyErr, fetchedView)
+				_ = k8sClient.Get(ctx, keyErr, fetchedView)
 				return fetchedView.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewStateConfigError))
 
@@ -958,7 +961,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioView: Validates resource enters state %s", humiov1alpha1.HumioViewStateConfigError))
 			fetchedView := &humiov1alpha1.HumioView{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, keyErr, fetchedView)
+				_ = k8sClient.Get(ctx, keyErr, fetchedView)
 				return fetchedView.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewStateConfigError))
 
@@ -980,7 +983,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:               "example-action",
 				ViewName:           testRepo.Spec.Name,
 				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
-					Recipients: []string{EmailActionExample},
+					Recipients: []string{emailActionExample},
 				},
 			}
 
@@ -1002,7 +1005,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -1035,7 +1038,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the action matches the expected")
@@ -1097,7 +1100,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -1120,7 +1123,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the humio repo action to be updated")
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.HumioRepositoryProperties = updatedAction.Spec.HumioRepositoryProperties
 				return k8sClient.Update(ctx, fetchedAction)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
@@ -1186,7 +1189,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -1210,7 +1213,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the ops genie action to be updated")
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.OpsGenieProperties = updatedAction.Spec.OpsGenieProperties
 				return k8sClient.Update(ctx, fetchedAction)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
@@ -1280,7 +1283,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -1303,7 +1306,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the pagerduty action to be updated")
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.PagerDutyProperties = updatedAction.Spec.PagerDutyProperties
 				return k8sClient.Update(ctx, fetchedAction)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
@@ -1375,7 +1378,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -1404,7 +1407,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the slack post message action to be updated")
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.SlackPostMessageProperties = updatedAction.Spec.SlackPostMessageProperties
 				return k8sClient.Update(ctx, fetchedAction)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
@@ -1479,7 +1482,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -1507,7 +1510,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the slack action to be updated")
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.SlackProperties = updatedAction.Spec.SlackProperties
 				return k8sClient.Update(ctx, fetchedAction)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
@@ -1579,7 +1582,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -1603,7 +1606,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the victor ops action to be updated")
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.VictorOpsProperties = updatedAction.Spec.VictorOpsProperties
 				return k8sClient.Update(ctx, fetchedAction)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
@@ -1674,7 +1677,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -1698,7 +1701,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the web hook action to be updated")
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.WebhookProperties = updatedWebhookActionProperties
 				return k8sClient.Update(ctx, fetchedAction)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
@@ -1766,7 +1769,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateConfigError))
 
@@ -1816,7 +1819,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateConfigError))
 
@@ -1865,7 +1868,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			expectedSecretValue := "secret-token"
+			expectedSecretValue := expectedSecretValueExample
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "action-humio-repository-secret",
@@ -1881,7 +1884,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -1936,7 +1939,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			expectedSecretValue := "secret-token"
+			expectedSecretValue := expectedSecretValueExample
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "action-genie-secret",
@@ -1952,7 +1955,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2005,7 +2008,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2076,7 +2079,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2129,7 +2132,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2187,7 +2190,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			expectedSecretValue := "secret-token"
+			expectedSecretValue := expectedSecretValueExample
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "action-slack-post-secret",
@@ -2203,7 +2206,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2258,7 +2261,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2331,7 +2334,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2386,7 +2389,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2457,7 +2460,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2510,7 +2513,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2564,7 +2567,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2636,7 +2639,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2695,7 +2698,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2793,7 +2796,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2891,7 +2894,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAction)
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -2940,7 +2943,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:               "example-email-action",
 				ViewName:           testRepo.Spec.Name,
 				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
-					Recipients: []string{EmailActionExample},
+					Recipients: []string{emailActionExample},
 				},
 			}
 
@@ -2962,7 +2965,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, actionKey, fetchedAction)
+				_ = k8sClient.Get(ctx, actionKey, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -3000,7 +3003,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAlert := &humiov1alpha1.HumioAlert{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAlert)
+				_ = k8sClient.Get(ctx, key, fetchedAlert)
 				return fetchedAlert.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
 
@@ -3148,7 +3151,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:               "example-email-action4",
 				ViewName:           testRepo.Spec.Name,
 				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
-					Recipients: []string{EmailActionExample},
+					Recipients: []string{emailActionExample},
 				},
 			}
 
@@ -3170,7 +3173,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, actionKey, fetchedAction)
+				_ = k8sClient.Get(ctx, actionKey, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -3205,7 +3208,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedFilterAlert := &humiov1alpha1.HumioFilterAlert{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedFilterAlert)
+				_ = k8sClient.Get(ctx, key, fetchedFilterAlert)
 				return fetchedFilterAlert.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFilterAlertStateExists))
 
@@ -3376,7 +3379,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:               "example-email-action3",
 				ViewName:           testRepo.Spec.Name,
 				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
-					Recipients: []string{EmailActionExample},
+					Recipients: []string{emailActionExample},
 				},
 			}
 
@@ -3398,7 +3401,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, actionKey, fetchedAction)
+				_ = k8sClient.Get(ctx, actionKey, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -3436,7 +3439,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAggregateAlert := &humiov1alpha1.HumioAggregateAlert{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedAggregateAlert)
+				_ = k8sClient.Get(ctx, key, fetchedAggregateAlert)
 				return fetchedAggregateAlert.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAggregateAlertStateExists))
 
@@ -3493,7 +3496,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Actions:               humioapi.GetActionNames(aggregateAlert.GetActions()),
 				Labels:                aggregateAlert.Labels,
 			}
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(createdAggregateAlert.Spec).To(Equal(toCreateAggregateAlert.Spec))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Updating the aggregate alert successfully")
@@ -3612,7 +3615,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:               "example-email-action2",
 				ViewName:           testRepo.Spec.Name,
 				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
-					Recipients: []string{EmailActionExample},
+					Recipients: []string{emailActionExample},
 				},
 			}
 
@@ -3634,7 +3637,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedAction := &humiov1alpha1.HumioAction{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, actionKey, fetchedAction)
+				_ = k8sClient.Get(ctx, actionKey, fetchedAction)
 				return fetchedAction.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
@@ -3672,7 +3675,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			fetchedScheduledSearch := &humiov1alpha1.HumioScheduledSearch{}
 			Eventually(func() string {
-				k8sClient.Get(ctx, key, fetchedScheduledSearch)
+				_ = k8sClient.Get(ctx, key, fetchedScheduledSearch)
 				return fetchedScheduledSearch.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioScheduledSearchStateExists))
 
@@ -3734,7 +3737,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Waiting for the scheduled search to be updated")
 			Eventually(func() error {
-				k8sClient.Get(ctx, key, fetchedScheduledSearch)
+				_ = k8sClient.Get(ctx, key, fetchedScheduledSearch)
 				fetchedScheduledSearch.Spec.QueryString = updatedScheduledSearch.Spec.QueryString
 				fetchedScheduledSearch.Spec.QueryStart = updatedScheduledSearch.Spec.QueryStart
 				fetchedScheduledSearch.Spec.QueryEnd = updatedScheduledSearch.Spec.QueryEnd

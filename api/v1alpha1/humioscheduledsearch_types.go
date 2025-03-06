@@ -41,17 +41,17 @@ type HumioScheduledSearchSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the scheduled search inside Humio
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the scheduled search will be managed. This can also be a Repository
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	ViewName string `json:"viewName"`
 	// QueryString defines the desired Humio query string
 	QueryString string `json:"queryString"`
 	// Description is the description of the scheduled search
-	//+optional
+	// +optional
 	Description string `json:"description,omitempty"`
 	// QueryStart is the start of the relative time interval for the query.
 	QueryStart string `json:"queryStart"`
@@ -64,7 +64,7 @@ type HumioScheduledSearchSpec struct {
 	// BackfillLimit is the user-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown.
 	BackfillLimit int `json:"backfillLimit"`
 	// Enabled will set the ScheduledSearch to enabled when set to true
-	//+kubebuilder:default=false
+	// +kubebuilder:default=false
 	Enabled bool `json:"enabled,omitempty"`
 	// Actions is the list of Humio Actions by name that will be triggered by this scheduled search
 	Actions []string `json:"actions"`

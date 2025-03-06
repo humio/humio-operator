@@ -41,28 +41,28 @@ type HumioFilterAlertSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the filter alert inside Humio
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the filter alert will be managed. This can also be a Repository
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	ViewName string `json:"viewName"`
 	// QueryString defines the desired Humio query string
 	QueryString string `json:"queryString"`
 	// Description is the description of the filter alert
-	//+optional
+	// +optional
 	Description string `json:"description,omitempty"`
 	// ThrottleTimeSeconds is the throttle time in seconds. A filter alert is triggered at most once per the throttle time
-	//+kubebuilder:validation:Minimum=60
-	//+required
+	// +kubebuilder:validation:Minimum=60
+	// +required
 	ThrottleTimeSeconds int `json:"throttleTimeSeconds,omitempty"`
 	// ThrottleField is the field on which to throttle
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	ThrottleField *string `json:"throttleField,omitempty"`
 	// Enabled will set the FilterAlert to enabled when set to true
-	//+kubebuilder:default=false
+	// +kubebuilder:default=false
 	Enabled bool `json:"enabled,omitempty"`
 	// Actions is the list of Humio Actions by name that will be triggered by this filter alert
 	Actions []string `json:"actions"`

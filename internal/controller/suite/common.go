@@ -44,7 +44,7 @@ const TestInterval = time.Second * 1
 
 func UsingClusterBy(cluster, text string, callbacks ...func()) {
 	timestamp := time.Now().Format(time.RFC3339Nano)
-	fmt.Fprintln(GinkgoWriter, "STEP | "+timestamp+" | "+cluster+": "+text)
+	_, _ = fmt.Fprintln(GinkgoWriter, "STEP | "+timestamp+" | "+cluster+": "+text)
 	if len(callbacks) == 1 {
 		callbacks[0]()
 	}
@@ -266,7 +266,7 @@ func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alph
 				},
 				VolumeMounts: []corev1.VolumeMount{
 					{
-						Name:      "humio-data",
+						Name:      controller.HumioDataVolumeName,
 						MountPath: "/mnt",
 						ReadOnly:  true,
 					},
@@ -341,6 +341,7 @@ func CreateLicenseSecret(ctx context.Context, clusterKey types.NamespacedName, k
 	Expect(k8sClient.Create(ctx, &licenseSecret)).To(Succeed())
 }
 
+// nolint:gocyclo
 func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, humioClient humio.Client, cluster *humiov1alpha1.HumioCluster, autoCreateLicense bool, expectedState string, testTimeout time.Duration) {
 	key := types.NamespacedName{
 		Namespace: cluster.Namespace,
@@ -457,7 +458,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	humioContainerArgs := strings.Join(clusterPods[0].Spec.Containers[humioIdx].Args, " ")
 	if cluster.Spec.DisableInitContainer {
 		UsingClusterBy(key.Name, "Confirming pods do not use init container")
-		Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(0))
+		Expect(clusterPods[0].Spec.InitContainers).To(BeEmpty())
 		Expect(humioContainerArgs).ToNot(ContainSubstring("export ZONE="))
 	} else {
 		UsingClusterBy(key.Name, "Confirming pods have an init container")
@@ -472,7 +473,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		humioContainerArgs := strings.Join(clusterPods[0].Spec.Containers[humioIdx].Args, " ")
 		if cluster.Spec.DisableInitContainer {
 			UsingClusterBy(key.Name, "Confirming pods do not use init container")
-			Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(0))
+			Expect(clusterPods[0].Spec.InitContainers).To(BeEmpty())
 			Expect(humioContainerArgs).ToNot(ContainSubstring("export ZONE="))
 		} else {
 			UsingClusterBy(key.Name, "Confirming pods have an init container")
@@ -524,7 +525,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		if updatedHumioCluster.Spec.DisableInitContainer {
 			Eventually(func() []string {
 				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true, false)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(clusterConfig).ToNot(BeNil())
 				Expect(clusterConfig.Config()).ToNot(BeNil())
 
@@ -553,7 +554,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		} else {
 			Eventually(func() []string {
 				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true, false)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(clusterConfig).ToNot(BeNil())
 				Expect(clusterConfig.Config()).ToNot(BeNil())
 
