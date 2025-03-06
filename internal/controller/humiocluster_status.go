@@ -117,16 +117,18 @@ func (o *optionBuilder) withNodePoolState(state string, nodePoolName string, pod
 }
 
 func (o *optionBuilder) withNodePoolStatusList(humioNodePoolStatusList humiov1alpha1.HumioNodePoolStatusList) *optionBuilder {
-	var statesList []stateOption
+	statesList := make([]stateOption, len(humioNodePoolStatusList))
+	idx := 0
 	for _, poolStatus := range humioNodePoolStatusList {
-		statesList = append(statesList, stateOption{
+		statesList[idx] = stateOption{
 			nodePoolName:              poolStatus.Name,
 			state:                     poolStatus.State,
 			zoneUnderMaintenance:      poolStatus.ZoneUnderMaintenance,
 			desiredPodRevision:        poolStatus.DesiredPodRevision,
 			desiredPodHash:            poolStatus.DesiredPodHash,
 			desiredBootstrapTokenHash: poolStatus.DesiredBootstrapTokenHash,
-		})
+		}
+		idx++
 	}
 	o.options = append(o.options, stateOptionList{
 		statesList: statesList,

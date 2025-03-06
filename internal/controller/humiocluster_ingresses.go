@@ -26,6 +26,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	nginxProxyBodySizeValue = "512m"
+	nginxProxyHttpVersion   = "1.1"
+)
+
 func constructNginxIngressAnnotations(hc *humiov1alpha1.HumioCluster, hostname string, ingressSpecificAnnotations map[string]string) map[string]string {
 	annotations := make(map[string]string)
 	annotations["nginx.ingress.kubernetes.io/configuration-snippet"] = `
@@ -39,11 +44,11 @@ more_set_headers "X-XSS-Protection: 1; mode=block";`
 	annotations["nginx.ingress.kubernetes.io/cors-allow-headers"] = "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
 	annotations["nginx.ingress.kubernetes.io/cors-allow-methods"] = "GET, PUT, POST, DELETE, PATCH, OPTIONS"
 	annotations["nginx.ingress.kubernetes.io/cors-allow-origin"] = fmt.Sprintf("https://%s", hostname)
-	annotations["nginx.ingress.kubernetes.io/enable-cors"] = "true"
+	annotations["nginx.ingress.kubernetes.io/enable-cors"] = helpers.TrueStr
 	annotations["nginx.ingress.kubernetes.io/upstream-vhost"] = hostname
 
 	if ingressTLSOrDefault(hc) {
-		annotations["nginx.ingress.kubernetes.io/force-ssl-redirect"] = "true"
+		annotations["nginx.ingress.kubernetes.io/force-ssl-redirect"] = helpers.TrueStr
 	}
 
 	if helpers.TLSEnabled(hc) {
@@ -62,8 +67,8 @@ more_set_headers "X-XSS-Protection: 1; mode=block";`
 
 func ConstructGeneralIngress(hc *humiov1alpha1.HumioCluster, hostname string) *networkingv1.Ingress {
 	annotations := make(map[string]string)
-	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = "512m"
-	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = "1.1"
+	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = nginxProxyBodySizeValue
+	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = nginxProxyHttpVersion
 	annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] = "25"
 	return constructIngress(
 		hc,
@@ -78,10 +83,10 @@ func ConstructGeneralIngress(hc *humiov1alpha1.HumioCluster, hostname string) *n
 
 func ConstructStreamingQueryIngress(hc *humiov1alpha1.HumioCluster, hostname string) *networkingv1.Ingress {
 	annotations := make(map[string]string)
-	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = "512m"
-	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = "1.1"
+	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = nginxProxyBodySizeValue
+	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = nginxProxyHttpVersion
 	annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] = "4h"
-	annotations["nginx.ingress.kubernetes.io/use-regex"] = "true"
+	annotations["nginx.ingress.kubernetes.io/use-regex"] = helpers.TrueStr
 	annotations["nginx.ingress.kubernetes.io/proxy-buffering"] = "off"
 	return constructIngress(
 		hc,
@@ -96,10 +101,10 @@ func ConstructStreamingQueryIngress(hc *humiov1alpha1.HumioCluster, hostname str
 
 func ConstructIngestIngress(hc *humiov1alpha1.HumioCluster, hostname string) *networkingv1.Ingress {
 	annotations := make(map[string]string)
-	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = "512m"
-	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = "1.1"
+	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = nginxProxyBodySizeValue
+	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = nginxProxyHttpVersion
 	annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] = "90"
-	annotations["nginx.ingress.kubernetes.io/use-regex"] = "true"
+	annotations["nginx.ingress.kubernetes.io/use-regex"] = helpers.TrueStr
 	return constructIngress(
 		hc,
 		fmt.Sprintf("%s-ingest", hc.Name),
@@ -118,25 +123,26 @@ func ConstructIngestIngress(hc *humiov1alpha1.HumioCluster, hostname string) *ne
 
 func ConstructESIngestIngress(hc *humiov1alpha1.HumioCluster, esHostname string) *networkingv1.Ingress {
 	annotations := make(map[string]string)
-	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = "512m"
-	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = "1.1"
+	annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = nginxProxyBodySizeValue
+	annotations["nginx.ingress.kubernetes.io/proxy-http-version"] = nginxProxyHttpVersion
 	annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] = "90"
 	return constructIngress(
 		hc,
 		fmt.Sprintf("%s-es-ingest", hc.Name),
 		esHostname,
 		[]string{humioPathOrDefault(hc)},
-		elasticPort,
+		ElasticPort,
 		esCertificateSecretNameOrDefault(hc),
 		constructNginxIngressAnnotations(hc, esHostname, annotations),
 	)
 }
 
 func constructIngress(hc *humiov1alpha1.HumioCluster, name string, hostname string, paths []string, port int32, secretName string, annotations map[string]string) *networkingv1.Ingress {
-	var httpIngressPaths []networkingv1.HTTPIngressPath
+	httpIngressPaths := make([]networkingv1.HTTPIngressPath, len(paths))
 	pathTypeImplementationSpecific := networkingv1.PathTypeImplementationSpecific
+	idx := 0
 	for _, path := range paths {
-		httpIngressPaths = append(httpIngressPaths, networkingv1.HTTPIngressPath{
+		httpIngressPaths[idx] = networkingv1.HTTPIngressPath{
 			Path:     path,
 			PathType: &pathTypeImplementationSpecific,
 			Backend: networkingv1.IngressBackend{
@@ -147,7 +153,8 @@ func constructIngress(hc *humiov1alpha1.HumioCluster, name string, hostname stri
 					},
 				},
 			},
-		})
+		}
+		idx++
 	}
 	ingress := networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
