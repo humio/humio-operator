@@ -31,16 +31,22 @@ const (
 	HumioRepositoryStateConfigError = "ConfigError"
 )
 
-// HumioRetention defines the retention for the repository
+// HumioRetention defines the retention for the repository. If more than one of the options are set up, it will cause
+// LogScale to remove data as it hits any one of the size/time retention settings.
 type HumioRetention struct {
+	// IngestSizeInGB sets the retention size in gigabytes measured at the time of ingest, so that would be the
+	// uncompressed size of the data.
 	// perhaps we should migrate to resource.Quantity? the Humio API needs float64, but that is not supported here, see more here:
 	// https://github.com/kubernetes-sigs/controller-tools/issues/245
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	IngestSizeInGB *int32 `json:"ingestSizeInGB,omitempty"`
+	// StorageSizeInGB sets the retention size in gigabytes measured as disk usage. In order words, this is the
+	// compressed size.
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	StorageSizeInGB *int32 `json:"storageSizeInGB,omitempty"`
+	// TimeInDays sets the data retention measured in days.
 	// +kubebuilder:validation:Minimum=1
 	// +optional
 	TimeInDays *int32 `json:"timeInDays,omitempty"`

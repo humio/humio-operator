@@ -4,54 +4,56 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 )
 
 func main() {
-	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		_, err := fmt.Fprintf(w, "\n")
-		fmt.Printf("got err=%v", err)
+	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := fmt.Fprintf(w, "\n"); err != nil {
+			fmt.Printf("got err=%v", err)
+		}
 	})
 
-	humioPort := os.Getenv("HUMIO_PORT")
+	humioPort := getEnvOrDefault("HUMIO_PORT", "8080")
 	esPort := os.Getenv("ELASTIC_PORT")
-	_, tlsEnabled := os.LookupEnv("TLS_KEYSTORE_LOCATION")
+	tlsEnabled := os.Getenv("TLS_KEYSTORE_LOCATION") != ""
 
-	if humioPort != "" {
-		humioPort = "8080"
+	startServers(humioPort, esPort, tlsEnabled)
+}
+
+func startServers(humioPort, esPort string, tlsEnabled bool) {
+	if esPort != "" {
+		go startServer(esPort, tlsEnabled)
+	}
+	startServer(humioPort, tlsEnabled)
+}
+
+func startServer(port string, tlsEnabled bool) {
+	server := &http.Server{
+		Addr:              fmt.Sprintf(":%s", port),
+		ReadTimeout:       15 * time.Second,
+		ReadHeaderTimeout: 15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
+	var err error
 	if tlsEnabled {
 		fmt.Println("HTTPS")
-		runHTTPS(humioPort, esPort)
+		err = server.ListenAndServeTLS("cert.pem", "key.pem")
 	} else {
 		fmt.Println("HTTP")
-		runHTTP(humioPort, esPort)
+		err = server.ListenAndServe()
 	}
-}
 
-func runHTTPS(humioPort, esPort string) {
-	if esPort != "" {
-		go func() {
-			err := http.ListenAndServeTLS(fmt.Sprintf(":%s", esPort), "cert.pem", "key.pem", nil)
-			fmt.Printf("got err=%v", err)
-		}()
-	}
-	err := http.ListenAndServeTLS(fmt.Sprintf(":%s", humioPort), "cert.pem", "key.pem", nil)
 	if err != nil {
 		fmt.Printf("got err=%v", err)
 	}
 }
 
-func runHTTP(humioPort, esPort string) {
-	if esPort != "" {
-		go func() {
-			err := http.ListenAndServe(fmt.Sprintf(":%s", esPort), nil)
-			fmt.Printf("got err=%v", err)
-		}()
-
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
 	}
-	err := http.ListenAndServe(fmt.Sprintf(":%s", humioPort), nil)
-	if err != nil {
-		fmt.Printf("got err=%v", err)
-	}
+	return defaultValue
 }

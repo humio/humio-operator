@@ -32,6 +32,7 @@ const (
 	HumioViewStateConfigError = "ConfigError"
 )
 
+// HumioViewConnection represents a connection to a specific repository with an optional filter
 type HumioViewConnection struct {
 	// RepositoryName contains the name of the target repository
 	// +kubebuilder:validation:MinLength=1
@@ -97,6 +98,8 @@ func init() {
 	SchemeBuilder.Register(&HumioView{}, &HumioViewList{})
 }
 
+// GetViewConnections returns the HumioView in the same format as we can fetch from GraphQL so that we can compare
+// the custom resource HumioView with humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection.
 func (hv *HumioView) GetViewConnections() []humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection {
 	viewConnections := make([]humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection, 0)
 	for _, connection := range hv.Spec.Connections {

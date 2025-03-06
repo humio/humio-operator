@@ -84,16 +84,22 @@ spec:
                 properties:
                   ingestSizeInGB:
                     description: |-
+                      IngestSizeInGB sets the retention size in gigabytes measured at the time of ingest, so that would be the
+                      uncompressed size of the data.
                       perhaps we should migrate to resource.Quantity? the Humio API needs float64, but that is not supported here, see more here:
                       https://github.com/kubernetes-sigs/controller-tools/issues/245
                     format: int32
                     minimum: 0
                     type: integer
                   storageSizeInGB:
+                    description: |-
+                      StorageSizeInGB sets the retention size in gigabytes measured as disk usage. In order words, this is the
+                      compressed size.
                     format: int32
                     minimum: 0
                     type: integer
                   timeInDays:
+                    description: TimeInDays sets the data retention measured in days.
                     format: int32
                     minimum: 1
                     type: integer

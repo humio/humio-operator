@@ -88,7 +88,8 @@ spec:
                   for a query
                 type: string
               searchIntervalSeconds:
-                description: Search Interval time in seconds
+                description: SearchIntervalSeconds specifies the search interval (in
+                  seconds) to use when running the query
                 type: integer
               throttleField:
                 description: ThrottleField is the field on which to throttle
@@ -98,7 +99,8 @@ spec:
                   An aggregate alert is triggered at most once per the throttle time
                 type: integer
               triggerMode:
-                description: Aggregate Alert trigger mode
+                description: TriggerMode specifies which trigger mode to use when
+                  configuring the aggregate alert
                 type: string
               viewName:
                 description: ViewName is the name of the Humio View under which the

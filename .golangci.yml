@@ -16,6 +16,7 @@ issues:
       linters:
         - dupl
         - lll
+        - revive
 linters:
   disable-all: true
   enable:
@@ -27,6 +28,7 @@ linters:
     - gocyclo
     - gofmt
     - goimports
+    - gosec
     - gosimple
     - govet
     - ineffassign
@@ -40,8 +42,8 @@ linters:
     - unconvert
     - unparam
     - unused
-
 linters-settings:
   revive:
     rules:
       - name: comment-spacings
+      - name: exported
