@@ -216,28 +216,29 @@ EmailProperties indicates this is an Email Action, and contains the correspondin
         <td><b>recipients</b></td>
         <td>[]string</td>
         <td>
-          <br/>
+          Recipients holds the list of email addresses that the action should send emails to.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>bodyTemplate</b></td>
         <td>string</td>
         <td>
-          <br/>
+          BodyTemplate holds the email body template<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>subjectTemplate</b></td>
         <td>string</td>
         <td>
-          <br/>
+          SubjectTemplate holds the email subject template<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>useProxy</b></td>
         <td>boolean</td>
         <td>
-          <br/>
+          UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
+see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -375,7 +376,7 @@ OpsGenieProperties indicates this is a Ops Genie Action, and contains the corres
         <td><b>apiUrl</b></td>
         <td>string</td>
         <td>
-          <br/>
+          ApiUrl holds the API URL the action should use when calling OpsGenie<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -398,7 +399,8 @@ If both GenieKey and GenieKeySource are specified, GenieKey will be used.<br/>
         <td><b>useProxy</b></td>
         <td>boolean</td>
         <td>
-          <br/>
+          UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
+see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -516,14 +518,15 @@ If both RoutingKey and RoutingKeySource are specified, RoutingKey will be used.<
         <td><b>severity</b></td>
         <td>string</td>
         <td>
-          <br/>
+          Severity defines which severity is used in the request to PagerDuty<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>useProxy</b></td>
         <td>boolean</td>
         <td>
-          <br/>
+          UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
+see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -641,14 +644,14 @@ If both ApiToken and ApiTokenSource are specified, ApiToken will be used.<br/>
         <td><b>channels</b></td>
         <td>[]string</td>
         <td>
-          <br/>
+          Channels holds the list of Slack channels that the action should post to.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>fields</b></td>
         <td>map[string]string</td>
         <td>
-          <br/>
+          Fields holds a key-value map of additional fields to attach to the payload sent to Slack.<br/>
           <br/>
             <i>Default</i>: map[]<br/>
         </td>
@@ -657,7 +660,8 @@ If both ApiToken and ApiTokenSource are specified, ApiToken will be used.<br/>
         <td><b>useProxy</b></td>
         <td>boolean</td>
         <td>
-          <br/>
+          UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
+see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html<br/>
           <br/>
             <i>Default</i>: false<br/>
         </td>
@@ -761,7 +765,7 @@ SlackProperties indicates this is a Slack Action, and contains the corresponding
         <td><b>fields</b></td>
         <td>map[string]string</td>
         <td>
-          <br/>
+          Fields holds a key-value map of additional fields to attach to the payload sent to Slack.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -784,7 +788,10 @@ If both Url and UrlSource are specified, Url will be used.<br/>
         <td><b>useProxy</b></td>
         <td>boolean</td>
         <td>
+          UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
+see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html<br/>
           <br/>
+            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -894,7 +901,7 @@ If both NotifyUrl and NotifyUrlSource are specified, NotifyUrl will be used.<br/
         <td><b>messageType</b></td>
         <td>string</td>
         <td>
-          <br/>
+          MessageType contains the VictorOps message type to use when the action calls VictorOps<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -909,7 +916,8 @@ If both NotifyUrl and NotifyUrlSource are specified, NotifyUrl will be used.<br/
         <td><b>useProxy</b></td>
         <td>boolean</td>
         <td>
-          <br/>
+          UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
+see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1011,7 +1019,7 @@ WebhookProperties indicates this is a Webhook Action, and contains the correspon
         <td><b>bodyTemplate</b></td>
         <td>string</td>
         <td>
-          <br/>
+          BodyTemplate holds the webhook body template<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1026,14 +1034,14 @@ If both Headers and SecretHeaders are specified, they will be merged together.<b
         <td><b>ignoreSSL</b></td>
         <td>boolean</td>
         <td>
-          <br/>
+          IgnoreSSL configures the action so that skips TLS certificate verification<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>method</b></td>
         <td>string</td>
         <td>
-          <br/>
+          Method holds the HTTP method that the action will use<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1066,7 +1074,8 @@ If both Url and UrlSource are specified, Url will be used.<br/>
         <td><b>useProxy</b></td>
         <td>boolean</td>
         <td>
-          <br/>
+          UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
+see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1431,7 +1440,7 @@ This conflicts with ExternalClusterName.<br/>
         <td><b>searchIntervalSeconds</b></td>
         <td>integer</td>
         <td>
-          Search Interval time in seconds<br/>
+          SearchIntervalSeconds specifies the search interval (in seconds) to use when running the query<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1452,7 +1461,7 @@ This conflicts with ExternalClusterName.<br/>
         <td><b>triggerMode</b></td>
         <td>string</td>
         <td>
-          Aggregate Alert trigger mode<br/>
+          TriggerMode specifies which trigger mode to use when configuring the aggregate alert<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3774,7 +3783,7 @@ HumioBootstrapTokenStatus defines the observed state of HumioBootstrapToken.
         <td><b><a href="#humiobootstraptokenstatushashedtokensecretstatus">hashedTokenSecretStatus</a></b></td>
         <td>object</td>
         <td>
-          HashedTokenSecret is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
+          HashedTokenSecretKeyRef is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
 in the spec or automatically created<br/>
         </td>
         <td>false</td>
@@ -3802,7 +3811,7 @@ in the spec or automatically created<br/>
 
 
 
-HashedTokenSecret is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
+HashedTokenSecretKeyRef is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
 in the spec or automatically created
 
 <table>
@@ -4038,7 +4047,8 @@ HumioClusterSpec defines the desired state of HumioCluster.
         <td><b>authServiceAccountName</b></td>
         <td>string</td>
         <td>
-          *Deprecated: AuthServiceAccountName is no longer used as the auth sidecar container has been removed.*<br/>
+          AuthServiceAccountName is no longer used as the auth sidecar container has been removed.
+Deprecated: No longer used. The value will be ignored.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4233,7 +4243,7 @@ the Humio pods.<br/>
         <td><b>humioHeadlessServiceAnnotations</b></td>
         <td>map[string]string</td>
         <td>
-          HumioHeadlessAnnotations is the set of annotations added to the Kubernetes Headless Service that is used for
+          HumioHeadlessServiceAnnotations is the set of annotations added to the Kubernetes Headless Service that is used for
 traffic between Humio pods<br/>
         </td>
         <td>false</td>
@@ -4356,7 +4366,7 @@ The value from ImageSource takes precedence over Image.<br/>
         <td><b><a href="#humioclusterspecnodepoolfeatures">nodePoolFeatures</a></b></td>
         <td>object</td>
         <td>
-          HumioNodePoolFeatures defines the features that are allowed by the node pool<br/>
+          NodePoolFeatures defines the features that are allowed by the node pool<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4538,7 +4548,7 @@ License is the kubernetes secret reference which contains the Humio license
         <td><b><a href="#humioclusterspeclicensesecretkeyref">secretKeyRef</a></b></td>
         <td>object</td>
         <td>
-          SecretKeySelector selects a key of a Secret.<br/>
+          SecretKeyRef specifies which key of a secret in the namespace of the HumioCluster that holds the LogScale license key<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -4550,7 +4560,7 @@ License is the kubernetes secret reference which contains the Humio license
 
 
 
-SecretKeySelector selects a key of a Secret.
+SecretKeyRef specifies which key of a secret in the namespace of the HumioCluster that holds the LogScale license key
 
 <table>
     <thead>
@@ -7862,7 +7872,11 @@ DataVolumePersistentVolumeClaimPolicy is a policy which allows persistent volume
         <td><b>reclaimType</b></td>
         <td>enum</td>
         <td>
-          HumioPersistentVolumeReclaimType is the type of reclaim which will occur on a persistent volume<br/>
+          ReclaimType is used to indicate what reclaim type should be used. This e.g. allows the user to specify if the
+operator should automatically delete persistent volume claims if they are bound to Kubernetes worker nodes
+that no longer exists. This can be useful in scenarios where PVC's represent a type of storage where the
+lifecycle of the storage follows the one of the Kubernetes worker node.
+When using persistent volume claims relying on network attached storage, this can be ignored.<br/>
           <br/>
             <i>Enum</i>: None, OnNodeDelete<br/>
         </td>
@@ -16499,7 +16513,7 @@ to be set: spec.hostname, spec.hostnameSource, spec.esHostname or spec.esHostnam
 
 
 
-HumioNodePoolFeatures defines the features that are allowed by the node pool
+NodePoolFeatures defines the features that are allowed by the node pool
 
 <table>
     <thead>
@@ -16527,7 +16541,7 @@ OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request ty
 
 
 
-
+HumioNodePoolSpec is used to attach a name to an instance of HumioNodeSpec
 
 <table>
     <thead>
@@ -16542,14 +16556,15 @@ OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request ty
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          <br/>
+          Name holds a name for this specific group of cluster pods. This name is used when constructing pod names, so it
+is useful to use a name that reflects what the pods are configured to do.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#humioclusterspecnodepoolsindexspec">spec</a></b></td>
         <td>object</td>
         <td>
-          <br/>
+          HumioNodeSpec contains a collection of various configurations that are specific to a given group of LogScale pods.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -16561,7 +16576,7 @@ OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request ty
 
 
 
-
+HumioNodeSpec contains a collection of various configurations that are specific to a given group of LogScale pods.
 
 <table>
     <thead>
@@ -16583,7 +16598,8 @@ OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request ty
         <td><b>authServiceAccountName</b></td>
         <td>string</td>
         <td>
-          *Deprecated: AuthServiceAccountName is no longer used as the auth sidecar container has been removed.*<br/>
+          AuthServiceAccountName is no longer used as the auth sidecar container has been removed.
+Deprecated: No longer used. The value will be ignored.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16810,7 +16826,7 @@ The value from ImageSource takes precedence over Image.<br/>
         <td><b><a href="#humioclusterspecnodepoolsindexspecnodepoolfeatures">nodePoolFeatures</a></b></td>
         <td>object</td>
         <td>
-          HumioNodePoolFeatures defines the features that are allowed by the node pool<br/>
+          NodePoolFeatures defines the features that are allowed by the node pool<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -19921,7 +19937,11 @@ DataVolumePersistentVolumeClaimPolicy is a policy which allows persistent volume
         <td><b>reclaimType</b></td>
         <td>enum</td>
         <td>
-          HumioPersistentVolumeReclaimType is the type of reclaim which will occur on a persistent volume<br/>
+          ReclaimType is used to indicate what reclaim type should be used. This e.g. allows the user to specify if the
+operator should automatically delete persistent volume claims if they are bound to Kubernetes worker nodes
+that no longer exists. This can be useful in scenarios where PVC's represent a type of storage where the
+lifecycle of the storage follows the one of the Kubernetes worker node.
+When using persistent volume claims relying on network attached storage, this can be ignored.<br/>
           <br/>
             <i>Enum</i>: None, OnNodeDelete<br/>
         </td>
@@ -28313,7 +28333,7 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 
 
 
-HumioNodePoolFeatures defines the features that are allowed by the node pool
+NodePoolFeatures defines the features that are allowed by the node pool
 
 <table>
     <thead>
@@ -36174,14 +36194,14 @@ LicenseStatus shows the status of the Humio license attached to the cluster
         <td><b>expiration</b></td>
         <td>string</td>
         <td>
-          <br/>
+          Expiration contains the timestamp of when the currently installed license expires.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          <br/>
+          Type holds the type of license that is currently installed on the HumioCluster<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -36278,21 +36298,21 @@ Deprecated: No longer being used.<br/>
         <td><b>nodeName</b></td>
         <td>string</td>
         <td>
-          <br/>
+          NodeName is the name of the Kubernetes worker node where this pod is currently running<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>podName</b></td>
         <td>string</td>
         <td>
-          <br/>
+          PodName holds the name of the pod that this is the status for.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>pvcName</b></td>
         <td>string</td>
         <td>
-          <br/>
+          PvcName is the name of the persistent volume claim that is mounted in to the pod<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -37082,7 +37102,9 @@ Retention defines the retention settings for the repository
         <td><b>ingestSizeInGB</b></td>
         <td>integer</td>
         <td>
-          perhaps we should migrate to resource.Quantity? the Humio API needs float64, but that is not supported here, see more here:
+          IngestSizeInGB sets the retention size in gigabytes measured at the time of ingest, so that would be the
+uncompressed size of the data.
+perhaps we should migrate to resource.Quantity? the Humio API needs float64, but that is not supported here, see more here:
 https://github.com/kubernetes-sigs/controller-tools/issues/245<br/>
           <br/>
             <i>Format</i>: int32<br/>
@@ -37093,7 +37115,8 @@ https://github.com/kubernetes-sigs/controller-tools/issues/245<br/>
         <td><b>storageSizeInGB</b></td>
         <td>integer</td>
         <td>
-          <br/>
+          StorageSizeInGB sets the retention size in gigabytes measured as disk usage. In order words, this is the
+compressed size.<br/>
           <br/>
             <i>Format</i>: int32<br/>
             <i>Minimum</i>: 0<br/>
@@ -37103,7 +37126,7 @@ https://github.com/kubernetes-sigs/controller-tools/issues/245<br/>
         <td><b>timeInDays</b></td>
         <td>integer</td>
         <td>
-          <br/>
+          TimeInDays sets the data retention measured in days.<br/>
           <br/>
             <i>Format</i>: int32<br/>
             <i>Minimum</i>: 1<br/>
@@ -37466,7 +37489,7 @@ This conflicts with ExternalClusterName.<br/>
 
 
 
-
+HumioViewConnection represents a connection to a specific repository with an optional filter
 
 <table>
     <thead>

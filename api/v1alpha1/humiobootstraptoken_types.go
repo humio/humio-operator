@@ -54,11 +54,13 @@ type HumioBootstrapTokenSpec struct {
 	HashedTokenSecret HumioHashedTokenSecretSpec `json:"hashedTokenSecret,omitempty"`
 }
 
+// HumioTokenSecretSpec defines where the plaintext bootstrap token is stored.
 type HumioTokenSecretSpec struct {
 	// SecretKeyRef is the secret key reference to a kubernetes secret containing the bootstrap token secret
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
+// HumioHashedTokenSecretSpec defines where he hashed bootstrap token is stored.
 type HumioHashedTokenSecretSpec struct {
 	// SecretKeyRef is the secret key reference to a kubernetes secret containing the bootstrap hashed token secret
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
@@ -71,7 +73,7 @@ type HumioBootstrapTokenStatus struct {
 	// TokenSecretKeyRef contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
 	// in the spec or automatically created
 	TokenSecretKeyRef HumioTokenSecretStatus `json:"tokenSecretStatus,omitempty"`
-	// HashedTokenSecret is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
+	// HashedTokenSecretKeyRef is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
 	// in the spec or automatically created
 	HashedTokenSecretKeyRef HumioHashedTokenSecretStatus `json:"hashedTokenSecretStatus,omitempty"`
 }
@@ -84,7 +86,7 @@ type HumioTokenSecretStatus struct {
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
-// HumioTokenSecretStatus contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
+// HumioHashedTokenSecretStatus contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
 // in the spec or automatically created
 type HumioHashedTokenSecretStatus struct {
 	// SecretKeyRef is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
