@@ -1481,116 +1481,155 @@ func (r *HumioClusterReconciler) ensureInternalServiceExists(ctx context.Context
 
 // ensureNodePoolSpecificResourcesHaveLabelWithNodePoolName updates resources that were created prior to the introduction of node pools.
 // We need this because multiple resources now includes an additional label containing the name of the node pool a given resource belongs to.
-//
-// nolint:gocyclo
 func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNodePoolName(ctx context.Context, hnp *HumioNodePool) error {
-	allPods, err := kubernetes.ListPods(ctx, r.Client, hnp.GetNamespace(), hnp.GetCommonClusterLabels())
-	if err != nil {
-		return r.logErrorAndReturn(err, "unable to list pods")
-	}
-	for idx, pod := range allPods {
-		if _, found := pod.Labels[kubernetes.NodePoolLabelName]; !found {
-			allPods[idx].SetLabels(hnp.GetPodLabels())
-			err = r.Client.Update(ctx, &allPods[idx])
-			if err != nil {
-				return r.logErrorAndReturn(err, "unable to update pod")
-			}
-		}
+	if err := r.ensurePodsHaveNodePoolLabel(ctx, hnp); err != nil {
+		return err
 	}
 
 	if hnp.TLSEnabled() {
-		allNodeCertificates, err := kubernetes.ListCertificates(ctx, r.Client, hnp.GetNamespace(), hnp.GetCommonClusterLabels())
-		if err != nil {
+		if err := r.ensureCertificatesHaveNodePoolLabel(ctx, hnp); err != nil {
 			return err
-		}
-		for idx, cert := range allNodeCertificates {
-			if _, found := cert.Labels[kubernetes.NodePoolLabelName]; !found {
-				allNodeCertificates[idx].SetLabels(hnp.GetNodePoolLabels())
-				err = r.Client.Update(ctx, &allNodeCertificates[idx])
-				if err != nil {
-					return r.logErrorAndReturn(err, "unable to update node certificate")
-				}
-			}
 		}
 	}
 
 	if hnp.PVCsEnabled() {
-		allPVCs, err := kubernetes.ListPersistentVolumeClaims(ctx, r.Client, hnp.GetNamespace(), hnp.GetCommonClusterLabels())
-		if err != nil {
+		if err := r.ensurePVCsHaveNodePoolLabel(ctx, hnp); err != nil {
 			return err
-		}
-		for idx, pvc := range allPVCs {
-			if _, found := pvc.Labels[kubernetes.NodePoolLabelName]; !found {
-				allPVCs[idx].SetLabels(hnp.GetNodePoolLabels())
-				err = r.Client.Update(ctx, &allPVCs[idx])
-				if err != nil {
-					return r.logErrorAndReturn(err, "unable to update pvc")
-				}
-			}
 		}
 	}
 
 	if !hnp.HumioServiceAccountIsSetByUser() {
-		serviceAccount, err := kubernetes.GetServiceAccount(ctx, r.Client, hnp.GetHumioServiceAccountName(), hnp.GetNamespace())
-		if err == nil {
-			serviceAccount.SetLabels(hnp.GetNodePoolLabels())
-			err = r.Client.Update(ctx, serviceAccount)
-			if err != nil {
-				return r.logErrorAndReturn(err, "unable to update humio service account")
-			}
-		}
-		if err != nil {
-			if !k8serrors.IsNotFound(err) {
-				return r.logErrorAndReturn(err, "unable to get humio service account")
-			}
+		if err := r.ensureHumioServiceAccountHasNodePoolLabel(ctx, hnp); err != nil {
+			return err
 		}
 	}
 
 	if !hnp.InitServiceAccountIsSetByUser() {
-		serviceAccount, err := kubernetes.GetServiceAccount(ctx, r.Client, hnp.GetInitServiceAccountName(), hnp.GetNamespace())
-		if err == nil {
-			serviceAccount.SetLabels(hnp.GetNodePoolLabels())
-			err = r.Client.Update(ctx, serviceAccount)
-			if err != nil {
-				return r.logErrorAndReturn(err, "unable to update init service account")
-			}
-		}
-		if err != nil {
-			if !k8serrors.IsNotFound(err) {
-				return r.logErrorAndReturn(err, "unable to get init service account")
-			}
-		}
-
-		clusterRole, err := kubernetes.GetClusterRole(ctx, r.Client, hnp.GetInitClusterRoleName())
-		if err == nil {
-			clusterRole.SetLabels(hnp.GetNodePoolLabels())
-			err = r.Client.Update(ctx, clusterRole)
-			if err != nil {
-				return r.logErrorAndReturn(err, "unable to update init cluster role")
-			}
-		}
-		if err != nil {
-			if !k8serrors.IsNotFound(err) {
-				return r.logErrorAndReturn(err, "unable to get init cluster role")
-			}
-		}
-
-		clusterRoleBinding, err := kubernetes.GetClusterRoleBinding(ctx, r.Client, hnp.GetInitClusterRoleBindingName())
-		if err == nil {
-			clusterRoleBinding.SetLabels(hnp.GetNodePoolLabels())
-			err = r.Client.Update(ctx, clusterRoleBinding)
-			if err != nil {
-				return r.logErrorAndReturn(err, "unable to update init cluster role binding")
-			}
-		}
-		if err != nil {
-			if !k8serrors.IsNotFound(err) {
-				return r.logErrorAndReturn(err, "unable to get init cluster role binding")
-			}
+		if err := r.ensureInitServiceAccountResourcesHaveNodePoolLabel(ctx, hnp); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+func (r *HumioClusterReconciler) ensurePodsHaveNodePoolLabel(ctx context.Context, hnp *HumioNodePool) error {
+	allPods, err := kubernetes.ListPods(ctx, r.Client, hnp.GetNamespace(), hnp.GetCommonClusterLabels())
+	if err != nil {
+		return r.logErrorAndReturn(err, "unable to list pods")
+	}
+
+	for idx, pod := range allPods {
+		if _, found := pod.Labels[kubernetes.NodePoolLabelName]; !found {
+			allPods[idx].SetLabels(hnp.GetPodLabels())
+			if err := r.Client.Update(ctx, &allPods[idx]); err != nil {
+				return r.logErrorAndReturn(err, "unable to update pod")
+			}
+		}
+	}
+	return nil
+}
+
+func (r *HumioClusterReconciler) ensureCertificatesHaveNodePoolLabel(ctx context.Context, hnp *HumioNodePool) error {
+	allNodeCertificates, err := kubernetes.ListCertificates(ctx, r.Client, hnp.GetNamespace(), hnp.GetCommonClusterLabels())
+	if err != nil {
+		return err
+	}
+
+	for idx, cert := range allNodeCertificates {
+		if _, found := cert.Labels[kubernetes.NodePoolLabelName]; !found {
+			allNodeCertificates[idx].SetLabels(hnp.GetNodePoolLabels())
+			if err := r.Client.Update(ctx, &allNodeCertificates[idx]); err != nil {
+				return r.logErrorAndReturn(err, "unable to update node certificate")
+			}
+		}
+	}
+	return nil
+}
+
+func (r *HumioClusterReconciler) ensurePVCsHaveNodePoolLabel(ctx context.Context, hnp *HumioNodePool) error {
+	allPVCs, err := kubernetes.ListPersistentVolumeClaims(ctx, r.Client, hnp.GetNamespace(), hnp.GetCommonClusterLabels())
+	if err != nil {
+		return err
+	}
+
+	for idx, pvc := range allPVCs {
+		if _, found := pvc.Labels[kubernetes.NodePoolLabelName]; !found {
+			allPVCs[idx].SetLabels(hnp.GetNodePoolLabels())
+			if err := r.Client.Update(ctx, &allPVCs[idx]); err != nil {
+				return r.logErrorAndReturn(err, "unable to update pvc")
+			}
+		}
+	}
+	return nil
+}
+
+func (r *HumioClusterReconciler) ensureHumioServiceAccountHasNodePoolLabel(ctx context.Context, hnp *HumioNodePool) error {
+	serviceAccount, err := kubernetes.GetServiceAccount(ctx, r.Client, hnp.GetHumioServiceAccountName(), hnp.GetNamespace())
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return r.logErrorAndReturn(err, "unable to get humio service account")
+		}
+		return nil
+	}
+
+	serviceAccount.SetLabels(hnp.GetNodePoolLabels())
+	return r.Client.Update(ctx, serviceAccount)
+}
+
+func (r *HumioClusterReconciler) ensureInitServiceAccountResourcesHaveNodePoolLabel(ctx context.Context, hnp *HumioNodePool) error {
+	if err := r.updateInitServiceAccount(ctx, hnp); err != nil {
+		return err
+	}
+
+	if err := r.updateInitClusterRole(ctx, hnp); err != nil {
+		return err
+	}
+
+	if err := r.updateInitClusterRoleBinding(ctx, hnp); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *HumioClusterReconciler) updateInitServiceAccount(ctx context.Context, hnp *HumioNodePool) error {
+	serviceAccount, err := kubernetes.GetServiceAccount(ctx, r.Client, hnp.GetInitServiceAccountName(), hnp.GetNamespace())
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return r.logErrorAndReturn(err, "unable to get init service account")
+		}
+		return nil
+	}
+
+	serviceAccount.SetLabels(hnp.GetNodePoolLabels())
+	return r.Client.Update(ctx, serviceAccount)
+}
+
+func (r *HumioClusterReconciler) updateInitClusterRole(ctx context.Context, hnp *HumioNodePool) error {
+	clusterRole, err := kubernetes.GetClusterRole(ctx, r.Client, hnp.GetInitClusterRoleName())
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return r.logErrorAndReturn(err, "unable to get init cluster role")
+		}
+		return nil
+	}
+
+	clusterRole.SetLabels(hnp.GetNodePoolLabels())
+	return r.Client.Update(ctx, clusterRole)
+}
+
+func (r *HumioClusterReconciler) updateInitClusterRoleBinding(ctx context.Context, hnp *HumioNodePool) error {
+	clusterRoleBinding, err := kubernetes.GetClusterRoleBinding(ctx, r.Client, hnp.GetInitClusterRoleBindingName())
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return r.logErrorAndReturn(err, "unable to get init cluster role binding")
+		}
+		return nil
+	}
+
+	clusterRoleBinding.SetLabels(hnp.GetNodePoolLabels())
+	return r.Client.Update(ctx, clusterRoleBinding)
 }
 
 // cleanupUnusedTLSCertificates finds all existing per-node certificates for a specific HumioCluster
@@ -1849,7 +1888,6 @@ func (r *HumioClusterReconciler) ensureHumioServiceAccountAnnotations(ctx contex
 // If there are changes that fall under a recreate update, then the pod restart policy is set to PodRestartPolicyRecreate
 // and the reconciliation will requeue and the deletions will continue to be executed until all the pods have been
 // removed.
-//
 // nolint:gocyclo
 func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (reconcile.Result, error) {
 	r.Log.Info("ensuring mismatching pods are deleted")

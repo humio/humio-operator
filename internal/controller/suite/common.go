@@ -11,6 +11,7 @@ import (
 	"time"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/internal/api/humiographql"
 	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/controller/versions"
 	"github.com/humio/humio-operator/internal/helpers"
@@ -341,79 +342,19 @@ func CreateLicenseSecret(ctx context.Context, clusterKey types.NamespacedName, k
 	Expect(k8sClient.Create(ctx, &licenseSecret)).To(Succeed())
 }
 
-// nolint:gocyclo
 func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, humioClient humio.Client, cluster *humiov1alpha1.HumioCluster, autoCreateLicense bool, expectedState string, testTimeout time.Duration) {
 	key := types.NamespacedName{
 		Namespace: cluster.Namespace,
 		Name:      cluster.Name,
 	}
 
-	if autoCreateLicense {
-		CreateLicenseSecret(ctx, key, k8sClient, cluster)
-	}
-
-	if cluster.Spec.HumioServiceAccountName != "" {
-		UsingClusterBy(key.Name, "Creating service account for humio container")
-		humioServiceAccount := kubernetes.ConstructServiceAccount(cluster.Spec.HumioServiceAccountName, cluster.Namespace, map[string]string{}, map[string]string{})
-		Expect(k8sClient.Create(ctx, humioServiceAccount)).To(Succeed())
-	}
-
-	if !cluster.Spec.DisableInitContainer {
-		if cluster.Spec.InitServiceAccountName != "" {
-			if cluster.Spec.InitServiceAccountName != cluster.Spec.HumioServiceAccountName {
-				UsingClusterBy(key.Name, "Creating service account for init container")
-				initServiceAccount := kubernetes.ConstructServiceAccount(cluster.Spec.InitServiceAccountName, cluster.Namespace, map[string]string{}, map[string]string{})
-				Expect(k8sClient.Create(ctx, initServiceAccount)).To(Succeed())
-			}
-
-			UsingClusterBy(key.Name, "Creating cluster role for init container")
-			initClusterRole := kubernetes.ConstructInitClusterRole(cluster.Spec.InitServiceAccountName, map[string]string{})
-			Expect(k8sClient.Create(ctx, initClusterRole)).To(Succeed())
-
-			UsingClusterBy(key.Name, "Creating cluster role binding for init container")
-			initClusterRoleBinding := kubernetes.ConstructClusterRoleBinding(cluster.Spec.InitServiceAccountName, initClusterRole.Name, key.Namespace, cluster.Spec.InitServiceAccountName, map[string]string{})
-			Expect(k8sClient.Create(ctx, initClusterRoleBinding)).To(Succeed())
-		}
-	}
+	setupInitialResources(ctx, k8sClient, cluster, key, autoCreateLicense)
 
 	if helpers.UseEnvtest() {
-		// Simulate sidecar creating the secret which contains the admin token used to authenticate with humio
-		secretData := map[string][]byte{"token": []byte("")}
-		adminTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
-		UsingClusterBy(key.Name, "Simulating the admin token secret containing the API token")
-		desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, adminTokenSecretName, secretData, nil)
-		Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
-
-		UsingClusterBy(key.Name, "Simulating the creation of the HumioBootstrapToken resource")
-		humioBootstrapToken := kubernetes.ConstructHumioBootstrapToken(key.Name, key.Namespace)
-		humioBootstrapToken.Spec = humiov1alpha1.HumioBootstrapTokenSpec{
-			ManagedClusterName: key.Name,
-		}
-		humioBootstrapToken.Status = humiov1alpha1.HumioBootstrapTokenStatus{
-			State: humiov1alpha1.HumioBootstrapTokenStateReady,
-			TokenSecretKeyRef: humiov1alpha1.HumioTokenSecretStatus{SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
-				},
-				Key: "secret",
-			},
-			},
-			HashedTokenSecretKeyRef: humiov1alpha1.HumioHashedTokenSecretStatus{SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: fmt.Sprintf("%s-bootstrap-token", key.Name),
-				},
-				Key: "hashedToken",
-			}},
-		}
-		UsingClusterBy(key.Name, "Creating HumioBootstrapToken resource")
-		Expect(k8sClient.Create(ctx, humioBootstrapToken)).Should(Succeed())
+		setupEnvTestResources(ctx, k8sClient, key)
 	}
 
-	UsingClusterBy(key.Name, "Simulating the humio bootstrap token controller creating the secret containing the API token")
-	secretData := map[string][]byte{"hashedToken": []byte("P2HS9.20.r+ZbMqd0pHF65h3yQiOt8n1xNytv/4ePWKIj3cElP7gt8YD+gOtdGGvJYmG229kyFWLs6wXx9lfSDiRGGu/xuQ"), "secret": []byte("cYsrKi6IeyOJVzVIdmVK3M6RGl4y9GpgduYKXk4qWvvj")}
-	bootstrapTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix)
-	desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, bootstrapTokenSecretName, secretData, nil)
-	Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
+	createBootstrapTokenSecret(ctx, k8sClient, key)
 
 	UsingClusterBy(key.Name, "Creating HumioCluster resource")
 	Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
@@ -424,6 +365,44 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 
 	SimulateHumioBootstrapTokenCreatingSecretAndUpdatingStatus(ctx, key, k8sClient, testTimeout)
 
+	waitForClusterRunningState(ctx, k8sClient, key, testTimeout)
+	validatePodCounts(ctx, k8sClient, key, cluster, testTimeout)
+	validateInitContainers(ctx, k8sClient, cluster, key)
+
+	if !helpers.UseEnvtest() && !helpers.UseDummyImage() {
+		validateClusterZones(ctx, k8sClient, humioClient, cluster, key, testTimeout)
+	}
+
+	validateReplicationFactors(ctx, k8sClient, cluster, key)
+	validatePodStates(ctx, k8sClient, key, testTimeout)
+}
+
+func setupInitialResources(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, key types.NamespacedName, autoCreateLicense bool) {
+	if autoCreateLicense {
+		CreateLicenseSecret(ctx, key, k8sClient, cluster)
+	}
+
+	if cluster.Spec.HumioServiceAccountName != "" {
+		createHumioServiceAccount(ctx, k8sClient, cluster)
+	}
+
+	if !cluster.Spec.DisableInitContainer {
+		setupInitContainerResources(ctx, k8sClient, cluster, key)
+	}
+}
+
+func setupEnvTestResources(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
+	// Create admin token secret
+	secretData := map[string][]byte{"token": []byte("")}
+	adminTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
+	UsingClusterBy(key.Name, "Simulating the admin token secret containing the API token")
+	desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, adminTokenSecretName, secretData, nil)
+	Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
+
+	createHumioBootstrapTokenResource(ctx, k8sClient, key)
+}
+
+func waitForClusterRunningState(ctx context.Context, k8sClient client.Client, key types.NamespacedName, testTimeout time.Duration) {
 	UsingClusterBy(key.Name, "Confirming cluster enters running state")
 	var updatedHumioCluster humiov1alpha1.HumioCluster
 	Eventually(func() string {
@@ -433,237 +412,341 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		}
 		return updatedHumioCluster.Status.State
 	}, testTimeout, TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+}
+
+func validatePodCounts(ctx context.Context, k8sClient client.Client, key types.NamespacedName, cluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
+	var updatedHumioCluster humiov1alpha1.HumioCluster
+	Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
 
 	UsingClusterBy(key.Name, "Waiting to have the correct number of pods")
+	validateMainNodePoolPodCount(ctx, k8sClient, key, cluster, &updatedHumioCluster, testTimeout)
+	validateNodePoolsPodCount(ctx, k8sClient, key, cluster, &updatedHumioCluster, testTimeout)
+}
 
+func validateInitContainers(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, key types.NamespacedName) {
+	var updatedHumioCluster humiov1alpha1.HumioCluster
+	Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+
+	validateMainPoolInitContainers(ctx, k8sClient, cluster, &updatedHumioCluster, key)
+	validateNodePoolsInitContainers(ctx, k8sClient, cluster, &updatedHumioCluster, key)
+}
+
+func validateReplicationFactors(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, key types.NamespacedName) {
+	UsingClusterBy(key.Name, "Confirming replication factor environment variables are set correctly")
+	clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(cluster).GetCommonClusterLabels())
+	for _, pod := range clusterPods {
+		humioIdx, err := kubernetes.GetContainerIndexByName(pod, "humio")
+		Expect(err).ToNot(HaveOccurred())
+		validatePodReplicationFactors(pod, humioIdx, cluster.Spec.TargetReplicationFactor)
+	}
+}
+
+func validatePodReplicationFactors(pod corev1.Pod, humioIdx int, targetReplicationFactor int) {
+	Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElements([]corev1.EnvVar{
+		{
+			Name:  "DEFAULT_DIGEST_REPLICATION_FACTOR",
+			Value: strconv.Itoa(targetReplicationFactor),
+		},
+		{
+			Name:  "DEFAULT_SEGMENT_REPLICATION_FACTOR",
+			Value: strconv.Itoa(targetReplicationFactor),
+		},
+	}))
+}
+
+func createHumioServiceAccount(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster) {
+	UsingClusterBy(cluster.Name, "Creating service account for humio container")
+	humioServiceAccount := kubernetes.ConstructServiceAccount(
+		cluster.Spec.HumioServiceAccountName,
+		cluster.Namespace,
+		map[string]string{},
+		map[string]string{},
+	)
+	Expect(k8sClient.Create(ctx, humioServiceAccount)).To(Succeed())
+}
+
+func setupInitContainerResources(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, key types.NamespacedName) {
+	if cluster.Spec.InitServiceAccountName == "" {
+		return
+	}
+
+	if cluster.Spec.InitServiceAccountName != cluster.Spec.HumioServiceAccountName {
+		createInitServiceAccount(ctx, k8sClient, cluster)
+	}
+
+	createInitClusterRole(ctx, k8sClient, cluster, key)
+	createInitClusterRoleBinding(ctx, k8sClient, cluster, key)
+}
+
+func createInitServiceAccount(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster) {
+	UsingClusterBy(cluster.Name, "Creating service account for init container")
+	initServiceAccount := kubernetes.ConstructServiceAccount(
+		cluster.Spec.InitServiceAccountName,
+		cluster.Namespace,
+		map[string]string{},
+		map[string]string{},
+	)
+	Expect(k8sClient.Create(ctx, initServiceAccount)).To(Succeed())
+}
+
+func createInitClusterRole(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, key types.NamespacedName) {
+	UsingClusterBy(key.Name, "Creating cluster role for init container")
+	initClusterRole := kubernetes.ConstructInitClusterRole(cluster.Spec.InitServiceAccountName, map[string]string{})
+	Expect(k8sClient.Create(ctx, initClusterRole)).To(Succeed())
+}
+
+func createInitClusterRoleBinding(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, key types.NamespacedName) {
+	UsingClusterBy(key.Name, "Creating cluster role binding for init container")
+	initClusterRoleBinding := kubernetes.ConstructClusterRoleBinding(
+		cluster.Spec.InitServiceAccountName,
+		cluster.Spec.InitServiceAccountName,
+		key.Namespace,
+		cluster.Spec.InitServiceAccountName,
+		map[string]string{},
+	)
+	Expect(k8sClient.Create(ctx, initClusterRoleBinding)).To(Succeed())
+}
+
+func createHumioBootstrapTokenResource(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
+	UsingClusterBy(key.Name, "Simulating the creation of the HumioBootstrapToken resource")
+	humioBootstrapToken := kubernetes.ConstructHumioBootstrapToken(key.Name, key.Namespace)
+	humioBootstrapToken.Spec = humiov1alpha1.HumioBootstrapTokenSpec{
+		ManagedClusterName: key.Name,
+	}
+	humioBootstrapToken.Status = constructBootstrapTokenStatus(key.Name)
+
+	UsingClusterBy(key.Name, "Creating HumioBootstrapToken resource")
+	Expect(k8sClient.Create(ctx, humioBootstrapToken)).Should(Succeed())
+}
+
+func constructBootstrapTokenStatus(name string) humiov1alpha1.HumioBootstrapTokenStatus {
+	return humiov1alpha1.HumioBootstrapTokenStatus{
+		State: humiov1alpha1.HumioBootstrapTokenStateReady,
+		TokenSecretKeyRef: humiov1alpha1.HumioTokenSecretStatus{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-bootstrap-token", name),
+				},
+				Key: "secret",
+			},
+		},
+		HashedTokenSecretKeyRef: humiov1alpha1.HumioHashedTokenSecretStatus{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-bootstrap-token", name),
+				},
+				Key: "hashedToken",
+			},
+		},
+	}
+}
+
+func createBootstrapTokenSecret(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
+	UsingClusterBy(key.Name, "Simulating the humio bootstrap token controller creating the secret containing the API token")
+	secretData := map[string][]byte{
+		"hashedToken": []byte("P2HS9.20.r+ZbMqd0pHF65h3yQiOt8n1xNytv/4ePWKIj3cElP7gt8YD+gOtdGGvJYmG229kyFWLs6wXx9lfSDiRGGu/xuQ"),
+		"secret":      []byte("cYsrKi6IeyOJVzVIdmVK3M6RGl4y9GpgduYKXk4qWvvj"),
+	}
+	bootstrapTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix)
+	desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, bootstrapTokenSecretName, secretData, nil)
+	Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
+}
+
+func validateMainNodePoolPodCount(ctx context.Context, k8sClient client.Client, key types.NamespacedName, cluster *humiov1alpha1.HumioCluster, updatedCluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
 	Eventually(func() []corev1.Pod {
 		var clusterPods []corev1.Pod
-		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
+		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace,
+			controller.NewHumioNodeManagerFromHumioCluster(updatedCluster).GetPodLabels())
 		_ = MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
 		return clusterPods
 	}, testTimeout, TestInterval).Should(HaveLen(cluster.Spec.NodeCount))
+}
 
+func validateNodePoolsPodCount(ctx context.Context, k8sClient client.Client, key types.NamespacedName, cluster *humiov1alpha1.HumioCluster, updatedCluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
 	for idx, pool := range cluster.Spec.NodePools {
-		Eventually(func() []corev1.Pod {
-			var clusterPods []corev1.Pod
-			clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &cluster.Spec.NodePools[idx]).GetPodLabels())
-			_ = MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
-			return clusterPods
-		}, testTimeout, TestInterval).Should(HaveLen(pool.NodeCount))
+		validateSingleNodePoolPodCount(ctx, k8sClient, key, updatedCluster, &cluster.Spec.NodePools[idx], pool.NodeCount, testTimeout)
 	}
+}
 
-	clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetCommonClusterLabels())
-	humioIdx, err := kubernetes.GetContainerIndexByName(clusterPods[0], controller.HumioContainerName)
+func validateSingleNodePoolPodCount(ctx context.Context, k8sClient client.Client, key types.NamespacedName, cluster *humiov1alpha1.HumioCluster, nodePool *humiov1alpha1.HumioNodePoolSpec, expectedCount int, testTimeout time.Duration) {
+	Eventually(func() []corev1.Pod {
+		var clusterPods []corev1.Pod
+		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace,
+			controller.NewHumioNodeManagerFromHumioNodePool(cluster, nodePool).GetPodLabels())
+		_ = MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
+		return clusterPods
+	}, testTimeout, TestInterval).Should(HaveLen(expectedCount))
+}
+
+func validateMainPoolInitContainers(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, updatedCluster *humiov1alpha1.HumioCluster, key types.NamespacedName) {
+	clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace,
+		controller.NewHumioNodeManagerFromHumioCluster(updatedCluster).GetCommonClusterLabels())
+	validatePodInitContainers(cluster, clusterPods[0], key)
+}
+
+func validateNodePoolsInitContainers(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, updatedCluster *humiov1alpha1.HumioCluster, key types.NamespacedName) {
+	for idx := range cluster.Spec.NodePools {
+		clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace,
+			controller.NewHumioNodeManagerFromHumioNodePool(updatedCluster, &cluster.Spec.NodePools[idx]).GetPodLabels())
+		validatePodInitContainers(cluster, clusterPods[0], key)
+	}
+}
+
+func validatePodInitContainers(cluster *humiov1alpha1.HumioCluster, pod corev1.Pod, key types.NamespacedName) {
+	humioIdx, err := kubernetes.GetContainerIndexByName(pod, controller.HumioContainerName)
 	Expect(err).ToNot(HaveOccurred())
-	humioContainerArgs := strings.Join(clusterPods[0].Spec.Containers[humioIdx].Args, " ")
+	humioContainerArgs := strings.Join(pod.Spec.Containers[humioIdx].Args, " ")
+
 	if cluster.Spec.DisableInitContainer {
 		UsingClusterBy(key.Name, "Confirming pods do not use init container")
-		Expect(clusterPods[0].Spec.InitContainers).To(BeEmpty())
+		Expect(pod.Spec.InitContainers).To(BeEmpty())
 		Expect(humioContainerArgs).ToNot(ContainSubstring("export ZONE="))
 	} else {
 		UsingClusterBy(key.Name, "Confirming pods have an init container")
-		Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(1))
+		Expect(pod.Spec.InitContainers).To(HaveLen(1))
 		Expect(humioContainerArgs).To(ContainSubstring("export ZONE="))
 	}
+}
 
-	for idx := range cluster.Spec.NodePools {
-		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &cluster.Spec.NodePools[idx]).GetPodLabels())
-		humioIdx, err := kubernetes.GetContainerIndexByName(clusterPods[0], controller.HumioContainerName)
-		Expect(err).ToNot(HaveOccurred())
-		humioContainerArgs := strings.Join(clusterPods[0].Spec.Containers[humioIdx].Args, " ")
-		if cluster.Spec.DisableInitContainer {
-			UsingClusterBy(key.Name, "Confirming pods do not use init container")
-			Expect(clusterPods[0].Spec.InitContainers).To(BeEmpty())
-			Expect(humioContainerArgs).ToNot(ContainSubstring("export ZONE="))
-		} else {
-			UsingClusterBy(key.Name, "Confirming pods have an init container")
-			Expect(clusterPods[0].Spec.InitContainers).To(HaveLen(1))
-			Expect(humioContainerArgs).To(ContainSubstring("export ZONE="))
+func validateClusterZones(ctx context.Context, k8sClient client.Client, humioClient humio.Client, cluster *humiov1alpha1.HumioCluster, key types.NamespacedName, testTimeout time.Duration) {
+	UsingClusterBy(key.Name, "Validating cluster nodes have ZONE configured correctly")
+	if cluster.Spec.DisableInitContainer {
+		validateNoZones(ctx, k8sClient, humioClient, key, testTimeout)
+	} else {
+		validateZonesExist(ctx, k8sClient, humioClient, key, testTimeout)
+	}
+}
+
+func validateNoZones(ctx context.Context, k8sClient client.Client, humioClient humio.Client, key types.NamespacedName, testTimeout time.Duration) {
+	Eventually(func() []string {
+		return getClusterZones(ctx, k8sClient, humioClient, key)
+	}, testTimeout, TestInterval).Should(BeEmpty())
+}
+
+func validateZonesExist(ctx context.Context, k8sClient client.Client, humioClient humio.Client, key types.NamespacedName, testTimeout time.Duration) {
+	Eventually(func() []string {
+		return getClusterZones(ctx, k8sClient, humioClient, key)
+	}, testTimeout, TestInterval).ShouldNot(BeEmpty())
+}
+
+func getClusterZones(ctx context.Context, k8sClient client.Client, humioClient humio.Client, key types.NamespacedName) []string {
+	clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true, false)
+	if err != nil {
+		return []string{fmt.Sprintf("got err: %s", err)}
+	}
+
+	humioHttpClient := humioClient.GetHumioHttpClient(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
+	cluster, err := humioClient.GetCluster(ctx, humioHttpClient, reconcile.Request{NamespacedName: key})
+	if err != nil {
+		return []string{fmt.Sprintf("got err: %s", err)}
+	}
+
+	getCluster := cluster.GetCluster()
+	if len(getCluster.GetNodes()) < 1 {
+		return []string{}
+	}
+
+	return extractUniqueZones(getCluster.GetNodes())
+}
+
+func extractUniqueZones(nodes []humiographql.GetClusterClusterNodesClusterNode) []string {
+	keys := make(map[string]bool)
+	var zoneList []string
+
+	for _, node := range nodes {
+		if zone := node.GetZone(); zone != nil {
+			if _, exists := keys[*zone]; !exists {
+				keys[*zone] = true
+				zoneList = append(zoneList, *zone)
+			}
 		}
 	}
 
-	UsingClusterBy(key.Name, "Confirming cluster enters running state")
-	Eventually(func() string {
-		clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
-		_ = MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
+	return zoneList
+}
 
-		for idx := range cluster.Spec.NodePools {
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &cluster.Spec.NodePools[idx]).GetPodLabels())
-			_ = MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, key.Name)
-		}
-
-		updatedHumioCluster = humiov1alpha1.HumioCluster{}
-		Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-		return updatedHumioCluster.Status.State
-	}, testTimeout, TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
-
-	UsingClusterBy(key.Name, "Validating cluster has expected pod revision annotation")
-	nodeMgrFromHumioCluster := controller.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster)
-	if nodeMgrFromHumioCluster.GetNodeCount() > 0 {
-		Eventually(func() int {
-			updatedHumioCluster = humiov1alpha1.HumioCluster{}
-			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-			return controller.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetDesiredPodRevision()
-		}, testTimeout, TestInterval).Should(BeEquivalentTo(1))
-	}
-
-	UsingClusterBy(key.Name, "Waiting for the controller to populate the secret containing the admin token")
-	Eventually(func() error {
-		clusterPods, _ = kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetCommonClusterLabels())
-		for idx := range clusterPods {
-			UsingClusterBy(key.Name, fmt.Sprintf("Pod status %s status: %v", clusterPods[idx].Name, clusterPods[idx].Status))
-		}
-
-		return k8sClient.Get(ctx, types.NamespacedName{
-			Namespace: key.Namespace,
-			Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix),
-		}, &corev1.Secret{})
-	}, testTimeout, TestInterval).Should(Succeed())
-
-	if !helpers.UseEnvtest() && !helpers.UseDummyImage() {
-		UsingClusterBy(key.Name, "Validating cluster nodes have ZONE configured correctly")
-		if updatedHumioCluster.Spec.DisableInitContainer {
-			Eventually(func() []string {
-				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true, false)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterConfig).ToNot(BeNil())
-				Expect(clusterConfig.Config()).ToNot(BeNil())
-
-				humioHttpClient := humioClient.GetHumioHttpClient(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
-				cluster, err := humioClient.GetCluster(ctx, humioHttpClient, reconcile.Request{NamespacedName: key})
-				if err != nil {
-					return []string{fmt.Sprintf("got err: %s", err)}
-				}
-				getCluster := cluster.GetCluster()
-				if len(getCluster.GetNodes()) < 1 {
-					return []string{}
-				}
-				keys := make(map[string]bool)
-				var zoneList []string
-				for _, node := range getCluster.GetNodes() {
-					zone := node.Zone
-					if zone != nil {
-						if _, value := keys[*zone]; !value {
-							keys[*zone] = true
-							zoneList = append(zoneList, *zone)
-						}
-					}
-				}
-				return zoneList
-			}, testTimeout, TestInterval).Should(BeEmpty())
-		} else {
-			Eventually(func() []string {
-				clusterConfig, err := helpers.NewCluster(ctx, k8sClient, key.Name, "", key.Namespace, helpers.UseCertManager(), true, false)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterConfig).ToNot(BeNil())
-				Expect(clusterConfig.Config()).ToNot(BeNil())
-
-				humioHttpClient := humioClient.GetHumioHttpClient(clusterConfig.Config(), reconcile.Request{NamespacedName: key})
-				cluster, err := humioClient.GetCluster(ctx, humioHttpClient, reconcile.Request{NamespacedName: key})
-				getCluster := cluster.GetCluster()
-				if err != nil || len(getCluster.GetNodes()) < 1 {
-					return []string{}
-				}
-				keys := make(map[string]bool)
-				var zoneList []string
-				for _, node := range getCluster.GetNodes() {
-					zone := node.Zone
-					if zone != nil {
-						if _, value := keys[*zone]; !value {
-							keys[*zone] = true
-							zoneList = append(zoneList, *zone)
-						}
-					}
-				}
-				return zoneList
-			}, testTimeout, TestInterval).ShouldNot(BeEmpty())
-		}
-	}
-
-	UsingClusterBy(key.Name, "Confirming replication factor environment variables are set correctly")
-	for _, pod := range clusterPods {
-		humioIdx, err = kubernetes.GetContainerIndexByName(pod, "humio")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(pod.Spec.Containers[humioIdx].Env).To(ContainElements([]corev1.EnvVar{
-			{
-				Name:  "DEFAULT_DIGEST_REPLICATION_FACTOR",
-				Value: strconv.Itoa(cluster.Spec.TargetReplicationFactor),
-			},
-			{
-				Name:  "DEFAULT_SEGMENT_REPLICATION_FACTOR",
-				Value: strconv.Itoa(cluster.Spec.TargetReplicationFactor),
-			},
-		}))
-	}
-
+func validatePodStates(ctx context.Context, k8sClient client.Client, key types.NamespacedName, testTimeout time.Duration) {
+	var updatedHumioCluster humiov1alpha1.HumioCluster
 	Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+
+	validateMainPoolPodStates(ctx, k8sClient, &updatedHumioCluster, testTimeout)
+	validateNodePoolsPodStates(ctx, k8sClient, &updatedHumioCluster, testTimeout)
+	validatePodsReady(ctx, k8sClient, &updatedHumioCluster, key, testTimeout)
+}
+
+func validateMainPoolPodStates(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
 	Eventually(func() map[corev1.PodPhase]int {
-		phaseToCount := map[corev1.PodPhase]int{
-			corev1.PodRunning: 0,
-		}
+		return getPodPhases(ctx, k8sClient, cluster,
+			controller.NewHumioNodeManagerFromHumioCluster(cluster).GetPodLabels())
+	}, testTimeout, TestInterval).Should(HaveKeyWithValue(corev1.PodRunning, cluster.Spec.NodeCount))
+}
 
-		updatedClusterPods, err := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controller.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
-		if err != nil {
-			return map[corev1.PodPhase]int{}
-		}
-		Expect(updatedClusterPods).To(HaveLen(updatedHumioCluster.Spec.NodeCount))
+func validateNodePoolsPodStates(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
+	for idx := range cluster.Spec.NodePools {
+		validateNodePoolPodStates(ctx, k8sClient, cluster, &cluster.Spec.NodePools[idx], testTimeout)
+	}
+}
 
-		for _, pod := range updatedClusterPods {
-			phaseToCount[pod.Status.Phase] += 1
-		}
+func validateNodePoolPodStates(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, nodePool *humiov1alpha1.HumioNodePoolSpec, testTimeout time.Duration) {
+	Eventually(func() map[corev1.PodPhase]int {
+		return getPodPhases(ctx, k8sClient, cluster,
+			controller.NewHumioNodeManagerFromHumioNodePool(cluster, nodePool).GetPodLabels())
+	}, testTimeout, TestInterval).Should(HaveKeyWithValue(corev1.PodRunning, nodePool.NodeCount))
+}
 
-		return phaseToCount
-
-	}, testTimeout, TestInterval).Should(HaveKeyWithValue(corev1.PodRunning, updatedHumioCluster.Spec.NodeCount))
-
-	for idx := range updatedHumioCluster.Spec.NodePools {
-		Eventually(func() map[corev1.PodPhase]int {
-			phaseToCount := map[corev1.PodPhase]int{
-				corev1.PodRunning: 0,
-			}
-
-			updatedClusterPods, err := kubernetes.ListPods(ctx, k8sClient, updatedHumioCluster.Namespace, controller.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[idx]).GetPodLabels())
-			if err != nil {
-				return map[corev1.PodPhase]int{}
-			}
-			Expect(updatedClusterPods).To(HaveLen(updatedHumioCluster.Spec.NodePools[idx].NodeCount))
-
-			for _, pod := range updatedClusterPods {
-				phaseToCount[pod.Status.Phase] += 1
-			}
-
-			return phaseToCount
-
-		}, testTimeout, TestInterval).Should(HaveKeyWithValue(corev1.PodRunning, updatedHumioCluster.Spec.NodePools[idx].NodeCount))
+func getPodPhases(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, podLabels map[string]string) map[corev1.PodPhase]int {
+	phaseToCount := map[corev1.PodPhase]int{
+		corev1.PodRunning: 0,
 	}
 
+	pods, err := kubernetes.ListPods(ctx, k8sClient, cluster.Namespace, podLabels)
+	if err != nil {
+		return map[corev1.PodPhase]int{}
+	}
+
+	for _, pod := range pods {
+		phaseToCount[pod.Status.Phase] += 1
+	}
+
+	return phaseToCount
+}
+
+func validatePodsReady(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, key types.NamespacedName, testTimeout time.Duration) {
+	validateMainPoolPodsReady(ctx, k8sClient, cluster, key, testTimeout)
+	validateNodePoolsPodsReady(ctx, k8sClient, cluster, key, testTimeout)
+}
+
+func validateMainPoolPodsReady(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, key types.NamespacedName, testTimeout time.Duration) {
 	Eventually(func() int {
-		numPodsReady := 0
-		clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster).GetPodLabels())
-		for _, pod := range clusterPods {
-			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if containerStatus.Name == controller.HumioContainerName && containerStatus.Ready {
-					numPodsReady++
-				}
+		return countReadyPods(ctx, k8sClient, key,
+			controller.NewHumioNodeManagerFromHumioCluster(cluster).GetPodLabels())
+	}, testTimeout, TestInterval).Should(BeIdenticalTo(cluster.Spec.NodeCount))
+}
+
+func validateNodePoolsPodsReady(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, key types.NamespacedName, testTimeout time.Duration) {
+	for idx := range cluster.Spec.NodePools {
+		validateNodePoolPodsReady(ctx, k8sClient, cluster, &cluster.Spec.NodePools[idx], key, testTimeout)
+	}
+}
+
+func validateNodePoolPodsReady(ctx context.Context, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster, nodePool *humiov1alpha1.HumioNodePoolSpec, key types.NamespacedName, testTimeout time.Duration) {
+	Eventually(func() int {
+		return countReadyPods(ctx, k8sClient, key,
+			controller.NewHumioNodeManagerFromHumioNodePool(cluster, nodePool).GetPodLabels())
+	}, testTimeout, TestInterval).Should(BeIdenticalTo(nodePool.NodeCount))
+}
+
+func countReadyPods(ctx context.Context, k8sClient client.Client, key types.NamespacedName, podLabels map[string]string) int {
+	numPodsReady := 0
+	clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, podLabels)
+	for _, pod := range clusterPods {
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			if containerStatus.Name == controller.HumioContainerName && containerStatus.Ready {
+				numPodsReady++
 			}
 		}
-		return numPodsReady
-	}, testTimeout, TestInterval).Should(BeIdenticalTo(updatedHumioCluster.Spec.NodeCount))
-
-	for idx := range updatedHumioCluster.Spec.NodePools {
-		Eventually(func() int {
-			numPodsReady := 0
-			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[idx]).GetPodLabels())
-			for _, pod := range clusterPods {
-				for _, containerStatus := range pod.Status.ContainerStatuses {
-					if containerStatus.Name == controller.HumioContainerName && containerStatus.Ready {
-						numPodsReady++
-					}
-				}
-			}
-			return numPodsReady
-		}, testTimeout, TestInterval).Should(BeIdenticalTo(updatedHumioCluster.Spec.NodePools[idx].NodeCount))
 	}
+	return numPodsReady
 }
 
 func WaitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sClient client.Client, currentHumioCluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
