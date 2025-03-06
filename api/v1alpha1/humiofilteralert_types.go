@@ -31,7 +31,7 @@ const (
 	HumioFilterAlertStateConfigError = "ConfigError"
 )
 
-// HumioFilterAlertSpec defines the desired state of HumioFilterAlert
+// HumioFilterAlertSpec defines the desired state of HumioFilterAlert.
 type HumioFilterAlertSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
@@ -70,16 +70,16 @@ type HumioFilterAlertSpec struct {
 	Labels []string `json:"labels,omitempty"`
 }
 
-// HumioFilterAlertStatus defines the observed state of HumioFilterAlert
+// HumioFilterAlertStatus defines the observed state of HumioFilterAlert.
 type HumioFilterAlertStatus struct {
 	// State reflects the current state of the HumioFilterAlert
 	State string `json:"state,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
-// HumioFilterAlert is the Schema for the HumioFilterAlerts API
+// HumioFilterAlert is the Schema for the humiofilteralerts API.
 type HumioFilterAlert struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -88,9 +88,9 @@ type HumioFilterAlert struct {
 	Status HumioFilterAlertStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// HumioFilterAlertList contains a list of HumioFilterAlert
+// HumioFilterAlertList contains a list of HumioFilterAlert.
 type HumioFilterAlertList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

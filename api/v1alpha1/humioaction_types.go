@@ -152,7 +152,7 @@ type VarSource struct {
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
-// HumioActionSpec defines the desired state of HumioAction
+// HumioActionSpec defines the desired state of HumioAction.
 type HumioActionSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
@@ -187,16 +187,16 @@ type HumioActionSpec struct {
 	WebhookProperties *HumioActionWebhookProperties `json:"webhookProperties,omitempty"`
 }
 
-// HumioActionStatus defines the observed state of HumioAction
+// HumioActionStatus defines the observed state of HumioAction.
 type HumioActionStatus struct {
 	// State reflects the current state of the HumioAction
 	State string `json:"state,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
-// HumioAction is the Schema for the humioactions API
+// HumioAction is the Schema for the humioactions API.
 type HumioAction struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -205,9 +205,9 @@ type HumioAction struct {
 	Status HumioActionStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// HumioActionList contains a list of HumioAction
+// HumioActionList contains a list of HumioAction.
 type HumioActionList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
