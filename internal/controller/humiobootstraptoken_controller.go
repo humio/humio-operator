@@ -301,7 +301,7 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenSecret(ctx context.C
 			return r.logErrorAndReturn(err, "cannot create bootstrap token")
 		}
 		if okayToCreate {
-			secret := kubernetes.ConstructSecret(hbt.Name, hbt.Namespace, humioBootstrapTokenConfig.bootstrapTokenSecretName(), secretData, nil)
+			secret := kubernetes.ConstructSecret(hbt.Name, hbt.Namespace, humioBootstrapTokenConfig.bootstrapTokenSecretName(), secretData, nil, nil)
 			if err := controllerutil.SetControllerReference(hbt, secret, r.Scheme()); err != nil {
 				return r.logErrorAndReturn(err, "could not set controller reference")
 			}
