@@ -31,7 +31,7 @@ const (
 	HumioAggregateAlertStateConfigError = "ConfigError"
 )
 
-// HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert.
+// HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert
 type HumioAggregateAlertSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
@@ -41,30 +41,30 @@ type HumioAggregateAlertSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the aggregate alert inside Humio
-	// +kubebuilder:validation:MinLength=1
-	// +required
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the aggregate alert will be managed. This can also be a Repository
-	// +kubebuilder:validation:MinLength=1
-	// +required
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	ViewName string `json:"viewName"`
 	// QueryString defines the desired Humio query string
 	QueryString string `json:"queryString"`
 	// QueryTimestampType defines the timestamp type to use for a query
 	QueryTimestampType string `json:"queryTimestampType,omitempty"`
 	// Description is the description of the Aggregate alert
-	// +optional
+	//+optional
 	Description string `json:"description,omitempty"`
-	// SearchIntervalSeconds specifies the search interval (in seconds) to use when running the query
+	// Search Interval time in seconds
 	SearchIntervalSeconds int `json:"searchIntervalSeconds,omitempty"`
 	// ThrottleTimeSeconds is the throttle time in seconds. An aggregate alert is triggered at most once per the throttle time
 	ThrottleTimeSeconds int `json:"throttleTimeSeconds,omitempty"`
 	// ThrottleField is the field on which to throttle
 	ThrottleField *string `json:"throttleField,omitempty"`
-	// TriggerMode specifies which trigger mode to use when configuring the aggregate alert
+	// Aggregate Alert trigger mode
 	TriggerMode string `json:"triggerMode,omitempty"`
 	// Enabled will set the AggregateAlert to enabled when set to true
-	// +kubebuilder:default=false
+	//+kubebuilder:default=false
 	Enabled bool `json:"enabled,omitempty"`
 	// Actions is the list of Humio Actions by name that will be triggered by this Aggregate alert
 	Actions []string `json:"actions"`
@@ -72,16 +72,16 @@ type HumioAggregateAlertSpec struct {
 	Labels []string `json:"labels,omitempty"`
 }
 
-// HumioAggregateAlertStatus defines the observed state of HumioAggregateAlert.
+// HumioAggregateAlertStatus defines the observed state of HumioAggregateAlert
 type HumioAggregateAlertStatus struct {
 	// State reflects the current state of HumioAggregateAlert
 	State string `json:"state,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
 
-// HumioAggregateAlert is the Schema for the humioaggregatealerts API.
+// HumioAggregateAlert is the Schema for the humioAggregateAlerts API
 type HumioAggregateAlert struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -90,9 +90,9 @@ type HumioAggregateAlert struct {
 	Status HumioAggregateAlertStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
-// HumioAggregateAlertList contains a list of HumioAggregateAlert.
+// HumioAggregateAlertList contains a list of HumioAggregateAlert
 type HumioAggregateAlertList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

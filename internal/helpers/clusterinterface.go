@@ -90,7 +90,10 @@ func (c Cluster) Url(ctx context.Context, k8sClient client.Client) (*url.URL, er
 		}
 
 		protocol := "https"
-		if !c.certManagerEnabled || !TLSEnabled(&humioManagedCluster) {
+		if !c.certManagerEnabled {
+			protocol = "http"
+		}
+		if !TLSEnabled(&humioManagedCluster) {
 			protocol = "http"
 		}
 		baseURL, _ := url.Parse(fmt.Sprintf("%s://%s-internal.%s:%d/", protocol, c.managedClusterName, c.namespace, 8080))

@@ -1,12 +1,9 @@
 /*
 Copyright 2020 Humio https://humio.com
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package controllers
 
 import (
 	"bytes"
@@ -25,23 +22,26 @@ import (
 	"strings"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/go-logr/logr"
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/kubernetes"
-	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
 
 const (
@@ -64,10 +64,11 @@ type HumioBootstrapTokenSecretData struct {
 	HashedToken string `json:"hashedToken"`
 }
 
-// +kubebuilder:rbac:groups=core.humio.com,resources=humiobootstraptokens,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.humio.com,resources=humiobootstraptokens/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.humio.com,resources=humiobootstraptokens/finalizers,verbs=update
+//+kubebuilder:rbac:groups=core.humio.com,resources=HumioBootstrapTokens,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=HumioBootstrapTokens/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=core.humio.com,resources=HumioBootstrapTokens/finalizers,verbs=update
 
+// Reconcile runs the reconciler for a HumioBootstrapToken object
 func (r *HumioBootstrapTokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	if r.Namespace != "" {
 		if r.Namespace != req.Namespace {
@@ -145,11 +146,6 @@ func (r *HumioBootstrapTokenReconciler) updateStatus(ctx context.Context, hbt *h
 	return r.Client.Status().Update(ctx, hbt)
 }
 
-func (r *HumioBootstrapTokenReconciler) updateStatusImage(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, image string) error {
-	hbt.Status.BootstrapImage = image
-	return r.Client.Status().Update(ctx, hbt)
-}
-
 func (r *HumioBootstrapTokenReconciler) execCommand(ctx context.Context, pod *corev1.Pod, args []string) (string, error) {
 	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		clientcmd.NewDefaultClientConfigLoadingRules(),
@@ -216,10 +212,7 @@ func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humi
 		}
 	}
 	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, humioCluster)
-	pod, err := r.constructBootstrapPod(ctx, &humioBootstrapTokenConfig)
-	if err != nil {
-		return pod, r.logErrorAndReturn(err, "could not construct pod")
-	}
+	pod := ConstructBootstrapPod(&humioBootstrapTokenConfig)
 	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: pod.Namespace,
 		Name:      pod.Name,
@@ -241,10 +234,7 @@ func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humi
 func (r *HumioBootstrapTokenReconciler) deletePod(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, hc *humiov1alpha1.HumioCluster) error {
 	existingPod := &corev1.Pod{}
 	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, hc)
-	pod, err := r.constructBootstrapPod(ctx, &humioBootstrapTokenConfig)
-	if err != nil {
-		return r.logErrorAndReturn(err, "could not construct pod")
-	}
+	pod := ConstructBootstrapPod(&humioBootstrapTokenConfig)
 	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: pod.Namespace,
 		Name:      pod.Name,
@@ -398,11 +388,6 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 	if err = r.Update(ctx, updatedSecret); err != nil {
 		return r.logErrorAndReturn(err, "failed to update secret with hashedToken data")
 	}
-
-	if err := r.updateStatusImage(ctx, hbt, pod.Spec.Containers[0].Image); err != nil {
-		return r.logErrorAndReturn(err, "failed to update bootstrap token image status")
-	}
-
 	return nil
 }
 
@@ -416,64 +401,10 @@ func (r *HumioBootstrapTokenReconciler) getBootstrapTokenSecret(ctx context.Cont
 	return existingSecret, err
 }
 
-func (r *HumioBootstrapTokenReconciler) constructBootstrapPod(ctx context.Context, bootstrapConfig *HumioBootstrapTokenConfig) (*corev1.Pod, error) {
-	userID := int64(65534)
-	var image string
-
-	if bootstrapConfig.imageSource() == nil {
-		image = bootstrapConfig.image()
-	} else {
-		configMap, err := kubernetes.GetConfigMap(ctx, r, bootstrapConfig.imageSource().ConfigMapRef.Name, bootstrapConfig.namespace())
-		if err != nil {
-			return &corev1.Pod{}, r.logErrorAndReturn(err, "failed to get imageFromSource")
-		}
-		if imageValue, ok := configMap.Data[bootstrapConfig.imageSource().ConfigMapRef.Key]; ok {
-			image = imageValue
-		}
-	}
-
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      bootstrapConfig.podName(),
-			Namespace: bootstrapConfig.namespace(),
-		},
-		Spec: corev1.PodSpec{
-			ImagePullSecrets: bootstrapConfig.imagePullSecrets(),
-			Affinity:         bootstrapConfig.affinity(),
-			Containers: []corev1.Container{
-				{
-					Name:    HumioContainerName,
-					Image:   image,
-					Command: []string{"/bin/sleep", "900"},
-					Env: []corev1.EnvVar{
-						{
-							Name:  "HUMIO_LOG4J_CONFIGURATION",
-							Value: "log4j2-json-stdout.xml",
-						},
-					},
-					Resources: bootstrapConfig.resources(),
-					SecurityContext: &corev1.SecurityContext{
-						Privileged:               helpers.BoolPtr(false),
-						AllowPrivilegeEscalation: helpers.BoolPtr(false),
-						ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
-						RunAsUser:                &userID,
-						Capabilities: &corev1.Capabilities{
-							Drop: []corev1.Capability{
-								"ALL",
-							},
-						},
-					},
-				},
-			},
-		},
-	}, nil
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *HumioBootstrapTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioBootstrapToken{}).
-		Named("humiobootstraptoken").
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.Pod{}).
 		Complete(r)

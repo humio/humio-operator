@@ -31,28 +31,22 @@ const (
 	HumioRepositoryStateConfigError = "ConfigError"
 )
 
-// HumioRetention defines the retention for the repository. If more than one of the options are set up, it will cause
-// LogScale to remove data as it hits any one of the size/time retention settings.
+// HumioRetention defines the retention for the repository
 type HumioRetention struct {
-	// IngestSizeInGB sets the retention size in gigabytes measured at the time of ingest, so that would be the
-	// uncompressed size of the data.
 	// perhaps we should migrate to resource.Quantity? the Humio API needs float64, but that is not supported here, see more here:
 	// https://github.com/kubernetes-sigs/controller-tools/issues/245
-	// +kubebuilder:validation:Minimum=0
-	// +optional
+	//+kubebuilder:validation:Minimum=1
+	//+optional
 	IngestSizeInGB *int32 `json:"ingestSizeInGB,omitempty"`
-	// StorageSizeInGB sets the retention size in gigabytes measured as disk usage. In order words, this is the
-	// compressed size.
-	// +kubebuilder:validation:Minimum=0
-	// +optional
+	//+kubebuilder:validation:Minimum=1
+	//+optional
 	StorageSizeInGB *int32 `json:"storageSizeInGB,omitempty"`
-	// TimeInDays sets the data retention measured in days.
-	// +kubebuilder:validation:Minimum=1
-	// +optional
+	//+kubebuilder:validation:Minimum=1
+	//+optional
 	TimeInDays *int32 `json:"timeInDays,omitempty"`
 }
 
-// HumioRepositorySpec defines the desired state of HumioRepository.
+// HumioRepositorySpec defines the desired state of HumioRepository
 type HumioRepositorySpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
@@ -62,11 +56,11 @@ type HumioRepositorySpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the repository inside Humio
-	// +kubebuilder:validation:MinLength=1
-	// +required
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	Name string `json:"name"`
 	// Description contains the description that will be set on the repository
-	// +optional
+	//+optional
 	Description string `json:"description,omitempty"`
 	// Retention defines the retention settings for the repository
 	Retention HumioRetention `json:"retention,omitempty"`
@@ -78,19 +72,19 @@ type HumioRepositorySpec struct {
 	AutomaticSearch *bool `json:"automaticSearch,omitempty"`
 }
 
-// HumioRepositoryStatus defines the observed state of HumioRepository.
+// HumioRepositoryStatus defines the observed state of HumioRepository
 type HumioRepositoryStatus struct {
 	// State reflects the current state of the HumioRepository
 	State string `json:"state,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:path=humiorepositories,scope=Namespaced
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the repository"
-// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Repository"
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+//+kubebuilder:resource:path=humiorepositories,scope=Namespaced
+//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the repository"
+//+operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Repository"
 
-// HumioRepository is the Schema for the humiorepositories API.
+// HumioRepository is the Schema for the humiorepositories API
 type HumioRepository struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -99,9 +93,9 @@ type HumioRepository struct {
 	Status HumioRepositoryStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
-// HumioRepositoryList contains a list of HumioRepository.
+// HumioRepositoryList contains a list of HumioRepository
 type HumioRepositoryList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

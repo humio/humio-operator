@@ -5,6 +5,12 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
   name: humioaggregatealerts.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.27.2'
 spec:
   group: core.humio.com
   names:
@@ -17,8 +23,8 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HumioAggregateAlert is the Schema for the humioaggregatealerts
-          API.
+        description: HumioAggregateAlert is the Schema for the humioAggregateAlerts
+          API
         properties:
           apiVersion:
             description: |-
@@ -38,7 +44,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert.
+            description: HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert
             properties:
               actions:
                 description: Actions is the list of Humio Actions by name that will
@@ -82,8 +88,7 @@ spec:
                   for a query
                 type: string
               searchIntervalSeconds:
-                description: SearchIntervalSeconds specifies the search interval (in
-                  seconds) to use when running the query
+                description: Search Interval time in seconds
                 type: integer
               throttleField:
                 description: ThrottleField is the field on which to throttle
@@ -93,8 +98,7 @@ spec:
                   An aggregate alert is triggered at most once per the throttle time
                 type: integer
               triggerMode:
-                description: TriggerMode specifies which trigger mode to use when
-                  configuring the aggregate alert
+                description: Aggregate Alert trigger mode
                 type: string
               viewName:
                 description: ViewName is the name of the Humio View under which the
@@ -108,7 +112,7 @@ spec:
             - viewName
             type: object
           status:
-            description: HumioAggregateAlertStatus defines the observed state of HumioAggregateAlert.
+            description: HumioAggregateAlertStatus defines the observed state of HumioAggregateAlert
             properties:
               state:
                 description: State reflects the current state of HumioAggregateAlert

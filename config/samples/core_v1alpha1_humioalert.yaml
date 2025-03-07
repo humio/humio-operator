@@ -1,18 +1,9 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioAlert
 metadata:
-  name: humioalert-example
+  labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humioalert-sample
 spec:
-  managedClusterName: example-humiocluster
-  name: example-alert
-  viewName: humio
-  query:
-    queryString: "#repo = humio | error = true | count() | _count > 0"
-    start: 24h
-    end: now
-    isLive: true
-  throttleTimeMillis: 60000
-  silenced: false
-  description: Error counts
-  actions:
-    - example-email-action
+  # TODO(user): Add fields here
