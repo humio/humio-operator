@@ -153,6 +153,7 @@ func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioN
 			PodLabels:                                   hc.Spec.PodLabels,
 			UpdateStrategy:                              hc.Spec.UpdateStrategy,
 			PriorityClassName:                           hc.Spec.PriorityClassName,
+			NodePoolFeatures:                            hc.Spec.NodePoolFeatures,
 		},
 		tls:                       hc.Spec.TLS,
 		idpCertificateSecretName:  hc.Spec.IdpCertificateSecretName,
@@ -236,6 +237,7 @@ func NewHumioNodeManagerFromHumioNodePool(hc *humiov1alpha1.HumioCluster, hnp *h
 			PodLabels:                      hnp.PodLabels,
 			UpdateStrategy:                 hnp.UpdateStrategy,
 			PriorityClassName:              hnp.PriorityClassName,
+			NodePoolFeatures:               hnp.NodePoolFeatures,
 		},
 		tls:                       hc.Spec.TLS,
 		idpCertificateSecretName:  hc.Spec.IdpCertificateSecretName,
@@ -507,6 +509,10 @@ func (hnp *HumioNodePool) GetPodLabels() map[string]string {
 	}
 	for _, feature := range hnp.GetNodePoolFeatureAllowedAPIRequestTypes() {
 		if feature == NodePoolFeatureAllowedAPIRequestType {
+			// TODO: Support should be added in the case additional node pool features are added. Currently we only
+			// handle the case where NodePoolFeatureAllowedAPIRequestType is either set or unset (set to [] or [None]).
+			// This perhaps should be migrated to a label like "humio.com/feature-feature-one" or
+			// "humio.com/feature=feature-name-one=true", "humio.com/feature=feature-name-two=true", etc.
 			labels[kubernetes.FeatureLabelName] = NodePoolFeatureAllowedAPIRequestType
 		}
 	}
