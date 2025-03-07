@@ -5,6 +5,12 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
   name: humioviews.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.27.2'
 spec:
   group: core.humio.com
   names:
@@ -22,7 +28,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HumioView is the Schema for the humioviews API.
+        description: HumioView is the Schema for the humioviews API
         properties:
           apiVersion:
             description: |-
@@ -42,7 +48,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioViewSpec defines the desired state of HumioView.
+            description: HumioViewSpec defines the desired state of HumioView
             properties:
               automaticSearch:
                 description: AutomaticSearch is used to specify the start search automatically
@@ -52,8 +58,6 @@ spec:
                 description: Connections contains the connections to the Humio repositories
                   which is accessible in this view
                 items:
-                  description: HumioViewConnection represents a connection to a specific
-                    repository with an optional filter
                   properties:
                     filter:
                       description: Filter contains the prefix filter that will be
@@ -89,7 +93,7 @@ spec:
             - name
             type: object
           status:
-            description: HumioViewStatus defines the observed state of HumioView.
+            description: HumioViewStatus defines the observed state of HumioView
             properties:
               state:
                 description: State reflects the current state of the HumioView

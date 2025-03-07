@@ -18,109 +18,46 @@ package controller
 
 import (
 	"context"
-	"fmt"
-	"time"
 
-	"github.com/go-logr/logr"
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/internal/helpers"
-	"github.com/humio/humio-operator/internal/humio"
-	"github.com/humio/humio-operator/internal/kubernetes"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
 
 // HumioExternalClusterReconciler reconciles a HumioExternalCluster object
 type HumioExternalClusterReconciler struct {
 	client.Client
-	BaseLogger  logr.Logger
-	Log         logr.Logger
-	HumioClient humio.Client
-	Namespace   string
+	Scheme *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioexternalclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioexternalclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioexternalclusters/finalizers,verbs=update
 
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
+// TODO(user): Modify the Reconcile function to compare the state specified by
+// the HumioExternalCluster object against the actual cluster state, and then
+// perform operations to make the cluster state reflect the state specified by
+// the user.
+//
+// For more details, check Reconcile and its Result here:
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
 func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	if r.Namespace != "" {
-		if r.Namespace != req.Namespace {
-			return reconcile.Result{}, nil
-		}
-	}
+	_ = log.FromContext(ctx)
 
-	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
-	r.Log.Info("Reconciling HumioExternalCluster")
+	// TODO(user): your logic here
 
-	// Fetch the HumioExternalCluster instance
-	hec := &humiov1alpha1.HumioExternalCluster{}
-	err := r.Get(ctx, req.NamespacedName, hec)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
-
-	r.Log = r.Log.WithValues("Request.UID", hec.UID)
-
-	if hec.Status.State == "" {
-		err := r.setState(ctx, humiov1alpha1.HumioExternalClusterStateUnknown, hec)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
-		}
-	}
-
-	cluster, err := helpers.NewCluster(ctx, r, "", hec.Name, hec.Namespace, helpers.UseCertManager(), true, false)
-	if err != nil || cluster.Config() == nil {
-		return reconcile.Result{}, r.logErrorAndReturn(fmt.Errorf("unable to obtain humio client config: %w", err), "unable to obtain humio client config")
-	}
-
-	err = r.HumioClient.TestAPIToken(ctx, cluster.Config(), req)
-	if err != nil {
-		r.Log.Error(err, "unable to test if the API token is works")
-		err = r.Client.Get(ctx, req.NamespacedName, hec)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to get cluster state")
-		}
-		err = r.setState(ctx, humiov1alpha1.HumioExternalClusterStateUnknown, hec)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
-		}
-		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
-	}
-
-	err = r.Client.Get(ctx, req.NamespacedName, hec)
-	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to get cluster state")
-	}
-	if hec.Status.State != humiov1alpha1.HumioExternalClusterStateReady {
-		err = r.setState(ctx, humiov1alpha1.HumioExternalClusterStateReady, hec)
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to set cluster state")
-		}
-	}
-
-	r.Log.Info("done reconciling, will requeue after 15 seconds")
-	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HumioExternalClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&humiov1alpha1.HumioExternalCluster{}).
+		For(&corev1alpha1.HumioExternalCluster{}).
 		Named("humioexternalcluster").
 		Complete(r)
-}
-
-func (r *HumioExternalClusterReconciler) logErrorAndReturn(err error, msg string) error {
-	r.Log.Error(err, msg)
-	return fmt.Errorf("%s: %w", msg, err)
 }

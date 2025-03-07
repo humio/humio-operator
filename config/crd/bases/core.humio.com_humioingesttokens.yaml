@@ -5,6 +5,12 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
   name: humioingesttokens.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.28.0'
 spec:
   group: core.humio.com
   names:
@@ -14,12 +20,7 @@ spec:
     singular: humioingesttoken
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - description: The state of the ingest token
-      jsonPath: .status.state
-      name: State
-      type: string
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: HumioIngestToken is the Schema for the humioingesttokens API.
@@ -44,54 +45,13 @@ spec:
           spec:
             description: HumioIngestTokenSpec defines the desired state of HumioIngestToken.
             properties:
-              externalClusterName:
-                description: |-
-                  ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
-                  This conflicts with ManagedClusterName.
+              foo:
+                description: Foo is an example field of HumioIngestToken. Edit humioingesttoken_types.go
+                  to remove/update
                 type: string
-              managedClusterName:
-                description: |-
-                  ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
-                  resources should be created.
-                  This conflicts with ExternalClusterName.
-                type: string
-              name:
-                description: Name is the name of the ingest token inside Humio
-                minLength: 1
-                type: string
-              parserName:
-                description: ParserName is the name of the parser which will be assigned
-                  to the ingest token.
-                minLength: 1
-                type: string
-              repositoryName:
-                description: RepositoryName is the name of the Humio repository under
-                  which the ingest token will be created
-                minLength: 1
-                type: string
-              tokenSecretLabels:
-                additionalProperties:
-                  type: string
-                description: |-
-                  TokenSecretLabels specifies additional key,value pairs to add as labels on the Kubernetes Secret containing
-                  the ingest token.
-                  This field is optional.
-                type: object
-              tokenSecretName:
-                description: |-
-                  TokenSecretName specifies the name of the Kubernetes secret that will be created
-                  and contain the ingest token. The key in the secret storing the ingest token is "token".
-                  This field is optional.
-                type: string
-            required:
-            - name
             type: object
           status:
             description: HumioIngestTokenStatus defines the observed state of HumioIngestToken.
-            properties:
-              state:
-                description: State reflects the current state of the HumioIngestToken
-                type: string
             type: object
         type: object
     served: true
