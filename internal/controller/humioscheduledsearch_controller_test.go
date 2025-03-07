@@ -30,7 +30,7 @@ import (
 	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
 
-var _ = Describe("HumioCluster Controller", func() {
+var _ = Describe("HumioScheduledSearch Controller", func() {
 	Context("When reconciling a resource", func() {
 		const resourceName = "test-resource"
 
@@ -40,13 +40,13 @@ var _ = Describe("HumioCluster Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		humiocluster := &corev1alpha1.HumioCluster{}
+		humioscheduledsearch := &corev1alpha1.HumioScheduledSearch{}
 
 		BeforeEach(func() {
-			By("creating the custom resource for the Kind HumioCluster")
-			err := k8sClient.Get(ctx, typeNamespacedName, humiocluster)
+			By("creating the custom resource for the Kind HumioScheduledSearch")
+			err := k8sClient.Get(ctx, typeNamespacedName, humioscheduledsearch)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &corev1alpha1.HumioCluster{
+				resource := &corev1alpha1.HumioScheduledSearch{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -59,16 +59,16 @@ var _ = Describe("HumioCluster Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &corev1alpha1.HumioCluster{}
+			resource := &corev1alpha1.HumioScheduledSearch{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Cleanup the specific resource instance HumioCluster")
+			By("Cleanup the specific resource instance HumioScheduledSearch")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
-			controllerReconciler := &HumioClusterReconciler{
+			controllerReconciler := &HumioScheduledSearchReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}
