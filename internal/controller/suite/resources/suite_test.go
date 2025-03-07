@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+
 	"time"
 
 	"github.com/humio/humio-operator/internal/controller"
@@ -280,6 +281,22 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controllers.HumioPdfRenderServiceReconciler{
+		Client:    k8sManager.GetClient(),
+		Scheme:    k8sManager.GetScheme(),
+		Log:       log,
+		Namespace: clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controllers.HumioPdfRenderServiceReconciler{
+		Client:    k8sManager.GetClient(),
+		Scheme:    k8sManager.GetScheme(),
+		Log:       log,
+		Namespace: clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	ctx, cancel = context.WithCancel(context.TODO())
 
 	go func() {
@@ -418,8 +435,6 @@ var _ = AfterSuite(func() {
 		Expect(k8sClient.Get(context.Background(), clusterKey, cluster)).Should(Succeed())
 		Expect(cluster.GetGeneration()).ShouldNot(BeNumerically(">", 100))
 
-		suite.CleanupCluster(context.TODO(), k8sClient, cluster)
-
 		if suite.UseDockerCredentials() {
 			By(fmt.Sprintf("Removing regcred secret for namespace: %s", testNamespace.Name))
 			Expect(k8sClient.Delete(context.TODO(), &corev1.Secret{
@@ -429,6 +444,8 @@ var _ = AfterSuite(func() {
 				},
 			})).To(Succeed())
 		}
+
+		suite.CleanupCluster(context.TODO(), k8sClient, cluster)
 
 		if testNamespace.Name != "" && !helpers.UseEnvtest() && helpers.PreserveKindCluster() {
 			By(fmt.Sprintf("Removing test namespace: %s", clusterKey.Namespace))
