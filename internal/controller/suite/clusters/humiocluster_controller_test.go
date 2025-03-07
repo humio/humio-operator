@@ -87,6 +87,9 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			toCreate := constructBasicMultiNodePoolHumioCluster(key, 1)
 
+			suite.UsingClusterBy(key.Name, "Disabling node pool feature AllowedAPIRequestTypes to validate that it can be unset")
+			toCreate.Spec.NodePools[0].NodePoolFeatures = humiov1alpha1.HumioNodePoolFeatures{AllowedAPIRequestTypes: &[]string{""}}
+
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
 			createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, testHumioClient, toCreate)
@@ -103,6 +106,15 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			updatedHumioCluster := humiov1alpha1.HumioCluster{}
 			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Confirming pod labels do not contain disabled node pool feature")
+			Eventually(func() map[string]string {
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[0]).GetPodLabels())
+				if len(clusterPods) > 0 {
+					return clusterPods[0].Labels
+				}
+				return map[string]string{"humio.com/feature": "OperatorInternal"}
+			}, testTimeout, suite.TestInterval).Should(Not(HaveKeyWithValue("humio.com/feature", "OperatorInternal")))
 
 			suite.UsingClusterBy(key.Name, "Scaling down the cluster node count successfully")
 			Eventually(func() error {
