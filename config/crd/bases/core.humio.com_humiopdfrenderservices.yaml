@@ -5,12 +5,6 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
   name: humiopdfrenderservices.core.humio.com
-  labels:
-    app: 'humio-operator'
-    app.kubernetes.io/name: 'humio-operator'
-    app.kubernetes.io/instance: 'humio-operator'
-    app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.28.0'
 spec:
   group: core.humio.com
   names:
@@ -20,11 +14,25 @@ spec:
     singular: humiopdfrenderservice
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: The state of the PDF rendering service
+      jsonPath: .status.state
+      name: State
+      type: string
+    - jsonPath: .spec.replicas
+      name: Replicas
+      type: integer
+    - jsonPath: .status.readyReplicas
+      name: Ready
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: HumioPdfRenderService is the Schema for the humiopdfrenderservices
-          API.
+          API
         properties:
           apiVersion:
             description: |-
@@ -44,16 +52,100 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService.
+            description: HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
             properties:
-              foo:
-                description: Foo is an example field of HumioPdfRenderService. Edit
-                  humiopdfrenderservice_types.go to remove/update
+              affinity:
+                $ref: '#/definitions/k8s.io~1api~1core~1v1~0Affinity'
+                description: Affinity defines the pod's scheduling constraints.
+              annotations:
+                additionalProperties:
+                  type: string
+                description: Annotations allows to specify custom annotations for
+                  the pods.
+                type: object
+              env:
+                description: Env allows to specify environment variables for the service.
+                items:
+                  $ref: '#/definitions/k8s.io~1api~1core~1v1~0EnvVar'
+                type: array
+              image:
+                description: Image is the Docker image to use for the PDF rendering
+                  service.
+                minLength: 1
                 type: string
+              ingress:
+                description: Ingress defines the ingress configuration for the service.
+                properties:
+                  enabled:
+                    description: Enabled defines if the ingress is enabled.
+                    type: boolean
+                  hosts:
+                    description: Hosts defines the list of hosts for the ingress.
+                    items:
+                      description: HumioPdfRenderServiceIngressHost defines the host
+                        configuration for the Ingress.
+                      properties:
+                        host:
+                          description: Host is the hostname to be used.
+                          type: string
+                        port:
+                          description: Port is the port number to be used.
+                          format: int32
+                          type: integer
+                      type: object
+                    type: array
+                type: object
+              livenessProbe:
+                $ref: '#/definitions/k8s.io~1api~1core~1v1~0Probe'
+                description: LivenessProbe defines the liveness probe configuration.
+              nodePort:
+                description: NodePort is the port the service listens on when the
+                  service type is NodePort.
+                format: int32
+                type: integer
+              port:
+                description: Port is the port the service listens on.
+                format: int32
+                type: integer
+              readinessProbe:
+                $ref: '#/definitions/k8s.io~1api~1core~1v1~0Probe'
+                description: ReadinessProbe defines the readiness probe configuration.
+              replicas:
+                description: Replicas is the number of desired Pod replicas.
+                format: int32
+                type: integer
+              resources:
+                $ref: '#/definitions/k8s.io~1api~1core~1v1~0ResourceRequirements'
+                description: Resources defines the resource requests and limits for
+                  the container.
+              serviceAccountName:
+                description: ServiceAccountName is the name of the Kubernetes Service
+                  Account to use.
+                type: string
+              serviceType:
+                $ref: '#/definitions/k8s.io~1api~1core~1v1~0ServiceType'
+                default: ClusterIP
+                description: ServiceType is the type of service to expose.
+            required:
+            - image
+            - replicas
             type: object
           status:
             description: HumioPdfRenderServiceStatus defines the observed state of
-              HumioPdfRenderService.
+              HumioPdfRenderService
+            properties:
+              nodes:
+                description: Nodes are the names of the PDF render service pods.
+                items:
+                  type: string
+                type: array
+              readyReplicas:
+                description: ReadyReplicas is the number of ready replicas.
+                format: int32
+                type: integer
+              state:
+                description: State reflects the current state of the HumioPdfRenderService
+                type: string
             type: object
         type: object
     served: true

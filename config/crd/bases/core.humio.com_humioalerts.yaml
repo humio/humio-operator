@@ -5,12 +5,6 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
   name: humioalerts.core.humio.com
-  labels:
-    app: 'humio-operator'
-    app.kubernetes.io/name: 'humio-operator'
-    app.kubernetes.io/instance: 'humio-operator'
-    app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.28.0'
 spec:
   group: core.humio.com
   names:
@@ -45,13 +39,86 @@ spec:
           spec:
             description: HumioAlertSpec defines the desired state of HumioAlert.
             properties:
-              foo:
-                description: Foo is an example field of HumioAlert. Edit humioalert_types.go
-                  to remove/update
+              actions:
+                description: Actions is the list of Humio Actions by name that will
+                  be triggered by this Alert
+                items:
+                  type: string
+                type: array
+              description:
+                description: Description is the description of the Alert
                 type: string
+              externalClusterName:
+                description: |-
+                  ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+                  This conflicts with ManagedClusterName.
+                type: string
+              labels:
+                description: Labels are a set of labels on the Alert
+                items:
+                  type: string
+                type: array
+              managedClusterName:
+                description: |-
+                  ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+                  resources should be created.
+                  This conflicts with ExternalClusterName.
+                type: string
+              name:
+                description: Name is the name of the alert inside Humio
+                minLength: 1
+                type: string
+              query:
+                description: Query defines the desired state of the Humio query
+                properties:
+                  end:
+                    description: |-
+                      End is the end time for the query. Defaults to "now"
+                      Deprecated: Will be ignored. All alerts end at "now".
+                    type: string
+                  isLive:
+                    description: |-
+                      IsLive sets whether the query is a live query. Defaults to "true"
+                      Deprecated: Will be ignored. All alerts are live.
+                    type: boolean
+                  queryString:
+                    description: QueryString is the Humio query that will trigger
+                      the alert
+                    type: string
+                  start:
+                    description: Start is the start time for the query. Defaults to
+                      "24h"
+                    type: string
+                required:
+                - queryString
+                type: object
+              silenced:
+                description: Silenced will set the Alert to enabled when set to false
+                type: boolean
+              throttleField:
+                description: ThrottleField is the field on which to throttle
+                type: string
+              throttleTimeMillis:
+                description: ThrottleTimeMillis is the throttle time in milliseconds.
+                  An Alert is triggered at most once per the throttle time
+                type: integer
+              viewName:
+                description: ViewName is the name of the Humio View under which the
+                  Alert will be managed. This can also be a Repository
+                minLength: 1
+                type: string
+            required:
+            - actions
+            - name
+            - query
+            - viewName
             type: object
           status:
             description: HumioAlertStatus defines the observed state of HumioAlert.
+            properties:
+              state:
+                description: State reflects the current state of the HumioAlert
+                type: string
             type: object
         type: object
     served: true

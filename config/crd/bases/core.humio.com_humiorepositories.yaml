@@ -5,12 +5,6 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
   name: humiorepositories.core.humio.com
-  labels:
-    app: 'humio-operator'
-    app.kubernetes.io/name: 'humio-operator'
-    app.kubernetes.io/instance: 'humio-operator'
-    app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.27.2'
 spec:
   group: core.humio.com
   names:
@@ -28,7 +22,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HumioRepository is the Schema for the humiorepositories API
+        description: HumioRepository is the Schema for the humiorepositories API.
         properties:
           apiVersion:
             description: |-
@@ -48,7 +42,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioRepositorySpec defines the desired state of HumioRepository
+            description: HumioRepositorySpec defines the desired state of HumioRepository.
             properties:
               allowDataDeletion:
                 description: |-
@@ -84,16 +78,22 @@ spec:
                 properties:
                   ingestSizeInGB:
                     description: |-
+                      IngestSizeInGB sets the retention size in gigabytes measured at the time of ingest, so that would be the
+                      uncompressed size of the data.
                       perhaps we should migrate to resource.Quantity? the Humio API needs float64, but that is not supported here, see more here:
                       https://github.com/kubernetes-sigs/controller-tools/issues/245
                     format: int32
-                    minimum: 1
+                    minimum: 0
                     type: integer
                   storageSizeInGB:
+                    description: |-
+                      StorageSizeInGB sets the retention size in gigabytes measured as disk usage. In order words, this is the
+                      compressed size.
                     format: int32
-                    minimum: 1
+                    minimum: 0
                     type: integer
                   timeInDays:
+                    description: TimeInDays sets the data retention measured in days.
                     format: int32
                     minimum: 1
                     type: integer
@@ -102,7 +102,7 @@ spec:
             - name
             type: object
           status:
-            description: HumioRepositoryStatus defines the observed state of HumioRepository
+            description: HumioRepositoryStatus defines the observed state of HumioRepository.
             properties:
               state:
                 description: State reflects the current state of the HumioRepository
