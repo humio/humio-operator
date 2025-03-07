@@ -20,26 +20,59 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+const (
+	// HumioIngestTokenStateUnknown is the Unknown state of the ingest token
+	HumioIngestTokenStateUnknown = "Unknown"
+	// HumioIngestTokenStateExists is the Exists state of the ingest token
+	HumioIngestTokenStateExists = "Exists"
+	// HumioIngestTokenStateNotFound is the NotFound state of the ingest token
+	HumioIngestTokenStateNotFound = "NotFound"
+	// HumioIngestTokenStateConfigError is the state of the ingest token when user-provided specification results in configuration error, such as non-existent humio cluster
+	HumioIngestTokenStateConfigError = "ConfigError"
+)
 
 // HumioIngestTokenSpec defines the desired state of HumioIngestToken.
 type HumioIngestTokenSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of HumioIngestToken. Edit humioingesttoken_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+	// resources should be created.
+	// This conflicts with ExternalClusterName.
+	ManagedClusterName string `json:"managedClusterName,omitempty"`
+	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+	// This conflicts with ManagedClusterName.
+	ExternalClusterName string `json:"externalClusterName,omitempty"`
+	// Name is the name of the ingest token inside Humio
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	Name string `json:"name"`
+	// ParserName is the name of the parser which will be assigned to the ingest token.
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	ParserName *string `json:"parserName,omitempty"`
+	// RepositoryName is the name of the Humio repository under which the ingest token will be created
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	RepositoryName string `json:"repositoryName,omitempty"`
+	// TokenSecretName specifies the name of the Kubernetes secret that will be created
+	// and contain the ingest token. The key in the secret storing the ingest token is "token".
+	// This field is optional.
+	TokenSecretName string `json:"tokenSecretName,omitempty"`
+	// TokenSecretLabels specifies additional key,value pairs to add as labels on the Kubernetes Secret containing
+	// the ingest token.
+	// This field is optional.
+	TokenSecretLabels map[string]string `json:"tokenSecretLabels,omitempty"`
 }
 
 // HumioIngestTokenStatus defines the observed state of HumioIngestToken.
 type HumioIngestTokenStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// State reflects the current state of the HumioIngestToken
+	State string `json:"state,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:path=humioingesttokens,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the ingest token"
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Ingest Token"
 
 // HumioIngestToken is the Schema for the humioingesttokens API.
 type HumioIngestToken struct {
