@@ -1,6 +1,6 @@
 operator:
   image:
-    repository: 471112840547.dkr.ecr.us-west-2.amazonaws.com/humio-operator
+    repository: humio/humio-operator
     # default for tag is the appVersion set in Chart.yaml
     tag: 0.27.3
     pullPolicy: Always
