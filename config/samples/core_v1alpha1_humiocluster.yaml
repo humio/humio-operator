@@ -1,12 +1,13 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioCluster
 metadata:
+  name: example-humiocluster
   labels:
-    app.kubernetes.io/name: humio-operator
-    app.kubernetes.io/managed-by: kustomize
-  name: humiocluster-sample
+    app: 'humiocluster'
+    app.kubernetes.io/name: 'humiocluster'
+    app.kubernetes.io/instance: 'example-humiocluster'
+    app.kubernetes.io/managed-by: 'manual'
 spec:
-<<<<<<< HEAD
   extraKafkaConfigs: "security.protocol=PLAINTEXT"
   tls:
     enabled: false
@@ -28,6 +29,3 @@ spec:
     resources:
       requests:
         storage: 10Gi
-=======
-  # TODO(user): Add fields here
->>>>>>> e70ef2c (starting from zero)

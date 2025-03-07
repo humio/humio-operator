@@ -1,9 +1,9 @@
-package controllers
+package controller
 
 import (
 	"fmt"
 
-	"github.com/humio/humio-operator/controllers/versions"
+	"github.com/humio/humio-operator/internal/controller/versions"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -60,10 +60,27 @@ func (b *HumioBootstrapTokenConfig) image() string {
 	}
 	if b.ManagedHumioCluster != nil {
 		if len(b.ManagedHumioCluster.Spec.NodePools) > 0 {
-			return b.ManagedHumioCluster.Spec.NodePools[0].Image
+			if b.ManagedHumioCluster.Spec.NodePools[0].Image != "" {
+				return b.ManagedHumioCluster.Spec.NodePools[0].Image
+			}
 		}
 	}
 	return versions.DefaultHumioImageVersion()
+}
+
+func (b *HumioBootstrapTokenConfig) imageSource() *humiov1alpha1.HumioImageSource {
+
+	if b.ManagedHumioCluster.Spec.ImageSource != nil {
+		return b.ManagedHumioCluster.Spec.ImageSource
+	}
+	if b.ManagedHumioCluster != nil {
+		if len(b.ManagedHumioCluster.Spec.NodePools) > 0 {
+			if b.ManagedHumioCluster.Spec.NodePools[0].ImageSource != nil {
+				return b.ManagedHumioCluster.Spec.NodePools[0].ImageSource
+			}
+		}
+	}
+	return nil
 }
 
 func (b *HumioBootstrapTokenConfig) imagePullSecrets() []corev1.LocalObjectReference {
