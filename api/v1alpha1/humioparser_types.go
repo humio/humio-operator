@@ -20,26 +20,54 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+const (
+	// HumioParserStateUnknown is the Unknown state of the parser
+	HumioParserStateUnknown = "Unknown"
+	// HumioParserStateExists is the Exists state of the parser
+	HumioParserStateExists = "Exists"
+	// HumioParserStateNotFound is the NotFound state of the parser
+	HumioParserStateNotFound = "NotFound"
+	// HumioParserStateConfigError is the state of the parser when user-provided specification results in configuration error, such as non-existent humio cluster
+	HumioParserStateConfigError = "ConfigError"
+)
 
 // HumioParserSpec defines the desired state of HumioParser.
 type HumioParserSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of HumioParser. Edit humioparser_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+	// resources should be created.
+	// This conflicts with ExternalClusterName.
+	ManagedClusterName string `json:"managedClusterName,omitempty"`
+	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+	// This conflicts with ManagedClusterName.
+	ExternalClusterName string `json:"externalClusterName,omitempty"`
+	// Name is the name of the parser inside Humio
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	Name string `json:"name"`
+	// ParserScript contains the code for the Humio parser
+	ParserScript string `json:"parserScript,omitempty"`
+	// RepositoryName defines what repository this parser should be managed in
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	RepositoryName string `json:"repositoryName,omitempty"`
+	// TagFields is used to define what fields will be used to define how data will be tagged when being parsed by
+	// this parser
+	TagFields []string `json:"tagFields,omitempty"`
+	// TestData contains example test data to verify the parser behavior
+	TestData []string `json:"testData,omitempty"`
 }
 
 // HumioParserStatus defines the observed state of HumioParser.
 type HumioParserStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// State reflects the current state of the HumioParser
+	State string `json:"state,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:path=humioparsers,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the parser"
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Parser"
 
 // HumioParser is the Schema for the humioparsers API.
 type HumioParser struct {

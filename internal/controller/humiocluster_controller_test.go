@@ -1,84 +1,73 @@
-/*
-Copyright 2020 Humio https://humio.com
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package controller
 
 import (
-	"context"
+	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
 )
 
-var _ = Describe("HumioCluster Controller", func() {
-	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
-
-		ctx := context.Background()
-
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
-		}
-		humiocluster := &corev1alpha1.HumioCluster{}
-
-		BeforeEach(func() {
-			By("creating the custom resource for the Kind HumioCluster")
-			err := k8sClient.Get(ctx, typeNamespacedName, humiocluster)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &corev1alpha1.HumioCluster{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
-					},
-					// TODO(user): Specify other spec details if needed.
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+func TestMergeEnvVars(t *testing.T) {
+	testCases := []struct {
+		name     string
+		from     []corev1.EnvVar
+		into     []corev1.EnvVar
+		expected []corev1.EnvVar
+	}{
+		{
+			name: "no from",
+			from: []corev1.EnvVar{},
+			into: []corev1.EnvVar{
+				{Name: "NODEPOOL_ENV_VAR", Value: "nodepool_value"},
+			},
+			expected: []corev1.EnvVar{
+				{Name: "NODEPOOL_ENV_VAR", Value: "nodepool_value"},
+			},
+		},
+		{
+			name: "no duplicates",
+			from: []corev1.EnvVar{
+				{Name: "COMMON_ENV_VAR", Value: "common_value"},
+			},
+			into: []corev1.EnvVar{
+				{Name: "NODEPOOL_ENV_VAR", Value: "nodepool_value"},
+			},
+			expected: []corev1.EnvVar{
+				{Name: "NODEPOOL_ENV_VAR", Value: "nodepool_value"},
+				{Name: "COMMON_ENV_VAR", Value: "common_value"},
+			},
+		},
+		{
+			name: "duplicates",
+			from: []corev1.EnvVar{
+				{Name: "DUPLICATE_ENV_VAR", Value: "common_value"},
+			},
+			into: []corev1.EnvVar{
+				{Name: "NODE_ENV_VAR", Value: "nodepool_value"},
+				{Name: "DUPLICATE_ENV_VAR", Value: "nodepool_value"},
+			},
+			expected: []corev1.EnvVar{
+				{Name: "NODE_ENV_VAR", Value: "nodepool_value"},
+				{Name: "DUPLICATE_ENV_VAR", Value: "nodepool_value"},
+			},
+		},
+		{
+			name: "no into",
+			from: []corev1.EnvVar{
+				{Name: "COMMON_ENV_VAR", Value: "common_value"},
+			},
+			into: []corev1.EnvVar{},
+			expected: []corev1.EnvVar{
+				{Name: "COMMON_ENV_VAR", Value: "common_value"},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := mergeEnvVars(tc.from, tc.into)
+			if d := cmp.Diff(tc.expected, actual); d != "" {
+				t.Errorf("expected: %v, got: %v", tc.expected, actual)
 			}
 		})
-
-		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &corev1alpha1.HumioCluster{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance HumioCluster")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
-			controllerReconciler := &HumioClusterReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
-			}
-
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
-		})
-	})
-})
+	}
+}
