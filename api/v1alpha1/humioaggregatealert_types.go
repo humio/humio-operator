@@ -20,62 +20,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	// HumioAggregateAlertStateUnknown is the Unknown state of the aggregate alert
-	HumioAggregateAlertStateUnknown = "Unknown"
-	// HumioAggregateAlertStateExists is the Exists state of the aggregate alert
-	HumioAggregateAlertStateExists = "Exists"
-	// HumioAggregateAlertStateNotFound is the NotFound state of the aggregate alert
-	HumioAggregateAlertStateNotFound = "NotFound"
-	// HumioAggregateAlertStateConfigError is the state of the aggregate alert when user-provided specification results in configuration error, such as non-existent humio cluster
-	HumioAggregateAlertStateConfigError = "ConfigError"
-)
+// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert.
 type HumioAggregateAlertSpec struct {
-	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
-	// resources should be created.
-	// This conflicts with ExternalClusterName.
-	ManagedClusterName string `json:"managedClusterName,omitempty"`
-	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
-	// This conflicts with ManagedClusterName.
-	ExternalClusterName string `json:"externalClusterName,omitempty"`
-	// Name is the name of the aggregate alert inside Humio
-	// +kubebuilder:validation:MinLength=1
-	// +required
-	Name string `json:"name"`
-	// ViewName is the name of the Humio View under which the aggregate alert will be managed. This can also be a Repository
-	// +kubebuilder:validation:MinLength=1
-	// +required
-	ViewName string `json:"viewName"`
-	// QueryString defines the desired Humio query string
-	QueryString string `json:"queryString"`
-	// QueryTimestampType defines the timestamp type to use for a query
-	QueryTimestampType string `json:"queryTimestampType,omitempty"`
-	// Description is the description of the Aggregate alert
-	// +optional
-	Description string `json:"description,omitempty"`
-	// Search Interval time in seconds
-	SearchIntervalSeconds int `json:"searchIntervalSeconds,omitempty"`
-	// ThrottleTimeSeconds is the throttle time in seconds. An aggregate alert is triggered at most once per the throttle time
-	ThrottleTimeSeconds int `json:"throttleTimeSeconds,omitempty"`
-	// ThrottleField is the field on which to throttle
-	ThrottleField *string `json:"throttleField,omitempty"`
-	// Aggregate Alert trigger mode
-	TriggerMode string `json:"triggerMode,omitempty"`
-	// Enabled will set the AggregateAlert to enabled when set to true
-	// +kubebuilder:default=false
-	Enabled bool `json:"enabled,omitempty"`
-	// Actions is the list of Humio Actions by name that will be triggered by this Aggregate alert
-	Actions []string `json:"actions"`
-	// Labels are a set of labels on the aggregate alert
-	Labels []string `json:"labels,omitempty"`
+	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+
+	// Foo is an example field of HumioAggregateAlert. Edit humioaggregatealert_types.go to remove/update
+	Foo string `json:"foo,omitempty"`
 }
 
 // HumioAggregateAlertStatus defines the observed state of HumioAggregateAlert.
 type HumioAggregateAlertStatus struct {
-	// State reflects the current state of HumioAggregateAlert
-	State string `json:"state,omitempty"`
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
 }
 
 // +kubebuilder:object:root=true
