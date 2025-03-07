@@ -20,60 +20,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	// HumioFilterAlertStateUnknown is the Unknown state of the filter alert
-	HumioFilterAlertStateUnknown = "Unknown"
-	// HumioFilterAlertStateExists is the Exists state of the filter alert
-	HumioFilterAlertStateExists = "Exists"
-	// HumioFilterAlertStateNotFound is the NotFound state of the filter alert
-	HumioFilterAlertStateNotFound = "NotFound"
-	// HumioFilterAlertStateConfigError is the state of the filter alert when user-provided specification results in configuration error, such as non-existent humio cluster
-	HumioFilterAlertStateConfigError = "ConfigError"
-)
+// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // HumioFilterAlertSpec defines the desired state of HumioFilterAlert.
 type HumioFilterAlertSpec struct {
-	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
-	// resources should be created.
-	// This conflicts with ExternalClusterName.
-	ManagedClusterName string `json:"managedClusterName,omitempty"`
-	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
-	// This conflicts with ManagedClusterName.
-	ExternalClusterName string `json:"externalClusterName,omitempty"`
-	// Name is the name of the filter alert inside Humio
-	// +kubebuilder:validation:MinLength=1
-	// +required
-	Name string `json:"name"`
-	// ViewName is the name of the Humio View under which the filter alert will be managed. This can also be a Repository
-	// +kubebuilder:validation:MinLength=1
-	// +required
-	ViewName string `json:"viewName"`
-	// QueryString defines the desired Humio query string
-	QueryString string `json:"queryString"`
-	// Description is the description of the filter alert
-	// +optional
-	Description string `json:"description,omitempty"`
-	// ThrottleTimeSeconds is the throttle time in seconds. A filter alert is triggered at most once per the throttle time
-	// +kubebuilder:validation:Minimum=60
-	// +required
-	ThrottleTimeSeconds int `json:"throttleTimeSeconds,omitempty"`
-	// ThrottleField is the field on which to throttle
-	// +kubebuilder:validation:MinLength=1
-	// +required
-	ThrottleField *string `json:"throttleField,omitempty"`
-	// Enabled will set the FilterAlert to enabled when set to true
-	// +kubebuilder:default=false
-	Enabled bool `json:"enabled,omitempty"`
-	// Actions is the list of Humio Actions by name that will be triggered by this filter alert
-	Actions []string `json:"actions"`
-	// Labels are a set of labels on the filter alert
-	Labels []string `json:"labels,omitempty"`
+	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+
+	// Foo is an example field of HumioFilterAlert. Edit humiofilteralert_types.go to remove/update
+	Foo string `json:"foo,omitempty"`
 }
 
 // HumioFilterAlertStatus defines the observed state of HumioFilterAlert.
 type HumioFilterAlertStatus struct {
-	// State reflects the current state of the HumioFilterAlert
-	State string `json:"state,omitempty"`
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
 }
 
 // +kubebuilder:object:root=true

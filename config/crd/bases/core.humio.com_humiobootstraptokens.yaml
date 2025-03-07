@@ -5,6 +5,12 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
   name: humiobootstraptokens.core.humio.com
+  labels:
+    app: 'humio-operator'
+    app.kubernetes.io/name: 'humio-operator'
+    app.kubernetes.io/instance: 'humio-operator'
+    app.kubernetes.io/managed-by: 'Helm'
+    helm.sh/chart: 'humio-operator-0.28.0'
 spec:
   group: core.humio.com
   names:
@@ -14,12 +20,7 @@ spec:
     singular: humiobootstraptoken
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - description: The state of the bootstrap token
-      jsonPath: .status.state
-      name: State
-      type: string
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: HumioBootstrapToken is the Schema for the humiobootstraptokens
@@ -45,89 +46,13 @@ spec:
           spec:
             description: HumioBootstrapTokenSpec defines the desired state of HumioBootstrapToken.
             properties:
-              affinity:
-                $ref: '#/definitions/k8s.io~1api~1core~1v1~0Affinity'
-                description: |-
-                  Affinity defines the affinity for the bootstrap onetime pod. This will default to the affinity of the first
-                  non-empty node pool if ManagedClusterName is set on the HumioBootstrapTokenSpec
-              bootstrapImage:
-                description: |-
-                  Image can be set to override the image used to run when generating a bootstrap token. This will default to the image
-                  that is used by either the HumioCluster resource or the first NodePool resource if ManagedClusterName is set on the HumioBootstrapTokenSpec
+              foo:
+                description: Foo is an example field of HumioBootstrapToken. Edit
+                  humiobootstraptoken_types.go to remove/update
                 type: string
-              externalClusterName:
-                description: |-
-                  ExternalClusterName refers to the name of the HumioExternalCluster which will use this bootstrap token for authentication
-                  This conflicts with ManagedClusterName.
-                type: string
-              hashedTokenSecret:
-                description: |-
-                  HashedTokenSecret is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is used if one wants to use an existing
-                  hashed token for the BootstrapToken rather than letting the operator create one by running a bootstrap token onetime pod
-                properties:
-                  secretKeyRef:
-                    $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretKeySelector'
-                    description: SecretKeyRef is the secret key reference to a kubernetes
-                      secret containing the bootstrap hashed token secret
-                type: object
-              imagePullSecrets:
-                description: |-
-                  ImagePullSecrets defines the imagepullsecrets for the bootstrap image onetime pod. These secrets are not created by the operator. This will default to the imagePullSecrets
-                  that are used by either the HumioCluster resource or the first NodePool resource if ManagedClusterName is set on the HumioBootstrapTokenSpec
-                items:
-                  $ref: '#/definitions/k8s.io~1api~1core~1v1~0LocalObjectReference'
-                type: array
-              managedClusterName:
-                description: ManagedClusterName refers to the name of the HumioCluster
-                  which will use this bootstrap token
-                type: string
-              resources:
-                $ref: '#/definitions/k8s.io~1api~1core~1v1~0ResourceRequirements'
-                description: Resources is the kubernetes resource limits for the bootstrap
-                  onetime pod
-              tokenSecret:
-                description: |-
-                  TokenSecret is the secret reference that contains the token to use for this HumioBootstrapToken. This is used if one wants to use an existing
-                  token for the BootstrapToken rather than letting the operator create one by running a bootstrap token onetime pod
-                properties:
-                  secretKeyRef:
-                    $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretKeySelector'
-                    description: SecretKeyRef is the secret key reference to a kubernetes
-                      secret containing the bootstrap token secret
-                type: object
             type: object
           status:
             description: HumioBootstrapTokenStatus defines the observed state of HumioBootstrapToken.
-            properties:
-              bootstrapImage:
-                description: BootstrapImage is the image that was used to issue the
-                  token
-                type: string
-              hashedTokenSecretStatus:
-                description: |-
-                  HashedTokenSecret is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
-                  in the spec or automatically created
-                properties:
-                  secretKeyRef:
-                    $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretKeySelector'
-                    description: |-
-                      SecretKeyRef is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
-                      in the spec or automatically created
-                type: object
-              state:
-                description: State can be "NotReady" or "Ready"
-                type: string
-              tokenSecretStatus:
-                description: |-
-                  TokenSecretKeyRef contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
-                  in the spec or automatically created
-                properties:
-                  secretKeyRef:
-                    $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretKeySelector'
-                    description: |-
-                      SecretKeyRef contains the secret key reference to a kubernetes secret containing the bootstrap token secret. This is set regardless of whether it's defined
-                      in the spec or automatically created
-                type: object
             type: object
         type: object
     served: true
