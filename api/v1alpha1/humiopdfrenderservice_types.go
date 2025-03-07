@@ -17,31 +17,110 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+const (
+	// HumioPdfRenderServiceStateUnknown is the unknown state of the PDF rendering service.
+	HumioPdfRenderServiceStateUnknown = "Unknown"
+	// HumioPdfRenderServiceStateExists is the Exists state of the PDF rendering service.
+	HumioPdfRenderServiceStateExists = "Exists"
+	// HumioPdfRenderServiceStateNotFound is the NotFound state of the PDF rendering service.
+	HumioPdfRenderServiceStateNotFound = "NotFound"
+	// HumioPdfRenderServiceStateConfigError is the state of the PDF rendering service when user-provided specification results in configuration error, such as non-existent humio cluster
+	HumioPdfRenderServiceStateConfigError = "ConfigError"
+)
 
-// HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService.
+// HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
 type HumioPdfRenderServiceSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Image is the Docker image to use for the PDF rendering service.
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	Image string `json:"image"`
 
-	// Foo is an example field of HumioPdfRenderService. Edit humiopdfrenderservice_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Replicas is the number of desired Pod replicas.
+	Replicas int32 `json:"replicas"`
+
+	// Port is the port the service listens on.
+	// +optional
+	Port int32 `json:"port,omitempty"`
+
+	// Resources defines the resource requests and limits for the container.
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// Env allows to specify environment variables for the service.
+	// +optional
+	Env []corev1.EnvVar `json:"env,omitempty"`
+
+	// Affinity defines the pod's scheduling constraints.
+	// +optional
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+
+	// Annotations allows to specify custom annotations for the pods.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// LivenessProbe defines the liveness probe configuration.
+	// +optional
+	LivenessProbe *corev1.Probe `json:"livenessProbe,omitempty"`
+
+	// ReadinessProbe defines the readiness probe configuration.
+	// +optional
+	ReadinessProbe *corev1.Probe `json:"readinessProbe,omitempty"`
+
+	// ServiceType is the type of service to expose.
+	// +optional
+	// +kubebuilder:default=ClusterIP
+	// +kubebuilder:validation:Enum=ClusterIP
+	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+
+	// ServiceAccountName is the name of the Kubernetes Service Account to use.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
-// HumioPdfRenderServiceStatus defines the observed state of HumioPdfRenderService.
+// HumioPdfRenderServiceIngressSpec defines the desired state of the Ingress.
+type HumioPdfRenderServiceIngressSpec struct {
+	// Enabled defines if the ingress is enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Hosts defines the list of hosts for the ingress.
+	Hosts []HumioPdfRenderServiceIngressHost `json:"hosts,omitempty"`
+}
+
+// HumioPdfRenderServiceIngressHost defines the host configuration for the Ingress.
+type HumioPdfRenderServiceIngressHost struct {
+	// Host is the hostname to be used.
+	Host string `json:"host,omitempty"`
+
+	// Port is the port number to be used.
+	Port int32 `json:"port,omitempty"`
+}
+
+// HumioPdfRenderServiceStatus defines the observed state of HumioPdfRenderService
 type HumioPdfRenderServiceStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Nodes are the names of the PDF render service pods.
+	// +optional
+	Nodes []string `json:"nodes,omitempty"`
+
+	// ReadyReplicas is the number of ready replicas.
+	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
+
+	// State reflects the current state of the HumioPdfRenderService
+	State string `json:"state,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:path=humiopdfrenderservices,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the PDF rendering service"
+// +kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".spec.replicas"
+// +kubebuilder:printcolumn:name="Ready",type="integer",JSONPath=".status.readyReplicas"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
-// HumioPdfRenderService is the Schema for the humiopdfrenderservices API.
+// HumioPdfRenderService is the Schema for the humiopdfrenderservices API
 type HumioPdfRenderService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -52,7 +131,7 @@ type HumioPdfRenderService struct {
 
 // +kubebuilder:object:root=true
 
-// HumioPdfRenderServiceList contains a list of HumioPdfRenderService.
+// HumioPdfRenderServiceList contains a list of HumioPdfRenderService
 type HumioPdfRenderServiceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
