@@ -1,0 +1,64 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioPdfRenderService
+metadata:
+  name: pdf-render-service
+  labels:
+    attribution.crowdstrike.com/pag: nextgen-siem
+    attribution.crowdstrike.com/pg: logscale-integration
+    attribution.crowdstrike.com/pillar: platform
+    attribution.crowdstrike.com/team: logscale-infrastructure
+    attribution.crowdstrike.com/team-id: b169bdac-69a2-499d-a4a3-8fd611904ff5
+  annotations:
+    iam.amazonaws.com/role: ''
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/restricted-egress
+                operator: In
+                values:
+                  - ''
+  image:
+    repository: registry.dodo.eyrie.cloud:5000/cloud/cs-pdf-render-service
+  ingress:
+    enabled: true
+    hosts:
+      - host: pdf-render-service-pool-main.red.dodo.eyrie.cloud
+        port: 5123
+    shared:
+      enabled: false
+  probes:
+    livenessProbe:
+      failureThreshold: 5
+      httpGet:
+        path: /health
+        port: 5123
+        scheme: HTTP
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      successThreshold: 1
+      timeoutSeconds: 60
+    readinessProbe:
+      failureThreshold: 1
+      httpGet:
+        path: /ready
+        port: 5123
+        scheme: HTTP
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      successThreshold: 1
+      timeoutSeconds: 60
+  resources:
+    limits:
+      cpu: 4
+      memory: 2Gi
+    requests:
+      cpu: 4
+      memory: 1Gi
+  service:
+    ports:
+      - name: http
+        port: 5123
+    type: ClusterIP
