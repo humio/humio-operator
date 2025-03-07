@@ -3,14 +3,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.0
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: humioactions.core.humio.com
-  labels:
-    app: 'humio-operator'
-    app.kubernetes.io/name: 'humio-operator'
-    app.kubernetes.io/instance: 'humio-operator'
-    app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.28.0'
 spec:
   group: core.humio.com
   names:
@@ -67,8 +61,6 @@ spec:
                       UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
                       see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
                     type: boolean
-                required:
-                - recipients
                 type: object
               externalClusterName:
                 description: |-
@@ -90,30 +82,9 @@ spec:
                       If both IngestToken and IngestTokenSource are specified, IngestToken will be used.
                     properties:
                       secretKeyRef:
+                        $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretKeySelector'
                         description: SecretKeyRef allows specifying which secret and
                           what key in that secret holds the value we want to use
-                        properties:
-                          key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
-                            type: string
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
                     type: object
                 type: object
               managedClusterName:
@@ -145,30 +116,9 @@ spec:
                       If both GenieKey and GenieKeySource are specified, GenieKey will be used.
                     properties:
                       secretKeyRef:
+                        $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretKeySelector'
                         description: SecretKeyRef allows specifying which secret and
                           what key in that secret holds the value we want to use
-                        properties:
-                          key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
-                            type: string
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
                     type: object
                   useProxy:
                     description: |-
@@ -191,30 +141,9 @@ spec:
                       If both RoutingKey and RoutingKeySource are specified, RoutingKey will be used.
                     properties:
                       secretKeyRef:
+                        $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretKeySelector'
                         description: SecretKeyRef allows specifying which secret and
                           what key in that secret holds the value we want to use
-                        properties:
-                          key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
-                            type: string
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
                     type: object
                   severity:
                     description: Severity defines which severity is used in the request
@@ -241,30 +170,9 @@ spec:
                       If both ApiToken and ApiTokenSource are specified, ApiToken will be used.
                     properties:
                       secretKeyRef:
+                        $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretKeySelector'
                         description: SecretKeyRef allows specifying which secret and
                           what key in that secret holds the value we want to use
-                        properties:
-                          key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
-                            type: string
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
                     type: object
                   channels:
                     description: Channels holds the list of Slack channels that the
@@ -307,30 +215,9 @@ spec:
                       If both Url and UrlSource are specified, Url will be used.
                     properties:
                       secretKeyRef:
+                        $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretKeySelector'
                         description: SecretKeyRef allows specifying which secret and
                           what key in that secret holds the value we want to use
-                        properties:
-                          key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
-                            type: string
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
                     type: object
                   useProxy:
                     default: false
@@ -358,30 +245,9 @@ spec:
                       If both NotifyUrl and NotifyUrlSource are specified, NotifyUrl will be used.
                     properties:
                       secretKeyRef:
+                        $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretKeySelector'
                         description: SecretKeyRef allows specifying which secret and
                           what key in that secret holds the value we want to use
-                        properties:
-                          key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
-                            type: string
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
                     type: object
                   useProxy:
                     description: |-
@@ -436,31 +302,10 @@ spec:
                             of the header from.
                           properties:
                             secretKeyRef:
+                              $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretKeySelector'
                               description: SecretKeyRef allows specifying which secret
                                 and what key in that secret holds the value we want
                                 to use
-                              properties:
-                                key:
-                                  description: The key of the secret to select from.  Must
-                                    be a valid secret key.
-                                  type: string
-                                name:
-                                  default: ""
-                                  description: |-
-                                    Name of the referent.
-                                    This field is effectively required, but due to backwards compatibility is
-                                    allowed to be empty. Instances of this type with an empty value here are
-                                    almost certainly wrong.
-                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  type: string
-                                optional:
-                                  description: Specify whether the Secret or its key
-                                    must be defined
-                                  type: boolean
-                              required:
-                              - key
-                              type: object
-                              x-kubernetes-map-type: atomic
                           type: object
                       required:
                       - name
@@ -477,30 +322,9 @@ spec:
                       If both Url and UrlSource are specified, Url will be used.
                     properties:
                       secretKeyRef:
+                        $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretKeySelector'
                         description: SecretKeyRef allows specifying which secret and
                           what key in that secret holds the value we want to use
-                        properties:
-                          key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
-                            type: string
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
                     type: object
                   useProxy:
                     description: |-
