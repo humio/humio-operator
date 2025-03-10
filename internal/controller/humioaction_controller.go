@@ -319,7 +319,6 @@ func (r *HumioActionReconciler) logErrorAndReturn(err error, msg string) error {
 // actionAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
 // if the details from GraphQL already matches what is in the desired state of the custom resource.
 // If they do not match, a map is returned with details on what the diff is.
-//
 // nolint:gocyclo
 func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentAction humiographql.ActionDetails) (bool, map[string]string) {
 	diffMap := map[string]string{}
