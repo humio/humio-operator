@@ -9,6 +9,10 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version: '1.23.6'
+    - name: Check for exported fields in API lacking godoc
+      shell: bash
+      run: |
+        go run internal/tools/exporteddoc.go ./api/...
     - name: Generate manifests
       shell: bash
       run: |

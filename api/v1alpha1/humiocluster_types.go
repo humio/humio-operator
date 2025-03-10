@@ -69,7 +69,7 @@ type HumioClusterSpec struct {
 	DigestPartitionsCount int `json:"digestPartitionsCount,omitempty"`
 	// License is the kubernetes secret reference which contains the Humio license
 	// +required
-	License HumioClusterLicenseSpec `json:"license,omitempty"`
+	License HumioClusterLicenseSpec `json:"license"`
 	// IdpCertificateSecretName is the name of the secret that contains the IDP Certificate when using SAML authentication
 	IdpCertificateSecretName string `json:"idpCertificateSecretName,omitempty"`
 	// ViewGroupPermissions is a multi-line string containing view-group-permissions.json.
@@ -92,7 +92,7 @@ type HumioClusterSpec struct {
 	Ingress HumioClusterIngressSpec `json:"ingress,omitempty"`
 	// TLS is used to define TLS specific configuration such as intra-cluster TLS settings
 	TLS *HumioClusterTLSSpec `json:"tls,omitempty"`
-	// HumioHeadlessAnnotations is the set of annotations added to the Kubernetes Headless Service that is used for
+	// HumioHeadlessServiceAnnotations is the set of annotations added to the Kubernetes Headless Service that is used for
 	// traffic between Humio pods
 	HumioHeadlessServiceAnnotations map[string]string `json:"humioHeadlessServiceAnnotations,omitempty"`
 	// HumioHeadlessServiceLabels is the set of labels added to the Kubernetes Headless Service that is used for
@@ -110,6 +110,7 @@ type HumioClusterSpec struct {
 	NodePools []HumioNodePoolSpec `json:"nodePools,omitempty"`
 }
 
+// HumioNodeSpec contains a collection of various configurations that are specific to a given group of LogScale pods.
 type HumioNodeSpec struct {
 	// Image is the desired humio container image, including the image tag.
 	// The value from ImageSource takes precedence over Image.
@@ -133,7 +134,8 @@ type HumioNodeSpec struct {
 	// DataVolumeSource is the volume that is mounted on the humio pods. This conflicts with DataVolumePersistentVolumeClaimSpecTemplate.
 	DataVolumeSource corev1.VolumeSource `json:"dataVolumeSource,omitempty"`
 
-	// *Deprecated: AuthServiceAccountName is no longer used as the auth sidecar container has been removed.*
+	// AuthServiceAccountName is no longer used as the auth sidecar container has been removed.
+	// Deprecated: No longer used. The value will be ignored.
 	AuthServiceAccountName string `json:"authServiceAccountName,omitempty"`
 
 	// DisableInitContainer is used to disable the init container completely which collects the availability zone from the Kubernetes worker node.
@@ -270,7 +272,7 @@ type HumioNodeSpec struct {
 	// +kubebuilder:default=""
 	PriorityClassName string `json:"priorityClassName,omitempty"`
 
-	// HumioNodePoolFeatures defines the features that are allowed by the node pool
+	// NodePoolFeatures defines the features that are allowed by the node pool
 	NodePoolFeatures HumioNodePoolFeatures `json:"nodePoolFeatures,omitempty"`
 
 	// PodDisruptionBudget defines the PDB configuration for this node spec
@@ -286,12 +288,16 @@ type HumioFeatureFlags struct {
 	EnableDownscalingFeature bool `json:"enableDownscalingFeature,omitempty"`
 }
 
+// HumioNodePoolFeatures is used to toggle certain features that are specific instance of HumioNodeSpec. This means
+// that any set of pods configured by the same HumioNodeSpec instance will share these features.
 type HumioNodePoolFeatures struct {
 	// AllowedAPIRequestTypes is a list of API request types that are allowed by the node pool. Current options are:
 	// OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request types, set this to [].
 	AllowedAPIRequestTypes *[]string `json:"allowedAPIRequestTypes,omitempty"`
 }
 
+// HumioUpdateStrategy contains a set of different toggles for defining how a set of pods should be replaced during
+// pod replacements due differences between current and desired state of pods.
 type HumioUpdateStrategy struct {
 	// Type controls how Humio pods are updated  when changes are made to the HumioCluster resource that results
 	// in a change to the Humio pods. The available values are: OnDelete, RollingUpdate, ReplaceAllOnUpdate, and
@@ -325,7 +331,11 @@ type HumioUpdateStrategy struct {
 	// +kubebuilder:default=1
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 }
+
+// HumioNodePoolSpec is used to attach a name to an instance of HumioNodeSpec
 type HumioNodePoolSpec struct {
+	// Name holds a name for this specific group of cluster pods. This name is used when constructing pod names, so it
+	// is useful to use a name that reflects what the pods are configured to do.
 	// +kubebuilder:validation:MinLength:=1
 	// +required
 	Name string `json:"name"`
@@ -333,7 +343,7 @@ type HumioNodePoolSpec struct {
 	HumioNodeSpec `json:"spec,omitempty"`
 }
 
-// PodDisruptionBudgetSpec defines the desired pod disruption budget configuration
+// HumioPodDisruptionBudgetSpec defines the desired pod disruption budget configuration
 type HumioPodDisruptionBudgetSpec struct {
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Format=int-or-string
@@ -390,6 +400,7 @@ type HumioClusterIngressSpec struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
+// HumioClusterTLSSpec specifies if TLS should be configured for the HumioCluster as well as how it should be configured.
 type HumioClusterTLSSpec struct {
 	// Enabled can be used to toggle TLS on/off. Default behaviour is to configure TLS if cert-manager is present, otherwise we skip TLS.
 	Enabled *bool `json:"enabled,omitempty"`
@@ -401,6 +412,7 @@ type HumioClusterTLSSpec struct {
 
 // HumioClusterLicenseSpec points to the optional location of the Humio license
 type HumioClusterLicenseSpec struct {
+	// SecretKeyRef specifies which key of a secret in the namespace of the HumioCluster that holds the LogScale license key
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
@@ -415,6 +427,11 @@ type HumioPersistentVolumeReclaimType string
 
 // HumioPersistentVolumeClaimPolicy contains the policy for handling persistent volumes
 type HumioPersistentVolumeClaimPolicy struct {
+	// ReclaimType is used to indicate what reclaim type should be used. This e.g. allows the user to specify if the
+	// operator should automatically delete persistent volume claims if they are bound to Kubernetes worker nodes
+	// that no longer exists. This can be useful in scenarios where PVC's represent a type of storage where the
+	// lifecycle of the storage follows the one of the Kubernetes worker node.
+	// When using persistent volume claims relying on network attached storage, this can be ignored.
 	// +kubebuilder:validation:Enum=None;OnNodeDelete
 	ReclaimType HumioPersistentVolumeReclaimType `json:"reclaimType,omitempty"`
 }
@@ -424,17 +441,22 @@ type HumioPodStatusList []HumioPodStatus
 
 // HumioPodStatus shows the status of individual humio pods
 type HumioPodStatus struct {
+	// PodName holds the name of the pod that this is the status for.
 	PodName string `json:"podName,omitempty"`
+	// PvcName is the name of the persistent volume claim that is mounted in to the pod
 	PvcName string `json:"pvcName,omitempty"`
 	// NodeId used to refer to the value of the BOOTSTRAP_HOST_ID environment variable for a Humio instance.
 	// Deprecated: No longer being used.
-	NodeId   int    `json:"nodeId,omitempty"`
+	NodeId int `json:"nodeId,omitempty"`
+	// NodeName is the name of the Kubernetes worker node where this pod is currently running
 	NodeName string `json:"nodeName,omitempty"`
 }
 
 // HumioLicenseStatus shows the status of Humio license
 type HumioLicenseStatus struct {
-	Type       string `json:"type,omitempty"`
+	// Type holds the type of license that is currently installed on the HumioCluster
+	Type string `json:"type,omitempty"`
+	// Expiration contains the timestamp of when the currently installed license expires.
 	Expiration string `json:"expiration,omitempty"`
 }
 

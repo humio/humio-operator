@@ -58,6 +58,8 @@ spec:
                 description: Connections contains the connections to the Humio repositories
                   which is accessible in this view
                 items:
+                  description: HumioViewConnection represents a connection to a specific
+                    repository with an optional filter
                   properties:
                     filter:
                       description: Filter contains the prefix filter that will be

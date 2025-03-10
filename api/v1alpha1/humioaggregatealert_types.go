@@ -55,13 +55,13 @@ type HumioAggregateAlertSpec struct {
 	// Description is the description of the Aggregate alert
 	// +optional
 	Description string `json:"description,omitempty"`
-	// Search Interval time in seconds
+	// SearchIntervalSeconds specifies the search interval (in seconds) to use when running the query
 	SearchIntervalSeconds int `json:"searchIntervalSeconds,omitempty"`
 	// ThrottleTimeSeconds is the throttle time in seconds. An aggregate alert is triggered at most once per the throttle time
 	ThrottleTimeSeconds int `json:"throttleTimeSeconds,omitempty"`
 	// ThrottleField is the field on which to throttle
 	ThrottleField *string `json:"throttleField,omitempty"`
-	// Aggregate Alert trigger mode
+	// TriggerMode specifies which trigger mode to use when configuring the aggregate alert
 	TriggerMode string `json:"triggerMode,omitempty"`
 	// Enabled will set the AggregateAlert to enabled when set to true
 	// +kubebuilder:default=false
