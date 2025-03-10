@@ -5,6 +5,17 @@ resources:
 - core_v1alpha1_humioalert.yaml
 - core_v1alpha1_humiobootstraptoken.yaml
 - core_v1alpha1_humiocluster.yaml
+- core_v1alpha1_humiocluster-affinity-and-tolerations.yaml
+- core_v1alpha1_humiocluster-data-volume-persistent-volume-claim-policy-kind-local.yaml
+- core_v1alpha1_humiocluster-ephemeral-with-gcs-storage.yaml
+- core_v1alpha1_humiocluster-ephemeral-with-s3-storage.yaml
+- core_v1alpha1_humiocluster-kind-local.yaml
+- core_v1alpha1_humiocluster-multi-nodepool-kind-local.yaml
+- core_v1alpha1_humiocluster-nginx-ingress-with-cert-manager.yaml
+- core_v1alpha1_humiocluster-nginx-ingress-with-custom-path.yaml
+- core_v1alpha1_humiocluster-nginx-ingress-with-hostname-secrets.yaml
+- core_v1alpha1_humiocluster-nodepool-slice-only.yaml
+- core_v1alpha1_humiocluster-persistent-volumes.yaml
 - core_v1alpha1_humioexternalcluster.yaml
 - core_v1alpha1_humiofilteralert.yaml
 - core_v1alpha1_humioingesttoken.yaml

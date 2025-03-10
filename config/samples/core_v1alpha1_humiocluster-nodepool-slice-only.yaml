@@ -1,0 +1,57 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioCluster
+metadata:
+  name: example-humiocluster
+spec:
+  license:
+    secretKeyRef:
+      name: example-humiocluster-license
+      key: data
+  targetReplicationFactor: 2
+  storagePartitionsCount: 720
+  digestPartitionsCount: 720
+  nodePools:
+    - name: "segments"
+      spec:
+        #image: "humio/humio-core:1.171.1"
+        nodeCount: 1
+        extraKafkaConfigs: "security.protocol=PLAINTEXT"
+        dataVolumePersistentVolumeClaimPolicy:
+          reclaimType: OnNodeDelete
+        dataVolumePersistentVolumeClaimSpecTemplate:
+          storageClassName: standard
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 10Gi
+        environmentVariables:
+          - name: QUERY_COORDINATOR
+            value: "false"
+          - name: HUMIO_MEMORY_OPTS
+            value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g"
+          - name: ZOOKEEPER_URL
+            value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181"
+          - name: KAFKA_SERVERS
+            value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092"
+    - name: "httponly"
+      spec:
+        #image: "humio/humio-core:1.171.1"
+        nodeCount: 1
+        extraKafkaConfigs: "security.protocol=PLAINTEXT"
+        dataVolumePersistentVolumeClaimPolicy:
+          reclaimType: OnNodeDelete
+        dataVolumePersistentVolumeClaimSpecTemplate:
+          storageClassName: standard
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 10Gi
+        environmentVariables:
+          - name: NODE_ROLES
+            value: "httponly"
+          - name: HUMIO_MEMORY_OPTS
+            value: "-Xss2m -Xms1g -Xmx2g -XX:MaxDirectMemorySize=1g"
+          - name: ZOOKEEPER_URL
+            value: "humio-cp-zookeeper-0.humio-cp-zookeeper-headless.default:2181"
+          - name: KAFKA_SERVERS
+            value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092"
