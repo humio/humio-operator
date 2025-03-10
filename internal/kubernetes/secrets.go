@@ -47,12 +47,13 @@ func LabelsForSecret(clusterName string, secretName string, additionalSecretLabe
 }
 
 // ConstructSecret returns an opaque secret which holds the given data
-func ConstructSecret(humioClusterName, humioClusterNamespace, secretName string, data map[string][]byte, additionalSecretLabels map[string]string) *corev1.Secret {
+func ConstructSecret(humioClusterName, humioClusterNamespace, secretName string, data map[string][]byte, additionalSecretLabels map[string]string, additionalSecretAnnotations map[string]string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: humioClusterNamespace,
-			Labels:    LabelsForSecret(humioClusterName, secretName, additionalSecretLabels),
+			Name:        secretName,
+			Namespace:   humioClusterNamespace,
+			Labels:      LabelsForSecret(humioClusterName, secretName, additionalSecretLabels),
+			Annotations: additionalSecretAnnotations,
 		},
 		Data: data,
 	}

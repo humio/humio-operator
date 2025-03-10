@@ -381,7 +381,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 		secretData := map[string][]byte{"token": []byte("")}
 		adminTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
 		UsingClusterBy(key.Name, "Simulating the admin token secret containing the API token")
-		desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, adminTokenSecretName, secretData, nil)
+		desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, adminTokenSecretName, secretData, nil, nil)
 		Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
 
 		UsingClusterBy(key.Name, "Simulating the creation of the HumioBootstrapToken resource")
@@ -412,7 +412,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	UsingClusterBy(key.Name, "Simulating the humio bootstrap token controller creating the secret containing the API token")
 	secretData := map[string][]byte{"hashedToken": []byte("P2HS9.20.r+ZbMqd0pHF65h3yQiOt8n1xNytv/4ePWKIj3cElP7gt8YD+gOtdGGvJYmG229kyFWLs6wXx9lfSDiRGGu/xuQ"), "secret": []byte("cYsrKi6IeyOJVzVIdmVK3M6RGl4y9GpgduYKXk4qWvvj")}
 	bootstrapTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix)
-	desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, bootstrapTokenSecretName, secretData, nil)
+	desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, bootstrapTokenSecretName, secretData, nil, nil)
 	Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
 
 	UsingClusterBy(key.Name, "Creating HumioCluster resource")
