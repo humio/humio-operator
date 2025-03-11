@@ -3944,7 +3944,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed(), "Failed to get Deployment")
 
 			// Verify initial image version
-			Expect(len(deployment.Spec.Template.Spec.Containers)).To(BeNumerically(">", 0))
+			Expect(deployment.Spec.Template.Spec.Containers).ToNot(BeEmpty())
 			Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("humio/pdf-render-service:1.0.0"))
 
 			// Update the HumioPdfRenderService with a new image
