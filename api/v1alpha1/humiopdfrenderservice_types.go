@@ -136,7 +136,7 @@ type HumioPdfRenderService struct {
 	Status HumioPdfRenderServiceStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // HumioPdfRenderServiceList contains a list of HumioPdfRenderService
 type HumioPdfRenderServiceList struct {
