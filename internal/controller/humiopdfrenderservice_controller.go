@@ -87,7 +87,18 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	// TODO: Reconcile Ingress and update CR status as needed.
+	if err := r.reconcileService(ctx, &humioPdfRenderService); err != nil {
+		logger.Error(err, "Failed to reconcile Service")
+		return ctrl.Result{}, err
+	}
+
+	if humioPdfRenderService.Spec.Ingress != nil && humioPdfRenderService.Spec.Ingress.Enabled {
+		if err := r.reconcileIngress(ctx, &humioPdfRenderService); err != nil {
+			logger.Error(err, "Failed to reconcile Ingress")
+			return ctrl.Result{}, err
+		}
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -174,7 +185,6 @@ func (r *HumioPdfRenderServiceReconciler) constructIngress(humioPdfRenderService
 
 // constructDeployment constructs a Deployment for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) constructDeployment(humioPdfRenderService *corev1alpha1.HumioPdfRenderService) *appsv1.Deployment {
-	// Use the CR name plus a fixed suffix.
 	deploymentName := "pdf-render-service"
 
 	labels := map[string]string{
@@ -229,17 +239,12 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 	}
 
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
-		// Update mutable fields on the Deployment.
 		deployment.Spec.Replicas = &humioPdfRenderService.Spec.Replicas
-
-		// Always update labels.
 		deployment.Spec.Template.ObjectMeta.Labels = map[string]string{
 			"app":                           "humio-pdf-render-service",
 			"humio-pdf-render-service-name": humioPdfRenderService.Name,
 		}
 
-		// Update Annotations: if Spec.Annotations is non-nil, copy its contents,
-		// otherwise reset to an empty map.
 		newAnnotations := map[string]string{}
 		if humioPdfRenderService.Spec.Annotations != nil {
 			for k, v := range humioPdfRenderService.Spec.Annotations {
@@ -277,7 +282,6 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 
 // / constructService constructs a Service for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) constructService(humioPdfRenderService *corev1alpha1.HumioPdfRenderService) *corev1.Service {
-	// Use a fixed name that matches what the test is expecting
 	serviceName := "pdf-render-service"
 
 	labels := map[string]string{
@@ -300,7 +304,6 @@ func (r *HumioPdfRenderServiceReconciler) constructService(humioPdfRenderService
 		},
 	}
 
-	// If ServiceType is NodePort and NodePort is specified, set it
 	if humioPdfRenderService.Spec.ServiceType == corev1.ServiceTypeNodePort && humioPdfRenderService.Spec.NodePort > 0 {
 		service.Spec.Ports[0].NodePort = humioPdfRenderService.Spec.NodePort
 	}
