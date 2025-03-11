@@ -35,8 +35,8 @@ const (
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
 type HumioPdfRenderServiceSpec struct {
 	// Image is the Docker image to use for the PDF rendering service.
-	//+kubebuilder:validation:MinLength=1
-	//+required
+	// +kubebuilder:validation:MinLength=1
+	// +required
 	Image string `json:"image"`
 
 	// Replicas is the number of desired Pod replicas.
@@ -62,10 +62,6 @@ type HumioPdfRenderServiceSpec struct {
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 
-	// Ingress defines the ingress configuration for the service.
-	// +optional
-	Ingress *HumioPdfRenderServiceIngressSpec `json:"ingress,omitempty"`
-
 	// LivenessProbe defines the liveness probe configuration.
 	// +optional
 	LivenessProbe *corev1.Probe `json:"livenessProbe,omitempty"`
@@ -77,11 +73,8 @@ type HumioPdfRenderServiceSpec struct {
 	// ServiceType is the type of service to expose.
 	// +optional
 	// +kubebuilder:default=ClusterIP
+	// +kubebuilder:validation:Enum=ClusterIP
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
-
-	// NodePort is the port the service listens on when the service type is NodePort.
-	// +optional
-	NodePort int32 `json:"nodePort,omitempty"`
 
 	// ServiceAccountName is the name of the Kubernetes Service Account to use.
 	// +optional
@@ -119,13 +112,13 @@ type HumioPdfRenderServiceStatus struct {
 	State string `json:"state,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:path=humiopdfrenderservices,scope=Namespaced
-//+kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the PDF rendering service"
-//+kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".spec.replicas"
-//+kubebuilder:printcolumn:name="Ready",type="integer",JSONPath=".status.readyReplicas"
-//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:path=humiopdfrenderservices,scope=Namespaced
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the PDF rendering service"
+// +kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".spec.replicas"
+// +kubebuilder:printcolumn:name="Ready",type="integer",JSONPath=".status.readyReplicas"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // HumioPdfRenderService is the Schema for the humiopdfrenderservices API
 type HumioPdfRenderService struct {
@@ -136,7 +129,7 @@ type HumioPdfRenderService struct {
 	Status HumioPdfRenderServiceStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // HumioPdfRenderServiceList contains a list of HumioPdfRenderService
 type HumioPdfRenderServiceList struct {

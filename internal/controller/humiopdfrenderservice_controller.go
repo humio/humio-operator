@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"reflect"
+	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -9,7 +11,6 @@ import (
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -86,94 +87,12 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	// TODO: Reconcile Ingress and update CR status as needed.
 	return ctrl.Result{}, nil
-}
-
-// reconcileIngress reconciles the Ingress for the HumioPdfRenderService.
-func (r *HumioPdfRenderServiceReconciler) reconcileIngress(ctx context.Context, humioPdfRenderService *corev1alpha1.HumioPdfRenderService) error {
-	logger := log.FromContext(ctx)
-	if humioPdfRenderService.Spec.Ingress == nil || !humioPdfRenderService.Spec.Ingress.Enabled {
-		logger.Info("Ingress is disabled, skipping reconciliation")
-		return nil
-	}
-
-	ingress := r.constructIngress(humioPdfRenderService)
-	ingress.SetNamespace(humioPdfRenderService.Namespace)
-
-	if err := controllerutil.SetControllerReference(humioPdfRenderService, ingress, r.Scheme); err != nil {
-		return err
-	}
-
-	existingIngress := &netv1.Ingress{}
-	err := r.Client.Get(ctx, types.NamespacedName{
-		Name:      ingress.Name,
-		Namespace: ingress.Namespace,
-	}, existingIngress)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			logger.Info("Creating Ingress", "Ingress.Name", ingress.Name)
-			return r.Client.Create(ctx, ingress)
-		}
-		return err
-	}
-
-	// Update mutable fields on the existing Ingress.
-	existingIngress.Spec = ingress.Spec
-	logger.Info("Updating Ingress", "Ingress.Name", existingIngress.Name)
-	return r.Client.Update(ctx, existingIngress)
-}
-
-// constructIngress constructs an Ingress for the HumioPdfRenderService.
-func (r *HumioPdfRenderServiceReconciler) constructIngress(humioPdfRenderService *corev1alpha1.HumioPdfRenderService) *netv1.Ingress {
-	ingressName := humioPdfRenderService.Name + "-ingress"
-
-	ingress := &netv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ingressName,
-			Namespace: humioPdfRenderService.Namespace,
-			Annotations: map[string]string{
-				"kubernetes.io/ingress.class": "nginx", // Assuming nginx ingress controller
-			},
-		},
-		Spec: netv1.IngressSpec{
-			Rules: []netv1.IngressRule{},
-		},
-	}
-
-	// Create a variable for the PathType since we need its address.
-	pathType := netv1.PathTypePrefix
-	for _, host := range humioPdfRenderService.Spec.Ingress.Hosts {
-		ingressRule := netv1.IngressRule{
-			Host: host.Host,
-			IngressRuleValue: netv1.IngressRuleValue{
-				HTTP: &netv1.HTTPIngressRuleValue{
-					Paths: []netv1.HTTPIngressPath{
-						{
-							Path:     "/", // Adjust path as needed
-							PathType: &pathType,
-							Backend: netv1.IngressBackend{
-								Service: &netv1.IngressServiceBackend{
-									Name: "humio-pdf-render-service", // Fixed service name
-									Port: netv1.ServiceBackendPort{
-										Number: humioPdfRenderService.Spec.Port,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-		ingress.Spec.Rules = append(ingress.Spec.Rules, ingressRule)
-	}
-	return ingress
 }
 
 // constructDeployment constructs a Deployment for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) constructDeployment(humioPdfRenderService *corev1alpha1.HumioPdfRenderService) *appsv1.Deployment {
-	// Use the CR name plus a fixed suffix.
-	deploymentName := humioPdfRenderService.Name + "-pdf-render-service"
+	deploymentName := "pdf-render-service"
 
 	labels := map[string]string{
 		"app":                           "humio-pdf-render-service",
@@ -219,6 +138,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(humioPdfRenderServ
 
 // reconcileDeployment reconciles the Deployment for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, humioPdfRenderService *corev1alpha1.HumioPdfRenderService) error {
+	logger := log.FromContext(ctx)
 	deployment := r.constructDeployment(humioPdfRenderService)
 	deployment.SetNamespace(humioPdfRenderService.Namespace)
 
@@ -226,57 +146,133 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 		return err
 	}
 
-	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
-		// Update mutable fields on the Deployment.
-		deployment.Spec.Replicas = &humioPdfRenderService.Spec.Replicas
+	existingDeployment := &appsv1.Deployment{}
+	err := r.Client.Get(ctx, types.NamespacedName{
+		Name:      deployment.Name,
+		Namespace: deployment.Namespace,
+	}, existingDeployment)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			logger.Info("Creating Deployment", "Deployment.Name", deployment.Name, "Deployment.Namespace", deployment.Namespace, "Image", humioPdfRenderService.Spec.Image)
+			return r.Client.Create(ctx, deployment)
+		}
+		return err
+	}
 
-		// Always update labels.
-		deployment.Spec.Template.ObjectMeta.Labels = map[string]string{
-			"app":                           "humio-pdf-render-service",
-			"humio-pdf-render-service-name": humioPdfRenderService.Name,
+	// Check if we need to update the deployment
+	needsUpdate := false
+
+	// Check image
+	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 &&
+		existingDeployment.Spec.Template.Spec.Containers[0].Image != humioPdfRenderService.Spec.Image {
+		logger.Info("Image changed", "Old", existingDeployment.Spec.Template.Spec.Containers[0].Image, "New", humioPdfRenderService.Spec.Image)
+		needsUpdate = true
+	}
+
+	// Check replicas
+	if existingDeployment.Spec.Replicas == nil || *existingDeployment.Spec.Replicas != humioPdfRenderService.Spec.Replicas {
+		logger.Info("Replicas changed", "Old", existingDeployment.Spec.Replicas, "New", humioPdfRenderService.Spec.Replicas)
+		needsUpdate = true
+	}
+
+	// Check for resource changes
+	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 &&
+		!reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Resources, humioPdfRenderService.Spec.Resources) {
+		logger.Info("Resources changed")
+		needsUpdate = true
+	}
+
+	// Check for environment variable changes
+	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 &&
+		!reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Env, humioPdfRenderService.Spec.Env) {
+		logger.Info("Environment variables changed")
+		needsUpdate = true
+	}
+
+	// Check for probe changes
+	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 && (!reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe, humioPdfRenderService.Spec.LivenessProbe) ||
+		!reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe, humioPdfRenderService.Spec.ReadinessProbe)) {
+		logger.Info("Probe configuration changed")
+		needsUpdate = true
+	}
+
+	// Check for ServiceAccount changes
+	if existingDeployment.Spec.Template.Spec.ServiceAccountName != humioPdfRenderService.Spec.ServiceAccountName {
+		logger.Info("ServiceAccount changed", "Old", existingDeployment.Spec.Template.Spec.ServiceAccountName, "New", humioPdfRenderService.Spec.ServiceAccountName)
+		needsUpdate = true
+	}
+
+	// Check for Affinity changes
+	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Affinity, humioPdfRenderService.Spec.Affinity) {
+		logger.Info("Affinity configuration changed")
+		needsUpdate = true
+	}
+
+	// Check for annotation changes
+	if !reflect.DeepEqual(existingDeployment.Spec.Template.ObjectMeta.Annotations, humioPdfRenderService.Spec.Annotations) {
+		logger.Info("Annotations changed")
+		needsUpdate = true
+	}
+
+	// If an update is needed or we want to force a rolling update, apply all the necessary changes
+	if needsUpdate {
+		// Update critical fields
+		existingDeployment.Spec.Replicas = &humioPdfRenderService.Spec.Replicas
+
+		// Update container details
+		if len(existingDeployment.Spec.Template.Spec.Containers) > 0 {
+			existingDeployment.Spec.Template.Spec.Containers[0].Image = humioPdfRenderService.Spec.Image
+			existingDeployment.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullIfNotPresent
+			existingDeployment.Spec.Template.Spec.Containers[0].Resources = humioPdfRenderService.Spec.Resources
+			existingDeployment.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{
+				ContainerPort: humioPdfRenderService.Spec.Port,
+				Name:          "http",
+			}}
+			existingDeployment.Spec.Template.Spec.Containers[0].Env = humioPdfRenderService.Spec.Env
+			existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = humioPdfRenderService.Spec.LivenessProbe
+			existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe = humioPdfRenderService.Spec.ReadinessProbe
 		}
 
-		// Update Annotations: if Spec.Annotations is non-nil, copy its contents,
-		// otherwise reset to an empty map.
+		// Update labels and annotations
+		if existingDeployment.Spec.Template.ObjectMeta.Labels == nil {
+			existingDeployment.Spec.Template.ObjectMeta.Labels = map[string]string{}
+		}
+		existingDeployment.Spec.Template.ObjectMeta.Labels["app"] = "humio-pdf-render-service"
+		existingDeployment.Spec.Template.ObjectMeta.Labels["humio-pdf-render-service-name"] = humioPdfRenderService.Name
+
 		newAnnotations := map[string]string{}
 		if humioPdfRenderService.Spec.Annotations != nil {
 			for k, v := range humioPdfRenderService.Spec.Annotations {
 				newAnnotations[k] = v
 			}
 		}
-		deployment.Spec.Template.ObjectMeta.Annotations = newAnnotations
+		existingDeployment.Spec.Template.ObjectMeta.Annotations = newAnnotations
 
-		deployment.Spec.Template.Spec.ServiceAccountName = humioPdfRenderService.Spec.ServiceAccountName
-		deployment.Spec.Template.Spec.Affinity = humioPdfRenderService.Spec.Affinity
+		// Update other pod spec fields
+		existingDeployment.Spec.Template.Spec.ServiceAccountName = humioPdfRenderService.Spec.ServiceAccountName
+		existingDeployment.Spec.Template.Spec.Affinity = humioPdfRenderService.Spec.Affinity
 
-		// Update container details.
-		for i := range deployment.Spec.Template.Spec.Containers {
-			if deployment.Spec.Template.Spec.Containers[i].Name == "humio-pdf-render-service" {
-				deployment.Spec.Template.Spec.Containers[i].Image = humioPdfRenderService.Spec.Image
-				deployment.Spec.Template.Spec.Containers[i].ImagePullPolicy = corev1.PullIfNotPresent
-				deployment.Spec.Template.Spec.Containers[i].Resources = humioPdfRenderService.Spec.Resources
-				deployment.Spec.Template.Spec.Containers[i].Ports = []corev1.ContainerPort{{
-					ContainerPort: humioPdfRenderService.Spec.Port,
-					Name:          "http",
-				}}
-				deployment.Spec.Template.Spec.Containers[i].Env = humioPdfRenderService.Spec.Env
-				deployment.Spec.Template.Spec.Containers[i].LivenessProbe = humioPdfRenderService.Spec.LivenessProbe
-				deployment.Spec.Template.Spec.Containers[i].ReadinessProbe = humioPdfRenderService.Spec.ReadinessProbe
-				break
-			}
+		// Always add a timestamp annotation to force a rollout when configuration changes
+		// This ensures pods get recreated when we update the CR
+		if existingDeployment.Spec.Template.Annotations == nil {
+			existingDeployment.Spec.Template.Annotations = map[string]string{}
 		}
-		return nil
-	})
-	if err != nil {
-		r.Log.Error(err, "Failed to reconcile Deployment", "Deployment.Name", deployment.Name, "Deployment.Namespace", deployment.Namespace)
+		existingDeployment.Spec.Template.Annotations["humio-pdf-render-service/restartedAt"] = time.Now().Format(time.RFC3339)
+
+		logger.Info("Updating Deployment", "Deployment.Name", existingDeployment.Name,
+			"Deployment.Namespace", existingDeployment.Namespace,
+			"Image", humioPdfRenderService.Spec.Image)
+
+		return r.Client.Update(ctx, existingDeployment)
 	}
-	return err
+
+	logger.Info("No changes needed for Deployment", "Deployment.Name", existingDeployment.Name)
+	return nil
 }
 
 // constructService constructs a Service for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) constructService(humioPdfRenderService *corev1alpha1.HumioPdfRenderService) *corev1.Service {
-	// Use a fixed short service name.
-	serviceName := "humio-pdf-render-service"
+	serviceName := "pdf-render-service"
 
 	labels := map[string]string{
 		"app":                           "humio-pdf-render-service",
@@ -287,16 +283,17 @@ func (r *HumioPdfRenderServiceReconciler) constructService(humioPdfRenderService
 			Name:      serviceName,
 			Namespace: humioPdfRenderService.Namespace,
 		},
+		Spec: corev1.ServiceSpec{
+			Selector: labels,
+			Type:     corev1.ServiceTypeClusterIP, // Always use ClusterIP as we've restricted ServiceType
+			Ports: []corev1.ServicePort{{
+				Port:       humioPdfRenderService.Spec.Port,
+				TargetPort: intstr.FromInt(int(humioPdfRenderService.Spec.Port)),
+				Name:       "http",
+			}},
+		},
 	}
-	service.Spec = corev1.ServiceSpec{
-		Selector: labels,
-		Type:     humioPdfRenderService.Spec.ServiceType,
-		Ports: []corev1.ServicePort{{
-			Port:       humioPdfRenderService.Spec.Port,
-			TargetPort: intstr.FromInt(int(humioPdfRenderService.Spec.Port)),
-			Name:       "http",
-		}},
-	}
+
 	return service
 }
 
@@ -317,44 +314,68 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 	}, existingService)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			logger.Info("Creating Service", "Service.Name", service.Name, "Service.Namespace", service.Namespace)
+			logger.Info("Creating Service", "Service.Name", service.Name,
+				"Service.Namespace", service.Namespace)
 			return r.Client.Create(ctx, service)
 		}
 		return err
 	}
 
-	// If the Service type needs to be changed, delete and recreate the Service.
-	if existingService.Spec.Type != humioPdfRenderService.Spec.ServiceType {
-		logger.Info("Service type change detected; deleting Service", "Service.Name", existingService.Name, "OldType", existingService.Spec.Type, "NewType", humioPdfRenderService.Spec.ServiceType)
-		if err := r.Client.Delete(ctx, existingService); err != nil {
-			return err
-		}
-		return r.Client.Create(ctx, service)
+	// Check if we need to update the service
+	needsUpdate := false
+
+	// Check service type - should always be ClusterIP now
+	if existingService.Spec.Type != corev1.ServiceTypeClusterIP {
+		logger.Info("Service type changed", "Old", existingService.Spec.Type, "New", corev1.ServiceTypeClusterIP)
+		needsUpdate = true
 	}
 
-	// Update labels and specification.
-	existingService.Labels = map[string]string{
+	// Check port configuration
+	if len(existingService.Spec.Ports) != 1 ||
+		existingService.Spec.Ports[0].Port != humioPdfRenderService.Spec.Port ||
+		existingService.Spec.Ports[0].TargetPort.IntVal != humioPdfRenderService.Spec.Port {
+		logger.Info("Port configuration changed")
+		needsUpdate = true
+	}
+
+	// Check selector changes
+	expectedSelector := map[string]string{
 		"app":                           "humio-pdf-render-service",
 		"humio-pdf-render-service-name": humioPdfRenderService.Name,
 	}
-	existingService.Spec.Type = humioPdfRenderService.Spec.ServiceType
-	existingService.Spec.Ports = []corev1.ServicePort{{
-		Port:       humioPdfRenderService.Spec.Port,
-		TargetPort: intstr.FromInt(int(humioPdfRenderService.Spec.Port)),
-		Name:       "http",
-	}}
-
-	// Update NodePort if service type is NodePort.
-	if humioPdfRenderService.Spec.ServiceType == corev1.ServiceTypeNodePort {
-		for i := range existingService.Spec.Ports {
-			if existingService.Spec.Ports[i].Name == "http" {
-				existingService.Spec.Ports[i].NodePort = humioPdfRenderService.Spec.NodePort
-			}
-		}
+	if !reflect.DeepEqual(existingService.Spec.Selector, expectedSelector) {
+		logger.Info("Service selector changed")
+		needsUpdate = true
 	}
 
-	logger.Info("Updating Service", "Service.Name", existingService.Name, "Service.Namespace", existingService.Namespace)
-	return r.Client.Update(ctx, existingService)
+	// If an update is needed, apply all the necessary changes
+	if needsUpdate {
+		// Update the service specification
+		existingService.Spec.Type = corev1.ServiceTypeClusterIP
+		existingService.Spec.Ports = []corev1.ServicePort{{
+			Port:       humioPdfRenderService.Spec.Port,
+			TargetPort: intstr.FromInt(int(humioPdfRenderService.Spec.Port)),
+			Name:       "http",
+		}}
+
+		// Update labels
+		if existingService.Labels == nil {
+			existingService.Labels = map[string]string{}
+		}
+		existingService.Labels["app"] = "humio-pdf-render-service"
+		existingService.Labels["humio-pdf-render-service-name"] = humioPdfRenderService.Name
+
+		// Update selector
+		existingService.Spec.Selector = expectedSelector
+
+		logger.Info("Updating Service", "Service.Name", existingService.Name,
+			"Service.Namespace", existingService.Namespace)
+
+		return r.Client.Update(ctx, existingService)
+	}
+
+	logger.Info("No changes needed for Service", "Service.Name", existingService.Name)
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

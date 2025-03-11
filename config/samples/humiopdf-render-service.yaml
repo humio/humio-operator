@@ -3,11 +3,11 @@ kind: HumioPdfRenderService
 metadata:
   name: pdf-render-service
   labels:
-    attribution.crowdstrike.com/pag: nextgen-siem
-    attribution.crowdstrike.com/pg: logscale-integration
-    attribution.crowdstrike.com/pillar: platform
-    attribution.crowdstrike.com/team: logscale-infrastructure
-    attribution.crowdstrike.com/team-id: b169bdac-69a2-499d-a4a3-8fd611904ff5
+    app.kubernetes.io/name: humio-pdf-render
+    app.kubernetes.io/part-of: logscale
+    app.kubernetes.io/component: pdf-render-service
+    app.kubernetes.io/managed-by: operator
+    organization.example.com/team: infrastructure
   annotations:
     iam.amazonaws.com/role: ''
     prometheus.io/scrape: "true"
@@ -63,7 +63,7 @@ spec:
               - key: humio_node_type  # Default key
                 operator: In
                 values:
-                  - traefik  # Default value
+                  - core
     podAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         - labelSelector:
@@ -73,11 +73,6 @@ spec:
                 values:
                   - pdf-render-service
           topologyKey: kubernetes.io/hostname
-  ingress:
-    enabled: false  # Disabled by default, as it's not in the Terraform config
-    hosts:
-      - host: pdf-render-service.example.com
-        port: 5123
   livenessProbe:
     failureThreshold: 5
     httpGet:

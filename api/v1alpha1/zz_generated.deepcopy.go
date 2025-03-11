@@ -1755,11 +1755,6 @@ func (in *HumioPdfRenderServiceSpec) DeepCopyInto(out *HumioPdfRenderServiceSpec
 			(*out)[key] = val
 		}
 	}
-	if in.Ingress != nil {
-		in, out := &in.Ingress, &out.Ingress
-		*out = new(HumioPdfRenderServiceIngressSpec)
-		(*in).DeepCopyInto(*out)
-	}
 	if in.LivenessProbe != nil {
 		in, out := &in.LivenessProbe, &out.LivenessProbe
 		*out = new(v1.Probe)
