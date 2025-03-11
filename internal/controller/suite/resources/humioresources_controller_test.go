@@ -3934,28 +3934,30 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioPdfRenderService: Creating the pdf render service")
 			Expect(k8sClient.Create(ctx, pdfRenderService)).To(Succeed())
 
-			// Wait for the Deployment to be created by the controller
+			// Wait for the Deployment to be created by the controller with the correct image
 			deployment := &appsv1.Deployment{}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      "pdf-render-service", // This is the deployment name
 					Namespace: key.Namespace,
 				}, deployment)
-			}, testTimeout, suite.TestInterval).Should(Succeed(), "Failed to get Deployment")
+				if err != nil {
+					return ""
+				}
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
+				return deployment.Spec.Template.Spec.Containers[0].Image
+			}, testTimeout, suite.TestInterval).Should(Equal("humio/pdf-render-service:1.0.0"), "Failed to get Deployment with correct image")
 
-			// Verify initial image version
-			Expect(deployment.Spec.Template.Spec.Containers).ToNot(BeEmpty())
-			Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("humio/pdf-render-service:1.0.0"))
-
-			// Update the HumioPdfRenderService with a new image
-			suite.UsingClusterBy(clusterKey.Name, "HumioPdfRenderService: Updating the pdf render service")
-			fetchedPdfService := &humiov1alpha1.HumioPdfRenderService{}
+			// Update the image
+			suite.UsingClusterBy(clusterKey.Name, "HumioPdfRenderService: Updating the pdf render service with a new image")
 			Eventually(func() error {
-				if err := k8sClient.Get(ctx, key, fetchedPdfService); err != nil {
+				if err := k8sClient.Get(ctx, key, pdfRenderService); err != nil {
 					return err
 				}
-				fetchedPdfService.Spec.Image = "humio/pdf-render-service:1.1.0" // Updated version
-				return k8sClient.Update(ctx, fetchedPdfService)
+				pdfRenderService.Spec.Image = "humio/pdf-render-service:1.1.0"
+				return k8sClient.Update(ctx, pdfRenderService)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			// Verify the Deployment was updated with the new image
