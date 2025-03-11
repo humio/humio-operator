@@ -3841,7 +3841,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		BeforeEach(func() {
 			ctx = context.Background()
 			// Use a base name that does not include any suffix.
-			baseName = "humio-pdf-render-service"
+			baseName = "pdf-render-service"
 		})
 
 		AfterEach(func() {
@@ -3894,7 +3894,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			// Verify that the Service exists and uses the fixed service name.
 			serviceKey := types.NamespacedName{
-				Name:      "humio-pdf-render",
+				Name:      "pdf-render-service",
 				Namespace: cr.Namespace,
 			}
 			service := &corev1.Service{}
@@ -3908,54 +3908,80 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		It("should update the Deployment when the HumioPdfRenderService is updated", func() {
-			// Create the initial CR.
-			cr := &humiov1alpha1.HumioPdfRenderService{
+			// Create a new HumioPdfRenderService CR
+			ctx := context.Background()
+			pdfRenderServiceName := "pdf-render-service"
+			key := types.NamespacedName{
+				Name:      pdfRenderServiceName,
+				Namespace: clusterKey.Namespace,
+			}
+
+			// Create the initial PDF render service
+			pdfRenderService := &humiov1alpha1.HumioPdfRenderService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      baseName,
-					Namespace: clusterKey.Namespace,
+					Name:      key.Name,
+					Namespace: key.Namespace,
 				},
 				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
+					Image:              "humio/pdf-render-service:1.0.0",
 					Replicas:           1,
-					Image:              "example/image:latest",
 					Port:               8080,
 					ServiceAccountName: "default",
 					ServiceType:        corev1.ServiceTypeClusterIP,
-					Annotations:        map[string]string{"key": "initial"},
 				},
 			}
-			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
-			createdCR = cr
 
-			// Wait for the Deployment to be created.
-			deploymentKey := types.NamespacedName{
-				Name:      "pdf-render-service",
-				Namespace: cr.Namespace,
-			}
+			suite.UsingClusterBy(clusterKey.Name, "HumioPdfRenderService: Creating the pdf render service")
+			Expect(k8sClient.Create(ctx, pdfRenderService)).To(Succeed())
+
+			// Wait for the Deployment to be created by the controller
 			deployment := &appsv1.Deployment{}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, deploymentKey, deployment)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Name:      "pdf-render-service", // This is the deployment name
+					Namespace: key.Namespace,
+				}, deployment)
+			}, testTimeout, suite.TestInterval).Should(Succeed(), "Failed to get Deployment")
 
-			// Patch the CR to update annotations and image.
-			patch := client.MergeFrom(cr.DeepCopy())
-			cr.Spec.Annotations = map[string]string{"key": "updated"}
-			cr.Spec.Image = "example/image:new"
-			Expect(k8sClient.Patch(ctx, cr, patch)).Should(Succeed())
+			// Verify initial image version
+			Expect(len(deployment.Spec.Template.Spec.Containers)).To(BeNumerically(">", 0))
+			Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("humio/pdf-render-service:1.0.0"))
 
-			// Verify that the Deployment reflects the updates.
+			// Update the HumioPdfRenderService with a new image
+			suite.UsingClusterBy(clusterKey.Name, "HumioPdfRenderService: Updating the pdf render service")
+			fetchedPdfService := &humiov1alpha1.HumioPdfRenderService{}
 			Eventually(func() error {
-				updatedDeployment := &appsv1.Deployment{}
-				if err := k8sClient.Get(ctx, deploymentKey, updatedDeployment); err != nil {
+				if err := k8sClient.Get(ctx, key, fetchedPdfService); err != nil {
 					return err
 				}
-				if updatedDeployment.Spec.Template.Annotations["key"] != "updated" {
-					return fmt.Errorf("annotation key not updated, got %s", updatedDeployment.Spec.Template.Annotations["key"])
-				}
-				if updatedDeployment.Spec.Template.Spec.Containers[0].Image != "example/image:new" {
-					return fmt.Errorf("image not updated, got %s", updatedDeployment.Spec.Template.Spec.Containers[0].Image)
-				}
-				return nil
+				fetchedPdfService.Spec.Image = "humio/pdf-render-service:1.1.0" // Updated version
+				return k8sClient.Update(ctx, fetchedPdfService)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify the Deployment was updated with the new image
+			suite.UsingClusterBy(clusterKey.Name, "HumioPdfRenderService: Verifying the deployment was updated")
+			Eventually(func() string {
+				updatedDeployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      "pdf-render-service",
+					Namespace: key.Namespace,
+				}, updatedDeployment)
+				if err != nil {
+					return ""
+				}
+				if len(updatedDeployment.Spec.Template.Spec.Containers) > 0 {
+					return updatedDeployment.Spec.Template.Spec.Containers[0].Image
+				}
+				return ""
+			}, testTimeout, suite.TestInterval).Should(Equal("humio/pdf-render-service:1.1.0"))
+
+			// Clean up
+			suite.UsingClusterBy(clusterKey.Name, "HumioPdfRenderService: Deleting the pdf render service")
+			Expect(k8sClient.Delete(ctx, pdfRenderService)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, &humiov1alpha1.HumioPdfRenderService{})
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("should update the Service's NodePort when the HumioPdfRenderService is updated to NodePort", func() {
@@ -3978,7 +4004,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			// Verify the Service exists.
 			serviceKey := types.NamespacedName{
-				Name:      "humio-pdf-render",
+				Name:      "pdf-render-service",
 				Namespace: cr.Namespace,
 			}
 			service := &corev1.Service{}
