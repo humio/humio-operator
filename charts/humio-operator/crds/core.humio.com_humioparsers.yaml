@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.17.0
   name: humioparsers.core.humio.com
   labels:
     app: 'humio-operator'
@@ -20,7 +20,12 @@ spec:
     singular: humioparser
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: The state of the parser
+      jsonPath: .status.state
+      name: State
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: HumioParser is the Schema for the humioparsers API.
@@ -45,13 +50,52 @@ spec:
           spec:
             description: HumioParserSpec defines the desired state of HumioParser.
             properties:
-              foo:
-                description: Foo is an example field of HumioParser. Edit humioparser_types.go
-                  to remove/update
+              externalClusterName:
+                description: |-
+                  ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+                  This conflicts with ManagedClusterName.
                 type: string
+              managedClusterName:
+                description: |-
+                  ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+                  resources should be created.
+                  This conflicts with ExternalClusterName.
+                type: string
+              name:
+                description: Name is the name of the parser inside Humio
+                minLength: 1
+                type: string
+              parserScript:
+                description: ParserScript contains the code for the Humio parser
+                type: string
+              repositoryName:
+                description: RepositoryName defines what repository this parser should
+                  be managed in
+                minLength: 1
+                type: string
+              tagFields:
+                description: |-
+                  TagFields is used to define what fields will be used to define how data will be tagged when being parsed by
+                  this parser
+                items:
+                  type: string
+                type: array
+              testData:
+                description: TestData contains example test data to verify the parser
+                  behavior
+                items:
+                  type: string
+                type: array
+            required:
+            - name
+            - repositoryName
             type: object
           status:
             description: HumioParserStatus defines the observed state of HumioParser.
+            properties:
+              state:
+                description: State reflects the current state of the HumioParser
+                type: string
             type: object
         type: object
     served: true
