@@ -1,9 +1,10 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioView
 metadata:
-  labels:
-    app.kubernetes.io/name: humio-operator
-    app.kubernetes.io/managed-by: kustomize
-  name: humioview-sample
+  name: example-humioview-managed
 spec:
-  # TODO(user): Add fields here
+  managedClusterName: example-humiocluster
+  name: "example-view"
+  connections:
+    - repositoryName: "example-repository"
+      filter: "*"
