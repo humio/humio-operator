@@ -3985,62 +3985,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
-
-		It("should update the Service's NodePort when the HumioPdfRenderService is updated to NodePort", func() {
-			// Create CR with initial ClusterIP configuration.
-			cr := &humiov1alpha1.HumioPdfRenderService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      baseName + "-nodeport",
-					Namespace: clusterKey.Namespace,
-				},
-				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
-					Replicas:           1,
-					Image:              "example/image:latest",
-					Port:               8080,
-					ServiceAccountName: "default",
-					ServiceType:        corev1.ServiceTypeClusterIP,
-				},
-			}
-			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
-			createdCR = cr
-
-			// Verify the Service exists.
-			serviceKey := types.NamespacedName{
-				Name:      "pdf-render-service",
-				Namespace: cr.Namespace,
-			}
-			service := &corev1.Service{}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, serviceKey, service)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-
-			// Update the CR to change ServiceType to NodePort and assign a NodePort.
-			patch := client.MergeFrom(cr.DeepCopy())
-			cr.Spec.ServiceType = corev1.ServiceTypeNodePort
-			cr.Spec.NodePort = 30000
-			Expect(k8sClient.Patch(ctx, cr, patch)).Should(Succeed())
-
-			// Verify that the Service now reflects the NodePort update.
-			Eventually(func() (corev1.ServiceType, error) {
-				updatedService := &corev1.Service{}
-				if err := k8sClient.Get(ctx, serviceKey, updatedService); err != nil {
-					return "", err
-				}
-				return updatedService.Spec.Type, nil
-			}, testTimeout, suite.TestInterval).Should(Equal(corev1.ServiceTypeNodePort))
-
-			Eventually(func() (int32, error) {
-				updatedService := &corev1.Service{}
-				if err := k8sClient.Get(ctx, serviceKey, updatedService); err != nil {
-					return 0, err
-				}
-				nodePort := int32(0)
-				if len(updatedService.Spec.Ports) > 0 {
-					nodePort = updatedService.Spec.Ports[0].NodePort
-				}
-				return nodePort, nil
-			}, testTimeout, suite.TestInterval).Should(Equal(int32(30000)))
-		})
 	})
 })
 

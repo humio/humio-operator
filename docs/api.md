@@ -37071,26 +37071,10 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecingress">ingress</a></b></td>
-        <td>object</td>
-        <td>
-          Ingress defines the ingress configuration for the service.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
         <td><b><a href="#humiopdfrenderservicespeclivenessprobe">livenessProbe</a></b></td>
         <td>object</td>
         <td>
           LivenessProbe defines the liveness probe configuration.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>nodePort</b></td>
-        <td>integer</td>
-        <td>
-          NodePort is the port the service listens on when the service type is NodePort.<br/>
-          <br/>
-            <i>Format</i>: int32<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -37125,10 +37109,11 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         <td>false</td>
       </tr><tr>
         <td><b>serviceType</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           ServiceType is the type of service to expose.<br/>
           <br/>
+            <i>Enum</i>: ClusterIP<br/>
             <i>Default</i>: ClusterIP<br/>
         </td>
         <td>false</td>
@@ -39029,76 +39014,6 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
         <td>boolean</td>
         <td>
           Specify whether the Secret or its key must be defined<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.ingress
-<sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
-
-
-
-Ingress defines the ingress configuration for the service.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>enabled</b></td>
-        <td>boolean</td>
-        <td>
-          Enabled defines if the ingress is enabled.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecingresshostsindex">hosts</a></b></td>
-        <td>[]object</td>
-        <td>
-          Hosts defines the list of hosts for the ingress.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.ingress.hosts[index]
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecingress)</sup></sup>
-
-
-
-HumioPdfRenderServiceIngressHost defines the host configuration for the Ingress.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>host</b></td>
-        <td>string</td>
-        <td>
-          Host is the hostname to be used.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>port</b></td>
-        <td>integer</td>
-        <td>
-          Port is the port number to be used.<br/>
-          <br/>
-            <i>Format</i>: int32<br/>
         </td>
         <td>false</td>
       </tr></tbody>
