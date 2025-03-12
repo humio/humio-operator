@@ -6,4 +6,12 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: humiobootstraptoken-sample
 spec:
-  # TODO(user): Add fields here
+  managedClusterName: humiocluster-sample
+  tokenSecret:
+    secretKeyRef:
+      name: example-bootstraptoken-token-secret
+      key: secret
+  hashedTokenSecret:
+    secretKeyRef:
+      name: example-bootstraptoken-token-secret
+      key: hashedToken
