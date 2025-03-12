@@ -1,9 +1,18 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioRepository
 metadata:
+  name: example-humiorepository
   labels:
-    app.kubernetes.io/name: humio-operator
-    app.kubernetes.io/managed-by: kustomize
-  name: humiorepository-sample
+    app: 'humiorepository'
+    app.kubernetes.io/name: 'humiorepository'
+    app.kubernetes.io/instance: 'example-humiorepository'
+    app.kubernetes.io/managed-by: 'manual'
 spec:
-  # TODO(user): Add fields here
+  managedClusterName: example-humiocluster
+  name: "example-repository"
+  description: "this is an important message"
+  allowDataDeletion: false
+  retention:
+    ingestSizeInGB: 10
+    storageSizeInGB: 5
+    timeInDays: 30

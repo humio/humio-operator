@@ -1,9 +1,13 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioFilterAlert
 metadata:
-  labels:
-    app.kubernetes.io/name: humio-operator
-    app.kubernetes.io/managed-by: kustomize
-  name: humiofilteralert-sample
+  name: humiofilteralert-example
 spec:
-  # TODO(user): Add fields here
+  managedClusterName: example-humiocluster
+  name: example-filteralert
+  viewName: humio
+  queryString: "#repo = humio | error = true | count() | _count > 0"
+  enabled: true
+  description: Error counts
+  actions:
+    - example-email-action

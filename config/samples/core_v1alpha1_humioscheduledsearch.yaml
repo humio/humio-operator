@@ -1,9 +1,18 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioScheduledSearch
 metadata:
-  labels:
-    app.kubernetes.io/name: humio-operator
-    app.kubernetes.io/managed-by: kustomize
-  name: humioscheduledsearch-sample
+  name: humioscheduledsearch-example
 spec:
-  # TODO(user): Add fields here
+  managedClusterName: example-humiocluster
+  name: example-scheduledsearch
+  viewName: humio
+  queryString: "#repo = humio | error = true | count() | _count > 0"
+  queryStart: "1h"
+  queryEnd: "now"
+  schedule: "1h"
+  timeZone: "UTC"
+  backfillLimit: 3
+  enabled: true
+  description: Error counts
+  actions:
+    - example-email-action
