@@ -1109,28 +1109,6 @@ spec:
                   service.
                 minLength: 1
                 type: string
-              ingress:
-                description: Ingress defines the ingress configuration for the service.
-                properties:
-                  enabled:
-                    description: Enabled defines if the ingress is enabled.
-                    type: boolean
-                  hosts:
-                    description: Hosts defines the list of hosts for the ingress.
-                    items:
-                      description: HumioPdfRenderServiceIngressHost defines the host
-                        configuration for the Ingress.
-                      properties:
-                        host:
-                          description: Host is the hostname to be used.
-                          type: string
-                        port:
-                          description: Port is the port number to be used.
-                          format: int32
-                          type: integer
-                      type: object
-                    type: array
-                type: object
               livenessProbe:
                 description: LivenessProbe defines the liveness probe configuration.
                 properties:
@@ -1282,11 +1260,6 @@ spec:
                     format: int32
                     type: integer
                 type: object
-              nodePort:
-                description: NodePort is the port the service listens on when the
-                  service type is NodePort.
-                format: int32
-                type: integer
               port:
                 description: Port is the port the service listens on.
                 format: int32
@@ -1513,6 +1486,8 @@ spec:
               serviceType:
                 default: ClusterIP
                 description: ServiceType is the type of service to expose.
+                enum:
+                - ClusterIP
                 type: string
             required:
             - image
