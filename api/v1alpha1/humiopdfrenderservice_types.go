@@ -62,10 +62,6 @@ type HumioPdfRenderServiceSpec struct {
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 
-	// Ingress defines the ingress configuration for the service.
-	// +optional
-	Ingress *HumioPdfRenderServiceIngressSpec `json:"ingress,omitempty"`
-
 	// LivenessProbe defines the liveness probe configuration.
 	// +optional
 	LivenessProbe *corev1.Probe `json:"livenessProbe,omitempty"`
@@ -77,11 +73,8 @@ type HumioPdfRenderServiceSpec struct {
 	// ServiceType is the type of service to expose.
 	// +optional
 	// +kubebuilder:default=ClusterIP
+	// +kubebuilder:validation:Enum=ClusterIP
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
-
-	// NodePort is the port the service listens on when the service type is NodePort.
-	// +optional
-	NodePort int32 `json:"nodePort,omitempty"`
 
 	// ServiceAccountName is the name of the Kubernetes Service Account to use.
 	// +optional
