@@ -68,13 +68,6 @@ pdfRenderService:
                 operator: In
                 values:
                   - ""
-  ingress:
-    enabled: true
-    hosts:
-      - host: pdf-render-service
-        port: 5123
-    shared:
-      enabled: false
   probes:
     livenessProbe:
       failureThreshold: 5
