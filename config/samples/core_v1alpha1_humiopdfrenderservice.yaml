@@ -9,4 +9,65 @@ metadata:
     app.kubernetes.io/created-by: humio-operator
   name: humiopdfrenderservice-sample
 spec:
-  # TODO(user): Add fields here
+  image: humio/pdf-render-service:0.0.59--build-98--sha-b2bfadbc14733ce3ae1153d555148ee4f3a64013
+  replicas: 2
+  port: 5123
+  serviceType: ClusterIP
+  serviceAccountName: default
+  resources:
+    limits:
+      cpu: 4
+      memory: 2Gi
+    requests:
+      cpu: 4
+      memory: 1Gi
+  env:
+    - name: XDG_CONFIG_HOME
+      value: "/tmp/.chromium-config"
+    - name: XDG_CACHE_HOME
+      value: "/tmp/.chromium-cache"
+    - name: EXAMPLE_ENV_VAR
+      value: "example_value"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: humio_node_type
+                operator: In
+                values:
+                  - core
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - pdf-render-service
+          topologyKey: kubernetes.io/hostname
+  annotations:
+    # Pod annotations can be specified here
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/metrics"
+    prometheus.io/port: "5123"
+  livenessProbe:
+    failureThreshold: 5
+    httpGet:
+      path: /health
+      port: 5123
+      scheme: HTTP
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    successThreshold: 1
+    timeoutSeconds: 60
+  readinessProbe:
+    failureThreshold: 1
+    httpGet:
+      path: /ready
+      port: 5123
+      scheme: HTTP
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    successThreshold: 1
+    timeoutSeconds: 60

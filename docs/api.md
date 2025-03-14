@@ -37947,15 +37947,6 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b>enabled</b></td>
-        <td>boolean</td>
-        <td>
-          INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-Important: Run "make" to regenerate code after modifying this file
-Enable indicates whether the PDF rendering service should be created.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
         <td><b><a href="#humiopdfrenderservicespecenvindex">env</a></b></td>
         <td>[]object</td>
         <td>
@@ -37974,13 +37965,6 @@ Enable indicates whether the PDF rendering service should be created.<br/>
         <td>[]object</td>
         <td>
           ImagePullSecrets is a list of references to secrets for pulling images<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecingress">ingress</a></b></td>
-        <td>object</td>
-        <td>
-          Ingress defines the ingress configuration for the service.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -38588,13 +38572,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -38603,13 +38587,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -38852,13 +38836,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -38867,13 +38851,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -39196,13 +39180,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -39211,13 +39195,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -39460,13 +39444,13 @@ If it's null, this PodAffinityTerm matches with no Pods.<br/>
         <td>
           MatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
-Also, MatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+Also, matchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -39475,13 +39459,13 @@ This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature
         <td>
           MismatchLabelKeys is a set of pod label keys to select which pods will
 be taken into consideration. The keys are used to lookup values from the
-incoming pod labels, those key-value labels are merged with `LabelSelector` as `key notin (value)`
+incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
 to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
-The same key is forbidden to exist in both MismatchLabelKeys and LabelSelector.
-Also, MismatchLabelKeys cannot be set when LabelSelector isn't set.
-This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.<br/>
+The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -39708,6 +39692,15 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humiopdfrenderservicespeccontainersecuritycontextapparmorprofile">appArmorProfile</a></b></td>
+        <td>object</td>
+        <td>
+          appArmorProfile is the AppArmor options to use by this container. If set, this profile
+overrides the pod's appArmorProfile.
+Note that this field cannot be set when spec.os.name is windows.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humiopdfrenderservicespeccontainersecuritycontextcapabilities">capabilities</a></b></td>
         <td>object</td>
         <td>
@@ -39731,7 +39724,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         <td>string</td>
         <td>
           procMount denotes the type of proc mount to use for the containers.
-The default is DefaultProcMount which uses the container runtime defaults for
+The default value is Default which uses the container runtime defaults for
 readonly paths and masked paths.
 This requires the ProcMountType feature flag to be enabled.
 Note that this field cannot be set when spec.os.name is windows.<br/>
@@ -39813,6 +39806,49 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
 If unspecified, the options from the PodSecurityContext will be used.
 If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
 Note that this field cannot be set when spec.os.name is linux.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPdfRenderService.spec.containerSecurityContext.appArmorProfile
+<sup><sup>[↩ Parent](#humiopdfrenderservicespeccontainersecuritycontext)</sup></sup>
+
+
+
+appArmorProfile is the AppArmor options to use by this container. If set, this profile
+overrides the pod's appArmorProfile.
+Note that this field cannot be set when spec.os.name is windows.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type indicates which kind of AppArmor profile will be applied.
+Valid options are:
+  Localhost - a profile pre-loaded on the node.
+  RuntimeDefault - the container runtime's default profile.
+  Unconfined - no AppArmor enforcement.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>localhostProfile</b></td>
+        <td>string</td>
+        <td>
+          localhostProfile indicates a profile loaded on the node that should be used.
+The profile must be preconfigured on the node to work.
+Must match the loaded name of the profile.
+Must be set if and only if type is "Localhost".<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -39932,7 +39968,6 @@ Note that this field cannot be set when spec.os.name is windows.
         <td>
           type indicates which kind of seccomp profile will be applied.
 Valid options are:
-
 
 Localhost - a profile defined in a file on the node should be used.
 RuntimeDefault - the container runtime default profile should be used.
@@ -40139,8 +40174,12 @@ Selects a key of a ConfigMap.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -40259,8 +40298,12 @@ Selects a key of a secret in the pod's namespace
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -40296,78 +40339,12 @@ referenced object inside the same namespace.
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.ingress
-<sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
-
-
-
-Ingress defines the ingress configuration for the service.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>enabled</b></td>
-        <td>boolean</td>
-        <td>
-          Enabled defines if the ingress is enabled.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecingresshostsindex">hosts</a></b></td>
-        <td>[]object</td>
-        <td>
-          Hosts defines the list of hosts for the ingress.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.ingress.hosts[index]
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecingress)</sup></sup>
-
-
-
-HumioPdfRenderServiceIngressHost defines the host configuration for the Ingress.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>host</b></td>
-        <td>string</td>
-        <td>
-          Host is the hostname to be used.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>port</b></td>
-        <td>integer</td>
-        <td>
-          Port is the port number to be used.<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
           <br/>
-            <i>Format</i>: int32<br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -40394,7 +40371,7 @@ LivenessProbe defines the liveness probe configuration.
         <td><b><a href="#humiopdfrenderservicespeclivenessprobeexec">exec</a></b></td>
         <td>object</td>
         <td>
-          Exec specifies the action to take.<br/>
+          Exec specifies a command to execute in the container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -40411,14 +40388,14 @@ Defaults to 3. Minimum value is 1.<br/>
         <td><b><a href="#humiopdfrenderservicespeclivenessprobegrpc">grpc</a></b></td>
         <td>object</td>
         <td>
-          GRPC specifies an action involving a GRPC port.<br/>
+          GRPC specifies a GRPC HealthCheckRequest.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#humiopdfrenderservicespeclivenessprobehttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
-          HTTPGet specifies the http request to perform.<br/>
+          HTTPGet specifies an HTTP GET request to perform.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -40455,7 +40432,7 @@ Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
         <td><b><a href="#humiopdfrenderservicespeclivenessprobetcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
-          TCPSocket specifies an action involving a TCP port.<br/>
+          TCPSocket specifies a connection to a TCP port.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -40496,7 +40473,7 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
 
 
 
-Exec specifies the action to take.
+Exec specifies a command to execute in the container.
 
 <table>
     <thead>
@@ -40527,7 +40504,7 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 
 
 
-GRPC specifies an action involving a GRPC port.
+GRPC specifies a GRPC HealthCheckRequest.
 
 <table>
     <thead>
@@ -40554,8 +40531,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -40567,7 +40545,7 @@ If this is not specified, the default behavior is defined by gRPC.<br/>
 
 
 
-HTTPGet specifies the http request to perform.
+HTTPGet specifies an HTTP GET request to perform.
 
 <table>
     <thead>
@@ -40661,7 +40639,7 @@ This will be canonicalized upon output, so case-variant names will be understood
 
 
 
-TCPSocket specifies an action involving a TCP port.
+TCPSocket specifies a connection to a TCP port.
 
 <table>
     <thead>
@@ -40712,7 +40690,7 @@ ReadinessProbe defines the readiness probe configuration.
         <td><b><a href="#humiopdfrenderservicespecreadinessprobeexec">exec</a></b></td>
         <td>object</td>
         <td>
-          Exec specifies the action to take.<br/>
+          Exec specifies a command to execute in the container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -40729,14 +40707,14 @@ Defaults to 3. Minimum value is 1.<br/>
         <td><b><a href="#humiopdfrenderservicespecreadinessprobegrpc">grpc</a></b></td>
         <td>object</td>
         <td>
-          GRPC specifies an action involving a GRPC port.<br/>
+          GRPC specifies a GRPC HealthCheckRequest.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#humiopdfrenderservicespecreadinessprobehttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
-          HTTPGet specifies the http request to perform.<br/>
+          HTTPGet specifies an HTTP GET request to perform.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -40773,7 +40751,7 @@ Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
         <td><b><a href="#humiopdfrenderservicespecreadinessprobetcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
-          TCPSocket specifies an action involving a TCP port.<br/>
+          TCPSocket specifies a connection to a TCP port.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -40814,7 +40792,7 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
 
 
 
-Exec specifies the action to take.
+Exec specifies a command to execute in the container.
 
 <table>
     <thead>
@@ -40845,7 +40823,7 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 
 
 
-GRPC specifies an action involving a GRPC port.
+GRPC specifies a GRPC HealthCheckRequest.
 
 <table>
     <thead>
@@ -40872,8 +40850,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -40885,7 +40864,7 @@ If this is not specified, the default behavior is defined by gRPC.<br/>
 
 
 
-HTTPGet specifies the http request to perform.
+HTTPGet specifies an HTTP GET request to perform.
 
 <table>
     <thead>
@@ -40979,7 +40958,7 @@ This will be canonicalized upon output, so case-variant names will be understood
 
 
 
-TCPSocket specifies an action involving a TCP port.
+TCPSocket specifies a connection to a TCP port.
 
 <table>
     <thead>
@@ -41033,10 +41012,8 @@ Resources defines the resource requests and limits for the container.
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-
 This is an alpha field and requires enabling the
 DynamicResourceAllocation feature gate.
-
 
 This field is immutable. It can only be set for containers.<br/>
         </td>
@@ -41088,6 +41065,15 @@ the Pod where this field is used. It makes that resource available
 inside a container.<br/>
         </td>
         <td>true</td>
+      </tr><tr>
+        <td><b>request</b></td>
+        <td>string</td>
+        <td>
+          Request is the name chosen for a request in the referenced claim.
+If empty, everything from the claim is made available, otherwise
+only the result of this request.<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -41109,6 +41095,14 @@ SecurityContext defines pod-level security attributes
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#humiopdfrenderservicespecsecuritycontextapparmorprofile">appArmorProfile</a></b></td>
+        <td>object</td>
+        <td>
+          appArmorProfile is the AppArmor options to use by the containers in this pod.
+Note that this field cannot be set when spec.os.name is windows.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>fsGroup</b></td>
         <td>integer</td>
         <td>
@@ -41116,11 +41110,9 @@ SecurityContext defines pod-level security attributes
 Some volume types allow the Kubelet to change the ownership of that volume
 to be owned by the pod:
 
-
 1. The owning GID will be the FSGroup
 2. The setgid bit is set (new files created in the volume will be owned by FSGroup)
 3. The permission bits are OR'd with rw-rw----
-
 
 If unset, the Kubelet will not modify the ownership and permissions of any volume.
 Note that this field cannot be set when spec.os.name is windows.<br/>
@@ -41182,6 +41174,35 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>seLinuxChangePolicy</b></td>
+        <td>string</td>
+        <td>
+          seLinuxChangePolicy defines how the container's SELinux label is applied to all volumes used by the Pod.
+It has no effect on nodes that do not support SELinux or to volumes does not support SELinux.
+Valid values are "MountOption" and "Recursive".
+
+"Recursive" means relabeling of all files on all Pod volumes by the container runtime.
+This may be slow for large volumes, but allows mixing privileged and unprivileged Pods sharing the same volume on the same node.
+
+"MountOption" mounts all eligible Pod volumes with `-o context` mount option.
+This requires all Pods that share the same volume to use the same SELinux label.
+It is not possible to share the same volume among privileged and unprivileged Pods.
+Eligible volumes are in-tree FibreChannel and iSCSI volumes, and all CSI volumes
+whose CSI driver announces SELinux support by setting spec.seLinuxMount: true in their
+CSIDriver instance. Other volumes are always re-labelled recursively.
+"MountOption" value is allowed only when SELinuxMount feature gate is enabled.
+
+If not specified and SELinuxMount feature gate is enabled, "MountOption" is used.
+If not specified and SELinuxMount feature gate is disabled, "MountOption" is used for ReadWriteOncePod volumes
+and "Recursive" for all other volumes.
+
+This field affects only Pods that have SELinux label set, either in PodSecurityContext or in SecurityContext of all containers.
+
+All Pods that use the same volume should use the same seLinuxChangePolicy, otherwise some pods can get stuck in ContainerCreating state.
+Note that this field cannot be set when spec.os.name is windows.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humiopdfrenderservicespecsecuritycontextselinuxoptions">seLinuxOptions</a></b></td>
         <td>object</td>
         <td>
@@ -41205,12 +41226,25 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         <td><b>supplementalGroups</b></td>
         <td>[]integer</td>
         <td>
-          A list of groups applied to the first process run in each container, in addition
-to the container's primary GID, the fsGroup (if specified), and group memberships
-defined in the container image for the uid of the container process. If unspecified,
-no additional groups are added to any container. Note that group memberships
-defined in the container image for the uid of the container process are still effective,
-even if they are not included in this list.
+          A list of groups applied to the first process run in each container, in
+addition to the container's primary GID and fsGroup (if specified).  If
+the SupplementalGroupsPolicy feature is enabled, the
+supplementalGroupsPolicy field determines whether these are in addition
+to or instead of any group memberships defined in the container image.
+If unspecified, no additional groups are added, though group memberships
+defined in the container image may still be used, depending on the
+supplementalGroupsPolicy field.
+Note that this field cannot be set when spec.os.name is windows.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>supplementalGroupsPolicy</b></td>
+        <td>string</td>
+        <td>
+          Defines how supplemental groups of the first container processes are calculated.
+Valid values are "Merge" and "Strict". If not specified, "Merge" is used.
+(Alpha) Using the field requires the SupplementalGroupsPolicy feature gate to be enabled
+and the container runtime must implement support for this feature.
 Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
@@ -41231,6 +41265,48 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
 If unspecified, the options within a container's SecurityContext will be used.
 If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
 Note that this field cannot be set when spec.os.name is linux.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPdfRenderService.spec.securityContext.appArmorProfile
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecsecuritycontext)</sup></sup>
+
+
+
+appArmorProfile is the AppArmor options to use by the containers in this pod.
+Note that this field cannot be set when spec.os.name is windows.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type indicates which kind of AppArmor profile will be applied.
+Valid options are:
+  Localhost - a profile pre-loaded on the node.
+  RuntimeDefault - the container runtime's default profile.
+  Unconfined - no AppArmor enforcement.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>localhostProfile</b></td>
+        <td>string</td>
+        <td>
+          localhostProfile indicates a profile loaded on the node that should be used.
+The profile must be preconfigured on the node to work.
+Must match the loaded name of the profile.
+Must be set if and only if type is "Localhost".<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -41313,7 +41389,6 @@ Note that this field cannot be set when spec.os.name is windows.
         <td>
           type indicates which kind of seccomp profile will be applied.
 Valid options are:
-
 
 Localhost - a profile defined in a file on the node should be used.
 RuntimeDefault - the container runtime default profile should be used.
@@ -41483,22 +41558,6 @@ HumioPdfRenderServiceStatus defines the observed state of HumioPdfRenderService
 
 
 Condition contains details for one aspect of the current state of this API Resource.
----
-This struct is intended for direct use as an array at the field path .status.conditions.  For example,
-
-
-	type FooStatus struct{
-	    // Represents the observations of a foo's current state.
-	    // Known .status.conditions.type are: "Available", "Progressing", and "Degraded"
-	    // +patchMergeKey=type
-	    // +patchStrategy=merge
-	    // +listType=map
-	    // +listMapKey=type
-	    Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
-
-
-	    // other fields
-	}
 
 <table>
     <thead>
@@ -41551,11 +41610,7 @@ This field may not be empty.<br/>
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          type of condition in CamelCase or in foo.example.com/CamelCase.
----
-Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-useful (see .node.status.conditions), the ability to deconflict is important.
-The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)<br/>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
         </td>
         <td>true</td>
       </tr><tr>
