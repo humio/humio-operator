@@ -360,6 +360,15 @@ func main() {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioView")
 		os.Exit(1)
 	}
+	if err = (&controller.HumioPdfRenderServiceReconciler{
+		Client:      mgr.GetClient(),
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioView")
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {
