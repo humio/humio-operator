@@ -43,7 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/controllers"
+	"github.com/humio/humio-operator/internal/controller"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -113,7 +113,7 @@ func main() {
 
 	userAgent := fmt.Sprintf("humio-operator/%s (%s on %s)", version, commit, date)
 
-	if err = (&controllers.HumioExternalClusterReconciler{
+	if err = (&controller.HumioExternalClusterReconciler{
 		Client:      mgr.GetClient(),
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
@@ -121,7 +121,7 @@ func main() {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioExternalCluster")
 		os.Exit(1)
 	}
-	if err = (&controllers.HumioClusterReconciler{
+	if err = (&controller.HumioClusterReconciler{
 		Client:      mgr.GetClient(),
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
