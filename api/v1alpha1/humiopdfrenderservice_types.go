@@ -81,24 +81,6 @@ type HumioPdfRenderServiceSpec struct {
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
-// HumioPdfRenderServiceIngressSpec defines the desired state of the Ingress.
-type HumioPdfRenderServiceIngressSpec struct {
-	// Enabled defines if the ingress is enabled.
-	Enabled bool `json:"enabled,omitempty"`
-
-	// Hosts defines the list of hosts for the ingress.
-	Hosts []HumioPdfRenderServiceIngressHost `json:"hosts,omitempty"`
-}
-
-// HumioPdfRenderServiceIngressHost defines the host configuration for the Ingress.
-type HumioPdfRenderServiceIngressHost struct {
-	// Host is the hostname to be used.
-	Host string `json:"host,omitempty"`
-
-	// Port is the port number to be used.
-	Port int32 `json:"port,omitempty"`
-}
-
 // HumioPdfRenderServiceStatus defines the observed state of HumioPdfRenderService
 type HumioPdfRenderServiceStatus struct {
 	// Nodes are the names of the PDF render service pods.

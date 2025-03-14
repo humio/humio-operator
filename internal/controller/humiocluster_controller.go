@@ -21,17 +21,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-<<<<<<< HEAD
-<<<<<<< HEAD
 	"slices"
 	"sort"
 	"strconv"
-=======
->>>>>>> rebasing to master branch
-=======
-	"slices"
-	"strconv"
->>>>>>> comparing with master
 	"strings"
 	"time"
 
@@ -139,17 +131,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	//       on conflicts which they'll be on many of the status updates.
 	//       We should be able to bundle all the options together and do a single update using StatusWriter.
 	//       Bundling options in a single StatusWriter.Update() should help reduce the number of conflicts.
-<<<<<<< HEAD
-<<<<<<< HEAD
 	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
 		_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
-=======
-	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
-=======
-	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
->>>>>>> comparing with master
-		_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
->>>>>>> rebasing to master branch
 			withObservedGeneration(hc.GetGeneration()))
 	}(ctx, hc)
 
@@ -354,10 +337,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}(ctx, r.HumioClient, hc)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> comparing with master
+
 	// downscale cluster if needed
 	// Feature is only available for LogScale versions >= v1.173.0
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
@@ -365,11 +345,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if pool.IsDownscalingFeatureEnabled() && r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
 			if result, err := r.processDownscaling(ctx, hc, pool, req); result != emptyResult || err != nil {
 				if err != nil {
-<<<<<<< HEAD
 					_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
-=======
-					_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
->>>>>>> comparing with master
 						withMessage(err.Error()))
 				}
 				return result, err
@@ -377,11 +353,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-<<<<<<< HEAD
-=======
->>>>>>> rebasing to master branch
-=======
->>>>>>> comparing with master
 	// clean up various k8s objects we no longer need
 	if result, err := r.cleanupUnusedResources(ctx, hc, humioNodePools); result != emptyResult || err != nil {
 		return result, err
@@ -3053,8 +3024,6 @@ func (r *HumioClusterReconciler) createOrUpdatePDB(ctx context.Context, hc *humi
 	}
 	r.Log.Info("PDB operation completed", "operation", op, "pdb", desiredPDB.Name)
 	return nil
-<<<<<<< HEAD
-<<<<<<< HEAD
 }
 
 // findDuplicateEnvVars checks if there are duplicate environment variables in the provided list
@@ -3097,9 +3066,4 @@ func GetDuplicateEnvVarsErrorMessage(duplicates map[string]int) string {
 	// Remove trailing comma and space
 	return message[:len(message)-2]
 }
-=======
-}
->>>>>>> rebasing to master branch
-=======
-}
->>>>>>> comparing with master
+
