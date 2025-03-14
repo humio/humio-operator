@@ -1,0 +1,24 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: humio-operator
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["core.humio.com"]
+  resources: ["humiopdfrenderservices"]
+  verbs: ["get", "list", "watch", "create", "delete", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: humio-operator
+subjects:
+- kind: ServiceAccount
+  name: humio-operator
+  namespace: logging
+roleRef:
+  kind: ClusterRole
+  name: humio-operator
+  apiGroup: rbac.authorization.k8s.io

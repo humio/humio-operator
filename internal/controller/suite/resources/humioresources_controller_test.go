@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	humioapi "github.com/humio/humio-operator/internal/api"
 	"github.com/humio/humio-operator/internal/api/humiographql"
@@ -33,10 +34,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -4221,7 +4224,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
 					Replicas:           1,
 					Image:              "example/image:latest",
-					Port:               8080,
+					Port:               5123,
 					ServiceAccountName: "default",
 					// Use ClusterIP for the initial service configuration.
 					ServiceType: corev1.ServiceTypeClusterIP,
@@ -4247,9 +4250,19 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Namespace: cr.Namespace,
 			}
 			service := &corev1.Service{}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, serviceKey, service)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Eventually(func() int32 {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      "pdf-render-service",
+					Namespace: serviceKey.Namespace,
+				}, service)
+				if err != nil {
+					return 0
+				}
+				if len(service.Spec.Ports) == 0 {
+					return 0
+				}
+				return service.Spec.Ports[0].Port
+			}, testTimeout, suite.TestInterval).Should(Equal(int32(5123)), "Failed to update Service with new port")
 			Expect(service.Namespace).Should(Equal(cr.Namespace))
 			Expect(service.Spec.Type).Should(Equal(cr.Spec.ServiceType))
 			Expect(service.Spec.Ports).ToNot(BeEmpty())
