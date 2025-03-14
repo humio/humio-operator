@@ -27,6 +27,7 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,6 +49,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 		// failed test runs that don't clean up leave resources behind.
 		humioClient.ClearHumioClientConnections(testRepoName)
 	})
+
+	//var createdPdfCR *humiov1alpha1.HumioPdfRenderService
 
 	AfterEach(func() {
 		// Add any teardown steps that needs to be executed after each test
@@ -3827,6 +3830,161 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, toCreateInvalidScheduledSearch)).Should(Not(Succeed()))
 		})
 
+	})
+	Context("HumioPdfRenderService", Label("envtest", "dummy", "real"), func() {
+		var (
+			ctx       context.Context
+			baseName  string
+			createdCR *humiov1alpha1.HumioPdfRenderService
+		)
+
+		BeforeEach(func() {
+			ctx = context.Background()
+			// Use a base name that does not include any suffix.
+			baseName = "pdf-render-service"
+		})
+
+		AfterEach(func() {
+			// Clean up the created CR
+			if createdCR != nil {
+				Expect(k8sClient.Delete(ctx, createdCR)).Should(Succeed())
+				Eventually(func() bool {
+					if createdCR == nil {
+						return true
+					}
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      createdCR.Name,
+						Namespace: createdCR.Namespace,
+					}, &humiov1alpha1.HumioPdfRenderService{})
+					return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+				createdCR = nil
+			}
+		})
+
+		It("should create Deployment and Service when a new HumioPdfRenderService is created", func() {
+			// Create a new HumioPdfRenderService CR with the required fields.
+			cr := &humiov1alpha1.HumioPdfRenderService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      baseName,
+					Namespace: clusterKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
+					Replicas:           1,
+					Image:              "example/image:latest",
+					Port:               8080,
+					ServiceAccountName: "default",
+					// Use ClusterIP for the initial service configuration.
+					ServiceType: corev1.ServiceTypeClusterIP,
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+			createdCR = cr
+
+			// Verify that the Deployment exists.
+			deploymentKey := types.NamespacedName{
+				Name:      "pdf-render-service",
+				Namespace: cr.Namespace,
+			}
+			deployment := &appsv1.Deployment{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, deploymentKey, deployment)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(deployment.Namespace).Should(Equal(cr.Namespace))
+
+			// Verify that the Service exists and uses the fixed service name.
+			serviceKey := types.NamespacedName{
+				Name:      "pdf-render-service",
+				Namespace: cr.Namespace,
+			}
+			service := &corev1.Service{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, serviceKey, service)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(service.Namespace).Should(Equal(cr.Namespace))
+			Expect(service.Spec.Type).Should(Equal(cr.Spec.ServiceType))
+			Expect(service.Spec.Ports).ToNot(BeEmpty())
+			Expect(service.Spec.Ports[0].Port).Should(Equal(cr.Spec.Port))
+		})
+
+		It("should update the Deployment when the HumioPdfRenderService is updated", func() {
+			// Create a new HumioPdfRenderService CR
+			ctx := context.Background()
+			pdfRenderServiceName := "pdf-render-service"
+			key := types.NamespacedName{
+				Name:      pdfRenderServiceName,
+				Namespace: clusterKey.Namespace,
+			}
+
+			// Create the initial PDF render service
+			pdfRenderService := &humiov1alpha1.HumioPdfRenderService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
+					Image:              "humio/pdf-render-service:1.0.0",
+					Replicas:           1,
+					Port:               8080,
+					ServiceAccountName: "default",
+					ServiceType:        corev1.ServiceTypeClusterIP,
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioPdfRenderService: Creating the pdf render service")
+			Expect(k8sClient.Create(ctx, pdfRenderService)).To(Succeed())
+
+			// Wait for the Deployment to be created by the controller with the correct image
+			deployment := &appsv1.Deployment{}
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      "pdf-render-service", // This is the deployment name
+					Namespace: key.Namespace,
+				}, deployment)
+				if err != nil {
+					return ""
+				}
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
+				return deployment.Spec.Template.Spec.Containers[0].Image
+			}, testTimeout, suite.TestInterval).Should(Equal("humio/pdf-render-service:1.0.0"), "Failed to get Deployment with correct image")
+
+			// Update the image
+			suite.UsingClusterBy(clusterKey.Name, "HumioPdfRenderService: Updating the pdf render service with a new image")
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, key, pdfRenderService); err != nil {
+					return err
+				}
+				pdfRenderService.Spec.Image = "humio/pdf-render-service:1.1.0"
+				return k8sClient.Update(ctx, pdfRenderService)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify the Deployment was updated with the new image
+			suite.UsingClusterBy(clusterKey.Name, "HumioPdfRenderService: Verifying the deployment was updated")
+			Eventually(func() string {
+				updatedDeployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      "pdf-render-service",
+					Namespace: key.Namespace,
+				}, updatedDeployment)
+				if err != nil {
+					return ""
+				}
+				if len(updatedDeployment.Spec.Template.Spec.Containers) > 0 {
+					return updatedDeployment.Spec.Template.Spec.Containers[0].Image
+				}
+				return ""
+			}, testTimeout, suite.TestInterval).Should(Equal("humio/pdf-render-service:1.1.0"))
+
+			// Clean up
+			suite.UsingClusterBy(clusterKey.Name, "HumioPdfRenderService: Deleting the pdf render service")
+			Expect(k8sClient.Delete(ctx, pdfRenderService)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, &humiov1alpha1.HumioPdfRenderService{})
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
 	})
 })
 
