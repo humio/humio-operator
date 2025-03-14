@@ -2,7 +2,7 @@ operator:
   image:
     repository: humio/humio-operator
     # default for tag is the appVersion set in Chart.yaml
-    tag: 0.27.3
+    tag: 0.28.2
     pullPolicy: Always
     pullSecrets: []
   metrics:
