@@ -31,10 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	HTTPProtocol = "http"
-)
-
 type ClusterInterface interface {
 	Url(context.Context, client.Client) (*url.URL, error)
 	Name() string
@@ -94,11 +90,8 @@ func (c Cluster) Url(ctx context.Context, k8sClient client.Client) (*url.URL, er
 		}
 
 		protocol := "https"
-		if !c.certManagerEnabled {
-			protocol = HTTPProtocol
-		}
-		if !TLSEnabled(&humioManagedCluster) {
-			protocol = HTTPProtocol
+		if !c.certManagerEnabled || !TLSEnabled(&humioManagedCluster) {
+			protocol = "http"
 		}
 		baseURL, _ := url.Parse(fmt.Sprintf("%s://%s-internal.%s:%d/", protocol, c.managedClusterName, c.namespace, 8080))
 		return baseURL, nil
