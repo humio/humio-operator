@@ -30,8 +30,10 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -3872,10 +3874,58 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
 					Replicas:           1,
 					Image:              "example/image:latest",
+					ImagePullPolicy:    corev1.PullIfNotPresent,
 					Port:               8080,
 					ServiceAccountName: "default",
 					// Use ClusterIP for the initial service configuration.
 					ServiceType: corev1.ServiceTypeClusterIP,
+					// Add security contexts
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser:    helpers.Int64Ptr(1000),
+						RunAsGroup:   helpers.Int64Ptr(1000),
+						RunAsNonRoot: helpers.BoolPtr(true),
+					},
+					ContainerSecurityContext: &corev1.SecurityContext{
+						AllowPrivilegeEscalation: helpers.BoolPtr(false),
+						Privileged:               helpers.BoolPtr(false),
+						ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{"ALL"},
+						},
+					},
+					// Add image pull secrets
+					ImagePullSecrets: []corev1.LocalObjectReference{
+						{
+							Name: "regcred",
+						},
+					},
+					// Add volumes
+					Volumes: []corev1.Volume{
+						{
+							Name: "app-temp",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{
+									Medium: corev1.StorageMediumMemory,
+								},
+							},
+						},
+					},
+					// Add volume mounts
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "app-temp",
+							MountPath: "/app/temp",
+						},
+					},
+					// Add tolerations
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               "node.kubernetes.io/not-ready",
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: helpers.Int64Ptr(300),
+						},
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
@@ -3978,12 +4028,171 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Equal("humio/pdf-render-service:1.1.0"))
 
 			// Clean up
-			suite.UsingClusterBy(clusterKey.Name, "HumioPdfRenderService: Deleting the pdf render service")
-			Expect(k8sClient.Delete(ctx, pdfRenderService)).To(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, key, &humiov1alpha1.HumioPdfRenderService{})
-				return k8serrors.IsNotFound(err)
-			}, testTimeout, suite.TestInterval).Should(BeTrue())
+			createdCR = pdfRenderService
+		})
+
+		It("should correctly set up resources and probes when specified", func() {
+			// Create a PDF render service with resource requirements and probes
+			cr := &humiov1alpha1.HumioPdfRenderService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      baseName + "-resources",
+					Namespace: clusterKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
+					Replicas: 1,
+					Image:    "example/image:latest",
+					Port:     8080,
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("500m"),
+							corev1.ResourceMemory: resource.MustParse("512Mi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("128Mi"),
+						},
+					},
+					LivenessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/health",
+								Port: intstr.FromInt(8080),
+							},
+						},
+						InitialDelaySeconds: 30,
+						TimeoutSeconds:      5,
+					},
+					ReadinessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/ready",
+								Port: intstr.FromInt(8080),
+							},
+						},
+						InitialDelaySeconds: 10,
+						TimeoutSeconds:      3,
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+			createdCR = cr
+
+			// Verify the deployment has the correct resource requirements and probes
+			deploymentKey := types.NamespacedName{
+				Name:      "pdf-render-service",
+				Namespace: cr.Namespace,
+			}
+
+			deployment := &appsv1.Deployment{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, deploymentKey, deployment)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			container := deployment.Spec.Template.Spec.Containers[0]
+
+			// Check resources
+			Expect(container.Resources.Limits.Cpu().String()).Should(Equal("500m"))
+			Expect(container.Resources.Limits.Memory().String()).Should(Equal("512Mi"))
+			Expect(container.Resources.Requests.Cpu().String()).Should(Equal("100m"))
+			Expect(container.Resources.Requests.Memory().String()).Should(Equal("128Mi"))
+
+			// Check probes
+			Expect(container.LivenessProbe).ShouldNot(BeNil())
+			Expect(container.LivenessProbe.HTTPGet.Path).Should(Equal("/health"))
+			Expect(container.LivenessProbe.InitialDelaySeconds).Should(Equal(int32(30)))
+
+			Expect(container.ReadinessProbe).ShouldNot(BeNil())
+			Expect(container.ReadinessProbe.HTTPGet.Path).Should(Equal("/ready"))
+			Expect(container.ReadinessProbe.InitialDelaySeconds).Should(Equal(int32(10)))
+		})
+
+		It("should correctly configure environment variables", func() {
+			// Create a PDF render service with environment variables
+			cr := &humiov1alpha1.HumioPdfRenderService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      baseName + "-env",
+					Namespace: clusterKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
+					Replicas: 1,
+					Image:    "example/image:latest",
+					Port:     8080,
+					Env: []corev1.EnvVar{
+						{
+							Name:  "LOG_LEVEL",
+							Value: "debug",
+						},
+						{
+							Name:  "MAX_CONNECTIONS",
+							Value: "100",
+						},
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+			createdCR = cr
+
+			// Verify the deployment has the correct environment variables
+			deploymentKey := types.NamespacedName{
+				Name:      "pdf-render-service",
+				Namespace: cr.Namespace,
+			}
+
+			deployment := &appsv1.Deployment{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, deploymentKey, deployment)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			container := deployment.Spec.Template.Spec.Containers[0]
+
+			// Check environment variables
+			Expect(container.Env).Should(ContainElement(corev1.EnvVar{
+				Name:  "LOG_LEVEL",
+				Value: "debug",
+			}))
+			Expect(container.Env).Should(ContainElement(corev1.EnvVar{
+				Name:  "MAX_CONNECTIONS",
+				Value: "100",
+			}))
+		})
+
+		It("should correctly set pod annotations", func() {
+			// Create a PDF render service with annotations
+			cr := &humiov1alpha1.HumioPdfRenderService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      baseName + "-annotations",
+					Namespace: clusterKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
+					Replicas: 1,
+					Image:    "example/image:latest",
+					Port:     8080,
+					Annotations: map[string]string{
+						"prometheus.io/scrape": "true",
+						"prometheus.io/port":   "8080",
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+			createdCR = cr
+
+			// Verify the deployment has the correct annotations
+			deploymentKey := types.NamespacedName{
+				Name:      "pdf-render-service",
+				Namespace: cr.Namespace,
+			}
+
+			deployment := &appsv1.Deployment{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, deploymentKey, deployment)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Check pod template annotations
+			Expect(deployment.Spec.Template.Annotations).Should(HaveKeyWithValue("prometheus.io/scrape", "true"))
+			Expect(deployment.Spec.Template.Annotations).Should(HaveKeyWithValue("prometheus.io/port", "8080"))
 		})
 	})
 })
