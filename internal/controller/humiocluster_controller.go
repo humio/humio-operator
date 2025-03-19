@@ -966,7 +966,7 @@ func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *hu
 		corev1.TLSCertKey:       ca.Certificate,
 		corev1.TLSPrivateKeyKey: ca.Key,
 	}
-	caSecret := kubernetes.ConstructSecret(hc.Name, hc.Namespace, getCASecretName(hc), caSecretData, nil)
+	caSecret := kubernetes.ConstructSecret(hc.Name, hc.Namespace, getCASecretName(hc), caSecretData, nil, nil)
 	if err := controllerutil.SetControllerReference(hc, caSecret, r.Scheme()); err != nil {
 		return r.logErrorAndReturn(err, "could not set controller reference")
 	}
@@ -994,7 +994,7 @@ func (r *HumioClusterReconciler) ensureHumioClusterKeystoreSecret(ctx context.Co
 			secretData := map[string][]byte{
 				"passphrase": []byte(randomPass), // TODO: do we need separate passwords for different aspects?
 			}
-			secret := kubernetes.ConstructSecret(hc.Name, hc.Namespace, fmt.Sprintf("%s-keystore-passphrase", hc.Name), secretData, nil)
+			secret := kubernetes.ConstructSecret(hc.Name, hc.Namespace, fmt.Sprintf("%s-keystore-passphrase", hc.Name), secretData, nil, nil)
 			if err := controllerutil.SetControllerReference(hc, secret, r.Scheme()); err != nil {
 				return r.logErrorAndReturn(err, "could not set controller reference")
 			}
