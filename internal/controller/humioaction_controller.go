@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
@@ -319,198 +318,222 @@ func (r *HumioActionReconciler) logErrorAndReturn(err error, msg string) error {
 // actionAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
 // if the details from GraphQL already matches what is in the desired state of the custom resource.
 // If they do not match, a map is returned with details on what the diff is.
-// nolint:gocyclo
 func actionAlreadyAsExpected(expectedAction humiographql.ActionDetails, currentAction humiographql.ActionDetails) (bool, map[string]string) {
-	diffMap := map[string]string{}
-	actionType := "unknown"
-	redactedValue := "<redacted>"
+	diffMap := compareActions(expectedAction, currentAction)
+	actionType := getActionType(expectedAction)
 
-	switch e := (expectedAction).(type) {
-	case *humiographql.ActionDetailsEmailAction:
-		switch c := (currentAction).(type) {
-		case *humiographql.ActionDetailsEmailAction:
-			actionType = getTypeString(e)
-			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffMap["name"] = diff
-			}
-			if diff := cmp.Diff(c.GetRecipients(), e.GetRecipients()); diff != "" {
-				diffMap["recipients"] = diff
-			}
-			if diff := cmp.Diff(c.GetSubjectTemplate(), e.GetSubjectTemplate()); diff != "" {
-				diffMap["subjectTemplate"] = diff
-			}
-			if diff := cmp.Diff(c.GetEmailBodyTemplate(), e.GetEmailBodyTemplate()); diff != "" {
-				diffMap["bodyTemplate"] = diff
-			}
-			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
-				diffMap["useProxy"] = diff
-			}
-		default:
-			diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
-		}
-	case *humiographql.ActionDetailsHumioRepoAction:
-		switch c := (currentAction).(type) {
-		case *humiographql.ActionDetailsHumioRepoAction:
-			actionType = getTypeString(e)
-			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffMap["name"] = diff
-			}
-			if diff := cmp.Diff(c.GetIngestToken(), e.GetIngestToken()); diff != "" {
-				diffMap["ingestToken"] = redactedValue
-			}
-		default:
-			diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
-		}
-	case *humiographql.ActionDetailsOpsGenieAction:
-		switch c := (currentAction).(type) {
-		case *humiographql.ActionDetailsOpsGenieAction:
-			actionType = getTypeString(e)
-			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffMap["name"] = diff
-			}
-			if diff := cmp.Diff(c.GetApiUrl(), e.GetApiUrl()); diff != "" {
-				diffMap["apiUrl"] = diff
-			}
-			if diff := cmp.Diff(c.GetGenieKey(), e.GetGenieKey()); diff != "" {
-				diffMap["genieKey"] = redactedValue
-			}
-			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
-				diffMap["useProxy"] = diff
-			}
-		default:
-			diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
-		}
-	case *humiographql.ActionDetailsPagerDutyAction:
-		switch c := (currentAction).(type) {
-		case *humiographql.ActionDetailsPagerDutyAction:
-			actionType = getTypeString(e)
-			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffMap["name"] = diff
-			}
-			if diff := cmp.Diff(c.GetRoutingKey(), e.GetRoutingKey()); diff != "" {
-				diffMap["apiUrl"] = redactedValue
-			}
-			if diff := cmp.Diff(c.GetSeverity(), e.GetSeverity()); diff != "" {
-				diffMap["genieKey"] = diff
-			}
-			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
-				diffMap["useProxy"] = diff
-			}
-		default:
-			diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
-		}
-	case *humiographql.ActionDetailsSlackAction:
-		switch c := (currentAction).(type) {
-		case *humiographql.ActionDetailsSlackAction:
-			actionType = getTypeString(e)
-			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffMap["name"] = diff
-			}
-			if diff := cmp.Diff(c.GetFields(), e.GetFields()); diff != "" {
-				diffMap["fields"] = diff
-			}
-			if diff := cmp.Diff(c.GetUrl(), e.GetUrl()); diff != "" {
-				diffMap["url"] = redactedValue
-			}
-			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
-				diffMap["useProxy"] = diff
-			}
-		default:
-			diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
-		}
-	case *humiographql.ActionDetailsSlackPostMessageAction:
-		switch c := (currentAction).(type) {
-		case *humiographql.ActionDetailsSlackPostMessageAction:
-			actionType = getTypeString(e)
-			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffMap["name"] = diff
-			}
-			if diff := cmp.Diff(c.GetApiToken(), e.GetApiToken()); diff != "" {
-				diffMap["apiToken"] = redactedValue
-			}
-			if diff := cmp.Diff(c.GetChannels(), e.GetChannels()); diff != "" {
-				diffMap["channels"] = diff
-			}
-			if diff := cmp.Diff(c.GetFields(), e.GetFields()); diff != "" {
-				diffMap["fields"] = diff
-			}
-			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
-				diffMap["useProxy"] = diff
-			}
-		default:
-			diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
-		}
-	case *humiographql.ActionDetailsVictorOpsAction:
-		switch c := (currentAction).(type) {
-		case *humiographql.ActionDetailsVictorOpsAction:
-			actionType = getTypeString(e)
-			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffMap["name"] = diff
-			}
-			if diff := cmp.Diff(c.GetMessageType(), e.GetMessageType()); diff != "" {
-				diffMap["messageType"] = diff
-			}
-			if diff := cmp.Diff(c.GetNotifyUrl(), e.GetNotifyUrl()); diff != "" {
-				diffMap["notifyUrl"] = redactedValue
-			}
-			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
-				diffMap["useProxy"] = diff
-			}
-		default:
-			diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
-		}
-	case *humiographql.ActionDetailsWebhookAction:
-		switch c := (currentAction).(type) {
-		case *humiographql.ActionDetailsWebhookAction:
-			actionType = getTypeString(e)
-
-			currentHeaders := c.GetHeaders()
-			expectedHeaders := e.GetHeaders()
-			sortHeaders(currentHeaders)
-			sortHeaders(expectedHeaders)
-			if diff := cmp.Diff(c.GetMethod(), e.GetMethod()); diff != "" {
-				diffMap["method"] = diff
-			}
-			if diff := cmp.Diff(c.GetName(), e.GetName()); diff != "" {
-				diffMap["name"] = diff
-			}
-			if diff := cmp.Diff(c.GetWebhookBodyTemplate(), e.GetWebhookBodyTemplate()); diff != "" {
-				diffMap["bodyTemplate"] = diff
-			}
-			if diff := cmp.Diff(currentHeaders, expectedHeaders); diff != "" {
-				diffMap["headers"] = redactedValue
-			}
-			if diff := cmp.Diff(c.GetUrl(), e.GetUrl()); diff != "" {
-				diffMap["url"] = redactedValue
-			}
-			if diff := cmp.Diff(c.GetIgnoreSSL(), e.GetIgnoreSSL()); diff != "" {
-				diffMap["ignoreSSL"] = diff
-			}
-			if diff := cmp.Diff(c.GetUseProxy(), e.GetUseProxy()); diff != "" {
-				diffMap["useProxy"] = diff
-			}
-		default:
-			diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", e, c)
-		}
-	}
-
-	diffMapWithTypePrefix := map[string]string{}
-	for k, v := range diffMap {
-		diffMapWithTypePrefix[fmt.Sprintf("%s.%s", actionType, k)] = v
-	}
+	diffMapWithTypePrefix := addTypePrefix(diffMap, actionType)
 	return len(diffMapWithTypePrefix) == 0, diffMapWithTypePrefix
 }
 
-func getTypeString(arg interface{}) string {
-	t := reflect.TypeOf(arg)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
+func getActionType(action humiographql.ActionDetails) string {
+	switch action.(type) {
+	case *humiographql.ActionDetailsEmailAction:
+		return "email"
+	case *humiographql.ActionDetailsHumioRepoAction:
+		return "humiorepo"
+	case *humiographql.ActionDetailsOpsGenieAction:
+		return "opsgenie"
+	case *humiographql.ActionDetailsPagerDutyAction:
+		return "pagerduty"
+	case *humiographql.ActionDetailsSlackAction:
+		return "slack"
+	case *humiographql.ActionDetailsSlackPostMessageAction:
+		return "slackpostmessage"
+	case *humiographql.ActionDetailsVictorOpsAction:
+		return "victorops"
+	case *humiographql.ActionDetailsWebhookAction:
+		return "webhook"
+	default:
+		return "unknown"
 	}
-	return t.String()
+}
+
+func compareActions(expectedAction, currentAction humiographql.ActionDetails) map[string]string {
+	switch e := expectedAction.(type) {
+	case *humiographql.ActionDetailsEmailAction:
+		return compareEmailAction(e, currentAction)
+	case *humiographql.ActionDetailsHumioRepoAction:
+		return compareHumioRepoAction(e, currentAction)
+	case *humiographql.ActionDetailsOpsGenieAction:
+		return compareOpsGenieAction(e, currentAction)
+	case *humiographql.ActionDetailsPagerDutyAction:
+		return comparePagerDutyAction(e, currentAction)
+	case *humiographql.ActionDetailsSlackAction:
+		return compareSlackAction(e, currentAction)
+	case *humiographql.ActionDetailsSlackPostMessageAction:
+		return compareSlackPostMessageAction(e, currentAction)
+	case *humiographql.ActionDetailsVictorOpsAction:
+		return compareVictorOpsAction(e, currentAction)
+	case *humiographql.ActionDetailsWebhookAction:
+		return compareWebhookAction(e, currentAction)
+	default:
+		return map[string]string{"wrongType": "unknown action type"}
+	}
+}
+
+func compareEmailAction(expected *humiographql.ActionDetailsEmailAction, current humiographql.ActionDetails) map[string]string {
+	diffMap := map[string]string{}
+
+	if c, ok := current.(*humiographql.ActionDetailsEmailAction); ok {
+		compareField(diffMap, "name", c.GetName(), expected.GetName())
+		compareField(diffMap, "recipients", c.GetRecipients(), expected.GetRecipients())
+		compareField(diffMap, "subjectTemplate", c.GetSubjectTemplate(), expected.GetSubjectTemplate())
+		compareField(diffMap, "bodyTemplate", c.GetEmailBodyTemplate(), expected.GetEmailBodyTemplate())
+		compareField(diffMap, "useProxy", c.GetUseProxy(), expected.GetUseProxy())
+	} else {
+		diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", expected, current)
+	}
+
+	return diffMap
+}
+
+func compareHumioRepoAction(expected *humiographql.ActionDetailsHumioRepoAction, current humiographql.ActionDetails) map[string]string {
+	diffMap := map[string]string{}
+
+	if c, ok := current.(*humiographql.ActionDetailsHumioRepoAction); ok {
+		compareField(diffMap, "name", c.GetName(), expected.GetName())
+		compareField(diffMap, "ingestToken", c.GetIngestToken(), expected.GetIngestToken())
+	} else {
+		diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", expected, current)
+	}
+
+	return diffMap
+}
+
+func compareOpsGenieAction(expected *humiographql.ActionDetailsOpsGenieAction, current humiographql.ActionDetails) map[string]string {
+	diffMap := map[string]string{}
+
+	if c, ok := current.(*humiographql.ActionDetailsOpsGenieAction); ok {
+		compareField(diffMap, "name", c.GetName(), expected.GetName())
+		compareField(diffMap, "apiUrl", c.GetApiUrl(), expected.GetApiUrl())
+		compareField(diffMap, "genieKey", c.GetGenieKey(), expected.GetGenieKey())
+		compareField(diffMap, "useProxy", c.GetUseProxy(), expected.GetUseProxy())
+	} else {
+		diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", expected, current)
+	}
+
+	return diffMap
+}
+
+func comparePagerDutyAction(expected *humiographql.ActionDetailsPagerDutyAction, current humiographql.ActionDetails) map[string]string {
+	diffMap := map[string]string{}
+
+	if c, ok := current.(*humiographql.ActionDetailsPagerDutyAction); ok {
+		compareField(diffMap, "name", c.GetName(), expected.GetName())
+		compareField(diffMap, "routingKey", c.GetRoutingKey(), expected.GetRoutingKey())
+		compareField(diffMap, "severity", c.GetSeverity(), expected.GetSeverity())
+		compareField(diffMap, "useProxy", c.GetUseProxy(), expected.GetUseProxy())
+	} else {
+		diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", expected, current)
+	}
+
+	return diffMap
+}
+
+func compareSlackAction(expected *humiographql.ActionDetailsSlackAction, current humiographql.ActionDetails) map[string]string {
+	diffMap := map[string]string{}
+
+	if c, ok := current.(*humiographql.ActionDetailsSlackAction); ok {
+		compareField(diffMap, "name", c.GetName(), expected.GetName())
+		compareField(diffMap, "fields", c.GetFields(), expected.GetFields())
+		compareField(diffMap, "url", c.GetUrl(), expected.GetUrl())
+		compareField(diffMap, "useProxy", c.GetUseProxy(), expected.GetUseProxy())
+	} else {
+		diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", expected, current)
+	}
+
+	return diffMap
+}
+
+func compareSlackPostMessageAction(expected *humiographql.ActionDetailsSlackPostMessageAction, current humiographql.ActionDetails) map[string]string {
+	diffMap := map[string]string{}
+
+	if c, ok := current.(*humiographql.ActionDetailsSlackPostMessageAction); ok {
+		compareField(diffMap, "name", c.GetName(), expected.GetName())
+		compareField(diffMap, "apiToken", c.GetApiToken(), expected.GetApiToken())
+		compareField(diffMap, "channels", c.GetChannels(), expected.GetChannels())
+		compareField(diffMap, "fields", c.GetFields(), expected.GetFields())
+		compareField(diffMap, "useProxy", c.GetUseProxy(), expected.GetUseProxy())
+	} else {
+		diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", expected, current)
+	}
+
+	return diffMap
+}
+
+func compareVictorOpsAction(expected *humiographql.ActionDetailsVictorOpsAction, current humiographql.ActionDetails) map[string]string {
+	diffMap := map[string]string{}
+
+	if c, ok := current.(*humiographql.ActionDetailsVictorOpsAction); ok {
+		compareField(diffMap, "name", c.GetName(), expected.GetName())
+		compareField(diffMap, "messageType", c.GetMessageType(), expected.GetMessageType())
+		compareField(diffMap, "notifyUrl", c.GetNotifyUrl(), expected.GetNotifyUrl())
+		compareField(diffMap, "useProxy", c.GetUseProxy(), expected.GetUseProxy())
+	} else {
+		diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", expected, current)
+	}
+
+	return diffMap
+}
+
+func compareWebhookAction(expected *humiographql.ActionDetailsWebhookAction, current humiographql.ActionDetails) map[string]string {
+	diffMap := map[string]string{}
+
+	if c, ok := current.(*humiographql.ActionDetailsWebhookAction); ok {
+		// Sort headers before comparison
+		currentHeaders := c.GetHeaders()
+		expectedHeaders := expected.GetHeaders()
+		sortHeaders(currentHeaders)
+		sortHeaders(expectedHeaders)
+
+		compareField(diffMap, "method", c.GetMethod(), expected.GetMethod())
+		compareField(diffMap, "name", c.GetName(), expected.GetName())
+		compareField(diffMap, "bodyTemplate", c.GetWebhookBodyTemplate(), expected.GetWebhookBodyTemplate())
+		compareField(diffMap, "headers", currentHeaders, expectedHeaders)
+		compareField(diffMap, "url", c.GetUrl(), expected.GetUrl())
+		compareField(diffMap, "ignoreSSL", c.GetIgnoreSSL(), expected.GetIgnoreSSL())
+		compareField(diffMap, "useProxy", c.GetUseProxy(), expected.GetUseProxy())
+	} else {
+		diffMap["wrongType"] = fmt.Sprintf("expected type %T but current is %T", expected, current)
+	}
+
+	return diffMap
 }
 
 func sortHeaders(headers []humiographql.ActionDetailsHeadersHttpHeaderEntry) {
 	sort.SliceStable(headers, func(i, j int) bool {
 		return headers[i].Header > headers[j].Header || headers[i].Value > headers[j].Value
 	})
+}
+
+func compareField(diffMap map[string]string, fieldName string, current, expected interface{}) {
+	if diff := cmp.Diff(current, expected); diff != "" {
+		if isSecretField(fieldName) {
+			diffMap[fieldName] = "<redacted>"
+		} else {
+			diffMap[fieldName] = diff
+		}
+	}
+}
+
+func isSecretField(fieldName string) bool {
+	secretFields := map[string]bool{
+		"apiToken":    true,
+		"genieKey":    true,
+		"headers":     true,
+		"ingestToken": true,
+		"notifyUrl":   true,
+		"routingKey":  true,
+		"url":         true,
+	}
+	return secretFields[fieldName]
+}
+
+func addTypePrefix(diffMap map[string]string, actionType string) map[string]string {
+	result := make(map[string]string, len(diffMap))
+	for k, v := range diffMap {
+		result[fmt.Sprintf("%s.%s", actionType, k)] = v
+	}
+	return result
 }
