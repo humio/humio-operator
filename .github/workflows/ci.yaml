@@ -9,6 +9,23 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version: '1.23.6'
+    - name: Check for exported fields in API lacking godoc
+      shell: bash
+      run: |
+        go run internal/tools/exporteddoc.go ./api/...
+    - name: Check for unreachable functions using deadcode
+      shell: bash
+      run: |
+        go install golang.org/x/tools/cmd/deadcode@latest
+        output=$(deadcode -test ./...)
+        if [ -n "$output" ]; then
+          echo "Dead code detected:"
+          echo "$output"
+          exit 1
+        else
+          echo "No dead code found."
+          exit 0
+        fi
     - name: Generate manifests
       shell: bash
       run: |

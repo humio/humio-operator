@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: 'humio-operator'
     app.kubernetes.io/instance: 'humio-operator'
     app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.28.0'
+    helm.sh/chart: 'humio-operator-0.28.1'
 spec:
   group: core.humio.com
   names:
@@ -1134,9 +1134,13 @@ spec:
           status:
             description: HumioBootstrapTokenStatus defines the observed state of HumioBootstrapToken.
             properties:
+              bootstrapImage:
+                description: BootstrapImage is the image that was used to issue the
+                  token
+                type: string
               hashedTokenSecretStatus:
                 description: |-
-                  HashedTokenSecret is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
+                  HashedTokenSecretKeyRef is the secret reference that contains the hashed token to use for this HumioBootstrapToken. This is set regardless of whether it's defined
                   in the spec or automatically created
                 properties:
                   secretKeyRef:

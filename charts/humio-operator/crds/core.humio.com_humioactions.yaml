@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: 'humio-operator'
     app.kubernetes.io/instance: 'humio-operator'
     app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.28.0'
+    helm.sh/chart: 'humio-operator-0.28.1'
 spec:
   group: core.humio.com
   names:
@@ -50,15 +50,22 @@ spec:
                   contains the corresponding properties
                 properties:
                   bodyTemplate:
+                    description: BodyTemplate holds the email body template
                     type: string
                   recipients:
+                    description: Recipients holds the list of email addresses that
+                      the action should send emails to.
                     items:
                       type: string
                     minItems: 1
                     type: array
                   subjectTemplate:
+                    description: SubjectTemplate holds the email subject template
                     type: string
                   useProxy:
+                    description: |-
+                      UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
+                      see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
                     type: boolean
                 required:
                 - recipients
@@ -124,6 +131,8 @@ spec:
                   and contains the corresponding properties
                 properties:
                   apiUrl:
+                    description: ApiUrl holds the API URL the action should use when
+                      calling OpsGenie
                     type: string
                   genieKey:
                     description: |-
@@ -162,6 +171,9 @@ spec:
                         x-kubernetes-map-type: atomic
                     type: object
                   useProxy:
+                    description: |-
+                      UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
+                      see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
                     type: boolean
                 type: object
               pagerDutyProperties:
@@ -205,8 +217,13 @@ spec:
                         x-kubernetes-map-type: atomic
                     type: object
                   severity:
+                    description: Severity defines which severity is used in the request
+                      to PagerDuty
                     type: string
                   useProxy:
+                    description: |-
+                      UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
+                      see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
                     type: boolean
                 type: object
               slackPostMessageProperties:
@@ -250,6 +267,8 @@ spec:
                         x-kubernetes-map-type: atomic
                     type: object
                   channels:
+                    description: Channels holds the list of Slack channels that the
+                      action should post to.
                     items:
                       type: string
                     type: array
@@ -257,9 +276,14 @@ spec:
                     additionalProperties:
                       type: string
                     default: {}
+                    description: Fields holds a key-value map of additional fields
+                      to attach to the payload sent to Slack.
                     type: object
                   useProxy:
                     default: false
+                    description: |-
+                      UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
+                      see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
                     type: boolean
                 type: object
               slackProperties:
@@ -269,6 +293,8 @@ spec:
                   fields:
                     additionalProperties:
                       type: string
+                    description: Fields holds a key-value map of additional fields
+                      to attach to the payload sent to Slack.
                     type: object
                   url:
                     description: |-
@@ -307,6 +333,10 @@ spec:
                         x-kubernetes-map-type: atomic
                     type: object
                   useProxy:
+                    default: false
+                    description: |-
+                      UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
+                      see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
                     type: boolean
                 type: object
               victorOpsProperties:
@@ -314,6 +344,8 @@ spec:
                   and contains the corresponding properties
                 properties:
                   messageType:
+                    description: MessageType contains the VictorOps message type to
+                      use when the action calls VictorOps
                     type: string
                   notifyUrl:
                     description: |-
@@ -352,6 +384,9 @@ spec:
                         x-kubernetes-map-type: atomic
                     type: object
                   useProxy:
+                    description: |-
+                      UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
+                      see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
                     type: boolean
                 required:
                 - notifyUrlSource
@@ -366,6 +401,7 @@ spec:
                   and contains the corresponding properties
                 properties:
                   bodyTemplate:
+                    description: BodyTemplate holds the webhook body template
                     type: string
                   headers:
                     additionalProperties:
@@ -375,8 +411,12 @@ spec:
                       If both Headers and SecretHeaders are specified, they will be merged together.
                     type: object
                   ignoreSSL:
+                    description: IgnoreSSL configures the action so that skips TLS
+                      certificate verification
                     type: boolean
                   method:
+                    description: Method holds the HTTP method that the action will
+                      use
                     type: string
                   secretHeaders:
                     default: []
@@ -463,6 +503,9 @@ spec:
                         x-kubernetes-map-type: atomic
                     type: object
                   useProxy:
+                    description: |-
+                      UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
+                      see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
                     type: boolean
                 type: object
             required:

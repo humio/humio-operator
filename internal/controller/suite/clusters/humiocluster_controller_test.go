@@ -87,6 +87,9 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			toCreate := constructBasicMultiNodePoolHumioCluster(key, 1)
 
+			suite.UsingClusterBy(key.Name, "Disabling node pool feature AllowedAPIRequestTypes to validate that it can be unset")
+			toCreate.Spec.NodePools[0].NodePoolFeatures = humiov1alpha1.HumioNodePoolFeatures{AllowedAPIRequestTypes: &[]string{""}}
+
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
 			createAndBootstrapMultiNodePoolCluster(ctx, k8sClient, testHumioClient, toCreate)
@@ -103,6 +106,15 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			updatedHumioCluster := humiov1alpha1.HumioCluster{}
 			Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Confirming pod labels do not contain disabled node pool feature")
+			Eventually(func() map[string]string {
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioNodePool(&updatedHumioCluster, &updatedHumioCluster.Spec.NodePools[0]).GetPodLabels())
+				if len(clusterPods) > 0 {
+					return clusterPods[0].Labels
+				}
+				return map[string]string{"humio.com/feature": "OperatorInternal"}
+			}, testTimeout, suite.TestInterval).Should(Not(HaveKeyWithValue("humio.com/feature", "OperatorInternal")))
 
 			suite.UsingClusterBy(key.Name, "Scaling down the cluster node count successfully")
 			Eventually(func() error {
@@ -972,6 +984,56 @@ var _ = Describe("HumioCluster Controller", func() {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
+		})
+	})
+
+	Context("Humio Cluster Create with Image Source", Label("envtest", "dummy", "real"), func() {
+		It("Should correctly create cluster from image source", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-create-image-source",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.Image = ""
+			toCreate.Spec.NodeCount = 2
+			toCreate.Spec.ImageSource = &humiov1alpha1.HumioImageSource{
+				ConfigMapRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "image-source-create",
+					},
+					Key: "tag",
+				},
+			}
+
+			ctx := context.Background()
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+
+			suite.UsingClusterBy(key.Name, "Creating the imageSource configmap")
+			updatedImage := versions.UpgradePatchBestEffortNewVersion()
+			envVarSourceConfigMap := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "image-source-create",
+					Namespace: key.Namespace,
+				},
+				Data: map[string]string{"tag": updatedImage},
+			}
+			Expect(k8sClient.Create(ctx, &envVarSourceConfigMap)).To(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			Eventually(func() string {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
+				return updatedHumioCluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+
+			Eventually(func() error {
+				bootstrapToken, err := suite.GetHumioBootstrapToken(ctx, key, k8sClient)
+				Expect(bootstrapToken.Status.BootstrapImage).To(BeEquivalentTo(updatedImage))
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 		})
 	})
 
@@ -4012,7 +4074,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &updatedHumioCluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			suite.SimulateHumioBootstrapTokenCreatingSecretAndUpdatingStatus(ctx, key, k8sClient, testTimeout)
+			suite.SimulateHumioBootstrapTokenCreatingSecretAndUpdatingStatus(ctx, key, k8sClient, testTimeout, &updatedHumioCluster)
 
 			suite.UsingClusterBy(key.Name, "Confirming we only created ingresses with expected hostname")
 			foundIngressList = []networkingv1.Ingress{}

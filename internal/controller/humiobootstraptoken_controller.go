@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/go-logr/logr"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/internal/helpers"
@@ -143,6 +145,11 @@ func (r *HumioBootstrapTokenReconciler) updateStatus(ctx context.Context, hbt *h
 	return r.Client.Status().Update(ctx, hbt)
 }
 
+func (r *HumioBootstrapTokenReconciler) updateStatusImage(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, image string) error {
+	hbt.Status.BootstrapImage = image
+	return r.Client.Status().Update(ctx, hbt)
+}
+
 func (r *HumioBootstrapTokenReconciler) execCommand(ctx context.Context, pod *corev1.Pod, args []string) (string, error) {
 	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		clientcmd.NewDefaultClientConfigLoadingRules(),
@@ -209,7 +216,10 @@ func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humi
 		}
 	}
 	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, humioCluster)
-	pod := ConstructBootstrapPod(&humioBootstrapTokenConfig)
+	pod, err := r.constructBootstrapPod(ctx, &humioBootstrapTokenConfig)
+	if err != nil {
+		return pod, r.logErrorAndReturn(err, "could not construct pod")
+	}
 	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: pod.Namespace,
 		Name:      pod.Name,
@@ -231,7 +241,10 @@ func (r *HumioBootstrapTokenReconciler) createPod(ctx context.Context, hbt *humi
 func (r *HumioBootstrapTokenReconciler) deletePod(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, hc *humiov1alpha1.HumioCluster) error {
 	existingPod := &corev1.Pod{}
 	humioBootstrapTokenConfig := NewHumioBootstrapTokenConfig(hbt, hc)
-	pod := ConstructBootstrapPod(&humioBootstrapTokenConfig)
+	pod, err := r.constructBootstrapPod(ctx, &humioBootstrapTokenConfig)
+	if err != nil {
+		return r.logErrorAndReturn(err, "could not construct pod")
+	}
 	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: pod.Namespace,
 		Name:      pod.Name,
@@ -385,6 +398,11 @@ func (r *HumioBootstrapTokenReconciler) ensureBootstrapTokenHashedToken(ctx cont
 	if err = r.Update(ctx, updatedSecret); err != nil {
 		return r.logErrorAndReturn(err, "failed to update secret with hashedToken data")
 	}
+
+	if err := r.updateStatusImage(ctx, hbt, pod.Spec.Containers[0].Image); err != nil {
+		return r.logErrorAndReturn(err, "failed to update bootstrap token image status")
+	}
+
 	return nil
 }
 
@@ -396,6 +414,59 @@ func (r *HumioBootstrapTokenReconciler) getBootstrapTokenSecret(ctx context.Cont
 		Name:      humioBootstrapTokenConfig.bootstrapTokenSecretName(),
 	}, existingSecret)
 	return existingSecret, err
+}
+
+func (r *HumioBootstrapTokenReconciler) constructBootstrapPod(ctx context.Context, bootstrapConfig *HumioBootstrapTokenConfig) (*corev1.Pod, error) {
+	userID := int64(65534)
+	var image string
+
+	if bootstrapConfig.imageSource() == nil {
+		image = bootstrapConfig.image()
+	} else {
+		configMap, err := kubernetes.GetConfigMap(ctx, r, bootstrapConfig.imageSource().ConfigMapRef.Name, bootstrapConfig.namespace())
+		if err != nil {
+			return &corev1.Pod{}, r.logErrorAndReturn(err, "failed to get imageFromSource")
+		}
+		if imageValue, ok := configMap.Data[bootstrapConfig.imageSource().ConfigMapRef.Key]; ok {
+			image = imageValue
+		}
+	}
+
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      bootstrapConfig.podName(),
+			Namespace: bootstrapConfig.namespace(),
+		},
+		Spec: corev1.PodSpec{
+			ImagePullSecrets: bootstrapConfig.imagePullSecrets(),
+			Affinity:         bootstrapConfig.affinity(),
+			Containers: []corev1.Container{
+				{
+					Name:    HumioContainerName,
+					Image:   image,
+					Command: []string{"/bin/sleep", "900"},
+					Env: []corev1.EnvVar{
+						{
+							Name:  "HUMIO_LOG4J_CONFIGURATION",
+							Value: "log4j2-json-stdout.xml",
+						},
+					},
+					Resources: bootstrapConfig.resources(),
+					SecurityContext: &corev1.SecurityContext{
+						Privileged:               helpers.BoolPtr(false),
+						AllowPrivilegeEscalation: helpers.BoolPtr(false),
+						ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
+						RunAsUser:                &userID,
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{
+								"ALL",
+							},
+						},
+					},
+				},
+			},
+		},
+	}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

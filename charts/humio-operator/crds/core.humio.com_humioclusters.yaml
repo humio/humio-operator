@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: 'humio-operator'
     app.kubernetes.io/instance: 'humio-operator'
     app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.28.0'
+    helm.sh/chart: 'humio-operator-0.28.1'
 spec:
   group: core.humio.com
   names:
@@ -980,8 +980,9 @@ spec:
                     type: object
                 type: object
               authServiceAccountName:
-                description: '*Deprecated: AuthServiceAccountName is no longer used
-                  as the auth sidecar container has been removed.*'
+                description: |-
+                  AuthServiceAccountName is no longer used as the auth sidecar container has been removed.
+                  Deprecated: No longer used. The value will be ignored.
                 type: string
               autoRebalancePartitions:
                 description: |-
@@ -1771,8 +1772,12 @@ spec:
                   allows persistent volumes to be reclaimed
                 properties:
                   reclaimType:
-                    description: HumioPersistentVolumeReclaimType is the type of reclaim
-                      which will occur on a persistent volume
+                    description: |-
+                      ReclaimType is used to indicate what reclaim type should be used. This e.g. allows the user to specify if the
+                      operator should automatically delete persistent volume claims if they are bound to Kubernetes worker nodes
+                      that no longer exists. This can be useful in scenarios where PVC's represent a type of storage where the
+                      lifecycle of the storage follows the one of the Kubernetes worker node.
+                      When using persistent volume claims relying on network attached storage, this can be ignored.
                     enum:
                     - None
                     - OnNodeDelete
@@ -5877,7 +5882,7 @@ spec:
                 additionalProperties:
                   type: string
                 description: |-
-                  HumioHeadlessAnnotations is the set of annotations added to the Kubernetes Headless Service that is used for
+                  HumioHeadlessServiceAnnotations is the set of annotations added to the Kubernetes Headless Service that is used for
                   traffic between Humio pods
                 type: object
               humioHeadlessServiceLabels:
@@ -6031,7 +6036,9 @@ spec:
                   the Humio license
                 properties:
                   secretKeyRef:
-                    description: SecretKeySelector selects a key of a Secret.
+                    description: SecretKeyRef specifies which key of a secret in the
+                      namespace of the HumioCluster that holds the LogScale license
+                      key
                     properties:
                       key:
                         description: The key of the secret to select from.  Must be
@@ -6060,7 +6067,7 @@ spec:
                 description: NodeCount is the desired number of humio cluster nodes
                 type: integer
               nodePoolFeatures:
-                description: HumioNodePoolFeatures defines the features that are allowed
+                description: NodePoolFeatures defines the features that are allowed
                   by the node pool
                 properties:
                   allowedAPIRequestTypes:
@@ -6075,11 +6082,19 @@ spec:
                 description: NodePools can be used to define additional groups of
                   Humio cluster pods that share a set of configuration.
                 items:
+                  description: HumioNodePoolSpec is used to attach a name to an instance
+                    of HumioNodeSpec
                   properties:
                     name:
+                      description: |-
+                        Name holds a name for this specific group of cluster pods. This name is used when constructing pod names, so it
+                        is useful to use a name that reflects what the pods are configured to do.
                       minLength: 1
                       type: string
                     spec:
+                      description: HumioNodeSpec contains a collection of various
+                        configurations that are specific to a given group of LogScale
+                        pods.
                       properties:
                         affinity:
                           description: Affinity defines the affinity policies that
@@ -7015,8 +7030,9 @@ spec:
                               type: object
                           type: object
                         authServiceAccountName:
-                          description: '*Deprecated: AuthServiceAccountName is no
-                            longer used as the auth sidecar container has been removed.*'
+                          description: |-
+                            AuthServiceAccountName is no longer used as the auth sidecar container has been removed.
+                            Deprecated: No longer used. The value will be ignored.
                           type: string
                         containerLivenessProbe:
                           description: |-
@@ -7690,8 +7706,12 @@ spec:
                             policy which allows persistent volumes to be reclaimed
                           properties:
                             reclaimType:
-                              description: HumioPersistentVolumeReclaimType is the
-                                type of reclaim which will occur on a persistent volume
+                              description: |-
+                                ReclaimType is used to indicate what reclaim type should be used. This e.g. allows the user to specify if the
+                                operator should automatically delete persistent volume claims if they are bound to Kubernetes worker nodes
+                                that no longer exists. This can be useful in scenarios where PVC's represent a type of storage where the
+                                lifecycle of the storage follows the one of the Kubernetes worker node.
+                                When using persistent volume claims relying on network attached storage, this can be ignored.
                               enum:
                               - None
                               - OnNodeDelete
@@ -11875,8 +11895,8 @@ spec:
                             nodes
                           type: integer
                         nodePoolFeatures:
-                          description: HumioNodePoolFeatures defines the features
-                            that are allowed by the node pool
+                          description: NodePoolFeatures defines the features that
+                            are allowed by the node pool
                           properties:
                             allowedAPIRequestTypes:
                               description: |-
@@ -16088,8 +16108,12 @@ spec:
                   to the cluster
                 properties:
                   expiration:
+                    description: Expiration contains the timestamp of when the currently
+                      installed license expires.
                     type: string
                   type:
+                    description: Type holds the type of license that is currently
+                      installed on the HumioCluster
                     type: string
                 type: object
               message:
@@ -16149,10 +16173,16 @@ spec:
                         Deprecated: No longer being used.
                       type: integer
                     nodeName:
+                      description: NodeName is the name of the Kubernetes worker node
+                        where this pod is currently running
                       type: string
                     podName:
+                      description: PodName holds the name of the pod that this is
+                        the status for.
                       type: string
                     pvcName:
+                      description: PvcName is the name of the persistent volume claim
+                        that is mounted in to the pod
                       type: string
                   type: object
                 type: array
