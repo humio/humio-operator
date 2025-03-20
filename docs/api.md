@@ -4509,6 +4509,14 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humioclusterspecpdfrenderserviceref">pdfRenderServiceRef</a></b></td>
+        <td>object</td>
+        <td>
+          HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+that multiple HumioCluster resources can use<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>podAnnotations</b></td>
         <td>map[string]string</td>
         <td>
@@ -16957,6 +16965,14 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humioclusterspecnodepoolsindexspecpdfrenderserviceref">pdfRenderServiceRef</a></b></td>
+        <td>object</td>
+        <td>
+          HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+that multiple HumioCluster resources can use<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>podAnnotations</b></td>
         <td>map[string]string</td>
         <td>
@@ -28475,6 +28491,42 @@ OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request ty
 </table>
 
 
+### HumioCluster.spec.nodePools[index].spec.pdfRenderServiceRef
+<sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspec)</sup></sup>
+
+
+
+HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+that multiple HumioCluster resources can use
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the HumioPdfRenderService<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the namespace of the HumioPdfRenderService
+If not specified, the HumioCluster's namespace is used.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### HumioCluster.spec.nodePools[index].spec.podDisruptionBudget
 <sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspec)</sup></sup>
 
@@ -32316,6 +32368,42 @@ When set to RollingUpdateBestEffort, the operator will evaluate the Humio versio
 Humio pods can be updated in a rolling fashion or if they must be replaced at the same time.<br/>
           <br/>
             <i>Enum</i>: OnDelete, RollingUpdate, ReplaceAllOnUpdate, RollingUpdateBestEffort<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.pdfRenderServiceRef
+<sup><sup>[↩ Parent](#humioclusterspec)</sup></sup>
+
+
+
+HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+that multiple HumioCluster resources can use
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the HumioPdfRenderService<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the namespace of the HumioPdfRenderService
+If not specified, the HumioCluster's namespace is used.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -38126,10 +38214,10 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindex">env</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindex">environmentVariables</a></b></td>
         <td>[]object</td>
         <td>
-          Env allows to specify environment variables for the service.<br/>
+          EnvironmentVariables allows to specify environment variables for the service.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -38144,6 +38232,13 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         <td>[]object</td>
         <td>
           ImagePullSecrets is a list of references to secrets for pulling images<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>labels</b></td>
+        <td>map[string]string</td>
+        <td>
+          Labels allows to specify custom labels for the pods.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -38169,6 +38264,7 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
           Port is the port the service listens on.<br/>
           <br/>
             <i>Format</i>: int32<br/>
+            <i>Default</i>: 5123<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -40226,7 +40322,7 @@ PodSecurityContext, the value specified in SecurityContext takes precedence.<br/
 </table>
 
 
-### HumioPdfRenderService.spec.env[index]
+### HumioPdfRenderService.spec.environmentVariables[index]
 <sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
 
 
@@ -40265,7 +40361,7 @@ Defaults to "".<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefrom">valueFrom</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom">valueFrom</a></b></td>
         <td>object</td>
         <td>
           Source for the environment variable's value. Cannot be used if value is not empty.<br/>
@@ -40275,8 +40371,8 @@ Defaults to "".<br/>
 </table>
 
 
-### HumioPdfRenderService.spec.env[index].valueFrom
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindex)</sup></sup>
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindex)</sup></sup>
 
 
 
@@ -40292,14 +40388,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
         <td>object</td>
         <td>
           Selects a key of a ConfigMap.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefromfieldref">fieldRef</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
@@ -40307,7 +40403,7 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a resource of the container: only resources limits and requests
@@ -40315,7 +40411,7 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
         <td>object</td>
         <td>
           Selects a key of a secret in the pod's namespace<br/>
@@ -40325,8 +40421,8 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
-### HumioPdfRenderService.spec.env[index].valueFrom.configMapKeyRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindexvaluefrom)</sup></sup>
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.configMapKeyRef
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
 
 
 
@@ -40372,8 +40468,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### HumioPdfRenderService.spec.env[index].valueFrom.fieldRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindexvaluefrom)</sup></sup>
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.fieldRef
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
 
 
 
@@ -40407,8 +40503,8 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
-### HumioPdfRenderService.spec.env[index].valueFrom.resourceFieldRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindexvaluefrom)</sup></sup>
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.resourceFieldRef
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
 
 
 
@@ -40449,8 +40545,8 @@ Selects a resource of the container: only resources limits and requests
 </table>
 
 
-### HumioPdfRenderService.spec.env[index].valueFrom.secretKeyRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindexvaluefrom)</sup></sup>
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.secretKeyRef
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
 
 
 
