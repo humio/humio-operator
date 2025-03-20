@@ -4140,7 +4140,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(latestContainer.ReadinessProbe.HTTPGet).ShouldNot(BeNil())
 			Expect(latestContainer.ReadinessProbe.HTTPGet.Path).Should(Equal("/ready"))
 			Expect(latestContainer.ReadinessProbe.InitialDelaySeconds).Should(Equal(int32(30)))
-			Expect(latestContainer.ReadinessProbe.TimeoutSeconds).Should(Equal(int32(30)))
+			Expect(latestContainer.ReadinessProbe.TimeoutSeconds).Should(Equal(int32(60)))
 			Expect(latestContainer.ReadinessProbe.PeriodSeconds).Should(Equal(int32(10)))
 		})
 
@@ -4248,7 +4248,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}
 
 				// Check for restart annotation (should exist but value will change)
-				_, hasRestartAnnotation := deployment.Spec.Template.Annotations["humio-pdf-render-service/restartedAt"]
+				_, hasRestartAnnotation := deployment.Spec.Template.Annotations["pdf-render-service/restartedAt"]
 				if !hasRestartAnnotation {
 					return false
 				}
