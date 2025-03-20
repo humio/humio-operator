@@ -14,73 +14,25 @@ metadata:
     prometheus.io/path: "/metrics"
     prometheus.io/port: "5123"
 spec:
-  enabled: true
   image: humio/pdf-render-service:0.0.59--build-98--sha-b2bfadbc14733ce3ae1153d555148ee4f3a64013
-  imagePullPolicy: IfNotPresent
   replicas: 2
   port: 5123
-  
+  serviceType: ClusterIP
+  serviceAccountName: default
   resources:
     limits:
-      cpu: 1
+      cpu: 4
       memory: 2Gi
     requests:
-      cpu: 1
+      cpu: 4
       memory: 1Gi
-  
   env:
     - name: XDG_CONFIG_HOME
       value: "/tmp/.chromium-config"
     - name: XDG_CACHE_HOME
       value: "/tmp/.chromium-cache"
-    - name: CLEANUP_INTERVAL
-      value: "600"
-    - name: PORT
-      value: "5123"
-    - name: SERVICE_VERSION
-      value: "tag-debug-again--build-90--sha-d7d893e1dd45b6c2aef97fdbd2616627d529c98a"
-  
-  securityContext:
-    runAsUser: 1000
-    runAsGroup: 1000
-    runAsNonRoot: true
-  
-  containerSecurityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
-    privileged: false
-    readOnlyRootFilesystem: true
-  
-  # Image pull secrets
-  imagePullSecrets:
-    - name: regcred
-  
-  volumes:
-    - name: app-temp
-      emptyDir:
-        medium: Memory
-    - name: tmp
-      emptyDir:
-        medium: Memory
-  
-  volumeMounts:
-    - name: app-temp
-      mountPath: /app/temp
-    - name: tmp
-      mountPath: /tmp
-  
-  tolerations:
-    - key: node.kubernetes.io/not-ready
-      operator: Exists
-      effect: NoExecute
-      tolerationSeconds: 300
-    - key: node.kubernetes.io/unreachable
-      operator: Exists
-      effect: NoExecute
-      tolerationSeconds: 300
-  
+    - name: EXAMPLE_ENV_VAR
+      value: "example_value"
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -99,34 +51,28 @@ spec:
                 values:
                   - pdf-render-service
           topologyKey: kubernetes.io/hostname
-  
+  annotations:
+    # Pod annotations can be specified here
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/metrics"
+    prometheus.io/port: "5123"
   livenessProbe:
+    failureThreshold: 5
     httpGet:
       path: /health
       port: 5123
       scheme: HTTP
     initialDelaySeconds: 30
-    timeoutSeconds: 60
     periodSeconds: 15
     successThreshold: 1
-    failureThreshold: 5
-  
+    timeoutSeconds: 60
   readinessProbe:
+    failureThreshold: 1
     httpGet:
       path: /ready
       port: 5123
       scheme: HTTP
     initialDelaySeconds: 30
-    timeoutSeconds: 60
     periodSeconds: 15
     successThreshold: 1
-    failureThreshold: 1
-  
-  serviceAccountName: default
-  
-  serviceType: ClusterIP
-  
-  annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/path: "/metrics"
-    prometheus.io/port: "5123"
+    timeoutSeconds: 60

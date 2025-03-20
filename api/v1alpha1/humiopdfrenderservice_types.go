@@ -30,27 +30,14 @@ const (
 	HumioPdfRenderServiceStateNotFound = "NotFound"
 	// HumioPdfRenderServiceStateConfigError is the state of the PDF rendering service when user-provided specification results in configuration error, such as non-existent humio cluster
 	HumioPdfRenderServiceStateConfigError = "ConfigError"
-	// HumioPdfRenderServiceStateConfiguring is the Configuring state of the PDF rendering service.
-	HumioPdfRenderServiceStateConfiguring = "Configuring"
-	// HumioPdfRenderServiceStateReady is the Ready state of the PDF rendering service.
-	HumioPdfRenderServiceStateReady = "Ready"
 )
 
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
 type HumioPdfRenderServiceSpec struct {
-	// Enabled defines if the PDF rendering service is enabled.
-	// +optional
-	Enabled bool `json:"enabled,omitempty"`
-
 	// Image is the Docker image to use for the PDF rendering service.
 	// +kubebuilder:validation:MinLength=1
 	// +required
 	Image string `json:"image"`
-
-	// ImagePullPolicy defines the policy for pulling the container image.
-	// +optional
-	// +kubebuilder:validation:Enum=Always;Never;IfNotPresent
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
 	// Replicas is the number of desired Pod replicas.
 	Replicas int32 `json:"replicas"`
@@ -66,30 +53,6 @@ type HumioPdfRenderServiceSpec struct {
 	// Env allows to specify environment variables for the service.
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`
-
-	// SecurityContext defines the security context for the pod.
-	// +optional
-	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
-
-	// ContainerSecurityContext defines the security context for the container.
-	// +optional
-	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
-
-	// ImagePullSecrets is a list of references to secrets in the same namespace to use for pulling the image.
-	// +optional
-	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-
-	// Tolerations defines the pod's tolerations.
-	// +optional
-	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-
-	// Volumes defines the pod's volumes.
-	// +optional
-	Volumes []corev1.Volume `json:"volumes,omitempty"`
-
-	// VolumeMounts defines the container's volume mounts.
-	// +optional
-	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
 
 	// Affinity defines the pod's scheduling constraints.
 	// +optional
@@ -117,7 +80,6 @@ type HumioPdfRenderServiceSpec struct {
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
-
 
 // HumioPdfRenderServiceStatus defines the observed state of HumioPdfRenderService
 type HumioPdfRenderServiceStatus struct {

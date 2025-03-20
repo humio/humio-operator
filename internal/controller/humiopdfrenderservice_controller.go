@@ -287,34 +287,6 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 		port = hprs.Spec.Port
 	}
 
-	// Handle probes
-	var livenessProbe *corev1.Probe
-	if hprs.Spec.LivenessProbe != nil {
-		livenessProbe = hprs.Spec.LivenessProbe.DeepCopy()
-	} else {
-		// Set default liveness probe
-		livenessProbe = &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path:   "/health",
-					Port:   intstr.FromInt(int(port)),
-					Scheme: corev1.URISchemeHTTP,
-				},
-			},
-			InitialDelaySeconds: 30,
-			TimeoutSeconds:      5,
-			PeriodSeconds:       10,
-			SuccessThreshold:    1,
-			FailureThreshold:    3,
-		}
-	}
-
-	// Handle readiness probe
-	var readinessProbe *corev1.Probe
-	if hprs.Spec.ReadinessProbe != nil {
-		readinessProbe = hprs.Spec.ReadinessProbe.DeepCopy()
-	}
-
 	deployment.Spec = appsv1.DeploymentSpec{
 		Replicas: &hprs.Spec.Replicas,
 		Selector: &metav1.LabelSelector{
@@ -337,9 +309,42 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 						ContainerPort: port,
 						Name:          "http",
 					}},
-					Env:            envVars,
-					LivenessProbe:  livenessProbe,
-					ReadinessProbe: readinessProbe,
+					Env: envVars,
+					// Set liveness probe with nil check
+					LivenessProbe: func() *corev1.Probe {
+						if hprs.Spec.LivenessProbe != nil {
+							return hprs.Spec.LivenessProbe.DeepCopy()
+						}
+						// Default liveness probe
+						return &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: "/health",
+									Port: intstr.FromInt(int(port)),
+								},
+							},
+							InitialDelaySeconds: 30,
+							TimeoutSeconds:      60,
+						}
+					}(),
+					// Set readiness probe with nil check
+					ReadinessProbe: func() *corev1.Probe {
+						if hprs.Spec.ReadinessProbe != nil {
+							return hprs.Spec.ReadinessProbe.DeepCopy()
+						}
+						// Default readiness probe
+						return &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: "/ready",
+									Port: intstr.FromInt(int(port)),
+								},
+							},
+							InitialDelaySeconds: 10,
+							TimeoutSeconds:      30,
+							PeriodSeconds:       10,
+						}
+					}(),
 				}},
 			},
 		},
@@ -390,11 +395,10 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 	// Get the desired resources (which may include defaults)
 	desiredResources := deployment.Spec.Template.Spec.Containers[0].Resources
 
-	// Check for resource changes - explicitly check CPU and memory resources to ensure they're set correctly
+	// Check for resource changes
 	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 {
 		currentResources := existingDeployment.Spec.Template.Spec.Containers[0].Resources
 
-		// Log detailed resource comparison to help diagnose issues
 		r.Log.Info("Resource comparison",
 			"Current.Limits.CPU", currentResources.Limits.Cpu().String(),
 			"Current.Limits.Memory", currentResources.Limits.Memory().String(),
@@ -471,205 +475,105 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 		needsUpdate = true
 	}
 
-	// If an update is needed or we want to force a rolling update, apply all the necessary changes
+	// If an update is needed, apply all the necessary changes in a single update
 	if needsUpdate {
-		// Set controller reference to ensure the deployment is garbage collected when CR is deleted
+		// IMPORTANT FIX: Copy all fields from the newly constructed deployment
+		// into the existing deployment to ensure all changes are applied
+
+		// 1. Set controller reference to ensure the deployment is garbage collected when CR is deleted
 		if err := controllerutil.SetControllerReference(hprs, existingDeployment, r.Scheme); err != nil {
 			return r.logErrorAndReturn(err, "Failed to set controller reference on existing deployment")
 		}
 
-		// Update critical fields
+		// 2. Update critical fields in one go
 		existingDeployment.Spec.Replicas = &hprs.Spec.Replicas
 
-		// Update container details
-		if len(existingDeployment.Spec.Template.Spec.Containers) > 0 {
-			// Ensure we set the image from the CR directly
-			existingDeployment.Spec.Template.Spec.Containers[0].Image = hprs.Spec.Image
-			existingDeployment.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullIfNotPresent
-
-			// Use the resources from our constructed deployment, which may include defaults
-			existingDeployment.Spec.Template.Spec.Containers[0].Resources = desiredResources
-
-			// Get the port to use (default or from CR)
-			port := int32(5123)
-			if hprs.Spec.Port != 0 {
-				port = hprs.Spec.Port
-			}
-
-			existingDeployment.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{
-				ContainerPort: port,
-				Name:          "http",
-			}}
-
-			// Handle environment variables the same way as in constructDeployment
-			if len(hprs.Spec.Env) > 0 {
-				existingDeployment.Spec.Template.Spec.Containers[0].Env = hprs.Spec.Env
-			} else {
-				// Use default env vars if none are specified in CR
-				existingDeployment.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{
-					{
-						Name:  "LOG_LEVEL",
-						Value: "debug",
-					},
-				}
-			}
-
-			// Handle probes
-			if hprs.Spec.LivenessProbe != nil {
-				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = hprs.Spec.LivenessProbe.DeepCopy()
-			} else {
-				// Add default liveness probe instead of setting to nil
-				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
-					ProbeHandler: corev1.ProbeHandler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Path: "/health",
-							Port: intstr.FromInt(int(func() int32 {
-								port := int32(5123)
-								if hprs.Spec.Port != 0 {
-									port = hprs.Spec.Port
-								}
-								return port
-							}())),
-							Scheme: corev1.URISchemeHTTP,
-						},
-					},
-					InitialDelaySeconds: 30,
-					TimeoutSeconds:      5,
-					PeriodSeconds:       10,
-					SuccessThreshold:    1,
-					FailureThreshold:    3,
-				}
-			}
-
-			// Second occurrence - in the container creation section:
-			// Handle probes
-			if hprs.Spec.LivenessProbe != nil {
-				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = hprs.Spec.LivenessProbe.DeepCopy()
-			} else {
-				// Add default liveness probe instead of setting to nil
-				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
-					ProbeHandler: corev1.ProbeHandler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Path: "/health",
-							Port: intstr.FromInt(int(func() int32 {
-								port := int32(5123)
-								if hprs.Spec.Port != 0 {
-									port = hprs.Spec.Port
-								}
-								return port
-							}())),
-							Scheme: corev1.URISchemeHTTP,
-						},
-					},
-					InitialDelaySeconds: 30,
-					TimeoutSeconds:      5,
-					PeriodSeconds:       10,
-					SuccessThreshold:    1,
-					FailureThreshold:    3,
-				}
-			}
-		} else {
-			// If no containers exist yet, add one with the CR details including resources
-			existingDeployment.Spec.Template.Spec.Containers = []corev1.Container{{
-				Name:            "humio-pdf-render-service",
-				Image:           hprs.Spec.Image,
-				ImagePullPolicy: corev1.PullIfNotPresent,
-				Resources:       desiredResources,
-				Ports: []corev1.ContainerPort{{
-					ContainerPort: func() int32 {
-						// Get the port to use (default or from CR)
-						port := int32(5123)
-						if hprs.Spec.Port != 0 {
-							port = hprs.Spec.Port
-						}
-						return port
-					}(),
-					Name: "http",
-				}},
-				Env:            hprs.Spec.Env,
-				LivenessProbe:  hprs.Spec.LivenessProbe,
-				ReadinessProbe: hprs.Spec.ReadinessProbe,
-			}}
-
-			// If we made any changes to the properties above, update the deployment
-			existingDeployment.Spec.Template.Spec.Containers[0].Image = hprs.Spec.Image
-			existingDeployment.Spec.Template.Spec.Containers[0].Resources = desiredResources
-			existingDeployment.Spec.Template.Spec.Containers[0].Env = hprs.Spec.Env
-
-			// Handle probes
-			if hprs.Spec.LivenessProbe != nil {
-				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = hprs.Spec.LivenessProbe.DeepCopy()
-			} else {
-				// Add default liveness probe instead of setting to nil
-				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
-					ProbeHandler: corev1.ProbeHandler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Path: "/health",
-							Port: intstr.FromInt(int(func() int32 {
-								port := int32(5123)
-								if hprs.Spec.Port != 0 {
-									port = hprs.Spec.Port
-								}
-								return port
-							}())),
-							Scheme: corev1.URISchemeHTTP,
-						},
-					},
-					InitialDelaySeconds: 30,
-					TimeoutSeconds:      5,
-					PeriodSeconds:       10,
-					SuccessThreshold:    1,
-					FailureThreshold:    3,
-				}
-			}
-
-			// Second occurrence - in the container creation section:
-			// Handle probes
-			if hprs.Spec.LivenessProbe != nil {
-				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = hprs.Spec.LivenessProbe.DeepCopy()
-			} else {
-				// Add default liveness probe instead of setting to nil
-				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
-					ProbeHandler: corev1.ProbeHandler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Path: "/health",
-							Port: intstr.FromInt(int(func() int32 {
-								port := int32(5123)
-								if hprs.Spec.Port != 0 {
-									port = hprs.Spec.Port
-								}
-								return port
-							}())),
-							Scheme: corev1.URISchemeHTTP,
-						},
-					},
-					InitialDelaySeconds: 30,
-					TimeoutSeconds:      5,
-					PeriodSeconds:       10,
-					SuccessThreshold:    1,
-					FailureThreshold:    3,
-				}
-			}
-
-			// Update service account and affinity if specified
-			existingDeployment.Spec.Template.Spec.ServiceAccountName = hprs.Spec.ServiceAccountName
-			existingDeployment.Spec.Template.Spec.Affinity = hprs.Spec.Affinity
-
-			// Actually update the deployment in the cluster
-			r.Log.Info("Updating Deployment", "Deployment.Name", existingDeployment.Name)
-			if err := r.Client.Update(ctx, existingDeployment); err != nil {
-				return r.logErrorAndReturn(err, "Failed to update Deployment")
+		// 3. Prepare container updates - need to ensure we have at least one container
+		if len(existingDeployment.Spec.Template.Spec.Containers) == 0 {
+			existingDeployment.Spec.Template.Spec.Containers = []corev1.Container{
+				{
+					Name: "pdf-render-service",
+				},
 			}
 		}
 
-		// Update labels and annotations
+		// 4. Always update the image directly from the CR spec
+		existingDeployment.Spec.Template.Spec.Containers[0].Image = hprs.Spec.Image
+		existingDeployment.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullIfNotPresent
+
+		// 5. Update resources
+		existingDeployment.Spec.Template.Spec.Containers[0].Resources = desiredResources
+
+		// 6. Update port configuration
+		port := int32(5123)
+		if hprs.Spec.Port != 0 {
+			port = hprs.Spec.Port
+		}
+		existingDeployment.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{
+			{
+				ContainerPort: port,
+				Name:          "http",
+			},
+		}
+
+		// 7. Update environment variables
+		if len(hprs.Spec.Env) > 0 {
+			existingDeployment.Spec.Template.Spec.Containers[0].Env = hprs.Spec.Env
+		} else {
+			existingDeployment.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{
+				{
+					Name:  "LOG_LEVEL",
+					Value: "debug",
+				},
+			}
+		}
+
+		// 8. Update probes
+		if hprs.Spec.LivenessProbe != nil {
+			existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = hprs.Spec.LivenessProbe.DeepCopy()
+		} else {
+			// Set default liveness probe
+			existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/health",
+						Port: intstr.FromInt(int(port)),
+					},
+				},
+				InitialDelaySeconds: 30,
+				TimeoutSeconds:      60,
+			}
+		}
+
+		if hprs.Spec.ReadinessProbe != nil {
+			existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe = hprs.Spec.ReadinessProbe.DeepCopy()
+		} else {
+			// Set default readiness probe
+			existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/ready",
+						Port: intstr.FromInt(int(port)),
+					},
+				},
+				InitialDelaySeconds: 10,
+				TimeoutSeconds:      30,
+				PeriodSeconds:       10,
+			}
+		}
+
+		// 9. Update service account and affinity
+		existingDeployment.Spec.Template.Spec.ServiceAccountName = hprs.Spec.ServiceAccountName
+		existingDeployment.Spec.Template.Spec.Affinity = hprs.Spec.Affinity
+
+		// 10. Update metadata (labels and annotations)
 		if existingDeployment.Spec.Template.ObjectMeta.Labels == nil {
 			existingDeployment.Spec.Template.ObjectMeta.Labels = map[string]string{}
 		}
 		existingDeployment.Spec.Template.ObjectMeta.Labels["app"] = "humio-pdf-render-service"
 		existingDeployment.Spec.Template.ObjectMeta.Labels["humio-pdf-render-service-name"] = hprs.Name
 
-		// Initialize annotations map if it's nil
+		// 11. Initialize and update annotations
 		if existingDeployment.Spec.Template.ObjectMeta.Annotations == nil {
 			existingDeployment.Spec.Template.ObjectMeta.Annotations = map[string]string{}
 		}
@@ -682,12 +586,9 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 		}
 
 		// Always add a timestamp annotation to force a rollout when configuration changes
-		existingDeployment.Spec.Template.Annotations["pdf-render-service/restartedAt"] = time.Now().Format(time.RFC3339)
+		existingDeployment.Spec.Template.ObjectMeta.Annotations["humio-pdf-render-service/restartedAt"] = time.Now().Format(time.RFC3339)
 
-		// Update other pod spec fields
-		existingDeployment.Spec.Template.Spec.ServiceAccountName = hprs.Spec.ServiceAccountName
-		existingDeployment.Spec.Template.Spec.Affinity = hprs.Spec.Affinity
-
+		// 12. Log the update operation with key details
 		r.Log.Info("Updating Deployment",
 			"Deployment.Name", existingDeployment.Name,
 			"Deployment.Namespace", existingDeployment.Namespace,
@@ -695,6 +596,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 			"Resources.Limits.CPU", desiredResources.Limits.Cpu().String(),
 			"Resources.Limits.Memory", desiredResources.Limits.Memory().String())
 
+		// 13. Perform a single update to apply all changes at once
 		return r.Client.Update(ctx, existingDeployment)
 	}
 
@@ -815,8 +717,8 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 		if existingService.Labels == nil {
 			existingService.Labels = map[string]string{}
 		}
-		existingService.Labels["app"] = "pdf-render-service"
-		existingService.Labels["pdf-render-service"] = hprs.Name
+		existingService.Labels["app"] = "humio-pdf-render-service"
+		existingService.Labels["humio-pdf-render-service-name"] = hprs.Name
 
 		// Update selector
 		existingService.Spec.Selector = expectedSelector
