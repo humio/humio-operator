@@ -578,15 +578,22 @@ func (r *HumioPdfRenderServiceReconciler) updateDeploymentMetadata(
 		deployment.Spec.Template.ObjectMeta.Annotations = map[string]string{}
 	}
 
-	// Add/update annotations from CR specification
+	// Create a new annotations map instead of resetting the existing one
+	// This ensures we don't lose important metadata during updates
+	newAnnotations := map[string]string{}
+
+	// Add user-provided annotations if any
 	if hprs.Spec.Annotations != nil {
 		for k, v := range hprs.Spec.Annotations {
-			deployment.Spec.Template.ObjectMeta.Annotations[k] = v
+			newAnnotations[k] = v
 		}
 	}
 
 	// Always add a timestamp annotation to force a rollout when configuration changes
-	deployment.Spec.Template.ObjectMeta.Annotations["humio-pdf-render-service/restartedAt"] = time.Now().Format(time.RFC3339)
+	newAnnotations["humio-pdf-render-service/restartedAt"] = time.Now().Format(time.RFC3339)
+
+	// Update the deployment annotations
+	deployment.Spec.Template.ObjectMeta.Annotations = newAnnotations
 }
 
 func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, hprs *corev1alpha1.HumioPdfRenderService) error {
@@ -604,7 +611,8 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 	}, existingDeployment)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			r.Log.Info("Creating Deployment", "Deployment.Name", deployment.Name,
+			r.Log.Info("Creating Deployment",
+				"Deployment.Name", deployment.Name,
 				"Deployment.Namespace", deployment.Namespace,
 				"Image", hprs.Spec.Image,
 				"Resources", deployment.Spec.Template.Spec.Containers[0].Resources)
