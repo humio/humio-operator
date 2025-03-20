@@ -1176,8 +1176,9 @@ spec:
                         type: string
                     type: object
                 type: object
-              env:
-                description: Env allows to specify environment variables for the service.
+              environmentVariables:
+                description: EnvironmentVariables allows to specify environment variables
+                  for the service.
                 items:
                   description: EnvVar represents an environment variable present in
                     a Container.
@@ -1322,6 +1323,11 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+              labels:
+                additionalProperties:
+                  type: string
+                description: Labels allows to specify custom labels for the pods.
+                type: object
               livenessProbe:
                 description: LivenessProbe defines the liveness probe configuration.
                 properties:
@@ -1479,6 +1485,7 @@ spec:
                 format: int32
                 type: integer
               port:
+                default: 5123
                 description: Port is the port the service listens on.
                 format: int32
                 type: integer
