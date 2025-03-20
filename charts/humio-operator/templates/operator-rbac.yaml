@@ -194,7 +194,7 @@ rules:
   - get
   - list
   - watch
-{{- if .Values.operator.pdfRenderService.enabled }}
+{{- if and .Values.operator.pdfRenderService (eq .Values.operator.pdfRenderService.enabled true) }}
 - apiGroups:
   - "apps"
   resources:
