@@ -211,7 +211,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 	imageToUse := hprs.Spec.Image
 
 	labels := map[string]string{
-		"app":                           "humio-pdf-render-service",
+		"app":                           "pdf-render-service",
 		"humio-pdf-render-service-name": hprs.Name,
 	}
 	deployment := &appsv1.Deployment{
