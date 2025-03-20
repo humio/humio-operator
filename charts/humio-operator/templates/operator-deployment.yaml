@@ -74,6 +74,8 @@ spec:
           value: {{ .Values.defaultHumioHelperImageManaged | quote }}
         - name: WATCH_NAMESPACE
           value: {{ .Values.operator.watchNamespaces | join "," | quote }}
+        - name: HUMIO_OPERATOR_DEFAULT_PDF_RENDER_SERVICE_IMAGE
+          value: {{ .Values.defaultPdfRenderServiceImage | quote }}
         livenessProbe:
           httpGet:
             path: /healthz
