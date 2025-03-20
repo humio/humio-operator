@@ -28,8 +28,14 @@ const (
 	HumioPdfRenderServiceStateExists = "Exists"
 	// HumioPdfRenderServiceStateNotFound is the NotFound state of the PDF rendering service.
 	HumioPdfRenderServiceStateNotFound = "NotFound"
+	// DefaultPdfRenderServiceLiveness is the default liveness path for the PDF rendering service.
+	DefaultPdfRenderServiceLiveness = "/health"
+	// DefaultPdfRenderServiceReadiness is the default readiness path for the PDF rendering service.
+	DefaultPdfRenderServiceReadiness = "/ready"
 	// HumioPdfRenderServiceStateConfigError is the state of the PDF rendering service when user-provided specification results in configuration error, such as non-existent humio cluster
 	HumioPdfRenderServiceStateConfigError = "ConfigError"
+	// HumioPdfRenderServiceStateRunning is the state of the PDF rendering service when it is running and healthy
+	HumioPdfRenderServiceStateRunning = "Running"
 )
 
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
@@ -48,15 +54,16 @@ type HumioPdfRenderServiceSpec struct {
 
 	// Port is the port the service listens on.
 	// +optional
+	// +kubebuilder:default=5123
 	Port int32 `json:"port,omitempty"`
 
 	// Resources defines the resource requests and limits for the container.
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
-	// Env allows to specify environment variables for the service.
+	// EnvironmentVariables allows to specify environment variables for the service.
 	// +optional
-	Env []corev1.EnvVar `json:"env,omitempty"`
+	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
 
 	// Add other fields as needed, like:
 	// - Configuration options (e.g., timeouts, memory settings)
@@ -70,6 +77,10 @@ type HumioPdfRenderServiceSpec struct {
 	// Annotations allows to specify custom annotations for the pods.
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// Labels allows to specify custom labels for the pods.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
 
 	// LivenessProbe defines the liveness probe configuration.
 	// +optional
