@@ -164,6 +164,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 // finalize handles the cleanup when the resource is deleted
+// nolint:unparam
 func (r *HumioPdfRenderServiceReconciler) finalize(_ context.Context, _ *corev1alpha1.HumioPdfRenderService) error {
 	r.Log.Info("Running finalizer for HumioPdfRenderService")
 
