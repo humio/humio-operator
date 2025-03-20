@@ -1,40 +1,29 @@
-/*
-Copyright 2020 Humio https://humio.com
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package controller
 
 import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/go-logr/logr"
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/pkg/humio"
+	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/humio"
+	"github.com/humio/humio-operator/internal/kubernetes"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // HumioPdfRenderServiceReconciler reconciles a HumioPdfRenderService object
@@ -52,234 +41,416 @@ type HumioPdfRenderServiceReconciler struct {
 //+kubebuilder:rbac:groups=core.humio.com,resources=humiopdfrenderservices/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
+const humioPdfRenderServiceFinalizer = "core.humio.com/finalizer"
+
+// Reconcile implements the reconciliation logic for HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	reqLogger := r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	r.Log = reqLogger
-	reqLogger.Info("Reconciling HumioPdfRenderService")
+	if r.Namespace != "" {
+		if r.Namespace != req.Namespace {
+			return reconcile.Result{}, nil
+		}
+	}
+
+	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
+	r.Log.Info("Reconciling HumioPdfRenderService")
 
 	// Fetch the HumioPdfRenderService instance
-	hprs := &humiov1alpha1.HumioPdfRenderService{}
+	hprs := &corev1alpha1.HumioPdfRenderService{}
 	err := r.Get(ctx, req.NamespacedName, hprs)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
-			// Return and don't requeue
-			return ctrl.Result{}, nil
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		return ctrl.Result{}, err
+		return reconcile.Result{}, err
 	}
 
-	// Initialize the Status if it doesn't exist yet
-	if hprs.Status.State == "" {
-		hprs.Status.State = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
-		if err := r.Status().Update(ctx, hprs); err != nil {
-			return ctrl.Result{}, err
+	r.Log = r.Log.WithValues("Request.UID", hprs.UID)
+
+	// If the CR's namespace is empty, default it.
+	if hprs.Namespace == "" {
+		ns := r.Namespace
+		if ns == "" {
+			ns = req.Namespace
+		}
+		r.Log.Info("CR namespace is empty, defaulting", "Namespace", ns)
+		hprs.Namespace = ns
+	}
+
+	// Check if the resource is being deleted
+	if !hprs.ObjectMeta.DeletionTimestamp.IsZero() {
+		r.Log.Info("HumioPdfRenderService is being deleted")
+		if helpers.ContainsElement(hprs.GetFinalizers(), humioPdfRenderServiceFinalizer) {
+			// Run finalization logic. If it fails, don't remove the finalizer so
+			// we can retry during the next reconciliation
+			if err := r.finalize(ctx, hprs); err != nil {
+				return reconcile.Result{}, r.logErrorAndReturn(err, "Failed to run finalizer")
+			}
+
+			// Remove the finalizer once finalization is done
+			hprs.SetFinalizers(helpers.RemoveElement(hprs.GetFinalizers(), humioPdfRenderServiceFinalizer))
+			if err := r.Update(ctx, hprs); err != nil {
+				return reconcile.Result{}, r.logErrorAndReturn(err, "Failed to remove finalizer")
+			}
+		}
+		return reconcile.Result{}, nil
+	}
+
+	// Add finalizer for this CR if not already present
+	if !helpers.ContainsElement(hprs.GetFinalizers(), humioPdfRenderServiceFinalizer) {
+		r.Log.Info("Adding finalizer to HumioPdfRenderService")
+		if err := r.addFinalizer(ctx, hprs); err != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(err, "Failed to add finalizer")
 		}
 	}
 
-	// Reconcile the Deployment
+	// Set up a deferred function to always update the status before returning
+	defer func() {
+		deployment := &appsv1.Deployment{}
+		deploymentErr := r.Client.Get(ctx, types.NamespacedName{
+			Name:      "pdf-render-service",
+			Namespace: hprs.Namespace,
+		}, deployment)
+
+		if deploymentErr == nil {
+			// Update status with pod names and readiness
+			hprs.Status.ReadyReplicas = deployment.Status.ReadyReplicas
+
+			// Gather pod names and update the nodes list
+			podList := &corev1.PodList{}
+			listOpts := []client.ListOption{
+				client.InNamespace(hprs.Namespace),
+				client.MatchingLabels(map[string]string{
+					"app":                           "humio-pdf-render-service",
+					"humio-pdf-render-service-name": hprs.Name,
+				}),
+			}
+			if err = r.List(ctx, podList, listOpts...); err == nil {
+				nodes := make([]string, 0, len(podList.Items))
+				for _, pod := range podList.Items {
+					nodes = append(nodes, pod.Name)
+				}
+				hprs.Status.Nodes = nodes
+			}
+
+			// Set state based on deployment status
+			if deployment.Status.ReadyReplicas > 0 && deployment.Status.ReadyReplicas == deployment.Status.Replicas {
+				_ = r.setState(ctx, corev1alpha1.HumioPdfRenderServiceStateExists, hprs)
+			} else if deployment.Status.ReadyReplicas == 0 {
+				_ = r.setState(ctx, corev1alpha1.HumioPdfRenderServiceStateNotFound, hprs)
+			} else {
+				_ = r.setState(ctx, corev1alpha1.HumioPdfRenderServiceStateUnknown, hprs)
+			}
+		} else {
+			_ = r.setState(ctx, corev1alpha1.HumioPdfRenderServiceStateNotFound, hprs)
+		}
+	}()
+
+	// Reconcile Deployment using controllerutil.CreateOrUpdate
 	if err := r.reconcileDeployment(ctx, hprs); err != nil {
-		return ctrl.Result{}, err
+		return reconcile.Result{}, r.logErrorAndReturn(err, "Failed to reconcile Deployment")
 	}
 
-	// Reconcile the Service
+	// Reconcile Service using controllerutil.CreateOrUpdate
 	if err := r.reconcileService(ctx, hprs); err != nil {
-		return ctrl.Result{}, err
+		return reconcile.Result{}, r.logErrorAndReturn(err, "Failed to reconcile Service")
 	}
 
-	// Update status to Ready if we've made it this far
-	if hprs.Status.State != humiov1alpha1.HumioPdfRenderServiceStateReady {
-		hprs.Status.State = humiov1alpha1.HumioPdfRenderServiceStateReady
-		if err := r.Status().Update(ctx, hprs); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	reqLogger.Info("Reconciled HumioPdfRenderService successfully")
-	return ctrl.Result{}, nil
+	r.Log.Info("Reconciliation completed successfully")
+	return ctrl.Result{RequeueAfter: time.Second * 30}, nil
 }
 
-// constructDeployment creates a Deployment object for the HumioPdfRenderService.
-func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *humiov1alpha1.HumioPdfRenderService) (*appsv1.Deployment, error) {
+// finalize handles the cleanup when the resource is deleted
+func (r *HumioPdfRenderServiceReconciler) finalize(ctx context.Context, hprs *corev1alpha1.HumioPdfRenderService) error {
+	r.Log.Info("Running finalizer for HumioPdfRenderService")
+
+	// Nothing special to do for this resource as Kubernetes will handle
+	// the garbage collection of owned resources (deployment and service)
+	// This is just a placeholder for any additional cleanup if needed in the future
+	return nil
+}
+
+// addFinalizer adds the finalizer to the resource
+func (r *HumioPdfRenderServiceReconciler) addFinalizer(ctx context.Context, hprs *corev1alpha1.HumioPdfRenderService) error {
+	r.Log.Info("Adding Finalizer for the HumioPdfRenderService")
+	hprs.SetFinalizers(append(hprs.GetFinalizers(), humioPdfRenderServiceFinalizer))
+
+	// Update CR
+	err := r.Update(ctx, hprs)
+	if err != nil {
+		return r.logErrorAndReturn(err, "Failed to update HumioPdfRenderService with finalizer")
+	}
+	return nil
+}
+
+// setState updates the state field in the status
+func (r *HumioPdfRenderServiceReconciler) setState(ctx context.Context, state string, hprs *corev1alpha1.HumioPdfRenderService) error {
+	if hprs.Status.State == state {
+		return nil
+	}
+	r.Log.Info(fmt.Sprintf("setting PDF render service state to %s", state))
+	hprs.Status.State = state
+	return r.Status().Update(ctx, hprs)
+}
+
+// logErrorAndReturn logs an error and returns it with additional context
+func (r *HumioPdfRenderServiceReconciler) logErrorAndReturn(err error, msg string) error {
+	r.Log.Error(err, msg)
+	return fmt.Errorf("%s: %w", msg, err)
+}
+
+// constructDeployment constructs a Deployment for the HumioPdfRenderService.
+func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1.HumioPdfRenderService) *appsv1.Deployment {
 	deploymentName := "pdf-render-service"
+
+	// Ensure we're using the image from CR
+	imageToUse := hprs.Spec.Image
 
 	labels := map[string]string{
 		"app":                           "humio-pdf-render-service",
 		"humio-pdf-render-service-name": hprs.Name,
 	}
-
-	// Set default port if not specified
-	port := hprs.Spec.Port
-	if port == 0 {
-		port = 8080
-	}
-
-	// Construct container for the deployment
-	container := corev1.Container{
-		Name:  "pdf-render-service",
-		Image: getImageString(hprs),
-		Ports: []corev1.ContainerPort{
-			{
-				ContainerPort: port,
-				Protocol:      corev1.ProtocolTCP,
-			},
-		},
-	}
-
-	// Set ImagePullPolicy if specified, otherwise default to IfNotPresent
-	imagePullPolicy := hprs.Spec.ImagePullPolicy
-	if imagePullPolicy == "" {
-		imagePullPolicy = corev1.PullIfNotPresent
-	}
-	container.ImagePullPolicy = imagePullPolicy
-
-	// Set resources if specified
-	if !reflect.DeepEqual(hprs.Spec.Resources, corev1.ResourceRequirements{}) {
-		container.Resources = hprs.Spec.Resources
-	}
-
-	// Set environment variables if specified
-	if len(hprs.Spec.Env) > 0 {
-		container.Env = hprs.Spec.Env
-	}
-
-	// Set liveness probe if specified
-	if hprs.Spec.LivenessProbe != nil {
-		container.LivenessProbe = hprs.Spec.LivenessProbe
-	}
-
-	// Set readiness probe if specified
-	if hprs.Spec.ReadinessProbe != nil {
-		container.ReadinessProbe = hprs.Spec.ReadinessProbe
-	}
-
-	// Add volume mounts if specified
-	if len(hprs.Spec.VolumeMounts) > 0 {
-		container.VolumeMounts = hprs.Spec.VolumeMounts
-	}
-
-	// Add container security context if specified
-	if hprs.Spec.ContainerSecurityContext != nil {
-		container.SecurityContext = hprs.Spec.ContainerSecurityContext
-	}
-
-	// Configure pod template spec
-	podTemplateSpec := corev1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers:         []corev1.Container{container},
-			ServiceAccountName: hprs.Spec.ServiceAccountName,
-		},
-	}
-
-	// Add pod annotations if specified
-	if hprs.Spec.Annotations != nil {
-		podTemplateSpec.ObjectMeta.Annotations = hprs.Spec.Annotations
-	}
-
-	// Add affinity if specified
-	if hprs.Spec.Affinity != nil {
-		podTemplateSpec.Spec.Affinity = hprs.Spec.Affinity
-	}
-
-	// Add pod security context if specified
-	if hprs.Spec.SecurityContext != nil {
-		podTemplateSpec.Spec.SecurityContext = hprs.Spec.SecurityContext
-	}
-
-	// Add image pull secrets if specified
-	if len(hprs.Spec.ImagePullSecrets) > 0 {
-		podTemplateSpec.Spec.ImagePullSecrets = hprs.Spec.ImagePullSecrets
-	}
-
-	// Add tolerations if specified
-	if len(hprs.Spec.Tolerations) > 0 {
-		podTemplateSpec.Spec.Tolerations = hprs.Spec.Tolerations
-	}
-
-	// Add volumes if specified
-	if len(hprs.Spec.Volumes) > 0 {
-		podTemplateSpec.Spec.Volumes = hprs.Spec.Volumes
-	}
-
-	// Create the deployment
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
 			Namespace: hprs.Namespace,
 		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: &hprs.Spec.Replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Template: podTemplateSpec,
+	}
+
+	// Set up environment variables
+	envVars := []corev1.EnvVar{}
+
+	// Add default environment variables if needed
+	defaultEnvVars := []corev1.EnvVar{
+		{
+			Name:  "LOG_LEVEL",
+			Value: "debug",
 		},
 	}
 
-	return deployment, nil
+	// If user provided environment variables, use those instead
+	if len(hprs.Spec.Env) > 0 {
+		envVars = hprs.Spec.Env
+	} else {
+		// Otherwise use the defaults
+		envVars = defaultEnvVars
+	}
+
+	// Set up resources with default values if not specified
+	resources := hprs.Spec.Resources
+
+	// Check if resources are empty and set defaults
+	if (resources.Limits == nil || resources.Limits.Cpu().IsZero()) &&
+		(resources.Requests == nil || resources.Requests.Cpu().IsZero()) {
+		// Define default CPU and memory limits and requests
+		cpuLimit := resource.MustParse("500m")
+		memLimit := resource.MustParse("512Mi")
+		cpuRequest := resource.MustParse("100m")
+		memRequest := resource.MustParse("128Mi")
+
+		resources = corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    cpuLimit,
+				corev1.ResourceMemory: memLimit,
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    cpuRequest,
+				corev1.ResourceMemory: memRequest,
+			},
+		}
+
+		r.Log.Info("Using default resource settings for PDF render service",
+			"CPU.Limits", cpuLimit.String(),
+			"Memory.Limits", memLimit.String(),
+			"CPU.Requests", cpuRequest.String(),
+			"Memory.Requests", memRequest.String())
+	}
+
+	// Create annotations map with rollout timestamp
+	annotations := map[string]string{
+		"humio-pdf-render-service/restartedAt": time.Now().Format(time.RFC3339),
+	}
+
+	// Add user-provided annotations if any
+	if hprs.Spec.Annotations != nil {
+		for k, v := range hprs.Spec.Annotations {
+			annotations[k] = v
+		}
+	}
+
+	// Default port to 5123 if not specified
+	port := int32(5123)
+	if hprs.Spec.Port != 0 {
+		port = hprs.Spec.Port
+	}
+
+	// Handle probes
+	var livenessProbe *corev1.Probe
+	if hprs.Spec.LivenessProbe != nil {
+		livenessProbe = hprs.Spec.LivenessProbe.DeepCopy()
+	} else {
+		// Set default liveness probe
+		livenessProbe = &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path:   "/health",
+					Port:   intstr.FromInt(int(port)),
+					Scheme: corev1.URISchemeHTTP,
+				},
+			},
+			InitialDelaySeconds: 30,
+			TimeoutSeconds:      5,
+			PeriodSeconds:       10,
+			SuccessThreshold:    1,
+			FailureThreshold:    3,
+		}
+	}
+
+	// Handle readiness probe
+	var readinessProbe *corev1.Probe
+	if hprs.Spec.ReadinessProbe != nil {
+		readinessProbe = hprs.Spec.ReadinessProbe.DeepCopy()
+	}
+
+	deployment.Spec = appsv1.DeploymentSpec{
+		Replicas: &hprs.Spec.Replicas,
+		Selector: &metav1.LabelSelector{
+			MatchLabels: labels,
+		},
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:      labels,
+				Annotations: annotations,
+			},
+			Spec: corev1.PodSpec{
+				ServiceAccountName: hprs.Spec.ServiceAccountName,
+				Affinity:           hprs.Spec.Affinity,
+				Containers: []corev1.Container{{
+					Name:            "pdf-render-service",
+					Image:           imageToUse, // Use the image from CR directly
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					Resources:       resources, // Use either the CR-specified or default resources
+					Ports: []corev1.ContainerPort{{
+						ContainerPort: port,
+						Name:          "http",
+					}},
+					Env:            envVars,
+					LivenessProbe:  livenessProbe,
+					ReadinessProbe: readinessProbe,
+				}},
+			},
+		},
+	}
+
+	return deployment
 }
 
-// reconcileDeployment reconciles the Deployment for the HumioPdfRenderService.
-func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
-	deployment, err := r.constructDeployment(hprs)
-	if err != nil {
-		return err
-	}
+func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, hprs *corev1alpha1.HumioPdfRenderService) error {
+	deployment := r.constructDeployment(hprs)
+	deployment.SetNamespace(hprs.Namespace)
 
 	if err := controllerutil.SetControllerReference(hprs, deployment, r.Scheme); err != nil {
 		return err
 	}
 
-	// Check if this Deployment already exists
 	existingDeployment := &appsv1.Deployment{}
-	err = r.Client.Get(ctx, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, existingDeployment)
+	err := r.Client.Get(ctx, types.NamespacedName{
+		Name:      deployment.Name,
+		Namespace: deployment.Namespace,
+	}, existingDeployment)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			r.Log.Info("Creating Deployment", "Deployment.Name", deployment.Name, "Deployment.Namespace", deployment.Namespace)
+			r.Log.Info("Creating Deployment", "Deployment.Name", deployment.Name,
+				"Deployment.Namespace", deployment.Namespace,
+				"Image", hprs.Spec.Image,
+				"Resources", deployment.Spec.Template.Spec.Containers[0].Resources)
 			return r.Client.Create(ctx, deployment)
 		}
 		return err
 	}
 
-	// Deployment exists, check if we need to update it
-	needsUpdate := false
-
-	// Check for image changes
-	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 && existingDeployment.Spec.Template.Spec.Containers[0].Image != getImageString(hprs) {
-		r.Log.Info("Image changed", "Old", existingDeployment.Spec.Template.Spec.Containers[0].Image, "New", getImageString(hprs))
-		needsUpdate = true
+	// Check if the deployment is already owned by a different controller
+	if owner := metav1.GetControllerOf(existingDeployment); owner != nil && owner.UID != hprs.UID {
+		r.Log.Info("Deployment is owned by a different controller. Deleting and recreating.",
+			"CurrentOwner", owner.UID, "ExpectedOwner", hprs.UID)
+		if err := r.Client.Delete(ctx, existingDeployment); err != nil {
+			return r.logErrorAndReturn(err, "Failed to delete deployment owned by a different controller")
+		}
+		// Wait briefly for the deletion to complete
+		time.Sleep(500 * time.Millisecond)
+		return r.Client.Create(ctx, deployment)
 	}
 
-	// Check for replicas changes
-	if existingDeployment.Spec.Replicas != nil && *existingDeployment.Spec.Replicas != hprs.Spec.Replicas {
+	// Check if we need to update the deployment
+	needsUpdate := false
+
+	// Get the desired resources (which may include defaults)
+	desiredResources := deployment.Spec.Template.Spec.Containers[0].Resources
+
+	// Check for resource changes - explicitly check CPU and memory resources to ensure they're set correctly
+	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 {
+		currentResources := existingDeployment.Spec.Template.Spec.Containers[0].Resources
+
+		// Log detailed resource comparison to help diagnose issues
+		r.Log.Info("Resource comparison",
+			"Current.Limits.CPU", currentResources.Limits.Cpu().String(),
+			"Current.Limits.Memory", currentResources.Limits.Memory().String(),
+			"Current.Requests.CPU", currentResources.Requests.Cpu().String(),
+			"Current.Requests.Memory", currentResources.Requests.Memory().String(),
+			"Desired.Limits.CPU", desiredResources.Limits.Cpu().String(),
+			"Desired.Limits.Memory", desiredResources.Limits.Memory().String(),
+			"Desired.Requests.CPU", desiredResources.Requests.Cpu().String(),
+			"Desired.Requests.Memory", desiredResources.Requests.Memory().String())
+
+		if !reflect.DeepEqual(currentResources, desiredResources) {
+			r.Log.Info("Resources changed")
+			needsUpdate = true
+		}
+	}
+
+	// Check for container image changes
+	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 {
+		currentImage := existingDeployment.Spec.Template.Spec.Containers[0].Image
+		desiredImage := hprs.Spec.Image
+		if currentImage != desiredImage {
+			r.Log.Info("Container image changed", "OldImage", currentImage, "NewImage", desiredImage)
+			needsUpdate = true
+		}
+	}
+
+	// Check replicas
+	if existingDeployment.Spec.Replicas == nil || *existingDeployment.Spec.Replicas != hprs.Spec.Replicas {
 		r.Log.Info("Replicas changed", "Old", existingDeployment.Spec.Replicas, "New", hprs.Spec.Replicas)
 		needsUpdate = true
 	}
 
-	// Check for resource changes
-	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 && !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Resources, hprs.Spec.Resources) {
-		r.Log.Info("Resources changed")
-		needsUpdate = true
-	}
-
 	// Check for environment variable changes
-	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 && !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Env, hprs.Spec.Env) {
+	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 &&
+		!reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Env, hprs.Spec.Env) {
 		r.Log.Info("Environment variables changed")
 		needsUpdate = true
 	}
 
 	// Check for probe changes
-	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 && (!reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe, hprs.Spec.LivenessProbe) || !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe, hprs.Spec.ReadinessProbe)) {
-		r.Log.Info("Probe configuration changed")
-		needsUpdate = true
+	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 {
+		// Check liveness probe
+		if (existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe == nil && hprs.Spec.LivenessProbe != nil) ||
+			(existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe != nil && hprs.Spec.LivenessProbe == nil) ||
+			!reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe, hprs.Spec.LivenessProbe) {
+			r.Log.Info("Liveness probe configuration changed")
+			needsUpdate = true
+		}
+
+		// Check readiness probe
+		if (existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe == nil && hprs.Spec.ReadinessProbe != nil) ||
+			(existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe != nil && hprs.Spec.ReadinessProbe == nil) ||
+			!reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe, hprs.Spec.ReadinessProbe) {
+			r.Log.Info("Readiness probe configuration changed")
+			needsUpdate = true
+		}
 	}
 
 	// Check for ServiceAccount changes
@@ -300,65 +471,239 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 		needsUpdate = true
 	}
 
-	// Check for image pull policy changes
-	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 {
-		imagePullPolicy := hprs.Spec.ImagePullPolicy
-		if imagePullPolicy == "" {
-			imagePullPolicy = corev1.PullIfNotPresent
-		}
-		if existingDeployment.Spec.Template.Spec.Containers[0].ImagePullPolicy != imagePullPolicy {
-			r.Log.Info("ImagePullPolicy changed", "Old", existingDeployment.Spec.Template.Spec.Containers[0].ImagePullPolicy, "New", imagePullPolicy)
-			needsUpdate = true
-		}
-	}
-
-	// Check for security context changes
-	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.SecurityContext, hprs.Spec.SecurityContext) {
-		r.Log.Info("SecurityContext changed")
-		needsUpdate = true
-	}
-
-	// Check for container security context changes
-	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 && !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].SecurityContext, hprs.Spec.ContainerSecurityContext) {
-		r.Log.Info("ContainerSecurityContext changed")
-		needsUpdate = true
-	}
-
-	// Check for image pull secrets changes
-	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.ImagePullSecrets, hprs.Spec.ImagePullSecrets) {
-		r.Log.Info("ImagePullSecrets changed")
-		needsUpdate = true
-	}
-
-	// Check for tolerations changes
-	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Tolerations, hprs.Spec.Tolerations) {
-		r.Log.Info("Tolerations changed")
-		needsUpdate = true
-	}
-
-	// Check for volumes changes
-	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Volumes, hprs.Spec.Volumes) {
-		r.Log.Info("Volumes changed")
-		needsUpdate = true
-	}
-
-	// Check for volume mounts changes
-	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 && !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].VolumeMounts, hprs.Spec.VolumeMounts) {
-		r.Log.Info("VolumeMounts changed")
-		needsUpdate = true
-	}
-
+	// If an update is needed or we want to force a rolling update, apply all the necessary changes
 	if needsUpdate {
-		r.Log.Info("Updating Deployment", "Deployment.Name", deployment.Name, "Deployment.Namespace", deployment.Namespace)
-		existingDeployment.Spec = deployment.Spec
+		// Set controller reference to ensure the deployment is garbage collected when CR is deleted
+		if err := controllerutil.SetControllerReference(hprs, existingDeployment, r.Scheme); err != nil {
+			return r.logErrorAndReturn(err, "Failed to set controller reference on existing deployment")
+		}
+
+		// Update critical fields
+		existingDeployment.Spec.Replicas = &hprs.Spec.Replicas
+
+		// Update container details
+		if len(existingDeployment.Spec.Template.Spec.Containers) > 0 {
+			// Ensure we set the image from the CR directly
+			existingDeployment.Spec.Template.Spec.Containers[0].Image = hprs.Spec.Image
+			existingDeployment.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullIfNotPresent
+
+			// Use the resources from our constructed deployment, which may include defaults
+			existingDeployment.Spec.Template.Spec.Containers[0].Resources = desiredResources
+
+			// Get the port to use (default or from CR)
+			port := int32(5123)
+			if hprs.Spec.Port != 0 {
+				port = hprs.Spec.Port
+			}
+
+			existingDeployment.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{{
+				ContainerPort: port,
+				Name:          "http",
+			}}
+
+			// Handle environment variables the same way as in constructDeployment
+			if len(hprs.Spec.Env) > 0 {
+				existingDeployment.Spec.Template.Spec.Containers[0].Env = hprs.Spec.Env
+			} else {
+				// Use default env vars if none are specified in CR
+				existingDeployment.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{
+					{
+						Name:  "LOG_LEVEL",
+						Value: "debug",
+					},
+				}
+			}
+
+			// Handle probes
+			if hprs.Spec.LivenessProbe != nil {
+				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = hprs.Spec.LivenessProbe.DeepCopy()
+			} else {
+				// Add default liveness probe instead of setting to nil
+				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/health",
+							Port: intstr.FromInt(int(func() int32 {
+								port := int32(5123)
+								if hprs.Spec.Port != 0 {
+									port = hprs.Spec.Port
+								}
+								return port
+							}())),
+							Scheme: corev1.URISchemeHTTP,
+						},
+					},
+					InitialDelaySeconds: 30,
+					TimeoutSeconds:      5,
+					PeriodSeconds:       10,
+					SuccessThreshold:    1,
+					FailureThreshold:    3,
+				}
+			}
+
+			// Second occurrence - in the container creation section:
+			// Handle probes
+			if hprs.Spec.LivenessProbe != nil {
+				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = hprs.Spec.LivenessProbe.DeepCopy()
+			} else {
+				// Add default liveness probe instead of setting to nil
+				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/health",
+							Port: intstr.FromInt(int(func() int32 {
+								port := int32(5123)
+								if hprs.Spec.Port != 0 {
+									port = hprs.Spec.Port
+								}
+								return port
+							}())),
+							Scheme: corev1.URISchemeHTTP,
+						},
+					},
+					InitialDelaySeconds: 30,
+					TimeoutSeconds:      5,
+					PeriodSeconds:       10,
+					SuccessThreshold:    1,
+					FailureThreshold:    3,
+				}
+			}
+		} else {
+			// If no containers exist yet, add one with the CR details including resources
+			existingDeployment.Spec.Template.Spec.Containers = []corev1.Container{{
+				Name:            "humio-pdf-render-service",
+				Image:           hprs.Spec.Image,
+				ImagePullPolicy: corev1.PullIfNotPresent,
+				Resources:       desiredResources,
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: func() int32 {
+						// Get the port to use (default or from CR)
+						port := int32(5123)
+						if hprs.Spec.Port != 0 {
+							port = hprs.Spec.Port
+						}
+						return port
+					}(),
+					Name: "http",
+				}},
+				Env:            hprs.Spec.Env,
+				LivenessProbe:  hprs.Spec.LivenessProbe,
+				ReadinessProbe: hprs.Spec.ReadinessProbe,
+			}}
+
+			// If we made any changes to the properties above, update the deployment
+			existingDeployment.Spec.Template.Spec.Containers[0].Image = hprs.Spec.Image
+			existingDeployment.Spec.Template.Spec.Containers[0].Resources = desiredResources
+			existingDeployment.Spec.Template.Spec.Containers[0].Env = hprs.Spec.Env
+
+			// Handle probes
+			if hprs.Spec.LivenessProbe != nil {
+				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = hprs.Spec.LivenessProbe.DeepCopy()
+			} else {
+				// Add default liveness probe instead of setting to nil
+				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/health",
+							Port: intstr.FromInt(int(func() int32 {
+								port := int32(5123)
+								if hprs.Spec.Port != 0 {
+									port = hprs.Spec.Port
+								}
+								return port
+							}())),
+							Scheme: corev1.URISchemeHTTP,
+						},
+					},
+					InitialDelaySeconds: 30,
+					TimeoutSeconds:      5,
+					PeriodSeconds:       10,
+					SuccessThreshold:    1,
+					FailureThreshold:    3,
+				}
+			}
+
+			// Second occurrence - in the container creation section:
+			// Handle probes
+			if hprs.Spec.LivenessProbe != nil {
+				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = hprs.Spec.LivenessProbe.DeepCopy()
+			} else {
+				// Add default liveness probe instead of setting to nil
+				existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/health",
+							Port: intstr.FromInt(int(func() int32 {
+								port := int32(5123)
+								if hprs.Spec.Port != 0 {
+									port = hprs.Spec.Port
+								}
+								return port
+							}())),
+							Scheme: corev1.URISchemeHTTP,
+						},
+					},
+					InitialDelaySeconds: 30,
+					TimeoutSeconds:      5,
+					PeriodSeconds:       10,
+					SuccessThreshold:    1,
+					FailureThreshold:    3,
+				}
+			}
+
+			// Update service account and affinity if specified
+			existingDeployment.Spec.Template.Spec.ServiceAccountName = hprs.Spec.ServiceAccountName
+			existingDeployment.Spec.Template.Spec.Affinity = hprs.Spec.Affinity
+
+			// Actually update the deployment in the cluster
+			r.Log.Info("Updating Deployment", "Deployment.Name", existingDeployment.Name)
+			if err := r.Client.Update(ctx, existingDeployment); err != nil {
+				return r.logErrorAndReturn(err, "Failed to update Deployment")
+			}
+		}
+
+		// Update labels and annotations
+		if existingDeployment.Spec.Template.ObjectMeta.Labels == nil {
+			existingDeployment.Spec.Template.ObjectMeta.Labels = map[string]string{}
+		}
+		existingDeployment.Spec.Template.ObjectMeta.Labels["app"] = "humio-pdf-render-service"
+		existingDeployment.Spec.Template.ObjectMeta.Labels["humio-pdf-render-service-name"] = hprs.Name
+
+		// Initialize annotations map if it's nil
+		if existingDeployment.Spec.Template.ObjectMeta.Annotations == nil {
+			existingDeployment.Spec.Template.ObjectMeta.Annotations = map[string]string{}
+		}
+
+		// Add/update annotations from CR specification
+		if hprs.Spec.Annotations != nil {
+			for k, v := range hprs.Spec.Annotations {
+				existingDeployment.Spec.Template.ObjectMeta.Annotations[k] = v
+			}
+		}
+
+		// Always add a timestamp annotation to force a rollout when configuration changes
+		existingDeployment.Spec.Template.Annotations["pdf-render-service/restartedAt"] = time.Now().Format(time.RFC3339)
+
+		// Update other pod spec fields
+		existingDeployment.Spec.Template.Spec.ServiceAccountName = hprs.Spec.ServiceAccountName
+		existingDeployment.Spec.Template.Spec.Affinity = hprs.Spec.Affinity
+
+		r.Log.Info("Updating Deployment",
+			"Deployment.Name", existingDeployment.Name,
+			"Deployment.Namespace", existingDeployment.Namespace,
+			"Image", hprs.Spec.Image,
+			"Resources.Limits.CPU", desiredResources.Limits.Cpu().String(),
+			"Resources.Limits.Memory", desiredResources.Limits.Memory().String())
+
 		return r.Client.Update(ctx, existingDeployment)
 	}
 
+	r.Log.Info("No changes needed for Deployment", "Deployment.Name", existingDeployment.Name)
 	return nil
 }
 
-// reconcileService reconciles the Service for the HumioPdfRenderService.
-func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
+// constructService constructs a Service for the HumioPdfRenderService.
+func (r *HumioPdfRenderServiceReconciler) constructService(hprs *corev1alpha1.HumioPdfRenderService) *corev1.Service {
 	serviceName := "pdf-render-service"
 
 	labels := map[string]string{
@@ -366,105 +711,130 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 		"humio-pdf-render-service-name": hprs.Name,
 	}
 
-	// Set default port if not specified
-	port := hprs.Spec.Port
-	if port == 0 {
-		port = 8080
+	// Default port to 5123 if not specified
+	port := int32(5123)
+	if hprs.Spec.Port != 0 {
+		port = hprs.Spec.Port
 	}
 
-	// Create service object
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: hprs.Namespace,
-			Labels:    labels,
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: labels,
+			Type:     hprs.Spec.ServiceType,
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "http",
-					Port:       port,
-					TargetPort: intstr.FromInt(int(port)),
+					Port:       port,                      // Use the port from CR or default
+					TargetPort: intstr.FromInt(int(port)), // Match target port to container port
 					Protocol:   corev1.ProtocolTCP,
+					Name:       "http",
 				},
 			},
 		},
 	}
+	return service
+}
 
-	// Set service type if specified
-	if hprs.Spec.ServiceType != "" {
-		service.Spec.Type = hprs.Spec.ServiceType
-	}
+// reconcileService reconciles the Service for the HumioPdfRenderService.
+func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, hprs *corev1alpha1.HumioPdfRenderService) error {
+	service := r.constructService(hprs)
+	service.SetNamespace(hprs.Namespace)
 
 	if err := controllerutil.SetControllerReference(hprs, service, r.Scheme); err != nil {
 		return err
 	}
 
-	// Check if this Service already exists
 	existingService := &corev1.Service{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: service.Name, Namespace: service.Namespace}, existingService)
+	err := r.Client.Get(ctx, types.NamespacedName{
+		Name:      service.Name,
+		Namespace: service.Namespace,
+	}, existingService)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			r.Log.Info("Creating Service", "Service.Name", service.Name, "Service.Namespace", service.Namespace)
+			r.Log.Info("Creating Service", "Service.Name", service.Name,
+				"Service.Namespace", service.Namespace)
 			return r.Client.Create(ctx, service)
 		}
 		return err
 	}
 
-	// Service exists, check if we need to update it
+	// Check if we need to update the service
 	needsUpdate := false
 
-	// Check for port changes
-	if len(existingService.Spec.Ports) > 0 && existingService.Spec.Ports[0].Port != port {
-		r.Log.Info("Port changed", "Old", existingService.Spec.Ports[0].Port, "New", port)
-		needsUpdate = true
-	}
-
-	// Check for service type changes
-	if hprs.Spec.ServiceType != "" && existingService.Spec.Type != hprs.Spec.ServiceType {
+	// Check service type
+	if existingService.Spec.Type != hprs.Spec.ServiceType {
 		r.Log.Info("Service type changed", "Old", existingService.Spec.Type, "New", hprs.Spec.ServiceType)
 		needsUpdate = true
 	}
 
+	// Get the port to use (default or from CR)
+	port := int32(5123)
+	if hprs.Spec.Port != 0 {
+		port = hprs.Spec.Port
+	}
+
+	// Check port configuration
+	if len(existingService.Spec.Ports) != 1 ||
+		existingService.Spec.Ports[0].Port != port ||
+		existingService.Spec.Ports[0].TargetPort.IntVal != port {
+		r.Log.Info("Port configuration changed")
+		needsUpdate = true
+	}
+
+	// Check selector changes
+	expectedSelector := map[string]string{
+		"app":                           "humio-pdf-render-service",
+		"humio-pdf-render-service-name": hprs.Name,
+	}
+	if !reflect.DeepEqual(existingService.Spec.Selector, expectedSelector) {
+		r.Log.Info("Service selector changed")
+		needsUpdate = true
+	}
+
+	// If an update is needed, apply all the necessary changes
 	if needsUpdate {
-		r.Log.Info("Updating Service", "Service.Name", service.Name, "Service.Namespace", service.Namespace)
-		// We need to preserve the ClusterIP when updating
-		service.Spec.ClusterIP = existingService.Spec.ClusterIP
+		// Update the service specification
+		existingService.Spec.Type = hprs.Spec.ServiceType
 
-		// Update the service
-		return r.Client.Update(ctx, service)
+		// Get the port to use (default or from CR)
+		port := int32(5123)
+		if hprs.Spec.Port != 0 {
+			port = hprs.Spec.Port
+		}
+
+		existingService.Spec.Ports = []corev1.ServicePort{{
+			Port:       port,
+			TargetPort: intstr.FromInt(int(port)),
+			Name:       "http",
+		}}
+
+		// Update labels
+		if existingService.Labels == nil {
+			existingService.Labels = map[string]string{}
+		}
+		existingService.Labels["app"] = "pdf-render-service"
+		existingService.Labels["pdf-render-service"] = hprs.Name
+
+		// Update selector
+		existingService.Spec.Selector = expectedSelector
+
+		r.Log.Info("Updating Service", "Service.Name", existingService.Name,
+			"Service.Namespace", existingService.Namespace)
+
+		return r.Client.Update(ctx, existingService)
 	}
 
+	r.Log.Info("No changes needed for Service", "Service.Name", existingService.Name)
 	return nil
-}
-
-// getImageString returns the container image to use
-func getImageString(hprs *humiov1alpha1.HumioPdfRenderService) string {
-	imageRegistry := "docker.io/"
-	if hprs.Spec.ImageRegistry != "" {
-		imageRegistry = hprs.Spec.ImageRegistry
-	}
-
-	imageRepository := "humio/pdf-render-service"
-	if hprs.Spec.ImageRepository != "" {
-		imageRepository = hprs.Spec.ImageRepository
-	}
-
-	imageTag := "latest"
-	if hprs.Spec.ImageTag != "" {
-		imageTag = hprs.Spec.ImageTag
-	}
-
-	return fmt.Sprintf("%s%s:%s", imageRegistry, imageRepository, imageTag)
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HumioPdfRenderServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.BaseLogger = log.Log.WithName("controllers").WithName("HumioPdfRenderService")
-
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&humiov1alpha1.HumioPdfRenderService{}).
+		For(&corev1alpha1.HumioPdfRenderService{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
 		Complete(r)
