@@ -5,6 +5,11 @@ operator:
     tag:
     pullPolicy: IfNotPresent
     pullSecrets: []
+  metrics:
+    enabled: true
+    listen:
+      port: 8080
+    secure: false
   prometheus:
     serviceMonitor:
       enabled: false

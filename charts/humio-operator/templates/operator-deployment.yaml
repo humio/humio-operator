@@ -53,6 +53,10 @@ spec:
         imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
         command:
         - /manager
+{{- if .Values.operator.metrics.enabled }}
+        - --metrics-bind-address=:{{ .Values.operator.metrics.listen.port }}
+        - --metrics-secure={{ .Values.operator.metrics.secure }}
+{{- end }}
         env:
         - name: POD_NAME
           valueFrom:
@@ -68,12 +72,12 @@ spec:
           value: {{ .Values.defaultHumioHelperImage | quote }}
         livenessProbe:
           httpGet:
-            path: /metrics
-            port: 8080
+            path: /healthz
+            port: 8081
         readinessProbe:
           httpGet:
-            path: /metrics
-            port: 8080
+            path: /readyz
+            port: 8081
 {{- with .Values.operator.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
