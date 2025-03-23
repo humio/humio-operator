@@ -1,73 +1,73 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioPdfRenderService
 metadata:
-  labels:
-    app.kubernetes.io/name: humiopdfrenderservice
-    app.kubernetes.io/instance: humiopdfrenderservice-sample
-    app.kubernetes.io/part-of: humio-operator
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: humio-operator
-  name: humiopdfrenderservice-sample
+  name: pdf-render-service
+  namespace: logging
 spec:
-  image: humio/pdf-render-service:0.0.59--build-98--sha-b2bfadbc14733ce3ae1153d555148ee4f3a64013
+  # Required fields
+  image: humio/pdf-render-service:0.0.60--build-101--sha-fe87a59c82fd957ec460190a3f726948d586c1ea
   replicas: 2
+  
+  # Port configuration
   port: 5123
+  
+  # Service type (matches the Terraform configuration)
   serviceType: ClusterIP
-  serviceAccountName: default
-  resources:
-    limits:
-      cpu: 4
-      memory: 2Gi
-    requests:
-      cpu: 4
-      memory: 1Gi
+  
+  # Environment variables
   env:
     - name: XDG_CONFIG_HOME
-      value: "/tmp/.chromium-config"
+      value: /tmp/.chromium-config
     - name: XDG_CACHE_HOME
-      value: "/tmp/.chromium-cache"
-    - name: EXAMPLE_ENV_VAR
-      value: "example_value"
+      value: /tmp/.chromium-cache
+    - name: DEBUG
+      value: "true"
+  
+  # Resource requirements
+  resources:
+    limits:
+      cpu: "2"
+      memory: "250Mi"
+    requests:
+      cpu: "1"
+      memory: "250Mi"
+  
+  # Readiness probe configuration
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 5123
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    timeoutSeconds: 60
+    failureThreshold: 1
+    successThreshold: 1
+  
+  # Liveness probe configuration
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 5123
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    timeoutSeconds: 60
+    failureThreshold: 5
+    successThreshold: 1
+  
+  # Node affinity configuration
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
-          - matchExpressions:
-              - key: humio_node_type
-                operator: In
-                values:
-                  - core
-    podAntiAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        - labelSelector:
-            matchExpressions:
-              - key: app
-                operator: In
-                values:
-                  - pdf-render-service
-          topologyKey: kubernetes.io/hostname
+        - matchExpressions:
+          - key: humio_node_type
+            operator: In
+            values:
+            - worker # Adjust this value as needed
+  
+  # Add annotations for service
   annotations:
-    # Pod annotations can be specified here
     prometheus.io/scrape: "true"
-    prometheus.io/path: "/metrics"
+    prometheus.io/path: /metrics
     prometheus.io/port: "5123"
-  livenessProbe:
-    failureThreshold: 5
-    httpGet:
-      path: /health
-      port: 5123
-      scheme: HTTP
-    initialDelaySeconds: 30
-    periodSeconds: 15
-    successThreshold: 1
-    timeoutSeconds: 60
-  readinessProbe:
-    failureThreshold: 1
-    httpGet:
-      path: /ready
-      port: 5123
-      scheme: HTTP
-    initialDelaySeconds: 30
-    periodSeconds: 15
-    successThreshold: 1
-    timeoutSeconds: 60
+
