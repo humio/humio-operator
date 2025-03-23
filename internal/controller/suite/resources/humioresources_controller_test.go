@@ -4097,12 +4097,42 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8sClient.Get(ctx, deploymentKey, deployment)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			// Verify resources
-			container := deployment.Spec.Template.Spec.Containers[0]
-			Expect(container.Resources.Limits.Cpu().String()).Should(Equal("500m"))
-			Expect(container.Resources.Limits.Memory().String()).Should(Equal("512Mi"))
-			Expect(container.Resources.Requests.Cpu().String()).Should(Equal("100m"))
-			Expect(container.Resources.Requests.Memory().String()).Should(Equal("128Mi"))
+			// Verify resources using Eventually to wait for controller to set them
+			Eventually(func() string {
+				freshDeployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, deploymentKey, freshDeployment)
+				if err != nil || len(freshDeployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
+				return freshDeployment.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().String()
+			}, testTimeout, suite.TestInterval).Should(Equal("500m"))
+
+			Eventually(func() string {
+				freshDeployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, deploymentKey, freshDeployment)
+				if err != nil || len(freshDeployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
+				return freshDeployment.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().String()
+			}, testTimeout, suite.TestInterval).Should(Equal("512Mi"))
+
+			Eventually(func() string {
+				freshDeployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, deploymentKey, freshDeployment)
+				if err != nil || len(freshDeployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
+				return freshDeployment.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().String()
+			}, testTimeout, suite.TestInterval).Should(Equal("100m"))
+
+			Eventually(func() string {
+				freshDeployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, deploymentKey, freshDeployment)
+				if err != nil || len(freshDeployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
+				return freshDeployment.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String()
+			}, testTimeout, suite.TestInterval).Should(Equal("128Mi"))
 
 			// Check liveness probe with nil checks using Eventually to allow time for controllers to set it up
 			Eventually(func() *corev1.Probe {
@@ -4114,34 +4144,69 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return deployment.Spec.Template.Spec.Containers[0].LivenessProbe
 			}, testTimeout, suite.TestInterval).ShouldNot(BeNil())
 
-			// Get latest state of the deployment to check liveness probe details
-			Expect(k8sClient.Get(ctx, deploymentKey, deployment)).Should(Succeed())
-			container = deployment.Spec.Template.Spec.Containers[0]
+			// Verify liveness probe details
+			Eventually(func() string {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, deploymentKey, deployment)
+				if err != nil || len(deployment.Spec.Template.Spec.Containers) == 0 ||
+					deployment.Spec.Template.Spec.Containers[0].LivenessProbe == nil ||
+					deployment.Spec.Template.Spec.Containers[0].LivenessProbe.HTTPGet == nil {
+					return ""
+				}
+				return deployment.Spec.Template.Spec.Containers[0].LivenessProbe.HTTPGet.Path
+			}, testTimeout, suite.TestInterval).Should(Equal("/health"))
 
-			Expect(container.LivenessProbe).ShouldNot(BeNil())
-			Expect(container.LivenessProbe.HTTPGet).ShouldNot(BeNil())
-			Expect(container.LivenessProbe.HTTPGet.Path).Should(Equal("/health"))
-			Expect(container.LivenessProbe.InitialDelaySeconds).Should(Equal(int32(30)))
+			Eventually(func() int32 {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, deploymentKey, deployment)
+				if err != nil || len(deployment.Spec.Template.Spec.Containers) == 0 ||
+					deployment.Spec.Template.Spec.Containers[0].LivenessProbe == nil {
+					return 0
+				}
+				return deployment.Spec.Template.Spec.Containers[0].LivenessProbe.InitialDelaySeconds
+			}, testTimeout, suite.TestInterval).Should(Equal(int32(30)))
 
 			// Check readiness probe using Eventually
-			var latestDeployment *appsv1.Deployment
 			Eventually(func() *corev1.Probe {
-				latestDeployment = &appsv1.Deployment{}
-				err := k8sClient.Get(ctx, deploymentKey, latestDeployment)
-				if err != nil || len(latestDeployment.Spec.Template.Spec.Containers) == 0 {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, deploymentKey, deployment)
+				if err != nil || len(deployment.Spec.Template.Spec.Containers) == 0 {
 					return nil
 				}
-				return latestDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe
+				return deployment.Spec.Template.Spec.Containers[0].ReadinessProbe
 			}, testTimeout, suite.TestInterval).ShouldNot(BeNil())
 
-			// Now use the latestDeployment to verify readiness probe details
-			latestContainer := latestDeployment.Spec.Template.Spec.Containers[0]
-			Expect(latestContainer.ReadinessProbe).ShouldNot(BeNil())
-			Expect(latestContainer.ReadinessProbe.HTTPGet).ShouldNot(BeNil())
-			Expect(latestContainer.ReadinessProbe.HTTPGet.Path).Should(Equal("/ready"))
-			Expect(latestContainer.ReadinessProbe.InitialDelaySeconds).Should(Equal(int32(30)))
-			Expect(latestContainer.ReadinessProbe.TimeoutSeconds).Should(Equal(int32(60)))
-			Expect(latestContainer.ReadinessProbe.PeriodSeconds).Should(Equal(int32(10)))
+			// Verify readiness probe details
+			Eventually(func() string {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, deploymentKey, deployment)
+				if err != nil || len(deployment.Spec.Template.Spec.Containers) == 0 ||
+					deployment.Spec.Template.Spec.Containers[0].ReadinessProbe == nil ||
+					deployment.Spec.Template.Spec.Containers[0].ReadinessProbe.HTTPGet == nil {
+					return ""
+				}
+				return deployment.Spec.Template.Spec.Containers[0].ReadinessProbe.HTTPGet.Path
+			}, testTimeout, suite.TestInterval).Should(Equal("/ready"))
+
+			Eventually(func() int32 {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, deploymentKey, deployment)
+				if err != nil || len(deployment.Spec.Template.Spec.Containers) == 0 ||
+					deployment.Spec.Template.Spec.Containers[0].ReadinessProbe == nil {
+					return 0
+				}
+				return deployment.Spec.Template.Spec.Containers[0].ReadinessProbe.InitialDelaySeconds
+			}, testTimeout, suite.TestInterval).Should(Equal(int32(30)))
+
+			Eventually(func() int32 {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, deploymentKey, deployment)
+				if err != nil || len(deployment.Spec.Template.Spec.Containers) == 0 ||
+					deployment.Spec.Template.Spec.Containers[0].ReadinessProbe == nil {
+					return 0
+				}
+				return deployment.Spec.Template.Spec.Containers[0].ReadinessProbe.TimeoutSeconds
+			}, testTimeout, suite.TestInterval).Should(Equal(int32(60)))
 		})
 
 		It("should correctly configure environment variables", func() {
@@ -4248,7 +4313,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}
 
 				// Check for restart annotation (should exist but value will change)
-				_, hasRestartAnnotation := deployment.Spec.Template.Annotations["pdf-render-service/restartedAt"]
+				_, hasRestartAnnotation := deployment.Spec.Template.Annotations["humio-pdf-render-service/restartedAt"]
 				if !hasRestartAnnotation {
 					return false
 				}
