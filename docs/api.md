@@ -37084,6 +37084,13 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>labels</b></td>
+        <td>map[string]string</td>
+        <td>
+          Labels allows to specify custom labels for the pods.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humiopdfrenderservicespeclivenessprobe">livenessProbe</a></b></td>
         <td>object</td>
         <td>
