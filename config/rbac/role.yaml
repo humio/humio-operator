@@ -28,7 +28,6 @@ rules:
   - apps
   resources:
   - deployments
-  - deployments/finalizers
   verbs:
   - create
   - delete
@@ -111,11 +110,3 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-    - ""
-  resources:
-    - namespaces
-  verbs:
-    - get
-    - list
-    - watch
