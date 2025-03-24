@@ -11,6 +11,9 @@ spec:
   # Port configuration
   port: 5123
 
+  imagePullSecrets:
+    - name: regcred
+
   
   # Service type (matches the Terraform configuration)
   serviceType: ClusterIP
