@@ -10,6 +10,7 @@ spec:
   
   # Port configuration
   port: 5123
+
   
   # Service type (matches the Terraform configuration)
   serviceType: ClusterIP
@@ -63,7 +64,7 @@ spec:
           - key: humio_node_type
             operator: In
             values:
-            - worker # Adjust this value as needed
+            - core
   
   # Add annotations for service
   annotations:
