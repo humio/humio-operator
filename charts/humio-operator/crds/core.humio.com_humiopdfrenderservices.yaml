@@ -1129,6 +1129,11 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+              labels:
+                additionalProperties:
+                  type: string
+                description: Labels allows to specify custom labels for the pods.
+                type: object
               livenessProbe:
                 description: LivenessProbe defines the liveness probe configuration.
                 properties:
