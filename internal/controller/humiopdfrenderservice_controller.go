@@ -396,10 +396,10 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 		return r.logErrorAndReturn(err, "Failed to set controller reference on existing deployment")
 	}
 
-	// 2. Update critical fields in one go
+	// Update critical fields in one go
 	existingDeployment.Spec.Replicas = &hprs.Spec.Replicas
 
-	// 3. Prepare container updates - need to ensure we have at least one container
+	// Prepare container updates - need to ensure we have at least one container
 	if len(existingDeployment.Spec.Template.Spec.Containers) == 0 {
 		existingDeployment.Spec.Template.Spec.Containers = []corev1.Container{
 			{
@@ -408,17 +408,17 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 		}
 	}
 
-	// 4. Always update the image directly from the CR spec
+	// Always update the image directly from the CR spec
 	existingDeployment.Spec.Template.Spec.Containers[0].Image = hprs.Spec.Image
 	existingDeployment.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullIfNotPresent
 
-	// 5. Update resources - ensure we're properly setting the resources from the CR spec
+	// Update resources - ensure we're properly setting the resources from the CR spec
 	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Resources, hprs.Spec.Resources) {
 		r.Log.Info("Updating container resources", "Current", existingDeployment.Spec.Template.Spec.Containers[0].Resources, "Desired", hprs.Spec.Resources)
 		existingDeployment.Spec.Template.Spec.Containers[0].Resources = hprs.Spec.Resources
 	}
 
-	// 6. Update port configuration
+	// Update port configuration
 	port := int32(5123)
 	if hprs.Spec.Port != 0 {
 		port = hprs.Spec.Port
@@ -430,7 +430,7 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 		},
 	}
 
-	// 7. Update environment variables
+	// Update environment variables
 	if len(hprs.Spec.Env) > 0 {
 		existingDeployment.Spec.Template.Spec.Containers[0].Env = hprs.Spec.Env
 	} else {
@@ -442,23 +442,34 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 		}
 	}
 
-	// 8. Update probes
+	// Update probes
 	r.updateProbes(existingDeployment, hprs, port)
 
-	// 9. Update service account and affinity
+	// Update service account and affinity
 	existingDeployment.Spec.Template.Spec.ServiceAccountName = hprs.Spec.ServiceAccountName
 	existingDeployment.Spec.Template.Spec.Affinity = hprs.Spec.Affinity
 
-	// 10. Update metadata (labels and annotations)
+	// Update metadata (labels and annotations)
 	r.updateDeploymentMetadata(existingDeployment, hprs)
 
-	// 11. Log the update operation with key details
+	cpuLimit := "not set"
+	memLimit := "not set"
+	if desiredResources.Limits != nil {
+		if cpu := desiredResources.Limits.Cpu(); cpu != nil {
+			cpuLimit = cpu.String()
+		}
+		if mem := desiredResources.Limits.Memory(); mem != nil {
+			memLimit = mem.String()
+		}
+	}
+
+	// Log the update operation with key details
 	r.Log.Info("Updating Deployment",
 		"Deployment.Name", existingDeployment.Name,
 		"Deployment.Namespace", existingDeployment.Namespace,
 		"Image", hprs.Spec.Image,
-		"Resources.Limits.CPU", desiredResources.Limits.Cpu().String(),
-		"Resources.Limits.Memory", desiredResources.Limits.Memory().String())
+		"Resources.Limits.CPU", cpuLimit,
+		"Resources.Limits.Memory", memLimit)
 
 	// 12. Perform a single update to apply all changes at once
 	return r.Client.Update(ctx, existingDeployment)
