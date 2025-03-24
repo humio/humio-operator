@@ -243,8 +243,8 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 		// kubernetes secret exists, check if we need to update it
 		r.Log.Info("ingest token secret already exists", "TokenSecretName", hit.Spec.TokenSecretName)
 		if string(existingSecret.Data["token"]) != string(desiredSecret.Data["token"]) ||
-			cmp.Equal(existingSecret.Labels, desiredSecret.Labels) ||
-			cmp.Equal(existingSecret.Annotations, desiredSecret.Annotations) {
+			!cmp.Equal(existingSecret.Labels, desiredSecret.Labels) ||
+			!cmp.Equal(existingSecret.Annotations, desiredSecret.Annotations) {
 			r.Log.Info("secret does not match the token in Humio. Updating token", "TokenSecretName", hit.Spec.TokenSecretName)
 			if err = r.Update(ctx, desiredSecret); err != nil {
 				return r.logErrorAndReturn(err, "unable to update ingest token")
