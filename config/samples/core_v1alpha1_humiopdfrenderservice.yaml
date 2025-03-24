@@ -5,15 +5,18 @@ metadata:
   namespace: logging
 spec:
   # Required fields
-  #image: humio/pdf-render-service:0.0.60--build-101--sha-fe87a59c82fd957ec460190a3f726948d586c1ea
-  image: 471112840547.dkr.ecr.us-west-2.amazonaws.com/pdf-render-service:0.0.60
+  image: humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e
+  #image: 471112840547.dkr.ecr.us-west-2.amazonaws.com/pdf-render-service:0.0.60
   replicas: 2
+
+  labels:
+    app: "pdf-render-service"
   
   # Port configuration
   port: 5123
 
-  imagePullSecrets:
-  - name: ecr-credentials
+  # imagePullSecrets:
+  # - name: ecr-credentials
 
   
   # Service type (matches the Terraform configuration)
@@ -27,6 +30,14 @@ spec:
       value: /tmp/.chromium-cache
     - name: DEBUG
       value: "true"
+    - name: CLEANUP_INTERVAL
+      value: "600"
+    - name: PORT
+      value: "5123"
+    - name: SERVICE_VERSION
+      value: "0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e"
+    - name: SERVICE_NAME
+      value: "pdf-render-service"
   
   # Resource requirements
   resources:
