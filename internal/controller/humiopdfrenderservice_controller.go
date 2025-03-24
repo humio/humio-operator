@@ -1,3 +1,19 @@
+/*
+Copyright 2020 Humio https://humio.com
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package controller
 
 import (
@@ -28,9 +44,9 @@ import (
 // HumioPdfRenderServiceReconciler reconciles a HumioPdfRenderService object
 type HumioPdfRenderServiceReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
-	BaseLogger  logr.Logger
-	Log         logr.Logger
+	Scheme     *runtime.Scheme
+	BaseLogger logr.Logger
+	Log        logr.Logger
 	HumioClient humio.Client
 	Namespace   string
 }
@@ -51,7 +67,11 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	}
 
-	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
+	r.Log = r.BaseLogger.WithValues(
+		"Request.Namespace", req.Namespace,
+		"Request.Name", req.Name,
+		"Request.Type", helpers.GetTypeName(r),
+		"Reconcile.ID", kubernetes.RandomString())
 	r.Log.Info("Reconciling HumioPdfRenderService")
 
 	// Fetch the HumioPdfRenderService instance
@@ -109,10 +129,14 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// Set up a deferred function to always update the status before returning
 	defer func() {
 		deployment := &appsv1.Deployment{}
-		deploymentErr := r.Client.Get(ctx, types.NamespacedName{
-			Name:      "pdf-render-service",
-			Namespace: hprs.Namespace,
-		}, deployment)
+		deploymentErr := r.Client.Get(
+			ctx,
+			types.NamespacedName{
+				Name:      "pdf-render-service",
+				Namespace: hprs.Namespace,
+			},
+			deployment,
+		)
 
 		if deploymentErr == nil {
 			// Update status with pod names and readiness
@@ -265,8 +289,8 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 							if hprs.Spec.ReadinessProbe != nil {
 								return hprs.Spec.ReadinessProbe.DeepCopy()
 							}
-							// Default readiness probe
-							defaultReadinessProbe := &corev1.Probe{
+							// Default readiness probe - ensure values match with checkDeploymentNeedsUpdate
+							return &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/ready",
@@ -274,20 +298,19 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 									},
 								},
 								InitialDelaySeconds: 30,
-								TimeoutSeconds:      30,
+								TimeoutSeconds:      60,
 								PeriodSeconds:       10,
 							}
-							if hprs.Spec.ReadinessProbe != nil {
-								if hprs.Spec.ReadinessProbe.TimeoutSeconds != 0 {
-									defaultReadinessProbe.TimeoutSeconds = hprs.Spec.ReadinessProbe.TimeoutSeconds
-								}
-							}
-							return defaultReadinessProbe
 						}(),
 					}},
 				},
 			},
 		},
+	}
+
+	// Add ImagePullSecrets with nil check
+	if hprs.Spec.ImagePullSecrets != nil {
+		deployment.Spec.Template.Spec.ImagePullSecrets = hprs.Spec.ImagePullSecrets
 	}
 
 	return deployment
@@ -346,18 +369,57 @@ func (r *HumioPdfRenderServiceReconciler) checkDeploymentNeedsUpdate(
 
 	// Check for probe changes
 	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 {
-		// Check liveness probe
-		if (existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe == nil && hprs.Spec.LivenessProbe != nil) ||
-			(existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe != nil && hprs.Spec.LivenessProbe == nil) ||
-			!reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe, hprs.Spec.LivenessProbe) {
+		// Get the port to use (default or from CR)
+		port := int32(5123)
+		if hprs.Spec.Port != 0 {
+			port = hprs.Spec.Port
+		}
+
+		// Create expected liveness probe based on CR spec or defaults
+		expectedLivenessProbe := func() *corev1.Probe {
+			if hprs.Spec.LivenessProbe != nil {
+				return hprs.Spec.LivenessProbe.DeepCopy()
+			}
+			// Default liveness probe
+			return &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/health",
+						Port: intstr.FromInt(int(port)),
+					},
+				},
+				InitialDelaySeconds: 30,
+				TimeoutSeconds:      60,
+			}
+		}()
+
+		// Create expected readiness probe based on CR spec or defaults
+		expectedReadinessProbe := func() *corev1.Probe {
+			if hprs.Spec.ReadinessProbe != nil {
+				return hprs.Spec.ReadinessProbe.DeepCopy()
+			}
+			// Default readiness probe
+			return &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/ready",
+						Port: intstr.FromInt(int(port)),
+					},
+				},
+				InitialDelaySeconds: 30,
+				TimeoutSeconds:      60,
+				PeriodSeconds:       10,
+			}
+		}()
+
+		// Compare existing liveness probe with expected
+		if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe, expectedLivenessProbe) {
 			r.Log.Info("Liveness probe configuration changed")
 			needsUpdate = true
 		}
 
-		// Check readiness probe
-		if (existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe == nil && hprs.Spec.ReadinessProbe != nil) ||
-			(existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe != nil && hprs.Spec.ReadinessProbe == nil) ||
-			!reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe, hprs.Spec.ReadinessProbe) {
+		// Compare existing readiness probe with expected
+		if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe, expectedReadinessProbe) {
 			r.Log.Info("Readiness probe configuration changed")
 			needsUpdate = true
 		}
@@ -375,8 +437,30 @@ func (r *HumioPdfRenderServiceReconciler) checkDeploymentNeedsUpdate(
 		needsUpdate = true
 	}
 
-	// Check for annotation changes
-	if !reflect.DeepEqual(existingDeployment.Spec.Template.ObjectMeta.Annotations, hprs.Spec.Annotations) {
+	// Check if image pull secrets have changed
+	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.ImagePullSecrets, hprs.Spec.ImagePullSecrets) {
+		r.Log.Info("ImagePullSecrets changed")
+		return true
+	}
+
+	// Check for annotation changes - ignoring the restartedAt annotation which changes every reconciliation
+	existingAnnotations := make(map[string]string)
+	if existingDeployment.Spec.Template.ObjectMeta.Annotations != nil {
+		for k, v := range existingDeployment.Spec.Template.ObjectMeta.Annotations {
+			if k != "humio-pdf-render-service/restartedAt" {
+				existingAnnotations[k] = v
+			}
+		}
+	}
+
+	specAnnotations := make(map[string]string)
+	if hprs.Spec.Annotations != nil {
+		for k, v := range hprs.Spec.Annotations {
+			specAnnotations[k] = v
+		}
+	}
+
+	if !reflect.DeepEqual(existingAnnotations, specAnnotations) {
 		r.Log.Info("Annotations changed")
 		needsUpdate = true
 	}
@@ -414,7 +498,9 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 
 	// Update resources - ensure we're properly setting the resources from the CR spec
 	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Resources, hprs.Spec.Resources) {
-		r.Log.Info("Updating container resources", "Current", existingDeployment.Spec.Template.Spec.Containers[0].Resources, "Desired", hprs.Spec.Resources)
+		r.Log.Info("Updating container resources",
+			"Current", existingDeployment.Spec.Template.Spec.Containers[0].Resources,
+			"Desired", hprs.Spec.Resources)
 		existingDeployment.Spec.Template.Spec.Containers[0].Resources = hprs.Spec.Resources
 	}
 
@@ -445,6 +531,10 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 	// Update probes
 	r.updateProbes(existingDeployment, hprs, port)
 
+	// Update image pull secrets
+	if hprs.Spec.ImagePullSecrets != nil {
+		existingDeployment.Spec.Template.Spec.ImagePullSecrets = hprs.Spec.ImagePullSecrets
+	}
 	// Update service account and affinity
 	existingDeployment.Spec.Template.Spec.ServiceAccountName = hprs.Spec.ServiceAccountName
 	existingDeployment.Spec.Template.Spec.Affinity = hprs.Spec.Affinity
@@ -502,7 +592,7 @@ func (r *HumioPdfRenderServiceReconciler) updateProbes(
 	if hprs.Spec.ReadinessProbe != nil {
 		deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = hprs.Spec.ReadinessProbe.DeepCopy()
 	} else {
-		// Set default readiness probe - ensuring values match with test expectations
+		// Set default readiness probe - ensuring values match with test expectations and checkDeploymentNeedsUpdate
 		deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
@@ -510,7 +600,7 @@ func (r *HumioPdfRenderServiceReconciler) updateProbes(
 					Port: intstr.FromInt(int(port)),
 				},
 			},
-			InitialDelaySeconds: 30, // FIXED: Changed from 10 to 30 to match test expectations
+			InitialDelaySeconds: 30,
 			TimeoutSeconds:      60,
 			PeriodSeconds:       10,
 		}
@@ -623,7 +713,7 @@ func (r *HumioPdfRenderServiceReconciler) constructService(hprs *corev1alpha1.Hu
 
 	// Use the same labels as in the pod template
 	labels := map[string]string{
-		"app":                           "pdf-render-service",
+		"app":                        "pdf-render-service",
 		"humio-pdf-render-service-name": hprs.Name,
 	}
 
@@ -699,7 +789,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 
 	// Check selector changes - use "pdf-render-service" to match the pod labels
 	expectedSelector := map[string]string{
-		"app":                           "pdf-render-service",
+		"app":                        "pdf-render-service",
 		"humio-pdf-render-service-name": hprs.Name,
 	}
 	if !reflect.DeepEqual(existingService.Spec.Selector, expectedSelector) {
