@@ -79,6 +79,10 @@ type HumioPdfRenderServiceSpec struct {
 	// ServiceAccountName is the name of the Kubernetes Service Account to use.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// ImagePullSecrets is a list of references to secrets in the same namespace to use for pulling the image.
+	// +optional
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
 // HumioPdfRenderServiceStatus defines the observed state of HumioPdfRenderService

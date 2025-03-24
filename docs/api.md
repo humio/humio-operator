@@ -37077,6 +37077,13 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humiopdfrenderservicespecimagepullsecretsindex">imagePullSecrets</a></b></td>
+        <td>[]object</td>
+        <td>
+          ImagePullSecrets is a list of references to secrets in the same namespace to use for pulling the image.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humiopdfrenderservicespeclivenessprobe">livenessProbe</a></b></td>
         <td>object</td>
         <td>
@@ -39020,6 +39027,40 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
         <td>boolean</td>
         <td>
           Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPdfRenderService.spec.imagePullSecrets[index]
+<sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
+
+
+
+LocalObjectReference contains enough information to let you locate the
+referenced object inside the same namespace.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
