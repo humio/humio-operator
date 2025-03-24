@@ -290,6 +290,11 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 		},
 	}
 
+	// Add ImagePullSecrets with nil check
+	if hprs.Spec.ImagePullSecrets != nil {
+		deployment.Spec.Template.Spec.ImagePullSecrets = hprs.Spec.ImagePullSecrets
+	}
+
 	return deployment
 }
 
@@ -375,6 +380,12 @@ func (r *HumioPdfRenderServiceReconciler) checkDeploymentNeedsUpdate(
 		needsUpdate = true
 	}
 
+	// Check if image pull secrets have changed
+	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.ImagePullSecrets, hprs.Spec.ImagePullSecrets) {
+		r.Log.Info("ImagePullSecrets changed")
+		return true
+	}
+
 	// Check for annotation changes
 	if !reflect.DeepEqual(existingDeployment.Spec.Template.ObjectMeta.Annotations, hprs.Spec.Annotations) {
 		r.Log.Info("Annotations changed")
@@ -445,6 +456,10 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 	// Update probes
 	r.updateProbes(existingDeployment, hprs, port)
 
+	// Update image pull secrets
+	if hprs.Spec.ImagePullSecrets != nil {
+		existingDeployment.Spec.Template.Spec.ImagePullSecrets = hprs.Spec.ImagePullSecrets
+	}
 	// Update service account and affinity
 	existingDeployment.Spec.Template.Spec.ServiceAccountName = hprs.Spec.ServiceAccountName
 	existingDeployment.Spec.Template.Spec.Affinity = hprs.Spec.Affinity
