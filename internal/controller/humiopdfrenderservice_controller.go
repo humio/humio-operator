@@ -386,8 +386,24 @@ func (r *HumioPdfRenderServiceReconciler) checkDeploymentNeedsUpdate(
 		return true
 	}
 
-	// Check for annotation changes
-	if !reflect.DeepEqual(existingDeployment.Spec.Template.ObjectMeta.Annotations, hprs.Spec.Annotations) {
+	// Check for annotation changes - ignoring the restartedAt annotation which changes every reconciliation
+	existingAnnotations := make(map[string]string)
+	if existingDeployment.Spec.Template.ObjectMeta.Annotations != nil {
+		for k, v := range existingDeployment.Spec.Template.ObjectMeta.Annotations {
+			if k != "humio-pdf-render-service/restartedAt" {
+				existingAnnotations[k] = v
+			}
+		}
+	}
+
+	specAnnotations := make(map[string]string)
+	if hprs.Spec.Annotations != nil {
+		for k, v := range hprs.Spec.Annotations {
+			specAnnotations[k] = v
+		}
+	}
+
+	if !reflect.DeepEqual(existingAnnotations, specAnnotations) {
 		r.Log.Info("Annotations changed")
 		needsUpdate = true
 	}
@@ -425,7 +441,9 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 
 	// Update resources - ensure we're properly setting the resources from the CR spec
 	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Resources, hprs.Spec.Resources) {
-		r.Log.Info("Updating container resources", "Current", existingDeployment.Spec.Template.Spec.Containers[0].Resources, "Desired", hprs.Spec.Resources)
+		r.Log.Info("Updating container resources",
+			"Current", existingDeployment.Spec.Template.Spec.Containers[0].Resources,
+			"Desired", hprs.Spec.Resources)
 		existingDeployment.Spec.Template.Spec.Containers[0].Resources = hprs.Spec.Resources
 	}
 
