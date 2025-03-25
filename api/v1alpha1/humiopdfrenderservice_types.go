@@ -87,6 +87,22 @@ type HumioPdfRenderServiceSpec struct {
 	// ImagePullSecrets is a list of references to secrets in the same namespace to use for pulling the image.
 	// +optional
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+
+	// VolumeMounts defines the volume mounts for the container.
+	// +optional
+	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
+
+	// Volumes defines the volumes to be mounted in the pod.
+	// +optional
+	Volumes []corev1.Volume `json:"volumes,omitempty"`
+
+	// SecurityContext defines the security context for the container.
+	// +optional
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+
+	// PodSecurityContext defines the security context for the pod.
+	// +optional
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 }
 
 // HumioPdfRenderServiceStatus defines the observed state of HumioPdfRenderService
