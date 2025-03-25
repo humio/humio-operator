@@ -211,14 +211,21 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 	// Ensure we're using the image from CR
 	imageToUse := hprs.Spec.Image
 
-	// Use consistent labeling for all components - using "pdf-render-service" as the app name
+	// Start with default labels
 	labels := map[string]string{
 		"app": "pdf-render-service",
+	}
+	// Add any custom labels from the spec
+	if hprs.Spec.Labels != nil {
+		for k, v := range hprs.Spec.Labels {
+			labels[k] = v
+		}
 	}
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
 			Namespace: hprs.Namespace,
+			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &hprs.Spec.Replicas,
@@ -437,9 +444,13 @@ func (r *HumioPdfRenderServiceReconciler) checkDeploymentNeedsUpdate(
 	// Check if image pull secrets have changed - treat nil and empty array as equivalent
 	currentSecrets := existingDeployment.Spec.Template.Spec.ImagePullSecrets
 	desiredSecrets := hprs.Spec.ImagePullSecrets
-	if (currentSecrets == nil && desiredSecrets != nil && len(desiredSecrets) > 0) ||
-		(currentSecrets != nil && desiredSecrets == nil && len(currentSecrets) > 0) ||
-		(currentSecrets != nil && desiredSecrets != nil && !reflect.DeepEqual(currentSecrets, desiredSecrets)) {
+
+	// Both nil or both empty
+	if (currentSecrets == nil && desiredSecrets == nil) || (len(currentSecrets) == 0 && len(desiredSecrets) == 0) {
+		// No change needed
+	} else if (currentSecrets == nil && len(desiredSecrets) > 0) ||
+		(len(currentSecrets) > 0 && desiredSecrets == nil) ||
+		!reflect.DeepEqual(currentSecrets, desiredSecrets) {
 		r.Log.Info("ImagePullSecrets changed", "Current", currentSecrets, "Desired", desiredSecrets)
 		needsUpdate = true
 	}
