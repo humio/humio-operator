@@ -44,7 +44,6 @@ rules:
   - humioalerts
   - humiobootstraptokens
   - humioclusters
-  - humioexternalclusters
   - humiofilteralerts
   - humioingesttokens
   - humioparsers
@@ -68,7 +67,6 @@ rules:
   - humioalerts/finalizers
   - humiobootstraptokens/finalizers
   - humioclusters/finalizers
-  - humioexternalclusters/finalizers
   - humiofilteralerts/finalizers
   - humioingesttokens/finalizers
   - humioparsers/finalizers
@@ -86,7 +84,6 @@ rules:
   - humioalerts/status
   - humiobootstraptokens/status
   - humioclusters/status
-  - humioexternalclusters/status
   - humiofilteralerts/status
   - humioingesttokens/status
   - humioparsers/status
