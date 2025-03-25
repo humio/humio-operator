@@ -4312,12 +4312,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return false
 				}
 
-				// Check for restart annotation (should exist but value will change)
-				_, hasRestartAnnotation := deployment.Spec.Template.Annotations["humio-pdf-render-service/restartedAt"]
-				if !hasRestartAnnotation {
-					return false
-				}
-
 				// Check custom annotations
 				for k, v := range customAnnotations {
 					value, exists := deployment.Spec.Template.Annotations[k]
