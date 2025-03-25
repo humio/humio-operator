@@ -82,7 +82,7 @@ spec:
   - name: ENABLE_SCHEDULED_REPORT
     value: "true"
   - name: DEFAULT_PDF_RENDER_SERVICE_URL
-    value: http://pdf-render-service:5123
+    value: http://pdf-render-service.logging.svc.cluster.local:5123
   - name: POSTMARK_FROM
     value: Humio <noreply@humio.com>
   - name: POSTMARK_SERVER_SECRET
