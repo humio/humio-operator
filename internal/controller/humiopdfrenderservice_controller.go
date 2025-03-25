@@ -6,10 +6,6 @@ import (
 	"reflect"
 	"time"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
-
 	"github.com/go-logr/logr"
 	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/internal/helpers"
@@ -17,9 +13,12 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -42,7 +41,11 @@ type HumioPdfRenderServiceReconciler struct {
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 
-const humioPdfRenderServiceFinalizer = "core.humio.com/finalizer"
+const (
+	humioPdfRenderServiceFinalizer = "core.humio.com/finalizer"
+	deploymentName                 = "pdf-render-service"
+	credentialsSecretName          = "regcred"
+)
 
 // Reconcile implements the reconciliation logic for HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -52,7 +55,8 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	}
 
-	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
+	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name,
+		"Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
 	r.Log.Info("Reconciling HumioPdfRenderService")
 
 	// Fetch the HumioPdfRenderService instance
@@ -111,7 +115,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	defer func() {
 		deployment := &appsv1.Deployment{}
 		deploymentErr := r.Client.Get(ctx, types.NamespacedName{
-			Name:      "pdf-render-service",
+			Name:      deploymentName, // Use constant
 			Namespace: hprs.Namespace,
 		}, deployment)
 
@@ -124,7 +128,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 			listOpts := []client.ListOption{
 				client.InNamespace(hprs.Namespace),
 				client.MatchingLabels(map[string]string{
-					"app": "pdf-render-service", // FIXED: Changed from "humio-pdf-render-service" to "pdf-render-service"
+					"app": deploymentName, // Use constant
 				}),
 			}
 			if err = r.List(ctx, podList, listOpts...); err == nil {
@@ -205,14 +209,14 @@ func (r *HumioPdfRenderServiceReconciler) logErrorAndReturn(err error, msg strin
 
 // constructDeployment constructs a Deployment for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1.HumioPdfRenderService) *appsv1.Deployment {
-	deploymentName := "pdf-render-service"
+	deploymentName := deploymentName
 
 	// Ensure we're using the image from CR
 	imageToUse := hprs.Spec.Image
 
 	// Start with default labels
 	labels := map[string]string{
-		"app": "pdf-render-service",
+		"app": deploymentName, // Use constant
 	}
 	// Add any custom labels from the spec
 	if hprs.Spec.Labels != nil {
@@ -233,10 +237,8 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-					Annotations: map[string]string{
-						"humio-pdf-render-service/restartedAt": time.Now().Format(time.RFC3339),
-					},
+					Labels:      labels,
+					Annotations: hprs.Spec.Annotations, // Directly use annotations from the spec
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: hprs.Spec.ServiceAccountName,
@@ -267,8 +269,8 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 						}
 					}(),
 					Containers: []corev1.Container{{
-						Name:            "pdf-render-service",
-						Image:           imageToUse, // Use the image from CR directly
+						Name:            deploymentName, // Use constant
+						Image:           imageToUse,     // Use the image from CR directly
 						ImagePullPolicy: corev1.PullIfNotPresent,
 						SecurityContext: func() *corev1.SecurityContext {
 							if hprs.Spec.SecurityContext != nil {
@@ -367,20 +369,77 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 		},
 	}
 
-	// Add ImagePullSecrets with special handling for ecr-credentials
+	// Add ImagePullSecrets with special handling for default credentials
 	if hprs.Spec.ImagePullSecrets != nil {
 		deployment.Spec.Template.Spec.ImagePullSecrets = hprs.Spec.ImagePullSecrets
 	} else {
-		// If no ImagePullSecrets specified, use default ecr-credentials
+		// If no ImagePullSecrets specified, use default credentials
 		// This ensures backward compatibility with existing deployments
 		deployment.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{
 			{
-				Name: "ecr-credentials",
+				Name: credentialsSecretName, // Use constant
 			},
 		}
 	}
 
 	return deployment
+}
+
+// checkResourceChanges compares the current and desired resource requirements
+func (r *HumioPdfRenderServiceReconciler) checkResourceChanges(
+	existingDeployment *appsv1.Deployment,
+	desiredResources corev1.ResourceRequirements) bool {
+
+	if len(existingDeployment.Spec.Template.Spec.Containers) == 0 {
+		return false
+	}
+
+	currentResources := existingDeployment.Spec.Template.Spec.Containers[0].Resources
+	r.Log.Info("Resource comparison",
+		"Current.Limits.CPU", currentResources.Limits.Cpu().String(),
+		"Current.Limits.Memory", currentResources.Limits.Memory().String(),
+		"Current.Requests.CPU", currentResources.Requests.Cpu().String(),
+		"Current.Requests.Memory", currentResources.Requests.Memory().String(),
+		"Desired.Limits.CPU", desiredResources.Limits.Cpu().String(),
+		"Desired.Limits.Memory", desiredResources.Limits.Memory().String(),
+		"Desired.Requests.CPU", desiredResources.Requests.Cpu().String(),
+		"Desired.Requests.Memory", desiredResources.Requests.Memory().String())
+
+	if !reflect.DeepEqual(currentResources, desiredResources) {
+		r.Log.Info("Resources changed")
+		return true
+	}
+	return false
+}
+
+// checkImageChanges compares the current and desired container images
+func (r *HumioPdfRenderServiceReconciler) checkReplicasChanges(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	if existingDeployment.Spec.Replicas == nil || *existingDeployment.Spec.Replicas != hprs.Spec.Replicas {
+		r.Log.Info("Replicas changed", "Old", existingDeployment.Spec.Replicas, "New", hprs.Spec.Replicas)
+		return true
+	}
+	return false
+}
+
+// checkImageChanges compares the current and desired container images
+func (r *HumioPdfRenderServiceReconciler) checkImageChanges(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	if len(existingDeployment.Spec.Template.Spec.Containers) == 0 {
+		return false
+	}
+
+	currentImage := existingDeployment.Spec.Template.Spec.Containers[0].Image
+	desiredImage := hprs.Spec.Image
+	if currentImage != desiredImage {
+		r.Log.Info("Container image changed", "OldImage", currentImage, "NewImage", desiredImage)
+		return true
+	}
+	return false
 }
 
 // checkDeploymentNeedsUpdate checks if the deployment needs an update by comparing
@@ -392,297 +451,18 @@ func (r *HumioPdfRenderServiceReconciler) checkDeploymentNeedsUpdate(
 
 	needsUpdate := false
 
-	// Check for resource changes
-	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 {
-		currentResources := existingDeployment.Spec.Template.Spec.Containers[0].Resources
-
-		r.Log.Info("Resource comparison",
-			"Current.Limits.CPU", currentResources.Limits.Cpu().String(),
-			"Current.Limits.Memory", currentResources.Limits.Memory().String(),
-			"Current.Requests.CPU", currentResources.Requests.Cpu().String(),
-			"Current.Requests.Memory", currentResources.Requests.Memory().String(),
-			"Desired.Limits.CPU", desiredResources.Limits.Cpu().String(),
-			"Desired.Limits.Memory", desiredResources.Limits.Memory().String(),
-			"Desired.Requests.CPU", desiredResources.Requests.Cpu().String(),
-			"Desired.Requests.Memory", desiredResources.Requests.Memory().String())
-
-		if !reflect.DeepEqual(currentResources, desiredResources) {
-			r.Log.Info("Resources changed")
-			needsUpdate = true
-		}
-	}
-
-	// Check for container image changes
-	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 {
-		currentImage := existingDeployment.Spec.Template.Spec.Containers[0].Image
-		desiredImage := hprs.Spec.Image
-		if currentImage != desiredImage {
-			r.Log.Info("Container image changed", "OldImage", currentImage, "NewImage", desiredImage)
-			needsUpdate = true
-		}
-	}
-
-	// Check replicas
-	if existingDeployment.Spec.Replicas == nil || *existingDeployment.Spec.Replicas != hprs.Spec.Replicas {
-		r.Log.Info("Replicas changed", "Old", existingDeployment.Spec.Replicas, "New", hprs.Spec.Replicas)
-		needsUpdate = true
-	}
-
-	// Check for environment variable changes
-	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 && !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Env, hprs.Spec.Env) {
-		r.Log.Info("Environment variables changed")
-		needsUpdate = true
-	}
-
-	// Check for probe changes
-	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 {
-		// Get the port to use (default or from CR)
-		port := int32(5123)
-		if hprs.Spec.Port != 0 {
-			port = hprs.Spec.Port
-		}
-
-		// Create expected liveness probe based on CR spec or defaults
-		expectedLivenessProbe := func() *corev1.Probe {
-			if hprs.Spec.LivenessProbe != nil {
-				probe := hprs.Spec.LivenessProbe.DeepCopy()
-				// Ensure Scheme is set if not specified
-				if probe.HTTPGet != nil && probe.HTTPGet.Scheme == "" {
-					probe.HTTPGet.Scheme = corev1.URISchemeHTTP
-				}
-				return probe
-			}
-			// Default liveness probe with all required fields
-			return &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path:   "/health",
-						Port:   intstr.FromInt(int(port)),
-						Scheme: corev1.URISchemeHTTP,
-					},
-				},
-				InitialDelaySeconds: 30,
-				TimeoutSeconds:      60,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				FailureThreshold:    3,
-			}
-		}()
-
-		// Create expected readiness probe based on CR spec or defaults
-		expectedReadinessProbe := func() *corev1.Probe {
-			if hprs.Spec.ReadinessProbe != nil {
-				probe := hprs.Spec.ReadinessProbe.DeepCopy()
-				// Ensure Scheme is set if not specified
-				if probe.HTTPGet != nil && probe.HTTPGet.Scheme == "" {
-					probe.HTTPGet.Scheme = corev1.URISchemeHTTP
-				}
-				return probe
-			}
-			// Default readiness probe with all required fields
-			return &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path:   "/ready",
-						Port:   intstr.FromInt(int(port)),
-						Scheme: corev1.URISchemeHTTP,
-					},
-				},
-				InitialDelaySeconds: 30,
-				TimeoutSeconds:      60,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				FailureThreshold:    1,
-			}
-		}()
-
-		// Compare existing liveness probe with expected
-		if existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe == nil ||
-			!reflect.DeepEqual(*existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe, *expectedLivenessProbe) {
-			r.Log.Info("Liveness probe configuration changed",
-				"Current", existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe,
-				"Desired", expectedLivenessProbe)
-			needsUpdate = true
-		}
-
-		// Compare existing readiness probe with expected
-		if existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe == nil ||
-			!reflect.DeepEqual(*existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe, *expectedReadinessProbe) {
-			r.Log.Info("Readiness probe configuration changed",
-				"Current", existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe,
-				"Desired", expectedReadinessProbe)
-			needsUpdate = true
-		}
-	}
-
-	// Check for ServiceAccount changes
-	if existingDeployment.Spec.Template.Spec.ServiceAccountName != hprs.Spec.ServiceAccountName {
-		r.Log.Info("ServiceAccount changed",
-			"Old", existingDeployment.Spec.Template.Spec.ServiceAccountName,
-			"New", hprs.Spec.ServiceAccountName)
-		needsUpdate = true
-	}
-
-	// Check for Affinity changes
-	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Affinity, hprs.Spec.Affinity) {
-		r.Log.Info("Affinity configuration changed")
-		needsUpdate = true
-	}
-
-	// Check if image pull secrets have changed - treat nil and empty array as equivalent
-	currentSecrets := existingDeployment.Spec.Template.Spec.ImagePullSecrets
-	desiredSecrets := hprs.Spec.ImagePullSecrets
-
-	// Special case: If we have ecr-credentials in current but nil in desired, don't update
-	// This handles the case where the operator was previously configured with ecr-credentials
-	// but the CR doesn't specify any ImagePullSecrets
-	hasEcrCredentials := false
-	if currentSecrets != nil && len(currentSecrets) == 1 {
-		for _, secret := range currentSecrets {
-			if secret.Name == "ecr-credentials" {
-				hasEcrCredentials = true
-				break
-			}
-		}
-	}
-
-	if hasEcrCredentials && desiredSecrets == nil {
-		// Don't update if we have ecr-credentials but desired is nil
-		r.Log.Info("Preserving existing ecr-credentials despite nil in spec")
-	} else if (currentSecrets == nil && desiredSecrets == nil) || (len(currentSecrets) == 0 && len(desiredSecrets) == 0) {
-		// Both nil or both empty - no change needed
-	} else if (currentSecrets == nil && len(desiredSecrets) > 0) ||
-		(len(currentSecrets) > 0 && desiredSecrets == nil && !hasEcrCredentials) ||
-		!reflect.DeepEqual(currentSecrets, desiredSecrets) {
-		r.Log.Info("ImagePullSecrets changed", "Current", currentSecrets, "Desired", desiredSecrets)
-		needsUpdate = true
-	}
-
-	// Check for volume mounts changes
-	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 {
-		// Get expected volume mounts
-		expectedVolumeMounts := func() []corev1.VolumeMount {
-			if hprs.Spec.VolumeMounts != nil {
-				return hprs.Spec.VolumeMounts
-			}
-			// Default volume mounts if not specified
-			return []corev1.VolumeMount{
-				{
-					Name:      "app-temp",
-					MountPath: "/app/temp",
-				},
-				{
-					Name:      "tmp",
-					MountPath: "/tmp",
-				},
-			}
-		}()
-
-		if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].VolumeMounts, expectedVolumeMounts) {
-			r.Log.Info("Volume mounts configuration changed")
-			needsUpdate = true
-		}
-	}
-
-	// Check for volumes changes
-	expectedVolumes := func() []corev1.Volume {
-		if hprs.Spec.Volumes != nil {
-			return hprs.Spec.Volumes
-		}
-		// Default volumes if not specified
-		return []corev1.Volume{
-			{
-				Name: "app-temp",
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{
-						Medium: corev1.StorageMediumMemory,
-					},
-				},
-			},
-			{
-				Name: "tmp",
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{
-						Medium: corev1.StorageMediumMemory,
-					},
-				},
-			},
-		}
-	}()
-
-	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Volumes, expectedVolumes) {
-		r.Log.Info("Volumes configuration changed")
-		needsUpdate = true
-	}
-
-	// Check for container security context changes
-	expectedContainerSecurityContext := func() *corev1.SecurityContext {
-		if hprs.Spec.SecurityContext != nil {
-			return hprs.Spec.SecurityContext
-		}
-		// Default security context if not specified
-		return &corev1.SecurityContext{
-			AllowPrivilegeEscalation: func() *bool { b := false; return &b }(),
-			Privileged:               func() *bool { b := false; return &b }(),
-			ReadOnlyRootFilesystem:   func() *bool { b := true; return &b }(),
-			RunAsNonRoot:             func() *bool { b := true; return &b }(),
-			RunAsUser:                func() *int64 { i := int64(1000); return &i }(),
-			RunAsGroup:               func() *int64 { i := int64(1000); return &i }(),
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-		}
-	}()
-
-	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].SecurityContext, expectedContainerSecurityContext) {
-		r.Log.Info("Container security context changed",
-			"Current", existingDeployment.Spec.Template.Spec.Containers[0].SecurityContext,
-			"Desired", expectedContainerSecurityContext)
-		needsUpdate = true
-	}
-
-	// Check for pod security context changes
-	// If the spec's PodSecurityContext is nil, use an empty PodSecurityContext for comparison
-	// This prevents continuous reconciliation when comparing nil vs empty object
-	expectedPodSecurityContext := hprs.Spec.PodSecurityContext
-	if expectedPodSecurityContext == nil {
-		expectedPodSecurityContext = &corev1.PodSecurityContext{}
-	}
-
-	// Only consider it changed if there are actual differences in the fields
-	// This handles the case where one is nil and one is an empty object
-	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.SecurityContext, expectedPodSecurityContext) {
-		// Additional check to handle nil vs empty object
-		if !(existingDeployment.Spec.Template.Spec.SecurityContext == nil && isPodSecurityContextEmpty(expectedPodSecurityContext)) &&
-			!(expectedPodSecurityContext == nil && isPodSecurityContextEmpty(existingDeployment.Spec.Template.Spec.SecurityContext)) {
-			r.Log.Info("Pod security context changed",
-				"Current", existingDeployment.Spec.Template.Spec.SecurityContext,
-				"Desired", expectedPodSecurityContext)
-			needsUpdate = true
-		}
-	}
-
-	// Check for annotation changes - ignoring the restartedAt annotation which changes every reconciliation
-	existingAnnotations := make(map[string]string)
-	if existingDeployment.Spec.Template.ObjectMeta.Annotations != nil {
-		for k, v := range existingDeployment.Spec.Template.ObjectMeta.Annotations {
-			if k != "humio-pdf-render-service/restartedAt" {
-				existingAnnotations[k] = v
-			}
-		}
-	}
-
-	specAnnotations := make(map[string]string)
-	if hprs.Spec.Annotations != nil {
-		for k, v := range hprs.Spec.Annotations {
-			specAnnotations[k] = v
-		}
-	}
-
-	if !reflect.DeepEqual(existingAnnotations, specAnnotations) {
-		r.Log.Info("Annotations changed")
-		needsUpdate = true
-	}
+	needsUpdate = r.checkResourceChanges(existingDeployment, desiredResources) || needsUpdate
+	needsUpdate = r.checkImageChanges(existingDeployment, hprs) || needsUpdate
+	needsUpdate = r.checkReplicasChanges(existingDeployment, hprs) || needsUpdate
+	needsUpdate = r.checkEnvVarChanges(existingDeployment, hprs) || needsUpdate
+	needsUpdate = r.checkProbeChanges(existingDeployment, hprs) || needsUpdate
+	needsUpdate = r.checkServiceAccountChanges(existingDeployment, hprs) || needsUpdate
+	needsUpdate = r.checkAffinityChanges(existingDeployment, hprs) || needsUpdate
+	needsUpdate = r.checkImagePullSecretChanges(existingDeployment, hprs) || needsUpdate
+	needsUpdate = r.checkVolumeMountChanges(existingDeployment, hprs) || needsUpdate
+	needsUpdate = r.checkVolumeChanges(existingDeployment, hprs) || needsUpdate
+	needsUpdate = r.checkSecurityContextChanges(existingDeployment, hprs) || needsUpdate
+	needsUpdate = r.checkAnnotationChanges(existingDeployment, hprs) || needsUpdate // Use checkAnnotationChanges
 
 	return needsUpdate
 }
@@ -694,7 +474,6 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 	hprs *corev1alpha1.HumioPdfRenderService,
 	desiredResources corev1.ResourceRequirements) error {
 
-	// Use retry.RetryOnConflict with a single update attempt
 	var lastConflictErr error
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Get the latest version of the deployment right before updating
@@ -712,258 +491,18 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 			}
 		}
 
-		// Only update fields that actually need to be changed
-		needsUpdate := false
-
-		// Check and update replicas if needed
-		if existingDeployment.Spec.Replicas == nil || *existingDeployment.Spec.Replicas != hprs.Spec.Replicas {
-			existingDeployment.Spec.Replicas = &hprs.Spec.Replicas
-			needsUpdate = true
-		}
-
-		// Ensure we have at least one container
-		if len(existingDeployment.Spec.Template.Spec.Containers) == 0 {
-			existingDeployment.Spec.Template.Spec.Containers = []corev1.Container{
-				{
-					Name: "pdf-render-service",
-				},
-			}
-			needsUpdate = true
-		}
-
-		// Update image if changed
-		if existingDeployment.Spec.Template.Spec.Containers[0].Image != hprs.Spec.Image {
-			existingDeployment.Spec.Template.Spec.Containers[0].Image = hprs.Spec.Image
-			existingDeployment.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullIfNotPresent
-			needsUpdate = true
-		}
-
-		// Update resources if changed
-		if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Resources, hprs.Spec.Resources) {
-			r.Log.Info("Updating container resources",
-				"Current", existingDeployment.Spec.Template.Spec.Containers[0].Resources,
-				"Desired", hprs.Spec.Resources)
-			existingDeployment.Spec.Template.Spec.Containers[0].Resources = hprs.Spec.Resources
-			needsUpdate = true
-		}
-
-		// Update port configuration if changed
-		port := int32(5123)
-		if hprs.Spec.Port != 0 {
-			port = hprs.Spec.Port
-		}
-		if len(existingDeployment.Spec.Template.Spec.Containers[0].Ports) == 0 ||
-			existingDeployment.Spec.Template.Spec.Containers[0].Ports[0].ContainerPort != port {
-			existingDeployment.Spec.Template.Spec.Containers[0].Ports = []corev1.ContainerPort{
-				{
-					ContainerPort: port,
-					Name:          "http",
-				},
-			}
-			needsUpdate = true
-		}
-
-		// Check if probes need to be updated
-		// Create expected liveness probe based on CR spec or defaults
-		expectedLivenessProbe := func() *corev1.Probe {
-			if hprs.Spec.LivenessProbe != nil {
-				probe := hprs.Spec.LivenessProbe.DeepCopy()
-				// Ensure Scheme is set if not specified
-				if probe.HTTPGet != nil && probe.HTTPGet.Scheme == "" {
-					probe.HTTPGet.Scheme = corev1.URISchemeHTTP
-				}
-				return probe
-			}
-			// Default liveness probe with all required fields
-			return &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path:   "/health",
-						Port:   intstr.FromInt(int(port)),
-						Scheme: corev1.URISchemeHTTP,
-					},
-				},
-				InitialDelaySeconds: 30,
-				TimeoutSeconds:      60,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				FailureThreshold:    3,
-			}
-		}()
-
-		// Create expected readiness probe based on CR spec or defaults
-		expectedReadinessProbe := func() *corev1.Probe {
-			if hprs.Spec.ReadinessProbe != nil {
-				probe := hprs.Spec.ReadinessProbe.DeepCopy()
-				// Ensure Scheme is set if not specified
-				if probe.HTTPGet != nil && probe.HTTPGet.Scheme == "" {
-					probe.HTTPGet.Scheme = corev1.URISchemeHTTP
-				}
-				return probe
-			}
-			// Default readiness probe with all required fields
-			return &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path:   "/ready",
-						Port:   intstr.FromInt(int(port)),
-						Scheme: corev1.URISchemeHTTP,
-					},
-				},
-				InitialDelaySeconds: 30,
-				TimeoutSeconds:      60,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				FailureThreshold:    1,
-			}
-		}()
-
-		// Compare existing liveness probe with expected
-		if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe, expectedLivenessProbe) {
-			r.Log.Info("Updating liveness probe configuration")
-			existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe = expectedLivenessProbe
-			needsUpdate = true
-		}
-
-		// Compare existing readiness probe with expected
-		if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe, expectedReadinessProbe) {
-			r.Log.Info("Updating readiness probe configuration")
-			existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe = expectedReadinessProbe
-			needsUpdate = true
-		}
-
-		// Update other fields only if we have changes to make
-		if needsUpdate {
-			// Update environment variables if specified
-			if len(hprs.Spec.Env) > 0 {
-				existingDeployment.Spec.Template.Spec.Containers[0].Env = hprs.Spec.Env
-			} else if len(existingDeployment.Spec.Template.Spec.Containers[0].Env) == 0 {
-				existingDeployment.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{
-					{
-						Name:  "LOG_LEVEL",
-						Value: "debug",
-					},
-				}
-			}
-
-			// Update image pull secrets if specified
-			// Special case: If we have ecr-credentials in current but nil in desired, preserve ecr-credentials
-			hasEcrCredentials := false
-			if existingDeployment.Spec.Template.Spec.ImagePullSecrets != nil && len(existingDeployment.Spec.Template.Spec.ImagePullSecrets) == 1 {
-				for _, secret := range existingDeployment.Spec.Template.Spec.ImagePullSecrets {
-					if secret.Name == "ecr-credentials" {
-						hasEcrCredentials = true
-						break
-					}
-				}
-			}
-
-			if hprs.Spec.ImagePullSecrets != nil {
-				existingDeployment.Spec.Template.Spec.ImagePullSecrets = hprs.Spec.ImagePullSecrets
-			} else if hasEcrCredentials {
-				// Preserve ecr-credentials if present and spec is nil
-				r.Log.Info("Preserving existing ecr-credentials despite nil in spec")
-				// No change needed - keep existing ecr-credentials
-			}
-
-			// Update volume mounts if specified
-			expectedVolumeMounts := func() []corev1.VolumeMount {
-				if hprs.Spec.VolumeMounts != nil {
-					return hprs.Spec.VolumeMounts
-				}
-				// Default volume mounts if not specified
-				return []corev1.VolumeMount{
-					{
-						Name:      "app-temp",
-						MountPath: "/app/temp",
-					},
-					{
-						Name:      "tmp",
-						MountPath: "/tmp",
-					},
-				}
-			}()
-			existingDeployment.Spec.Template.Spec.Containers[0].VolumeMounts = expectedVolumeMounts
-
-			// Update volumes if specified
-			expectedVolumes := func() []corev1.Volume {
-				if hprs.Spec.Volumes != nil {
-					return hprs.Spec.Volumes
-				}
-				// Default volumes if not specified
-				return []corev1.Volume{
-					{
-						Name: "app-temp",
-						VolumeSource: corev1.VolumeSource{
-							EmptyDir: &corev1.EmptyDirVolumeSource{
-								Medium: corev1.StorageMediumMemory,
-							},
-						},
-					},
-					{
-						Name: "tmp",
-						VolumeSource: corev1.VolumeSource{
-							EmptyDir: &corev1.EmptyDirVolumeSource{
-								Medium: corev1.StorageMediumMemory,
-							},
-						},
-					},
-				}
-			}()
-			existingDeployment.Spec.Template.Spec.Volumes = expectedVolumes
-
-			// Update container security context
-			expectedContainerSecurityContext := func() *corev1.SecurityContext {
-				if hprs.Spec.SecurityContext != nil {
-					return hprs.Spec.SecurityContext.DeepCopy()
-				}
-				// Default security context if not specified
-				return &corev1.SecurityContext{
-					AllowPrivilegeEscalation: func() *bool { b := false; return &b }(),
-					Privileged:               func() *bool { b := false; return &b }(),
-					ReadOnlyRootFilesystem:   func() *bool { b := true; return &b }(),
-					RunAsNonRoot:             func() *bool { b := true; return &b }(),
-					RunAsUser:                func() *int64 { i := int64(1000); return &i }(),
-					RunAsGroup:               func() *int64 { i := int64(1000); return &i }(),
-					Capabilities: &corev1.Capabilities{
-						Drop: []corev1.Capability{"ALL"},
-					},
-				}
-			}()
-			r.Log.Info("Updating container security context",
-				"Current", existingDeployment.Spec.Template.Spec.Containers[0].SecurityContext,
-				"Desired", expectedContainerSecurityContext)
-			existingDeployment.Spec.Template.Spec.Containers[0].SecurityContext = expectedContainerSecurityContext
-
-			// Update pod security context
-			// If the spec's PodSecurityContext is nil, use an empty PodSecurityContext
-			// This prevents setting nil which can cause continuous reconciliation
-			if hprs.Spec.PodSecurityContext == nil {
-				// If the current security context is nil or empty, don't update it
-				if existingDeployment.Spec.Template.Spec.SecurityContext == nil || isPodSecurityContextEmpty(existingDeployment.Spec.Template.Spec.SecurityContext) {
-					r.Log.Info("Skipping pod security context update as both current and desired are effectively empty")
-				} else {
-					r.Log.Info("Updating pod security context to empty", "Current", existingDeployment.Spec.Template.Spec.SecurityContext)
-					existingDeployment.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{}
-				}
-			} else {
-				r.Log.Info("Updating pod security context",
-					"Current", existingDeployment.Spec.Template.Spec.SecurityContext,
-					"Desired", hprs.Spec.PodSecurityContext)
-				existingDeployment.Spec.Template.Spec.SecurityContext = hprs.Spec.PodSecurityContext.DeepCopy()
-			}
-
-			// Update service account and affinity if specified
-			if hprs.Spec.ServiceAccountName != "" {
-				existingDeployment.Spec.Template.Spec.ServiceAccountName = hprs.Spec.ServiceAccountName
-			}
-			if hprs.Spec.Affinity != nil {
-				existingDeployment.Spec.Template.Spec.Affinity = hprs.Spec.Affinity
-			}
-
-			// Update metadata (labels and annotations)
+		// Use helper functions to determine if updates are needed and apply them
+		specUpdated := r.updateDeploymentSpec(existingDeployment, hprs, desiredResources)
+		podSpecUpdated := r.updateDeploymentPodSpec(&existingDeployment.Spec.Template.Spec, hprs)
+		// updateDeploymentMetadata modifies directly, check changes separately
+		metadataChanged := r.checkMetadataChanges(existingDeployment, hprs)
+		if metadataChanged {
 			r.updateDeploymentMetadata(existingDeployment, hprs)
+		}
 
+		needsUpdate := specUpdated || podSpecUpdated || metadataChanged
+
+		if needsUpdate {
 			// Log the update operation with key details
 			cpuLimit := "not set"
 			memLimit := "not set"
@@ -994,6 +533,7 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 		}
 
 		// No changes needed
+		r.Log.Info("No update needed for Deployment", "Deployment.Name", existingDeployment.Name)
 		return nil
 	})
 
@@ -1015,16 +555,403 @@ func isPodSecurityContextEmpty(sc *corev1.PodSecurityContext) bool {
 	}
 
 	// Check if all fields have their zero values
-	return sc.SELinuxOptions == nil &&
-		sc.RunAsUser == nil &&
-		sc.RunAsNonRoot == nil &&
-		(sc.SupplementalGroups == nil || len(sc.SupplementalGroups) == 0) &&
-		sc.FSGroup == nil &&
-		sc.RunAsGroup == nil &&
-		(sc.Sysctls == nil || len(sc.Sysctls) == 0) &&
-		sc.WindowsOptions == nil &&
-		sc.FSGroupChangePolicy == nil &&
-		sc.SeccompProfile == nil
+	return sc.SELinuxOptions == nil && sc.RunAsUser == nil && sc.RunAsNonRoot == nil &&
+		(len(sc.SupplementalGroups) == 0) && sc.FSGroup == nil && sc.RunAsGroup == nil &&
+		len(sc.Sysctls) == 0 && // Fixed gosimple error
+		sc.WindowsOptions == nil && sc.FSGroupChangePolicy == nil && sc.SeccompProfile == nil
+}
+
+// checkEnvVarChanges checks if environment variables have changed
+func (r *HumioPdfRenderServiceReconciler) checkEnvVarChanges(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 &&
+		!reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Env, hprs.Spec.Env) {
+		r.Log.Info("Environment variables changed")
+		return true
+	}
+	return false
+}
+
+// checkProbeChanges checks if liveness/readiness probes have changed
+func (r *HumioPdfRenderServiceReconciler) checkProbeChanges(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	if len(existingDeployment.Spec.Template.Spec.Containers) == 0 {
+		return false
+	}
+
+	port := int32(5123)
+	if hprs.Spec.Port != 0 {
+		port = hprs.Spec.Port
+	}
+
+	expectedLivenessProbe := r.getExpectedLivenessProbe(hprs, port)
+	expectedReadinessProbe := r.getExpectedReadinessProbe(hprs, port)
+
+	livenessChanged := existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe == nil ||
+		!reflect.DeepEqual(*existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe, *expectedLivenessProbe)
+
+	readinessChanged := existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe == nil ||
+		!reflect.DeepEqual(*existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe, *expectedReadinessProbe)
+
+	if livenessChanged {
+		r.Log.Info("Liveness probe configuration changed",
+			"Current", existingDeployment.Spec.Template.Spec.Containers[0].LivenessProbe,
+			"Desired", expectedLivenessProbe)
+	}
+
+	if readinessChanged {
+		r.Log.Info("Readiness probe configuration changed",
+			"Current", existingDeployment.Spec.Template.Spec.Containers[0].ReadinessProbe,
+			"Desired", expectedReadinessProbe)
+	}
+
+	return livenessChanged || readinessChanged
+}
+
+// getExpectedLivenessProbe returns the expected liveness probe configuration
+func (r *HumioPdfRenderServiceReconciler) getExpectedLivenessProbe(
+	hprs *corev1alpha1.HumioPdfRenderService,
+	port int32) *corev1.Probe {
+
+	if hprs.Spec.LivenessProbe != nil {
+		probe := hprs.Spec.LivenessProbe.DeepCopy()
+		if probe.HTTPGet != nil && probe.HTTPGet.Scheme == "" {
+			probe.HTTPGet.Scheme = corev1.URISchemeHTTP
+		}
+		return probe
+	}
+
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   "/health",
+				Port:   intstr.FromInt(int(port)),
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		InitialDelaySeconds: 30,
+		TimeoutSeconds:      60,
+		PeriodSeconds:       10,
+		SuccessThreshold:    1,
+		FailureThreshold:    3,
+	}
+}
+
+// getExpectedReadinessProbe returns the expected readiness probe configuration
+func (r *HumioPdfRenderServiceReconciler) getExpectedReadinessProbe(
+	hprs *corev1alpha1.HumioPdfRenderService,
+	port int32) *corev1.Probe {
+
+	if hprs.Spec.ReadinessProbe != nil {
+		probe := hprs.Spec.ReadinessProbe.DeepCopy()
+		if probe.HTTPGet != nil && probe.HTTPGet.Scheme == "" {
+			probe.HTTPGet.Scheme = corev1.URISchemeHTTP
+		}
+		return probe
+	}
+
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   "/ready",
+				Port:   intstr.FromInt(int(port)),
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		InitialDelaySeconds: 30,
+		TimeoutSeconds:      60,
+		PeriodSeconds:       10,
+		SuccessThreshold:    1,
+		FailureThreshold:    1,
+	}
+}
+
+// checkServiceAccountChanges checks if service account has changed
+func (r *HumioPdfRenderServiceReconciler) checkServiceAccountChanges(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	if existingDeployment.Spec.Template.Spec.ServiceAccountName != hprs.Spec.ServiceAccountName {
+		r.Log.Info("ServiceAccount changed",
+			"Old", existingDeployment.Spec.Template.Spec.ServiceAccountName,
+			"New", hprs.Spec.ServiceAccountName)
+		return true
+	}
+	return false
+}
+
+// checkAffinityChanges checks if affinity configuration has changed
+func (r *HumioPdfRenderServiceReconciler) checkAffinityChanges(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Affinity, hprs.Spec.Affinity) {
+		r.Log.Info("Affinity configuration changed")
+		return true
+	}
+	return false
+}
+
+// checkImagePullSecretChanges checks if image pull secrets have changed
+func (r *HumioPdfRenderServiceReconciler) checkImagePullSecretChanges(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	currentSecrets := existingDeployment.Spec.Template.Spec.ImagePullSecrets
+	desiredSecrets := hprs.Spec.ImagePullSecrets
+
+	hasEcrCredentials := false
+	if len(currentSecrets) == 1 {
+		for _, secret := range currentSecrets {
+			if secret.Name == credentialsSecretName { // Use constant
+				hasEcrCredentials = true
+				break
+			}
+		}
+	}
+
+	if hasEcrCredentials && desiredSecrets == nil {
+		r.Log.Info("Preserving existing default credentials despite nil in spec") // Updated comment
+		return false
+	}
+
+	if (currentSecrets == nil && desiredSecrets == nil) || (len(currentSecrets) == 0 && len(desiredSecrets) == 0) {
+		return false
+	}
+
+	if (currentSecrets == nil && len(desiredSecrets) > 0) ||
+		(len(currentSecrets) > 0 && desiredSecrets == nil && !hasEcrCredentials) ||
+		!reflect.DeepEqual(currentSecrets, desiredSecrets) {
+		r.Log.Info("ImagePullSecrets changed", "Current", currentSecrets, "Desired", desiredSecrets)
+		return true
+	}
+
+	return false
+}
+
+// checkVolumeMountChanges checks if volume mounts have changed
+func (r *HumioPdfRenderServiceReconciler) checkVolumeMountChanges(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	if len(existingDeployment.Spec.Template.Spec.Containers) == 0 {
+		return false
+	}
+
+	expectedVolumeMounts := r.getExpectedVolumeMounts(hprs)
+	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].VolumeMounts, expectedVolumeMounts) {
+		r.Log.Info("Volume mounts configuration changed")
+		return true
+	}
+	return false
+}
+
+// getExpectedVolumeMounts returns the expected volume mounts configuration
+func (r *HumioPdfRenderServiceReconciler) getExpectedVolumeMounts(
+	hprs *corev1alpha1.HumioPdfRenderService) []corev1.VolumeMount {
+
+	if hprs.Spec.VolumeMounts != nil {
+		return hprs.Spec.VolumeMounts
+	}
+
+	return []corev1.VolumeMount{
+		{
+			Name:      "app-temp", // Corrected typo from app-ttemp
+			MountPath: "/app/temp",
+		},
+		{
+			Name:      "tmp",
+			MountPath: "/tmp",
+		},
+	}
+}
+
+// checkVolumeChanges checks if volumes have changed
+func (r *HumioPdfRenderServiceReconciler) checkVolumeChanges(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	expectedVolumes := r.getExpectedVolumes(hprs)
+	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Volumes, expectedVolumes) {
+		r.Log.Info("Volumes configuration changed")
+		return true
+	}
+	return false
+}
+
+// getExpectedVolumes returns the expected volumes configuration
+func (r *HumioPdfRenderServiceReconciler) getExpectedVolumes(
+	hprs *corev1alpha1.HumioPdfRenderService) []corev1.Volume {
+
+	if hprs.Spec.Volumes != nil {
+		return hprs.Spec.Volumes
+	}
+
+	return []corev1.Volume{
+		{
+			Name: "app-temp",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					Medium: corev1.StorageMediumMemory,
+				},
+			},
+		},
+		{
+			Name: "tmp",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					Medium: corev1.StorageMediumMemory,
+				},
+			},
+		},
+	}
+}
+
+// checkSecurityContextChanges checks if security contexts have changed
+func (r *HumioPdfRenderServiceReconciler) checkSecurityContextChanges(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	if len(existingDeployment.Spec.Template.Spec.Containers) == 0 {
+		return false
+	}
+
+	containerChanged := r.checkContainerSecurityContextChanges(existingDeployment, hprs)
+	podChanged := r.checkPodSecurityContextChanges(existingDeployment, hprs)
+
+	return containerChanged || podChanged
+}
+
+// checkContainerSecurityContextChanges checks if container security context has changed
+func (r *HumioPdfRenderServiceReconciler) checkContainerSecurityContextChanges(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	expected := r.getExpectedContainerSecurityContext(hprs)
+	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].SecurityContext, expected) {
+		r.Log.Info("Container security context changed",
+			"Current", existingDeployment.Spec.Template.Spec.Containers[0].SecurityContext,
+			"Desired", expected)
+		return true
+	}
+	return false
+}
+
+// getExpectedContainerSecurityContext returns the expected container security context
+func (r *HumioPdfRenderServiceReconciler) getExpectedContainerSecurityContext(
+	hprs *corev1alpha1.HumioPdfRenderService) *corev1.SecurityContext {
+
+	if hprs.Spec.SecurityContext != nil {
+		return hprs.Spec.SecurityContext
+	}
+
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: func() *bool { b := false; return &b }(),
+		Privileged:               func() *bool { b := false; return &b }(),
+		ReadOnlyRootFilesystem:   func() *bool { b := true; return &b }(),
+		RunAsNonRoot:             func() *bool { b := true; return &b }(),
+		RunAsUser:                func() *int64 { i := int64(1000); return &i }(),
+		RunAsGroup:               func() *int64 { i := int64(1000); return &i }(),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+	}
+}
+
+// checkPodSecurityContextChanges checks if pod security context has changed
+func (r *HumioPdfRenderServiceReconciler) checkPodSecurityContextChanges(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	expected := hprs.Spec.PodSecurityContext
+	if expected == nil {
+		expected = &corev1.PodSecurityContext{}
+	}
+
+	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.SecurityContext, expected) {
+		if !(existingDeployment.Spec.Template.Spec.SecurityContext == nil && isPodSecurityContextEmpty(expected)) &&
+			!(expected == nil && isPodSecurityContextEmpty(existingDeployment.Spec.Template.Spec.SecurityContext)) {
+			r.Log.Info("Pod security context changed",
+				"Current", existingDeployment.Spec.Template.Spec.SecurityContext,
+				"Desired", expected)
+			return true
+		}
+	}
+	return false
+}
+
+// checkAnnotationChanges checks if annotations have changed
+func (r *HumioPdfRenderServiceReconciler) checkAnnotationChanges(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	existingAnnotations := make(map[string]string)
+	if existingDeployment.Spec.Template.ObjectMeta.Annotations != nil {
+		for k, v := range existingDeployment.Spec.Template.ObjectMeta.Annotations {
+			if k != "humio-pdf-render-service/restartedAt" {
+				existingAnnotations[k] = v
+			}
+		}
+	}
+
+	specAnnotations := make(map[string]string)
+	if hprs.Spec.Annotations != nil {
+		for k, v := range hprs.Spec.Annotations {
+			specAnnotations[k] = v
+		}
+	}
+
+	if !reflect.DeepEqual(existingAnnotations, specAnnotations) {
+		r.Log.Info("Annotations changed")
+		return true
+	}
+	return false
+}
+
+// checkMetadataChanges checks if metadata (labels, annotations) has changed
+func (r *HumioPdfRenderServiceReconciler) checkMetadataChanges(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	// Check labels (only the 'app' label for now)
+	expectedLabels := map[string]string{"app": deploymentName}
+	if !reflect.DeepEqual(existingDeployment.Spec.Template.ObjectMeta.Labels, expectedLabels) {
+		// Allow additional labels from spec, but ensure 'app' is correct
+		currentAppLabel, ok := existingDeployment.Spec.Template.ObjectMeta.Labels["app"]
+		if !ok || currentAppLabel != deploymentName {
+			r.Log.Info("Deployment template labels changed (app label)")
+			return true
+		}
+		// TODO: Consider a more robust check for spec labels if needed,
+		// potentially comparing only labels defined in hprs.Spec.Labels
+		// against existingDeployment.Spec.Template.ObjectMeta.Labels.
+	}
+
+	// Check annotations (ignoring restartedAt)
+	existingAnnotations := make(map[string]string)
+	if existingDeployment.Spec.Template.ObjectMeta.Annotations != nil {
+		for k, v := range existingDeployment.Spec.Template.ObjectMeta.Annotations {
+			if k != "humio-pdf-render-service/restartedAt" {
+				existingAnnotations[k] = v
+			}
+		}
+	}
+	specAnnotations := hprs.Spec.Annotations
+	// Treat nil spec annotations as empty map
+	if specAnnotations == nil {
+		specAnnotations = make(map[string]string)
+	}
+
+	if !reflect.DeepEqual(existingAnnotations, specAnnotations) {
+		r.Log.Info("Deployment template annotations changed")
+		return true
+	}
+
+	return false
 }
 
 // updateDeploymentMetadata updates the labels and annotations for the deployment
@@ -1037,31 +964,243 @@ func (r *HumioPdfRenderServiceReconciler) updateDeploymentMetadata(
 	}
 
 	// Update standard labels - NOTE: Using "pdf-render-service" to match what the tests expect
-	deployment.Spec.Template.ObjectMeta.Labels["app"] = "pdf-render-service"
+	deployment.Spec.Template.ObjectMeta.Labels["app"] = deploymentName // Use constant
 
 	// Initialize annotations if needed
 	if deployment.Spec.Template.ObjectMeta.Annotations == nil {
 		deployment.Spec.Template.ObjectMeta.Annotations = map[string]string{}
 	}
 
-	// Create a new annotations map instead of resetting the existing one
-	// This ensures we don't lose important metadata during updates
-	newAnnotations := map[string]string{}
-
-	// Add user-provided annotations if any
+	// Preserve existing annotations that aren't managed by this controller
+	// Only update our custom annotations and restart timestamp
 	if hprs.Spec.Annotations != nil {
 		for k, v := range hprs.Spec.Annotations {
-			newAnnotations[k] = v
+			deployment.Spec.Template.ObjectMeta.Annotations[k] = v
+		}
+	}
+}
+
+// updateDeploymentSpec updates the core fields of the deployment spec
+func (r *HumioPdfRenderServiceReconciler) updateDeploymentSpec(
+	existingDeployment *appsv1.Deployment,
+	hprs *corev1alpha1.HumioPdfRenderService,
+	desiredResources corev1.ResourceRequirements) bool {
+
+	needsUpdate := false
+
+	// Update replicas
+	if existingDeployment.Spec.Replicas == nil || *existingDeployment.Spec.Replicas != hprs.Spec.Replicas {
+		existingDeployment.Spec.Replicas = &hprs.Spec.Replicas
+		needsUpdate = true
+	}
+
+	// Ensure we have at least one container
+	if len(existingDeployment.Spec.Template.Spec.Containers) == 0 {
+		existingDeployment.Spec.Template.Spec.Containers = []corev1.Container{
+			{Name: deploymentName},
+		}
+		needsUpdate = true
+	}
+
+	container := &existingDeployment.Spec.Template.Spec.Containers[0]
+
+	// Update image
+	if container.Image != hprs.Spec.Image {
+		container.Image = hprs.Spec.Image
+		container.ImagePullPolicy = corev1.PullIfNotPresent
+		needsUpdate = true
+	}
+
+	// Update resources
+	if !reflect.DeepEqual(container.Resources, desiredResources) {
+		r.Log.Info("Updating container resources", "Current", container.Resources, "Desired", desiredResources)
+		container.Resources = desiredResources
+		needsUpdate = true
+	}
+
+	// Update port
+	port := int32(5123)
+	if hprs.Spec.Port != 0 {
+		port = hprs.Spec.Port
+	}
+	if len(container.Ports) == 0 || container.Ports[0].ContainerPort != port {
+		container.Ports = []corev1.ContainerPort{
+			{ContainerPort: port, Name: "http"},
+		}
+		needsUpdate = true
+	}
+
+	// Update probes
+	needsUpdate = r.updateDeploymentProbes(container, hprs, port) || needsUpdate
+
+	// Update environment variables
+	needsUpdate = r.updateDeploymentEnvVars(container, hprs) || needsUpdate
+
+	// Update volume mounts
+	needsUpdate = r.updateDeploymentVolumeMounts(container, hprs) || needsUpdate
+
+	// Update container security context
+	needsUpdate = r.updateDeploymentContainerSecurityContext(container, hprs) || needsUpdate
+
+	return needsUpdate
+}
+
+// updateDeploymentProbes updates the liveness and readiness probes
+func (r *HumioPdfRenderServiceReconciler) updateDeploymentProbes(
+	container *corev1.Container,
+	hprs *corev1alpha1.HumioPdfRenderService,
+	port int32) bool {
+
+	needsUpdate := false
+	expectedLivenessProbe := r.getExpectedLivenessProbe(hprs, port)
+	expectedReadinessProbe := r.getExpectedReadinessProbe(hprs, port)
+
+	if !reflect.DeepEqual(container.LivenessProbe, expectedLivenessProbe) {
+		r.Log.Info("Updating liveness probe configuration")
+		container.LivenessProbe = expectedLivenessProbe
+		needsUpdate = true
+	}
+
+	if !reflect.DeepEqual(container.ReadinessProbe, expectedReadinessProbe) {
+		r.Log.Info("Updating readiness probe configuration")
+		container.ReadinessProbe = expectedReadinessProbe
+		needsUpdate = true
+	}
+	return needsUpdate
+}
+
+// updateDeploymentEnvVars updates the environment variables
+func (r *HumioPdfRenderServiceReconciler) updateDeploymentEnvVars(
+	container *corev1.Container,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	if !reflect.DeepEqual(container.Env, hprs.Spec.Env) {
+		// Use spec Env if provided, otherwise keep existing or set default if empty
+		if len(hprs.Spec.Env) > 0 {
+			container.Env = hprs.Spec.Env
+			return true
+		} else if len(container.Env) == 0 {
+			// Set default only if current is also empty
+			container.Env = []corev1.EnvVar{
+				{Name: "LOG_LEVEL", Value: "debug"},
+			}
+			return true
+		}
+	}
+	return false
+}
+
+// updateDeploymentVolumeMounts updates the volume mounts
+func (r *HumioPdfRenderServiceReconciler) updateDeploymentVolumeMounts(
+	container *corev1.Container,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	expectedVolumeMounts := r.getExpectedVolumeMounts(hprs)
+	if !reflect.DeepEqual(container.VolumeMounts, expectedVolumeMounts) {
+		container.VolumeMounts = expectedVolumeMounts
+		return true
+	}
+	return false
+}
+
+// updateDeploymentContainerSecurityContext updates the container security context
+func (r *HumioPdfRenderServiceReconciler) updateDeploymentContainerSecurityContext(
+	container *corev1.Container,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	expectedContext := r.getExpectedContainerSecurityContext(hprs)
+	if !reflect.DeepEqual(container.SecurityContext, expectedContext) {
+		r.Log.Info("Updating container security context",
+			"Current", container.SecurityContext,
+			"Desired", expectedContext)
+		container.SecurityContext = expectedContext.DeepCopy() // Use DeepCopy
+		return true
+	}
+	return false
+}
+
+// updateDeploymentPodSpec updates fields directly under PodSpec
+func (r *HumioPdfRenderServiceReconciler) updateDeploymentPodSpec(
+	podSpec *corev1.PodSpec,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	needsUpdate := false
+
+	// Update volumes
+	expectedVolumes := r.getExpectedVolumes(hprs)
+	if !reflect.DeepEqual(podSpec.Volumes, expectedVolumes) {
+		podSpec.Volumes = expectedVolumes
+		needsUpdate = true
+	}
+
+	// Update pod security context
+	expectedPodSecCtx := hprs.Spec.PodSecurityContext
+	if expectedPodSecCtx == nil {
+		// If desired is nil, only update if current is not nil and not empty
+		if podSpec.SecurityContext != nil && !isPodSecurityContextEmpty(podSpec.SecurityContext) {
+			podSpec.SecurityContext = &corev1.PodSecurityContext{} // Set to empty
+			needsUpdate = true
+		}
+	} else if !reflect.DeepEqual(podSpec.SecurityContext, expectedPodSecCtx) {
+		podSpec.SecurityContext = expectedPodSecCtx.DeepCopy() // Use DeepCopy
+		needsUpdate = true
+	}
+
+	// Update service account name
+	if podSpec.ServiceAccountName != hprs.Spec.ServiceAccountName {
+		podSpec.ServiceAccountName = hprs.Spec.ServiceAccountName
+		needsUpdate = true
+	}
+
+	// Update affinity
+	if !reflect.DeepEqual(podSpec.Affinity, hprs.Spec.Affinity) {
+		podSpec.Affinity = hprs.Spec.Affinity
+		needsUpdate = true
+	}
+
+	// Update image pull secrets
+	needsUpdate = r.updateDeploymentImagePullSecrets(podSpec, hprs) || needsUpdate
+
+	return needsUpdate
+}
+
+// updateDeploymentImagePullSecrets updates the image pull secrets
+func (r *HumioPdfRenderServiceReconciler) updateDeploymentImagePullSecrets(
+	podSpec *corev1.PodSpec,
+	hprs *corev1alpha1.HumioPdfRenderService) bool {
+
+	currentSecrets := podSpec.ImagePullSecrets
+	desiredSecrets := hprs.Spec.ImagePullSecrets
+
+	hasEcrCredentials := false
+	if len(currentSecrets) == 1 {
+		for _, secret := range currentSecrets {
+			if secret.Name == credentialsSecretName { // Use constant
+				hasEcrCredentials = true
+				break
+			}
 		}
 	}
 
-	// Always add a timestamp annotation to force a rollout when configuration changes
-	newAnnotations["humio-pdf-render-service/restartedAt"] = time.Now().Format(time.RFC3339)
+	if desiredSecrets != nil {
+		if !reflect.DeepEqual(currentSecrets, desiredSecrets) {
+			podSpec.ImagePullSecrets = desiredSecrets
+			return true
+		}
+	} else if hasEcrCredentials {
+		// Preserve default credentials if present and spec is nil
+		r.Log.Info("Preserving existing default credentials despite nil in spec") // Updated comment
+		// No change needed
+	} else if len(currentSecrets) > 0 {
+		// If desired is nil and current is not the default, clear it
+		podSpec.ImagePullSecrets = nil
+		return true
+	}
 
-	// Update the deployment annotations
-	deployment.Spec.Template.ObjectMeta.Annotations = newAnnotations
+	return false
 }
 
+// reconcileDeployment reconciles the Deployment for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, hprs *corev1alpha1.HumioPdfRenderService) error {
 	deployment := r.constructDeployment(hprs)
 	deployment.SetNamespace(hprs.Namespace)
@@ -1118,7 +1257,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 		}
 
 		// Use the same labels as in the pod template
-		existingDeployment.Spec.Selector.MatchLabels["app"] = "pdf-render-service"
+		existingDeployment.Spec.Selector.MatchLabels["app"] = deploymentName // Use constant
 
 		// Implement retry logic with exponential backoff for update conflicts
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -1144,11 +1283,11 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 
 // constructService constructs a Service for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) constructService(hprs *corev1alpha1.HumioPdfRenderService) *corev1.Service {
-	serviceName := "pdf-render-service"
+	serviceName := deploymentName // Use constant
 
 	// Use the same labels as in the pod template to ensure service selects the pods
 	labels := map[string]string{
-		"app": "pdf-render-service",
+		"app": deploymentName, // Use constant
 	}
 
 	// Default port to 5123 if not specified
@@ -1225,7 +1364,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 
 	// Check selector changes - use "pdf-render-service" to match the pod labels
 	expectedSelector := map[string]string{
-		"app": "pdf-render-service",
+		"app": deploymentName, // Use constant
 	}
 	if !reflect.DeepEqual(existingService.Spec.Selector, expectedSelector) {
 		r.Log.Info("Service selector changed")
@@ -1253,7 +1392,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 		if existingService.Labels == nil {
 			existingService.Labels = map[string]string{}
 		}
-		existingService.Labels["app"] = "pdf-render-service"
+		existingService.Labels["app"] = deploymentName // Use constant
 
 		// Update selector to match pod labels
 		existingService.Spec.Selector = expectedSelector
