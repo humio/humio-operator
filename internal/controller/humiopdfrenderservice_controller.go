@@ -52,7 +52,8 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	}
 
-	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
+	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name,
+		"Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
 	r.Log.Info("Reconciling HumioPdfRenderService")
 
 	// Fetch the HumioPdfRenderService instance
@@ -233,10 +234,8 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-					Annotations: map[string]string{
-						"humio-pdf-render-service/restartedAt": time.Now().Format(time.RFC3339),
-					},
+					Labels:      labels,
+					Annotations: hprs.Spec.Annotations, // Directly use annotations from the spec
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: hprs.Spec.ServiceAccountName,
@@ -429,7 +428,8 @@ func (r *HumioPdfRenderServiceReconciler) checkDeploymentNeedsUpdate(
 	}
 
 	// Check for environment variable changes
-	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 && !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Env, hprs.Spec.Env) {
+	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 &&
+		!reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Env, hprs.Spec.Env) {
 		r.Log.Info("Environment variables changed")
 		needsUpdate = true
 	}
@@ -653,8 +653,10 @@ func (r *HumioPdfRenderServiceReconciler) checkDeploymentNeedsUpdate(
 	// This handles the case where one is nil and one is an empty object
 	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.SecurityContext, expectedPodSecurityContext) {
 		// Additional check to handle nil vs empty object
-		if !(existingDeployment.Spec.Template.Spec.SecurityContext == nil && isPodSecurityContextEmpty(expectedPodSecurityContext)) &&
-			!(expectedPodSecurityContext == nil && isPodSecurityContextEmpty(existingDeployment.Spec.Template.Spec.SecurityContext)) {
+		if !(existingDeployment.Spec.Template.Spec.SecurityContext == nil &&
+			isPodSecurityContextEmpty(expectedPodSecurityContext)) &&
+			!(expectedPodSecurityContext == nil &&
+				isPodSecurityContextEmpty(existingDeployment.Spec.Template.Spec.SecurityContext)) {
 			r.Log.Info("Pod security context changed",
 				"Current", existingDeployment.Spec.Template.Spec.SecurityContext,
 				"Desired", expectedPodSecurityContext)
@@ -849,7 +851,8 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 			// Update image pull secrets if specified
 			// Special case: If we have ecr-credentials in current but nil in desired, preserve ecr-credentials
 			hasEcrCredentials := false
-			if existingDeployment.Spec.Template.Spec.ImagePullSecrets != nil && len(existingDeployment.Spec.Template.Spec.ImagePullSecrets) == 1 {
+			if existingDeployment.Spec.Template.Spec.ImagePullSecrets != nil &&
+				len(existingDeployment.Spec.Template.Spec.ImagePullSecrets) == 1 {
 				for _, secret := range existingDeployment.Spec.Template.Spec.ImagePullSecrets {
 					if secret.Name == "ecr-credentials" {
 						hasEcrCredentials = true
@@ -940,10 +943,12 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 			// This prevents setting nil which can cause continuous reconciliation
 			if hprs.Spec.PodSecurityContext == nil {
 				// If the current security context is nil or empty, don't update it
-				if existingDeployment.Spec.Template.Spec.SecurityContext == nil || isPodSecurityContextEmpty(existingDeployment.Spec.Template.Spec.SecurityContext) {
+				if existingDeployment.Spec.Template.Spec.SecurityContext == nil ||
+					isPodSecurityContextEmpty(existingDeployment.Spec.Template.Spec.SecurityContext) {
 					r.Log.Info("Skipping pod security context update as both current and desired are effectively empty")
 				} else {
-					r.Log.Info("Updating pod security context to empty", "Current", existingDeployment.Spec.Template.Spec.SecurityContext)
+					r.Log.Info("Updating pod security context to empty",
+						"Current", existingDeployment.Spec.Template.Spec.SecurityContext)
 					existingDeployment.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{}
 				}
 			} else {
@@ -1044,22 +1049,20 @@ func (r *HumioPdfRenderServiceReconciler) updateDeploymentMetadata(
 		deployment.Spec.Template.ObjectMeta.Annotations = map[string]string{}
 	}
 
-	// Create a new annotations map instead of resetting the existing one
-	// This ensures we don't lose important metadata during updates
-	newAnnotations := map[string]string{}
+	// Initialize annotations if nil
+	if deployment.Spec.Template.ObjectMeta.Annotations == nil {
+		deployment.Spec.Template.ObjectMeta.Annotations = map[string]string{}
+	}
 
-	// Add user-provided annotations if any
+	// Preserve existing annotations that aren't managed by this controller
+	// Only update our custom annotations and restart timestamp
 	if hprs.Spec.Annotations != nil {
 		for k, v := range hprs.Spec.Annotations {
-			newAnnotations[k] = v
+			deployment.Spec.Template.ObjectMeta.Annotations[k] = v
 		}
 	}
 
-	// Always add a timestamp annotation to force a rollout when configuration changes
-	newAnnotations["humio-pdf-render-service/restartedAt"] = time.Now().Format(time.RFC3339)
-
-	// Update the deployment annotations
-	deployment.Spec.Template.ObjectMeta.Annotations = newAnnotations
+	// Note: The restartedAt annotation has been removed as per request.
 }
 
 func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, hprs *corev1alpha1.HumioPdfRenderService) error {
@@ -1090,8 +1093,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 	// Check if the deployment is already owned by a different controller
 	if owner := metav1.GetControllerOf(existingDeployment); owner != nil && owner.UID != hprs.UID {
 		r.Log.Info("Deployment is owned by a different controller. Deleting and recreating.",
-			"CurrentOwner", owner.UID,
-			"ExpectedOwner", hprs.UID)
+			"CurrentOwner", owner.UID, "ExpectedOwner", hprs.UID)
 		if err := r.Client.Delete(ctx, existingDeployment); err != nil {
 			return r.logErrorAndReturn(err, "Failed to delete deployment owned by a different controller")
 		}
