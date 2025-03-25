@@ -241,16 +241,74 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 				Spec: corev1.PodSpec{
 					ServiceAccountName: hprs.Spec.ServiceAccountName,
 					Affinity:           hprs.Spec.Affinity,
+					SecurityContext:    hprs.Spec.PodSecurityContext,
+					Volumes: func() []corev1.Volume {
+						if hprs.Spec.Volumes != nil {
+							return hprs.Spec.Volumes
+						}
+						// Default volumes if not specified
+						return []corev1.Volume{
+							{
+								Name: "app-temp",
+								VolumeSource: corev1.VolumeSource{
+									EmptyDir: &corev1.EmptyDirVolumeSource{
+										Medium: corev1.StorageMediumMemory,
+									},
+								},
+							},
+							{
+								Name: "tmp",
+								VolumeSource: corev1.VolumeSource{
+									EmptyDir: &corev1.EmptyDirVolumeSource{
+										Medium: corev1.StorageMediumMemory,
+									},
+								},
+							},
+						}
+					}(),
 					Containers: []corev1.Container{{
 						Name:            "pdf-render-service",
 						Image:           imageToUse, // Use the image from CR directly
 						ImagePullPolicy: corev1.PullIfNotPresent,
-						Resources:       hprs.Spec.Resources,
+						SecurityContext: func() *corev1.SecurityContext {
+							if hprs.Spec.SecurityContext != nil {
+								return hprs.Spec.SecurityContext
+							}
+							// Default security context if not specified
+							return &corev1.SecurityContext{
+								AllowPrivilegeEscalation: func() *bool { b := false; return &b }(),
+								Privileged:               func() *bool { b := false; return &b }(),
+								ReadOnlyRootFilesystem:   func() *bool { b := true; return &b }(),
+								RunAsNonRoot:             func() *bool { b := true; return &b }(),
+								RunAsUser:                func() *int64 { i := int64(1000); return &i }(),
+								RunAsGroup:               func() *int64 { i := int64(1000); return &i }(),
+								Capabilities: &corev1.Capabilities{
+									Drop: []corev1.Capability{"ALL"},
+								},
+							}
+						}(),
+						Resources: hprs.Spec.Resources,
 						Ports: []corev1.ContainerPort{{
 							ContainerPort: hprs.Spec.Port,
 							Name:          "http",
 						}},
 						Env: hprs.Spec.Env,
+						VolumeMounts: func() []corev1.VolumeMount {
+							if hprs.Spec.VolumeMounts != nil {
+								return hprs.Spec.VolumeMounts
+							}
+							// Default volume mounts if not specified
+							return []corev1.VolumeMount{
+								{
+									Name:      "app-temp",
+									MountPath: "/app/temp",
+								},
+								{
+									Name:      "tmp",
+									MountPath: "/tmp",
+								},
+							}
+						}(),
 						// Set liveness probe with nil check
 						LivenessProbe: func() *corev1.Probe {
 							if hprs.Spec.LivenessProbe != nil {
@@ -500,6 +558,110 @@ func (r *HumioPdfRenderServiceReconciler) checkDeploymentNeedsUpdate(
 		needsUpdate = true
 	}
 
+	// Check for volume mounts changes
+	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 {
+		// Get expected volume mounts
+		expectedVolumeMounts := func() []corev1.VolumeMount {
+			if hprs.Spec.VolumeMounts != nil {
+				return hprs.Spec.VolumeMounts
+			}
+			// Default volume mounts if not specified
+			return []corev1.VolumeMount{
+				{
+					Name:      "app-temp",
+					MountPath: "/app/temp",
+				},
+				{
+					Name:      "tmp",
+					MountPath: "/tmp",
+				},
+			}
+		}()
+
+		if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].VolumeMounts, expectedVolumeMounts) {
+			r.Log.Info("Volume mounts configuration changed")
+			needsUpdate = true
+		}
+	}
+
+	// Check for volumes changes
+	expectedVolumes := func() []corev1.Volume {
+		if hprs.Spec.Volumes != nil {
+			return hprs.Spec.Volumes
+		}
+		// Default volumes if not specified
+		return []corev1.Volume{
+			{
+				Name: "app-temp",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{
+						Medium: corev1.StorageMediumMemory,
+					},
+				},
+			},
+			{
+				Name: "tmp",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{
+						Medium: corev1.StorageMediumMemory,
+					},
+				},
+			},
+		}
+	}()
+
+	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Volumes, expectedVolumes) {
+		r.Log.Info("Volumes configuration changed")
+		needsUpdate = true
+	}
+
+	// Check for container security context changes
+	expectedContainerSecurityContext := func() *corev1.SecurityContext {
+		if hprs.Spec.SecurityContext != nil {
+			return hprs.Spec.SecurityContext
+		}
+		// Default security context if not specified
+		return &corev1.SecurityContext{
+			AllowPrivilegeEscalation: func() *bool { b := false; return &b }(),
+			Privileged:               func() *bool { b := false; return &b }(),
+			ReadOnlyRootFilesystem:   func() *bool { b := true; return &b }(),
+			RunAsNonRoot:             func() *bool { b := true; return &b }(),
+			RunAsUser:                func() *int64 { i := int64(1000); return &i }(),
+			RunAsGroup:               func() *int64 { i := int64(1000); return &i }(),
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+		}
+	}()
+
+	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].SecurityContext, expectedContainerSecurityContext) {
+		r.Log.Info("Container security context changed",
+			"Current", existingDeployment.Spec.Template.Spec.Containers[0].SecurityContext,
+			"Desired", expectedContainerSecurityContext)
+		needsUpdate = true
+	}
+
+	// Check for pod security context changes
+	// If the spec's PodSecurityContext is nil, use an empty PodSecurityContext for comparison
+	// This prevents continuous reconciliation when comparing nil vs empty object
+	expectedPodSecurityContext := hprs.Spec.PodSecurityContext
+	if expectedPodSecurityContext == nil {
+		expectedPodSecurityContext = &corev1.PodSecurityContext{}
+	}
+
+	// Only consider it changed if there are actual differences in the fields
+	// This handles the case where one is nil and one is an empty object
+	if !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.SecurityContext, expectedPodSecurityContext) {
+		// Additional check to handle nil vs empty object
+		if !(existingDeployment.Spec.Template.Spec.SecurityContext == nil && isPodSecurityContextEmpty(expectedPodSecurityContext)) &&
+			!(expectedPodSecurityContext == nil && isPodSecurityContextEmpty(existingDeployment.Spec.Template.Spec.SecurityContext)) {
+			r.Log.Info("Pod security context changed",
+				"Current", existingDeployment.Spec.Template.Spec.SecurityContext,
+				"Desired", expectedPodSecurityContext)
+			needsUpdate = true
+		}
+	}
+
 	// Check for annotation changes - ignoring the restartedAt annotation which changes every reconciliation
 	existingAnnotations := make(map[string]string)
 	if existingDeployment.Spec.Template.ObjectMeta.Annotations != nil {
@@ -704,6 +866,94 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 				// No change needed - keep existing ecr-credentials
 			}
 
+			// Update volume mounts if specified
+			expectedVolumeMounts := func() []corev1.VolumeMount {
+				if hprs.Spec.VolumeMounts != nil {
+					return hprs.Spec.VolumeMounts
+				}
+				// Default volume mounts if not specified
+				return []corev1.VolumeMount{
+					{
+						Name:      "app-temp",
+						MountPath: "/app/temp",
+					},
+					{
+						Name:      "tmp",
+						MountPath: "/tmp",
+					},
+				}
+			}()
+			existingDeployment.Spec.Template.Spec.Containers[0].VolumeMounts = expectedVolumeMounts
+
+			// Update volumes if specified
+			expectedVolumes := func() []corev1.Volume {
+				if hprs.Spec.Volumes != nil {
+					return hprs.Spec.Volumes
+				}
+				// Default volumes if not specified
+				return []corev1.Volume{
+					{
+						Name: "app-temp",
+						VolumeSource: corev1.VolumeSource{
+							EmptyDir: &corev1.EmptyDirVolumeSource{
+								Medium: corev1.StorageMediumMemory,
+							},
+						},
+					},
+					{
+						Name: "tmp",
+						VolumeSource: corev1.VolumeSource{
+							EmptyDir: &corev1.EmptyDirVolumeSource{
+								Medium: corev1.StorageMediumMemory,
+							},
+						},
+					},
+				}
+			}()
+			existingDeployment.Spec.Template.Spec.Volumes = expectedVolumes
+
+			// Update container security context
+			expectedContainerSecurityContext := func() *corev1.SecurityContext {
+				if hprs.Spec.SecurityContext != nil {
+					return hprs.Spec.SecurityContext.DeepCopy()
+				}
+				// Default security context if not specified
+				return &corev1.SecurityContext{
+					AllowPrivilegeEscalation: func() *bool { b := false; return &b }(),
+					Privileged:               func() *bool { b := false; return &b }(),
+					ReadOnlyRootFilesystem:   func() *bool { b := true; return &b }(),
+					RunAsNonRoot:             func() *bool { b := true; return &b }(),
+					RunAsUser:                func() *int64 { i := int64(1000); return &i }(),
+					RunAsGroup:               func() *int64 { i := int64(1000); return &i }(),
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+				}
+			}()
+			r.Log.Info("Updating container security context",
+				"Current", existingDeployment.Spec.Template.Spec.Containers[0].SecurityContext,
+				"Desired", expectedContainerSecurityContext)
+			existingDeployment.Spec.Template.Spec.Containers[0].SecurityContext = expectedContainerSecurityContext
+
+			// Update pod security context
+			// If the spec's PodSecurityContext is nil, use an empty PodSecurityContext
+			// This prevents setting nil which can cause continuous reconciliation
+			if hprs.Spec.PodSecurityContext == nil {
+				// If the current security context is nil or empty, don't update it
+				if existingDeployment.Spec.Template.Spec.SecurityContext == nil || isPodSecurityContextEmpty(existingDeployment.Spec.Template.Spec.SecurityContext) {
+					r.Log.Info("Skipping pod security context update as both current and desired are effectively empty")
+				} else {
+					r.Log.Info("Updating pod security context to empty",
+						"Current", existingDeployment.Spec.Template.Spec.SecurityContext)
+					existingDeployment.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{}
+				}
+			} else {
+				r.Log.Info("Updating pod security context",
+					"Current", existingDeployment.Spec.Template.Spec.SecurityContext,
+					"Desired", hprs.Spec.PodSecurityContext)
+				existingDeployment.Spec.Template.Spec.SecurityContext = hprs.Spec.PodSecurityContext.DeepCopy()
+			}
+
 			// Update service account and affinity if specified
 			if hprs.Spec.ServiceAccountName != "" {
 				existingDeployment.Spec.Template.Spec.ServiceAccountName = hprs.Spec.ServiceAccountName
@@ -757,6 +1007,25 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 		}
 	}
 	return retryErr
+}
+
+// isPodSecurityContextEmpty checks if a PodSecurityContext is effectively empty
+func isPodSecurityContextEmpty(sc *corev1.PodSecurityContext) bool {
+	if sc == nil {
+		return true
+	}
+
+	// Check if all fields have their zero values
+	return sc.SELinuxOptions == nil &&
+		sc.RunAsUser == nil &&
+		sc.RunAsNonRoot == nil &&
+		(sc.SupplementalGroups == nil || len(sc.SupplementalGroups) == 0) &&
+		sc.FSGroup == nil &&
+		sc.RunAsGroup == nil &&
+		(sc.Sysctls == nil || len(sc.Sysctls) == 0) &&
+		sc.WindowsOptions == nil &&
+		sc.FSGroupChangePolicy == nil &&
+		sc.SeccompProfile == nil
 }
 
 // updateDeploymentMetadata updates the labels and annotations for the deployment
