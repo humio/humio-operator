@@ -75,8 +75,11 @@ rules:
   - humioalerts/finalizers
   - humiobootstraptokens/finalizers
   - humioclusters/finalizers
+<<<<<<< HEAD
   - humioexternalclusters/finalizers
   - humiofeatureflags/finalizers
+=======
+>>>>>>> Added new fields Volumes, VolumeMounts, SecxurityContext and podSecurityContext to teh HuioPdfRenderServcieSpec
   - humiofilteralerts/finalizers
   - humiogroups/finalizers
   - humioingesttokens/finalizers
@@ -99,8 +102,11 @@ rules:
   - humioalerts/status
   - humiobootstraptokens/status
   - humioclusters/status
+<<<<<<< HEAD
   - humioexternalclusters/status
   - humiofeatureflags/status
+=======
+>>>>>>> Added new fields Volumes, VolumeMounts, SecxurityContext and podSecurityContext to teh HuioPdfRenderServcieSpec
   - humiofilteralerts/status
   - humiogroups/status
   - humioingesttokens/status
