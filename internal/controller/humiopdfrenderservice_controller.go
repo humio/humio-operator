@@ -943,8 +943,7 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 				if existingDeployment.Spec.Template.Spec.SecurityContext == nil || isPodSecurityContextEmpty(existingDeployment.Spec.Template.Spec.SecurityContext) {
 					r.Log.Info("Skipping pod security context update as both current and desired are effectively empty")
 				} else {
-					r.Log.Info("Updating pod security context to empty",
-						"Current", existingDeployment.Spec.Template.Spec.SecurityContext)
+					r.Log.Info("Updating pod security context to empty", "Current", existingDeployment.Spec.Template.Spec.SecurityContext)
 					existingDeployment.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{}
 				}
 			} else {
@@ -1147,10 +1146,9 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 func (r *HumioPdfRenderServiceReconciler) constructService(hprs *corev1alpha1.HumioPdfRenderService) *corev1.Service {
 	serviceName := "pdf-render-service"
 
-	// Use the same labels as in the pod template
+	// Use the same labels as in the pod template to ensure service selects the pods
 	labels := map[string]string{
-		"app":                           "pdf-render-service",
-		"humio-pdf-render-service-name": hprs.Name,
+		"app": "pdf-render-service",
 	}
 
 	// Default port to 5123 if not specified
@@ -1227,8 +1225,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 
 	// Check selector changes - use "pdf-render-service" to match the pod labels
 	expectedSelector := map[string]string{
-		"app":                           "pdf-render-service",
-		"humio-pdf-render-service-name": hprs.Name,
+		"app": "pdf-render-service",
 	}
 	if !reflect.DeepEqual(existingService.Spec.Selector, expectedSelector) {
 		r.Log.Info("Service selector changed")
@@ -1252,12 +1249,11 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 			Name:       "http",
 		}}
 
-		// Update labels
+		// Update labels - keep consistent with pod labels
 		if existingService.Labels == nil {
 			existingService.Labels = map[string]string{}
 		}
 		existingService.Labels["app"] = "pdf-render-service"
-		existingService.Labels["humio-pdf-render-service-name"] = hprs.Name
 
 		// Update selector to match pod labels
 		existingService.Spec.Selector = expectedSelector
