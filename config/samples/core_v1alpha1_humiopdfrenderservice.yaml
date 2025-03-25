@@ -21,14 +21,22 @@ spec:
       value: /tmp/.chromium-cache
     - name: DEBUG
       value: "true"
+    - name: LOG_LEVEL
+      value: "debug"
+    - name: CLEANUP_INTERVAL
+      value: "600"
+    - name: PORT
+      value: "5123"
+    - name: SERVICE_VERSION
+      value: 0.0.60--build-101--sha-fe87a59c82fd957ec460190a3f726948d586c1ea
   # Resource requirements
   resources:
     limits:
-      cpu: "2"
-      memory: "250Mi"
+      cpu: "1"
+      memory: "2Gi"
     requests:
       cpu: "1"
-      memory: "250Mi"
+      memory: "1Gi"
   # Readiness probe configuration
   readinessProbe:
     httpGet:
