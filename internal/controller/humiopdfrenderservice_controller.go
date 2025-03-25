@@ -52,8 +52,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	}
 
-	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name,
-		"Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
+	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
 	r.Log.Info("Reconciling HumioPdfRenderService")
 
 	// Fetch the HumioPdfRenderService instance
@@ -255,24 +254,38 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 						// Set liveness probe with nil check
 						LivenessProbe: func() *corev1.Probe {
 							if hprs.Spec.LivenessProbe != nil {
-								return hprs.Spec.LivenessProbe.DeepCopy()
+								probe := hprs.Spec.LivenessProbe.DeepCopy()
+								// Ensure Scheme is set if not specified
+								if probe.HTTPGet != nil && probe.HTTPGet.Scheme == "" {
+									probe.HTTPGet.Scheme = corev1.URISchemeHTTP
+								}
+								return probe
 							}
-							// Default liveness probe - ensure values match with checkDeploymentNeedsUpdate
+							// Default liveness probe with all required fields
 							return &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/health",
-										Port: intstr.FromInt(int(hprs.Spec.Port)),
+										Path:   "/health",
+										Port:   intstr.FromInt(int(hprs.Spec.Port)),
+										Scheme: corev1.URISchemeHTTP,
 									},
 								},
 								InitialDelaySeconds: 30,
 								TimeoutSeconds:      60,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
 							}
 						}(),
 						// Set readiness probe with default values if not specified in CR
 						ReadinessProbe: func() *corev1.Probe {
 							if hprs.Spec.ReadinessProbe != nil {
-								return hprs.Spec.ReadinessProbe.DeepCopy()
+								probe := hprs.Spec.ReadinessProbe.DeepCopy()
+								// Ensure Scheme is set if not specified
+								if probe.HTTPGet != nil && probe.HTTPGet.Scheme == "" {
+									probe.HTTPGet.Scheme = corev1.URISchemeHTTP
+								}
+								return probe
 							}
 							// Default readiness probe with all required fields
 							return &corev1.Probe{
@@ -296,9 +309,17 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 		},
 	}
 
-	// Add ImagePullSecrets with nil check
+	// Add ImagePullSecrets with special handling for ecr-credentials
 	if hprs.Spec.ImagePullSecrets != nil {
 		deployment.Spec.Template.Spec.ImagePullSecrets = hprs.Spec.ImagePullSecrets
+	} else {
+		// If no ImagePullSecrets specified, use default ecr-credentials
+		// This ensures backward compatibility with existing deployments
+		deployment.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{
+			{
+				Name: "ecr-credentials",
+			},
+		}
 	}
 
 	return deployment
@@ -350,8 +371,7 @@ func (r *HumioPdfRenderServiceReconciler) checkDeploymentNeedsUpdate(
 	}
 
 	// Check for environment variable changes
-	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 &&
-		!reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Env, hprs.Spec.Env) {
+	if len(existingDeployment.Spec.Template.Spec.Containers) > 0 && !reflect.DeepEqual(existingDeployment.Spec.Template.Spec.Containers[0].Env, hprs.Spec.Env) {
 		r.Log.Info("Environment variables changed")
 		needsUpdate = true
 	}
@@ -367,7 +387,12 @@ func (r *HumioPdfRenderServiceReconciler) checkDeploymentNeedsUpdate(
 		// Create expected liveness probe based on CR spec or defaults
 		expectedLivenessProbe := func() *corev1.Probe {
 			if hprs.Spec.LivenessProbe != nil {
-				return hprs.Spec.LivenessProbe.DeepCopy()
+				probe := hprs.Spec.LivenessProbe.DeepCopy()
+				// Ensure Scheme is set if not specified
+				if probe.HTTPGet != nil && probe.HTTPGet.Scheme == "" {
+					probe.HTTPGet.Scheme = corev1.URISchemeHTTP
+				}
+				return probe
 			}
 			// Default liveness probe with all required fields
 			return &corev1.Probe{
@@ -389,7 +414,12 @@ func (r *HumioPdfRenderServiceReconciler) checkDeploymentNeedsUpdate(
 		// Create expected readiness probe based on CR spec or defaults
 		expectedReadinessProbe := func() *corev1.Probe {
 			if hprs.Spec.ReadinessProbe != nil {
-				return hprs.Spec.ReadinessProbe.DeepCopy()
+				probe := hprs.Spec.ReadinessProbe.DeepCopy()
+				// Ensure Scheme is set if not specified
+				if probe.HTTPGet != nil && probe.HTTPGet.Scheme == "" {
+					probe.HTTPGet.Scheme = corev1.URISchemeHTTP
+				}
+				return probe
 			}
 			// Default readiness probe with all required fields
 			return &corev1.Probe{
@@ -445,11 +475,26 @@ func (r *HumioPdfRenderServiceReconciler) checkDeploymentNeedsUpdate(
 	currentSecrets := existingDeployment.Spec.Template.Spec.ImagePullSecrets
 	desiredSecrets := hprs.Spec.ImagePullSecrets
 
-	// Both nil or both empty
-	if (currentSecrets == nil && desiredSecrets == nil) || (len(currentSecrets) == 0 && len(desiredSecrets) == 0) {
-		// No change needed
+	// Special case: If we have ecr-credentials in current but nil in desired, don't update
+	// This handles the case where the operator was previously configured with ecr-credentials
+	// but the CR doesn't specify any ImagePullSecrets
+	hasEcrCredentials := false
+	if currentSecrets != nil && len(currentSecrets) == 1 {
+		for _, secret := range currentSecrets {
+			if secret.Name == "ecr-credentials" {
+				hasEcrCredentials = true
+				break
+			}
+		}
+	}
+
+	if hasEcrCredentials && desiredSecrets == nil {
+		// Don't update if we have ecr-credentials but desired is nil
+		r.Log.Info("Preserving existing ecr-credentials despite nil in spec")
+	} else if (currentSecrets == nil && desiredSecrets == nil) || (len(currentSecrets) == 0 && len(desiredSecrets) == 0) {
+		// Both nil or both empty - no change needed
 	} else if (currentSecrets == nil && len(desiredSecrets) > 0) ||
-		(len(currentSecrets) > 0 && desiredSecrets == nil) ||
+		(len(currentSecrets) > 0 && desiredSecrets == nil && !hasEcrCredentials) ||
 		!reflect.DeepEqual(currentSecrets, desiredSecrets) {
 		r.Log.Info("ImagePullSecrets changed", "Current", currentSecrets, "Desired", desiredSecrets)
 		needsUpdate = true
@@ -560,37 +605,54 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 		// Create expected liveness probe based on CR spec or defaults
 		expectedLivenessProbe := func() *corev1.Probe {
 			if hprs.Spec.LivenessProbe != nil {
-				return hprs.Spec.LivenessProbe.DeepCopy()
+				probe := hprs.Spec.LivenessProbe.DeepCopy()
+				// Ensure Scheme is set if not specified
+				if probe.HTTPGet != nil && probe.HTTPGet.Scheme == "" {
+					probe.HTTPGet.Scheme = corev1.URISchemeHTTP
+				}
+				return probe
 			}
-			// Default liveness probe
+			// Default liveness probe with all required fields
 			return &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/health",
-						Port: intstr.FromInt(int(port)),
+						Path:   "/health",
+						Port:   intstr.FromInt(int(port)),
+						Scheme: corev1.URISchemeHTTP,
 					},
 				},
 				InitialDelaySeconds: 30,
 				TimeoutSeconds:      60,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    3,
 			}
 		}()
 
 		// Create expected readiness probe based on CR spec or defaults
 		expectedReadinessProbe := func() *corev1.Probe {
 			if hprs.Spec.ReadinessProbe != nil {
-				return hprs.Spec.ReadinessProbe.DeepCopy()
+				probe := hprs.Spec.ReadinessProbe.DeepCopy()
+				// Ensure Scheme is set if not specified
+				if probe.HTTPGet != nil && probe.HTTPGet.Scheme == "" {
+					probe.HTTPGet.Scheme = corev1.URISchemeHTTP
+				}
+				return probe
 			}
-			// Default readiness probe
+			// Default readiness probe with all required fields
 			return &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/ready",
-						Port: intstr.FromInt(int(port)),
+						Path:   "/ready",
+						Port:   intstr.FromInt(int(port)),
+						Scheme: corev1.URISchemeHTTP,
 					},
 				},
 				InitialDelaySeconds: 30,
 				TimeoutSeconds:      60,
 				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    1,
 			}
 		}()
 
@@ -623,8 +685,23 @@ func (r *HumioPdfRenderServiceReconciler) updateDeployment(
 			}
 
 			// Update image pull secrets if specified
+			// Special case: If we have ecr-credentials in current but nil in desired, preserve ecr-credentials
+			hasEcrCredentials := false
+			if existingDeployment.Spec.Template.Spec.ImagePullSecrets != nil && len(existingDeployment.Spec.Template.Spec.ImagePullSecrets) == 1 {
+				for _, secret := range existingDeployment.Spec.Template.Spec.ImagePullSecrets {
+					if secret.Name == "ecr-credentials" {
+						hasEcrCredentials = true
+						break
+					}
+				}
+			}
+
 			if hprs.Spec.ImagePullSecrets != nil {
 				existingDeployment.Spec.Template.Spec.ImagePullSecrets = hprs.Spec.ImagePullSecrets
+			} else if hasEcrCredentials {
+				// Preserve ecr-credentials if present and spec is nil
+				r.Log.Info("Preserving existing ecr-credentials despite nil in spec")
+				// No change needed - keep existing ecr-credentials
 			}
 
 			// Update service account and affinity if specified
