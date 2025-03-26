@@ -81,7 +81,6 @@ spec:
                 description: |-
                   TokenSecretAnnotations specifies additional key,value pairs to add as annotations on the Kubernetes Secret containing
                   the ingest token.
-                  This field is optional.
                 type: object
               tokenSecretLabels:
                 additionalProperties:
@@ -89,13 +88,11 @@ spec:
                 description: |-
                   TokenSecretLabels specifies additional key,value pairs to add as labels on the Kubernetes Secret containing
                   the ingest token.
-                  This field is optional.
                 type: object
               tokenSecretName:
                 description: |-
                   TokenSecretName specifies the name of the Kubernetes secret that will be created
                   and contain the ingest token. The key in the secret storing the ingest token is "token".
-                  This field is optional.
                 type: string
             required:
             - name
