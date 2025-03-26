@@ -3847,8 +3847,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 		BeforeEach(func() {
 			ctx = context.Background()
-			// Use a base name that does not include any suffix.
-			baseName = "pdf-render-service"
+			// Use a different name for the CR to avoid conflict with the deployment name
+			baseName = "pdf-render-service-cr"
 		})
 
 		AfterEach(func() {
@@ -3878,7 +3878,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
 					Replicas:           1,
-					Image:              "example/image:latest",
+					Image:              "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e",
 					Port:               5123,
 					ServiceAccountName: "default",
 					// Use ClusterIP for the initial service configuration.
@@ -3888,9 +3888,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 			createdCR = cr
 
-			// Verify that the Deployment exists.
+			// Verify that the Deployment exists using the CR name.
 			deploymentKey := types.NamespacedName{
-				Name:      "pdf-render-service",
+				Name:      cr.Name, // Use CR name
 				Namespace: cr.Namespace,
 			}
 			deployment := &appsv1.Deployment{}
@@ -3898,18 +3898,17 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8sClient.Get(ctx, deploymentKey, deployment)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(deployment.Namespace).Should(Equal(cr.Namespace))
+			Expect(deployment.Name).Should(Equal(cr.Name)) // Verify name matches CR name
 
-			// Verify that the Service exists and uses the fixed service name.
+			// Verify that the Service exists using the CR name.
 			serviceKey := types.NamespacedName{
-				Name:      "pdf-render-service",
+				Name:      cr.Name, // Use CR name
 				Namespace: cr.Namespace,
 			}
 			service := &corev1.Service{}
 			Eventually(func() int32 {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "pdf-render-service",
-					Namespace: serviceKey.Namespace,
-				}, service)
+				// Use serviceKey directly which now contains the CR name
+				err := k8sClient.Get(ctx, serviceKey, service)
 				if err != nil {
 					return 0
 				}
@@ -3951,9 +3950,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, pdfRenderService)).To(Succeed())
 			createdCR = pdfRenderService // Ensure it gets cleaned up
 
-			// Wait for the Deployment to be created with expected image
+			// Wait for the Deployment to be created with expected image, using CR name
 			deploymentKey := types.NamespacedName{
-				Name:      "pdf-render-service", // The controller uses this fixed name
+				Name:      key.Name, // Use CR name (stored in key)
 				Namespace: key.Namespace,
 			}
 			deployment := &appsv1.Deployment{}
@@ -3990,27 +3989,43 @@ var _ = Describe("Humio Resources Controllers", func() {
 			// Make sure the controller has time to process the update
 			time.Sleep(1 * time.Second)
 
-			// Verify the Deployment was updated with the new image
+			// Verify the Deployment was updated with the new image, using CR name
 			suite.UsingClusterBy(clusterKey.Name, "HumioPdfRenderService: Verifying deployment has updated image")
-			Eventually(func() string {
+			Eventually(func() error {
 				deployment := &appsv1.Deployment{}
+				// Use deploymentKey which now contains the CR name
 				err := k8sClient.Get(ctx, deploymentKey, deployment)
 				if err != nil {
+					// Still fail eventually if Get keeps erroring, but log NotFound specifically
+					if k8serrors.IsNotFound(err) {
+						suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Deployment %s not found yet", deploymentKey.Name))
+						return err // Propagate error to Eventually
+					}
 					suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Error getting deployment: %v", err))
-					return ""
+					return err // Propagate other errors
 				}
-				if len(deployment.Spec.Template.Spec.Containers) == 0 {
-					suite.UsingClusterBy(clusterKey.Name, "No containers in deployment")
-					return ""
-				}
-				image := deployment.Spec.Template.Spec.Containers[0].Image
-				suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Current image: %s", image))
-				return image
-			}, testTimeout, suite.TestInterval).Should(Equal("humio/pdf-render-service:1.1.0"), "Failed to update Deployment with new image")
 
-			// Verify the replicas were updated
+				// Deployment found, now check image
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					suite.UsingClusterBy(clusterKey.Name, "No containers in deployment yet")
+					return fmt.Errorf("deployment %s has no containers yet", deploymentKey.Name)
+				}
+				currentImage := deployment.Spec.Template.Spec.Containers[0].Image
+				expectedImage := "humio/pdf-render-service:1.1.0"
+				if currentImage != expectedImage {
+					suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Image mismatch: current=%s, expected=%s", currentImage, expectedImage))
+					return fmt.Errorf("deployment image is %s, expected %s", currentImage, expectedImage)
+				}
+
+				// Image matches
+				suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Deployment image matches: %s", currentImage))
+				return nil // Success
+			}, testTimeout, suite.TestInterval).Should(Succeed(), "Failed to update Deployment with new image")
+
+			// Verify the replicas were updated, using CR name
 			suite.UsingClusterBy(clusterKey.Name, "HumioPdfRenderService: Verifying deployment has updated replicas")
 			Eventually(func() int32 {
+				// Use deploymentKey which now contains the CR name
 				err := k8sClient.Get(ctx, deploymentKey, deployment)
 				if err != nil {
 					return 0
@@ -4018,13 +4033,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return *deployment.Spec.Replicas
 			}, testTimeout, suite.TestInterval).Should(Equal(int32(2)), "Failed to update Deployment with new replicas")
 
-			// Verify the Service was updated with the new port
+			// Verify the Service was updated with the new port, using CR name
 			serviceKey := types.NamespacedName{
-				Name:      "pdf-render-service",
+				Name:      key.Name, // Use CR name (stored in key)
 				Namespace: key.Namespace,
 			}
 			service := &corev1.Service{}
 			Eventually(func() int32 {
+				// Use serviceKey which now contains the CR name
 				err := k8sClient.Get(ctx, serviceKey, service)
 				if err != nil {
 					return 0
@@ -4046,7 +4062,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
 					Replicas: 1,
-					Image:    "example/image:latest",
+					Image:    "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e",
 					Port:     5123,
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
@@ -4084,9 +4100,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 			createdCR = cr
 
-			// Verify the deployment has the correct resource requirements and probes
+			// Verify the deployment has the correct resource requirements and probes, using CR name
 			deploymentKey := types.NamespacedName{
-				Name:      "pdf-render-service",
+				Name:      cr.Name, // Use CR name
 				Namespace: cr.Namespace,
 			}
 
@@ -4094,12 +4110,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var deployment *appsv1.Deployment
 			Eventually(func() error {
 				deployment = &appsv1.Deployment{}
+				// Use deploymentKey which contains CR name
 				return k8sClient.Get(ctx, deploymentKey, deployment)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			// Verify resources using Eventually to wait for controller to set them
 			Eventually(func() string {
 				freshDeployment := &appsv1.Deployment{}
+				// Use deploymentKey which contains CR name
 				err := k8sClient.Get(ctx, deploymentKey, freshDeployment)
 				if err != nil || len(freshDeployment.Spec.Template.Spec.Containers) == 0 {
 					return ""
@@ -4109,6 +4127,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			Eventually(func() string {
 				freshDeployment := &appsv1.Deployment{}
+				// Use deploymentKey which contains CR name
 				err := k8sClient.Get(ctx, deploymentKey, freshDeployment)
 				if err != nil || len(freshDeployment.Spec.Template.Spec.Containers) == 0 {
 					return ""
@@ -4118,6 +4137,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			Eventually(func() string {
 				freshDeployment := &appsv1.Deployment{}
+				// Use deploymentKey which contains CR name
 				err := k8sClient.Get(ctx, deploymentKey, freshDeployment)
 				if err != nil || len(freshDeployment.Spec.Template.Spec.Containers) == 0 {
 					return ""
@@ -4127,6 +4147,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			Eventually(func() string {
 				freshDeployment := &appsv1.Deployment{}
+				// Use deploymentKey which contains CR name
 				err := k8sClient.Get(ctx, deploymentKey, freshDeployment)
 				if err != nil || len(freshDeployment.Spec.Template.Spec.Containers) == 0 {
 					return ""
@@ -4213,12 +4234,12 @@ var _ = Describe("Humio Resources Controllers", func() {
 			// Create a PDF render service with environment variables
 			cr := &humiov1alpha1.HumioPdfRenderService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      baseName + "-env",
+					Name:      baseName, // Use baseName directly instead of baseName + "-env"
 					Namespace: clusterKey.Namespace,
 				},
 				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
 					Replicas: 1,
-					Image:    "example/image:latest",
+					Image:    "humio/pdf-render-service:0.0.60--build-101--sha-fe87a59c82fd957ec460190a3f726948d586c1ea", // Use the specific Humio image
 					Port:     8080,
 					Env: []corev1.EnvVar{
 						{
@@ -4236,37 +4257,91 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 			createdCR = cr
 
-			// Verify the deployment has the correct environment variables
+			// Verify the deployment has the correct environment variables, using CR name
 			deploymentKey := types.NamespacedName{
-				Name:      "pdf-render-service",
+				Name:      cr.Name, // Use CR name
 				Namespace: cr.Namespace,
 			}
 
+			// Add debug logging to check if deployment exists
 			deployment := &appsv1.Deployment{}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, deploymentKey, deployment)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
+			err := k8sClient.Get(ctx, deploymentKey, deployment)
+			fmt.Printf("Initial deployment check - exists: %v, error: %v\n", err == nil, err)
+			if err == nil {
+				fmt.Printf("Deployment details: Name=%s, Namespace=%s, OwnerReferences=%v\n",
+					deployment.Name, deployment.Namespace, deployment.OwnerReferences)
+				if len(deployment.Spec.Template.Spec.Containers) > 0 {
+					fmt.Printf("Container image: %s\n", deployment.Spec.Template.Spec.Containers[0].Image)
+					fmt.Printf("Environment variables: %v\n", deployment.Spec.Template.Spec.Containers[0].Env)
+				}
+			}
 
-			// Check environment variables
+			// Check for pods using CR name in label selector
+			podList := &corev1.PodList{}
+			err = k8sClient.List(ctx, podList, client.InNamespace(cr.Namespace),
+				client.MatchingLabels(map[string]string{"app": cr.Name})) // Use CR name
+			Expect(err).ToNot(HaveOccurred(), "failed to list pods") // Check for errors listing pods
+			fmt.Printf("Initial pod check - found %d pods\n", len(podList.Items))
+			for i, pod := range podList.Items {
+				fmt.Printf("Pod %d: Name=%s, Phase=%s\n", i, pod.Name, pod.Status.Phase)
+				for _, cond := range pod.Status.Conditions {
+					fmt.Printf("  Condition: Type=%s, Status=%s, Reason=%s\n",
+						cond.Type, cond.Status, cond.Reason)
+				}
+				for _, container := range pod.Status.ContainerStatuses {
+					fmt.Printf("  Container: Name=%s, Ready=%v, Image=%s\n",
+						container.Name, container.Ready, container.Image)
+					if container.State.Waiting != nil {
+						fmt.Printf("    Waiting: Reason=%s, Message=%s\n",
+							container.State.Waiting.Reason, container.State.Waiting.Message)
+					}
+				}
+			}
+
+			// In envtest, we need to manually update the deployment status since containers don't actually run
+			// First, wait for the deployment to be created
+			Eventually(func() bool {
+				deployment = &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, deploymentKey, deployment)
+				return err == nil
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			// Use Eventually to check environment variables to handle potential delays
 			Eventually(func() bool {
 				deployment := &appsv1.Deployment{}
 				err := k8sClient.Get(ctx, deploymentKey, deployment)
 				if err != nil || len(deployment.Spec.Template.Spec.Containers) == 0 {
 					return false
 				}
+
 				envVars := deployment.Spec.Template.Spec.Containers[0].Env
 				logLevelFound := false
-				maxConnectionsFound := false
 				for _, envVar := range envVars {
 					if envVar.Name == "LOG_LEVEL" && envVar.Value == "debug" {
 						logLevelFound = true
-					}
-					if envVar.Name == "MAX_CONNECTIONS" && envVar.Value == "100" {
-						maxConnectionsFound = true
+						break // Found it, no need to check further in this iteration
 					}
 				}
-				return logLevelFound && maxConnectionsFound
-			}, testTimeout, suite.TestInterval).Should(BeTrue())
+				return logLevelFound
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "LOG_LEVEL=debug not found")
+
+			Eventually(func() bool {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, deploymentKey, deployment)
+				if err != nil || len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return false
+				}
+
+				envVars := deployment.Spec.Template.Spec.Containers[0].Env
+				maxConnectionsFound := false
+				for _, envVar := range envVars {
+					if envVar.Name == "MAX_CONNECTIONS" && envVar.Value == "100" {
+						maxConnectionsFound = true
+						break // Found it, no need to check further in this iteration
+					}
+				}
+				return maxConnectionsFound
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "MAX_CONNECTIONS=100 not found")
 		})
 
 		It("should correctly set pod annotations", func() {
@@ -4294,20 +4369,20 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			// Wait for deployment to exist
 			deployment := &appsv1.Deployment{}
+			// Use CR name (hprs.Name) to get the deployment
+			deploymentKey := types.NamespacedName{
+				Name:      hprs.Name,
+				Namespace: hprs.Namespace, // Use hprs.Namespace for consistency
+			}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "pdf-render-service",
-					Namespace: clusterKey.Namespace,
-				}, deployment)
+				return k8sClient.Get(ctx, deploymentKey, deployment)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			// Verify the pod template has all expected annotations
 			Eventually(func() bool {
 				deployment := &appsv1.Deployment{}
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "pdf-render-service",
-					Namespace: clusterKey.Namespace,
-				}, deployment)
+				// Use deploymentKey which contains the CR name
+				err := k8sClient.Get(ctx, deploymentKey, deployment)
 				if err != nil {
 					return false
 				}
