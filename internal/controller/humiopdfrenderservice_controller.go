@@ -6,6 +6,10 @@ import (
 	"reflect"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
+
 	"github.com/go-logr/logr"
 	corev1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/internal/helpers"
@@ -13,12 +17,9 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -44,7 +45,7 @@ type HumioPdfRenderServiceReconciler struct {
 const (
 	humioPdfRenderServiceFinalizer = "core.humio.com/finalizer"
 	deploymentName                 = "pdf-render-service"
-	credentialsSecretName          = "regcred"
+	ecrCredentialsSecretName       = "ecr-credentials"
 )
 
 // Reconcile implements the reconciliation logic for HumioPdfRenderService.
@@ -55,8 +56,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	}
 
-	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name,
-		"Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
+	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
 	r.Log.Info("Reconciling HumioPdfRenderService")
 
 	// Fetch the HumioPdfRenderService instance
@@ -377,7 +377,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDeployment(hprs *corev1alpha1
 		// This ensures backward compatibility with existing deployments
 		deployment.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{
 			{
-				Name: credentialsSecretName, // Use constant
+				Name: ecrCredentialsSecretName, // Use constant
 			},
 		}
 	}
@@ -436,9 +436,10 @@ func (r *HumioPdfRenderServiceReconciler) checkImageChanges(
 	currentImage := existingDeployment.Spec.Template.Spec.Containers[0].Image
 	desiredImage := hprs.Spec.Image
 	if currentImage != desiredImage {
-		r.Log.Info("Container image changed", "OldImage", currentImage, "NewImage", desiredImage)
+		r.Log.Info("checkImageChanges: Image mismatch detected", "ExistingImage", currentImage, "DesiredImage", desiredImage)
 		return true
 	}
+	r.Log.Info("checkImageChanges: Images match", "ExistingImage", currentImage, "DesiredImage", desiredImage)
 	return false
 }
 
@@ -555,10 +556,16 @@ func isPodSecurityContextEmpty(sc *corev1.PodSecurityContext) bool {
 	}
 
 	// Check if all fields have their zero values
-	return sc.SELinuxOptions == nil && sc.RunAsUser == nil && sc.RunAsNonRoot == nil &&
-		(len(sc.SupplementalGroups) == 0) && sc.FSGroup == nil && sc.RunAsGroup == nil &&
+	return sc.SELinuxOptions == nil &&
+		sc.RunAsUser == nil &&
+		sc.RunAsNonRoot == nil &&
+		(len(sc.SupplementalGroups) == 0) &&
+		sc.FSGroup == nil &&
+		sc.RunAsGroup == nil &&
 		len(sc.Sysctls) == 0 && // Fixed gosimple error
-		sc.WindowsOptions == nil && sc.FSGroupChangePolicy == nil && sc.SeccompProfile == nil
+		sc.WindowsOptions == nil &&
+		sc.FSGroupChangePolicy == nil &&
+		sc.SeccompProfile == nil
 }
 
 // checkEnvVarChanges checks if environment variables have changed
@@ -707,7 +714,7 @@ func (r *HumioPdfRenderServiceReconciler) checkImagePullSecretChanges(
 	hasEcrCredentials := false
 	if len(currentSecrets) == 1 {
 		for _, secret := range currentSecrets {
-			if secret.Name == credentialsSecretName { // Use constant
+			if secret.Name == ecrCredentialsSecretName { // Use constant
 				hasEcrCredentials = true
 				break
 			}
@@ -1074,18 +1081,26 @@ func (r *HumioPdfRenderServiceReconciler) updateDeploymentEnvVars(
 	container *corev1.Container,
 	hprs *corev1alpha1.HumioPdfRenderService) bool {
 
+	r.Log.Info("Checking environment variables", "CurrentEnv", container.Env, "DesiredEnv", hprs.Spec.Env) // ++ Add log here
+
 	if !reflect.DeepEqual(container.Env, hprs.Spec.Env) {
+		r.Log.Info("Environment variables differ", "CurrentEnv", container.Env, "DesiredEnv", hprs.Spec.Env) // ++ Add log here
 		// Use spec Env if provided, otherwise keep existing or set default if empty
 		if len(hprs.Spec.Env) > 0 {
+			r.Log.Info("Updating environment variables from spec") // ++ Add log here
 			container.Env = hprs.Spec.Env
 			return true
 		} else if len(container.Env) == 0 {
 			// Set default only if current is also empty
+			r.Log.Info("Setting default environment variables as spec and current are empty") // ++ Add log here
 			container.Env = []corev1.EnvVar{
 				{Name: "LOG_LEVEL", Value: "debug"},
 			}
 			return true
 		}
+		r.Log.Info("No update needed for environment variables (spec empty, current not empty)") // ++ Add log here
+	} else {
+		r.Log.Info("Environment variables are already matching.") // ++ Add log here
 	}
 	return false
 }
@@ -1110,9 +1125,7 @@ func (r *HumioPdfRenderServiceReconciler) updateDeploymentContainerSecurityConte
 
 	expectedContext := r.getExpectedContainerSecurityContext(hprs)
 	if !reflect.DeepEqual(container.SecurityContext, expectedContext) {
-		r.Log.Info("Updating container security context",
-			"Current", container.SecurityContext,
-			"Desired", expectedContext)
+		r.Log.Info("Updating container security context", "Current", container.SecurityContext, "Desired", expectedContext)
 		container.SecurityContext = expectedContext.DeepCopy() // Use DeepCopy
 		return true
 	}
@@ -1175,7 +1188,7 @@ func (r *HumioPdfRenderServiceReconciler) updateDeploymentImagePullSecrets(
 	hasEcrCredentials := false
 	if len(currentSecrets) == 1 {
 		for _, secret := range currentSecrets {
-			if secret.Name == credentialsSecretName { // Use constant
+			if secret.Name == ecrCredentialsSecretName { // Use constant
 				hasEcrCredentials = true
 				break
 			}
@@ -1229,8 +1242,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 	// Check if the deployment is already owned by a different controller
 	if owner := metav1.GetControllerOf(existingDeployment); owner != nil && owner.UID != hprs.UID {
 		r.Log.Info("Deployment is owned by a different controller. Deleting and recreating.",
-			"CurrentOwner", owner.UID,
-			"ExpectedOwner", hprs.UID)
+			"CurrentOwner", owner.UID, "ExpectedOwner", hprs.UID)
 		if err := r.Client.Delete(ctx, existingDeployment); err != nil {
 			return r.logErrorAndReturn(err, "Failed to delete deployment owned by a different controller")
 		}
@@ -1245,35 +1257,13 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 	// Check if we need to update the deployment
 	needsUpdate := r.checkDeploymentNeedsUpdate(existingDeployment, hprs, desiredResources)
 
-	// If an update is needed, apply all the necessary changes in a single update
+	// If an update is needed, use the updateDeployment function to apply changes
 	if needsUpdate {
-		// Make sure to set Deployment's spec.selector.matchLabels to match the pod template labels
-		if existingDeployment.Spec.Selector == nil {
-			existingDeployment.Spec.Selector = &metav1.LabelSelector{}
+		// Use the updateDeployment function which will call all the helper functions
+		if err := r.updateDeployment(ctx, existingDeployment, hprs, desiredResources); err != nil {
+			return r.logErrorAndReturn(err, "Failed to update Deployment")
 		}
-
-		if existingDeployment.Spec.Selector.MatchLabels == nil {
-			existingDeployment.Spec.Selector.MatchLabels = map[string]string{}
-		}
-
-		// Use the same labels as in the pod template
-		existingDeployment.Spec.Selector.MatchLabels["app"] = deploymentName // Use constant
-
-		// Implement retry logic with exponential backoff for update conflicts
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			// Fetch the latest version of the deployment before updating
-			if err := r.Client.Get(ctx, types.NamespacedName{
-				Name:      existingDeployment.Name,
-				Namespace: existingDeployment.Namespace,
-			}, existingDeployment); err != nil {
-				return err
-			}
-			return r.updateDeployment(ctx, existingDeployment, hprs, desiredResources)
-		})
-
-		if err != nil {
-			return r.logErrorAndReturn(err, "Failed to update Deployment after retries")
-		}
+		r.Log.Info("Deployment update successful")
 		return nil
 	}
 
