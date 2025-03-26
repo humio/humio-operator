@@ -1990,8 +1990,8 @@ func (in *HumioPdfRenderServiceList) DeepCopyObject() runtime.Object {
 func (in *HumioPdfRenderServiceSpec) DeepCopyInto(out *HumioPdfRenderServiceSpec) {
 	*out = *in
 	in.Resources.DeepCopyInto(&out.Resources)
-	if in.Env != nil {
-		in, out := &in.Env, &out.Env
+	if in.EnvironmentVariables != nil {
+		in, out := &in.EnvironmentVariables, &out.EnvironmentVariables
 		*out = make([]v1.EnvVar, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])

@@ -39,7 +39,7 @@ operator:
           - key: kubernetes.io/arch
             operator: In
             values:
-              - amd64
+            - amd64
           - key: kubernetes.io/os
             operator: In
             values:
@@ -49,3 +49,4 @@ certmanager: true
 defaultHumioCoreImage: ""
 defaultHumioHelperImage: ""
 defaultPdfRenderServiceImage: ""
+

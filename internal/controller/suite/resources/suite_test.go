@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
-
 	"time"
 
 	"github.com/humio/humio-operator/internal/controller"

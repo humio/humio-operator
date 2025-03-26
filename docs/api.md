@@ -37602,7 +37602,7 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindex">env</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindex">environmentVariables</a></b></td>
         <td>[]object</td>
         <td>
           Env allows to specify environment variables for the service.<br/>
@@ -37652,6 +37652,7 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
           Port is the port the service listens on.<br/>
           <br/>
             <i>Format</i>: int32<br/>
+            <i>Default</i>: 5123<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -39709,7 +39710,7 @@ PodSecurityContext, the value specified in SecurityContext takes precedence.<br/
 </table>
 
 
-### HumioPdfRenderService.spec.env[index]
+### HumioPdfRenderService.spec.environmentVariables[index]
 <sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
 
 
@@ -39748,7 +39749,7 @@ Defaults to "".<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefrom">valueFrom</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom">valueFrom</a></b></td>
         <td>object</td>
         <td>
           Source for the environment variable's value. Cannot be used if value is not empty.<br/>
@@ -39758,8 +39759,8 @@ Defaults to "".<br/>
 </table>
 
 
-### HumioPdfRenderService.spec.env[index].valueFrom
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindex)</sup></sup>
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindex)</sup></sup>
 
 
 
@@ -39775,14 +39776,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
         <td>object</td>
         <td>
           Selects a key of a ConfigMap.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefromfieldref">fieldRef</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
@@ -39790,7 +39791,7 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a resource of the container: only resources limits and requests
@@ -39798,7 +39799,7 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
         <td>object</td>
         <td>
           Selects a key of a secret in the pod's namespace<br/>
@@ -39808,8 +39809,8 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
-### HumioPdfRenderService.spec.env[index].valueFrom.configMapKeyRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindexvaluefrom)</sup></sup>
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.configMapKeyRef
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
 
 
 
@@ -39855,8 +39856,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### HumioPdfRenderService.spec.env[index].valueFrom.fieldRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindexvaluefrom)</sup></sup>
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.fieldRef
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
 
 
 
@@ -39890,8 +39891,8 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
-### HumioPdfRenderService.spec.env[index].valueFrom.resourceFieldRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindexvaluefrom)</sup></sup>
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.resourceFieldRef
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
 
 
 
@@ -39932,8 +39933,8 @@ Selects a resource of the container: only resources limits and requests
 </table>
 
 
-### HumioPdfRenderService.spec.env[index].valueFrom.secretKeyRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindexvaluefrom)</sup></sup>
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.secretKeyRef
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
 
 
 

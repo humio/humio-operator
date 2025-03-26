@@ -4223,7 +4223,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
 					Replicas:           1,
-					Image:              "example/image:latest",
+					Image:              "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e",
 					Port:               5123,
 					ServiceAccountName: "default",
 					// Use ClusterIP for the initial service configuration.
@@ -4233,9 +4233,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 			createdCR = cr
 
-			// Verify that the Deployment exists.
+			// Verify that the Deployment exists using the CR name.
 			deploymentKey := types.NamespacedName{
-				Name:      "pdf-render-service",
+				Name:      cr.Name, // Use CR name
 				Namespace: cr.Namespace,
 			}
 			deployment := &appsv1.Deployment{}
@@ -4243,18 +4243,17 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8sClient.Get(ctx, deploymentKey, deployment)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(deployment.Namespace).Should(Equal(cr.Namespace))
+			Expect(deployment.Name).Should(Equal(cr.Name)) // Verify name matches CR name
 
-			// Verify that the Service exists and uses the fixed service name.
+			// Verify that the Service exists using the CR name.
 			serviceKey := types.NamespacedName{
 				Name:      "humio-pdf-render",
 				Namespace: cr.Namespace,
 			}
 			service := &corev1.Service{}
 			Eventually(func() int32 {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "pdf-render-service",
-					Namespace: serviceKey.Namespace,
-				}, service)
+				// Use serviceKey directly which now contains the CR name
+				err := k8sClient.Get(ctx, serviceKey, service)
 				if err != nil {
 					return 0
 				}
@@ -4290,7 +4289,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			// Wait for the Deployment to be created.
 			deploymentKey := types.NamespacedName{
-				Name:      "pdf-render-service",
+				Name:      cr.Name, // Use CR name
 				Namespace: cr.Namespace,
 			}
 			deployment := &appsv1.Deployment{}
