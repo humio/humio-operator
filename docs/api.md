@@ -36761,12 +36761,19 @@ This conflicts with ExternalClusterName.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>tokenSecretAnnotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          TokenSecretAnnotations specifies additional key,value pairs to add as annotations on the Kubernetes Secret containing
+the ingest token.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>tokenSecretLabels</b></td>
         <td>map[string]string</td>
         <td>
           TokenSecretLabels specifies additional key,value pairs to add as labels on the Kubernetes Secret containing
-the ingest token.
-This field is optional.<br/>
+the ingest token.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -36774,8 +36781,7 @@ This field is optional.<br/>
         <td>string</td>
         <td>
           TokenSecretName specifies the name of the Kubernetes secret that will be created
-and contain the ingest token. The key in the secret storing the ingest token is "token".
-This field is optional.<br/>
+and contain the ingest token. The key in the secret storing the ingest token is "token".<br/>
         </td>
         <td>false</td>
       </tr></tbody>

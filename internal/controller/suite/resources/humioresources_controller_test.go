@@ -213,6 +213,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 				fetchedIngestToken.Spec.TokenSecretLabels = map[string]string{
 					"custom-label": "custom-value",
 				}
+				fetchedIngestToken.Spec.TokenSecretAnnotations = map[string]string{
+					"custom-annotation": "custom-value",
+				}
 				return k8sClient.Update(ctx, fetchedIngestToken)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			ingestTokenSecret := &corev1.Secret{}
@@ -226,6 +229,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					ingestTokenSecret)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(ingestTokenSecret.Labels).Should(HaveKeyWithValue("custom-label", "custom-value"))
+			Expect(ingestTokenSecret.Annotations).Should(HaveKeyWithValue("custom-annotation", "custom-value"))
 
 			Expect(string(ingestTokenSecret.Data["token"])).ToNot(BeEmpty())
 

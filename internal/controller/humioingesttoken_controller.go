@@ -224,7 +224,7 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 	}
 
 	secretData := map[string][]byte{"token": []byte(ingestToken.Token)}
-	desiredSecret := kubernetes.ConstructSecret(cluster.Name(), hit.Namespace, hit.Spec.TokenSecretName, secretData, hit.Spec.TokenSecretLabels)
+	desiredSecret := kubernetes.ConstructSecret(cluster.Name(), hit.Namespace, hit.Spec.TokenSecretName, secretData, hit.Spec.TokenSecretLabels, hit.Spec.TokenSecretAnnotations)
 	if err := controllerutil.SetControllerReference(hit, desiredSecret, r.Scheme()); err != nil {
 		return fmt.Errorf("could not set controller reference: %w", err)
 	}
@@ -242,7 +242,9 @@ func (r *HumioIngestTokenReconciler) ensureTokenSecretExists(ctx context.Context
 	} else {
 		// kubernetes secret exists, check if we need to update it
 		r.Log.Info("ingest token secret already exists", "TokenSecretName", hit.Spec.TokenSecretName)
-		if string(existingSecret.Data["token"]) != string(desiredSecret.Data["token"]) {
+		if string(existingSecret.Data["token"]) != string(desiredSecret.Data["token"]) ||
+			!cmp.Equal(existingSecret.Labels, desiredSecret.Labels) ||
+			!cmp.Equal(existingSecret.Annotations, desiredSecret.Annotations) {
 			r.Log.Info("secret does not match the token in Humio. Updating token", "TokenSecretName", hit.Spec.TokenSecretName)
 			if err = r.Update(ctx, desiredSecret); err != nil {
 				return r.logErrorAndReturn(err, "unable to update ingest token")
