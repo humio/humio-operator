@@ -1,3 +1,19 @@
+/*
+Copyright 2020 Humio https://humio.com
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package controller
 
 import (
@@ -57,8 +73,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	}
 
-	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name,
-		"Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
+	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
 	r.Log.Info("Reconciling HumioPdfRenderService")
 
 	// Fetch the HumioPdfRenderService instance
@@ -445,8 +460,7 @@ func (r *HumioPdfRenderServiceReconciler) checkImageChanges(
 	currentImage := existingDeployment.Spec.Template.Spec.Containers[0].Image
 	desiredImage := hprs.Spec.Image
 	if currentImage != desiredImage {
-		r.Log.Info("checkImageChanges: Image mismatch detected",
-			"ExistingImage", currentImage, "DesiredImage", desiredImage)
+		r.Log.Info("checkImageChanges: Image mismatch detected", "ExistingImage", currentImage, "DesiredImage", desiredImage)
 		return true
 	}
 	r.Log.Info("checkImageChanges: Images match", "ExistingImage", currentImage, "DesiredImage", desiredImage)
@@ -566,10 +580,16 @@ func isPodSecurityContextEmpty(sc *corev1.PodSecurityContext) bool {
 	}
 
 	// Check if all fields have their zero values
-	return sc.SELinuxOptions == nil && sc.RunAsUser == nil && sc.RunAsNonRoot == nil &&
-		(len(sc.SupplementalGroups) == 0) && sc.FSGroup == nil && sc.RunAsGroup == nil &&
+	return sc.SELinuxOptions == nil &&
+		sc.RunAsUser == nil &&
+		sc.RunAsNonRoot == nil &&
+		(len(sc.SupplementalGroups) == 0) &&
+		sc.FSGroup == nil &&
+		sc.RunAsGroup == nil &&
 		len(sc.Sysctls) == 0 && // Fixed gosimple error
-		sc.WindowsOptions == nil && sc.FSGroupChangePolicy == nil && sc.SeccompProfile == nil
+		sc.WindowsOptions == nil &&
+		sc.FSGroupChangePolicy == nil &&
+		sc.SeccompProfile == nil
 }
 
 // checkEnvVarChanges checks if environment variables have changed
@@ -734,14 +754,17 @@ func (r *HumioPdfRenderServiceReconciler) checkImagePullSecretChanges(
 		return false
 	}
 
-	if (currentSecrets == nil && desiredSecrets == nil) || (len(currentSecrets) == 0 && len(desiredSecrets) == 0) {
+	if (currentSecrets == nil && desiredSecrets == nil) ||
+		(len(currentSecrets) == 0 && len(desiredSecrets) == 0) {
 		return false
 	}
 
 	if (currentSecrets == nil && len(desiredSecrets) > 0) ||
 		(len(currentSecrets) > 0 && desiredSecrets == nil && !hasEcrCredentials) ||
 		!reflect.DeepEqual(currentSecrets, desiredSecrets) {
-		r.Log.Info("ImagePullSecrets changed", "Current", currentSecrets, "Desired", desiredSecrets)
+		r.Log.Info("ImagePullSecrets changed",
+			"Current", currentSecrets,
+			"Desired", desiredSecrets)
 		return true
 	}
 
@@ -942,11 +965,10 @@ func (r *HumioPdfRenderServiceReconciler) checkMetadataChanges(
 	}
 
 	if !reflect.DeepEqual(existingDeployment.Spec.Template.ObjectMeta.Labels, expectedLabels) {
-		r.Log.Info("Deployment template labels changed",
-			"Expected", expectedLabels,
-			"Current", existingDeployment.Spec.Template.ObjectMeta.Labels)
+		r.Log.Info("Deployment template labels changed", "Expected", expectedLabels, "Current", existingDeployment.Spec.Template.ObjectMeta.Labels)
 		return true
 	}
+	// Removed stray closing brace and TODO comments from previous diff application
 
 	// Check annotations (ignoring restartedAt)
 	existingAnnotations := make(map[string]string)
@@ -957,8 +979,7 @@ func (r *HumioPdfRenderServiceReconciler) checkMetadataChanges(
 			}
 		}
 	}
-	specAnnotations := hprs.Spec.Annotations
-	// Treat nil spec annotations as empty map
+	specAnnotations := hprs.Spec.Annotations // Treat nil spec annotations as empty map
 	if specAnnotations == nil {
 		specAnnotations = make(map[string]string)
 	}
@@ -1128,7 +1149,9 @@ func (r *HumioPdfRenderServiceReconciler) updateDeploymentEnvVars(
 		"Container.Name", container.Name)
 
 	if !reflect.DeepEqual(currentEnv, desiredEnv) {
-		r.Log.Info("Environment variables differ", "CurrentEnv", currentEnv, "DesiredEnv", desiredEnv)
+		r.Log.Info("Environment variables differ",
+			"CurrentEnv", currentEnv,
+			"DesiredEnv", desiredEnv)
 
 		// Always use desired env vars if specified
 		if len(desiredEnv) > 0 {
@@ -1172,9 +1195,7 @@ func (r *HumioPdfRenderServiceReconciler) updateDeploymentContainerSecurityConte
 
 	expectedContext := r.getExpectedContainerSecurityContext(hprs)
 	if !reflect.DeepEqual(container.SecurityContext, expectedContext) {
-		r.Log.Info("Updating container security context",
-			"Current", container.SecurityContext,
-			"Desired", expectedContext)
+		r.Log.Info("Updating container security context", "Current", container.SecurityContext, "Desired", expectedContext)
 		container.SecurityContext = expectedContext.DeepCopy() // Use DeepCopy
 		return true
 	}
@@ -1324,8 +1345,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 				"Image", hprs.Spec.Image)
 			// Ensure resources are logged if available
 			if len(deployment.Spec.Template.Spec.Containers) > 0 {
-				r.Log.Info("Creating Deployment with Resources",
-					"Resources", deployment.Spec.Template.Spec.Containers[0].Resources)
+				r.Log.Info("Creating Deployment with Resources", "Resources", deployment.Spec.Template.Spec.Containers[0].Resources)
 			}
 			return r.Client.Create(ctx, deployment)
 		}
@@ -1333,38 +1353,38 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 		return err
 	}
 
-	// Deployment exists, use CreateOrUpdate to reconcile
-	// The conflict detection logic is removed as unique names prevent conflicts.
-	// Ownership check is handled implicitly by CreateOrUpdate if SetControllerReference is used correctly.
-
-	result, err := controllerutil.CreateOrUpdate(ctx, r.Client, existingDeployment, func() error {
-		// Set controller reference if not already set
-		if err := controllerutil.SetControllerReference(hprs, existingDeployment, r.Scheme); err != nil {
-			return r.logErrorAndReturn(err, "Failed to set controller reference on existing deployment")
-		}
-
-		// MutateFn: Ensure the existing deployment matches the desired state
-		// Copy desired spec, labels, and annotations
-		existingDeployment.Spec = deployment.Spec
-		existingDeployment.ObjectMeta.Labels = deployment.ObjectMeta.Labels
-		existingDeployment.ObjectMeta.Annotations = deployment.ObjectMeta.Annotations
-
-		return nil
-	})
-
-	if err != nil {
-		return r.logErrorAndReturn(err, "Failed to CreateOrUpdate Deployment")
+	// Deployment exists, check if it needs updating
+	// Extract desired resources from the constructed deployment for comparison
+	var desiredResources corev1.ResourceRequirements
+	if len(deployment.Spec.Template.Spec.Containers) > 0 {
+		desiredResources = deployment.Spec.Template.Spec.Containers[0].Resources
 	}
 
-	switch result {
-	case controllerutil.OperationResultCreated:
-		r.Log.Info("Created Deployment", "Deployment.Name", existingDeployment.Name)
-	case controllerutil.OperationResultUpdated:
-		r.Log.Info("Updated Deployment", "Deployment.Name", existingDeployment.Name)
-	case controllerutil.OperationResultNone:
-		r.Log.Info("No changes needed for Deployment", "Deployment.Name", existingDeployment.Name)
-	default:
-		r.Log.Info("CreateOrUpdate returned unknown result", "Result", result)
+	if r.checkDeploymentNeedsUpdate(existingDeployment, hprs, desiredResources) {
+		r.Log.Info("Deployment needs update, calling updateDeployment", "Deployment.Name", existingDeployment.Name)
+		// Call updateDeployment to apply changes
+		if err := r.updateDeployment(ctx, existingDeployment, hprs, desiredResources); err != nil {
+			return r.logErrorAndReturn(err, "Failed to update Deployment")
+		}
+		r.Log.Info("Successfully updated Deployment", "Deployment.Name", existingDeployment.Name)
+	} else {
+		// Ensure controller reference is set even if no other update is needed
+		if !metav1.IsControlledBy(existingDeployment, hprs) {
+			r.Log.Info("Setting controller reference on existing deployment", "Deployment.Name", existingDeployment.Name)
+			if err := controllerutil.SetControllerReference(hprs, existingDeployment, r.Scheme); err != nil {
+				return r.logErrorAndReturn(err, "Failed to set controller reference on existing deployment")
+			}
+			if err := r.Client.Update(ctx, existingDeployment); err != nil {
+				// Handle potential conflict during reference update
+				if k8serrors.IsConflict(err) {
+					r.Log.Info("Conflict detected while setting controller reference, returning error for requeue", "Deployment.Name", existingDeployment.Name)
+					return err // Return the conflict error directly for requeue
+				}
+				return r.logErrorAndReturn(err, "Failed to update Deployment with controller reference")
+			}
+		} else {
+			r.Log.Info("No changes needed for Deployment", "Deployment.Name", existingDeployment.Name)
+		}
 	}
 
 	return nil
@@ -1445,9 +1465,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 	}
 
 	// Check port configuration
-	if len(existingService.Spec.Ports) != 1 ||
-		existingService.Spec.Ports[0].Port != port ||
-		existingService.Spec.Ports[0].TargetPort.IntVal != port {
+	if len(existingService.Spec.Ports) != 1 || existingService.Spec.Ports[0].Port != port || existingService.Spec.Ports[0].TargetPort.IntVal != port {
 		r.Log.Info("Port configuration changed")
 		needsUpdate = true
 	}
@@ -1462,7 +1480,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 		// Get the port to use (default or from CR) - Redundant, already have 'port'
 		// port := int32(5123)
 		// if hprs.Spec.Port != 0 {
-		//     port = hprs.Spec.Port
+		//  port = hprs.Spec.Port
 		// }
 
 		existingService.Spec.Ports = []corev1.ServicePort{{
@@ -1476,7 +1494,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 
 		// Labels on the service itself are not managed here, only selector
 		// if existingService.Labels == nil {
-		//     existingService.Labels = map[string]string{}
+		//  existingService.Labels = map[string]string{}
 		// }
 		// existingService.Labels["app"] = hprs.Name // Use CR name
 
