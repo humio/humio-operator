@@ -4285,14 +4285,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			for i, pod := range podList.Items {
 				fmt.Printf("Pod %d: Name=%s, Phase=%s\n", i, pod.Name, pod.Status.Phase)
 				for _, cond := range pod.Status.Conditions {
-					fmt.Printf("  Condition: Type=%s, Status=%s, Reason=%s\n",
+					fmt.Printf(" Condition: Type=%s, Status=%s, Reason=%s\n",
 						cond.Type, cond.Status, cond.Reason)
 				}
 				for _, container := range pod.Status.ContainerStatuses {
-					fmt.Printf("  Container: Name=%s, Ready=%v, Image=%s\n",
+					fmt.Printf(" Container: Name=%s, Ready=%v, Image=%s\n",
 						container.Name, container.Ready, container.Image)
 					if container.State.Waiting != nil {
-						fmt.Printf("    Waiting: Reason=%s, Message=%s\n",
+						fmt.Printf(" Waiting: Reason=%s, Message=%s\n",
 							container.State.Waiting.Reason, container.State.Waiting.Message)
 					}
 				}
