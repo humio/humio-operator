@@ -37143,11 +37143,10 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         <td>false</td>
       </tr><tr>
         <td><b>serviceType</b></td>
-        <td>enum</td>
+        <td>string</td>
         <td>
           ServiceType is the type of service to expose.<br/>
           <br/>
-            <i>Enum</i>: ClusterIP<br/>
             <i>Default</i>: ClusterIP<br/>
         </td>
         <td>false</td>
