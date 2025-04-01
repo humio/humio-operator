@@ -28,8 +28,6 @@ const (
 	HumioPdfRenderServiceStateExists = "Exists"
 	// HumioPdfRenderServiceStateNotFound is the NotFound state of the PDF rendering service.
 	HumioPdfRenderServiceStateNotFound = "NotFound"
-	// HumioPdfRenderServiceStateConfigError is the state of the PDF rendering service when user-provided specification results in configuration error, such as non-existent humio cluster
-	HumioPdfRenderServiceStateConfigError = "ConfigError"
 )
 
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
@@ -77,7 +75,7 @@ type HumioPdfRenderServiceSpec struct {
 	// ServiceType is the type of service to expose.
 	// +optional
 	// +kubebuilder:default=ClusterIP
-	// +kubebuilder:validation:Enum=ClusterIP
+	// +kubebuilder:validation:Enum=ClusterIP;NodePort;LoadBalancer
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 
 	// ServiceAccountName is the name of the Kubernetes Service Account to use.
