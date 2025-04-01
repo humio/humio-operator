@@ -2,8 +2,8 @@ operator:
   image:
     repository: humio/humio-operator
     # default for tag is the appVersion set in Chart.yaml
-    tag: 0.28.2
-    pullPolicy: Always
+    tag:
+    pullPolicy: IfNotPresent
     pullSecrets: []
   metrics:
     enabled: true
@@ -38,7 +38,7 @@ operator:
           - key: kubernetes.io/arch
             operator: In
             values:
-              - amd64
+            - amd64
           - key: kubernetes.io/os
             operator: In
             values:
