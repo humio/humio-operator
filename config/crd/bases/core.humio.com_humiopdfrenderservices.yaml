@@ -1935,8 +1935,6 @@ spec:
               serviceType:
                 default: ClusterIP
                 description: ServiceType is the type of service to expose.
-                enum:
-                - ClusterIP
                 type: string
               volumeMounts:
                 description: VolumeMounts defines the volume mounts for the container.
