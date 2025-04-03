@@ -5,12 +5,15 @@ metadata:
   namespace: logging
 spec:
   # Required fields
-  image: humio/pdf-render-service:0.0.60--build-101--sha-fe87a59c82fd957ec460190a3f726948d586c1ea
+  image: humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e
+  # Optional fields
+  # Image pull secrets
+  imagePullSecrets:
+    - name: regcred
+  # Number of replicas to run/humio-operator/pkg/humio/humio_tes
   replicas: 2
   # Port configuration
   port: 5123
-  imagePullSecrets:
-    - name: regcred
   # Service type (matches the Terraform configuration)
   serviceType: ClusterIP
   # Environment variables
@@ -28,7 +31,7 @@ spec:
     - name: PORT
       value: "5123"
     - name: SERVICE_VERSION
-      value: 0.0.60--build-101--sha-fe87a59c82fd957ec460190a3f726948d586c1ea
+      value: 0.28.29 
   # Resource requirements
   resources:
     limits:

@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -75,6 +75,9 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var tlsOpts []func(*tls.Config)
+	var defaultPdfRenderPort int
+	var defaultPdfRenderLivenessPath string
+	var defaultPdfRenderReadinessPath string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -92,6 +95,22 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	// Flags for HumioPdfRenderService defaults
+	flag.IntVar(
+		&defaultPdfRenderPort,
+		"default-pdf-render-port",
+		5123,
+		"Default port for the Humio PDF Render Service if not specified in the CR.")
+	flag.StringVar(
+		&defaultPdfRenderLivenessPath,
+		"default-pdf-render-liveness-path",
+		"/health",
+		"Default liveness probe path for the Humio PDF Render Service if not specified in the CR.")
+	flag.StringVar(
+		&defaultPdfRenderReadinessPath,
+		"default-pdf-render-readiness-path",
+		"/ready",
+		"Default readiness probe path for the Humio PDF Render Service if not specified in the CR.")
 	flag.Parse()
 
 	var log logr.Logger
@@ -320,10 +339,13 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.HumioPdfRenderServiceReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		HumioClient: humio.NewClient(log, userAgent),
-		BaseLogger:  log,
+		Client:               mgr.GetClient(),
+		Scheme:               mgr.GetScheme(),
+		HumioClient:          humio.NewClient(log, userAgent),
+		BaseLogger:           log,
+		DefaultPdfRenderPort: validateInt32Value(defaultPdfRenderPort),
+		DefaultLivenessPath:  defaultPdfRenderLivenessPath,
+		DefaultReadinessPath: defaultPdfRenderReadinessPath,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioPdfRenderService")
 		os.Exit(1)
@@ -361,4 +383,20 @@ func main() {
 		ctrl.Log.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// validateInt32Value ensures that the int value can be safely converted to int32
+func validateInt32Value(value int) int32 {
+	const maxInt32 = 1<<31 - 1
+	const minInt32 = -1 << 31
+
+	if value > maxInt32 {
+		// Log warning about overflow or handle appropriately
+		return int32(maxInt32)
+	} else if value < minInt32 {
+		// Log warning about underflow or handle appropriately
+		return int32(minInt32)
+	}
+
+	return int32(value)
 }
