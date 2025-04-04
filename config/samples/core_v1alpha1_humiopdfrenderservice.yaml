@@ -10,14 +10,12 @@ spec:
   # Image pull secrets
   imagePullSecrets:
     - name: regcred
-  # Number of replicas to run/humio-operator/pkg/humio/humio_tes
   replicas: 2
   # Port configuration
   port: 5123
-  # Service type (matches the Terraform configuration)
   serviceType: ClusterIP
   # Environment variables
-  env:
+  environmentVariables:
     - name: XDG_CONFIG_HOME
       value: /tmp/.chromium-config
     - name: XDG_CACHE_HOME

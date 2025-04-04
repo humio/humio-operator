@@ -28,6 +28,10 @@ const (
 	HumioPdfRenderServiceStateExists = "Exists"
 	// HumioPdfRenderServiceStateNotFound is the NotFound state of the PDF rendering service.
 	HumioPdfRenderServiceStateNotFound = "NotFound"
+	// DefaultPdfRenderServiceLiveness is the default liveness path for the PDF rendering service.
+	DefaultPdfRenderServiceLiveness = "/health"
+	// DefaultPdfRenderServiceReadiness is the default readiness path for the PDF rendering service.
+	DefaultPdfRenderServiceReadiness = "/ready"
 )
 
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
@@ -42,6 +46,7 @@ type HumioPdfRenderServiceSpec struct {
 
 	// Port is the port the service listens on.
 	// +optional
+	// +kubebuilder:default=5123
 	Port int32 `json:"port,omitempty"`
 
 	// Resources defines the resource requests and limits for the container.
@@ -50,7 +55,7 @@ type HumioPdfRenderServiceSpec struct {
 
 	// Env allows to specify environment variables for the service.
 	// +optional
-	Env []corev1.EnvVar `json:"env,omitempty"`
+	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
 
 	// Affinity defines the pod's scheduling constraints.
 	// +optional

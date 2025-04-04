@@ -4241,7 +4241,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Replicas: 1,
 					Image:    "humio/pdf-render-service:0.0.60--build-101--sha-fe87a59c82fd957ec460190a3f726948d586c1ea", // Use the specific Humio image
 					Port:     8080,
-					Env: []corev1.EnvVar{
+					EnvironmentVariables: []corev1.EnvVar{
 						{
 							Name:  "LOG_LEVEL",
 							Value: "debug",
