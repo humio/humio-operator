@@ -987,7 +987,8 @@ spec:
                   the pods.
                 type: object
               environmentVariables:
-                description: Env allows to specify environment variables for the service.
+                description: EnvironmentVariables allows to specify environment variables
+                  for the service.
                 items:
                   description: EnvVar represents an environment variable present in
                     a Container.
