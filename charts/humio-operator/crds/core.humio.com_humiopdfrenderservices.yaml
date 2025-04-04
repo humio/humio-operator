@@ -986,7 +986,7 @@ spec:
                 description: Annotations allows to specify custom annotations for
                   the pods.
                 type: object
-              env:
+              environmentVariables:
                 description: Env allows to specify environment variables for the service.
                 items:
                   description: EnvVar represents an environment variable present in
@@ -1519,6 +1519,7 @@ spec:
                     type: object
                 type: object
               port:
+                default: 5123
                 description: Port is the port the service listens on.
                 format: int32
                 type: integer

@@ -50,9 +50,7 @@ type HumioPdfRenderServiceReconciler struct {
 	Log                  logr.Logger
 	HumioClient          humio.Client
 	Namespace            string
-	DefaultPdfRenderPort int32  // Configurable default port
-	DefaultLivenessPath  string // Configurable default liveness probe path
-	DefaultReadinessPath string // Configurable default readiness probe path
+	DefaultPdfRenderPort int32 // Configurable default port
 	// Add fields for other configurable defaults here if needed (e.g., SecurityContext, Resources)
 }
 
@@ -301,7 +299,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(hprs *corev
 		livenessProbe = &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path:   r.DefaultLivenessPath, // Use configurable default path
+					Path:   corev1alpha1.DefaultPdfRenderServiceLiveness, // Use configurable default path
 					Port:   intstr.FromInt(int(port)),
 					Scheme: corev1.URISchemeHTTP, // Default scheme
 				},
@@ -319,7 +317,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(hprs *corev
 		readinessProbe = &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path:   r.DefaultReadinessPath, // Use configurable default path
+					Path:   corev1alpha1.DefaultPdfRenderServiceReadiness, // Use configurable default path
 					Port:   intstr.FromInt(int(port)),
 					Scheme: corev1.URISchemeHTTP, // Default scheme
 				},
@@ -364,7 +362,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(hprs *corev
 							ContainerPort: port,
 							Name:          "http",
 						}},
-						Env:            hprs.Spec.Env, // Use directly from spec
+						Env:            hprs.Spec.EnvironmentVariables, // Use directly from spec
 						VolumeMounts:   volumeMounts,
 						LivenessProbe:  livenessProbe,
 						ReadinessProbe: readinessProbe,
