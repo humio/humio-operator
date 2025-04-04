@@ -72,9 +72,18 @@ func (p *podLifecycleState) ADifferenceWasDetectedAndManualDeletionsNotEnabled()
 	if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyOnDelete {
 		return false
 	}
-	return p.FoundVersionDifference() || p.FoundConfigurationDifference()
+	return p.FoundVersionDifference() || (p.FoundConfigurationDifference() && p.AllowsRestartDueToConfigurationDifference())
 }
 
+func (p *podLifecycleState) AllowsRestartDueToConfigurationDifference() bool {
+	if p.nodePool.GetUpdateStrategy().ConfigurationType == humiov1alpha1.HumioClusterConfigurationUpdateStrategyMatchUpdates {
+		return true
+	}
+	if p.nodePool.GetUpdateStrategy().ConfigurationType == humiov1alpha1.HumioClusterConfigurationUpdateStrategyNever {
+		return false
+	}
+	return true
+}
 func (p *podLifecycleState) FoundVersionDifference() bool {
 	return p.versionDifference != nil
 }

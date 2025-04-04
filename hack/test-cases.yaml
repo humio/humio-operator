@@ -1,0 +1,13 @@
+test_scenarios:
+  - name: "restart_upgrade"
+    from_version: "0.28.0"
+    to_version: "present"
+    cluster: "test-logscale-cluster.yaml"
+    expect_restarts: true
+    description: "Should trigger restart"
+  - name: "no_restart_upgrade_to_present"
+    from_version: "0.28.0"
+    to_version: "present"
+    cluster: "test-logscale-cluster-update-strategy-configuration-never.yaml"
+    expect_restarts: false
+    description: "Should not trigger restart"

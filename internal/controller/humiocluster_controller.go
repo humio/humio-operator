@@ -1883,10 +1883,11 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	}
 
 	// dump the current state of things
-	r.Log.Info(fmt.Sprintf("cluster state is %s. waitingOnPods=%v, ADifferenceWasDetectedAndManualDeletionsNotEnabled=%v, "+
+	r.Log.Info(fmt.Sprintf("cluster state is %s. waitingOnPods=%v, ADifferenceWasDetectedAndManualDeletionsNotEnabled=%v, AllowsRestartDueToConfigurationDifference=%v, "+
 		"revisionsInSync=%v, podRevisions=%v, podDeletionTimestampSet=%v, podNames=%v, podHumioVersions=%v, expectedRunningPods=%v, podsReady=%v, podsNotReady=%v nodePoolStatus=%v",
-		hc.Status.State, podsStatus.waitingOnPods(), desiredLifecycleState.ADifferenceWasDetectedAndManualDeletionsNotEnabled(), podsStatus.podRevisionCountMatchesNodeCountAndAllPodsHaveRevision(hnp.GetDesiredPodRevision()),
-		podsStatus.podRevisions, podsStatus.podDeletionTimestampSet, podsStatus.podNames, podsStatus.podImageVersions, podsStatus.nodeCount, podsStatus.readyCount, podsStatus.notReadyCount, hc.Status.NodePoolStatus))
+		hc.Status.State, podsStatus.waitingOnPods(), desiredLifecycleState.ADifferenceWasDetectedAndManualDeletionsNotEnabled(), desiredLifecycleState.AllowsRestartDueToConfigurationDifference(),
+		podsStatus.podRevisionCountMatchesNodeCountAndAllPodsHaveRevision(hnp.GetDesiredPodRevision()), podsStatus.podRevisions, podsStatus.podDeletionTimestampSet, podsStatus.podNames,
+		podsStatus.podImageVersions, podsStatus.nodeCount, podsStatus.readyCount, podsStatus.notReadyCount, hc.Status.NodePoolStatus))
 
 	// when we detect changes, update status to reflect Upgrading/Restarting
 	if hc.Status.State == humiov1alpha1.HumioClusterStateRunning || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {

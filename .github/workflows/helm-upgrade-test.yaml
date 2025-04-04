@@ -1,0 +1,29 @@
+name: Helm Upgrade Tests
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  test-upgrades:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Kind cluster
+        uses: helm/kind-action@v1.5.0
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get install -y jq yq
+
+      - name: Run upgrade tests
+        run: ./test/run-test-suite.sh
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-results
+          path: test-results/
+

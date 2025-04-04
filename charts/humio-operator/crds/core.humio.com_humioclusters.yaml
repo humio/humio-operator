@@ -13939,6 +13939,17 @@ spec:
                             UpdateStrategy controls how Humio pods are updated when changes are made to the HumioCluster resource that results
                             in a change to the Humio pods
                           properties:
+                            configurationType:
+                              description: |-
+                                ConfigurationType controls how pods are updated when the configuration changes. The available values are: MatchUpdates and
+                                Never.
+
+                                When set to MatchUpdates, the update strategy will be the same for both changes to the image and changes to
+                                the configuration.
+
+                                When set to Never, configuration changes alone will never cause an update. Updates can only be executed either by
+                                changing the image or by manual pod deletion.
+                              type: string
                             enableZoneAwareness:
                               description: |-
                                 EnableZoneAwareness toggles zone awareness on or off during updates. When enabled, the pod replacement logic
@@ -16040,6 +16051,17 @@ spec:
                   UpdateStrategy controls how Humio pods are updated when changes are made to the HumioCluster resource that results
                   in a change to the Humio pods
                 properties:
+                  configurationType:
+                    description: |-
+                      ConfigurationType controls how pods are updated when the configuration changes. The available values are: MatchUpdates and
+                      Never.
+
+                      When set to MatchUpdates, the update strategy will be the same for both changes to the image and changes to
+                      the configuration.
+
+                      When set to Never, configuration changes alone will never cause an update. Updates can only be executed either by
+                      changing the image or by manual pod deletion.
+                    type: string
                   enableZoneAwareness:
                     description: |-
                       EnableZoneAwareness toggles zone awareness on or off during updates. When enabled, the pod replacement logic

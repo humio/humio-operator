@@ -50,6 +50,11 @@ const (
 	// are bound is deleted. Should only be used when running using `USING_EPHEMERAL_DISKS=true`, and typically only when using a persistent volume driver that
 	// binds each persistent volume claim to a specific node (BETA)
 	HumioPersistentVolumeReclaimTypeOnNodeDelete = "OnNodeDelete"
+	// HumioClusterConfigurationUpdateStrategyAlways will cause configuration updates to be treated the same way as image update
+	HumioClusterConfigurationUpdateStrategyMatchUpdates = "MatchUpdates"
+	// HumioClusterConfigurationUpdateStrategyAlways will cause configuration updates never cause an update. Updates can only be executed either by changing the image
+	// or by manual pod deletion
+	HumioClusterConfigurationUpdateStrategyNever = "Never"
 )
 
 // HumioClusterSpec defines the desired state of HumioCluster.
@@ -316,6 +321,16 @@ type HumioUpdateStrategy struct {
 	// Humio pods can be updated in a rolling fashion or if they must be replaced at the same time.
 	// +kubebuilder:validation:Enum=OnDelete;RollingUpdate;ReplaceAllOnUpdate;RollingUpdateBestEffort
 	Type string `json:"type,omitempty"`
+
+	// ConfigurationType controls how pods are updated when the configuration changes. The available values are: MatchUpdates and
+	// Never.
+	//
+	// When set to MatchUpdates, the update strategy will be the same for both changes to the image and changes to
+	// the configuration.
+	//
+	// When set to Never, configuration changes alone will never cause an update. Updates can only be executed either by
+	// changing the image or by manual pod deletion.
+	ConfigurationType string `json:"configurationType,omitempty"`
 
 	// MinReadySeconds is the minimum time in seconds that a pod must be ready before the next pod can be deleted when doing rolling update.
 	MinReadySeconds int32 `json:"minReadySeconds,omitempty"`
