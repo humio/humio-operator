@@ -1,13 +1,12 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioCluster
 metadata:
-  name: example-humiocluster
+  name: test-cluster
 spec:
   license:
     secretKeyRef:
-      name: example-humiocluster-license
+      name: test-cluster-license
       key: data
-  #image: "humio/humio-core:1.171.1"
   nodeCount: 1
   tls:
     enabled: false
@@ -32,11 +31,6 @@ spec:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
         - matchExpressions:
-          - key: kubernetes.io/arch
-            operator: In
-            values:
-            - amd64
-            - arm64
           - key: kubernetes.io/os
             operator: In
             values:
