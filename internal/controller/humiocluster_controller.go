@@ -1075,7 +1075,7 @@ func (r *HumioClusterReconciler) ensureHumioNodeCertificates(ctx context.Context
 	for i := existingNodeCertCount; i < hnp.GetNodeCount(); i++ {
 		certificate := ConstructNodeCertificate(hnp, kubernetes.RandomString())
 
-		certificate.Annotations[certHashAnnotation] = GetDesiredCertHash(hnp)
+		certificate.Annotations[CertificateHashAnnotation] = GetDesiredCertHash(hnp)
 		r.Log.Info(fmt.Sprintf("creating node TLS certificate with name %s", certificate.Name))
 		if err = controllerutil.SetControllerReference(hc, &certificate, r.Scheme()); err != nil {
 			return r.logErrorAndReturn(err, "could not set controller reference")
@@ -1966,7 +1966,11 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	}
 
 	// calculate desired pod hash
-	desiredPodHash := podSpecAsSHA256(hnp, *desiredPod)
+	podHasher := NewPodHasher(sanitizePod(hnp, desiredPod.DeepCopy()), &hnp.managedFieldsTracker)
+	desiredPodHash, err := podHasher.PodHashMinusManagedFields()
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("could not calculate pod hash for pod %s", desiredPod.Name)
+	}
 
 	// save the new revision, hash and so on in one of two cases:
 	// 1. the cluster is in some pod replacement state

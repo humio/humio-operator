@@ -27,7 +27,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,10 +40,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -49,6 +48,10 @@ const (
 	HumioDataVolumeName      = "humio-data"
 	sharedPath               = "/shared"
 	waitForPodTimeoutSeconds = 10
+)
+
+var (
+	environmentVariablesRequiringSimultaneousRestartRestart = []string{"EXTERNAL_URL"}
 )
 
 type podAttachments struct {
@@ -86,6 +89,31 @@ func ConstructContainerArgs(hnp *HumioNodePool, podEnvVars []corev1.EnvVar) ([]s
 }
 
 func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAttachments) (*corev1.Pod, error) {
+	pod, err := constructBasePod(hnp, humioNodeName, attachments)
+	if err != nil {
+		return &corev1.Pod{}, err
+	}
+
+	podCopy := pod.DeepCopy()
+	sanitizedPod := sanitizePod(hnp, podCopy)
+	podHasher := NewPodHasher(sanitizedPod, &hnp.managedFieldsTracker)
+
+	hash, err := podHasher.PodHashMinusManagedFields()
+	if err != nil {
+		return &corev1.Pod{}, err
+	}
+	pod.Annotations[PodHashAnnotation] = hash
+
+	managedHash, err := podHasher.PodHashOnlyManagedFields()
+	if err != nil {
+		return &corev1.Pod{}, err
+	}
+	pod.Annotations[PodOperatorManagedFieldsHashAnnotation] = managedHash
+
+	return pod, nil
+}
+
+func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *podAttachments) (*corev1.Pod, error) {
 	var pod corev1.Pod
 	mode := int32(420)
 	productVersion := "unknown"
@@ -178,7 +206,7 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 			if err != nil {
 				return &corev1.Pod{}, fmt.Errorf("error trying to JSON encode envVarSourceData: %w", err)
 			}
-			pod.Annotations[envVarSourceHashAnnotation] = helpers.AsSHA256(string(b))
+			pod.Annotations[EnvVarSourceHashAnnotation] = helpers.AsSHA256(string(b))
 		}
 	}
 
@@ -385,7 +413,7 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 	}
 
 	if hnp.TLSEnabled() {
-		pod.Annotations[certHashAnnotation] = GetDesiredCertHash(hnp)
+		pod.Annotations[CertificateHashAnnotation] = GetDesiredCertHash(hnp)
 		pod.Spec.Containers[humioIdx].Env = append(pod.Spec.Containers[humioIdx].Env, corev1.EnvVar{
 			Name:  "TLS_TRUSTSTORE_LOCATION",
 			Value: fmt.Sprintf("/var/lib/humio/tls-certificate-secret/%s", "truststore.jks"),
@@ -457,7 +485,6 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 	pod.Spec.Containers[humioIdx].Args = containerArgs
 
 	pod.Annotations[PodRevisionAnnotation] = strconv.Itoa(hnp.GetDesiredPodRevision())
-	pod.Annotations[PodHashAnnotation] = podSpecAsSHA256(hnp, pod)
 	pod.Annotations[BootstrapTokenHashAnnotation] = attachments.bootstrapTokenSecretReference.hash
 	return &pod, nil
 }
@@ -618,14 +645,6 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 	return pod
 }
 
-// podSpecAsSHA256 looks at the pod spec minus known nondeterministic fields and returns a sha256 hash of the spec
-func podSpecAsSHA256(hnp *HumioNodePool, sourcePod corev1.Pod) string {
-	pod := sourcePod.DeepCopy()
-	sanitizedPod := sanitizePod(hnp, pod)
-	b, _ := json.Marshal(sanitizedPod.Spec)
-	return helpers.AsSHA256(string(b))
-}
-
 func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, attachments *podAttachments, newlyCreatedPods []corev1.Pod) (*corev1.Pod, error) {
 	podNameAndCertHash, err := findHumioNodeNameAndCertHash(ctx, r, hnp, newlyCreatedPods)
 	if err != nil {
@@ -648,16 +667,30 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 	}
 	r.Log.Info(fmt.Sprintf("pod %s will use attachments %+v", pod.Name, attachments))
 	if hnp.TLSEnabled() {
-		pod.Annotations[certHashAnnotation] = podNameAndCertHash.certificateHash
+		pod.Annotations[CertificateHashAnnotation] = podNameAndCertHash.certificateHash
 	}
 	pod.Labels[kubernetes.PodMarkedForDataEviction] = "false"
 
-	r.Log.Info(fmt.Sprintf("creating pod %s with podRevision=%d and podHash=%s",
-		pod.Name, hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash()))
+	r.Log.Info(fmt.Sprintf("creating pod %s with podRevision=%d and podHash=%s and managedFieldsTracker=%v",
+		pod.Name, hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), pod.GetManagedFields()))
+
 	err = r.Create(ctx, pod)
 	if err != nil {
 		return &corev1.Pod{}, err
 	}
+
+	// immediately patch the pod. this will not affect any change, but will populate the pod's managedFieldsTracker for
+	// informational purposes. one can view the managedFieldsTracker to determine which fields will cause humio pods to be
+	// restarted
+	err = r.Patch(context.Background(), hnp.GetManagedFieldsPod(pod.Name, pod.Namespace), client.Apply,
+		&client.PatchOptions{
+			FieldManager: "humio-operator",
+			Force:        helpers.BoolPtr(true),
+		})
+	if err != nil {
+		return pod, r.logErrorAndReturn(err, "failed to patch new pod with managed fields")
+	}
+
 	r.Log.Info(fmt.Sprintf("successfully created pod %s with revision %d", pod.Name, hnp.GetDesiredPodRevision()))
 	return pod, nil
 }
@@ -698,110 +731,17 @@ func (r *HumioClusterReconciler) waitForNewPods(ctx context.Context, hnp *HumioN
 	return fmt.Errorf("timed out waiting to validate new pods was created")
 }
 
-func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, desiredPod corev1.Pod) bool {
-	// if mandatory annotations are not present, we can return early indicating they need to be replaced
-	if _, ok := pod.Annotations[PodHashAnnotation]; !ok {
-		return false
-	}
-	if _, ok := pod.Annotations[PodRevisionAnnotation]; !ok {
-		return false
-	}
-	if _, ok := pod.Annotations[BootstrapTokenHashAnnotation]; !ok {
-		return false
-	}
-
-	specMatches := annotationValueIsEqualIfPresentOnBothPods(pod, desiredPod, PodHashAnnotation)
-	revisionMatches := annotationValueIsEqualIfPresentOnBothPods(pod, desiredPod, PodRevisionAnnotation)
-	bootstrapTokenAnnotationMatches := annotationValueIsEqualIfPresentOnBothPods(pod, desiredPod, BootstrapTokenHashAnnotation)
-	envVarSourceMatches := annotationValueIsEqualIfPresentOnBothPods(pod, desiredPod, envVarSourceHashAnnotation)
-	certHashAnnotationMatches := annotationValueIsEqualIfPresentOnBothPods(pod, desiredPod, certHashAnnotation)
-
-	currentPodCopy := pod.DeepCopy()
-	desiredPodCopy := desiredPod.DeepCopy()
-	sanitizedCurrentPod := sanitizePod(hnp, currentPodCopy)
-	sanitizedDesiredPod := sanitizePod(hnp, desiredPodCopy)
-	podSpecDiff := cmp.Diff(sanitizedCurrentPod.Spec, sanitizedDesiredPod.Spec)
-	if !specMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v",
-			PodHashAnnotation,
-			pod.Annotations[PodHashAnnotation], desiredPod.Annotations[PodHashAnnotation]),
-			"diff", podSpecDiff,
-		)
-		return false
-	}
-	if !revisionMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v",
-			PodRevisionAnnotation,
-			pod.Annotations[PodRevisionAnnotation], desiredPod.Annotations[PodRevisionAnnotation]),
-			"diff", podSpecDiff,
-		)
-		return false
-	}
-	if !bootstrapTokenAnnotationMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v",
-			BootstrapTokenHashAnnotation,
-			pod.Annotations[BootstrapTokenHashAnnotation], desiredPod.Annotations[BootstrapTokenHashAnnotation]),
-			"diff", podSpecDiff,
-		)
-		return false
-	}
-	if !envVarSourceMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v",
-			envVarSourceHashAnnotation,
-			pod.Annotations[envVarSourceHashAnnotation], desiredPod.Annotations[envVarSourceHashAnnotation]),
-			"diff", podSpecDiff,
-		)
-		return false
-	}
-	if !certHashAnnotationMatches {
-		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v",
-			certHashAnnotation,
-			pod.Annotations[certHashAnnotation], desiredPod.Annotations[certHashAnnotation]),
-			"diff", podSpecDiff,
-		)
-		return false
-	}
-	return true
-}
-
-func annotationValueIsEqualIfPresentOnBothPods(x, y corev1.Pod, annotation string) bool {
-	if _, foundX := x.Annotations[annotation]; foundX {
-		if x.Annotations[annotation] == y.Annotations[annotation] {
-			return true
-		}
-	} else {
-		// Ignore annotation if it's not in either the current pod or the desired pod
-		if _, foundY := y.Annotations[annotation]; !foundY {
-			return true
-		}
-	}
-	return false
-}
-
-// getPodDesiredLifecycleState goes through the list of pods and decides what action to take for the pods.
-// It compares pods it is given with a newly-constructed pod. If they do not match, we know we have
-// "at least" a configuration difference and require a rolling replacement of the pods.
-// If the container image differs, it will indicate that a version difference is present.
-// For very specific configuration differences it may indicate that all pods in the node pool should be
-// replaced simultaneously.
-// The value of podLifecycleState.pod indicates what pod should be replaced next.
-func (r *HumioClusterReconciler) getPodDesiredLifecycleState(ctx context.Context, hnp *HumioNodePool, foundPodList []corev1.Pod, attachments *podAttachments, podsWithErrorsFoundSoBypassZoneAwareness bool) (podLifecycleState, *corev1.Pod, error) {
-	podLifecycleStateValue := NewPodLifecycleState(*hnp)
-
-	// if pod spec differs, we want to delete it
+func (r *HumioClusterReconciler) getPodDesiredLifecycleState(ctx context.Context, hnp *HumioNodePool, foundPodList []corev1.Pod, attachments *podAttachments, podsWithErrorsFoundSoBypassZoneAwareness bool) (PodLifeCycleState, *corev1.Pod, error) {
 	desiredPod, err := ConstructPod(hnp, "", attachments)
 	if err != nil {
-		return podLifecycleState{}, nil, r.logErrorAndReturn(err, "could not construct pod")
+		return PodLifeCycleState{}, nil, r.logErrorAndReturn(err, "could not construct pod")
 	}
 
 	if attachments.bootstrapTokenSecretReference.secretReference != nil {
 		desiredPod.Annotations[BootstrapTokenHashAnnotation] = attachments.bootstrapTokenSecretReference.hash
 	}
 
-	desiredHumioContainerIdx, err := kubernetes.GetContainerIndexByName(*desiredPod, HumioContainerName)
-	if err != nil {
-		return podLifecycleState{}, nil, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
-	}
+	podLifecycleStateValue := NewPodLifecycleState(*hnp)
 
 	for _, currentPod := range foundPodList {
 		// only consider pods not already being deleted
@@ -809,36 +749,44 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(ctx context.Context
 			continue
 		}
 
-		podsMatch := r.podsMatch(hnp, currentPod, *desiredPod)
+		podComparison, err := NewPodComparison(hnp, &currentPod, desiredPod)
+		if err != nil {
+			return PodLifeCycleState{}, nil, r.logErrorAndReturn(err, "could not create pod comparison")
+		}
 
 		// ignore pod if it matches the desired pod
-		if podsMatch {
+		if podComparison.Matches() {
 			continue
 		}
 
-		// pods do not match, append to list of pods to be replaced
-		podLifecycleStateValue.configurationDifference = &podLifecycleStateConfigurationDifference{}
-
-		// compare image versions and if they differ, we register a version difference with associated from/to versions
-		humioContainerIdx, err := kubernetes.GetContainerIndexByName(currentPod, HumioContainerName)
-		if err != nil {
-			return podLifecycleState{}, nil, r.logErrorAndReturn(err, "could not get pod desired lifecycle state")
+		// check for any warnings. warnings will never override critical, so we can be safe to pass here if there
+		// are warnings
+		if podComparison.HasWarningMismatch() {
+			r.Log.Info(fmt.Sprintf("warning: current pod does not match desired pod, but not restarting due to the change. "+
+				"pod=%s, diff=%s, mismatchedAnnotations=%s", currentPod.Name, podComparison.Diff(), podComparison.MismatchedAnnotations()))
+			continue
 		}
 
-		if currentPod.Spec.Containers[humioContainerIdx].Image != desiredPod.Spec.Containers[desiredHumioContainerIdx].Image {
-			r.Log.Info("found version difference")
-			fromVersion := HumioVersionFromString(currentPod.Spec.Containers[humioContainerIdx].Image)
-			toVersion := HumioVersionFromString(desiredPod.Spec.Containers[desiredHumioContainerIdx].Image)
+		for _, mismatchedAnnotation := range podComparison.MismatchedAnnotations() {
+			r.Log.Info(fmt.Sprintf("detected change of annotation %s on pod %s", mismatchedAnnotation,
+				currentPod.Name))
+			podLifecycleStateValue.configurationDifference = &podLifecycleStateConfigurationDifference{}
+		}
+
+		if hasMismatch, mismatchedVersion := podComparison.MismatchedHumioVersions(); hasMismatch {
 			podLifecycleStateValue.versionDifference = &podLifecycleStateVersionDifference{
-				from: fromVersion,
-				to:   toVersion,
+				from: mismatchedVersion.From,
+				to:   mismatchedVersion.To,
 			}
 		}
 
-		// Changes to EXTERNAL_URL means we've toggled TLS on/off and must restart all pods at the same time
-		if EnvVarValue(currentPod.Spec.Containers[humioContainerIdx].Env, "EXTERNAL_URL") != EnvVarValue(desiredPod.Spec.Containers[desiredHumioContainerIdx].Env, "EXTERNAL_URL") {
-			r.Log.Info("EXTERNAL_URL changed so all pods must restart at the same time")
-			podLifecycleStateValue.configurationDifference.requiresSimultaneousRestart = true
+		for _, mismatchedEnvironmentVariables := range podComparison.MismatchedEnvironmentVariables() {
+			for _, envVar := range environmentVariablesRequiringSimultaneousRestartRestart {
+				if mismatchedEnvironmentVariables == envVar {
+					r.Log.Info(fmt.Sprintf("%s changed so all pods must restart at the same time", envVar))
+					podLifecycleStateValue.configurationDifference.requiresSimultaneousRestart = true
+				}
+			}
 		}
 
 		// if we run with envtest, we won't have zone information available
@@ -855,7 +803,7 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(ctx context.Context
 				// fetch zone for node name and ignore pod if zone is not the one that is marked as under maintenance
 				zoneForNodeName, err := kubernetes.GetZoneForNodeName(ctx, r, currentPod.Spec.NodeName)
 				if err != nil {
-					return podLifecycleState{}, nil, r.logErrorAndReturn(err, "could get zone name for node")
+					return PodLifeCycleState{}, nil, r.logErrorAndReturn(err, "could get zone name for node")
 				}
 				if hnp.GetZoneUnderMaintenance() != "" && zoneForNodeName != hnp.GetZoneUnderMaintenance() {
 					r.Log.Info(fmt.Sprintf("ignoring pod=%s as zoneUnderMaintenace=%s but pod has nodeName=%s where zone=%s", currentPod.Name, hnp.GetZoneUnderMaintenance(), currentPod.Spec.NodeName, zoneForNodeName))
@@ -950,7 +898,7 @@ func findHumioNodeNameAndCertHash(ctx context.Context, c client.Client, hnp *Hum
 				// reuse the certificate if we know we do not have a pod that uses it
 				return podNameAndCertificateHash{
 					podName:         certificate.Name,
-					certificateHash: certificate.Annotations[certHashAnnotation],
+					certificateHash: certificate.Annotations[CertificateHashAnnotation],
 				}, nil
 			}
 			return podNameAndCertificateHash{}, err

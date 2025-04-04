@@ -1,7 +1,6 @@
 operator:
   image:
     repository: humio/humio-operator
-    # default for tag is the appVersion set in Chart.yaml
     tag:
     pullPolicy: IfNotPresent
     pullSecrets: []
@@ -25,11 +24,8 @@ operator:
       cpu: 250m
       memory: 200Mi
   podAnnotations: {}
-
   nodeSelector: {}
-
   tolerations: []
-
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -39,12 +35,11 @@ operator:
             operator: In
             values:
             - amd64
+            - arm64
           - key: kubernetes.io/os
             operator: In
             values:
             - linux
-
 certmanager: true
 defaultHumioCoreImage: ""
-defaultHumioHelperImage: ""
-defaultHumioHelperImageManaged: ""
+defaultHumioHelperImageManaged: "humio/humio-operator-helper:18b8d8df927ae03ead82162ba8f1171960c1b275"
