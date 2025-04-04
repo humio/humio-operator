@@ -4,12 +4,15 @@ declare -r kind_version=0.26.0
 declare -r go_version=1.23.6
 declare -r helm_version=3.14.4
 declare -r kubectl_version=1.23.3
+declare -r jq_version=1.7.1
+declare -r yq_version=4.45.2
 declare -r default_cert_manager_version=1.12.12
-
 declare -r bin_dir=$(pwd)/tmp
 declare -r kubectl=$bin_dir/kubectl
 declare -r helm=$bin_dir/helm
 declare -r kind=$bin_dir/kind
+declare -r jq=$bin_dir/jq
+declare -r yq=$bin_dir/yq
 declare -r go=$bin_dir/go
 
 PATH=$bin_dir/goinstall/bin:$bin_dir:/usr/local/go/bin:$PATH
@@ -108,6 +111,40 @@ install_helm() {
   rm $helm.tar.gz
   chmod +x $helm
   $helm version
+}
+
+install_jq() {
+  if [ $(uname -o) = Darwin ]; then
+    # For Intel Macs
+    [ $(uname -m) = x86_64 ] && curl -Lo $jq https://github.com/jqlang/jq/releases/download/jq-${jq_version}/jq-macos-amd64
+    # For M1 / ARM Macs
+    [ $(uname -m) = arm64 ] && curl -Lo $jq https://github.com/jqlang/jq/releases/download/jq-${jq_version}/jq-macos-arm64
+  else
+    echo "Assuming Linux"
+    # For AMD64 / x86_64
+    [ $(uname -m) = x86_64 ] && curl -Lo $jq https://github.com/jqlang/jq/releases/download/jq-${jq_version}/jq-linux-amd64
+    # For ARM64
+    [ $(uname -m) = aarch64 ] && curl -Lo $jq https://github.com/jqlang/jq/releases/download/jq-${jq_version}/jq-linux-arm64
+  fi
+  chmod +x $jq
+  $jq --version
+}
+
+install_yq() {
+  if [ $(uname -o) = Darwin ]; then
+    # For Intel Macs
+    [ $(uname -m) = x86_64 ] && curl -Lo $yq https://github.com/mikefarah/yq/releases/download/v${yq_version}/yq_darwin_amd64
+    # For M1 / ARM Macs
+    [ $(uname -m) = arm64 ] && curl -Lo $yq https://github.com/mikefarah/yq/releases/download/v${yq_version}/yq_darwin_arm64
+  else
+    echo "Assuming Linux"
+    # For AMD64 / x86_64
+    [ $(uname -m) = x86_64 ] && curl -Lo $yq https://github.com/mikefarah/yq/releases/download/v${yq_version}/yq_linux_amd64
+    # For ARM64
+    [ $(uname -m) = aarch64 ] && curl -Lo $yq https://github.com/mikefarah/yq/releases/download/v${yq_version}/yq_linux_arm64
+  fi
+  chmod +x $yq
+  $yq --version
 }
 
 install_ginkgo() {

@@ -157,12 +157,36 @@ func UseCertManager() bool {
 
 // GetDefaultHumioCoreImageFromEnvVar returns the user-defined default image for humio-core containers
 func GetDefaultHumioCoreImageFromEnvVar() string {
-	return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE")
+	image := os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE")
+	if image != "" {
+		return image
+	}
+	return GetDefaultHumioCoreImageUnmanagedFromEnvVar()
 }
 
 // GetDefaultHumioHelperImageFromEnvVar returns the user-defined default image for helper containers
 func GetDefaultHumioHelperImageFromEnvVar() string {
-	return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE")
+	image := os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE")
+	if image != "" {
+		return image
+	}
+	return GetDefaultHumioHelperImageUnmanagedFromEnvVar()
+}
+
+func GetDefaultHumioHelperImageManagedFromEnvVar() string {
+	return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE_MANAGED")
+}
+
+func GetDefaultHumioHelperImageUnmanagedFromEnvVar() string {
+	return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE_UNMANAGED")
+}
+
+func GetDefaultHumioCoreImageManagedFromEnvVar() string {
+	return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE_MANAGED")
+}
+
+func GetDefaultHumioCoreImageUnmanagedFromEnvVar() string {
+	return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE_UNMANAGED")
 }
 
 // UseEnvtest returns whether the Kubernetes API is provided by envtest
