@@ -37073,7 +37073,7 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindex">environmentVariables</a></b></td>
         <td>[]object</td>
         <td>
-          Env allows to specify environment variables for the service.<br/>
+          EnvironmentVariables allows to specify environment variables for the service.<br/>
         </td>
         <td>false</td>
       </tr><tr>
