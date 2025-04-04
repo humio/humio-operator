@@ -76,6 +76,19 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			suite.UsingClusterBy(key.Name, "Confirming managedFields")
+			Eventually(func() string {
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				if len(clusterPods) > 0 {
+					for idx, entry := range clusterPods[0].GetManagedFields() {
+						if entry.Manager == "humio-operator" {
+							return string(clusterPods[0].GetManagedFields()[idx].FieldsV1.Raw)
+						}
+					}
+				}
+				return ""
+			}, testTimeout, suite.TestInterval).Should(Not(BeEmpty()))
 		})
 	})
 
@@ -1289,7 +1302,15 @@ var _ = Describe("HumioCluster Controller", func() {
 				return ""
 			}, testTimeout, suite.TestInterval).Should(Equal(versions.DefaultHelperImageVersion()))
 
+			annotationsMap := make(map[string]string)
 			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range clusterPods {
+				annotationsMap[controller.PodHashAnnotation] = pod.Annotations[controller.PodHashAnnotation]
+				annotationsMap[controller.PodOperatorManagedFieldsHashAnnotation] = pod.Annotations[controller.PodOperatorManagedFieldsHashAnnotation]
+			}
+			Expect(annotationsMap[controller.PodHashAnnotation]).To(Not(BeEmpty()))
+			Expect(annotationsMap[controller.PodOperatorManagedFieldsHashAnnotation]).To(Not(BeEmpty()))
+
 			suite.UsingClusterBy(key.Name, "Overriding helper image")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			upgradedHelperImage := versions.UpgradeHelperImageVersion()
@@ -1315,11 +1336,64 @@ var _ = Describe("HumioCluster Controller", func() {
 				return ""
 			}, testTimeout, suite.TestInterval).Should(Equal(upgradedHelperImage))
 
+			suite.UsingClusterBy(key.Name, "Validating both pod hash and pod managed fields annotations have changed")
+			updatedAnnotationsMap := make(map[string]string)
 			updatedClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range updatedClusterPods {
+				updatedAnnotationsMap[controller.PodHashAnnotation] = pod.Annotations[controller.PodHashAnnotation]
+				updatedAnnotationsMap[controller.PodOperatorManagedFieldsHashAnnotation] = pod.Annotations[controller.PodOperatorManagedFieldsHashAnnotation]
+			}
+			Expect(updatedAnnotationsMap[controller.PodHashAnnotation]).To(Not(BeEmpty()))
+			Expect(updatedAnnotationsMap[controller.PodOperatorManagedFieldsHashAnnotation]).To(Not(BeEmpty()))
+
+			Expect(annotationsMap[controller.PodHashAnnotation]).To(Not(Equal(updatedAnnotationsMap[controller.PodHashAnnotation])))
+			Expect(annotationsMap[controller.PodOperatorManagedFieldsHashAnnotation]).To(Not(Equal(updatedAnnotationsMap[controller.PodOperatorManagedFieldsHashAnnotation])))
 
 			if helpers.TLSEnabled(&updatedHumioCluster) {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
+			}
+
+			suite.UsingClusterBy(key.Name, "Setting helper image back to the default")
+			defaultHelperImage := versions.DefaultHelperImageVersion()
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.HelperImage = defaultHelperImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Restarting the cluster in a rolling fashion")
+			ensurePodsRollingRestart(ctx, controller.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 3, 1)
+
+			suite.UsingClusterBy(key.Name, "Validating pod is recreated using the explicitly defined default helper image as init container")
+			Eventually(func() string {
+				clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+				for _, pod := range clusterPods {
+					initIdx, _ := kubernetes.GetInitContainerIndexByName(pod, controller.InitContainerName)
+					return pod.Spec.InitContainers[initIdx].Image
+				}
+				return ""
+			}, testTimeout, suite.TestInterval).Should(Equal(defaultHelperImage))
+
+			suite.UsingClusterBy(key.Name, "Validating pod hash annotation changed and pod managed fields annotation has not changed")
+			updated2AnnotationsMap := make(map[string]string)
+			updated2ClusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			for _, pod := range updated2ClusterPods {
+				updated2AnnotationsMap[controller.PodHashAnnotation] = pod.Annotations[controller.PodHashAnnotation]
+				updated2AnnotationsMap[controller.PodOperatorManagedFieldsHashAnnotation] = pod.Annotations[controller.PodOperatorManagedFieldsHashAnnotation]
+			}
+			Expect(updated2AnnotationsMap[controller.PodHashAnnotation]).To(Not(BeEmpty()))
+			Expect(updated2AnnotationsMap[controller.PodOperatorManagedFieldsHashAnnotation]).To(Not(BeEmpty()))
+
+			Expect(updatedAnnotationsMap[controller.PodHashAnnotation]).To(Not(Equal(updated2AnnotationsMap[controller.PodHashAnnotation])))
+			Expect(updatedAnnotationsMap[controller.PodOperatorManagedFieldsHashAnnotation]).To(Equal(updated2AnnotationsMap[controller.PodOperatorManagedFieldsHashAnnotation]))
+
+			if helpers.TLSEnabled(&updatedHumioCluster) {
+				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
+				Expect(podNames(clusterPods)).To(Equal(podNames(updated2ClusterPods)))
 			}
 		})
 	})
