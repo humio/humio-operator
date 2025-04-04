@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,7 +34,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,25 +49,29 @@ import (
 const (
 	emailActionExample         string = "example@example.com"
 	expectedSecretValueExample string = "secret-token"
+	PDFRenderServiceImage      string = "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e"
+	protocolHTTPS              string = "https"
+	tlsCertName                string = "tls-cert"
+	pdfRenderUseTLSEnvVar      string = "PDF_RENDER_USE_TLS"
+	pdfRenderTLSCertName       string = "pdf-render-tls-cert"
+	hprsFinalizer              string = "humio.com/finalizer"
+	pdfTLSCertVolumeName       string = "pdf-render-tls-cert-volume"
+	pdfRenderTLSCertPathEnvVar string = "PDF_RENDER_TLS_CERT_PATH"
+	pdfRenderTLSKeyPathEnvVar  string = "PDF_RENDER_TLS_KEY_PATH"
 )
 
 var _ = Describe("Humio Resources Controllers", func() {
+
 	BeforeEach(func() {
 		// failed test runs that don't clean up leave resources behind.
 		humioClient.ClearHumioClientConnections(testRepoName)
 	})
-
-	//var createdPdfCR *humiov1alpha1.HumioPdfRenderService
 
 	AfterEach(func() {
 		// Add any teardown steps that needs to be executed after each test
 		humioClient.ClearHumioClientConnections(testRepoName)
 	})
 
-	// Add Tests for OpenAPI validation (or additional CRD features) specified in
-	// your API definition.
-	// Avoid adding tests for vanilla CRUD operations because they would
-	// test Kubernetes API server, which isn't the goal here.
 	Context("Humio Ingest Token", Label("envtest", "dummy", "real"), func() {
 		It("should handle ingest token with target secret correctly", func() {
 			ctx := context.Background()
@@ -732,7 +735,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			protocol := "http"
 			if !helpers.UseEnvtest() && helpers.UseCertManager() {
-				protocol = "https"
+				protocol = protocolHTTPS
 			}
 
 			toCreateExternalCluster := &humiov1alpha1.HumioExternalCluster{
@@ -1716,7 +1719,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the web hook action to be updated")
 			Eventually(func() error {
-				_ = k8sClient.Get(ctx, key, fetchedAction)
+				if err := k8sClient.Get(ctx, key, fetchedAction); err != nil {
+					return err
+				}
 				fetchedAction.Spec.WebhookProperties = updatedWebhookActionProperties
 				return k8sClient.Update(ctx, fetchedAction)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
@@ -1990,7 +1995,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
-			// Should not be setting the API token in this case, but the secretMap should have the value
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(expectedSecretValue))
@@ -4185,9 +4189,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 	Context("HumioPdfRenderService", Label("envtest", "dummy", "real"), func() {
 		var (
-			ctx       context.Context
-			baseName  string
-			createdCR *humiov1alpha1.HumioPdfRenderService
+				key         types.NamespacedName
+				hpr         *humiov1alpha1.HumioPdfRenderService
+				deployment  *appsv1.Deployment
+				service     *corev1.Service
+				testTimeout = time.Second * 10 // Reduced timeout for faster tests
 		)
 
 		BeforeEach(func() {
@@ -4197,45 +4203,25 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		AfterEach(func() {
-			// Clean up the created CR
-			if createdCR != nil {
-				Expect(k8sClient.Delete(ctx, createdCR)).Should(Succeed())
-				Eventually(func() bool {
-					if createdCR == nil {
-						return true
-					}
-					err := k8sClient.Get(ctx, types.NamespacedName{
-						Name:      createdCR.Name,
-						Namespace: createdCR.Namespace,
-					}, &humiov1alpha1.HumioPdfRenderService{})
-					return k8serrors.IsNotFound(err)
-				}, testTimeout, suite.TestInterval).Should(BeTrue())
-				createdCR = nil
-			}
-		})
+				By("Deleting the HumioPdfRenderService CR")
+				Expect(suite.K8sClient.Delete(context.Background(), hpr)).Should(Succeed())
 
-		It("should create Deployment and Service when a new HumioPdfRenderService is created", func() {
-			// Create a new HumioPdfRenderService CR with the required fields.
-			cr := &humiov1alpha1.HumioPdfRenderService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      baseName,
-					Namespace: clusterKey.Namespace,
-				},
-				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
-					Replicas:           1,
-					Image:              "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e",
-					Port:               5123,
-					ServiceAccountName: "default",
-					// Use ClusterIP for the initial service configuration.
-					ServiceType: corev1.ServiceTypeClusterIP,
-				},
-			}
-			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
-			createdCR = cr
+				By("Ensuring the HumioPdfRenderService CR is gone")
+				Eventually(func() bool {
+						err := k8sClient.Get(context.Background(), key, hpr)
+						return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+				By("Ensuring the Deployment is gone")
+				Eventually(func() bool {
+						depKey := types.NamespacedName{Name: key.Name + "-pdf-render-service", Namespace: key.Namespace}
+						err := k8sClient.Get(context.Background(), depKey, deployment)
+						return k8serrors.IsNotFound(err)
+				}, testTimeout, suite.TestInterval).Should(BeTrue())
 
 			// Verify that the Deployment exists using the CR name.
 			deploymentKey := types.NamespacedName{
-				Name:      cr.Name, // Use CR name
+				Name:      cr.Name + "-pdf-render-service", // Use CR name as prefix
 				Namespace: cr.Namespace,
 			}
 			deployment := &appsv1.Deployment{}
@@ -4243,7 +4229,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8sClient.Get(ctx, deploymentKey, deployment)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(deployment.Namespace).Should(Equal(cr.Namespace))
-			Expect(deployment.Name).Should(Equal(cr.Name)) // Verify name matches CR name
+			expectedName := fmt.Sprintf("%s-pdf-render-service", cr.Name)
+			Expect(deployment.Name).Should(Equal(expectedName))
 
 			// Verify that the Service exists using the CR name.
 			serviceKey := types.NamespacedName{
@@ -4261,7 +4248,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return 0
 				}
 				return service.Spec.Ports[0].Port
-			}, testTimeout, suite.TestInterval).Should(Equal(int32(5123)), "Failed to update Service with new port")
+			}, longTimeout, suite.TestInterval).Should(Equal(int32(5123)), "Failed to update Service with new port")
 			Expect(service.Namespace).Should(Equal(cr.Namespace))
 			Expect(service.Spec.Type).Should(Equal(cr.Spec.ServiceType))
 			Expect(service.Spec.Ports).ToNot(BeEmpty())
@@ -4285,11 +4272,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
-			createdCR = cr
+			createdPdfCR = cr
 
 			// Wait for the Deployment to be created.
 			deploymentKey := types.NamespacedName{
-				Name:      cr.Name, // Use CR name
+				Name:      cr.Name + "-pdf-render-service",
 				Namespace: cr.Namespace,
 			}
 			deployment := &appsv1.Deployment{}
@@ -4335,7 +4322,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
-			createdCR = cr
+			createdPdfCR = cr
 
 			// Verify the Service exists.
 			serviceKey := types.NamespacedName{

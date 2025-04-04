@@ -159,6 +159,11 @@ type HumioNodeSpec struct {
 	// HelperImage is the desired helper container image, including image tag
 	HelperImage string `json:"helperImage,omitempty"`
 
+	// HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+	// that multiple HumioCluster resources can use
+	// +optional
+	PdfRenderServiceRef *HumioPdfRenderServiceReference `json:"pdfRenderServiceRef,omitempty"`
+
 	// ImagePullPolicy sets the imagePullPolicy for all the containers in the humio pod
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
@@ -418,6 +423,19 @@ type HumioImageSource struct {
 
 // HumioPersistentVolumeReclaimType is the type of reclaim which will occur on a persistent volume
 type HumioPersistentVolumeReclaimType string
+
+// HumioPdfRenderServiceReference specifies a reference to a HumioPdfRenderService
+type HumioPdfRenderServiceReference struct {
+	// Name is the name of the HumioPdfRenderService
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	Name string `json:"name"`
+
+	// Namespace is the namespace of the HumioPdfRenderService
+	// If not specified, the HumioCluster's namespace is used.
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+}
 
 // HumioPersistentVolumeClaimPolicy contains the policy for handling persistent volumes
 type HumioPersistentVolumeClaimPolicy struct {

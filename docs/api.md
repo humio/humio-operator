@@ -4505,6 +4505,14 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humioclusterspecpdfrenderserviceref">pdfRenderServiceRef</a></b></td>
+        <td>object</td>
+        <td>
+          HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+that multiple HumioCluster resources can use<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>podAnnotations</b></td>
         <td>map[string]string</td>
         <td>
@@ -16953,6 +16961,14 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humioclusterspecnodepoolsindexspecpdfrenderserviceref">pdfRenderServiceRef</a></b></td>
+        <td>object</td>
+        <td>
+          HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+that multiple HumioCluster resources can use<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>podAnnotations</b></td>
         <td>map[string]string</td>
         <td>
@@ -28471,6 +28487,42 @@ OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request ty
 </table>
 
 
+### HumioCluster.spec.nodePools[index].spec.pdfRenderServiceRef
+<sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspec)</sup></sup>
+
+
+
+HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+that multiple HumioCluster resources can use
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the HumioPdfRenderService<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the namespace of the HumioPdfRenderService
+If not specified, the HumioCluster's namespace is used.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### HumioCluster.spec.nodePools[index].spec.podDisruptionBudget
 <sup><sup>[↩ Parent](#humioclusterspecnodepoolsindexspec)</sup></sup>
 
@@ -32312,6 +32364,42 @@ When set to RollingUpdateBestEffort, the operator will evaluate the Humio versio
 Humio pods can be updated in a rolling fashion or if they must be replaced at the same time.<br/>
           <br/>
             <i>Enum</i>: OnDelete, RollingUpdate, ReplaceAllOnUpdate, RollingUpdateBestEffort<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioCluster.spec.pdfRenderServiceRef
+<sup><sup>[↩ Parent](#humioclusterspec)</sup></sup>
+
+
+
+HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+that multiple HumioCluster resources can use
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the HumioPdfRenderService<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the namespace of the HumioPdfRenderService
+If not specified, the HumioCluster's namespace is used.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -37605,7 +37693,7 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindex">environmentVariables</a></b></td>
         <td>[]object</td>
         <td>
-          Env allows to specify environment variables for the service.<br/>
+          EnvironmentVariables allows to specify environment variables for the service.<br/>
         </td>
         <td>false</td>
       </tr><tr>

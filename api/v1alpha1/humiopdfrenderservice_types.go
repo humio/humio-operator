@@ -32,6 +32,8 @@ const (
 	DefaultPdfRenderServiceLiveness = "/health"
 	// DefaultPdfRenderServiceReadiness is the default readiness path for the PDF rendering service.
 	DefaultPdfRenderServiceReadiness = "/ready"
+	// HumioPdfRenderServiceStateConfigError is the state of the PDF rendering service when user-provided specification results in configuration error, such as non-existent humio cluster
+	HumioPdfRenderServiceStateConfigError = "ConfigError"
 )
 
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
@@ -57,7 +59,7 @@ type HumioPdfRenderServiceSpec struct {
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
-	// Env allows to specify environment variables for the service.
+	// EnvironmentVariables allows to specify environment variables for the service.
 	// +optional
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
 

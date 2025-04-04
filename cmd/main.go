@@ -480,10 +480,11 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 	}
 	// +kubebuilder:scaffold:builder
 	if err = (&controller.HumioPdfRenderServiceReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		HumioClient: humio.NewClient(log, userAgent),
-		BaseLogger:  log,
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		Log: log.WithName("controllers").WithName("HumioPdfRenderService"),
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioPdfRenderService")
 		os.Exit(1)
