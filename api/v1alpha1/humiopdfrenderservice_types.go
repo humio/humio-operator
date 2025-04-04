@@ -53,7 +53,7 @@ type HumioPdfRenderServiceSpec struct {
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
-	// Env allows to specify environment variables for the service.
+	// EnvironmentVariables allows to specify environment variables for the service.
 	// +optional
 	EnvironmentVariables []corev1.EnvVar `json:"environmentVariables,omitempty"`
 
