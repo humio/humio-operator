@@ -48,3 +48,4 @@ certmanager: true
 defaultHumioCoreImage: ""
 defaultHumioHelperImage: ""
 defaultPdfRenderServiceImage: ""
+

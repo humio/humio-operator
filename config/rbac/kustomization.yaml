@@ -15,7 +15,6 @@ resources:
 #- auth_proxy_service.yaml
 #- auth_proxy_role.yaml
 #- auth_proxy_role_binding.yaml
-<<<<<<< HEAD
 #- auth_proxy_client_clusterrole.yaml
 # For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
 # default, aiding admins in cluster management. Those roles are
@@ -64,6 +63,6 @@ resources:
 - humioaction_editor_role.yaml
 - humioaction_viewer_role.yaml
 
-=======
 #- auth_proxy_client_clusterrole.yaml
->>>>>>> removed testing changes
+
+

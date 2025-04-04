@@ -9,12 +9,9 @@ spec:
   replicas: 2
   # Port configuration
   port: 5123
-  imagePullSecrets:
-    - name: regcred
-  # Service type (matches the Terraform configuration)
   serviceType: ClusterIP
   # Environment variables
-  env:
+  environmentVariables:
     - name: XDG_CONFIG_HOME
       value: /tmp/.chromium-config
     - name: XDG_CACHE_HOME
