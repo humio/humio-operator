@@ -18,11 +18,12 @@ package controller
 
 const (
 	// Set on Pod and Certificate objects
-	certHashAnnotation = "humio.com/certificate-hash"
+	CertificateHashAnnotation = "humio.com/certificate-hash"
 
 	// Set on Pod objects
-	PodHashAnnotation            = "humio.com/pod-hash"
-	PodRevisionAnnotation        = "humio.com/pod-revision"
-	BootstrapTokenHashAnnotation = "humio.com/bootstrap-token-hash" // #nosec G101
-	envVarSourceHashAnnotation   = "humio.com/env-var-source-hash"
+	PodHashAnnotation                      = "humio.com/pod-hash"
+	PodOperatorManagedFieldsHashAnnotation = "humio.com/pod-operator-managed-fields-hash"
+	PodRevisionAnnotation                  = "humio.com/pod-revision"
+	BootstrapTokenHashAnnotation           = "humio.com/bootstrap-token-hash" // #nosec G101
+	EnvVarSourceHashAnnotation             = "humio.com/env-var-source-hash"
 )

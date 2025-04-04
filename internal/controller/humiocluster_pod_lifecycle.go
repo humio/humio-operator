@@ -5,10 +5,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// podLifecycleState is used to hold information on what the next action should be based on what configuration
+// PodLifeCycleState is used to hold information on what the next action should be based on what configuration
 // changes are detected. It holds information that is specific to a single HumioNodePool in nodePool and the pod field
 // holds information about what pod should be deleted next.
-type podLifecycleState struct {
+type PodLifeCycleState struct {
 	// nodePool holds the HumioNodePool that is used to access the details and resources related to the node pool
 	nodePool HumioNodePool
 	// podsToBeReplaced holds the details of existing pods that is the next targets for pod deletion due to some
@@ -33,13 +33,13 @@ type podLifecycleStateConfigurationDifference struct {
 	requiresSimultaneousRestart bool
 }
 
-func NewPodLifecycleState(hnp HumioNodePool) *podLifecycleState {
-	return &podLifecycleState{
+func NewPodLifecycleState(hnp HumioNodePool) *PodLifeCycleState {
+	return &PodLifeCycleState{
 		nodePool: hnp,
 	}
 }
 
-func (p *podLifecycleState) ShouldRollingRestart() bool {
+func (p *PodLifeCycleState) ShouldRollingRestart() bool {
 	if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate {
 		return false
 	}
@@ -68,22 +68,22 @@ func (p *podLifecycleState) ShouldRollingRestart() bool {
 	return false
 }
 
-func (p *podLifecycleState) ADifferenceWasDetectedAndManualDeletionsNotEnabled() bool {
+func (p *PodLifeCycleState) ADifferenceWasDetectedAndManualDeletionsNotEnabled() bool {
 	if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyOnDelete {
 		return false
 	}
 	return p.FoundVersionDifference() || p.FoundConfigurationDifference()
 }
 
-func (p *podLifecycleState) FoundVersionDifference() bool {
+func (p *PodLifeCycleState) FoundVersionDifference() bool {
 	return p.versionDifference != nil
 }
 
-func (p *podLifecycleState) FoundConfigurationDifference() bool {
+func (p *PodLifeCycleState) FoundConfigurationDifference() bool {
 	return p.configurationDifference != nil
 }
 
-func (p *podLifecycleState) namesOfPodsToBeReplaced() []string {
+func (p *PodLifeCycleState) namesOfPodsToBeReplaced() []string {
 	podNames := []string{}
 	for _, pod := range p.podsToBeReplaced {
 		podNames = append(podNames, pod.Name)
