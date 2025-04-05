@@ -47,6 +47,7 @@ type Client interface {
 	ActionsClient
 	AlertsClient
 	FilterAlertsClient
+	FeatureFlagsClient
 	AggregateAlertsClient
 	ScheduledSearchClient
 	UsersClient
@@ -112,6 +113,12 @@ type FilterAlertsClient interface {
 	UpdateFilterAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
 	DeleteFilterAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
 	ValidateActionsForFilterAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
+}
+
+type FeatureFlagsClient interface {
+	EnableFeatureFlag(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFeatureFlag) error
+	IsFeatureFlagEnabled(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFeatureFlag) (bool, error)
+	DisableFeatureFlag(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFeatureFlag) error
 }
 
 type AggregateAlertsClient interface {
@@ -1406,6 +1413,37 @@ func (h *ClientConfig) DeleteFilterAlert(ctx context.Context, client *humioapi.C
 		client,
 		hfa.Spec.ViewName,
 		currentFilterAlert.GetId(),
+	)
+	return err
+}
+
+func (h *ClientConfig) EnableFeatureFlag(ctx context.Context, client *humioapi.Client, req reconcile.Request, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
+	_, err := humiographql.EnableFeatureFlag(
+		ctx,
+		client,
+		humiographql.FeatureFlag(featureFlag.Spec.Name),
+	)
+	return err
+}
+
+func (h *ClientConfig) IsFeatureFlagEnabled(ctx context.Context, client *humioapi.Client, req reconcile.Request, featureFlag *humiov1alpha1.HumioFeatureFlag) (bool, error) {
+	response, err := humiographql.IsFeatureEnabled(
+		ctx,
+		client,
+		humiographql.FeatureFlag(featureFlag.Spec.Name),
+	)
+	if response == nil {
+		return false, err
+	}
+	responseMeta := response.GetMeta()
+	return responseMeta.GetIsFeatureFlagEnabled(), err
+}
+
+func (h *ClientConfig) DisableFeatureFlag(ctx context.Context, client *humioapi.Client, req reconcile.Request, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
+	_, err := humiographql.DisableFeatureFlag(
+		ctx,
+		client,
+		humiographql.FeatureFlag(featureFlag.Spec.Name),
 	)
 	return err
 }

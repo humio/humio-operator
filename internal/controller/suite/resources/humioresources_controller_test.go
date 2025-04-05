@@ -3370,6 +3370,67 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
+	Context("Humio Feature Flag", Label("envtest", "dummy", "real"), func() {
+		It("HumioFeatureFlag: Should enabled feature", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-feature-flag",
+				Namespace: clusterKey.Namespace,
+			}
+			enabledValue := true
+
+			toSetFeatureFlag := &humiov1alpha1.HumioFeatureFlag{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioFeatureFlagSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               key.Name,
+					Enabled:            &enabledValue,
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, toSetFeatureFlag)).Should(Succeed())
+
+			featchedFeatureFlag := &humiov1alpha1.HumioFeatureFlag{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, featchedFeatureFlag)
+				return featchedFeatureFlag.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFeatureFlagStateExists))
+
+			var isFeatureFlagEnabled bool
+			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+			Eventually(func() error {
+				isFeatureFlagEnabled, err = humioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toSetFeatureFlag)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(isFeatureFlagEnabled).To(BeTrue())
+		})
+
+		It("HumioFeatureFlag: Should deny improperly configured feature flag with missing required values", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-feature-flag",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateInvalidFeatureFlag := &humiov1alpha1.HumioFeatureFlag{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioFeatureFlagSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "example-invalid-feature-flag",
+					// missing Enabled balue
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Creating the invalid feature flag")
+			Expect(k8sClient.Create(ctx, toCreateInvalidFeatureFlag)).Should(Not(Succeed()))
+		})
+	})
+
 	Context("Humio Aggregate Alert", Label("envtest", "dummy", "real"), func() {
 		It("should handle aggregate alert action correctly", func() {
 			ctx := context.Background()
