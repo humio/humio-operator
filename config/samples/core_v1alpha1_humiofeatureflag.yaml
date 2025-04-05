@@ -1,0 +1,9 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioFeatureFlage
+metadata:
+  name: humiofeatureflag-example
+spec:
+  managedClusterName: example-humiocluster
+#  externalClusterName: example-humiocluster
+  name: example-featureflag
+  enabled: true

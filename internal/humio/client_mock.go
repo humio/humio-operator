@@ -54,6 +54,7 @@ type ClientMock struct {
 	Action          map[resourceKey]humiographql.ActionDetails
 	Alert           map[resourceKey]humiographql.AlertDetails
 	FilterAlert     map[resourceKey]humiographql.FilterAlertDetails
+	FeatureFlag     map[resourceKey]bool
 	AggregateAlert  map[resourceKey]humiographql.AggregateAlertDetails
 	ScheduledSearch map[resourceKey]humiographql.ScheduledSearchDetails
 	UserID          map[resourceKey]string
@@ -74,6 +75,7 @@ func NewMockClient() *MockClientConfig {
 			Action:          make(map[resourceKey]humiographql.ActionDetails),
 			Alert:           make(map[resourceKey]humiographql.AlertDetails),
 			FilterAlert:     make(map[resourceKey]humiographql.FilterAlertDetails),
+			FeatureFlag:     make(map[resourceKey]bool),
 			AggregateAlert:  make(map[resourceKey]humiographql.AggregateAlertDetails),
 			ScheduledSearch: make(map[resourceKey]humiographql.ScheduledSearchDetails),
 			UserID:          make(map[resourceKey]string),
@@ -98,6 +100,7 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 	h.apiClient.Action = make(map[resourceKey]humiographql.ActionDetails)
 	h.apiClient.Alert = make(map[resourceKey]humiographql.AlertDetails)
 	h.apiClient.FilterAlert = make(map[resourceKey]humiographql.FilterAlertDetails)
+	h.apiClient.FeatureFlag = make(map[resourceKey]bool)
 	h.apiClient.AggregateAlert = make(map[resourceKey]humiographql.AggregateAlertDetails)
 	h.apiClient.ScheduledSearch = make(map[resourceKey]humiographql.ScheduledSearchDetails)
 	h.apiClient.UserID = make(map[resourceKey]string)
@@ -993,6 +996,59 @@ func (h *MockClientConfig) DeleteFilterAlert(_ context.Context, _ *humioapi.Clie
 }
 
 func (h *MockClientConfig) ValidateActionsForFilterAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error {
+	return nil
+}
+
+func (h *MockClientConfig) EnableFeatureFlag(_ context.Context, _ *humioapi.Client, _ reconcile.Request, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName)
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: featureFlag.Spec.Name,
+	}
+
+	if _, found := h.apiClient.FeatureFlag[key]; found {
+		return fmt.Errorf("feature flag already exists with name %s", featureFlag.Spec.Name)
+	}
+
+	h.apiClient.FeatureFlag[key] = true
+	return nil
+}
+
+func (h *MockClientConfig) IsFeatureFlagEnabled(_ context.Context, _ *humioapi.Client, _ reconcile.Request, featureFlag *humiov1alpha1.HumioFeatureFlag) (bool, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName),
+		resourceName: featureFlag.Spec.Name,
+	}
+	if value, found := h.apiClient.FeatureFlag[key]; found {
+		return value, nil
+
+	}
+	return false, fmt.Errorf("could not find feature flag with name %q, err=%w", featureFlag.Spec.Name, humioapi.EntityNotFound{})
+}
+
+func (h *MockClientConfig) DisableFeatureFlag(_ context.Context, _ *humioapi.Client, _ reconcile.Request, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName)
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: featureFlag.Spec.Name,
+	}
+
+	if _, found := h.apiClient.FeatureFlag[key]; found {
+		return fmt.Errorf("feature flag already exists with name %s", featureFlag.Spec.Name)
+	}
+
+	h.apiClient.FeatureFlag[key] = false
 	return nil
 }
 
