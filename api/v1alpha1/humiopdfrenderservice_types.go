@@ -80,6 +80,7 @@ type HumioPdfRenderServiceSpec struct {
 	// ServiceType is the type of service to expose.
 	// +optional
 	// +kubebuilder:default=ClusterIP
+	// +kubebuilder:validation:Enum=ClusterIP
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 
 	// ServiceAccountName is the name of the Kubernetes Service Account to use.
