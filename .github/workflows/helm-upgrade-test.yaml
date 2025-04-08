@@ -1,29 +1,25 @@
+on: pull_request
 name: Helm Upgrade Tests
-on:
-  pull_request:
-  push:
-    branches: [master]
-
 jobs:
   test-upgrades:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ops]
+    strategy:
+      fail-fast: false
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Setup Kind cluster
         uses: helm/kind-action@v1.5.0
 
-      - name: Install test dependencies
-        run: |
-          sudo apt-get install -y jq yq
-
-      - name: Run upgrade tests
-        run: ./test/run-test-suite.sh
-
-      - name: Upload test artifacts
-        if: always()
-        uses: actions/upload-artifact@v2
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
         with:
-          name: test-results
-          path: test-results/
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
+        - name: Install test dependencies
+          run: |
+            sudo apt-get install -y jq yq
+
+        - name: Run upgrade tests
+          run: ./test/run-test-suite.sh

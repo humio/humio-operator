@@ -764,6 +764,266 @@ func (r *HumioClusterReconciler) podsMatch(hnp *HumioNodePool, pod corev1.Pod, d
 	return true
 }
 
+func (r *HumioClusterReconciler) podsMatchUserDefinedFields(hnp *HumioNodePool, pod corev1.Pod, desiredPod corev1.Pod) (bool, string) {
+	// Unclear on how to handle these
+
+	// if mandatory annotations are not present, we can return early indicating they need to be replaced
+
+	//if _, ok := pod.Annotations[PodHashAnnotation]; !ok {
+	//	return false
+	//}
+	//if _, ok := pod.Annotations[PodRevisionAnnotation]; !ok {
+	//	return false
+	//}
+	//if _, ok := pod.Annotations[BootstrapTokenHashAnnotation]; !ok {
+	//	return false
+	//}
+
+	//specMatches := annotationValueIsEqualIfPresentOnBothPods(pod, desiredPod, PodHashAnnotation)
+	//revisionMatches := annotationValueIsEqualIfPresentOnBothPods(pod, desiredPod, PodRevisionAnnotation)
+	//bootstrapTokenAnnotationMatches := annotationValueIsEqualIfPresentOnBothPods(pod, desiredPod, BootstrapTokenHashAnnotation)
+
+	envVarSourceMatches := annotationValueIsEqualIfPresentOnBothPods(pod, desiredPod, envVarSourceHashAnnotation)
+	certHashAnnotationMatches := annotationValueIsEqualIfPresentOnBothPods(pod, desiredPod, certHashAnnotation)
+
+	currentPodCopy := pod.DeepCopy()
+	desiredPodCopy := desiredPod.DeepCopy()
+	sanitizedCurrentPod := sanitizePod(hnp, currentPodCopy)
+	sanitizedDesiredPod := sanitizePod(hnp, desiredPodCopy)
+
+	// Track the diffs. Key is the pod field. The value is the result of cmp.Diff()
+	podSpecDiff := make(map[string]string)
+
+	// Track the fields of the HumioNodePool spec as the keys and the fields of the Pod as the values. These will not
+	// always match up. If we add new fields to the HumioNodePool spec which we want to track, they'll need to be added
+	// here.
+	fieldsMap := map[string][]string{
+		"Affinity.NodeAffinity":                       {"Spec.Affinity.NodeAffinity"},
+		"Affinity.PodAffinity":                        {"Spec.Affinity.PodAffinity"},
+		"Affinity.PodAntiAffinity":                    {"Spec.Affinity.PodAntiAffinity"},
+		"DataVolumePersistentVolumeClaimSpecTemplate": {"Spec.Volumes", "Spec.PersistentVolumeClaimSpecTemplate"},
+	}
+
+	// Uses relfection to determine which fields are set on the HumioCluster CR
+	paths := getSetFieldPaths(hnp.humioNodeSpec, "")
+
+	// We only care about the keys on the HumioNodePool spec and comparing values of the pod fields.
+	var keys []string
+	for k := range paths {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// Look over each "path" which is set by the user in the HumioCluster CR, check if there is an entry in fieldsMap
+	// which matches the prefix of the path, and if it does, check each of the pod path values to see if they changed.
+	// If they changed, then mark them as having a diff. This will eventually trigger a pod restart.
+	for _, key := range keys {
+		for fieldKey, fieldValues := range fieldsMap {
+			if strings.HasPrefix(key, fieldKey) {
+				for _, fieldValue := range fieldValues {
+					sanitizedCurrent, _ := getFieldByPath(sanitizedCurrentPod, fieldValue)
+					sanitizedDesired, _ := getFieldByPath(sanitizedDesiredPod, fieldValue)
+					diff := cmp.Diff(sanitizedCurrent, sanitizedDesired)
+					if diff != "" {
+						podSpecDiff[fieldValue] = diff
+					}
+				}
+
+				// Used for debugging... Remove
+				//if fieldValue == "Spec.Volumes" {
+				//	podSpecDiff["Spec.Volumes"] = fmt.Sprintf("%+v - %+v", sanitizedCurrentPod, sanitizedDesired)
+				//}
+				//podSpecDiff[fieldValue] = cmp.Diff(sanitizedCurrentPod.Spec.Affinity, sanitizedDesiredPod.Spec.Affinity)
+
+			}
+		}
+	}
+
+	for k, v := range podSpecDiff {
+		if v != "" {
+			r.Log.Info(fmt.Sprintf("managed HumioNodePoolSpec field %s has changed: %v",
+				k, v))
+			return false, fmt.Sprintf("managed HumioNodePoolSpec field %s has changed: %s",
+				k, v)
+		}
+	}
+
+	// Determine what to do about the revision and bootstrap tokens
+
+	//if !revisionMatches {
+	//	r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v",
+	//		PodRevisionAnnotation,
+	//		pod.Annotations[PodRevisionAnnotation], desiredPod.Annotations[PodRevisionAnnotation]),
+	//		"diff", podSpecDiff,
+	//	)
+	//	return false
+	//}
+	//if !bootstrapTokenAnnotationMatches {
+	//	r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v",
+	//		BootstrapTokenHashAnnotation,
+	//		pod.Annotations[BootstrapTokenHashAnnotation], desiredPod.Annotations[BootstrapTokenHashAnnotation]),
+	//		"diff", podSpecDiff,
+	//	)
+	//	return false
+	//}
+
+	// Determine what to do about this
+	if !envVarSourceMatches {
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v",
+			envVarSourceHashAnnotation,
+			pod.Annotations[envVarSourceHashAnnotation], desiredPod.Annotations[envVarSourceHashAnnotation]),
+			"diff", podSpecDiff,
+		)
+		return false, ""
+	}
+
+	// Determine what to do about this
+	if !certHashAnnotationMatches {
+		r.Log.Info(fmt.Sprintf("pod annotation %s does not match desired pod: got %+v, expected %+v",
+			certHashAnnotation,
+			pod.Annotations[certHashAnnotation], desiredPod.Annotations[certHashAnnotation]),
+			"diff", podSpecDiff,
+		)
+		return false, ""
+	}
+	return true, strings.Join(keys, ",")
+}
+
+func getSetFieldPaths(obj interface{}, prefix string) map[string]interface{} {
+	original := reflect.ValueOf(obj)
+	if original.Kind() == reflect.Ptr {
+		if original.IsNil() {
+			return nil
+		}
+		original = original.Elem()
+	}
+
+	if original.Kind() != reflect.Struct {
+		return nil
+	}
+
+	paths := make(map[string]interface{})
+
+	for i := 0; i < original.NumField(); i++ {
+		field := original.Type().Field(i)
+		originalValue := original.Field(i)
+
+		// Build the field path
+		fieldPath := field.Name
+		if prefix != "" {
+			fieldPath = prefix + "." + fieldPath
+		}
+
+		// Handle pointer types
+		if originalValue.Kind() == reflect.Ptr {
+			if originalValue.IsNil() {
+				continue
+			}
+			originalValue = originalValue.Elem()
+		}
+
+		switch originalValue.Kind() {
+		case reflect.Struct:
+			// Recursively handle nested structs
+			nestedPaths := getSetFieldPaths(originalValue.Interface(), fieldPath)
+			for k, v := range nestedPaths {
+				paths[k] = v
+			}
+		case reflect.Slice, reflect.Map:
+			if !originalValue.IsNil() && originalValue.Len() > 0 {
+				paths[fieldPath] = originalValue.Interface()
+			}
+		default:
+			// For basic types, check if they're non-zero
+			if !reflect.DeepEqual(originalValue.Interface(), reflect.Zero(originalValue.Type()).Interface()) {
+				paths[fieldPath] = originalValue.Interface()
+			}
+		}
+	}
+
+	return paths
+}
+
+func getFieldByPath(obj interface{}, fieldPath string) (interface{}, bool) {
+	value := reflect.ValueOf(obj)
+
+	// Dereference initial value if it's a pointer
+	for value.Kind() == reflect.Ptr {
+		if value.IsNil() {
+			return nil, false
+		}
+		value = value.Elem()
+	}
+
+	for _, field := range strings.Split(fieldPath, ".") {
+		// Handle array/slice index access if field contains [index]
+		if idx := strings.Index(field, "["); idx != -1 {
+			if value.Kind() != reflect.Struct {
+				return nil, false
+			}
+
+			// Get the field name without the array index
+			fieldName := field[:idx]
+			value = value.FieldByName(fieldName)
+			if !value.IsValid() {
+				return nil, false
+			}
+
+			// Dereference if it's a pointer
+			for value.Kind() == reflect.Ptr {
+				if value.IsNil() {
+					return nil, false
+				}
+				value = value.Elem()
+			}
+
+			// Parse the index
+			indexStr := strings.Trim(field[idx:], "[]")
+			index, err := strconv.Atoi(indexStr)
+			if err != nil {
+				return nil, false
+			}
+
+			// Check if it's an array or slice
+			if value.Kind() != reflect.Array && value.Kind() != reflect.Slice {
+				return nil, false
+			}
+
+			// Check if index is in bounds
+			if index < 0 || index >= value.Len() {
+				return nil, false
+			}
+
+			value = value.Index(index)
+			continue
+		}
+
+		// Handle regular struct fields
+		if value.Kind() != reflect.Struct {
+			return nil, false
+		}
+
+		if !value.IsValid() {
+			return nil, false
+		}
+
+		value = value.FieldByName(field)
+		if !value.IsValid() {
+			return nil, false
+		}
+
+		// Dereference if it's a pointer
+		for value.Kind() == reflect.Ptr {
+			if value.IsNil() {
+				return nil, false
+			}
+			value = value.Elem()
+		}
+	}
+
+	return value.Interface(), true
+}
+
 func annotationValueIsEqualIfPresentOnBothPods(x, y corev1.Pod, annotation string) bool {
 	if _, foundX := x.Annotations[annotation]; foundX {
 		if x.Annotations[annotation] == y.Annotations[annotation] {
@@ -818,6 +1078,12 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(ctx context.Context
 
 		// pods do not match, append to list of pods to be replaced
 		podLifecycleStateValue.configurationDifference = &podLifecycleStateConfigurationDifference{}
+
+		// only look for differences on fields that are defined on the HumioCluster spec. defaults are not included.
+		podsMatchUserDefinedFields, _ := r.podsMatchUserDefinedFields(hnp, currentPod, *desiredPod)
+		if !podsMatchUserDefinedFields {
+			podLifecycleStateValue.userDefinedConfigurationDifference = &podLifecycleStateConfigurationDifference{}
+		}
 
 		// compare image versions and if they differ, we register a version difference with associated from/to versions
 		humioContainerIdx, err := kubernetes.GetContainerIndexByName(currentPod, HumioContainerName)

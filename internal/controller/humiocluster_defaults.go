@@ -731,6 +731,13 @@ func (hnp *HumioNodePool) GetAffinity() *corev1.Affinity {
 	return &hnp.humioNodeSpec.Affinity
 }
 
+func (hnp *HumioNodePool) NodeAffinityIsSetByUser() bool {
+	if hnp.humioNodeSpec.Affinity.NodeAffinity != nil {
+		return true
+	}
+	return false
+}
+
 func (hnp *HumioNodePool) GetSidecarContainers() []corev1.Container {
 	return hnp.humioNodeSpec.SidecarContainers
 }

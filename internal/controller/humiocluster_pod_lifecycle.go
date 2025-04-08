@@ -22,6 +22,10 @@ type podLifecycleState struct {
 	// requiresSimultaneousRestart will be set in podLifecycleStateConfigurationDifference.
 	// This will be nil when no configuration difference has been detected.
 	configurationDifference *podLifecycleStateConfigurationDifference
+	// userDefinedConfigurationDifference holds information indicating we have detected a configuration difference of
+	// user defined fields
+	// This will be nil when no user defined configuration difference has been detected.
+	userDefinedConfigurationDifference *podLifecycleStateConfigurationDifference
 }
 
 type podLifecycleStateVersionDifference struct {
