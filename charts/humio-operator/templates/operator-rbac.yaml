@@ -194,20 +194,6 @@ rules:
   - get
   - list
   - watch
-{{- if and .Values.operator.pdfRenderService (eq .Values.operator.pdfRenderService.enabled true) }}
-- apiGroups:
-  - "apps"
-  resources:
-  - deployments
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

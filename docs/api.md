@@ -37153,6 +37153,18 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#humiopdfrenderservicespectls">tls</a></b></td>
+        <td>object</td>
+        <td>
+          TLS specifies if TLS should be configured for the PDF Render Service as well as how it should be configured.
+When enabled, this configures:
+- A TLS certificate volume mounted from the secret named <name>-certificate (by default)
+- Environment variables for TLS certificate paths and enabling secure connections
+- HTTPS protocol for service ports instead of HTTP
+- HTTPS scheme for liveness and readiness probes<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humiopdfrenderservicespecvolumemountsindex">volumeMounts</a></b></td>
         <td>[]object</td>
         <td>
@@ -40633,6 +40645,52 @@ In addition, if HostProcess is true then HostNetwork must also be set to true.<b
 Defaults to the user specified in image metadata if unspecified.
 May also be set in PodSecurityContext. If set in both SecurityContext and
 PodSecurityContext, the value specified in SecurityContext takes precedence.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPdfRenderService.spec.tls
+<sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
+
+
+
+TLS specifies if TLS should be configured for the PDF Render Service as well as how it should be configured.
+When enabled, this configures:
+- A TLS certificate volume mounted from the secret named <name>-certificate (by default)
+- Environment variables for TLS certificate paths and enabling secure connections
+- HTTPS protocol for service ports instead of HTTP
+- HTTPS scheme for liveness and readiness probes
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>caSecretName</b></td>
+        <td>string</td>
+        <td>
+          CASecretName is used to point to a Kubernetes secret that holds the CA that will be used to issue intra-cluster TLS certificates<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled can be used to toggle TLS on/off. Default behaviour is to configure TLS if cert-manager is present, otherwise we skip TLS.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>extraHostnames</b></td>
+        <td>[]string</td>
+        <td>
+          ExtraHostnames holds a list of additional hostnames that will be appended to TLS certificates.<br/>
         </td>
         <td>false</td>
       </tr></tbody>

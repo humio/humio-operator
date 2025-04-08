@@ -91,7 +91,3 @@ spec:
           capabilities:
             drop:
             - ALL
-
-
-
-
