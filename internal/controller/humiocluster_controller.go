@@ -21,17 +21,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-<<<<<<< HEAD
-<<<<<<< HEAD
 	"slices"
 	"sort"
 	"strconv"
-=======
->>>>>>> rebasing to master branch
-=======
-	"slices"
-	"strconv"
->>>>>>> comparing with master
 	"strings"
 	"time"
 
@@ -138,17 +130,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	//       on conflicts which they'll be on many of the status updates.
 	//       We should be able to bundle all the options together and do a single update using StatusWriter.
 	//       Bundling options in a single StatusWriter.Update() should help reduce the number of conflicts.
-<<<<<<< HEAD
-<<<<<<< HEAD
 	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
 		_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
-=======
-	defer func(ctx context.Context, humioClient humio.Client, hc *humiov1alpha1.HumioCluster) {
-=======
-	defer func(ctx context.Context, hc *humiov1alpha1.HumioCluster) {
->>>>>>> comparing with master
-		_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
->>>>>>> rebasing to master branch
 			withObservedGeneration(hc.GetGeneration()))
 	}(ctx, hc)
 
@@ -227,6 +210,10 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.ensureHumioClusterKeystoreSecret,
 		r.ensureNoIngressesIfIngressNotEnabled, // TODO: cleanupUnusedResources seems like a better place for this
 		r.ensureIngress,
+		// Propagate TLS settings to pdf-render-service
+		func(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+			return r.ensurePdfRenderServiceTLS(ctx, hc)
+		},
 	} {
 		if err := fun(ctx, hc); err != nil {
 			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
@@ -353,10 +340,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}(ctx, r.HumioClient, hc)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> comparing with master
 	// downscale cluster if needed
 	// Feature is only available for LogScale versions >= v1.173.0
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
@@ -364,11 +347,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if pool.IsDownscalingFeatureEnabled() && r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
 			if result, err := r.processDownscaling(ctx, hc, pool, req); result != emptyResult || err != nil {
 				if err != nil {
-<<<<<<< HEAD
 					_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
-=======
-					_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
->>>>>>> comparing with master
 						withMessage(err.Error()))
 				}
 				return result, err
@@ -376,11 +355,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-<<<<<<< HEAD
-=======
->>>>>>> rebasing to master branch
-=======
->>>>>>> comparing with master
 	// clean up various k8s objects we no longer need
 	if result, err := r.cleanupUnusedResources(ctx, hc, humioNodePools); result != emptyResult || err != nil {
 		return result, err
@@ -395,6 +369,47 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			withState(hc.Status.State).
 			withRequeuePeriod(r.RequeuePeriod).
 			withMessage(""))
+}
+
+// ensurePdfRenderServiceTLS ensures the pdf-render-service resource exists and has TLS config matching the HumioCluster
+func (r *HumioClusterReconciler) ensurePdfRenderServiceTLS(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	pdfService := &humiov1alpha1.HumioPdfRenderService{}
+	err := r.Get(ctx, types.NamespacedName{
+		Namespace: hc.Namespace,
+		Name:      hc.Name + "-pdf-render-service",
+	}, pdfService)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			// Create new pdf-render-service with TLS copied from cluster
+			newPdfService := &humiov1alpha1.HumioPdfRenderService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      hc.Name + "-pdf-render-service",
+					Namespace: hc.Namespace,
+					Labels:    map[string]string{"humio_cluster": hc.Name},
+				},
+				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
+					TLS:      hc.Spec.TLS,
+					Image:    PDFRenderServiceImage,
+					Replicas: 1,
+				},
+			}
+			if err := controllerutil.SetControllerReference(hc, newPdfService, r.Scheme()); err != nil {
+				return err
+			}
+			r.Log.Info("Creating HumioPdfRenderService with TLS settings", "name", newPdfService.Name)
+			return r.Create(ctx, newPdfService)
+		}
+		return err
+	}
+
+	// Already exists, check if TLS matches
+	if !reflect.DeepEqual(pdfService.Spec.TLS, hc.Spec.TLS) {
+		pdfService.Spec.TLS = hc.Spec.TLS
+		r.Log.Info("Updating HumioPdfRenderService TLS settings", "name", pdfService.Name)
+		return r.Update(ctx, pdfService)
+	}
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -3049,8 +3064,6 @@ func (r *HumioClusterReconciler) createOrUpdatePDB(ctx context.Context, hc *humi
 	}
 	r.Log.Info("PDB operation completed", "operation", op, "pdb", desiredPDB.Name)
 	return nil
-<<<<<<< HEAD
-<<<<<<< HEAD
 }
 
 // findDuplicateEnvVars checks if there are duplicate environment variables in the provided list
@@ -3093,9 +3106,3 @@ func GetDuplicateEnvVarsErrorMessage(duplicates map[string]int) string {
 	// Remove trailing comma and space
 	return message[:len(message)-2]
 }
-=======
-}
->>>>>>> rebasing to master branch
-=======
-}
->>>>>>> comparing with master
