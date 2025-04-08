@@ -45,6 +45,7 @@ import (
 const (
 	emailActionExample         string = "example@example.com"
 	expectedSecretValueExample string = "secret-token"
+	PDFRenderServiceImage      string = "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e"
 )
 
 var _ = Describe("Humio Resources Controllers", func() {
@@ -3878,7 +3879,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
 					Replicas:           1,
-					Image:              "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e",
+					Image:              PDFRenderServiceImage,
 					Port:               5123,
 					ServiceAccountName: "default",
 					// Use ClusterIP for the initial service configuration.
@@ -4062,7 +4063,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
 					Replicas: 1,
-					Image:    "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e",
+					Image:    PDFRenderServiceImage,
 					Port:     5123,
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{

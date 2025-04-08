@@ -62,8 +62,6 @@ type HumioPdfRenderServiceReconciler struct {
 
 const (
 	humioPdfRenderServiceFinalizer = "core.humio.com/finalizer"
-	// deploymentName constant removed - using hprs.Name instead
-	// credentialsSecretName constant removed - no longer defaulting ImagePullSecrets
 )
 
 // Reconcile implements the reconciliation logic for HumioPdfRenderService.
@@ -283,12 +281,12 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(hprs *corev
 	containerSecurityContext := hprs.Spec.SecurityContext
 	if containerSecurityContext == nil {
 		containerSecurityContext = &corev1.SecurityContext{
-			AllowPrivilegeEscalation: func() *bool { b := false; return &b }(),
-			Privileged:               func() *bool { b := false; return &b }(),
-			ReadOnlyRootFilesystem:   func() *bool { b := true; return &b }(),
-			RunAsNonRoot:             func() *bool { b := true; return &b }(),
-			RunAsUser:                func() *int64 { i := int64(1000); return &i }(),
-			RunAsGroup:               func() *int64 { i := int64(1000); return &i }(),
+			AllowPrivilegeEscalation: helpers.BoolPtr(false),
+			Privileged:               helpers.BoolPtr(false),
+			ReadOnlyRootFilesystem:   helpers.BoolPtr(true),
+			RunAsNonRoot:             helpers.BoolPtr(true),
+			RunAsUser:                helpers.Int64Ptr(1000),
+			RunAsGroup:               helpers.Int64Ptr(1000),
 			Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 		}
 	}
