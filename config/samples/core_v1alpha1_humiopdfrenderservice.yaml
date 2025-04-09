@@ -1,12 +1,86 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioPdfRenderService
 metadata:
+  name: pdf-render-service
   labels:
-    app.kubernetes.io/name: humiopdfrenderservice
-    app.kubernetes.io/instance: humiopdfrenderservice-sample
-    app.kubernetes.io/part-of: humio-operator
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: humio-operator
-  name: humiopdfrenderservice-sample
+    app.kubernetes.io/name: humio-pdf-render
+    app.kubernetes.io/part-of: logscale
+    app.kubernetes.io/component: pdf-render-service
+    app.kubernetes.io/managed-by: operator
+    organization.example.com/team: infrastructure
+  annotations:
+    iam.amazonaws.com/role: ''
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/metrics"
+    prometheus.io/port: "5123"
 spec:
-  # TODO(user): Add fields here
+  enabled: true
+  image: humio/pdf-render-service:0.0.59--build-98--sha-b2bfadbc14733ce3ae1153d555148ee4f3a64013 # Replace with your image and tag
+  imagePullPolicy: IfNotPresent
+  replicas: 2
+  port: 5123
+  resources:
+    limits:
+      cpu: 4
+      memory: 2Gi
+    requests:
+      cpu: 4
+      memory: 1Gi
+  env:
+    - name: XDG_CONFIG_HOME
+      value: "/tmp/.chromium-config"
+    - name: XDG_CACHE_HOME
+      value: "/tmp/.chromium-cache"
+    - name: EXAMPLE_ENV_VAR  # Example additional variable
+      value: "example_value"
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    privileged: false
+    readOnlyRootFilesystem: true
+  imagePullSecrets:
+    - name: regcred
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: humio_node_type  # Default key
+                operator: In
+                values:
+                  - core
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - pdf-render-service
+          topologyKey: kubernetes.io/hostname
+  livenessProbe:
+    failureThreshold: 5
+    httpGet:
+      path: /health
+      port: 5123
+      scheme: HTTP
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    successThreshold: 1
+    timeoutSeconds: 60
+  readinessProbe:
+    failureThreshold: 1
+    httpGet:
+      path: /ready
+      port: 5123
+      scheme: HTTP
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    successThreshold: 1
+    timeoutSeconds: 60

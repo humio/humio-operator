@@ -40,7 +40,10 @@ import (
 // HumioFilterAlertReconciler reconciles a HumioFilterAlert object
 type HumioFilterAlertReconciler struct {
 	client.Client
+<<<<<<< HEAD
 	CommonConfig
+=======
+>>>>>>> comparing with master
 	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
@@ -187,8 +190,13 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 		)
 	}
 
+<<<<<<< HEAD
 	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
 	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
+=======
+	r.Log.Info("done reconciling, will requeue after 15 seconds")
+	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+>>>>>>> comparing with master
 }
 
 // SetupWithManager sets up the controller with the Manager.

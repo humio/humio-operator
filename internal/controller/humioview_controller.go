@@ -40,11 +40,21 @@ import (
 // HumioViewReconciler reconciles a HumioView object
 type HumioViewReconciler struct {
 	client.Client
+<<<<<<< HEAD
+<<<<<<< HEAD
 	CommonConfig
+=======
+>>>>>>> comparing with master
 	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
 	Namespace   string
+<<<<<<< HEAD
+=======
+	Scheme *runtime.Scheme
+>>>>>>> rebasing to master branch
+=======
+>>>>>>> comparing with master
 }
 
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioviews,verbs=get;list;watch;create;update;patch;delete
@@ -164,8 +174,17 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}
 
+<<<<<<< HEAD
+<<<<<<< HEAD
 	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
 	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
+=======
+	return ctrl.Result{}, nil
+>>>>>>> rebasing to master branch
+=======
+	r.Log.Info("done reconciling, will requeue after 15 seconds")
+	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+>>>>>>> comparing with master
 }
 
 // SetupWithManager sets up the controller with the Manager.
