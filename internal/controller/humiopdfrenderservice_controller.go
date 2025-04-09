@@ -132,7 +132,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		deployment := &appsv1.Deployment{}
 		// Use hprs.Name to get the deployment for status
 		deploymentErr := r.Client.Get(ctx, types.NamespacedName{
-			Name:      hprs.Name,
+			Name:      "pdf-render-service",
 			Namespace: hprs.Namespace,
 		}, deployment)
 
@@ -359,7 +359,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(hprs *corev
 	// Construct the desired deployment
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      hprs.Name, // Use CR name for Deployment name
+			Name:      "pdf-render-service", // Fixed deployment name
 			Namespace: hprs.Namespace,
 			Labels:    labels,
 		},
@@ -469,7 +469,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 	}
 
 	existingDeployment := &appsv1.Deployment{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: hprs.Name, Namespace: hprs.Namespace}, existingDeployment)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: "pdf-render-service", Namespace: hprs.Namespace}, existingDeployment)
 
 	if err != nil {
 		if k8serrors.IsNotFound(err) {

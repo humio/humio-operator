@@ -29,7 +29,7 @@ spec:
     - name: PORT
       value: "5123"
     - name: SERVICE_VERSION
-      value: 0.28.29 
+      value: 0.28.32
   # Resource requirements
   resources:
     limits:

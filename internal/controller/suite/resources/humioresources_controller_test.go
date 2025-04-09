@@ -67,7 +67,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			ctx := context.Background()
 			err := k8sClient.Delete(ctx, createdPdfCR)
 			if err != nil {
-				fmt.Printf("Error delting PDFRenserService CR: %v", err)
+				fmt.Printf("Error deleting PDF CR: %v\n", err)
 			}
 			createdPdfCR = nil
 		}
@@ -3905,7 +3905,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			// Verify that the Deployment exists using the CR name.
 			deploymentKey := types.NamespacedName{
-				Name:      cr.Name, // Use CR name
+				Name:      "pdf-render-service", // Fixed deployment name
 				Namespace: cr.Namespace,
 			}
 			deployment := &appsv1.Deployment{}
@@ -3967,7 +3967,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			// Wait for the Deployment to be created with expected image, using CR name
 			deploymentKey := types.NamespacedName{
-				Name:      key.Name, // Use CR name (stored in key)
+				Name:      "pdf-render-service", // Fixed deployment name
 				Namespace: key.Namespace,
 			}
 			deployment := &appsv1.Deployment{}
@@ -4269,7 +4269,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				// Check Volume Mount Removed
 				foundMount := false
 				for _, vm := range container.VolumeMounts {
-					if vm.Name == "tls-cert" {
+					if vm.Name == tlsCertName {
 						foundMount = true
 						break
 					}
@@ -4279,7 +4279,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				// Check Volume Removed
 				foundVolume := false
 				for _, vol := range deployment.Spec.Template.Spec.Volumes {
-					if vol.Name == "tls-cert" {
+					if vol.Name == tlsCertName {
 						foundVolume = true
 						break
 					}
