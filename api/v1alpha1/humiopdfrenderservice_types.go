@@ -106,6 +106,8 @@ type HumioPdfRenderServiceSpec struct {
 	// PodSecurityContext defines the security context for the pod.
 	// +optional
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	// TLS specifies if TLS should be configured for the PDF Render Service as well as how it should be configured.
+	TLS *HumioClusterTLSSpec `json:"tls,omitempty"`
 }
 
 // HumioPdfRenderServiceStatus defines the observed state of HumioPdfRenderService

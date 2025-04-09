@@ -1940,6 +1940,27 @@ spec:
                 enum:
                 - ClusterIP
                 type: string
+              tls:
+                description: TLS specifies if TLS should be configured for the PDF
+                  Render Service as well as how it should be configured.
+                properties:
+                  caSecretName:
+                    description: CASecretName is used to point to a Kubernetes secret
+                      that holds the CA that will be used to issue intra-cluster TLS
+                      certificates
+                    type: string
+                  enabled:
+                    description: Enabled can be used to toggle TLS on/off. Default
+                      behaviour is to configure TLS if cert-manager is present, otherwise
+                      we skip TLS.
+                    type: boolean
+                  extraHostnames:
+                    description: ExtraHostnames holds a list of additional hostnames
+                      that will be appended to TLS certificates.
+                    items:
+                      type: string
+                    type: array
+                type: object
               volumeMounts:
                 description: VolumeMounts defines the volume mounts for the container.
                 items:

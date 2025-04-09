@@ -266,6 +266,20 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(hprs *corev
 				},
 			},
 		}
+
+		// Add TLS certificate volume if TLS is enabled
+		if hprs.Spec.TLS != nil && hprs.Spec.TLS.Enabled != nil && *hprs.Spec.TLS.Enabled {
+			// Use the same certificate naming convention as the HumioCluster
+			certSecretName := fmt.Sprintf("%s-certificate", hprs.Name)
+			volumes = append(volumes, corev1.Volume{
+				Name: "tls-cert",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: certSecretName,
+					},
+				},
+			})
+		}
 	}
 
 	// Determine volume mounts, defaulting if necessary
@@ -274,6 +288,15 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(hprs *corev
 		volumeMounts = []corev1.VolumeMount{
 			{Name: "app-temp", MountPath: "/app/temp"},
 			{Name: "tmp", MountPath: "/tmp"},
+		}
+
+		// Add TLS certificate volume mount if TLS is enabled
+		if hprs.Spec.TLS != nil && hprs.Spec.TLS.Enabled != nil && *hprs.Spec.TLS.Enabled {
+			volumeMounts = append(volumeMounts, corev1.VolumeMount{
+				Name:      "tls-cert",
+				MountPath: "/etc/ssl/certs/pdf-render-service",
+				ReadOnly:  true,
+			})
 		}
 	}
 
@@ -291,6 +314,12 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(hprs *corev
 		}
 	}
 
+	// Determine probe scheme based on TLS configuration
+	probeScheme := corev1.URISchemeHTTP
+	if hprs.Spec.TLS != nil && hprs.Spec.TLS.Enabled != nil && *hprs.Spec.TLS.Enabled {
+		probeScheme = corev1.URISchemeHTTPS
+	}
+
 	// Determine liveness probe, using CR spec or configurable default path
 	livenessProbe := hprs.Spec.LivenessProbe
 	if livenessProbe == nil {
@@ -299,14 +328,14 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(hprs *corev
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   corev1alpha1.DefaultPdfRenderServiceLiveness, // Use configurable default path
 					Port:   intstr.FromInt(int(port)),
-					Scheme: corev1.URISchemeHTTP, // Default scheme
+					Scheme: probeScheme, // Use scheme based on TLS configuration
 				},
 			},
 			InitialDelaySeconds: 30, TimeoutSeconds: 60, PeriodSeconds: 10, SuccessThreshold: 1, FailureThreshold: 3,
 		}
 	} else if livenessProbe.HTTPGet != nil && livenessProbe.HTTPGet.Scheme == "" {
 		livenessProbe = livenessProbe.DeepCopy() // Avoid modifying the original spec
-		livenessProbe.HTTPGet.Scheme = corev1.URISchemeHTTP
+		livenessProbe.HTTPGet.Scheme = probeScheme
 	}
 
 	// Determine readiness probe, using CR spec or configurable default path
@@ -317,14 +346,14 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(hprs *corev
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   corev1alpha1.DefaultPdfRenderServiceReadiness, // Use configurable default path
 					Port:   intstr.FromInt(int(port)),
-					Scheme: corev1.URISchemeHTTP, // Default scheme
+					Scheme: probeScheme, // Use scheme based on TLS configuration
 				},
 			},
 			InitialDelaySeconds: 30, TimeoutSeconds: 60, PeriodSeconds: 10, SuccessThreshold: 1, FailureThreshold: 1,
 		}
 	} else if readinessProbe.HTTPGet != nil && readinessProbe.HTTPGet.Scheme == "" {
 		readinessProbe = readinessProbe.DeepCopy() // Avoid modifying the original spec
-		readinessProbe.HTTPGet.Scheme = corev1.URISchemeHTTP
+		readinessProbe.HTTPGet.Scheme = probeScheme
 	}
 
 	// Construct the desired deployment
@@ -360,7 +389,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(hprs *corev
 							ContainerPort: port,
 							Name:          "http",
 						}},
-						Env:            hprs.Spec.EnvironmentVariables, // Use directly from spec
+						Env:            r.getTLSAwareEnvironmentVariables(hprs), // Add TLS env vars if needed
 						VolumeMounts:   volumeMounts,
 						LivenessProbe:  livenessProbe,
 						ReadinessProbe: readinessProbe,
@@ -394,8 +423,40 @@ func normalizeEnvVars(envVars []corev1.EnvVar) []corev1.EnvVar {
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Name < result[j].Name
 	})
-
 	return result
+}
+
+// getTLSAwareEnvironmentVariables adds TLS-related environment variables if TLS is enabled
+func (r *HumioPdfRenderServiceReconciler) getTLSAwareEnvironmentVariables(hprs *corev1alpha1.HumioPdfRenderService) []corev1.EnvVar {
+	// Start with the environment variables from the spec
+	envVars := hprs.Spec.EnvironmentVariables
+
+	// If TLS is enabled, add the necessary environment variables
+	if hprs.Spec.TLS != nil && hprs.Spec.TLS.Enabled != nil && *hprs.Spec.TLS.Enabled {
+		tlsEnvVars := []corev1.EnvVar{
+			{
+				Name:  "PDF_RENDER_USE_TLS",
+				Value: "true",
+			},
+			{
+				Name:  "PDF_RENDER_TLS_CERT_PATH",
+				Value: "/etc/ssl/certs/pdf-render-service/tls.crt",
+			},
+			{
+				Name:  "PDF_RENDER_TLS_KEY_PATH",
+				Value: "/etc/ssl/certs/pdf-render-service/tls.key",
+			},
+		}
+
+		// Append TLS env vars to existing env vars
+		if envVars == nil {
+			envVars = tlsEnvVars
+		} else {
+			envVars = append(envVars, tlsEnvVars...)
+		}
+	}
+
+	return envVars
 }
 
 // reconcileDeployment reconciles the Deployment for the HumioPdfRenderService
@@ -586,14 +647,31 @@ func (r *HumioPdfRenderServiceReconciler) constructService(hprs *corev1alpha1.Hu
 		Spec: corev1.ServiceSpec{
 			Selector: selector, // Use selector based on CR name
 			Type:     hprs.Spec.ServiceType,
-			Ports: []corev1.ServicePort{
-				{
-					Port:       port,
-					TargetPort: intstr.FromInt(int(port)),
-					Protocol:   corev1.ProtocolTCP,
-					Name:       "http",
-				},
-			},
+			Ports: func() []corev1.ServicePort {
+				// Create base ports array
+				ports := []corev1.ServicePort{}
+
+				// If TLS is enabled, add only HTTPS port
+				if hprs.Spec.TLS != nil && hprs.Spec.TLS.Enabled != nil && *hprs.Spec.TLS.Enabled {
+					// Add HTTPS port only
+					ports = append(ports, corev1.ServicePort{
+						Port:       port,
+						TargetPort: intstr.FromInt(int(port)),
+						Protocol:   corev1.ProtocolTCP,
+						Name:       "https",
+					})
+				} else {
+					// If TLS is not enabled, just add HTTP port
+					ports = append(ports, corev1.ServicePort{
+						Port:       port,
+						TargetPort: intstr.FromInt(int(port)),
+						Protocol:   corev1.ProtocolTCP,
+						Name:       "http",
+					})
+				}
+
+				return ports
+			}(),
 		},
 	}
 	return service
@@ -637,10 +715,32 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 		port = hprs.Spec.Port
 	}
 
-	// Check port configuration
-	if len(existingService.Spec.Ports) != 1 || existingService.Spec.Ports[0].Port != port || existingService.Spec.Ports[0].TargetPort.IntVal != port {
-		r.Log.Info("Port configuration changed")
-		needsUpdate = true
+	// Check port configuration based on TLS status
+	if hprs.Spec.TLS != nil && hprs.Spec.TLS.Enabled != nil && *hprs.Spec.TLS.Enabled {
+		// When TLS is enabled, we expect 1 port (HTTPS only)
+		if len(existingService.Spec.Ports) != 1 {
+			r.Log.Info("Port count changed for TLS-enabled service", "Old", len(existingService.Spec.Ports), "New", 1)
+			needsUpdate = true
+		} else {
+			// Check if the port is HTTPS with correct configuration
+			if existingService.Spec.Ports[0].Name != "https" ||
+				existingService.Spec.Ports[0].Port != port ||
+				existingService.Spec.Ports[0].TargetPort.IntVal != port {
+				r.Log.Info("HTTPS port configuration changed")
+				needsUpdate = true
+			}
+		}
+	} else {
+		// When TLS is disabled, we expect 1 port (HTTP)
+		if len(existingService.Spec.Ports) != 1 {
+			r.Log.Info("Port count changed for non-TLS service", "Old", len(existingService.Spec.Ports), "New", 1)
+			needsUpdate = true
+		} else if existingService.Spec.Ports[0].Port != port ||
+			existingService.Spec.Ports[0].TargetPort.IntVal != port ||
+			existingService.Spec.Ports[0].Name != "http" {
+			r.Log.Info("HTTP port configuration changed")
+			needsUpdate = true
+		}
 	}
 
 	// Selector check: Ensure selector matches desired state (based on CR name)
