@@ -1,0 +1,16 @@
+USER-SUPPLIED VALUES:
+livenessProbe:
+  initialDelaySeconds: 60
+operator:
+  image:
+    repository: 471112840547.dkr.ecr.us-west-2.amazonaws.com/humio-operator
+    tag: 0.27.2
+  resources:
+    limits:
+      cpu: 250m
+      memory: 750Mi
+    requests:
+      cpu: 250m
+      memory: 750Mi
+readinessProbe:
+  initialDelaySeconds: 60

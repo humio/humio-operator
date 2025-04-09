@@ -34,35 +34,30 @@ const (
 
 // HumioActionWebhookProperties defines the desired state of HumioActionWebhookProperties
 type HumioActionWebhookProperties struct {
-	// BodyTemplate holds the webhook body template
 	BodyTemplate string `json:"bodyTemplate,omitempty"`
 	// Headers specifies what HTTP headers to use.
 	// If both Headers and SecretHeaders are specified, they will be merged together.
 	Headers map[string]string `json:"headers,omitempty"`
 	// SecretHeaders specifies what HTTP headers to use and where to fetch the values from.
 	// If both Headers and SecretHeaders are specified, they will be merged together.
-	// +kubebuilder:default={}
+	//+kubebuilder:default={}
 	SecretHeaders []HeadersSource `json:"secretHeaders,omitempty"`
-	// Method holds the HTTP method that the action will use
-	Method string `json:"method,omitempty"`
+	Method        string          `json:"method,omitempty"`
 	// Url specifies what URL to use
 	// If both Url and UrlSource are specified, Url will be used.
 	Url string `json:"url,omitempty"`
 	// UrlSource specifies where to fetch the URL from
 	// If both Url and UrlSource are specified, Url will be used.
 	UrlSource VarSource `json:"urlSource,omitempty"`
-	// IgnoreSSL configures the action so that skips TLS certificate verification
-	IgnoreSSL bool `json:"ignoreSSL,omitempty"`
-	// UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
-	// see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
-	UseProxy bool `json:"useProxy,omitempty"`
+	IgnoreSSL bool      `json:"ignoreSSL,omitempty"`
+	UseProxy  bool      `json:"useProxy,omitempty"`
 }
 
 // HeadersSource defines a header and corresponding source for the value of it.
 type HeadersSource struct {
 	// Name is the name of the header.
-	// +kubebuilder:validation:MinLength=1
-	// +required
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	Name string `json:"name"`
 	// ValueFrom defines where to fetch the value of the header from.
 	ValueFrom VarSource `json:"valueFrom,omitempty"`
@@ -70,17 +65,12 @@ type HeadersSource struct {
 
 // HumioActionEmailProperties defines the desired state of HumioActionEmailProperties
 type HumioActionEmailProperties struct {
-	// BodyTemplate holds the email body template
-	BodyTemplate string `json:"bodyTemplate,omitempty"`
-	// SubjectTemplate holds the email subject template
+	BodyTemplate    string `json:"bodyTemplate,omitempty"`
 	SubjectTemplate string `json:"subjectTemplate,omitempty"`
-	// Recipients holds the list of email addresses that the action should send emails to.
-	// +kubebuilder:validation:MinItems=1
-	// +required
+	//+kubebuilder:validation:MinItems=1
+	//+required
 	Recipients []string `json:"recipients,omitempty"`
-	// UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
-	// see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
-	UseProxy bool `json:"useProxy,omitempty"`
+	UseProxy   bool     `json:"useProxy,omitempty"`
 }
 
 // HumioActionRepositoryProperties defines the desired state of HumioActionRepositoryProperties
@@ -95,7 +85,6 @@ type HumioActionRepositoryProperties struct {
 
 // HumioActionOpsGenieProperties defines the desired state of HumioActionOpsGenieProperties
 type HumioActionOpsGenieProperties struct {
-	// ApiUrl holds the API URL the action should use when calling OpsGenie
 	ApiUrl string `json:"apiUrl,omitempty"`
 	// GenieKey specifies what API key to use.
 	// If both GenieKey and GenieKeySource are specified, GenieKey will be used.
@@ -103,9 +92,7 @@ type HumioActionOpsGenieProperties struct {
 	// GenieKeySource specifies where to fetch the API key from.
 	// If both GenieKey and GenieKeySource are specified, GenieKey will be used.
 	GenieKeySource VarSource `json:"genieKeySource,omitempty"`
-	// UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
-	// see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
-	UseProxy bool `json:"useProxy,omitempty"`
+	UseProxy       bool      `json:"useProxy,omitempty"`
 }
 
 // HumioActionPagerDutyProperties defines the desired state of HumioActionPagerDutyProperties
@@ -116,16 +103,12 @@ type HumioActionPagerDutyProperties struct {
 	// RoutingKeySource specifies where to fetch the routing key from.
 	// If both RoutingKey and RoutingKeySource are specified, RoutingKey will be used.
 	RoutingKeySource VarSource `json:"routingKeySource,omitempty"`
-	// Severity defines which severity is used in the request to PagerDuty
-	Severity string `json:"severity,omitempty"`
-	// UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
-	// see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
-	UseProxy bool `json:"useProxy,omitempty"`
+	Severity         string    `json:"severity,omitempty"`
+	UseProxy         bool      `json:"useProxy,omitempty"`
 }
 
 // HumioActionSlackProperties defines the desired state of HumioActionSlackProperties
 type HumioActionSlackProperties struct {
-	// Fields holds a key-value map of additional fields to attach to the payload sent to Slack.
 	Fields map[string]string `json:"fields,omitempty"`
 	// Url specifies what URL to use.
 	// If both Url and UrlSource are specified, Url will be used.
@@ -133,10 +116,7 @@ type HumioActionSlackProperties struct {
 	// UrlSource specifies where to fetch the URL from.
 	// If both Url and UrlSource are specified, Url will be used.
 	UrlSource VarSource `json:"urlSource,omitempty"`
-	// UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
-	// see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
-	// +kubebuilder:default=false
-	UseProxy bool `json:"useProxy,omitempty"`
+	UseProxy  bool      `json:"useProxy,omitempty"`
 }
 
 // HumioActionSlackPostMessageProperties defines the desired state of HumioActionSlackPostMessageProperties
@@ -147,20 +127,15 @@ type HumioActionSlackPostMessageProperties struct {
 	// ApiTokenSource specifies where to fetch the API key from.
 	// If both ApiToken and ApiTokenSource are specified, ApiToken will be used.
 	ApiTokenSource VarSource `json:"apiTokenSource,omitempty"`
-	// Channels holds the list of Slack channels that the action should post to.
-	Channels []string `json:"channels,omitempty"`
-	// Fields holds a key-value map of additional fields to attach to the payload sent to Slack.
-	// +kubebuilder:default={}
+	Channels       []string  `json:"channels,omitempty"`
+	//+kubebuilder:default={}
 	Fields map[string]string `json:"fields,omitempty"`
-	// UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
-	// see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
-	// +kubebuilder:default=false
+	//+kubebuilder:default=false
 	UseProxy bool `json:"useProxy,omitempty"`
 }
 
 // HumioActionVictorOpsProperties defines the desired state of HumioActionVictorOpsProperties
 type HumioActionVictorOpsProperties struct {
-	// MessageType contains the VictorOps message type to use when the action calls VictorOps
 	MessageType string `json:"messageType,omitempty"`
 	// NotifyUrl specifies what URL to use.
 	// If both NotifyUrl and NotifyUrlSource are specified, NotifyUrl will be used.
@@ -168,9 +143,7 @@ type HumioActionVictorOpsProperties struct {
 	// NotifyUrlSource specifies where to fetch the URL from.
 	// If both NotifyUrl and NotifyUrlSource are specified, NotifyUrl will be used.
 	NotifyUrlSource VarSource `json:"notifyUrlSource"`
-	// UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
-	// see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
-	UseProxy bool `json:"useProxy,omitempty"`
+	UseProxy        bool      `json:"useProxy,omitempty"`
 }
 
 // VarSource is used to specify where a value should be pulled from
@@ -179,7 +152,7 @@ type VarSource struct {
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
-// HumioActionSpec defines the desired state of HumioAction.
+// HumioActionSpec defines the desired state of HumioAction
 type HumioActionSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
@@ -189,12 +162,12 @@ type HumioActionSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the Action
-	// +kubebuilder:validation:MinLength=1
-	// +required
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the Action will be managed. This can also be a Repository
-	// +kubebuilder:validation:MinLength=1
-	// +required
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	ViewName string `json:"viewName"`
 	// EmailProperties indicates this is an Email Action, and contains the corresponding properties
 	EmailProperties *HumioActionEmailProperties `json:"emailProperties,omitempty"`
@@ -214,16 +187,16 @@ type HumioActionSpec struct {
 	WebhookProperties *HumioActionWebhookProperties `json:"webhookProperties,omitempty"`
 }
 
-// HumioActionStatus defines the observed state of HumioAction.
+// HumioActionStatus defines the observed state of HumioAction
 type HumioActionStatus struct {
 	// State reflects the current state of the HumioAction
 	State string `json:"state,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
 
-// HumioAction is the Schema for the humioactions API.
+// HumioAction is the Schema for the humioactions API
 type HumioAction struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -232,9 +205,9 @@ type HumioAction struct {
 	Status HumioActionStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
-// HumioActionList contains a list of HumioAction.
+// HumioActionList contains a list of HumioAction
 type HumioActionList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

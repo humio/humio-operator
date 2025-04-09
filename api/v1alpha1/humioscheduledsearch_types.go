@@ -31,7 +31,7 @@ const (
 	HumioScheduledSearchStateConfigError = "ConfigError"
 )
 
-// HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch.
+// HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch
 type HumioScheduledSearchSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
@@ -41,17 +41,17 @@ type HumioScheduledSearchSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the scheduled search inside Humio
-	// +kubebuilder:validation:MinLength=1
-	// +required
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the scheduled search will be managed. This can also be a Repository
-	// +kubebuilder:validation:MinLength=1
-	// +required
+	//+kubebuilder:validation:MinLength=1
+	//+required
 	ViewName string `json:"viewName"`
 	// QueryString defines the desired Humio query string
 	QueryString string `json:"queryString"`
 	// Description is the description of the scheduled search
-	// +optional
+	//+optional
 	Description string `json:"description,omitempty"`
 	// QueryStart is the start of the relative time interval for the query.
 	QueryStart string `json:"queryStart"`
@@ -64,7 +64,7 @@ type HumioScheduledSearchSpec struct {
 	// BackfillLimit is the user-defined limit, which caps the number of missed searches to backfill, e.g. in the event of a shutdown.
 	BackfillLimit int `json:"backfillLimit"`
 	// Enabled will set the ScheduledSearch to enabled when set to true
-	// +kubebuilder:default=false
+	//+kubebuilder:default=false
 	Enabled bool `json:"enabled,omitempty"`
 	// Actions is the list of Humio Actions by name that will be triggered by this scheduled search
 	Actions []string `json:"actions"`
@@ -72,16 +72,16 @@ type HumioScheduledSearchSpec struct {
 	Labels []string `json:"labels,omitempty"`
 }
 
-// HumioScheduledSearchStatus defines the observed state of HumioScheduledSearch.
+// HumioScheduledSearchStatus defines the observed state of HumioScheduledSearch
 type HumioScheduledSearchStatus struct {
 	// State reflects the current state of the HumioScheduledSearch
 	State string `json:"state,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
 
-// HumioScheduledSearch is the Schema for the humioscheduledsearches API.
+// HumioScheduledSearch is the Schema for the HumioScheduledSearches API
 type HumioScheduledSearch struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -90,9 +90,9 @@ type HumioScheduledSearch struct {
 	Status HumioScheduledSearchStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
-// HumioScheduledSearchList contains a list of HumioScheduledSearch.
+// HumioScheduledSearchList contains a list of HumioScheduledSearch
 type HumioScheduledSearchList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

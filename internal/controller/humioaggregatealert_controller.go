@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package controllers
 
 import (
 	"context"
@@ -23,9 +23,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	humioapi "github.com/humio/humio-operator/internal/api"
 	"github.com/humio/humio-operator/internal/api/humiographql"
 	"github.com/humio/humio-operator/internal/helpers"
@@ -35,6 +33,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/go-logr/logr"
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 )
 
 // HumioAggregateAlertReconciler reconciles a HumioAggregateAlert object
@@ -46,9 +47,9 @@ type HumioAggregateAlertReconciler struct {
 	Namespace   string
 }
 
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioaggregatealerts,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioaggregatealerts/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioaggregatealerts/finalizers,verbs=update
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioAggregateAlerts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioAggregateAlerts/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=core.humio.com,resources=humioAggregateAlerts/finalizers,verbs=update
 
 func (r *HumioAggregateAlertReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	if r.Namespace != "" {
@@ -85,7 +86,7 @@ func (r *HumioAggregateAlertReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
-	defer func(ctx context.Context, haa *humiov1alpha1.HumioAggregateAlert) {
+	defer func(ctx context.Context, HumioClient humio.Client, haa *humiov1alpha1.HumioAggregateAlert) {
 		curAggregateAlert, err := r.HumioClient.GetAggregateAlert(ctx, humioHttpClient, req, haa)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioAggregateAlertStateNotFound, haa)
@@ -96,7 +97,7 @@ func (r *HumioAggregateAlertReconciler) Reconcile(ctx context.Context, req ctrl.
 			return
 		}
 		_ = r.setState(ctx, humiov1alpha1.HumioAggregateAlertStateExists, haa)
-	}(ctx, haa)
+	}(ctx, r.HumioClient, haa)
 
 	return r.reconcileHumioAggregateAlert(ctx, humioHttpClient, haa, req)
 }
@@ -198,7 +199,6 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 func (r *HumioAggregateAlertReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioAggregateAlert{}).
-		Named("humioaggregatealert").
 		Complete(r)
 }
 
