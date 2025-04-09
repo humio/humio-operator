@@ -152,6 +152,11 @@ func (r *HumioBootstrapTokenReconciler) updateStatusImage(ctx context.Context, h
 	return r.Status().Update(ctx, hbt)
 }
 
+func (r *HumioBootstrapTokenReconciler) updateStatusImage(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, image string) error {
+	hbt.Status.BootstrapImage = image
+	return r.Client.Status().Update(ctx, hbt)
+}
+
 func (r *HumioBootstrapTokenReconciler) execCommand(ctx context.Context, pod *corev1.Pod, args []string) (string, error) {
 	configLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		clientcmd.NewDefaultClientConfigLoadingRules(),

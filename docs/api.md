@@ -37302,11 +37302,7 @@ Spec defines the desired state of HumioPdfRenderService
         <td><b><a href="#humiopdfrenderservicespecsecuritycontext">securityContext</a></b></td>
         <td>object</td>
         <td>
-<<<<<<< HEAD
           SecurityContext defines the security context for the container.<br/>
-=======
-          SecurityContext defines pod-level security attributes<br/>
->>>>>>> updating configuration according to terrafomr implementation
         </td>
         <td>false</td>
       </tr><tr>
@@ -39025,410 +39021,8 @@ merge patch.<br/>
 </table>
 
 
-<<<<<<< HEAD
 ### HumioPdfRenderService.spec.environmentVariables[index]
-=======
-### HumioPdfRenderService.spec.containerSecurityContext
->>>>>>> updating configuration according to terrafomr implementation
 <sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
-
-
-
-ContainerSecurityContext defines container-level security attributes
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>allowPrivilegeEscalation</b></td>
-        <td>boolean</td>
-        <td>
-          AllowPrivilegeEscalation controls whether a process can gain more
-privileges than its parent process. This bool directly controls if
-the no_new_privs flag will be set on the container process.
-AllowPrivilegeEscalation is true always when the container is:
-1) run as Privileged
-2) has CAP_SYS_ADMIN
-Note that this field cannot be set when spec.os.name is windows.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespeccontainersecuritycontextcapabilities">capabilities</a></b></td>
-        <td>object</td>
-        <td>
-          The capabilities to add/drop when running containers.
-Defaults to the default set of capabilities granted by the container runtime.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>privileged</b></td>
-        <td>boolean</td>
-        <td>
-          Run container in privileged mode.
-Processes in privileged containers are essentially equivalent to root on the host.
-Defaults to false.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>procMount</b></td>
-        <td>string</td>
-        <td>
-          procMount denotes the type of proc mount to use for the containers.
-The default is DefaultProcMount which uses the container runtime defaults for
-readonly paths and masked paths.
-This requires the ProcMountType feature flag to be enabled.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-<<<<<<< HEAD
-        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom">valueFrom</a></b></td>
-=======
-        <td><b>readOnlyRootFilesystem</b></td>
-        <td>boolean</td>
-        <td>
-          Whether this container has a read-only root filesystem.
-Default is false.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>runAsGroup</b></td>
-        <td>integer</td>
-        <td>
-          The GID to run the entrypoint of the container process.
-Uses runtime default if unset.
-May also be set in PodSecurityContext.  If set in both SecurityContext and
-PodSecurityContext, the value specified in SecurityContext takes precedence.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-          <br/>
-            <i>Format</i>: int64<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>runAsNonRoot</b></td>
-        <td>boolean</td>
-        <td>
-          Indicates that the container must run as a non-root user.
-If true, the Kubelet will validate the image at runtime to ensure that it
-does not run as UID 0 (root) and fail to start the container if it does.
-If unset or false, no such validation will be performed.
-May also be set in PodSecurityContext.  If set in both SecurityContext and
-PodSecurityContext, the value specified in SecurityContext takes precedence.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>runAsUser</b></td>
-        <td>integer</td>
-        <td>
-          The UID to run the entrypoint of the container process.
-Defaults to user specified in image metadata if unspecified.
-May also be set in PodSecurityContext.  If set in both SecurityContext and
-PodSecurityContext, the value specified in SecurityContext takes precedence.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-          <br/>
-            <i>Format</i>: int64<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespeccontainersecuritycontextselinuxoptions">seLinuxOptions</a></b></td>
->>>>>>> updating configuration according to terrafomr implementation
-        <td>object</td>
-        <td>
-          The SELinux context to be applied to the container.
-If unspecified, the container runtime will allocate a random SELinux context for each
-container.  May also be set in PodSecurityContext.  If set in both SecurityContext and
-PodSecurityContext, the value specified in SecurityContext takes precedence.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespeccontainersecuritycontextseccompprofile">seccompProfile</a></b></td>
-        <td>object</td>
-        <td>
-          The seccomp options to use by this container. If seccomp options are
-provided at both the pod & container level, the container options
-override the pod options.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespeccontainersecuritycontextwindowsoptions">windowsOptions</a></b></td>
-        <td>object</td>
-        <td>
-          The Windows specific settings applied to all containers.
-If unspecified, the options from the PodSecurityContext will be used.
-If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
-Note that this field cannot be set when spec.os.name is linux.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-<<<<<<< HEAD
-### HumioPdfRenderService.spec.environmentVariables[index].valueFrom
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindex)</sup></sup>
-=======
-### HumioPdfRenderService.spec.containerSecurityContext.capabilities
-<sup><sup>[↩ Parent](#humiopdfrenderservicespeccontainersecuritycontext)</sup></sup>
->>>>>>> updating configuration according to terrafomr implementation
-
-
-
-The capabilities to add/drop when running containers.
-Defaults to the default set of capabilities granted by the container runtime.
-Note that this field cannot be set when spec.os.name is windows.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-<<<<<<< HEAD
-        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
-        <td>object</td>
-        <td>
-          Selects a key of a ConfigMap.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromfieldref">fieldRef</a></b></td>
-        <td>object</td>
-        <td>
-          Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
-spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
-        <td>object</td>
-=======
-        <td><b>add</b></td>
-        <td>[]string</td>
->>>>>>> updating configuration according to terrafomr implementation
-        <td>
-          Added capabilities<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-<<<<<<< HEAD
-        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
-        <td>object</td>
-=======
-        <td><b>drop</b></td>
-        <td>[]string</td>
->>>>>>> updating configuration according to terrafomr implementation
-        <td>
-          Removed capabilities<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-<<<<<<< HEAD
-### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.configMapKeyRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
-=======
-### HumioPdfRenderService.spec.containerSecurityContext.seLinuxOptions
-<sup><sup>[↩ Parent](#humiopdfrenderservicespeccontainersecuritycontext)</sup></sup>
->>>>>>> updating configuration according to terrafomr implementation
-
-
-
-The SELinux context to be applied to the container.
-If unspecified, the container runtime will allocate a random SELinux context for each
-container.  May also be set in PodSecurityContext.  If set in both SecurityContext and
-PodSecurityContext, the value specified in SecurityContext takes precedence.
-Note that this field cannot be set when spec.os.name is windows.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>level</b></td>
-        <td>string</td>
-        <td>
-          Level is SELinux level label that applies to the container.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>role</b></td>
-        <td>string</td>
-        <td>
-<<<<<<< HEAD
-          Name of the referent.
-This field is effectively required, but due to backwards compatibility is
-allowed to be empty. Instances of this type with an empty value here are
-almost certainly wrong.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
-          <br/>
-            <i>Default</i>: <br/>
-=======
-          Role is a SELinux role label that applies to the container.<br/>
->>>>>>> updating configuration according to terrafomr implementation
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>type</b></td>
-        <td>string</td>
-        <td>
-          Type is a SELinux type label that applies to the container.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>user</b></td>
-        <td>string</td>
-        <td>
-          User is a SELinux user label that applies to the container.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-<<<<<<< HEAD
-### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.fieldRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
-=======
-### HumioPdfRenderService.spec.containerSecurityContext.seccompProfile
-<sup><sup>[↩ Parent](#humiopdfrenderservicespeccontainersecuritycontext)</sup></sup>
->>>>>>> updating configuration according to terrafomr implementation
-
-
-
-The seccomp options to use by this container. If seccomp options are
-provided at both the pod & container level, the container options
-override the pod options.
-Note that this field cannot be set when spec.os.name is windows.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>type</b></td>
-        <td>string</td>
-        <td>
-          type indicates which kind of seccomp profile will be applied.
-Valid options are:
-
-
-Localhost - a profile defined in a file on the node should be used.
-RuntimeDefault - the container runtime default profile should be used.
-Unconfined - no profile should be applied.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>localhostProfile</b></td>
-        <td>string</td>
-        <td>
-          localhostProfile indicates a profile defined in a file on the node should be used.
-The profile must be preconfigured on the node to work.
-Must be a descending path, relative to the kubelet's configured seccomp profile location.
-Must be set if type is "Localhost". Must NOT be set for any other type.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-<<<<<<< HEAD
-### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.resourceFieldRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
-=======
-### HumioPdfRenderService.spec.containerSecurityContext.windowsOptions
-<sup><sup>[↩ Parent](#humiopdfrenderservicespeccontainersecuritycontext)</sup></sup>
->>>>>>> updating configuration according to terrafomr implementation
-
-
-
-The Windows specific settings applied to all containers.
-If unspecified, the options from the PodSecurityContext will be used.
-If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
-Note that this field cannot be set when spec.os.name is linux.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>gmsaCredentialSpec</b></td>
-        <td>string</td>
-        <td>
-          GMSACredentialSpec is where the GMSA admission webhook
-(https://github.com/kubernetes-sigs/windows-gmsa) inlines the contents of the
-GMSA credential spec named by the GMSACredentialSpecName field.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>gmsaCredentialSpecName</b></td>
-        <td>string</td>
-        <td>
-          GMSACredentialSpecName is the name of the GMSA credential spec to use.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>hostProcess</b></td>
-        <td>boolean</td>
-        <td>
-          HostProcess determines if a container should be run as a 'Host Process' container.
-All of a Pod's containers must have the same effective HostProcess value
-(it is not allowed to have a mix of HostProcess containers and non-HostProcess containers).
-In addition, if HostProcess is true then HostNetwork must also be set to true.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>runAsUserName</b></td>
-        <td>string</td>
-        <td>
-          The UserName in Windows to run the entrypoint of the container process.
-Defaults to the user specified in image metadata if unspecified.
-May also be set in PodSecurityContext. If set in both SecurityContext and
-PodSecurityContext, the value specified in SecurityContext takes precedence.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-<<<<<<< HEAD
-### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.secretKeyRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
-=======
-### HumioPdfRenderService.spec.env[index]
-<sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
->>>>>>> updating configuration according to terrafomr implementation
 
 
 
@@ -39454,15 +39048,6 @@ EnvVar represents an environment variable present in a Container.
         <td><b>value</b></td>
         <td>string</td>
         <td>
-<<<<<<< HEAD
-          Name of the referent.
-This field is effectively required, but due to backwards compatibility is
-allowed to be empty. Instances of this type with an empty value here are
-almost certainly wrong.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
-          <br/>
-            <i>Default</i>: <br/>
-=======
           Variable references $(VAR_NAME) are expanded
 using the previously defined environment variables in the container and
 any service environment variables. If a variable cannot be resolved,
@@ -39472,11 +39057,10 @@ to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e.
 Escaped references will never be expanded, regardless of whether the variable
 exists or not.
 Defaults to "".<br/>
->>>>>>> updating configuration according to terrafomr implementation
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefrom">valueFrom</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom">valueFrom</a></b></td>
         <td>object</td>
         <td>
           Source for the environment variable's value. Cannot be used if value is not empty.<br/>
@@ -39486,17 +39070,8 @@ Defaults to "".<br/>
 </table>
 
 
-<<<<<<< HEAD
-### HumioPdfRenderService.spec.imagePullSecrets[index]
-<sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
-
-
-
-LocalObjectReference contains enough information to let you locate the
-referenced object inside the same namespace.
-=======
-### HumioPdfRenderService.spec.env[index].valueFrom
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindex)</sup></sup>
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindex)</sup></sup>
 
 
 
@@ -39512,14 +39087,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
         <td>object</td>
         <td>
           Selects a key of a ConfigMap.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefromfieldref">fieldRef</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
@@ -39527,7 +39102,7 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a resource of the container: only resources limits and requests
@@ -39535,7 +39110,7 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecenvindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecenvironmentvariablesindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
         <td>object</td>
         <td>
           Selects a key of a secret in the pod's namespace<br/>
@@ -39545,13 +39120,12 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
-### HumioPdfRenderService.spec.env[index].valueFrom.configMapKeyRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindexvaluefrom)</sup></sup>
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.configMapKeyRef
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
 
 
 
 Selects a key of a ConfigMap.
->>>>>>> updating configuration according to terrafomr implementation
 
 <table>
     <thead>
@@ -39563,18 +39137,6 @@ Selects a key of a ConfigMap.
         </tr>
     </thead>
     <tbody><tr>
-<<<<<<< HEAD
-        <td><b>name</b></td>
-        <td>string</td>
-        <td>
-          Name of the referent.
-This field is effectively required, but due to backwards compatibility is
-allowed to be empty. Instances of this type with an empty value here are
-almost certainly wrong.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
-          <br/>
-            <i>Default</i>: <br/>
-=======
         <td><b>key</b></td>
         <td>string</td>
         <td>
@@ -39586,8 +39148,12 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
         <td>string</td>
         <td>
           Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -39595,15 +39161,14 @@ TODO: Add other useful fields. apiVersion, kind, uid?<br/>
         <td>boolean</td>
         <td>
           Specify whether the ConfigMap or its key must be defined<br/>
->>>>>>> updating configuration according to terrafomr implementation
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### HumioPdfRenderService.spec.env[index].valueFrom.fieldRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindexvaluefrom)</sup></sup>
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.fieldRef
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
 
 
 
@@ -39620,7 +39185,163 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </tr>
     </thead>
     <tbody><tr>
-<<<<<<< HEAD
+        <td><b>fieldPath</b></td>
+        <td>string</td>
+        <td>
+          Path of the field to select in the specified API version.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          Version of the schema the FieldPath is written in terms of, defaults to "v1".<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.resourceFieldRef
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
+
+
+
+Selects a resource of the container: only resources limits and requests
+(limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>resource</b></td>
+        <td>string</td>
+        <td>
+          Required: resource to select<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>containerName</b></td>
+        <td>string</td>
+        <td>
+          Container name: required for volumes, optional for env vars<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>divisor</b></td>
+        <td>int or string</td>
+        <td>
+          Specifies the output format of the exposed resources, defaults to "1"<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPdfRenderService.spec.environmentVariables[index].valueFrom.secretKeyRef
+<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvironmentvariablesindexvaluefrom)</sup></sup>
+
+
+
+Selects a key of a secret in the pod's namespace
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPdfRenderService.spec.imagePullSecrets[index]
+<sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
+
+
+
+LocalObjectReference contains enough information to let you locate the
+referenced object inside the same namespace.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPdfRenderService.spec.livenessProbe
+<sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
+
+
+
+LivenessProbe defines the liveness probe configuration.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
         <td><b><a href="#humiopdfrenderservicespeclivenessprobeexec">exec</a></b></td>
         <td>object</td>
         <td>
@@ -39691,227 +39412,28 @@ Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
       </tr><tr>
         <td><b>terminationGracePeriodSeconds</b></td>
         <td>integer</td>
-=======
-        <td><b>fieldPath</b></td>
-        <td>string</td>
->>>>>>> updating configuration according to terrafomr implementation
         <td>
-          Path of the field to select in the specified API version.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>apiVersion</b></td>
-        <td>string</td>
-        <td>
-          Version of the schema the FieldPath is written in terms of, defaults to "v1".<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.env[index].valueFrom.resourceFieldRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindexvaluefrom)</sup></sup>
-
-
-
-<<<<<<< HEAD
-Exec specifies a command to execute in the container.
-=======
-Selects a resource of the container: only resources limits and requests
-(limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
->>>>>>> updating configuration according to terrafomr implementation
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>resource</b></td>
-        <td>string</td>
-        <td>
-          Required: resource to select<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>containerName</b></td>
-        <td>string</td>
-        <td>
-          Container name: required for volumes, optional for env vars<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>divisor</b></td>
-        <td>int or string</td>
-        <td>
-          Specifies the output format of the exposed resources, defaults to "1"<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.env[index].valueFrom.secretKeyRef
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecenvindexvaluefrom)</sup></sup>
-
-
-
-<<<<<<< HEAD
-GRPC specifies a GRPC HealthCheckRequest.
-=======
-Selects a key of a secret in the pod's namespace
->>>>>>> updating configuration according to terrafomr implementation
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>key</b></td>
-        <td>string</td>
-        <td>
-          The key of the secret to select from.  Must be a valid secret key.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>name</b></td>
-        <td>string</td>
-        <td>
-<<<<<<< HEAD
-          Service is the name of the service to place in the gRPC HealthCheckRequest
-(see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
-
-If this is not specified, the default behavior is defined by gRPC.<br/>
+          Optional duration in seconds the pod needs to terminate gracefully upon probe failure.
+The grace period is the duration in seconds after the processes running in the pod are sent
+a termination signal and the time when the processes are forcibly halted with a kill signal.
+Set this value longer than the expected cleanup time for your process.
+If this value is nil, the pod's terminationGracePeriodSeconds will be used. Otherwise, this
+value overrides the value provided by the pod spec.
+Value must be non-negative integer. The value zero indicates stop immediately via
+the kill signal (no opportunity to shut down).
+This is a beta field and requires enabling ProbeTerminationGracePeriod feature gate.
+Minimum value is 1. spec.terminationGracePeriodSeconds is used if unset.<br/>
           <br/>
-            <i>Default</i>: <br/>
-=======
-          Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
+            <i>Format</i>: int64<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b>optional</b></td>
-        <td>boolean</td>
-        <td>
-          Specify whether the Secret or its key must be defined<br/>
->>>>>>> updating configuration according to terrafomr implementation
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.imagePullSecrets[index]
-<sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
-
-
-
-<<<<<<< HEAD
-HTTPGet specifies an HTTP GET request to perform.
-=======
-LocalObjectReference contains enough information to let you locate the
-referenced object inside the same namespace.
->>>>>>> updating configuration according to terrafomr implementation
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>name</b></td>
-        <td>string</td>
-        <td>
-          Name of the referent.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-TODO: Add other useful fields. apiVersion, kind, uid?<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.ingress
-<sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
-
-
-
-Ingress defines the ingress configuration for the service.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>enabled</b></td>
-        <td>boolean</td>
-        <td>
-          Enabled defines if the ingress is enabled.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecingresshostsindex">hosts</a></b></td>
-        <td>[]object</td>
-        <td>
-          Hosts defines the list of hosts for the ingress.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.ingress.hosts[index]
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecingress)</sup></sup>
-
-
-
-<<<<<<< HEAD
-TCPSocket specifies a connection to a TCP port.
-=======
-HumioPdfRenderServiceIngressHost defines the host configuration for the Ingress.
->>>>>>> updating configuration according to terrafomr implementation
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>host</b></td>
-        <td>string</td>
-        <td>
-          Host is the hostname to be used.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>port</b></td>
+        <td><b>timeoutSeconds</b></td>
         <td>integer</td>
         <td>
-          Port is the port number to be used.<br/>
+          Number of seconds after which the probe times out.
+Defaults to 1 second. Minimum value is 1.
+More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes<br/>
           <br/>
             <i>Format</i>: int32<br/>
         </td>
@@ -39920,7 +39442,208 @@ HumioPdfRenderServiceIngressHost defines the host configuration for the Ingress.
 </table>
 
 
-<<<<<<< HEAD
+### HumioPdfRenderService.spec.livenessProbe.exec
+<sup><sup>[↩ Parent](#humiopdfrenderservicespeclivenessprobe)</sup></sup>
+
+
+
+Exec specifies a command to execute in the container.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>command</b></td>
+        <td>[]string</td>
+        <td>
+          Command is the command line to execute inside the container, the working directory for the
+command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+a shell, you need to explicitly call out to that shell.
+Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPdfRenderService.spec.livenessProbe.grpc
+<sup><sup>[↩ Parent](#humiopdfrenderservicespeclivenessprobe)</sup></sup>
+
+
+
+GRPC specifies a GRPC HealthCheckRequest.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>port</b></td>
+        <td>integer</td>
+        <td>
+          Port number of the gRPC service. Number must be in the range 1 to 65535.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>service</b></td>
+        <td>string</td>
+        <td>
+          Service is the name of the service to place in the gRPC HealthCheckRequest
+(see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
+
+If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPdfRenderService.spec.livenessProbe.httpGet
+<sup><sup>[↩ Parent](#humiopdfrenderservicespeclivenessprobe)</sup></sup>
+
+
+
+HTTPGet specifies an HTTP GET request to perform.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>port</b></td>
+        <td>int or string</td>
+        <td>
+          Name or number of the port to access on the container.
+Number must be in the range 1 to 65535.
+Name must be an IANA_SVC_NAME.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>host</b></td>
+        <td>string</td>
+        <td>
+          Host name to connect to, defaults to the pod IP. You probably want to set
+"Host" in httpHeaders instead.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiopdfrenderservicespeclivenessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td>[]object</td>
+        <td>
+          Custom headers to set in the request. HTTP allows repeated headers.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path to access on the HTTP server.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>scheme</b></td>
+        <td>string</td>
+        <td>
+          Scheme to use for connecting to the host.
+Defaults to HTTP.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPdfRenderService.spec.livenessProbe.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#humiopdfrenderservicespeclivenessprobehttpget)</sup></sup>
+
+
+
+HTTPHeader describes a custom header to be used in HTTP probes
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          The header field name.
+This will be canonicalized upon output, so case-variant names will be understood as the same header.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          The header field value<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioPdfRenderService.spec.livenessProbe.tcpSocket
+<sup><sup>[↩ Parent](#humiopdfrenderservicespeclivenessprobe)</sup></sup>
+
+
+
+TCPSocket specifies a connection to a TCP port.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>port</b></td>
+        <td>int or string</td>
+        <td>
+          Number or name of the port to access on the container.
+Number must be in the range 1 to 65535.
+Name must be an IANA_SVC_NAME.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>host</b></td>
+        <td>string</td>
+        <td>
+          Optional: Host name to connect to, defaults to the pod IP.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### HumioPdfRenderService.spec.podSecurityContext
 <sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
 
@@ -40346,14 +40069,11 @@ PodSecurityContext, the value specified in SecurityContext takes precedence.<br/
 
 
 ### HumioPdfRenderService.spec.readinessProbe
-=======
-### HumioPdfRenderService.spec.livenessProbe
->>>>>>> updating configuration according to terrafomr implementation
 <sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
 
 
 
-LivenessProbe defines the liveness probe configuration.
+ReadinessProbe defines the readiness probe configuration.
 
 <table>
     <thead>
@@ -40365,7 +40085,7 @@ LivenessProbe defines the liveness probe configuration.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#humiopdfrenderservicespeclivenessprobeexec">exec</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecreadinessprobeexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
@@ -40382,14 +40102,14 @@ Defaults to 3. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespeclivenessprobegrpc">grpc</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecreadinessprobegrpc">grpc</a></b></td>
         <td>object</td>
         <td>
           GRPC specifies a GRPC HealthCheckRequest.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespeclivenessprobehttpget">httpGet</a></b></td>
+        <td><b><a href="#humiopdfrenderservicespecreadinessprobehttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
@@ -40426,339 +40146,10 @@ Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespeclivenessprobetcpsocket">tcpSocket</a></b></td>
-        <td>object</td>
-        <td>
-          TCPSocket specifies a connection to a TCP port.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>terminationGracePeriodSeconds</b></td>
-        <td>integer</td>
-        <td>
-          Optional duration in seconds the pod needs to terminate gracefully upon probe failure.
-The grace period is the duration in seconds after the processes running in the pod are sent
-a termination signal and the time when the processes are forcibly halted with a kill signal.
-Set this value longer than the expected cleanup time for your process.
-If this value is nil, the pod's terminationGracePeriodSeconds will be used. Otherwise, this
-value overrides the value provided by the pod spec.
-Value must be non-negative integer. The value zero indicates stop immediately via
-the kill signal (no opportunity to shut down).
-This is a beta field and requires enabling ProbeTerminationGracePeriod feature gate.
-Minimum value is 1. spec.terminationGracePeriodSeconds is used if unset.<br/>
-          <br/>
-            <i>Format</i>: int64<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>timeoutSeconds</b></td>
-        <td>integer</td>
-        <td>
-          Number of seconds after which the probe times out.
-Defaults to 1 second. Minimum value is 1.
-More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes<br/>
-          <br/>
-            <i>Format</i>: int32<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.livenessProbe.exec
-<sup><sup>[↩ Parent](#humiopdfrenderservicespeclivenessprobe)</sup></sup>
-
-
-
-Exec specifies a command to execute in the container.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>command</b></td>
-        <td>[]string</td>
-        <td>
-          Command is the command line to execute inside the container, the working directory for the
-command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
-not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
-a shell, you need to explicitly call out to that shell.
-Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.livenessProbe.grpc
-<sup><sup>[↩ Parent](#humiopdfrenderservicespeclivenessprobe)</sup></sup>
-
-
-
-GRPC specifies a GRPC HealthCheckRequest.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>port</b></td>
-        <td>integer</td>
-        <td>
-          Port number of the gRPC service. Number must be in the range 1 to 65535.<br/>
-          <br/>
-            <i>Format</i>: int32<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>service</b></td>
-        <td>string</td>
-        <td>
-          Service is the name of the service to place in the gRPC HealthCheckRequest
-(see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
-
-If this is not specified, the default behavior is defined by gRPC.<br/>
-          <br/>
-            <i>Default</i>: <br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.livenessProbe.httpGet
-<sup><sup>[↩ Parent](#humiopdfrenderservicespeclivenessprobe)</sup></sup>
-
-
-
-HTTPGet specifies an HTTP GET request to perform.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>port</b></td>
-        <td>int or string</td>
-        <td>
-          Name or number of the port to access on the container.
-Number must be in the range 1 to 65535.
-Name must be an IANA_SVC_NAME.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>host</b></td>
-        <td>string</td>
-        <td>
-          Host name to connect to, defaults to the pod IP. You probably want to set
-"Host" in httpHeaders instead.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespeclivenessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
-        <td>[]object</td>
-        <td>
-          Custom headers to set in the request. HTTP allows repeated headers.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>path</b></td>
-        <td>string</td>
-        <td>
-          Path to access on the HTTP server.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>scheme</b></td>
-        <td>string</td>
-        <td>
-          Scheme to use for connecting to the host.
-Defaults to HTTP.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.livenessProbe.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#humiopdfrenderservicespeclivenessprobehttpget)</sup></sup>
-
-
-
-HTTPHeader describes a custom header to be used in HTTP probes
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>name</b></td>
-        <td>string</td>
-        <td>
-          The header field name.
-This will be canonicalized upon output, so case-variant names will be understood as the same header.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>value</b></td>
-        <td>string</td>
-        <td>
-          The header field value<br/>
-        </td>
-        <td>true</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.livenessProbe.tcpSocket
-<sup><sup>[↩ Parent](#humiopdfrenderservicespeclivenessprobe)</sup></sup>
-
-
-
-TCPSocket specifies a connection to a TCP port.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>port</b></td>
-        <td>int or string</td>
-        <td>
-          Number or name of the port to access on the container.
-Number must be in the range 1 to 65535.
-Name must be an IANA_SVC_NAME.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>host</b></td>
-        <td>string</td>
-        <td>
-          Optional: Host name to connect to, defaults to the pod IP.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.readinessProbe
-<sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
-
-
-
-ReadinessProbe defines the readiness probe configuration.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b><a href="#humiopdfrenderservicespecreadinessprobeexec">exec</a></b></td>
-        <td>object</td>
-        <td>
-<<<<<<< HEAD
-          Claims lists the names of resources, defined in spec.resourceClaims,
-that are used by this container.
-
-This is an alpha field and requires enabling the
-DynamicResourceAllocation feature gate.
-
-This field is immutable. It can only be set for containers.<br/>
-=======
-          Exec specifies the action to take.<br/>
->>>>>>> updating configuration according to terrafomr implementation
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>failureThreshold</b></td>
-        <td>integer</td>
-        <td>
-          Minimum consecutive failures for the probe to be considered failed after having succeeded.
-Defaults to 3. Minimum value is 1.<br/>
-          <br/>
-            <i>Format</i>: int32<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecreadinessprobegrpc">grpc</a></b></td>
-        <td>object</td>
-        <td>
-          GRPC specifies an action involving a GRPC port.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecreadinessprobehttpget">httpGet</a></b></td>
-        <td>object</td>
-        <td>
-          HTTPGet specifies the http request to perform.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>initialDelaySeconds</b></td>
-        <td>integer</td>
-        <td>
-          Number of seconds after the container has started before liveness probes are initiated.
-More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes<br/>
-          <br/>
-            <i>Format</i>: int32<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>periodSeconds</b></td>
-        <td>integer</td>
-        <td>
-          How often (in seconds) to perform the probe.
-Default to 10 seconds. Minimum value is 1.<br/>
-          <br/>
-            <i>Format</i>: int32<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>successThreshold</b></td>
-        <td>integer</td>
-        <td>
-          Minimum consecutive successes for the probe to be considered successful after having failed.
-Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
-          <br/>
-            <i>Format</i>: int32<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
         <td><b><a href="#humiopdfrenderservicespecreadinessprobetcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
-          TCPSocket specifies an action involving a TCP port.<br/>
+          TCPSocket specifies a connection to a TCP port.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -40799,7 +40190,7 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
 
 
 
-Exec specifies the action to take.
+Exec specifies a command to execute in the container.
 
 <table>
     <thead>
@@ -40830,7 +40221,7 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 
 
 
-GRPC specifies an action involving a GRPC port.
+GRPC specifies a GRPC HealthCheckRequest.
 
 <table>
     <thead>
@@ -40857,8 +40248,9 @@ GRPC specifies an action involving a GRPC port.
           Service is the name of the service to place in the gRPC HealthCheckRequest
 (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 
-
 If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -40870,7 +40262,7 @@ If this is not specified, the default behavior is defined by gRPC.<br/>
 
 
 
-HTTPGet specifies the http request to perform.
+HTTPGet specifies an HTTP GET request to perform.
 
 <table>
     <thead>
@@ -40964,7 +40356,7 @@ This will be canonicalized upon output, so case-variant names will be understood
 
 
 
-TCPSocket specifies an action involving a TCP port.
+TCPSocket specifies a connection to a TCP port.
 
 <table>
     <thead>
@@ -41018,10 +40410,8 @@ Resources defines the resource requests and limits for the container.
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-
 This is an alpha field and requires enabling the
 DynamicResourceAllocation feature gate.
-
 
 This field is immutable. It can only be set for containers.<br/>
         </td>
@@ -41073,348 +40463,13 @@ the Pod where this field is used. It makes that resource available
 inside a container.<br/>
         </td>
         <td>true</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.securityContext
-<sup><sup>[↩ Parent](#humiopdfrenderservicespec)</sup></sup>
-
-
-
-SecurityContext defines pod-level security attributes
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>fsGroup</b></td>
-        <td>integer</td>
-        <td>
-          A special supplemental group that applies to all containers in a pod.
-Some volume types allow the Kubelet to change the ownership of that volume
-to be owned by the pod:
-
-
-1. The owning GID will be the FSGroup
-2. The setgid bit is set (new files created in the volume will be owned by FSGroup)
-3. The permission bits are OR'd with rw-rw----
-
-
-If unset, the Kubelet will not modify the ownership and permissions of any volume.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-          <br/>
-            <i>Format</i>: int64<br/>
-        </td>
-        <td>false</td>
       </tr><tr>
-        <td><b>fsGroupChangePolicy</b></td>
-        <td>string</td>
-        <td>
-          fsGroupChangePolicy defines behavior of changing ownership and permission of the volume
-before being exposed inside Pod. This field will only apply to
-volume types which support fsGroup based ownership(and permissions).
-It will have no effect on ephemeral volume types such as: secret, configmaps
-and emptydir.
-Valid values are "OnRootMismatch" and "Always". If not specified, "Always" is used.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>runAsGroup</b></td>
-        <td>integer</td>
-        <td>
-          The GID to run the entrypoint of the container process.
-Uses runtime default if unset.
-May also be set in SecurityContext.  If set in both SecurityContext and
-PodSecurityContext, the value specified in SecurityContext takes precedence
-for that container.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-          <br/>
-            <i>Format</i>: int64<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>runAsNonRoot</b></td>
-        <td>boolean</td>
-        <td>
-          Indicates that the container must run as a non-root user.
-If true, the Kubelet will validate the image at runtime to ensure that it
-does not run as UID 0 (root) and fail to start the container if it does.
-If unset or false, no such validation will be performed.
-May also be set in SecurityContext.  If set in both SecurityContext and
-PodSecurityContext, the value specified in SecurityContext takes precedence.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>runAsUser</b></td>
-        <td>integer</td>
-        <td>
-          The UID to run the entrypoint of the container process.
-Defaults to user specified in image metadata if unspecified.
-May also be set in SecurityContext.  If set in both SecurityContext and
-PodSecurityContext, the value specified in SecurityContext takes precedence
-for that container.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-          <br/>
-            <i>Format</i>: int64<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecsecuritycontextselinuxoptions">seLinuxOptions</a></b></td>
-        <td>object</td>
-        <td>
-          The SELinux context to be applied to all containers.
-If unspecified, the container runtime will allocate a random SELinux context for each
-container.  May also be set in SecurityContext.  If set in
-both SecurityContext and PodSecurityContext, the value specified in SecurityContext
-takes precedence for that container.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecsecuritycontextseccompprofile">seccompProfile</a></b></td>
-        <td>object</td>
-        <td>
-          The seccomp options to use by the containers in this pod.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>supplementalGroups</b></td>
-        <td>[]integer</td>
-        <td>
-          A list of groups applied to the first process run in each container, in addition
-to the container's primary GID, the fsGroup (if specified), and group memberships
-defined in the container image for the uid of the container process. If unspecified,
-no additional groups are added to any container. Note that group memberships
-defined in the container image for the uid of the container process are still effective,
-even if they are not included in this list.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecsecuritycontextsysctlsindex">sysctls</a></b></td>
-        <td>[]object</td>
-        <td>
-          Sysctls hold a list of namespaced sysctls used for the pod. Pods with unsupported
-sysctls (by the container runtime) might fail to launch.
-Note that this field cannot be set when spec.os.name is windows.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#humiopdfrenderservicespecsecuritycontextwindowsoptions">windowsOptions</a></b></td>
-        <td>object</td>
-        <td>
-          The Windows specific settings applied to all containers.
-If unspecified, the options within a container's SecurityContext will be used.
-If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
-Note that this field cannot be set when spec.os.name is linux.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.securityContext.seLinuxOptions
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecsecuritycontext)</sup></sup>
-
-
-
-The SELinux context to be applied to all containers.
-If unspecified, the container runtime will allocate a random SELinux context for each
-container.  May also be set in SecurityContext.  If set in
-both SecurityContext and PodSecurityContext, the value specified in SecurityContext
-takes precedence for that container.
-Note that this field cannot be set when spec.os.name is windows.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>level</b></td>
-        <td>string</td>
-        <td>
-          Level is SELinux level label that applies to the container.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>role</b></td>
-        <td>string</td>
-        <td>
-          Role is a SELinux role label that applies to the container.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>type</b></td>
-        <td>string</td>
-        <td>
-          Type is a SELinux type label that applies to the container.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>user</b></td>
-        <td>string</td>
-        <td>
-          User is a SELinux user label that applies to the container.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.securityContext.seccompProfile
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecsecuritycontext)</sup></sup>
-
-
-
-The seccomp options to use by the containers in this pod.
-Note that this field cannot be set when spec.os.name is windows.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>type</b></td>
-        <td>string</td>
-        <td>
-          type indicates which kind of seccomp profile will be applied.
-Valid options are:
-
-
-Localhost - a profile defined in a file on the node should be used.
-RuntimeDefault - the container runtime default profile should be used.
-Unconfined - no profile should be applied.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>localhostProfile</b></td>
-        <td>string</td>
-        <td>
-          localhostProfile indicates a profile defined in a file on the node should be used.
-The profile must be preconfigured on the node to work.
-Must be a descending path, relative to the kubelet's configured seccomp profile location.
-Must be set if type is "Localhost". Must NOT be set for any other type.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.securityContext.sysctls[index]
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecsecuritycontext)</sup></sup>
-
-
-
-Sysctl defines a kernel parameter to be set
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>name</b></td>
-        <td>string</td>
-        <td>
-          Name of a property to set<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-<<<<<<< HEAD
         <td><b>request</b></td>
         <td>string</td>
         <td>
           Request is the name chosen for a request in the referenced claim.
 If empty, everything from the claim is made available, otherwise
 only the result of this request.<br/>
-=======
-        <td><b>value</b></td>
-        <td>string</td>
-        <td>
-          Value of a property to set<br/>
-        </td>
-        <td>true</td>
-      </tr></tbody>
-</table>
-
-
-### HumioPdfRenderService.spec.securityContext.windowsOptions
-<sup><sup>[↩ Parent](#humiopdfrenderservicespecsecuritycontext)</sup></sup>
-
-
-
-The Windows specific settings applied to all containers.
-If unspecified, the options within a container's SecurityContext will be used.
-If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.
-Note that this field cannot be set when spec.os.name is linux.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>gmsaCredentialSpec</b></td>
-        <td>string</td>
-        <td>
-          GMSACredentialSpec is where the GMSA admission webhook
-(https://github.com/kubernetes-sigs/windows-gmsa) inlines the contents of the
-GMSA credential spec named by the GMSACredentialSpecName field.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>gmsaCredentialSpecName</b></td>
-        <td>string</td>
-        <td>
-          GMSACredentialSpecName is the name of the GMSA credential spec to use.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>hostProcess</b></td>
-        <td>boolean</td>
-        <td>
-          HostProcess determines if a container should be run as a 'Host Process' container.
-All of a Pod's containers must have the same effective HostProcess value
-(it is not allowed to have a mix of HostProcess containers and non-HostProcess containers).
-In addition, if HostProcess is true then HostNetwork must also be set to true.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>runAsUserName</b></td>
-        <td>string</td>
-        <td>
-          The UserName in Windows to run the entrypoint of the container process.
-Defaults to the user specified in image metadata if unspecified.
-May also be set in PodSecurityContext. If set in both SecurityContext and
-PodSecurityContext, the value specified in SecurityContext takes precedence.<br/>
->>>>>>> updating configuration according to terrafomr implementation
         </td>
         <td>false</td>
       </tr></tbody>
