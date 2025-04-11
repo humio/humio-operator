@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	humioapi "github.com/humio/humio-operator/internal/api"
@@ -14,7 +16,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 )
 
 type HumioFeatureFlagReconciler struct {
