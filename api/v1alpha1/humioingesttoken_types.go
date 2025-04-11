@@ -54,12 +54,16 @@ type HumioIngestTokenSpec struct {
 	RepositoryName string `json:"repositoryName,omitempty"`
 	// TokenSecretName specifies the name of the Kubernetes secret that will be created
 	// and contain the ingest token. The key in the secret storing the ingest token is "token".
-	// This field is optional.
+	// +optional
 	TokenSecretName string `json:"tokenSecretName,omitempty"`
 	// TokenSecretLabels specifies additional key,value pairs to add as labels on the Kubernetes Secret containing
 	// the ingest token.
-	// This field is optional.
+	// +optional
 	TokenSecretLabels map[string]string `json:"tokenSecretLabels,omitempty"`
+	// TokenSecretAnnotations specifies additional key,value pairs to add as annotations on the Kubernetes Secret containing
+	// the ingest token.
+	// +optional
+	TokenSecretAnnotations map[string]string `json:"tokenSecretAnnotations,omitempty"`
 }
 
 // HumioIngestTokenStatus defines the observed state of HumioIngestToken.
