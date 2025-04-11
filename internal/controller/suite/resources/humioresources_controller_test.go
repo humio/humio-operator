@@ -3416,7 +3416,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				err := k8sClient.Get(ctx, key, fetchedFeatureFlag)
 				if k8serrors.IsNotFound(err) {
 					isFeatureFlagEnabled, err = humioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toSetFeatureFlag)
-					return !isFeatureFlagEnabled
+					return !isFeatureFlagEnabled && err == nil
 				}
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
