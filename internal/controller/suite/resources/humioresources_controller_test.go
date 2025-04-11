@@ -54,10 +54,10 @@ var _ = Describe("Humio Resources Controllers", func() {
 		humioClient.ClearHumioClientConnections(testRepoName)
 	})
 
-	// Add Tests for OpenAPI validation (or additional CRD features) specified in
-	// your API definition.
-	// Avoid adding tests for vanilla CRUD operations because they would
-	// test Kubernetes API server, which isn't the goal here.
+	//Add Tests for OpenAPI validation (or additional CRD features) specified in
+	//your API definition.
+	//Avoid adding tests for vanilla CRUD operations because they would
+	//test Kubernetes API server, which isn't the goal here.
 	Context("Humio Ingest Token", Label("envtest", "dummy", "real"), func() {
 		It("should handle ingest token with target secret correctly", func() {
 			ctx := context.Background()
@@ -3371,13 +3371,12 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	Context("Humio Feature Flag", Label("envtest", "dummy", "real"), func() {
-		It("HumioFeatureFlag: Should enabled feature", func() {
+		It("HumioFeatureFlag: Should enable and disable feature successfully", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
 				Name:      "humio-feature-flag",
 				Namespace: clusterKey.Namespace,
 			}
-			enabledValue := true
 
 			toSetFeatureFlag := &humiov1alpha1.HumioFeatureFlag{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3387,16 +3386,16 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: humiov1alpha1.HumioFeatureFlagSpec{
 					ManagedClusterName: clusterKey.Name,
 					Name:               key.Name,
-					Enabled:            &enabledValue,
 				},
 			}
 
+			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Enabling feature flag")
 			Expect(k8sClient.Create(ctx, toSetFeatureFlag)).Should(Succeed())
 
-			featchedFeatureFlag := &humiov1alpha1.HumioFeatureFlag{}
+			fetchedFeatureFlag := &humiov1alpha1.HumioFeatureFlag{}
 			Eventually(func() string {
-				_ = k8sClient.Get(ctx, key, featchedFeatureFlag)
-				return featchedFeatureFlag.Status.State
+				_ = k8sClient.Get(ctx, key, fetchedFeatureFlag)
+				return fetchedFeatureFlag.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFeatureFlagStateExists))
 
 			var isFeatureFlagEnabled bool
@@ -3406,12 +3405,23 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(isFeatureFlagEnabled).To(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Disabling feature flag")
+			Expect(k8sClient.Delete(ctx, fetchedFeatureFlag)).Should(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedFeatureFlag)
+				if k8serrors.IsNotFound(err) {
+					isFeatureFlagEnabled, err = humioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toSetFeatureFlag)
+					return !isFeatureFlagEnabled
+				}
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 
 		It("HumioFeatureFlag: Should deny improperly configured feature flag with missing required values", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
-				Name:      "humio-feature-flag",
+				Name:      "example-invalid-feature-flag",
 				Namespace: clusterKey.Namespace,
 			}
 			toCreateInvalidFeatureFlag := &humiov1alpha1.HumioFeatureFlag{
@@ -3421,12 +3431,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioFeatureFlagSpec{
 					ManagedClusterName: clusterKey.Name,
-					Name:               "example-invalid-feature-flag",
-					// missing Enabled balue
+					//Name: key.Name,
 				},
 			}
 
-			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Creating the invalid feature flag")
+			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Trying to create an invalid feature flag")
 			Expect(k8sClient.Create(ctx, toCreateInvalidFeatureFlag)).Should(Not(Succeed()))
 		})
 	})

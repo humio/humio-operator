@@ -1004,14 +1004,9 @@ func (h *MockClientConfig) EnableFeatureFlag(_ context.Context, _ *humioapi.Clie
 	defer humioClientMu.Unlock()
 
 	clusterName := fmt.Sprintf("%s%s", featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName)
-
 	key := resourceKey{
 		clusterName:  clusterName,
 		resourceName: featureFlag.Spec.Name,
-	}
-
-	if _, found := h.apiClient.FeatureFlag[key]; found {
-		return fmt.Errorf("feature flag already exists with name %s", featureFlag.Spec.Name)
 	}
 
 	h.apiClient.FeatureFlag[key] = true
@@ -1021,6 +1016,13 @@ func (h *MockClientConfig) EnableFeatureFlag(_ context.Context, _ *humioapi.Clie
 func (h *MockClientConfig) IsFeatureFlagEnabled(_ context.Context, _ *humioapi.Client, _ reconcile.Request, featureFlag *humiov1alpha1.HumioFeatureFlag) (bool, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
+	supportedFlag := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName),
+		resourceName: "humio-feature-flag",
+	}
+	if _, found := h.apiClient.FeatureFlag[supportedFlag]; !found {
+		h.apiClient.FeatureFlag[supportedFlag] = false
+	}
 
 	key := resourceKey{
 		clusterName:  fmt.Sprintf("%s%s", featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName),
@@ -1028,7 +1030,6 @@ func (h *MockClientConfig) IsFeatureFlagEnabled(_ context.Context, _ *humioapi.C
 	}
 	if value, found := h.apiClient.FeatureFlag[key]; found {
 		return value, nil
-
 	}
 	return false, fmt.Errorf("could not find feature flag with name %q, err=%w", featureFlag.Spec.Name, humioapi.EntityNotFound{})
 }
@@ -1042,10 +1043,6 @@ func (h *MockClientConfig) DisableFeatureFlag(_ context.Context, _ *humioapi.Cli
 	key := resourceKey{
 		clusterName:  clusterName,
 		resourceName: featureFlag.Spec.Name,
-	}
-
-	if _, found := h.apiClient.FeatureFlag[key]; found {
-		return fmt.Errorf("feature flag already exists with name %s", featureFlag.Spec.Name)
 	}
 
 	h.apiClient.FeatureFlag[key] = false

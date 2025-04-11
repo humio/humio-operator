@@ -25,6 +25,10 @@ type HumioFeatureFlagReconciler struct {
 	Namespace   string
 }
 
+// +kubebuilder:rbac:groups=core.humio.com,resources=humiofeatureflags,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.humio.com,resources=humiofeatureflags/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core.humio.com,resources=humiofeatureflags/finalizers,verbs=update
+
 func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	if r.Namespace != "" {
 		if r.Namespace != req.Namespace {
@@ -61,7 +65,7 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	defer func(ctx context.Context, featureFlag *humiov1alpha1.HumioFeatureFlag) {
-		_, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, req, featureFlag)
+		enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, req, featureFlag)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateNotFound, featureFlag)
 			return
@@ -70,28 +74,63 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			_ = r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateUnknown, featureFlag)
 			return
 		}
-		_ = r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateExists, featureFlag)
+		if enabled {
+			_ = r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateExists, featureFlag)
+		}
 	}(ctx, featureFlag)
 
-	r.Log.Info("Checking if feature flag needs to be set")
+	// Delete
+	r.Log.Info("Checking if feature flag is marked to be deleted")
+	if featureFlag.GetDeletionTimestamp() != nil {
+		r.Log.Info("Feature flag marked to be deleted")
+		if helpers.ContainsElement(featureFlag.GetFinalizers(), humioFinalizer) {
+			enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, req, featureFlag)
+			if errors.As(err, &humioapi.EntityNotFound{}) || !enabled {
+				featureFlag.SetFinalizers(helpers.RemoveElement(featureFlag.GetFinalizers(), humioFinalizer))
+				err := r.Update(ctx, featureFlag)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+				r.Log.Info("Finalizer removed successfully")
+				return reconcile.Result{Requeue: true}, nil
+			}
+
+			// Run finalization logic for humioFinalizer. If the
+			// finalization logic fails, don't remove the finalizer so
+			// that we can retry during the next reconciliation.
+			r.Log.Info("Deleting feature flag")
+			if err := r.HumioClient.DisableFeatureFlag(ctx, humioHttpClient, req, featureFlag); err != nil {
+				return reconcile.Result{}, r.logErrorAndReturn(err, "disable feature flag returned error")
+			}
+		}
+		return reconcile.Result{}, nil
+	}
+
 	enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, req, featureFlag)
 	if err != nil {
-		return reconcile.Result{}, r.logErrorAndReturn(err, "feature flag does not exist")
+		return reconcile.Result{}, r.logErrorAndReturn(err, "the specified feature flag does not exist")
 	}
 
 	r.Log.Info("Checking if feature flag needs to be updated")
-	if enabled != *featureFlag.Spec.Enabled {
-		r.Log.Info("FeatureFlag value differs from the spec")
-		if *featureFlag.Spec.Enabled {
-			err = r.HumioClient.EnableFeatureFlag(ctx, humioHttpClient, req, featureFlag)
-		} else {
-			err = r.HumioClient.DisableFeatureFlag(ctx, humioHttpClient, req, featureFlag)
+	if !enabled {
+		err = r.HumioClient.EnableFeatureFlag(ctx, humioHttpClient, req, featureFlag)
+		if err != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not enable feature flag")
+		}
+		r.Log.Info(fmt.Sprintf("Successfully enabled feature flag %s", featureFlag.Spec.Name))
+	}
+
+	// Add finalizer
+	r.Log.Info("Checking if feature flag requires finalizer")
+	if !helpers.ContainsElement(featureFlag.GetFinalizers(), humioFinalizer) {
+		r.Log.Info("Finalizer not present, adding finalizer to feature flag")
+		featureFlag.SetFinalizers(append(featureFlag.GetFinalizers(), humioFinalizer))
+		err := r.Update(ctx, featureFlag)
+		if err != nil {
+			return reconcile.Result{}, err
 		}
 
-		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not set feature flag")
-		}
-		r.Log.Info(fmt.Sprintf("Successfully set feature flag %s with value %t", featureFlag.Spec.Name, *featureFlag.Spec.Enabled))
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	r.Log.Info("done reconciling")

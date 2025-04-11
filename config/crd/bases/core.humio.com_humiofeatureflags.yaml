@@ -45,9 +45,6 @@ spec:
           spec:
             description: HumioFeatureFlagSpec defines the desired state of HumioFeatureFlag.
             properties:
-              enabled:
-                description: Enabled is the boolean value of the feature flag.
-                type: boolean
               externalClusterName:
                 description: |-
                   ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
@@ -64,7 +61,6 @@ spec:
                 minLength: 1
                 type: string
             required:
-            - enabled
             - name
             type: object
           status:

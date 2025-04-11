@@ -284,7 +284,7 @@ func main() {
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
-		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioFilterAlert")
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioFeatureFlag")
 	}
 	if err = (&controller.HumioIngestTokenReconciler{
 		Client:      mgr.GetClient(),

@@ -42,9 +42,6 @@ type HumioFeatureFlagSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	// +required
 	Name string `json:"name"`
-	// Enabled is the boolean value of the feature flag.
-	// +required
-	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // HumioFeatureFlagStatus defines the observed state of HumioFeatureFlag.
@@ -65,6 +62,15 @@ type HumioFeatureFlag struct {
 	Status HumioFeatureFlagStatus `json:"status,omitempty"`
 }
 
+// +kubebuilder:object:root=true
+
+// HumioFeatureFlagList contains a list of HumioFeatureFlag.
+type HumioFeatureFlagList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []HumioFeatureFlag `json:"items"`
+}
+
 func init() {
-	SchemeBuilder.Register(&HumioFeatureFlag{})
+	SchemeBuilder.Register(&HumioFeatureFlag{}, &HumioFeatureFlagList{})
 }

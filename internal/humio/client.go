@@ -1433,7 +1433,7 @@ func (h *ClientConfig) IsFeatureFlagEnabled(ctx context.Context, client *humioap
 		humiographql.FeatureFlag(featureFlag.Spec.Name),
 	)
 	if response == nil {
-		return false, err
+		return false, humioapi.FeatureFlagNotFound(featureFlag.Spec.Name)
 	}
 	responseMeta := response.GetMeta()
 	return responseMeta.GetIsFeatureFlagEnabled(), err
