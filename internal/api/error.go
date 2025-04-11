@@ -15,6 +15,7 @@ const (
 	entityTypeAction          entityType = "action"
 	entityTypeAlert           entityType = "alert"
 	entityTypeFilterAlert     entityType = "filter-alert"
+	entityTypeFeatureFlag     entityType = "feature-flag"
 	entityTypeScheduledSearch entityType = "scheduled-search"
 	entityTypeAggregateAlert  entityType = "aggregate-alert"
 	entityTypeUser            entityType = "user"
@@ -93,6 +94,13 @@ func AlertNotFound(name string) error {
 func FilterAlertNotFound(name string) error {
 	return EntityNotFound{
 		entityType: entityTypeFilterAlert,
+		key:        name,
+	}
+}
+
+func FeatureFlagNotFound(name string) error {
+	return EntityNotFound{
+		entityType: entityTypeFeatureFlag,
 		key:        name,
 	}
 }
