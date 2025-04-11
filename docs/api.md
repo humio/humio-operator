@@ -4214,7 +4214,7 @@ of new environment variables. For more details, see the LogScale release notes.<
         <td><b><a href="#humioclusterspecfeatureflags">featureFlags</a></b></td>
         <td>object</td>
         <td>
-          FeatureFlags contains feature flags applied to this humio cluster.<br/>
+          OperatorFeatureFlags contains feature flags applied to this humio cluster.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16243,7 +16243,7 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
 
 
 
-FeatureFlags contains feature flags applied to this humio cluster.
+OperatorFeatureFlags contains feature flags applied to this humio cluster.
 
 <table>
     <thead>
@@ -36541,13 +36541,6 @@ HumioFeatureFlagSpec defines the desired state of HumioFeatureFlag.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>enabled</b></td>
-        <td>boolean</td>
-        <td>
-          Enabled is the boolean value of the feature flag.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
