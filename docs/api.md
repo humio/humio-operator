@@ -37156,7 +37156,12 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         <td><b><a href="#humiopdfrenderservicespectls">tls</a></b></td>
         <td>object</td>
         <td>
-          TLS specifies if TLS should be configured for the PDF Render Service as well as how it should be configured.<br/>
+          TLS specifies if TLS should be configured for the PDF Render Service as well as how it should be configured.
+When enabled, this configures:
+- A TLS certificate volume mounted from the secret named <name>-certificate (by default)
+- Environment variables for TLS certificate paths and enabling secure connections
+- HTTPS protocol for service ports instead of HTTP
+- HTTPS scheme for liveness and readiness probes<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -40652,6 +40657,11 @@ PodSecurityContext, the value specified in SecurityContext takes precedence.<br/
 
 
 TLS specifies if TLS should be configured for the PDF Render Service as well as how it should be configured.
+When enabled, this configures:
+- A TLS certificate volume mounted from the secret named <name>-certificate (by default)
+- Environment variables for TLS certificate paths and enabling secure connections
+- HTTPS protocol for service ports instead of HTTP
+- HTTPS scheme for liveness and readiness probes
 
 <table>
     <thead>
