@@ -17,6 +17,7 @@ resources:
 - core_v1alpha1_humiocluster-nodepool-slice-only.yaml
 - core_v1alpha1_humiocluster-persistent-volumes.yaml
 - core_v1alpha1_humioexternalcluster.yaml
+- core_v1alpha1_humiofeatureflag.yaml
 - core_v1alpha1_humiofilteralert.yaml
 - core_v1alpha1_humioingesttoken.yaml
 - core_v1alpha1_humioparser.yaml

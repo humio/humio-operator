@@ -97,6 +97,9 @@ rules:
   - humioalerts
   - humioalerts/finalizers
   - humioalerts/status
+  - humiofeatureflags
+  - humiofeatureflags/finalizers
+  - humiofeatureflags/status
   - humiofilteralerts
   - humiofilteralerts/finalizers
   - humiofilteralerts/status

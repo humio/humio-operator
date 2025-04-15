@@ -1,5 +1,5 @@
 apiVersion: core.humio.com/v1alpha1
-kind: HumioFeatureFlage
+kind: HumioFeatureFlag
 metadata:
   name: humiofeatureflag-example
 spec:
