@@ -1,0 +1,19 @@
+query IsFeatureEnabled (
+    $FeatureFlagName: FeatureFlag!
+) {
+    meta {
+        isFeatureFlagEnabled(feature: $FeatureFlagName)
+    }
+}
+
+mutation EnableFeatureFlag (
+    $FeatureFlagName: FeatureFlag!
+) {
+    enableFeature(feature: $FeatureFlagName)
+}
+
+mutation DisableFeatureFlag (
+    $FeatureFlagName: FeatureFlag!
+) {
+    disableFeature(feature: $FeatureFlagName)
+}
