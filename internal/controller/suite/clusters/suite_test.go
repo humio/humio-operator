@@ -80,7 +80,7 @@ var _ = BeforeSuite(func() {
 	defer func(zapLog *uberzap.Logger) {
 		_ = zapLog.Sync()
 	}(zapLog)
-	log = zapr.NewLogger(zapLog)
+	log = zapr.NewLogger(zapLog).WithSink(GinkgoLogr.GetSink())
 	logf.SetLogger(log)
 
 	By("bootstrapping test environment")
@@ -142,8 +142,13 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
+	var requeuePeriod time.Duration
+
 	err = (&controller.HumioClusterReconciler{
-		Client:      k8sManager.GetClient(),
+		Client: k8sManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		HumioClient: testHumioClient,
 		BaseLogger:  log,
 		Namespace:   testProcessNamespace,
@@ -151,7 +156,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&controller.HumioExternalClusterReconciler{
-		Client:      k8sManager.GetClient(),
+		Client: k8sManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		HumioClient: testHumioClient,
 		BaseLogger:  log,
 		Namespace:   testProcessNamespace,

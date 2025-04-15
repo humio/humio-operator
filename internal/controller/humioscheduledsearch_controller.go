@@ -40,6 +40,7 @@ import (
 // HumioScheduledSearchReconciler reconciles a HumioScheduledSearch object
 type HumioScheduledSearchReconciler struct {
 	client.Client
+	CommonConfig
 	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
@@ -175,8 +176,8 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 		)
 	}
 
-	r.Log.Info("done reconciling, will requeue after 15 seconds")
-	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.CommonConfig.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.CommonConfig.RequeuePeriod}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

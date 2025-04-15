@@ -54,6 +54,7 @@ const (
 // HumioBootstrapTokenReconciler reconciles a HumioBootstrapToken object
 type HumioBootstrapTokenReconciler struct {
 	client.Client
+	CommonConfig
 	BaseLogger logr.Logger
 	Log        logr.Logger
 	Namespace  string
@@ -119,7 +120,8 @@ func (r *HumioBootstrapTokenReconciler) Reconcile(ctx context.Context, req ctrl.
 		return reconcile.Result{}, err
 	}
 
-	return reconcile.Result{RequeueAfter: time.Second * 60}, nil
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.CommonConfig.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.CommonConfig.RequeuePeriod}, nil
 }
 
 func (r *HumioBootstrapTokenReconciler) updateStatus(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, state string) error {

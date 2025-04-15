@@ -52,6 +52,7 @@ import (
 // HumioClusterReconciler reconciles a HumioCluster object
 type HumioClusterReconciler struct {
 	client.Client
+	CommonConfig
 	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
@@ -330,7 +331,14 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	r.Log.Info("done reconciling")
-	return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().withState(hc.Status.State).withMessage(""))
+	return r.updateStatus(
+		ctx,
+		r.Client.Status(),
+		hc,
+		statusOptions().
+			withState(hc.Status.State).
+			withRequeuePeriod(r.CommonConfig.RequeuePeriod).
+			withMessage(""))
 }
 
 // SetupWithManager sets up the controller with the Manager.

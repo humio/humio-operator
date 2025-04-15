@@ -235,7 +235,7 @@ update-schema:
 	go run github.com/suessflorian/gqlfetch/gqlfetch@607d6757018016bba0ba7fd1cb9fed6aefa853b5 --endpoint ${SCHEMA_CLUSTER}/graphql --header "Authorization=Bearer ${SCHEMA_CLUSTER_API_TOKEN}" > internal/api/humiographql/schema/_schema.graphql
 	printf "# Fetched from version %s" $$(curl --silent --location '${SCHEMA_CLUSTER}/api/v1/status' | jq -r ".version") >> internal/api/humiographql/schema/_schema.graphql
 
-.PHONY: test-envtest
+.PHONY: test
 test: manifests generate fmt vet setup-envtest ginkgo ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 	TEST_USING_ENVTEST=true \
