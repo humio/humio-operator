@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -116,7 +115,7 @@ func TestFindDuplicateEnvVars(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			duplicates := humiov1alpha1.findDuplicateEnvVars(tt.envVars)
+			duplicates := findDuplicateEnvVars(tt.envVars)
 			assert.Equal(t, tt.expected, duplicates)
 		})
 	}
@@ -146,7 +145,7 @@ func TestGetDuplicateEnvVarsErrorMessage(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			message := humiov1alpha1.GetDuplicateEnvVarsErrorMessage(tt.duplicates)
+			message := GetDuplicateEnvVarsErrorMessage(tt.duplicates)
 			assert.Equal(t, tt.expected, message)
 		})
 	}
