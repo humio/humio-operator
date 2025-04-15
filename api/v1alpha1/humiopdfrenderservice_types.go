@@ -32,11 +32,13 @@ const (
 	DefaultPdfRenderServiceLiveness = "/health"
 	// DefaultPdfRenderServiceReadiness is the default readiness path for the PDF rendering service.
 	DefaultPdfRenderServiceReadiness = "/ready"
+	// HumioPdfRenderServiceStateConfigError is the state of the PDF rendering service when user-provided specification results in configuration error, such as non-existent humio cluster
+	HumioPdfRenderServiceStateConfigError = "ConfigError"
 )
 
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
 type HumioPdfRenderServiceSpec struct {
-	// Image is the Docker image to use for the PDF rendering service.
+	// Image is the container image to use for the PDF rendering service.
 	// +kubebuilder:validation:MinLength=1
 	// +required
 	Image string `json:"image"`

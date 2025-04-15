@@ -43,6 +43,8 @@ const (
 	RolePermissionsFilename      = "role-permissions.json"
 	HumioContainerName           = "humio"
 	InitContainerName            = "humio-init"
+	HTTPSScheme                  = "https" // Added constant for "https"
+	HTTPScheme                   = "http"  // Added constant for "http"
 
 	// cluster-wide resources:
 	initClusterRoleSuffix        = "init"
@@ -384,9 +386,9 @@ func (hnp *HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	envVars := make([]corev1.EnvVar, len(hnp.humioNodeSpec.EnvironmentVariables))
 	copy(envVars, hnp.humioNodeSpec.EnvironmentVariables)
 
-	scheme := "https"
+	scheme := HTTPSScheme
 	if !hnp.TLSEnabled() {
-		scheme = "http"
+		scheme = HTTPScheme
 	}
 
 	envDefaults := []corev1.EnvVar{
