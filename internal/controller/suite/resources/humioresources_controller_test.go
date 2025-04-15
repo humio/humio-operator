@@ -4191,7 +4191,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				// Check Volume Mount for tls-cert
 				foundMount := false
 				for _, vm := range container.VolumeMounts {
-					if vm.Name == "tls-cert" {
+					if vm.Name == tlsCertName {
 						foundMount = true
 						break
 					}
@@ -4201,7 +4201,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				// Check Volume definition for tls-cert
 				foundVolume := false
 				for _, vol := range deployment.Spec.Template.Spec.Volumes {
-					if vol.Name == "tls-cert" {
+					if vol.Name == tlsCertName {
 						foundVolume = true
 						break
 					}
@@ -4771,9 +4771,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			// Log deployment details to help debug
 			GinkgoT().Logf("Deployment created: %s/%s", deployment.Namespace, deployment.Name)
 			GinkgoT().Logf("Current annotations: %v", deployment.Spec.Template.Annotations)
-
-			// Give the controller more time to update the annotations
-			time.Sleep(5 * time.Second)
 
 			// Then check for the pod template annotations with detailed logging
 			Eventually(func(g Gomega) {

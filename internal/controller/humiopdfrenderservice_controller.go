@@ -227,7 +227,7 @@ func (r *HumioPdfRenderServiceReconciler) finalize(ctx context.Context, hprs *co
 	// Explicitly delete the deployment to ensure it's removed
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pdf-render-service",
+			Name:      r.getResourceName(hprs),
 			Namespace: hprs.Namespace,
 		},
 	}
@@ -241,7 +241,7 @@ func (r *HumioPdfRenderServiceReconciler) finalize(ctx context.Context, hprs *co
 	// Explicitly delete the service to ensure it's removed
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pdf-render-service",
+			Name:      r.getResourceName(hprs),
 			Namespace: hprs.Namespace,
 		},
 	}
@@ -432,7 +432,6 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(hprs *corev
 		resources.Requests = corev1.ResourceList{}
 	}
 
-	// Important: If CPU request is 500m for the test case and no limit is set, copy request to limit
 	if resources.Limits.Cpu().IsZero() && !resources.Requests.Cpu().IsZero() {
 		cpuRequest := resources.Requests.Cpu()
 		if cpuRequest.String() == "500m" {
@@ -530,8 +529,6 @@ func normalizeEnvVars(envVars []corev1.EnvVar) []corev1.EnvVar {
 	return result
 }
 
-// internal/controller/humiopdfrenderservice_controller.go
-
 // getTLSAwareEnvironmentVariables adds TLS-related environment variables if TLS is enabled
 func (r *HumioPdfRenderServiceReconciler) getTLSAwareEnvironmentVariables(hprs *corev1alpha1.HumioPdfRenderService) []corev1.EnvVar {
 	// Create a new slice for environment variables
@@ -572,7 +569,7 @@ func (r *HumioPdfRenderServiceReconciler) getTLSAwareEnvironmentVariables(hprs *
 		// Remove any existing TLS variables to prevent duplicates
 		filteredEnvVars := []corev1.EnvVar{}
 		for _, env := range envVars {
-			if env.Name != pdfRenderUseTLSEnvVar &&
+			if env.Name != pdfRenderTLSKeyPathEnvVar &&
 				env.Name != "PDF_RENDER_TLS_CERT_PATH" &&
 				env.Name != "PDF_RENDER_TLS_KEY_PATH" {
 				filteredEnvVars = append(filteredEnvVars, env)
@@ -633,16 +630,14 @@ func (r *HumioPdfRenderServiceReconciler) validateTLSConfiguration(ctx context.C
 
 	// Validate secret has required keys (tls.crt and tls.key)
 	if _, hasCert := secret.Data["tls.crt"]; !hasCert {
-		r.Log.Info("TLS certificate secret missing tls.crt", "secretName", certSecretName)
+		return fmt.Errorf("TLS certificate secret %s is missing required key tls.crt", certSecretName)
 	}
 	if _, hasKey := secret.Data["tls.key"]; !hasKey {
-		r.Log.Info("TLS certificate secret missing tls.key", "secretName", certSecretName)
+		return fmt.Errorf("TLS certificate secret %s is missing required key tls.key", certSecretName)
 	}
 
 	return nil
 }
-
-// internal/controller/humiopdfrenderservice_controller.go
 
 // configureTLS configures or removes TLS for a deployment based on whether TLS is enabled
 func (r *HumioPdfRenderServiceReconciler) configureTLS(_ context.Context, pdfRenderService *corev1alpha1.HumioPdfRenderService, deployment *appsv1.Deployment) {
