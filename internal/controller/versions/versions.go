@@ -24,9 +24,9 @@ const (
 
 	sidecarWaitForGlobalImageVersion = "alpine:20240329"
 
-	dummyImageSuffix = "-dummy"
-
 	defaultPDFRenderServiceImage = "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e"
+
+	dummyImageSuffix = "-dummy"
 )
 
 func DefaultHelperImageVersion() string {
@@ -104,5 +104,8 @@ func SidecarWaitForGlobalImageVersion() string {
 }
 
 func DefaultPDFRenderServiceImage() string {
+	// Always return the specific default PDF render service image.
+	// If a dummy version is needed for testing this specific service,
+	// it should be a distinct dummy PDF render service image.
 	return defaultPDFRenderServiceImage
 }

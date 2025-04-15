@@ -209,6 +209,11 @@ func GetDefaultHumioCoreImageUnmanagedFromEnvVar() string {
 	return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE_UNMANAGED")
 }
 
+// GetDefaultPdfRenderServiceImageFromEnvVar returns the user-defined default image for humioPdfRenderService
+func GetDefaultPdfRenderServiceImageFromEnvVar() string {
+	return os.Getenv("HUMIO_OPERATOR_DEFAULT_PDF_RENDER_SERVICE_IMAGE")
+}
+
 // UseEnvtest returns whether the Kubernetes API is provided by envtest
 func UseEnvtest() bool {
 	return os.Getenv("TEST_USING_ENVTEST") == TrueStr
