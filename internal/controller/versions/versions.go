@@ -24,6 +24,8 @@ const (
 
 	sidecarWaitForGlobalImageVersion = "alpine:20240329"
 
+	defaultPDFRenderServiceImage = "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e"
+
 	dummyImageSuffix = "-dummy"
 )
 
@@ -99,4 +101,12 @@ func UpgradeRollingBestEffortVersionJumpNewVersion() string {
 }
 func SidecarWaitForGlobalImageVersion() string {
 	return sidecarWaitForGlobalImageVersion
+}
+
+func DefaultPDFRenderServiceImage() string {
+	version := []string{defaultPDFRenderServiceImage}
+	if helpers.UseDummyImage() {
+		version = append(version, dummyImageSuffix)
+	}
+	return strings.Join(version, "")
 }
