@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -130,6 +131,16 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withObservedGeneration(hc.GetGeneration()))
 	}(ctx, hc)
+
+	duplicateEnvVars := findDuplicateEnvVars(hc.Spec.EnvironmentVariables)
+	if len(duplicateEnvVars) > 0 {
+		errorMsg := GetDuplicateEnvVarsErrorMessage(duplicateEnvVars)
+		r.Log.Error(fmt.Errorf("%s", errorMsg), "Found duplicate environment variables")
+
+		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
+			withMessage(errorMsg).
+			withState(humiov1alpha1.HumioClusterStateConfigError))
+	}
 
 	// validate details in HumioCluster resource is valid
 	if result, err := r.verifyHumioClusterConfigurationIsValid(ctx, hc, humioNodePools); result != emptyResult || err != nil {
@@ -2946,4 +2957,45 @@ func (r *HumioClusterReconciler) createOrUpdatePDB(ctx context.Context, hc *humi
 	}
 	r.Log.Info("PDB operation completed", "operation", op, "pdb", desiredPDB.Name)
 	return nil
+}
+
+// findDuplicateEnvVars checks if there are duplicate environment variables in the provided list
+// and returns a map of variable names to the count of their occurrences (for those with count > 1)
+func findDuplicateEnvVars(envVars []corev1.EnvVar) map[string]int {
+	envVarCount := make(map[string]int)
+	duplicates := make(map[string]int)
+
+	// Count occurrences of each environment variable
+	for _, envVar := range envVars {
+		envVarCount[envVar.Name]++
+		// If we've seen this variable before, mark it as a duplicate
+		if envVarCount[envVar.Name] > 1 {
+			duplicates[envVar.Name] = envVarCount[envVar.Name]
+		}
+	}
+
+	return duplicates
+}
+
+// GetDuplicateEnvVarsErrorMessage returns a formatted error message for duplicate environment variables
+func GetDuplicateEnvVarsErrorMessage(duplicates map[string]int) string {
+	if len(duplicates) == 0 {
+		return ""
+	}
+
+	message := "Duplicate environment variables found in HumioCluster spec: "
+
+	// Sort the keys to ensure consistent order
+	keys := make([]string, 0, len(duplicates))
+	for name := range duplicates {
+		keys = append(keys, name)
+	}
+	sort.Strings(keys)
+
+	for _, name := range keys {
+		message += fmt.Sprintf("'%s' appears %d times, ", name, duplicates[name])
+	}
+
+	// Remove trailing comma and space
+	return message[:len(message)-2]
 }
