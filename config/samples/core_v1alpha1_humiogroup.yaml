@@ -1,0 +1,8 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioGroup
+metadata:
+  name: example-humiogroup-managed
+spec:
+  managedClusterName: example-humiocluster
+  displayName: "example-group"
+  lookupName: "example-group-lookup-name"

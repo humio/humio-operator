@@ -7,6 +7,7 @@ operations:
   - graphql/feature-flags.graphql
   - graphql/filter-alerts.graphql
   - graphql/fragments.graphql
+  - graphql/groups.graphql
   - graphql/ingest-tokens.graphql
   - graphql/license.graphql
   - graphql/parsers.graphql
