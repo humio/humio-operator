@@ -2123,6 +2123,39 @@ func (v *CreateFilterAlertResponse) GetCreateFilterAlert() CreateFilterAlertCrea
 	return v.CreateFilterAlert
 }
 
+// CreateGroupAddGroupAddGroupMutation includes the requested fields of the GraphQL type AddGroupMutation.
+type CreateGroupAddGroupAddGroupMutation struct {
+	// Stability: Long-term
+	Group CreateGroupAddGroupAddGroupMutationGroup `json:"group"`
+}
+
+// GetGroup returns CreateGroupAddGroupAddGroupMutation.Group, and is useful for accessing the field via an interface.
+func (v *CreateGroupAddGroupAddGroupMutation) GetGroup() CreateGroupAddGroupAddGroupMutationGroup {
+	return v.Group
+}
+
+// CreateGroupAddGroupAddGroupMutationGroup includes the requested fields of the GraphQL type Group.
+// The GraphQL type's documentation follows.
+//
+// A group.
+type CreateGroupAddGroupAddGroupMutationGroup struct {
+	// Stability: Long-term
+	Id string `json:"id"`
+}
+
+// GetId returns CreateGroupAddGroupAddGroupMutationGroup.Id, and is useful for accessing the field via an interface.
+func (v *CreateGroupAddGroupAddGroupMutationGroup) GetId() string { return v.Id }
+
+// CreateGroupResponse is returned by CreateGroup on success.
+type CreateGroupResponse struct {
+	// Creates a new group.
+	// Stability: Long-term
+	AddGroup CreateGroupAddGroupAddGroupMutation `json:"addGroup"`
+}
+
+// GetAddGroup returns CreateGroupResponse.AddGroup, and is useful for accessing the field via an interface.
+func (v *CreateGroupResponse) GetAddGroup() CreateGroupAddGroupAddGroupMutation { return v.AddGroup }
+
 // CreateHumioRepoActionCreateHumioRepoAction includes the requested fields of the GraphQL type HumioRepoAction.
 // The GraphQL type's documentation follows.
 //
@@ -2778,6 +2811,55 @@ type DeleteFilterAlertResponse struct {
 
 // GetDeleteFilterAlert returns DeleteFilterAlertResponse.DeleteFilterAlert, and is useful for accessing the field via an interface.
 func (v *DeleteFilterAlertResponse) GetDeleteFilterAlert() bool { return v.DeleteFilterAlert }
+
+// DeleteGroupRemoveGroupRemoveGroupMutation includes the requested fields of the GraphQL type RemoveGroupMutation.
+type DeleteGroupRemoveGroupRemoveGroupMutation struct {
+	// Stability: Long-term
+	Group DeleteGroupRemoveGroupRemoveGroupMutationGroup `json:"group"`
+}
+
+// GetGroup returns DeleteGroupRemoveGroupRemoveGroupMutation.Group, and is useful for accessing the field via an interface.
+func (v *DeleteGroupRemoveGroupRemoveGroupMutation) GetGroup() DeleteGroupRemoveGroupRemoveGroupMutationGroup {
+	return v.Group
+}
+
+// DeleteGroupRemoveGroupRemoveGroupMutationGroup includes the requested fields of the GraphQL type Group.
+// The GraphQL type's documentation follows.
+//
+// A group.
+type DeleteGroupRemoveGroupRemoveGroupMutationGroup struct {
+	// Stability: Long-term
+	DisplayName string `json:"displayName"`
+	// Stability: Long-term
+	UserCount int `json:"userCount"`
+	// Stability: Long-term
+	SearchDomainCount int `json:"searchDomainCount"`
+}
+
+// GetDisplayName returns DeleteGroupRemoveGroupRemoveGroupMutationGroup.DisplayName, and is useful for accessing the field via an interface.
+func (v *DeleteGroupRemoveGroupRemoveGroupMutationGroup) GetDisplayName() string {
+	return v.DisplayName
+}
+
+// GetUserCount returns DeleteGroupRemoveGroupRemoveGroupMutationGroup.UserCount, and is useful for accessing the field via an interface.
+func (v *DeleteGroupRemoveGroupRemoveGroupMutationGroup) GetUserCount() int { return v.UserCount }
+
+// GetSearchDomainCount returns DeleteGroupRemoveGroupRemoveGroupMutationGroup.SearchDomainCount, and is useful for accessing the field via an interface.
+func (v *DeleteGroupRemoveGroupRemoveGroupMutationGroup) GetSearchDomainCount() int {
+	return v.SearchDomainCount
+}
+
+// DeleteGroupResponse is returned by DeleteGroup on success.
+type DeleteGroupResponse struct {
+	// Removes a group. Only usable if roles are not managed externally, e.g. in LDAP.
+	// Stability: Long-term
+	RemoveGroup DeleteGroupRemoveGroupRemoveGroupMutation `json:"removeGroup"`
+}
+
+// GetRemoveGroup returns DeleteGroupResponse.RemoveGroup, and is useful for accessing the field via an interface.
+func (v *DeleteGroupResponse) GetRemoveGroup() DeleteGroupRemoveGroupRemoveGroupMutation {
+	return v.RemoveGroup
+}
 
 // DeleteParserByIDDeleteParserBooleanResultType includes the requested fields of the GraphQL type BooleanResultType.
 type DeleteParserByIDDeleteParserBooleanResultType struct {
@@ -5339,6 +5421,89 @@ func (v *GetFilterAlertByIDSearchDomainView) GetFilterAlert() GetFilterAlertByID
 	return v.FilterAlert
 }
 
+// GetGroupByDisplayNameGroupByDisplayNameGroup includes the requested fields of the GraphQL type Group.
+// The GraphQL type's documentation follows.
+//
+// A group.
+type GetGroupByDisplayNameGroupByDisplayNameGroup struct {
+	GroupDetails `json:"-"`
+}
+
+// GetId returns GetGroupByDisplayNameGroupByDisplayNameGroup.Id, and is useful for accessing the field via an interface.
+func (v *GetGroupByDisplayNameGroupByDisplayNameGroup) GetId() string { return v.GroupDetails.Id }
+
+// GetDisplayName returns GetGroupByDisplayNameGroupByDisplayNameGroup.DisplayName, and is useful for accessing the field via an interface.
+func (v *GetGroupByDisplayNameGroupByDisplayNameGroup) GetDisplayName() string {
+	return v.GroupDetails.DisplayName
+}
+
+// GetLookupName returns GetGroupByDisplayNameGroupByDisplayNameGroup.LookupName, and is useful for accessing the field via an interface.
+func (v *GetGroupByDisplayNameGroupByDisplayNameGroup) GetLookupName() *string {
+	return v.GroupDetails.LookupName
+}
+
+func (v *GetGroupByDisplayNameGroupByDisplayNameGroup) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetGroupByDisplayNameGroupByDisplayNameGroup
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetGroupByDisplayNameGroupByDisplayNameGroup = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.GroupDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetGroupByDisplayNameGroupByDisplayNameGroup struct {
+	Id string `json:"id"`
+
+	DisplayName string `json:"displayName"`
+
+	LookupName *string `json:"lookupName"`
+}
+
+func (v *GetGroupByDisplayNameGroupByDisplayNameGroup) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetGroupByDisplayNameGroupByDisplayNameGroup) __premarshalJSON() (*__premarshalGetGroupByDisplayNameGroupByDisplayNameGroup, error) {
+	var retval __premarshalGetGroupByDisplayNameGroupByDisplayNameGroup
+
+	retval.Id = v.GroupDetails.Id
+	retval.DisplayName = v.GroupDetails.DisplayName
+	retval.LookupName = v.GroupDetails.LookupName
+	return &retval, nil
+}
+
+// GetGroupByDisplayNameResponse is returned by GetGroupByDisplayName on success.
+type GetGroupByDisplayNameResponse struct {
+	// Used to get information on groups by a given display name.
+	// Stability: Long-term
+	GroupByDisplayName GetGroupByDisplayNameGroupByDisplayNameGroup `json:"groupByDisplayName"`
+}
+
+// GetGroupByDisplayName returns GetGroupByDisplayNameResponse.GroupByDisplayName, and is useful for accessing the field via an interface.
+func (v *GetGroupByDisplayNameResponse) GetGroupByDisplayName() GetGroupByDisplayNameGroupByDisplayNameGroup {
+	return v.GroupByDisplayName
+}
+
 // GetLicenseInstalledLicense includes the requested fields of the GraphQL interface License.
 //
 // GetLicenseInstalledLicense is implemented by the following types:
@@ -6501,6 +6666,28 @@ func (v *GetUsersByUsernameUsersUser) __premarshalJSON() (*__premarshalGetUsersB
 	retval.IsRoot = v.UserDetails.IsRoot
 	return &retval, nil
 }
+
+// GroupDetails includes the GraphQL fields of Group requested by the fragment GroupDetails.
+// The GraphQL type's documentation follows.
+//
+// A group.
+type GroupDetails struct {
+	// Stability: Long-term
+	Id string `json:"id"`
+	// Stability: Long-term
+	DisplayName string `json:"displayName"`
+	// Stability: Long-term
+	LookupName *string `json:"lookupName"`
+}
+
+// GetId returns GroupDetails.Id, and is useful for accessing the field via an interface.
+func (v *GroupDetails) GetId() string { return v.Id }
+
+// GetDisplayName returns GroupDetails.DisplayName, and is useful for accessing the field via an interface.
+func (v *GroupDetails) GetDisplayName() string { return v.DisplayName }
+
+// GetLookupName returns GroupDetails.LookupName, and is useful for accessing the field via an interface.
+func (v *GroupDetails) GetLookupName() *string { return v.LookupName }
 
 // Http(s) Header entry.
 type HttpHeaderEntryInput struct {
@@ -12174,6 +12361,41 @@ func (v *UpdateFilterAlertUpdateFilterAlert) __premarshalJSON() (*__premarshalUp
 	return &retval, nil
 }
 
+// UpdateGroupResponse is returned by UpdateGroup on success.
+type UpdateGroupResponse struct {
+	// Updates the group.
+	// Stability: Long-term
+	UpdateGroup UpdateGroupUpdateGroupUpdateGroupMutation `json:"updateGroup"`
+}
+
+// GetUpdateGroup returns UpdateGroupResponse.UpdateGroup, and is useful for accessing the field via an interface.
+func (v *UpdateGroupResponse) GetUpdateGroup() UpdateGroupUpdateGroupUpdateGroupMutation {
+	return v.UpdateGroup
+}
+
+// UpdateGroupUpdateGroupUpdateGroupMutation includes the requested fields of the GraphQL type UpdateGroupMutation.
+type UpdateGroupUpdateGroupUpdateGroupMutation struct {
+	// Stability: Long-term
+	Group UpdateGroupUpdateGroupUpdateGroupMutationGroup `json:"group"`
+}
+
+// GetGroup returns UpdateGroupUpdateGroupUpdateGroupMutation.Group, and is useful for accessing the field via an interface.
+func (v *UpdateGroupUpdateGroupUpdateGroupMutation) GetGroup() UpdateGroupUpdateGroupUpdateGroupMutationGroup {
+	return v.Group
+}
+
+// UpdateGroupUpdateGroupUpdateGroupMutationGroup includes the requested fields of the GraphQL type Group.
+// The GraphQL type's documentation follows.
+//
+// A group.
+type UpdateGroupUpdateGroupUpdateGroupMutationGroup struct {
+	// Stability: Long-term
+	Id string `json:"id"`
+}
+
+// GetId returns UpdateGroupUpdateGroupUpdateGroupMutationGroup.Id, and is useful for accessing the field via an interface.
+func (v *UpdateGroupUpdateGroupUpdateGroupMutationGroup) GetId() string { return v.Id }
+
 // UpdateHumioRepoActionResponse is returned by UpdateHumioRepoAction on success.
 type UpdateHumioRepoActionResponse struct {
 	// Update a LogScale repository action.
@@ -13084,6 +13306,18 @@ func (v *__CreateFilterAlertInput) GetQueryOwnershipType() QueryOwnershipType {
 	return v.QueryOwnershipType
 }
 
+// __CreateGroupInput is used internally by genqlient
+type __CreateGroupInput struct {
+	DisplayName string  `json:"DisplayName"`
+	LookupName  *string `json:"LookupName"`
+}
+
+// GetDisplayName returns __CreateGroupInput.DisplayName, and is useful for accessing the field via an interface.
+func (v *__CreateGroupInput) GetDisplayName() string { return v.DisplayName }
+
+// GetLookupName returns __CreateGroupInput.LookupName, and is useful for accessing the field via an interface.
+func (v *__CreateGroupInput) GetLookupName() *string { return v.LookupName }
+
 // __CreateHumioRepoActionInput is used internally by genqlient
 type __CreateHumioRepoActionInput struct {
 	SearchDomainName string `json:"SearchDomainName"`
@@ -13426,6 +13660,14 @@ func (v *__DeleteFilterAlertInput) GetSearchDomainName() string { return v.Searc
 // GetFilterAlertID returns __DeleteFilterAlertInput.FilterAlertID, and is useful for accessing the field via an interface.
 func (v *__DeleteFilterAlertInput) GetFilterAlertID() string { return v.FilterAlertID }
 
+// __DeleteGroupInput is used internally by genqlient
+type __DeleteGroupInput struct {
+	GroupId string `json:"GroupId"`
+}
+
+// GetGroupId returns __DeleteGroupInput.GroupId, and is useful for accessing the field via an interface.
+func (v *__DeleteGroupInput) GetGroupId() string { return v.GroupId }
+
 // __DeleteParserByIDInput is used internally by genqlient
 type __DeleteParserByIDInput struct {
 	RepositoryName string `json:"RepositoryName"`
@@ -13513,6 +13755,14 @@ func (v *__GetFilterAlertByIDInput) GetSearchDomainName() string { return v.Sear
 
 // GetFilterAlertID returns __GetFilterAlertByIDInput.FilterAlertID, and is useful for accessing the field via an interface.
 func (v *__GetFilterAlertByIDInput) GetFilterAlertID() string { return v.FilterAlertID }
+
+// __GetGroupByDisplayNameInput is used internally by genqlient
+type __GetGroupByDisplayNameInput struct {
+	DisplayName string `json:"DisplayName"`
+}
+
+// GetDisplayName returns __GetGroupByDisplayNameInput.DisplayName, and is useful for accessing the field via an interface.
+func (v *__GetGroupByDisplayNameInput) GetDisplayName() string { return v.DisplayName }
 
 // __GetParserByIDInput is used internally by genqlient
 type __GetParserByIDInput struct {
@@ -13907,6 +14157,22 @@ func (v *__UpdateFilterAlertInput) GetThrottleTimeSeconds() int64 { return v.Thr
 func (v *__UpdateFilterAlertInput) GetQueryOwnershipType() QueryOwnershipType {
 	return v.QueryOwnershipType
 }
+
+// __UpdateGroupInput is used internally by genqlient
+type __UpdateGroupInput struct {
+	GroupId     string  `json:"GroupId"`
+	DisplayName *string `json:"DisplayName"`
+	LookupName  *string `json:"LookupName"`
+}
+
+// GetGroupId returns __UpdateGroupInput.GroupId, and is useful for accessing the field via an interface.
+func (v *__UpdateGroupInput) GetGroupId() string { return v.GroupId }
+
+// GetDisplayName returns __UpdateGroupInput.DisplayName, and is useful for accessing the field via an interface.
+func (v *__UpdateGroupInput) GetDisplayName() *string { return v.DisplayName }
+
+// GetLookupName returns __UpdateGroupInput.LookupName, and is useful for accessing the field via an interface.
+func (v *__UpdateGroupInput) GetLookupName() *string { return v.LookupName }
 
 // __UpdateHumioRepoActionInput is used internally by genqlient
 type __UpdateHumioRepoActionInput struct {
@@ -14661,6 +14927,44 @@ func CreateFilterAlert(
 	return data_, err_
 }
 
+// The mutation executed by CreateGroup.
+const CreateGroup_Operation = `
+mutation CreateGroup ($DisplayName: String!, $LookupName: String) {
+	addGroup(displayName: $DisplayName, lookupName: $LookupName) {
+		group {
+			id
+		}
+	}
+}
+`
+
+func CreateGroup(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	DisplayName string,
+	LookupName *string,
+) (data_ *CreateGroupResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateGroup",
+		Query:  CreateGroup_Operation,
+		Variables: &__CreateGroupInput{
+			DisplayName: DisplayName,
+			LookupName:  LookupName,
+		},
+	}
+
+	data_ = &CreateGroupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateHumioRepoAction.
 const CreateHumioRepoAction_Operation = `
 mutation CreateHumioRepoAction ($SearchDomainName: String!, $ActionName: String!, $IngestToken: String!) {
@@ -15330,6 +15634,44 @@ func DeleteFilterAlert(
 	return data_, err_
 }
 
+// The mutation executed by DeleteGroup.
+const DeleteGroup_Operation = `
+mutation DeleteGroup ($GroupId: String!) {
+	removeGroup(groupId: $GroupId) {
+		group {
+			displayName
+			userCount
+			searchDomainCount
+		}
+	}
+}
+`
+
+func DeleteGroup(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	GroupId string,
+) (data_ *DeleteGroupResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteGroup",
+		Query:  DeleteGroup_Operation,
+		Variables: &__DeleteGroupInput{
+			GroupId: GroupId,
+		},
+	}
+
+	data_ = &DeleteGroupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteParserByID.
 const DeleteParserByID_Operation = `
 mutation DeleteParserByID ($RepositoryName: RepoOrViewName!, $ParserID: String!) {
@@ -15792,6 +16134,45 @@ func GetFilterAlertByID(
 	}
 
 	data_ = &GetFilterAlertByIDResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetGroupByDisplayName.
+const GetGroupByDisplayName_Operation = `
+query GetGroupByDisplayName ($DisplayName: String!) {
+	groupByDisplayName(displayName: $DisplayName) {
+		... GroupDetails
+	}
+}
+fragment GroupDetails on Group {
+	id
+	displayName
+	lookupName
+}
+`
+
+func GetGroupByDisplayName(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	DisplayName string,
+) (data_ *GetGroupByDisplayNameResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetGroupByDisplayName",
+		Query:  GetGroupByDisplayName_Operation,
+		Variables: &__GetGroupByDisplayNameInput{
+			DisplayName: DisplayName,
+		},
+	}
+
+	data_ = &GetGroupByDisplayNameResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -17179,6 +17560,46 @@ func UpdateFilterAlert(
 	}
 
 	data_ = &UpdateFilterAlertResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateGroup.
+const UpdateGroup_Operation = `
+mutation UpdateGroup ($GroupId: String!, $DisplayName: String, $LookupName: String) {
+	updateGroup(input: {groupId:$GroupId,displayName:$DisplayName,lookupName:$LookupName}) {
+		group {
+			id
+		}
+	}
+}
+`
+
+func UpdateGroup(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	GroupId string,
+	DisplayName *string,
+	LookupName *string,
+) (data_ *UpdateGroupResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateGroup",
+		Query:  UpdateGroup_Operation,
+		Variables: &__UpdateGroupInput{
+			GroupId:     GroupId,
+			DisplayName: DisplayName,
+			LookupName:  LookupName,
+		},
+	}
+
+	data_ = &UpdateGroupResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
