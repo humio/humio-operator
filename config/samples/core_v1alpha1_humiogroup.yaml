@@ -6,3 +6,6 @@ spec:
   managedClusterName: example-humiocluster
   displayName: "example-group"
   lookupName: "example-group-lookup-name"
+  assignments:
+    - roleName: "example-role"
+      viewName: "example-view"

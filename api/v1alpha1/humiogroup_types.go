@@ -15,6 +15,18 @@ const (
 	HumioGroupStateConfigError = "ConfigError"
 )
 
+// HumioGroupRoleAssignment represents a role assignment for a group
+type HumioGroupRoleAssignment struct {
+	// RoleName contains the name of the role to assign
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	RoleName string `json:"roleName"`
+	// ViewName contains the name of the view to associate the group with
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	ViewName string `json:"viewName"`
+}
+
 // HumioGroupSpec defines the desired state of HumioGroup.
 type HumioGroupSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
@@ -31,6 +43,9 @@ type HumioGroupSpec struct {
 	// LookupName is the lookup name of the HumioGroup
 	// +optional
 	LookupName *string `json:"lookupName,omitempty"`
+	// Assignments contains the list of role assignments for the group
+	// +optional
+	Assignments []HumioGroupRoleAssignment `json:"assignments,omitempty"`
 }
 
 // HumioGroupStatus defines the observed state of HumioGroup.

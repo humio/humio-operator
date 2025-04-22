@@ -50,6 +50,27 @@ spec:
           spec:
             description: HumioGroupSpec defines the desired state of HumioGroup.
             properties:
+              assignments:
+                description: Assignments contains the list of role assignments for
+                  the group
+                items:
+                  description: HumioGroupRoleAssignment represents a role assignment
+                    for a group
+                  properties:
+                    roleName:
+                      description: RoleName contains the name of the role to assign
+                      minLength: 1
+                      type: string
+                    viewName:
+                      description: ViewName contains the name of the view to associate
+                        the group with
+                      minLength: 1
+                      type: string
+                  required:
+                  - roleName
+                  - viewName
+                  type: object
+                type: array
               displayName:
                 description: DisplayName is the display name of the HumioGroup
                 minLength: 1

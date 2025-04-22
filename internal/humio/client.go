@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
@@ -808,6 +809,40 @@ func validateSearchDomain(ctx context.Context, client *humioapi.Client, searchDo
 	return humioapi.SearchDomainNotFound(searchDomainName)
 }
 
+func getAllRolesNameToId(ctx context.Context, client *humioapi.Client) (map[string]string, error) {
+	resp, err := humiographql.ListRoles(
+		ctx,
+		client,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("got error fetching all roles: %w", err)
+	}
+
+	roleList := resp.GetRoles()
+	roleNameToId := make(map[string]string)
+	for _, role := range roleList {
+		roleNameToId[role.GetDisplayName()] = role.GetId()
+	}
+	return roleNameToId, nil
+}
+
+func getViewIdByName(ctx context.Context, client *humioapi.Client, viewName string) (string, error) {
+	resp, err := humiographql.GetSearchDomain(
+		ctx,
+		client,
+		viewName,
+	)
+	if err != nil {
+		return "", fmt.Errorf("got error fetching searchdomain: %w", err)
+	}
+	if resp == nil {
+		return "", humioapi.SearchDomainNotFound(viewName)
+	}
+
+	searchDomain := resp.GetSearchDomain()
+	return searchDomain.GetId(), nil
+}
+
 func (h *ClientConfig) AddGroup(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hg *humiov1alpha1.HumioGroup) error {
 	var groupLookupName *string
 	if hg.Spec.LookupName != nil {
@@ -816,12 +851,49 @@ func (h *ClientConfig) AddGroup(ctx context.Context, client *humioapi.Client, _ 
 		// if no lookup name is provided, use the display name
 		groupLookupName = &hg.Spec.DisplayName
 	}
-	_, err := humiographql.CreateGroup(
+	createGroupResp, err := humiographql.CreateGroup(
 		ctx,
 		client,
 		hg.Spec.DisplayName,
 		groupLookupName,
 	)
+	if err != nil {
+		return fmt.Errorf("got error creating group: %w", err)
+	}
+
+	// get the newly created Group's ID from the response
+	groupWrapper := createGroupResp.GetAddGroup()
+	createdGroup := groupWrapper.GetGroup()
+	groupId := createdGroup.GetId()
+
+	roleNameToId, err := getAllRolesNameToId(ctx, client)
+	if err != nil {
+		return fmt.Errorf("got error fetching all roles: %w", err)
+	}
+
+	for _, roleAssignment := range hg.Spec.Assignments {
+		roleName := roleAssignment.RoleName
+		viewName := roleAssignment.ViewName
+		roleId, ok := roleNameToId[roleName]
+		if !ok {
+			return fmt.Errorf("specified role doesn't exist: %s", roleName)
+		}
+		viewId, err := getViewIdByName(ctx, client, viewName)
+		if err != nil {
+			return fmt.Errorf("got error fetching viewId for %s: %w", viewName, err)
+		}
+		_, err = humiographql.AssignRoleToGroup(
+			ctx,
+			client,
+			groupId,
+			viewId,
+			roleId,
+		)
+		if err != nil {
+			return fmt.Errorf("got error assigning role %s to group %s for view %s: %w", roleName, hg.Spec.DisplayName, viewName, err)
+		}
+	}
+
 	return err
 }
 
@@ -840,34 +912,35 @@ func (h *ClientConfig) GetGroup(ctx context.Context, client *humioapi.Client, _ 
 		Id:          group.GetId(),
 		DisplayName: group.GetDisplayName(),
 		LookupName:  group.GetLookupName(),
+		Roles:       group.GetRoles(),
 	}, nil
 }
 
 func (h *ClientConfig) UpdateGroup(ctx context.Context, client *humioapi.Client, request reconcile.Request, hg *humiov1alpha1.HumioGroup) error {
-	group, err := h.GetGroup(ctx, client, request, hg)
+	curGroup, err := h.GetGroup(ctx, client, request, hg)
 	if err != nil {
 		return err
 	}
 
-	if cmp.Diff(group.DisplayName, hg.Spec.DisplayName) != "" {
+	if cmp.Diff(curGroup.DisplayName, hg.Spec.DisplayName) != "" {
 		_, err = humiographql.UpdateGroup(
 			ctx,
 			client,
-			group.Id,
+			curGroup.Id,
 			&hg.Spec.DisplayName,
-			group.LookupName,
+			curGroup.LookupName,
 		)
 		if err != nil {
 			return err
 		}
 	}
 
-	if cmp.Diff(group.LookupName, hg.Spec.LookupName) != "" {
+	if cmp.Diff(curGroup.LookupName, hg.Spec.LookupName) != "" {
 		_, err = humiographql.UpdateGroup(
 			ctx,
 			client,
-			group.Id,
-			&group.DisplayName,
+			curGroup.Id,
+			&curGroup.DisplayName,
 			hg.Spec.LookupName,
 		)
 		if err != nil {
@@ -875,7 +948,77 @@ func (h *ClientConfig) UpdateGroup(ctx context.Context, client *humioapi.Client,
 		}
 	}
 
-	// TODO: handle Group / Role / SearchDomain mappings here
+	curGroupViewToRoles := make(map[string][]string)
+	for _, searchDomainRole := range curGroup.Roles {
+		view := searchDomainRole.GetSearchDomain()
+		role := searchDomainRole.GetRole()
+		curGroupViewToRoles[view.GetName()] = append(curGroupViewToRoles[view.GetName()], role.GetDisplayName())
+	}
+
+	desiredGroupViewToRoles := make(map[string][]string)
+	for _, roleAssignment := range hg.Spec.Assignments {
+		desiredGroupViewToRoles[roleAssignment.ViewName] = append(desiredGroupViewToRoles[roleAssignment.ViewName], roleAssignment.RoleName)
+	}
+
+	roleNameToId, err := getAllRolesNameToId(ctx, client)
+	if err != nil {
+		return fmt.Errorf("got error fetching all roles: %w", err)
+	}
+	// reconcile - delete existing roles that are not in the desired state
+	for viewName, roleNames := range curGroupViewToRoles {
+		for _, roleName := range roleNames {
+			desiredGroupViewToRolesList, exists := desiredGroupViewToRoles[viewName]
+			if !exists || !slices.Contains(desiredGroupViewToRolesList, roleName) {
+				// this role is not in the desired state, delete it
+				roleId, ok := roleNameToId[roleName]
+				if !ok {
+					return fmt.Errorf("trying to unassigned a role that doesn't exist: %s", roleName)
+				}
+				viewId, err := getViewIdByName(ctx, client, viewName)
+				if err != nil {
+					return fmt.Errorf("got error fetching viewId for %s: %w", viewName, err)
+				}
+				_, err = humiographql.UnassignRoleFromGroup(
+					ctx,
+					client,
+					curGroup.Id,
+					viewId,
+					roleId,
+				)
+				if err != nil {
+					return fmt.Errorf("got error unassigning role %s from group %s for view %s: %w", roleName, hg.Spec.DisplayName, viewName, err)
+				}
+			}
+		}
+	}
+
+	// reconcile - add new roles that are in the desired state but not in the existing state
+	for viewName, roleNames := range desiredGroupViewToRoles {
+		for _, roleName := range roleNames {
+			curGroupViewToRolesList, exists := curGroupViewToRoles[viewName]
+			if !exists || !slices.Contains(curGroupViewToRolesList, roleName) {
+				// this role is not in the existing state, add it
+				roleId, ok := roleNameToId[roleName]
+				if !ok {
+					return fmt.Errorf("trying to assign a role that doesn't exist: %s", roleName)
+				}
+				viewId, err := getViewIdByName(ctx, client, viewName)
+				if err != nil {
+					return fmt.Errorf("got error fetching viewId for %s: %w", viewName, err)
+				}
+				_, err = humiographql.AssignRoleToGroup(
+					ctx,
+					client,
+					curGroup.Id,
+					viewId,
+					roleId,
+				)
+				if err != nil {
+					return fmt.Errorf("got error assigning role %s to group %s for view %s: %w", roleName, hg.Spec.DisplayName, viewName, err)
+				}
+			}
+		}
+	}
 
 	return nil
 }

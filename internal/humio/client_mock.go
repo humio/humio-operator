@@ -50,6 +50,7 @@ type ClientMock struct {
 	Repository      map[resourceKey]humiographql.RepositoryDetails
 	View            map[resourceKey]humiographql.GetSearchDomainSearchDomainView
 	Group           map[resourceKey]humiographql.GroupDetails
+	Role            map[resourceKey]humiographql.ListRolesRolesRole
 	IngestToken     map[resourceKey]humiographql.IngestTokenDetails
 	Parser          map[resourceKey]humiographql.ParserDetails
 	Action          map[resourceKey]humiographql.ActionDetails
@@ -73,6 +74,7 @@ func NewMockClient() *MockClientConfig {
 			Repository:      make(map[resourceKey]humiographql.RepositoryDetails),
 			View:            make(map[resourceKey]humiographql.GetSearchDomainSearchDomainView),
 			Group:           make(map[resourceKey]humiographql.GroupDetails),
+			Role:            make(map[resourceKey]humiographql.ListRolesRolesRole),
 			IngestToken:     make(map[resourceKey]humiographql.IngestTokenDetails),
 			Parser:          make(map[resourceKey]humiographql.ParserDetails),
 			Action:          make(map[resourceKey]humiographql.ActionDetails),
@@ -99,6 +101,8 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 		}
 	}
 	h.apiClient.View = make(map[resourceKey]humiographql.GetSearchDomainSearchDomainView)
+	h.apiClient.Group = make(map[resourceKey]humiographql.GroupDetails)
+	h.apiClient.Role = make(map[resourceKey]humiographql.ListRolesRolesRole)
 	h.apiClient.IngestToken = make(map[resourceKey]humiographql.IngestTokenDetails)
 	h.apiClient.Parser = make(map[resourceKey]humiographql.ParserDetails)
 	h.apiClient.Action = make(map[resourceKey]humiographql.ActionDetails)
@@ -549,10 +553,24 @@ func (h *MockClientConfig) AddGroup(ctx context.Context, client *humioapi.Client
 		return fmt.Errorf("group already exists with name %s", group.Spec.DisplayName)
 	}
 
+	roles := make([]humiographql.GroupDetailsRolesSearchDomainRole, 0)
+	for _, role := range group.Spec.Assignments {
+		roles = append(roles, humiographql.GroupDetailsRolesSearchDomainRole{
+			Role: humiographql.GroupDetailsRolesSearchDomainRoleRole{
+				Id:          role.RoleName,
+				DisplayName: role.RoleName,
+			},
+			SearchDomain: &humiographql.GroupDetailsRolesSearchDomainRoleSearchDomainView{
+				Id:   role.ViewName,
+				Name: role.ViewName,
+			},
+		})
+	}
 	value := &humiographql.GroupDetails{
 		Id:          kubernetes.RandomString(),
 		DisplayName: group.Spec.DisplayName,
 		LookupName:  group.Spec.LookupName,
+		Roles:       roles,
 	}
 
 	h.apiClient.Group[key] = *value
@@ -586,11 +604,27 @@ func (h *MockClientConfig) UpdateGroup(ctx context.Context, client *humioapi.Cli
 	if !found {
 		return fmt.Errorf("group not found with name %s, err=%w", group.Spec.DisplayName, humioapi.EntityNotFound{})
 	}
+
+	roles := make([]humiographql.GroupDetailsRolesSearchDomainRole, 0)
+	for _, role := range group.Spec.Assignments {
+		roles = append(roles, humiographql.GroupDetailsRolesSearchDomainRole{
+			Role: humiographql.GroupDetailsRolesSearchDomainRoleRole{
+				Id:          role.RoleName,
+				DisplayName: role.RoleName,
+			},
+			SearchDomain: &humiographql.GroupDetailsRolesSearchDomainRoleSearchDomainView{
+				Id:   role.ViewName,
+				Name: role.ViewName,
+			},
+		})
+	}
 	value := &humiographql.GroupDetails{
 		Id:          currentGroup.GetId(),
 		DisplayName: group.Spec.DisplayName,
 		LookupName:  group.Spec.LookupName,
+		Roles:       roles,
 	}
+
 	h.apiClient.Group[key] = *value
 	return nil
 }
