@@ -16,6 +16,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sort"
 	"time"
 )
 
@@ -182,7 +183,26 @@ func groupAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioGro
 		keyValues["lookupName"] = diff
 	}
 
-	// TODO: handle Group / Role / SearchDomain mappings here
+	roleAssignmentsFromGraphQL := make([]string, len(fromGraphQL.GetRoles()))
+	for _, assignment := range fromGraphQL.GetRoles() {
+		role := assignment.GetRole()
+		view := assignment.GetSearchDomain()
+		roleAssignmentsFromGraphQL = append(roleAssignmentsFromGraphQL, formatRoleAssignmentString(role.GetDisplayName(), view.GetName()))
+	}
+	roleAssignmentsFromKubernetes := make([]string, len(fromKubernetesCustomResource.Spec.Assignments))
+	for _, assignment := range fromKubernetesCustomResource.Spec.Assignments {
+		roleAssignmentsFromKubernetes = append(roleAssignmentsFromKubernetes, formatRoleAssignmentString(assignment.RoleName, assignment.ViewName))
+	}
+	// sort the two lists for comparison
+	sort.Strings(roleAssignmentsFromGraphQL)
+	sort.Strings(roleAssignmentsFromKubernetes)
+	if diff := cmp.Diff(roleAssignmentsFromGraphQL, roleAssignmentsFromKubernetes); diff != "" {
+		keyValues["roleAssignments"] = diff
+	}
 
 	return len(keyValues) == 0, keyValues
+}
+
+func formatRoleAssignmentString(roleName string, viewName string) string {
+	return fmt.Sprintf("%s:%s", roleName, viewName)
 }

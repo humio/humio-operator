@@ -2,6 +2,16 @@ fragment GroupDetails on Group {
     id
     displayName
     lookupName
+    roles {
+        role {
+            id
+            displayName
+        }
+        searchDomain {
+            id
+            name
+        }
+    }
 }
 
 query GetGroupByDisplayName(
@@ -53,6 +63,52 @@ mutation DeleteGroup(
         groupId: $GroupId
     ) {
         group {
+            displayName
+            userCount
+            searchDomainCount
+        }
+    }
+}
+
+mutation AssignRoleToGroup(
+    $GroupId: String!
+    $ViewId: String!
+    $RoleId: String!
+) {
+    assignRoleToGroup(
+        input: {
+            groupId: $GroupId
+            viewId: $ViewId
+            roleId: $RoleId
+        }
+    ) {
+        group {
+            role {
+                id
+                displayName
+            }
+            searchDomain {
+                id
+                name
+            }
+        }
+    }
+}
+
+mutation UnassignRoleFromGroup(
+    $GroupId: String!
+    $ViewId: String!
+    $RoleId: String!
+) {
+    unassignRoleFromGroup(
+        input: {
+            groupId: $GroupId
+            viewId: $ViewId
+            roleId: $RoleId
+        }
+    ) {
+        group {
+            id
             displayName
             userCount
             searchDomainCount
