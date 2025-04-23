@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -285,8 +286,15 @@ func (r *HumioPdfRenderServiceReconciler) logErrorAndReturn(err error, msg strin
 	return fmt.Errorf("%s: %w", msg, err)
 }
 
-// getResourceName generates a resource name based on the CR name
 func (r *HumioPdfRenderServiceReconciler) getResourceName(hprs *corev1alpha1.HumioPdfRenderService) string {
+	// If name already ends with -pdf-render-service, don't add it again
+	r.Log.Info("getResourceName called",
+		"input", hprs.Name,
+		"hasSuffix", strings.HasSuffix(hprs.Name, "-pdf-render-service"),
+	)
+	if strings.HasSuffix(hprs.Name, "-pdf-render-service") {
+		return hprs.Name
+	}
 	return fmt.Sprintf("%s-pdf-render-service", hprs.Name)
 }
 
@@ -872,6 +880,10 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 		}
 		return r.logErrorAndReturn(err, "Failed to get Deployment")
 	}
+
+	r.Log.Info("Creating/updating deployment",
+		"name", desiredDeployment.Name,
+		"namespace", desiredDeployment.Namespace)
 
 	// Deployment exists, check if update is needed using RetryOnConflict
 	var lastConflictErr error

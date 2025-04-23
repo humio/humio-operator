@@ -163,6 +163,11 @@ type HumioNodeSpec struct {
 	// HelperImage is the desired helper container image, including image tag
 	HelperImage string `json:"helperImage,omitempty"`
 
+	// EnablePdfRenderService controls whether a PDF render service should be created.
+	// If not set or set to false, no PDF render service will be created.
+	// +optional
+	EnablePdfRenderService *bool `json:"enablePdfRenderService,omitempty"`
+
 	// PdfRenderServiceImage is the container image to use for the PDF rendering service.
 	// If not specified, the operator will use the default image.
 	// +optional

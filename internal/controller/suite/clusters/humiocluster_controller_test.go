@@ -34,6 +34,7 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -299,6 +300,187 @@ var _ = Describe("HumioCluster Controller", func() {
 				suite.UsingClusterBy(key.Name, "Ensuring pod names are not changed")
 				Expect(podNames(clusterPods)).To(Equal(podNames(updatedClusterPods)))
 			}
+		})
+	})
+
+	Context("Humio Cluster PDF Render Service", Label("envtest", "dummy", "real"), func() {
+		It("Should correctly handle PDF render service through HumioCluster EnablePdfRenderService flag", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-pdf-toggle",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.EnablePdfRenderService = helpers.BoolPtr(false) // Start with PDF rendering disabled
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster successfully with PDF render service initially disabled")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			// Define the expected deployment name
+			pdfDeploymentName := fmt.Sprintf("%s-pdf-render-service", key.Name)
+			pdfDeploymentKey := types.NamespacedName{
+				Name:      pdfDeploymentName,
+				Namespace: key.Namespace,
+			}
+
+			suite.UsingClusterBy(key.Name, "Verifying PDF render service is not created when disabled")
+			Consistently(func() bool {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, pdfDeploymentKey, deployment)
+				return k8serrors.IsNotFound(err)
+			}, time.Second*5, time.Second*1).Should(BeTrue(), "PDF render service deployment should not exist when disabled")
+
+			suite.UsingClusterBy(key.Name, "Enabling PDF render service")
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.EnablePdfRenderService = helpers.BoolPtr(true)
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Verifying PDF render service deployment is created when enabled")
+			Eventually(func() error {
+				deployment := &appsv1.Deployment{}
+				return k8sClient.Get(ctx, pdfDeploymentKey, deployment)
+			}, testTimeout, suite.TestInterval).Should(Succeed(), "PDF render service deployment should be created when enabled")
+
+			suite.UsingClusterBy(key.Name, "Disabling PDF render service")
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.EnablePdfRenderService = helpers.BoolPtr(false)
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Verifying PDF render service deployment is removed when disabled")
+			Eventually(func() bool {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, pdfDeploymentKey, deployment)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "PDF render service deployment should be removed when disabled")
+		})
+
+		It("Should correctly handle custom PDF render service image configuration", func() {
+			key := types.NamespacedName{
+				Name:      "humiocluster-pdf-custom-image",
+				Namespace: testProcessNamespace,
+			}
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate.Spec.EnablePdfRenderService = helpers.BoolPtr(true)
+			customPdfImage := "custom/pdf-render-service:1.0.0"
+			toCreate.Spec.PdfRenderServiceImage = customPdfImage
+
+			suite.UsingClusterBy(key.Name, "Creating the cluster with PDF render service enabled and custom image")
+			ctx := context.Background()
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+
+			// Define the expected deployment name
+			pdfDeploymentName := fmt.Sprintf("%s-pdf-render-service", key.Name)
+			pdfDeploymentKey := types.NamespacedName{
+				Name:      pdfDeploymentName,
+				Namespace: key.Namespace,
+			}
+
+			suite.UsingClusterBy(key.Name, "Verifying PDF render service uses custom image")
+			Eventually(func() string {
+				deployment := &appsv1.Deployment{}
+				if err := k8sClient.Get(ctx, pdfDeploymentKey, deployment); err != nil {
+					return ""
+				}
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
+				return deployment.Spec.Template.Spec.Containers[0].Image
+			}, testTimeout, suite.TestInterval).Should(Equal(customPdfImage), "PDF render service should use custom image")
+
+			suite.UsingClusterBy(key.Name, "Updating to a different PDF render image")
+			updatedPdfImage := "updated/pdf-render-service:2.0.0"
+			var updatedHumioCluster humiov1alpha1.HumioCluster
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+				updatedHumioCluster.Spec.PdfRenderServiceImage = updatedPdfImage
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(key.Name, "Verifying PDF render service is updated with new image")
+			Eventually(func() string {
+				deployment := &appsv1.Deployment{}
+				if err := k8sClient.Get(ctx, pdfDeploymentKey, deployment); err != nil {
+					return ""
+				}
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
+				return deployment.Spec.Template.Spec.Containers[0].Image
+			}, testTimeout, suite.TestInterval).Should(Equal(updatedPdfImage), "PDF render service should use updated image")
+
+			suite.UsingClusterBy(key.Name, "Testing TLS configuration for PDF render service")
+			// Initialize with the default image
+			expectedImage := versions.DefaultPDFRenderServiceImage()
+			// If a specific image is set in the cluster spec, use that instead
+			if updatedHumioCluster.Spec.PdfRenderServiceImage != "" {
+				expectedImage = updatedHumioCluster.Spec.PdfRenderServiceImage
+			}
+
+			pdfService := &humiov1alpha1.HumioPdfRenderService{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Namespace: updatedHumioCluster.Namespace,
+					Name:      fmt.Sprintf("%s-pdf-render-service", updatedHumioCluster.Name),
+				}, pdfService)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Expect(pdfService.Spec.Image).To(Equal(expectedImage))
+
+			// Enable TLS for the PDF render service by updating TLS settings
+			Eventually(func() error {
+				updatedHumioCluster = humiov1alpha1.HumioCluster{}
+				err := k8sClient.Get(ctx, key, &updatedHumioCluster)
+				if err != nil {
+					return err
+				}
+
+				// Ensure TLS spec exists and is enabled
+				if updatedHumioCluster.Spec.TLS == nil {
+					updatedHumioCluster.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{}
+				}
+				updatedHumioCluster.Spec.TLS.Enabled = helpers.BoolPtr(true)
+
+				return k8sClient.Update(ctx, &updatedHumioCluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify TLS environment variable is set in the deployment
+			suite.UsingClusterBy(key.Name, "Verifying PDF render service has TLS configured when TLS is enabled")
+			Eventually(func() bool {
+				deployment := &appsv1.Deployment{}
+				if err := k8sClient.Get(ctx, pdfDeploymentKey, deployment); err != nil {
+					return false
+				}
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return false
+				}
+
+				// Check for TLS env var
+				for _, env := range deployment.Spec.Template.Spec.Containers[0].Env {
+					if env.Name == "PDF_RENDER_USE_TLS" && env.Value == "true" {
+						return true
+					}
+				}
+				return false
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "PDF render service should have TLS enabled")
 		})
 	})
 

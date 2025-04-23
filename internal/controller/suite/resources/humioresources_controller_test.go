@@ -40,6 +40,7 @@ import (
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/internal/controller/suite"
+	"github.com/humio/humio-operator/internal/controller/versions"
 )
 
 const (
@@ -4623,7 +4624,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
 					Replicas: 1,
-					Image:    "humio/pdf-render-service:0.0.60--build-101--sha-fe87a59c82fd957ec460190a3f726948d586c1ea", // Use the specific Humio image
+					Image:    versions.DefaultPDFRenderServiceImage(),
 					Port:     8080,
 					EnvironmentVariables: []corev1.EnvVar{
 						{
@@ -4807,6 +4808,269 @@ var _ = Describe("Humio Resources Controllers", func() {
 					}
 				}
 			}, testTimeout*3, suite.TestInterval).Should(Succeed(), "Annotations check failed")
+		})
+
+		It("Should correctly handle custom PDF render service image configuration via HumioCluster", func() {
+			ctx := context.Background()
+
+			// Use a unique name for this test
+			key := types.NamespacedName{
+				Name:      "humio-pdf-custom-image",
+				Namespace: clusterKey.Namespace,
+			}
+
+			// Create a HumioCluster with PDF rendering enabled and a custom image
+			customPdfImage := "custom/pdf-render-service:1.0.0"
+			humioCluster := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			humioCluster.Spec.EnablePdfRenderService = helpers.BoolPtr(true)
+			humioCluster.Spec.PdfRenderServiceImage = customPdfImage
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating HumioCluster with PDF render service enabled and custom image")
+			Expect(k8sClient.Create(ctx, humioCluster)).Should(Succeed())
+			defer suite.CleanupCluster(ctx, k8sClient, humioCluster) // Ensure cleanup
+
+			// Wait for the cluster to be ready
+			suite.UsingClusterBy(clusterKey.Name, "Waiting for HumioCluster to be ready")
+			Eventually(func() string {
+				var cluster humiov1alpha1.HumioCluster
+				if err := k8sClient.Get(ctx, key, &cluster); err != nil {
+					return ""
+				}
+				return cluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
+
+			// Verify PDF render service deployment is created with custom image
+			pdfDeploymentName := fmt.Sprintf("%s-pdf-render-service", key.Name)
+			pdfDeploymentKey := types.NamespacedName{
+				Name:      pdfDeploymentName,
+				Namespace: key.Namespace,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "Verifying PDF render service is created with custom image")
+			Eventually(func() string {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, pdfDeploymentKey, deployment)
+				if err != nil {
+					return ""
+				}
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
+				return deployment.Spec.Template.Spec.Containers[0].Image
+			}, testTimeout, suite.TestInterval).Should(Equal(customPdfImage), "PDF render service should use custom image")
+
+			// Update the HumioCluster to use a different PDF render image
+			updatedPdfImage := "updated/pdf-render-service:2.0.0"
+			suite.UsingClusterBy(clusterKey.Name, "Updating HumioCluster to use a different PDF render image")
+			Eventually(func() error {
+				var cluster humiov1alpha1.HumioCluster
+				if err := k8sClient.Get(ctx, key, &cluster); err != nil {
+					return err
+				}
+				cluster.Spec.PdfRenderServiceImage = updatedPdfImage
+				return k8sClient.Update(ctx, &cluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify PDF render service deployment is updated with the new image
+			suite.UsingClusterBy(clusterKey.Name, "Verifying PDF render service is updated with new image")
+			Eventually(func() string {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, pdfDeploymentKey, deployment)
+				if err != nil {
+					return ""
+				}
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
+				return deployment.Spec.Template.Spec.Containers[0].Image
+			}, testTimeout, suite.TestInterval).Should(Equal(updatedPdfImage), "PDF render service should use updated image")
+
+			// Update to use the default image by clearing the custom image field
+			suite.UsingClusterBy(clusterKey.Name, "Updating HumioCluster to use default PDF render image")
+			Eventually(func() error {
+				var cluster humiov1alpha1.HumioCluster
+				if err := k8sClient.Get(ctx, key, &cluster); err != nil {
+					return err
+				}
+				cluster.Spec.PdfRenderServiceImage = "" // Empty string means use default
+				return k8sClient.Update(ctx, &cluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify PDF render service deployment is updated to use the default image
+			suite.UsingClusterBy(clusterKey.Name, "Verifying PDF render service switches to default image")
+			Eventually(func() string {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, pdfDeploymentKey, deployment)
+				if err != nil {
+					return ""
+				}
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
+				return deployment.Spec.Template.Spec.Containers[0].Image
+			}, testTimeout, suite.TestInterval).Should(Equal(PDFRenderServiceImage), "PDF render service should switch to default image")
+
+			// Disable PDF rendering to clean up
+			suite.UsingClusterBy(clusterKey.Name, "Disabling PDF render service")
+			Eventually(func() error {
+				var cluster humiov1alpha1.HumioCluster
+				if err := k8sClient.Get(ctx, key, &cluster); err != nil {
+					return err
+				}
+				cluster.Spec.EnablePdfRenderService = helpers.BoolPtr(false)
+				return k8sClient.Update(ctx, &cluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify PDF render service deployment is removed
+			suite.UsingClusterBy(clusterKey.Name, "Verifying PDF render service deployment is removed")
+			Eventually(func() bool {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, pdfDeploymentKey, deployment)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "PDF render service deployment should be removed when disabled")
+		})
+
+		It("Should correctly handle PDF render service through HumioCluster EnablePdfRenderService flag", func() {
+			ctx := context.Background()
+
+			// Use a unique name for this test
+			key := types.NamespacedName{
+				Name:      "humio-pdf-toggle-test",
+				Namespace: clusterKey.Namespace,
+			}
+
+			// Create a HumioCluster with PDF rendering disabled initially
+			humioCluster := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			humioCluster.Spec.EnablePdfRenderService = helpers.BoolPtr(false) // Start with PDF rendering disabled
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating HumioCluster with PDF render service disabled")
+			Expect(k8sClient.Create(ctx, humioCluster)).Should(Succeed())
+			defer suite.CleanupCluster(ctx, k8sClient, humioCluster) // Ensure cleanup
+
+			// Define the expected resources
+			pdfServiceName := fmt.Sprintf("%s-pdf-render-service", key.Name)
+			pdfServiceKey := types.NamespacedName{
+				Name:      pdfServiceName,
+				Namespace: key.Namespace,
+			}
+			pdfDeploymentKey := pdfServiceKey // The deployment has the same name as the CR
+
+			// Verify PDF render service is not created when disabled
+			suite.UsingClusterBy(clusterKey.Name, "Verifying PDF render service is not created when disabled")
+			Consistently(func() bool {
+				// Check for both the HumioPdfRenderService CR and the Deployment
+				pdfService := &humiov1alpha1.HumioPdfRenderService{}
+				err1 := k8sClient.Get(ctx, pdfServiceKey, pdfService)
+
+				deployment := &appsv1.Deployment{}
+				err2 := k8sClient.Get(ctx, pdfDeploymentKey, deployment)
+
+				return k8serrors.IsNotFound(err1) && k8serrors.IsNotFound(err2)
+			}, 5*time.Second, time.Second).Should(BeTrue(), "PDF render service resources should not exist when disabled")
+
+			// Now enable PDF rendering
+			suite.UsingClusterBy(clusterKey.Name, "Enabling PDF render service")
+			Eventually(func() error {
+				var cluster humiov1alpha1.HumioCluster
+				if err := k8sClient.Get(ctx, key, &cluster); err != nil {
+					return err
+				}
+				cluster.Spec.EnablePdfRenderService = helpers.BoolPtr(true)
+				return k8sClient.Update(ctx, &cluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// First verify the HumioPdfRenderService CR is created
+			suite.UsingClusterBy(clusterKey.Name, "Verifying HumioPdfRenderService CR is created")
+			var pdfService humiov1alpha1.HumioPdfRenderService
+			Eventually(func() error {
+				return k8sClient.Get(ctx, pdfServiceKey, &pdfService)
+			}, testTimeout, suite.TestInterval).Should(Succeed(), "HumioPdfRenderService CR should be created when enabled")
+
+			// Then verify the Deployment is created
+			suite.UsingClusterBy(clusterKey.Name, "Verifying PDF render service deployment is created")
+			Eventually(func() error {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, pdfDeploymentKey, deployment)
+				if err != nil {
+					// List PDF render service CRs to check their status
+					pdfServiceList := &humiov1alpha1.HumioPdfRenderServiceList{}
+					_ = k8sClient.List(ctx, pdfServiceList, client.InNamespace(key.Namespace))
+					serviceNames := []string{}
+					for _, svc := range pdfServiceList.Items {
+						serviceNames = append(serviceNames, fmt.Sprintf("%s (state: %s)", svc.Name, svc.Status.State))
+					}
+
+					// List any deployments that might be related
+					deploymentList := &appsv1.DeploymentList{}
+					_ = k8sClient.List(ctx, deploymentList, client.InNamespace(key.Namespace),
+						client.MatchingLabels(map[string]string{"app": key.Name}))
+					deploymentNames := []string{}
+					for _, dep := range deploymentList.Items {
+						deploymentNames = append(deploymentNames, dep.Name)
+					}
+
+					return fmt.Errorf("PDF render service deployment not found. Found HumioPdfRenderServices: %v, Found Deployments: %v, Error: %v",
+						serviceNames, deploymentNames, err)
+				}
+				return nil
+			}, testTimeout*2, suite.TestInterval).Should(Succeed(), "PDF render service deployment should be created when enabled")
+
+			// Verify the deployment uses the default image
+			suite.UsingClusterBy(clusterKey.Name, "Verifying PDF render service uses default image")
+			Eventually(func() string {
+				deployment := &appsv1.Deployment{}
+				if err := k8sClient.Get(ctx, pdfDeploymentKey, deployment); err != nil {
+					return ""
+				}
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
+				return deployment.Spec.Template.Spec.Containers[0].Image
+			}, testTimeout, suite.TestInterval).Should(Equal(PDFRenderServiceImage), "PDF render service should use default image")
+
+			// Update the cluster to use a custom PDF renderer image
+			customImage := "custom/pdf-render-service:1.2.3"
+			suite.UsingClusterBy(clusterKey.Name, "Updating HumioCluster to use custom PDF renderer image")
+			Eventually(func() error {
+				var cluster humiov1alpha1.HumioCluster
+				if err := k8sClient.Get(ctx, key, &cluster); err != nil {
+					return err
+				}
+				cluster.Spec.PdfRenderServiceImage = customImage
+				return k8sClient.Update(ctx, &cluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify the deployment uses the custom image
+			suite.UsingClusterBy(clusterKey.Name, "Verifying PDF render service uses custom image")
+			Eventually(func() string {
+				deployment := &appsv1.Deployment{}
+				if err := k8sClient.Get(ctx, pdfDeploymentKey, deployment); err != nil {
+					return ""
+				}
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
+				return deployment.Spec.Template.Spec.Containers[0].Image
+			}, testTimeout, suite.TestInterval).Should(Equal(customImage), "PDF render service should use custom image")
+
+			// Disable PDF rendering again
+			suite.UsingClusterBy(clusterKey.Name, "Disabling PDF render service")
+			Eventually(func() error {
+				var cluster humiov1alpha1.HumioCluster
+				if err := k8sClient.Get(ctx, key, &cluster); err != nil {
+					return err
+				}
+				cluster.Spec.EnablePdfRenderService = helpers.BoolPtr(false)
+				return k8sClient.Update(ctx, &cluster)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// Verify PDF render service deployment is removed
+			suite.UsingClusterBy(clusterKey.Name, "Verifying PDF render service deployment is removed when disabled")
+			Eventually(func() bool {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, pdfDeploymentKey, deployment)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout*2, suite.TestInterval).Should(BeTrue(), "PDF render service deployment should be removed when disabled")
 		})
 	})
 })

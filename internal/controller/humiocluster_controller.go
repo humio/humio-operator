@@ -337,6 +337,12 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 // ensurePdfRenderService ensures the pdf-render-service resource exists
 func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	// Check if PDF render service is enabled (disabled by default)
+	if hc.Spec.EnablePdfRenderService == nil || !*hc.Spec.EnablePdfRenderService {
+		// If not explicitly enabled, ensure any existing PDF render service is removed
+		return r.removePdfRenderServiceIfExists(ctx, hc)
+	}
+
 	pdfService := &humiov1alpha1.HumioPdfRenderService{}
 	err := r.Get(ctx, types.NamespacedName{
 		Namespace: hc.Namespace,
@@ -367,7 +373,9 @@ func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc 
 			if err := controllerutil.SetControllerReference(hc, newPdfService, r.Scheme()); err != nil {
 				return err
 			}
-			r.Log.Info("Creating HumioPdfRenderService with TLS settings", "name", newPdfService.Name)
+			r.Log.Info("Creating HumioPdfRenderService with name",
+				"name", hc.Name+"-pdf-render-service",
+				"namespace", hc.Namespace)
 			return r.Create(ctx, newPdfService)
 		}
 		return err
@@ -381,6 +389,27 @@ func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc 
 	}
 
 	return nil
+}
+
+// removePdfRenderServiceIfExists removes any existing PDF render service for this cluster
+func (r *HumioClusterReconciler) removePdfRenderServiceIfExists(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	pdfService := &humiov1alpha1.HumioPdfRenderService{}
+	err := r.Get(ctx, types.NamespacedName{
+		Namespace: hc.Namespace,
+		Name:      hc.Name + "-pdf-render-service",
+	}, pdfService)
+
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			// PDF render service doesn't exist, nothing to do
+			return nil
+		}
+		return err
+	}
+
+	// PDF render service exists but is not enabled, so remove it
+	r.Log.Info("Removing HumioPdfRenderService as it's not enabled", "name", pdfService.Name)
+	return r.Delete(ctx, pdfService)
 }
 
 // SetupWithManager sets up the controller with the Manager.

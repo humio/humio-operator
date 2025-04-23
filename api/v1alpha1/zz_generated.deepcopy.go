@@ -1409,6 +1409,11 @@ func (in *HumioNodeSpec) DeepCopyInto(out *HumioNodeSpec) {
 		*out = make([]v1.LocalObjectReference, len(*in))
 		copy(*out, *in)
 	}
+	if in.EnablePdfRenderService != nil {
+		in, out := &in.EnablePdfRenderService, &out.EnablePdfRenderService
+		*out = new(bool)
+		**out = **in
+	}
 	if in.ContainerSecurityContext != nil {
 		in, out := &in.ContainerSecurityContext, &out.ContainerSecurityContext
 		*out = new(v1.SecurityContext)

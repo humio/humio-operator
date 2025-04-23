@@ -4154,6 +4154,14 @@ This is not recommended, unless you are using auto rebalancing partitions and ar
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>enablePdfRenderService</b></td>
+        <td>boolean</td>
+        <td>
+          EnablePdfRenderService controls whether a PDF render service should be created.
+If not set or set to false, no PDF render service will be created.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#humioclusterspecenvironmentvariablesindex">environmentVariables</a></b></td>
         <td>[]object</td>
         <td>
@@ -16685,6 +16693,14 @@ Otherwise, use the built in default startup probe configuration.<br/>
 This is not recommended, unless you are using auto rebalancing partitions and are running in a single availability zone.<br/>
           <br/>
             <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>enablePdfRenderService</b></td>
+        <td>boolean</td>
+        <td>
+          EnablePdfRenderService controls whether a PDF render service should be created.
+If not set or set to false, no PDF render service will be created.<br/>
         </td>
         <td>false</td>
       </tr><tr>
