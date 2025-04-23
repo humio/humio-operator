@@ -36,7 +36,7 @@ const (
 
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
 type HumioPdfRenderServiceSpec struct {
-	// Image is the Docker image to use for the PDF rendering service.
+	// Image is the container image to use for the PDF rendering service.
 	// +kubebuilder:validation:MinLength=1
 	// +required
 	Image string `json:"image"`

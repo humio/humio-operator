@@ -11913,6 +11913,11 @@ spec:
                             compatibility with pre-0.0.14 spec defaults, this should be set to `humio_{{.Zone}}`
                             Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in LogScale 1.80.0
                           type: string
+                        pdfRenderServiceImage:
+                          description: |-
+                            PdfRenderServiceImage is the container image to use for the PDF rendering service.
+                            If not specified, the operator will use the default image.
+                          type: string
                         podAnnotations:
                           additionalProperties:
                             type: string
@@ -13999,6 +14004,11 @@ spec:
                 type: string
               path:
                 description: Path is the root URI path of the Humio cluster
+                type: string
+              pdfRenderServiceImage:
+                description: |-
+                  PdfRenderServiceImage is the container image to use for the PDF rendering service.
+                  If not specified, the operator will use the default image.
                 type: string
               podAnnotations:
                 additionalProperties:

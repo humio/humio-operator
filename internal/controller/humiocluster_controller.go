@@ -32,6 +32,7 @@ import (
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	humioapi "github.com/humio/humio-operator/internal/api"
 	"github.com/humio/humio-operator/internal/api/humiographql"
+	"github.com/humio/humio-operator/internal/controller/versions"
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
@@ -70,8 +71,6 @@ const (
 	waitingOnPodsMessage = "waiting for pods to become ready"
 
 	humioVersionMinimumForReliableDownscaling = "1.173.0"
-
-	PDFRenderServiceImage = "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e"
 )
 
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
@@ -198,10 +197,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.ensureHumioClusterKeystoreSecret,
 		r.ensureNoIngressesIfIngressNotEnabled, // TODO: cleanupUnusedResources seems like a better place for this
 		r.ensureIngress,
-		// Propagate TLS settings to pdf-render-service
-		func(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-			return r.ensurePdfRenderServiceTLS(ctx, hc)
-		},
+		r.ensurePdfRenderService,
 	} {
 		if err := fun(ctx, hc); err != nil {
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
@@ -339,13 +335,20 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().withState(hc.Status.State).withMessage(""))
 }
 
-// ensurePdfRenderServiceTLS ensures the pdf-render-service resource exists and has TLS config matching the HumioCluster
-func (r *HumioClusterReconciler) ensurePdfRenderServiceTLS(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+// ensurePdfRenderService ensures the pdf-render-service resource exists
+func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	pdfService := &humiov1alpha1.HumioPdfRenderService{}
 	err := r.Get(ctx, types.NamespacedName{
 		Namespace: hc.Namespace,
 		Name:      hc.Name + "-pdf-render-service",
 	}, pdfService)
+
+	// Use the helper function to get the image from environment variable
+	pdfRenderServiceImage := versions.DefaultPDFRenderServiceImage()
+	if hc.Spec.PdfRenderServiceImage != "" {
+		pdfRenderServiceImage = hc.Spec.PdfRenderServiceImage
+	}
+
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Create new pdf-render-service with TLS copied from cluster
@@ -357,7 +360,7 @@ func (r *HumioClusterReconciler) ensurePdfRenderServiceTLS(ctx context.Context, 
 				},
 				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
 					TLS:      hc.Spec.TLS,
-					Image:    PDFRenderServiceImage,
+					Image:    pdfRenderServiceImage,
 					Replicas: 1,
 				},
 			}
@@ -1536,7 +1539,6 @@ type resourceConfig struct {
 
 // ensureNodePoolSpecificResourcesHaveLabelWithNodePoolName updates resources that were created prior to the introduction of node pools.
 // We need this because multiple resources now includes an additional label containing the name of the node pool a given resource belongs to.
-// nolint:gocyclo
 func (r *HumioClusterReconciler) ensureNodePoolSpecificResourcesHaveLabelWithNodePoolName(ctx context.Context, hnp *HumioNodePool) error {
 	updateLabels := func(obj client.Object, labels map[string]string, errMsg string) error {
 		if _, found := obj.GetLabels()[kubernetes.NodePoolLabelName]; !found {

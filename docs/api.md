@@ -4403,6 +4403,14 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>pdfRenderServiceImage</b></td>
+        <td>string</td>
+        <td>
+          PdfRenderServiceImage is the container image to use for the PDF rendering service.
+If not specified, the operator will use the default image.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>podAnnotations</b></td>
         <td>map[string]string</td>
         <td>
@@ -16846,6 +16854,14 @@ The value from ImageSource takes precedence over Image.<br/>
 necessary to include zone, there is a special `Zone` variable that can be used. To use this, set `{{.Zone}}`. For
 compatibility with pre-0.0.14 spec defaults, this should be set to `humio_{{.Zone}}`
 Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in LogScale 1.80.0<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pdfRenderServiceImage</b></td>
+        <td>string</td>
+        <td>
+          PdfRenderServiceImage is the container image to use for the PDF rendering service.
+If not specified, the operator will use the default image.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -37043,7 +37059,7 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         <td><b>image</b></td>
         <td>string</td>
         <td>
-          Image is the Docker image to use for the PDF rendering service.<br/>
+          Image is the container image to use for the PDF rendering service.<br/>
         </td>
         <td>true</td>
       </tr><tr>

@@ -163,6 +163,11 @@ type HumioNodeSpec struct {
 	// HelperImage is the desired helper container image, including image tag
 	HelperImage string `json:"helperImage,omitempty"`
 
+	// PdfRenderServiceImage is the container image to use for the PDF rendering service.
+	// If not specified, the operator will use the default image.
+	// +optional
+	PdfRenderServiceImage string `json:"pdfRenderServiceImage,omitempty"`
+
 	// ImagePullPolicy sets the imagePullPolicy for all the containers in the humio pod
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 

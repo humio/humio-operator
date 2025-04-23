@@ -1106,7 +1106,7 @@ spec:
                   type: object
                 type: array
               image:
-                description: Image is the Docker image to use for the PDF rendering
+                description: Image is the container image to use for the PDF rendering
                   service.
                 minLength: 1
                 type: string
