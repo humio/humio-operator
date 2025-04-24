@@ -95,7 +95,8 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.DurationVar(&requeuePeriod, "requeue-period", 15*time.Second, "The default reconciliation requeue period for all Humio* resources.")
+	flag.DurationVar(&requeuePeriod, "requeue-period", 15*time.Second,
+		"The default reconciliation requeue period for all Humio* resources.")
 	flag.Parse()
 
 	var log logr.Logger
