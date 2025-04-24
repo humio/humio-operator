@@ -168,8 +168,8 @@ func (r *HumioRepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	// A solution could be to add an annotation that includes the "old name" so we can see if it was changed.
 	// A workaround for now is to delete the repository CR and create it again.
 
-	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.CommonConfig.RequeuePeriod.String())
-	return reconcile.Result{RequeueAfter: r.CommonConfig.RequeuePeriod}, nil
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

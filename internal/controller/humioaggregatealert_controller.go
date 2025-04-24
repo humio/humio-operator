@@ -190,8 +190,8 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 		)
 	}
 
-	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.CommonConfig.RequeuePeriod.String())
-	return reconcile.Result{RequeueAfter: r.CommonConfig.RequeuePeriod}, nil
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

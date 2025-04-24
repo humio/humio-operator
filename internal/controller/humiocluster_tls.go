@@ -275,7 +275,7 @@ func (r *HumioClusterReconciler) updateNodeCertificates(ctx context.Context, hc 
 
 			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				currentCertificate := &cmapi.Certificate{}
-				err := r.Client.Get(ctx, types.NamespacedName{
+				err := r.Get(ctx, types.NamespacedName{
 					Namespace: cert.Namespace,
 					Name:      cert.Name}, currentCertificate)
 				if err != nil {
