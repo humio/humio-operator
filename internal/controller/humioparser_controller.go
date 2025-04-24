@@ -169,8 +169,8 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// A solution could be to add an annotation that includes the "old name" so we can see if it was changed.
 	// A workaround for now is to delete the parser CR and create it again.
 
-	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.CommonConfig.RequeuePeriod.String())
-	return reconcile.Result{RequeueAfter: r.CommonConfig.RequeuePeriod}, nil
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

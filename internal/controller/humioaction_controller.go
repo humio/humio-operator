@@ -194,8 +194,8 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 		)
 	}
 
-	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.CommonConfig.RequeuePeriod.String())
-	return reconcile.Result{RequeueAfter: r.CommonConfig.RequeuePeriod}, nil
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
 }
 
 func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1alpha1.HumioAction) error {
