@@ -1018,7 +1018,7 @@ func (h *MockClientConfig) IsFeatureFlagEnabled(_ context.Context, _ *humioapi.C
 	defer humioClientMu.Unlock()
 	supportedFlag := resourceKey{
 		clusterName:  fmt.Sprintf("%s%s", featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName),
-		resourceName: "humio-feature-flag",
+		resourceName: "PermissionTokens",
 	}
 	if _, found := h.apiClient.FeatureFlag[supportedFlag]; !found {
 		h.apiClient.FeatureFlag[supportedFlag] = false

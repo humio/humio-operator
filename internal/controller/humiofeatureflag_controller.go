@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/humio/humio-operator/internal/api/humiographql"
+	"slices"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -56,7 +58,7 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.Log = r.Log.WithValues("Request.UID", featureFlag.UID)
 
 	cluster, err := helpers.NewCluster(ctx, r, featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName, featureFlag.Namespace, helpers.UseCertManager(), true, false)
-	if err != nil || cluster == nil || cluster.Config() == nil {
+	if err != nil || cluster == nil || cluster.Config() == nil || !slices.Contains(humiographql.AllFeatureFlag, humiographql.FeatureFlag(featureFlag.Spec.Name)) {
 		setStateErr := r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateConfigError, featureFlag)
 		if setStateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set feature flag state")
