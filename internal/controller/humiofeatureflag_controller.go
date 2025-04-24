@@ -71,12 +71,12 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			_ = r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateNotFound, featureFlag)
 			return
 		}
-		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateUnknown, featureFlag)
-			return
-		}
 		if enabled {
 			_ = r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateExists, featureFlag)
+			return
+		}
+		if err != nil {
+			_ = r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateUnknown, featureFlag)
 		}
 	}(ctx, featureFlag)
 
