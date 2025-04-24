@@ -61,7 +61,7 @@ func (r *HumioGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	cluster, err := helpers.NewCluster(ctx, r, hg.Spec.ManagedClusterName, hg.Spec.ExternalClusterName, hg.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioParserStateConfigError, hg)
+		setStateErr := r.setState(ctx, humiov1alpha1.HumioGroupStateConfigError, hg)
 		if setStateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set cluster state")
 		}
