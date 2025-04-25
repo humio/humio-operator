@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/humio/humio-operator/internal/api/humiographql"
 	"slices"
 	"time"
+
+	"github.com/humio/humio-operator/internal/api/humiographql"
 
 	"github.com/go-logr/logr"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
