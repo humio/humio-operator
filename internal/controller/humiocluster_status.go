@@ -54,6 +54,7 @@ type stateOption struct {
 	desiredPodRevision        int
 	desiredPodHash            string
 	desiredBootstrapTokenHash string
+	requeuePeriod             time.Duration
 }
 
 type stateOptionList struct {
@@ -100,6 +101,13 @@ func (o *optionBuilder) withMessage(msg string) *optionBuilder {
 func (o *optionBuilder) withState(state string) *optionBuilder {
 	o.options = append(o.options, stateOption{
 		state: state,
+	})
+	return o
+}
+
+func (o *optionBuilder) withRequeuePeriod(period time.Duration) *optionBuilder {
+	o.options = append(o.options, stateOption{
+		requeuePeriod: period,
 	})
 	return o
 }
@@ -216,7 +224,10 @@ func (s stateOption) GetResult() (reconcile.Result, error) {
 	if s.state == humiov1alpha1.HumioClusterStateConfigError {
 		return reconcile.Result{RequeueAfter: time.Second * 10}, nil
 	}
-	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+	if s.requeuePeriod == 0 {
+		s.requeuePeriod = time.Second * 15
+	}
+	return reconcile.Result{RequeueAfter: s.requeuePeriod}, nil
 }
 
 func (s stateOptionList) Apply(hc *humiov1alpha1.HumioCluster) {

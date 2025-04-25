@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
@@ -75,6 +76,8 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var tlsOpts []func(*tls.Config)
+	var requeuePeriod time.Duration
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -92,6 +95,8 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.DurationVar(&requeuePeriod, "requeue-period", 15*time.Second,
+		"The default reconciliation requeue period for all Humio* resources.")
 	flag.Parse()
 
 	var log logr.Logger
@@ -226,7 +231,10 @@ func main() {
 	userAgent := fmt.Sprintf("humio-operator/%s (%s on %s)", version, commit, date)
 
 	if err = (&controller.HumioActionReconciler{
-		Client:      mgr.GetClient(),
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
@@ -234,7 +242,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.HumioAggregateAlertReconciler{
-		Client:      mgr.GetClient(),
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
@@ -242,7 +253,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.HumioAlertReconciler{
-		Client:      mgr.GetClient(),
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
@@ -250,14 +264,20 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.HumioBootstrapTokenReconciler{
-		Client:     mgr.GetClient(),
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		BaseLogger: log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioBootstrapToken")
 		os.Exit(1)
 	}
 	if err = (&controller.HumioClusterReconciler{
-		Client:      mgr.GetClient(),
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
@@ -265,7 +285,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.HumioExternalClusterReconciler{
-		Client:      mgr.GetClient(),
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
@@ -273,14 +296,20 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.HumioFilterAlertReconciler{
-		Client:      mgr.GetClient(),
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioFilterAlert")
 	}
 	if err = (&controller.HumioIngestTokenReconciler{
-		Client:      mgr.GetClient(),
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
@@ -288,7 +317,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.HumioParserReconciler{
-		Client:      mgr.GetClient(),
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
@@ -296,7 +328,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.HumioRepositoryReconciler{
-		Client:      mgr.GetClient(),
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
@@ -304,7 +339,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.HumioScheduledSearchReconciler{
-		Client:      mgr.GetClient(),
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
@@ -312,7 +350,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.HumioViewReconciler{
-		Client:      mgr.GetClient(),
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		HumioClient: humio.NewClient(log, userAgent),
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
