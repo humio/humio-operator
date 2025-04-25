@@ -470,12 +470,40 @@ func (h *ClientConfig) DeleteParser(ctx context.Context, client *humioapi.Client
 }
 
 func (h *ClientConfig) AddRepository(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
-	_, err := humiographql.CreateRepository(
-		ctx,
-		client,
-		hr.Spec.Name,
-	)
-	return err
+	retentionSpec := hr.Spec.Retention
+	if retentionSpec.TimeInDays != nil || retentionSpec.IngestSizeInGB != nil || retentionSpec.StorageSizeInGB != nil {
+		// use CreateRepositoryWithRetention() if any retention parameters are set
+		var retentionInMillis *int64
+		if retentionSpec.TimeInDays != nil {
+			duration := time.Duration(*retentionSpec.TimeInDays) * time.Hour * 24
+			retentionInMillis = helpers.Int64Ptr(duration.Milliseconds())
+		}
+		var retentionInIngestSizeBytes *int64
+		if retentionSpec.IngestSizeInGB != nil {
+			retentionInIngestSizeBytes = helpers.Int64Ptr(int64(*retentionSpec.IngestSizeInGB) * 1024 * 1024 * 1024)
+		}
+		var retentionInStorageSizeBytes *int64
+		if retentionSpec.StorageSizeInGB != nil {
+			retentionInStorageSizeBytes = helpers.Int64Ptr(int64(*retentionSpec.StorageSizeInGB) * 1024 * 1024 * 1024)
+		}
+		_, err := humiographql.CreateRepositoryWithRetention(
+			ctx,
+			client,
+			hr.Spec.Name,
+			retentionInMillis,
+			retentionInIngestSizeBytes,
+			retentionInStorageSizeBytes,
+		)
+		return err
+	} else {
+		// use the basic CreateRepository() if no retention parameters are set
+		_, err := humiographql.CreateRepository(
+			ctx,
+			client,
+			hr.Spec.Name,
+		)
+		return err
+	}
 }
 
 func (h *ClientConfig) GetRepository(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humiographql.RepositoryDetails, error) {
