@@ -40,6 +40,7 @@ import (
 // HumioAggregateAlertReconciler reconciles a HumioAggregateAlert object
 type HumioAggregateAlertReconciler struct {
 	client.Client
+	CommonConfig
 	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
@@ -189,9 +190,8 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 		)
 	}
 
-	r.Log.Info("done reconciling, will requeue in 15 seconds")
-	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
-
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.CommonConfig.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.CommonConfig.RequeuePeriod}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

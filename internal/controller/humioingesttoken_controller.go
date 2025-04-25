@@ -43,6 +43,7 @@ const humioFinalizer = "core.humio.com/finalizer" // TODO: Not only used for ing
 // HumioIngestTokenReconciler reconciles a HumioIngestToken object
 type HumioIngestTokenReconciler struct {
 	client.Client
+	CommonConfig
 	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
@@ -176,8 +177,8 @@ func (r *HumioIngestTokenReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// A solution could be to add an annotation that includes the "old name" so we can see if it was changed.
 	// A workaround for now is to delete the ingest token CR and create it again.
 
-	r.Log.Info("done reconciling, will requeue after 15 seconds")
-	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.CommonConfig.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.CommonConfig.RequeuePeriod}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
