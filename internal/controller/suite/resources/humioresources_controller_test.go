@@ -2325,7 +2325,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			expectedSecretValue := fmt.Sprintf("https://%s/services/T00000000/B00000000/YYYYYYYYYYYYYYYYYYYYYYYY", testService1.Name)
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      toCreateAction.Spec.SlackProperties.UrlSource.SecretKeyRef.LocalObjectReference.Name,
+					Name:      toCreateAction.Spec.SlackProperties.UrlSource.SecretKeyRef.Name,
 					Namespace: clusterKey.Namespace,
 				},
 				Data: map[string][]byte{
