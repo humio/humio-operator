@@ -5824,7 +5824,7 @@ spec:
                 type: array
               featureFlags:
                 description: OperatorFeatureFlags contains feature flags applied to
-                  this humio cluster.
+                  the Humio operator.
                 properties:
                   enableDownscalingFeature:
                     default: false

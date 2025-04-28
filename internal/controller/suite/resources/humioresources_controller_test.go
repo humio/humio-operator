@@ -54,10 +54,10 @@ var _ = Describe("Humio Resources Controllers", func() {
 		humioClient.ClearHumioClientConnections(testRepoName)
 	})
 
-	//Add Tests for OpenAPI validation (or additional CRD features) specified in
-	//your API definition.
-	//Avoid adding tests for vanilla CRUD operations because they would
-	//test Kubernetes API server, which isn't the goal here.
+	// Add Tests for OpenAPI validation (or additional CRD features) specified in
+	// your API definition.
+	// Avoid adding tests for vanilla CRUD operations because they would
+	// test Kubernetes API server, which isn't the goal here.
 	Context("Humio Ingest Token", Label("envtest", "dummy", "real"), func() {
 		It("should handle ingest token with target secret correctly", func() {
 			ctx := context.Background()
