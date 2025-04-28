@@ -3378,7 +3378,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		It("HumioFeatureFlag: Should enable and disable feature successfully", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
-				Name:      "permission-token",
+				Name:      "fleet-labels",
 				Namespace: clusterKey.Namespace,
 			}
 
@@ -3389,7 +3389,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioFeatureFlagSpec{
 					ManagedClusterName: clusterKey.Name,
-					Name:               "PermissionTokens",
+					Name:               "FleetLabels",
 				},
 			}
 
@@ -3405,7 +3405,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var isFeatureFlagEnabled bool
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				isFeatureFlagEnabled, err = humioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toSetFeatureFlag)
+				isFeatureFlagEnabled, err = humioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, toSetFeatureFlag)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(isFeatureFlagEnabled).To(BeTrue())
@@ -3413,7 +3413,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Disabling feature flag")
 			Expect(k8sClient.Delete(ctx, fetchedFeatureFlag)).To(Succeed())
 			Eventually(func() bool {
-				isFeatureFlagEnabled, err = humioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toSetFeatureFlag)
+				isFeatureFlagEnabled, err = humioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, toSetFeatureFlag)
 				objErr := k8sClient.Get(ctx, key, fetchedFeatureFlag)
 
 				return k8serrors.IsNotFound(objErr) && !isFeatureFlagEnabled

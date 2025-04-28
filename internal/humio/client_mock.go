@@ -999,7 +999,7 @@ func (h *MockClientConfig) ValidateActionsForFilterAlert(context.Context, *humio
 	return nil
 }
 
-func (h *MockClientConfig) EnableFeatureFlag(_ context.Context, _ *humioapi.Client, _ reconcile.Request, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
+func (h *MockClientConfig) EnableFeatureFlag(_ context.Context, _ *humioapi.Client, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1012,12 +1012,12 @@ func (h *MockClientConfig) EnableFeatureFlag(_ context.Context, _ *humioapi.Clie
 	return nil
 }
 
-func (h *MockClientConfig) IsFeatureFlagEnabled(_ context.Context, _ *humioapi.Client, _ reconcile.Request, featureFlag *humiov1alpha1.HumioFeatureFlag) (bool, error) {
+func (h *MockClientConfig) IsFeatureFlagEnabled(_ context.Context, _ *humioapi.Client, featureFlag *humiov1alpha1.HumioFeatureFlag) (bool, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 	supportedFlag := resourceKey{
 		clusterName:  fmt.Sprintf("%s%s", featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName),
-		resourceName: "PermissionTokens",
+		resourceName: "FleetLabels",
 	}
 	if _, found := h.apiClient.FeatureFlag[supportedFlag]; !found {
 		h.apiClient.FeatureFlag[supportedFlag] = false
@@ -1033,7 +1033,7 @@ func (h *MockClientConfig) IsFeatureFlagEnabled(_ context.Context, _ *humioapi.C
 	return false, fmt.Errorf("could not find feature flag with name %q, err=%w", featureFlag.Spec.Name, humioapi.EntityNotFound{})
 }
 
-func (h *MockClientConfig) DisableFeatureFlag(_ context.Context, _ *humioapi.Client, _ reconcile.Request, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
+func (h *MockClientConfig) DisableFeatureFlag(_ context.Context, _ *humioapi.Client, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 

@@ -69,7 +69,7 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	defer func(ctx context.Context, featureFlag *humiov1alpha1.HumioFeatureFlag) {
-		enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, req, featureFlag)
+		enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, featureFlag)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateNotFound, featureFlag)
 			return
@@ -88,7 +88,7 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if featureFlag.GetDeletionTimestamp() != nil {
 		r.Log.Info("Feature flag marked to be deleted")
 		if helpers.ContainsElement(featureFlag.GetFinalizers(), humioFinalizer) {
-			enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, req, featureFlag)
+			enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, featureFlag)
 			objErr := r.Get(ctx, req.NamespacedName, featureFlag)
 
 			r.Log.Info(fmt.Sprintf("Feature flag enable status: %t", enabled))
@@ -109,21 +109,22 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting feature flag")
-			if err := r.HumioClient.DisableFeatureFlag(ctx, humioHttpClient, req, featureFlag); err != nil {
+			if err := r.HumioClient.DisableFeatureFlag(ctx, humioHttpClient, featureFlag); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "disable feature flag returned error")
 			}
 		}
 		return reconcile.Result{}, nil
 	}
 
-	enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, req, featureFlag)
+	enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, featureFlag)
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "the specified feature flag does not exist")
 	}
 
 	r.Log.Info("Checking if feature flag needs to be updated")
+	r.Log.Info(fmt.Sprintf("Feature flag enable status: %t", enabled))
 	if !enabled {
-		err = r.HumioClient.EnableFeatureFlag(ctx, humioHttpClient, req, featureFlag)
+		err = r.HumioClient.EnableFeatureFlag(ctx, humioHttpClient, featureFlag)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not enable feature flag")
 		}
