@@ -3411,14 +3411,17 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(isFeatureFlagEnabled).To(BeTrue())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Disabling feature flag")
-			Expect(k8sClient.Delete(ctx, fetchedFeatureFlag)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, fetchedFeatureFlag)).To(Succeed())
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, key, fetchedFeatureFlag)
-				if k8serrors.IsNotFound(err) {
-					isFeatureFlagEnabled, err = humioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toSetFeatureFlag)
-					return !isFeatureFlagEnabled && err == nil
-				}
-				return k8serrors.IsNotFound(err)
+				isFeatureFlagEnabled, err = humioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toSetFeatureFlag)
+				objErr := k8sClient.Get(ctx, key, fetchedFeatureFlag)
+
+				fmt.Println(isFeatureFlagEnabled)
+				fmt.Println(objErr)
+				fmt.Println(k8serrors.IsNotFound(objErr))
+				fmt.Println(k8serrors.IsNotFound(objErr) && !isFeatureFlagEnabled)
+
+				return k8serrors.IsNotFound(objErr) && !isFeatureFlagEnabled
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 

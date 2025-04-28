@@ -1003,9 +1003,8 @@ func (h *MockClientConfig) EnableFeatureFlag(_ context.Context, _ *humioapi.Clie
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
-	clusterName := fmt.Sprintf("%s%s", featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName)
 	key := resourceKey{
-		clusterName:  clusterName,
+		clusterName:  fmt.Sprintf("%s%s", featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName),
 		resourceName: featureFlag.Spec.Name,
 	}
 
@@ -1038,10 +1037,8 @@ func (h *MockClientConfig) DisableFeatureFlag(_ context.Context, _ *humioapi.Cli
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
-	clusterName := fmt.Sprintf("%s%s", featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName)
-
 	key := resourceKey{
-		clusterName:  clusterName,
+		clusterName:  fmt.Sprintf("%s%s", featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName),
 		resourceName: featureFlag.Spec.Name,
 	}
 

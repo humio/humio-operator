@@ -89,6 +89,10 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		r.Log.Info("Feature flag marked to be deleted")
 		if helpers.ContainsElement(featureFlag.GetFinalizers(), humioFinalizer) {
 			enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, req, featureFlag)
+			r.Log.Info(fmt.Sprintf("Feature flag enable status: %T", enabled))
+			r.Log.Info(fmt.Sprintf("Feature flag request error: %v", err))
+			r.Log.Info(fmt.Sprintf("Feature flag not found: %v", errors.As(err, &humioapi.EntityNotFound{})))
+			r.Log.Info(fmt.Sprintf("Feature flag not found: %v", k8serrors.IsNotFound(err)))
 			if errors.As(err, &humioapi.EntityNotFound{}) || !enabled {
 				featureFlag.SetFinalizers(helpers.RemoveElement(featureFlag.GetFinalizers(), humioFinalizer))
 				err := r.Update(ctx, featureFlag)
