@@ -57,7 +57,7 @@ func (r *HumioClusterReconciler) validateAdminSecretContent(ctx context.Context,
 		Name:      adminSecretName,
 		Namespace: hc.Namespace,
 	}
-	if err := r.Client.Get(ctx, key, secret); err != nil {
+	if err := r.Get(ctx, key, secret); err != nil {
 		return fmt.Errorf("got err while trying to get existing secret from k8s: %w", err)
 	}
 
@@ -98,7 +98,7 @@ func (r *HumioClusterReconciler) ensureAdminSecretContent(ctx context.Context, h
 		Namespace: hc.Namespace,
 	}
 	adminSecret := &corev1.Secret{}
-	err := r.Client.Get(ctx, key, adminSecret)
+	err := r.Get(ctx, key, adminSecret)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// If the secret doesn't exist, create it
@@ -113,7 +113,7 @@ func (r *HumioClusterReconciler) ensureAdminSecretContent(ctx context.Context, h
 				},
 				Type: corev1.SecretTypeOpaque,
 			}
-			if err := r.Client.Create(ctx, &desiredSecret); err != nil {
+			if err := r.Create(ctx, &desiredSecret); err != nil {
 				return r.logErrorAndReturn(err, "unable to create secret")
 			}
 			return nil
@@ -124,7 +124,7 @@ func (r *HumioClusterReconciler) ensureAdminSecretContent(ctx context.Context, h
 	// If we got no error, we compare current token with desired token and update if needed.
 	if adminSecret.StringData["token"] != desiredAPIToken {
 		adminSecret.StringData = map[string]string{"token": desiredAPIToken}
-		if err := r.Client.Update(ctx, adminSecret); err != nil {
+		if err := r.Update(ctx, adminSecret); err != nil {
 			return r.logErrorAndReturn(err, "unable to update secret")
 		}
 	}

@@ -24,10 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	//lint:ignore ST1001 we use dot import for ginkgo as per their official instructions
 	. "github.com/onsi/ginkgo/v2"
-
-	//lint:ignore ST1001 we use dot import for gomega as per their official instructions
 	. "github.com/onsi/gomega"
 )
 

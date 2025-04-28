@@ -186,7 +186,7 @@ func constructIngress(hc *humiov1alpha1.HumioCluster, name string, hostname stri
 	}
 
 	for k, v := range hc.Spec.Ingress.Annotations {
-		ingress.ObjectMeta.Annotations[k] = v
+		ingress.Annotations[k] = v
 	}
 	return &ingress
 }

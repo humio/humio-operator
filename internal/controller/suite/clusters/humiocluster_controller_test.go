@@ -3741,7 +3741,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.HumioNodeSpec.ExtraHumioVolumeMounts = []corev1.VolumeMount{
+			toCreate.Spec.ExtraHumioVolumeMounts = []corev1.VolumeMount{
 				{
 					Name: controller.HumioDataVolumeName,
 				},
@@ -3776,7 +3776,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.HumioNodeSpec.ExtraHumioVolumeMounts = []corev1.VolumeMount{
+			toCreate.Spec.ExtraHumioVolumeMounts = []corev1.VolumeMount{
 				{
 					Name:      "something-unique",
 					MountPath: controller.HumioDataPath,
@@ -3812,7 +3812,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-			toCreate.Spec.HumioNodeSpec.ExtraVolumes = []corev1.Volume{
+			toCreate.Spec.ExtraVolumes = []corev1.Volume{
 				{
 					Name: controller.HumioDataVolumeName,
 				},
@@ -3848,7 +3848,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			toCreate.Spec.TargetReplicationFactor = 2
-			toCreate.Spec.HumioNodeSpec.NodeCount = 1
+			toCreate.Spec.NodeCount = 1
 
 			suite.UsingClusterBy(key.Name, "Creating the cluster successfully")
 			ctx := context.Background()
@@ -4373,7 +4373,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					if volume.Name == serviceAccountSecretVolumeName {
 						secret, err := kubernetes.GetSecret(ctx, k8sClient, volume.Secret.SecretName, key.Namespace)
 						Expect(err).ShouldNot(HaveOccurred())
-						Expect(secret.ObjectMeta.Annotations[corev1.ServiceAccountNameKey]).To(Equal(toCreate.Spec.InitServiceAccountName))
+						Expect(secret.Annotations[corev1.ServiceAccountNameKey]).To(Equal(toCreate.Spec.InitServiceAccountName))
 					}
 				}
 			}
@@ -4412,7 +4412,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					if volume.Name == serviceAccountSecretVolumeName {
 						secret, err := kubernetes.GetSecret(ctx, k8sClient, volume.Secret.SecretName, key.Namespace)
 						Expect(err).ShouldNot(HaveOccurred())
-						Expect(secret.ObjectMeta.Annotations[corev1.ServiceAccountNameKey]).To(Equal(toCreate.Spec.InitServiceAccountName))
+						Expect(secret.Annotations[corev1.ServiceAccountNameKey]).To(Equal(toCreate.Spec.InitServiceAccountName))
 					}
 				}
 			}

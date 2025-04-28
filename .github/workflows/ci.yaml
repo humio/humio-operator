@@ -80,11 +80,6 @@ jobs:
         export PATH=$PATH:$(go env GOPATH)/bin
         go install github.com/securego/gosec/v2/cmd/gosec@latest
         gosec -exclude-dir images/logscale-dummy -exclude-generated ./...
-    - name: Run Staticcheck
-      uses: dominikh/staticcheck-action@v1.3.1
-      with:
-        version: "2024.1.1"
-        install-go: false
     - name: operator image
       run: make docker-build-operator IMG=humio/humio-operator:${{ github.sha }}
     - name: helper image
