@@ -984,7 +984,7 @@ func (r *HumioClusterReconciler) newPodAttachments(ctx context.Context, hnp *Hum
 		Namespace: hnp.GetNamespace(),
 	}
 	hbt := &humiov1alpha1.HumioBootstrapToken{}
-	err = r.Client.Get(ctx, key, hbt)
+	err = r.Get(ctx, key, hbt)
 	if err != nil {
 		return &podAttachments{}, fmt.Errorf("unable to create Pod for HumioCluster. could not find HumioBootstrapToken: %w", err)
 	}

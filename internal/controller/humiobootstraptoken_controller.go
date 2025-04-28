@@ -120,8 +120,8 @@ func (r *HumioBootstrapTokenReconciler) Reconcile(ctx context.Context, req ctrl.
 		return reconcile.Result{}, err
 	}
 
-	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.CommonConfig.RequeuePeriod.String())
-	return reconcile.Result{RequeueAfter: r.CommonConfig.RequeuePeriod}, nil
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
 }
 
 func (r *HumioBootstrapTokenReconciler) updateStatus(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, state string) error {
@@ -144,12 +144,12 @@ func (r *HumioBootstrapTokenReconciler) updateStatus(ctx context.Context, hbt *h
 			},
 		}
 	}
-	return r.Client.Status().Update(ctx, hbt)
+	return r.Status().Update(ctx, hbt)
 }
 
 func (r *HumioBootstrapTokenReconciler) updateStatusImage(ctx context.Context, hbt *humiov1alpha1.HumioBootstrapToken, image string) error {
 	hbt.Status.BootstrapImage = image
-	return r.Client.Status().Update(ctx, hbt)
+	return r.Status().Update(ctx, hbt)
 }
 
 func (r *HumioBootstrapTokenReconciler) execCommand(ctx context.Context, pod *corev1.Pod, args []string) (string, error) {

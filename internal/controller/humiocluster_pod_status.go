@@ -255,7 +255,7 @@ func (s *podsStatusState) latestTransitionTime(conditions []corev1.PodCondition)
 		if condition.LastTransitionTime.Time.IsZero() {
 			continue
 		}
-		if idx == 0 || condition.LastTransitionTime.Time.After(mostRecentTransitionTime.Time) {
+		if idx == 0 || condition.LastTransitionTime.After(mostRecentTransitionTime.Time) {
 			mostRecentTransitionTime = condition.LastTransitionTime
 		}
 	}
