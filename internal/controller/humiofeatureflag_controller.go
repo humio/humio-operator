@@ -90,11 +90,6 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if helpers.ContainsElement(featureFlag.GetFinalizers(), humioFinalizer) {
 			enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, featureFlag)
 			objErr := r.Get(ctx, req.NamespacedName, featureFlag)
-
-			r.Log.Info(fmt.Sprintf("Feature flag enable status: %t", enabled))
-			r.Log.Info(fmt.Sprintf("Feature flag request error: %v", objErr))
-			r.Log.Info(fmt.Sprintf("Feature flag not found: %v", errors.As(objErr, &humioapi.EntityNotFound{})))
-			r.Log.Info(fmt.Sprintf("Feature flag not found: %v", k8serrors.IsNotFound(objErr)))
 			if errors.As(objErr, &humioapi.EntityNotFound{}) || !enabled || errors.As(err, &humioapi.EntityNotFound{}) {
 				featureFlag.SetFinalizers(helpers.RemoveElement(featureFlag.GetFinalizers(), humioFinalizer))
 				err := r.Update(ctx, featureFlag)
@@ -122,7 +117,6 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	r.Log.Info("Checking if feature flag needs to be updated")
-	r.Log.Info(fmt.Sprintf("Feature flag enable status: %t", enabled))
 	if !enabled {
 		err = r.HumioClient.EnableFeatureFlag(ctx, humioHttpClient, featureFlag)
 		if err != nil {

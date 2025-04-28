@@ -1440,13 +1440,11 @@ func (h *ClientConfig) IsFeatureFlagEnabled(ctx context.Context, client *humioap
 }
 
 func (h *ClientConfig) DisableFeatureFlag(ctx context.Context, client *humioapi.Client, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
-	response, err := humiographql.DisableFeatureFlag(
+	_, err := humiographql.DisableFeatureFlag(
 		ctx,
 		client,
 		humiographql.FeatureFlag(featureFlag.Spec.Name),
 	)
-	fmt.Printf("DisableFeatureFlag response %v\n", response)
-	fmt.Println(humiographql.FeatureFlag(featureFlag.Spec.Name))
 	return err
 }
 
