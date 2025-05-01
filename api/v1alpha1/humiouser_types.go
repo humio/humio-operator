@@ -21,19 +21,19 @@ import (
 )
 
 const (
-	// HumioParserStateUnknown is the Unknown state of the parser
-	HumioParserStateUnknown = "Unknown"
-	// HumioParserStateExists is the Exists state of the parser
-	HumioParserStateExists = "Exists"
-	// HumioParserStateNotFound is the NotFound state of the parser
-	HumioParserStateNotFound = "NotFound"
-	// HumioParserStateConfigError is the state of the parser when user-provided specification results in configuration error, such as non-existent humio cluster
-	HumioParserStateConfigError = "ConfigError"
+	// HumioUserStateUnknown is the Unknown state of the user
+	HumioUserStateUnknown = "Unknown"
+	// HumioUserStateExists is the Exists state of the user
+	HumioUserStateExists = "Exists"
+	// HumioUserStateNotFound is the NotFound state of the user
+	HumioUserStateNotFound = "NotFound"
+	// HumioUserStateConfigError is the state of the user when user-provided specification results in configuration error, such as non-existent humio cluster
+	HumioUserStateConfigError = "ConfigError"
 )
 
-// HumioParserSpec defines the desired state of HumioParser.
+// HumioUserSpec defines the desired state of HumioUser.
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
-type HumioParserSpec struct {
+type HumioUserSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
 	// This conflicts with ExternalClusterName.
@@ -45,55 +45,49 @@ type HumioParserSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Optional
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
-	// Name is the name of the parser inside Humio
+	// UserName defines the username for the LogScale user.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
-	Name string `json:"name"`
-	// ParserScript contains the code for the Humio parser
-	ParserScript string `json:"parserScript,omitempty"`
-	// RepositoryName defines what repository this parser should be managed in
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:Required
-	RepositoryName string `json:"repositoryName,omitempty"`
-	// TagFields is used to define what fields will be used to define how data will be tagged when being parsed by
-	// this parser
-	TagFields []string `json:"tagFields,omitempty"`
-	// TestData contains example test data to verify the parser behavior
-	TestData []string `json:"testData,omitempty"`
+	UserName string `json:"userName"`
+	// IsRoot toggles whether the user should be marked as a root user or not.
+	// If explicitly set by the user, the value will be enforced, otherwise the root state of a user will be ignored.
+	// Updating the root status of a user requires elevated privileges. When using ExternalClusterName it is important
+	// to ensure the API token for the ExternalClusterName is one such privileged API token.
+	// When using ManagedClusterName the API token should already be one such privileged API token that allows managing
+	// the root status of users.
+	// +kubebuilder:validation:Optional
+	IsRoot *bool `json:"isRoot,omitempty"`
 }
 
-// HumioParserStatus defines the observed state of HumioParser.
-type HumioParserStatus struct {
+// HumioUserStatus defines the observed state of HumioUser.
+type HumioUserStatus struct {
 	// State reflects the current state of the HumioParser
 	State string `json:"state,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=humioparsers,scope=Namespaced
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state",description="The state of the parser"
-// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Humio Parser"
 
-// HumioParser is the Schema for the humioparsers API.
-type HumioParser struct {
+// HumioUser is the Schema for the humiousers API.
+type HumioUser struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +kubebuilder:validation:Required
-	Spec   HumioParserSpec   `json:"spec"`
-	Status HumioParserStatus `json:"status,omitempty"`
+	Spec   HumioUserSpec   `json:"spec"`
+	Status HumioUserStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// HumioParserList contains a list of HumioParser.
-type HumioParserList struct {
+// HumioUserList contains a list of HumioUser.
+type HumioUserList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []HumioParser `json:"items"`
+	Items           []HumioUser `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&HumioParser{}, &HumioParserList{})
+	SchemeBuilder.Register(&HumioUser{}, &HumioUserList{})
 }

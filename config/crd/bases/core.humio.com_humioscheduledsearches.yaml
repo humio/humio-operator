@@ -68,6 +68,7 @@ spec:
                 description: |-
                   ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
                   This conflicts with ManagedClusterName.
+                minLength: 1
                 type: string
               labels:
                 description: Labels are a set of labels on the scheduled search
@@ -79,11 +80,15 @@ spec:
                   ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
                   resources should be created.
                   This conflicts with ExternalClusterName.
+                minLength: 1
                 type: string
               name:
                 description: Name is the name of the scheduled search inside Humio
                 minLength: 1
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               queryEnd:
                 description: QueryEnd is the end of the relative time interval for
                   the query.
@@ -119,6 +124,10 @@ spec:
             - timeZone
             - viewName
             type: object
+            x-kubernetes-validations:
+            - message: Must specify exactly one of managedClusterName or externalClusterName
+              rule: (has(self.managedClusterName) && self.managedClusterName != "")
+                != (has(self.externalClusterName) && self.externalClusterName != "")
           status:
             description: HumioScheduledSearchStatus defines the observed state of
               HumioScheduledSearch.
@@ -127,6 +136,8 @@ spec:
                 description: State reflects the current state of the HumioScheduledSearch
                 type: string
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

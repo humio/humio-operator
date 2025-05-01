@@ -31,7 +31,7 @@ const (
 type HumioExternalClusterSpec struct {
 	// Url is used to connect to the Humio cluster we want to use.
 	// +kubebuilder:validation:MinLength=1
-	// +required
+	// +kubebuilder:validation:Required
 	Url string `json:"url"`
 	// APITokenSecretName is used to obtain the API token we need to use when communicating with the external Humio cluster.
 	// It refers to a Kubernetes secret that must be located in the same namespace as the HumioExternalCluster.
@@ -68,7 +68,8 @@ type HumioExternalCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HumioExternalClusterSpec   `json:"spec,omitempty"`
+	// +kubebuilder:validation:Required
+	Spec   HumioExternalClusterSpec   `json:"spec"`
 	Status HumioExternalClusterStatus `json:"status,omitempty"`
 }
 
