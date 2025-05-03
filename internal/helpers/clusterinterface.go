@@ -290,3 +290,11 @@ func (c Cluster) constructHumioConfig(ctx context.Context, k8sClient client.Clie
 		Insecure: humioExternalCluster.Spec.Insecure,
 	}, nil
 }
+
+func HprsIsReady(hprs *humiov1alpha1.HumioPdfRenderService) bool {
+	return hprs.Status.ObservedGeneration == hprs.Generation &&
+		hprs.Status.ReadyReplicas > 0 &&
+		(hprs.Status.State == "" || // accept empty
+			hprs.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning ||
+			hprs.Status.State == humiov1alpha1.HumioPdfRenderServiceStateExists)
+}
