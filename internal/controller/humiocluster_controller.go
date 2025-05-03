@@ -397,7 +397,7 @@ func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc 
 
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				errMsg := fmt.Sprintf("referenced HumioPdfRenderService %q not found", hc.Spec.PdfRenderServiceRef.Name)
+				errMsg := fmt.Sprintf("referenced HumioPdfRenderService %s not found", hc.Spec.PdfRenderServiceRef.Name)
 				r.Log.Error(err, "Referenced HumioPdfRenderService not found",
 					"name", hc.Spec.PdfRenderServiceRef.Name,
 					"namespace", namespace)
@@ -448,8 +448,57 @@ func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc 
 	return r.removePdfRenderServiceIfExists(ctx, hc)
 }
 
-// removePdfRenderServiceIfExists removes the cluster-specific PDF render service if it exists.
-// The cluster-specific service is identified by the name "<cluster-name>-pdf-render-service".
+// syncPdfRenderServiceConfig ensures the PdfRenderService configuration is in‑sync with the HumioCluster.
+// – It currently copies only TLS settings but is easy to extend with more fields.
+func (r *HumioClusterReconciler) syncPdfRenderServiceConfig(
+	ctx context.Context,
+	hc *humiov1alpha1.HumioCluster,
+	hprs *humiov1alpha1.HumioPdfRenderService,
+) error {
+	desiredHprs := hprs.DeepCopy() // work on a copy
+
+	// ---------------------------------------------------------------------
+	// 1. Compute the desired TLS block based on the cluster
+	// ---------------------------------------------------------------------
+	var tlsEnabled bool
+	if helpers.TLSEnabled(hc) {
+		tlsEnabled = true
+	}
+
+	if desiredHprs.Spec.TLS == nil {
+		desiredHprs.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{}
+	}
+	desiredHprs.Spec.TLS.Enabled = helpers.BoolPtr(tlsEnabled)
+
+	// If the cluster uses a custom CA secret, mirror that.
+	if tlsEnabled && hc.Spec.TLS.CASecretName != "" {
+		desiredHprs.Spec.TLS.CASecretName = hc.Spec.TLS.CASecretName
+	}
+
+	// ---------------------------------------------------------------------
+	// 2. Short‑circuit if nothing changed
+	// ---------------------------------------------------------------------
+	if reflect.DeepEqual(hprs.Spec.TLS, desiredHprs.Spec.TLS) {
+		return nil // already up‑to‑date
+	}
+
+	// ---------------------------------------------------------------------
+	// 3. Apply the desired modifications
+	// ---------------------------------------------------------------------
+	hprs.Spec.TLS = desiredHprs.Spec.TLS
+
+	r.Log.Info("Updating HumioPdfRenderService to match cluster TLS settings",
+		"name", hprs.Name, "namespace", hprs.Namespace,
+		"enabled", tlsEnabled, "caSecret", desiredHprs.Spec.TLS.CASecretName)
+
+	if err := r.Update(ctx, hprs); err != nil {
+		return fmt.Errorf("failed to update HumioPdfRenderService %s/%s: %w",
+			hprs.Namespace, hprs.Name, err)
+	}
+	return nil
+}
+
+// removePdfRenderServiceIfExists removes the cluster-specific PDF render service if it exists
 func (r *HumioClusterReconciler) removePdfRenderServiceIfExists(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	clusterSpecificPdfServiceName := hc.Name + "-pdf-render-service"
 	pdfService := &humiov1alpha1.HumioPdfRenderService{}
