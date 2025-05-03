@@ -444,11 +444,18 @@ func (r *HumioClusterReconciler) removePdfRenderServiceIfExists(ctx context.Cont
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Cluster-specific PDF render service doesn't exist, nothing to do
-			r.Log.Info("Cluster-specific HumioPdfRenderService does not exist, no removal needed", "name", clusterSpecificPdfServiceName)
 			return nil
 		}
 		// Other error getting the potential cluster-specific service
 		return r.logErrorAndReturn(err, fmt.Sprintf("failed to get potential cluster-specific HumioPdfRenderService %s", clusterSpecificPdfServiceName))
+	}
+
+	// Only delete if we're the owner
+	if !metav1.IsControlledBy(pdfService, hc) {
+		r.Log.Info("Found cluster-specific HumioPdfRenderService but it's not owned by this HumioCluster - skipping deletion",
+			"pdfService", pdfService.Name,
+			"humioCluster", hc.Name)
+		return nil
 	}
 
 	// Cluster-specific PDF render service exists, remove it

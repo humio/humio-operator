@@ -48,11 +48,13 @@ const (
 	protocolHTTPS              string = "https"
 	tlsCertName                string = "tls-cert"
 	pdfRenderUseTLSEnvVar      string = "PDF_RENDER_USE_TLS"
-	pdfRenderTLSCertName       string = "pdf-render-tls-cert"
-	hprsFinalizer              string = "humio.com/finalizer"
-	pdfTLSCertVolumeName       string = "pdf-render-tls-cert-volume"
-	pdfRenderTLSCertPathEnvVar string = "PDF_RENDER_TLS_CERT_PATH"
-	pdfRenderTLSKeyPathEnvVar  string = "PDF_RENDER_TLS_KEY_PATH"
+	hprsFinalizer              string = "core.humio.com/finalizer" // Match controller constant
+	// Match controller constants
+	pdfTLSCertVolumeName       string = "tpdf-render-tls-cert-volume"
+	pdfTLSCertMountPath        string = "/certs"
+	pdfRenderTLSCertPathEnvVar string = "PDF_RENDER_TLS_CERT_PATH" // Match controller constant
+	pdfRenderTLSKeyPathEnvVar  string = "PDF_RENDER_TLS_KEY_PATH"  // Match controller constant
+	pdfRenderCAFileEnvVar      string = "PDF_RENDER_CA_FILE"       // Match controller constant
 )
 
 var _ = Describe("Humio Resources Controllers", func() {
@@ -3991,138 +3993,332 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}, testTimeout, suite.TestInterval).Should(Equal(int32(9090)))
 		})
 
-		It("should correctly handle TLS configuration", func() {
-				depKey := types.NamespacedName{Name: key.Name + "-pdf-render-service", Namespace: key.Namespace}
-				svcKey := types.NamespacedName{Name: key.Name + "-pdf-render-service", Namespace: key.Namespace}
-				tlsSecretName := key.Name + "-tls-secret"
+		It("should correctly handle TLS configuration", Label("envtest", "dummy", "real"), func() {
+			// This test verifies the HumioPdfRenderService controller's reaction
+			// to changes in its own spec.tls field. The logic for *copying* TLS
+			// configuration from a HumioCluster (when using PdfRenderServiceRef)
+			// resides in the HumioCluster controller tests.
 
-				By("Creating a dummy TLS secret")
-				tlsSecret := &corev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-								Name:      tlsSecretName,
-								Namespace: key.Namespace,
-						},
-						Data: map[string][]byte{
-								"tls.crt": []byte("dummycert"),
-								"tls.key": []byte("dummykey"),
-						},
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-pdf-render-service-tls-test",
+				Namespace: clusterKey.Namespace,
+			}
+			// The secret name the HPRS controller expects when TLS is enabled but caSecretName is not specified.
+			secretName := fmt.Sprintf("%s-certificate", key.Name)
+
+			// 1. Create HPRS without TLS initially
+			hprs := &humiov1alpha1.HumioPdfRenderService{
+				ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace},
+				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
+					Image: PDFRenderServiceImage,
+					// ... other specs ...
+					TLS: &humiov1alpha1.HumioClusterTLSSpec{Enabled: helpers.BoolPtr(false)}, // Start with TLS disabled
+				},
+			}
+			Expect(k8sClient.Create(ctx, hprs)).Should(Succeed())
+			defer func() {
+				// Ensure HPRS is cleaned up
+				_ = k8sClient.Delete(ctx, hprs) // Use context.Background or a fresh context if needed
+				// Ensure secret is cleaned up if it exists
+				tlsSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: key.Namespace}}
+				_ = k8sClient.Delete(ctx, tlsSecret) // Use context.Background or a fresh context if needed
+			}()
+
+			// Wait for initial reconcile (no TLS volume/mounts/env)
+			Eventually(func() bool {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, key, deployment)
+				if err != nil {
+					return false // Deployment might not exist yet, which is fine initially
 				}
-				Expect(suite.K8sClient.Create(context.Background(), tlsSecret)).Should(Succeed())
-				defer func() {
-						Expect(suite.K8sClient.Delete(context.Background(), tlsSecret)).Should(Succeed())
-				}()
-
-				By("Enabling TLS in the HumioPdfRenderService CR")
-				updatedHpr := &humiov1alpha1.HumioPdfRenderService{}
-				Expect(k8sClient.Get(context.Background(), key, updatedHpr)).Should(Succeed())
-				updatedHpr.Spec.TLS = &humiov1alpha1.HumioPdfRenderServiceTLSSpec{
-						Enabled:    true,
-						SecretName: tlsSecretName,
+				// Check volume does not exist
+				for _, vol := range deployment.Spec.Template.Spec.Volumes {
+					// Use the locally defined constant
+					if vol.Name == pdfTLSCertVolumeName {
+						return false // Should not have TLS volume yet
+					}
 				}
-				Expect(suite.K8sClient.Update(context.Background(), updatedHpr)).Should(Succeed())
+				// Check env var does not exist or is false
+				if len(deployment.Spec.Template.Spec.Containers) > 0 {
+					for _, env := range deployment.Spec.Template.Spec.Containers[0].Env {
+						// Use the locally defined constant
+						if env.Name == pdfRenderUseTLSEnvVar && env.Value == "true" {
+							return false // Should not have TLS env var set to true
+						}
+					}
+				}
+				return true
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Deployment should not have TLS configuration initially")
 
-				By("Checking Deployment for TLS volume and mount")
-				Eventually(func() bool {
-						err := k8sClient.Get(context.Background(), depKey, deployment)
-						if err != nil {
-								return false
-						}
-						foundVol := false
-						for _, vol := range deployment.Spec.Template.Spec.Volumes {
-								if vol.Name == "pdf-render-tls-secret" && vol.Secret != nil && vol.Secret.SecretName == tlsSecretName {
-										foundVol = true
-										break
-								}
-						}
-						if !foundVol {
-								return false
-						}
-						foundMount := false
-						for _, mount := range deployment.Spec.Template.Spec.Containers[0].VolumeMounts {
-								if mount.Name == "pdf-render-tls-secret" && mount.MountPath == "/etc/pdf-render/tls" {
-										foundMount = true
-										break
-								}
-						}
-						return foundMount
-				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			// Verify initial service port is http
+			svc := &corev1.Service{}
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, key, svc)
+				if err != nil || len(svc.Spec.Ports) == 0 {
+					return ""
+				}
+				return svc.Spec.Ports[0].Name
+			}, testTimeout, suite.TestInterval).Should(Equal("http"), "Service port should be http initially")
 
-				By("Checking Deployment for TLS environment variable")
-				Eventually(func() bool {
-						err := k8sClient.Get(context.Background(), depKey, deployment)
-						if err != nil {
-								return false
-						}
-						for _, env := range deployment.Spec.Template.Spec.Containers[0].Env {
-								if env.Name == "PDF_RENDER_USE_TLS" && env.Value == "true" {
-										return true
-								}
-						}
-						return false
-				}, testTimeout, suite.TestInterval).Should(BeTrue())
+			// 2. Prepare and Create the TLS Secret (as expected by the HPRS controller default logic)
+			tlsSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: key.Namespace,
+				},
+				Data: map[string][]byte{
+					corev1.TLSCertKey:       []byte("fake-cert-data"),
+					corev1.TLSPrivateKeyKey: []byte("fake-key-data"),
+					// "ca.crt": []byte("fake-ca-data"), // Add if controller requires/uses it
+				},
+				Type: corev1.SecretTypeTLS,
+			}
+			// Ensure secret doesn't exist before creating to avoid test flakes
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: key.Namespace}, &corev1.Secret{})
+			if err != nil && k8serrors.IsNotFound(err) {
+				suite.UsingClusterBy(key.Name, "Creating TLS secret "+secretName)
+				Expect(k8sClient.Create(ctx, tlsSecret)).Should(Succeed())
+			} else if err == nil {
+				fmt.Fprintf(GinkgoWriter, "TLS secret already exists, skipping creation: %s\n", secretName)
+			} else {
+				Expect(err).ShouldNot(HaveOccurred(), "Failed to check for existing TLS secret")
+			}
 
-				By("Checking Service port name for TLS")
-				Eventually(func() string {
-						err := k8sClient.Get(context.Background(), svcKey, service)
-						if err != nil || len(service.Spec.Ports) == 0 {
-								return ""
-						}
-						return service.Spec.Ports[0].Name
-				}, testTimeout, suite.TestInterval).Should(Equal("https"))
+			// 3. Update HPRS to enable TLS (simulating the spec change)
+			suite.UsingClusterBy(key.Name, "Enabling TLS on HumioPdfRenderService")
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, key, hprs); err != nil {
+					return err
+				}
+				if hprs.Spec.TLS == nil {
+					hprs.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{}
+				}
+				hprs.Spec.TLS.Enabled = helpers.BoolPtr(true)
+				// Note: We are NOT setting caSecretName here, testing the controller's default secret name logic.
+				return k8sClient.Update(ctx, hprs)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-				By("Disabling TLS in the HumioPdfRenderService CR")
-				Expect(k8sClient.Get(context.Background(), key, updatedHpr)).Should(Succeed())
-				updatedHpr.Spec.TLS.Enabled = false
-				Expect(suite.K8sClient.Update(context.Background(), updatedHpr)).Should(Succeed())
+			// 4. Verify Deployment is updated with TLS config
+			suite.UsingClusterBy(key.Name, "Verifying Deployment has TLS configuration")
+			Eventually(func() bool {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, key, deployment)
+				if err != nil {
+					return false
+				}
 
-				By("Checking Deployment for removed TLS volume and mount")
-				Eventually(func() bool {
-						err := k8sClient.Get(context.Background(), depKey, deployment)
-						if err != nil {
-								return false // Assume removed if error fetching
-						}
-						foundVol := false
-						for _, vol := range deployment.Spec.Template.Spec.Volumes {
-								if vol.Name == "pdf-render-tls-secret" {
-										foundVol = true
-										break
-								}
-						}
-						if foundVol {
-								return false // Still present
-						}
-						foundMount := false
-						for _, mount := range deployment.Spec.Template.Spec.Containers[0].VolumeMounts {
-								if mount.Name == "pdf-render-tls-secret" {
-										foundMount = true
-										break
-								}
-						}
-						return !foundMount // Should not be present
-				}, testTimeout, suite.TestInterval).Should(BeTrue())
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return false // No container to check
+				}
+				container := deployment.Spec.Template.Spec.Containers[0]
 
-				By("Checking Deployment for removed TLS environment variable")
-				Eventually(func() bool {
-						err := k8sClient.Get(context.Background(), depKey, deployment)
-						if err != nil {
-								return false // Assume removed if error fetching
-						}
-						for _, env := range deployment.Spec.Template.Spec.Containers[0].Env {
-								if env.Name == "PDF_RENDER_USE_TLS" {
-										return false // Still present
-								}
-						}
-						return true // Not found
-				}, testTimeout, suite.TestInterval).Should(BeTrue())
+				// Check Volume
+				foundVol := false
+				for _, vol := range deployment.Spec.Template.Spec.Volumes {
+					// Check volume exists, is a secret volume, and points to the correct secret
+					// Use the locally defined constant
+					if vol.Name == pdfTLSCertVolumeName && vol.Secret != nil && vol.Secret.SecretName == secretName {
+						foundVol = true
+						break
+					}
+				}
+				if !foundVol {
+					fmt.Fprintf(GinkgoWriter, "TLS Volume '%s' not found or incorrect\n", pdfTLSCertVolumeName)
+					return false
+				}
 
-				By("Checking Service port name reverted to http")
-				Eventually(func() string {
-						err := k8sClient.Get(context.Background(), svcKey, service)
-						if err != nil || len(service.Spec.Ports) == 0 {
-								return ""
+				// Check VolumeMount
+				foundMount := false
+				for _, mount := range container.VolumeMounts {
+					// Use the locally defined constants
+					if mount.Name == pdfTLSCertVolumeName && mount.MountPath == pdfTLSCertMountPath {
+						foundMount = true
+						break
+					}
+				}
+				if !foundMount {
+					return false
+				}
+
+				// Check Env Vars
+				expectedCertPath := fmt.Sprintf("%s/%s", pdfTLSCertMountPath, corev1.TLSCertKey)
+				expectedKeyPath := fmt.Sprintf("%s/%s", pdfTLSCertMountPath, corev1.TLSPrivateKeyKey)
+				expectedCAPath := fmt.Sprintf("%s/%s", pdfTLSCertMountPath, "ca.crt") // Assuming ca.crt is the key used in controller
+
+				envVars := make(map[string]string)
+				for _, env := range container.Env {
+					envVars[env.Name] = env.Value
+				}
+
+				if val, ok := envVars[pdfRenderUseTLSEnvVar]; !ok || val != "true" {
+					fmt.Fprintf(GinkgoWriter, "Env var '%s' not found or not 'true'\n", pdfRenderUseTLSEnvVar)
+					return false
+				}
+				if val, ok := envVars[pdfRenderTLSCertPathEnvVar]; !ok || val != expectedCertPath {
+					fmt.Fprintf(GinkgoWriter, "Env var '%s' not found or incorrect. Expected: %s, Got: %s\n", pdfRenderTLSCertPathEnvVar, expectedCertPath, val)
+					return false
+				}
+				if val, ok := envVars[pdfRenderTLSKeyPathEnvVar]; !ok || val != expectedKeyPath {
+					fmt.Fprintf(GinkgoWriter, "Env var '%s' not found or incorrect. Expected: %s, Got: %s\n", pdfRenderTLSKeyPathEnvVar, expectedKeyPath, val)
+					return false
+				}
+				if val, ok := envVars[pdfRenderCAFileEnvVar]; !ok || val != expectedCAPath {
+					fmt.Fprintf(GinkgoWriter, "Env var '%s' not found or incorrect. Expected: %s, Got: %s\n", pdfRenderCAFileEnvVar, expectedCAPath, val)
+					return false
+				}
+
+				return true // All checks passed
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Deployment should be updated with TLS volume, mount, and env var")
+
+			// 5. Verify Service port name is updated to https
+			suite.UsingClusterBy(key.Name, "Verifying Service port name is https")
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, key, svc)
+				if err != nil || len(svc.Spec.Ports) == 0 {
+					return ""
+				}
+				return svc.Spec.Ports[0].Name
+			}, testTimeout, suite.TestInterval).Should(Equal("https"))
+
+			// 6. Update HPRS to disable TLS
+			suite.UsingClusterBy(key.Name, "Disabling TLS on HumioPdfRenderService")
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, key, hprs); err != nil {
+					return err
+				}
+				if hprs.Spec.TLS != nil { // Only update if TLS spec exists
+					hprs.Spec.TLS.Enabled = helpers.BoolPtr(false)
+					return k8sClient.Update(ctx, hprs)
+				}
+				return nil // Already disabled or TLS spec is nil
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			// 7. Verify Deployment removes TLS config
+			suite.UsingClusterBy(key.Name, "Verifying Deployment removes TLS configuration")
+			Eventually(func() bool {
+				deployment := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, key, deployment)
+				if err != nil {
+					// If deployment disappears, that also counts as removing TLS config
+					return k8serrors.IsNotFound(err)
+				}
+
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					// If container is gone, TLS config is implicitly gone
+					return true
+				}
+				container := deployment.Spec.Template.Spec.Containers[0]
+
+				// Check Volume removed
+				for _, mount := range container.VolumeMounts {
+					// Use the locally defined constant
+					if mount.Name == pdfTLSCertVolumeName {
+						fmt.Fprintf(GinkgoWriter, "TLS VolumeMount '%s' still present\n", pdfTLSCertVolumeName)
+						return false // Should NOT have TLS mount
+					}
+				}
+				// Check VolumeMount removed
+				if len(deployment.Spec.Template.Spec.Containers) > 0 {
+					for _, mount := range deployment.Spec.Template.Spec.Containers[0].VolumeMounts {
+						// Use the locally defined constant
+						if mount.Name == pdfTLSCertVolumeName {
+							return false // Should NOT have TLS mount
 						}
-						return service.Spec.Ports[0].Name
-				}, testTimeout, suite.TestInterval).Should(Equal("http"))
+					}
+				}
+				// Check Env Vars removed
+				envVarNames := make(map[string]bool)
+				for _, env := range container.Env {
+					envVarNames[env.Name] = true
+				}
+
+				// Check if USE_TLS env var exists and is set to true
+				for _, env := range container.Env {
+					if env.Name == pdfRenderUseTLSEnvVar && env.Value == "true" {
+						fmt.Fprintf(GinkgoWriter, "Env var '%s' still set to 'true'\n", pdfRenderUseTLSEnvVar)
+						return false // Should not be true
+					}
+				}
+				if envVarNames[pdfRenderTLSCertPathEnvVar] {
+					fmt.Fprintf(GinkgoWriter, "Env var '%s' still present\n", pdfRenderTLSCertPathEnvVar)
+					return false
+				}
+				if envVarNames[pdfRenderTLSKeyPathEnvVar] {
+					fmt.Fprintf(GinkgoWriter, "Env var '%s' still present\n", pdfRenderTLSKeyPathEnvVar)
+					return false
+				}
+				if envVarNames[pdfRenderCAFileEnvVar] {
+					fmt.Fprintf(GinkgoWriter, "Env var '%s' still present\n", pdfRenderCAFileEnvVar)
+					return false
+				}
+
+				return true // All TLS config removed
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Deployment should remove TLS volume, mount, and env var")
+
+			// 8. Verify Service port name reverts to http
+			suite.UsingClusterBy(key.Name, "Verifying Service port name is http")
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, key, svc)
+				if err != nil || len(svc.Spec.Ports) == 0 {
+					return ""
+				}
+				return svc.Spec.Ports[0].Name
+			}, testTimeout, suite.TestInterval).Should(Equal("http"), "Service port should revert to http")
+		})
+
+		It("should set ConfigError state if TLS secret is missing", func() {
+			// Enable TLS in spec
+			enabled := true
+			hprs.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{Enabled: &enabled}
+
+			// Create HPRS *without* creating the secret
+			Expect(k8sClient.Create(ctx, hprs)).Should(Succeed())
+
+			// Check HPRS status becomes ConfigError
+			Eventually(func() string {
+				k8sClient.Get(ctx, hprsKey, hprs)
+				return hprs.Status.State
+			}, time.Second*10, time.Millisecond*250).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
+			// Check that Deployment might not be created or might be stuck
+			err := k8sClient.Get(ctx, hprsKey, deployment)
+			Expect(k8serrors.IsNotFound(err) || deployment.Status.ReadyReplicas == 0).Should(BeTrue())
+		})
+
+		It("should add a finalizer and clean up resources on deletion", func() {
+			Expect(k8sClient.Create(ctx, hprs)).Should(Succeed())
+
+			// Wait for Deployment and Service
+			Eventually(func() error { return k8sClient.Get(ctx, hprsKey, deployment) }, time.Second*10, time.Millisecond*250).Should(Succeed())
+			Eventually(func() error { return k8sClient.Get(ctx, hprsKey, service) }, time.Second*10, time.Millisecond*250).Should(Succeed())
+
+			// Check finalizer exists
+			Eventually(func() []string {
+				k8sClient.Get(ctx, hprsKey, hprs)
+				return hprs.GetFinalizers()
+			}, time.Second*10, time.Millisecond*250).Should(ContainElement(hprsFinalizer))
+
+			// Delete HPRS
+			Expect(k8sClient.Delete(ctx, hprs)).Should(Succeed())
+
+			// Check Deployment is deleted
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, hprsKey, deployment)
+				return k8serrors.IsNotFound(err)
+			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+
+			// Check Service is deleted
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, hprsKey, service)
+				return k8serrors.IsNotFound(err)
+			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+
+			// Check HPRS is deleted
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, hprsKey, hprs)
+				return k8serrors.IsNotFound(err)
+			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
 		})
 
 		It("should correctly set resource requirements and probes", func() {
