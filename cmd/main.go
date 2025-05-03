@@ -409,6 +409,7 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 	}
 	if err = (&controller.HumioUserReconciler{
 		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 		CommonConfig: controller.CommonConfig{
 			RequeuePeriod: requeuePeriod,
 		},
