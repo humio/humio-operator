@@ -36,6 +36,10 @@ const (
 	HumioPdfRenderServiceStateConfigError = "ConfigError"
 	// HumioPdfRenderServiceStateRunning is the state of the PDF rendering service when it is running and healthy
 	HumioPdfRenderServiceStateRunning = "Running"
+	// HumioPdfRenderServiceStateScalingUp is the state of the PDF rendering service when it is scaling up
+	HumioClusterStateScalingUp = "ScalingUp"
+	// HumioClusterStateScaledDown is the state of the PDF rendering service when it is scaled down
+	HumioClusterStateScaledDown = "ScaledDown"
 )
 
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService

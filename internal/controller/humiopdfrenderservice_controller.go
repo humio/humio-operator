@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -174,13 +175,13 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	_, err = r.reconcileDeployment(ctx, hprs) // Assign to _ as deployment is fetched again in defer
 	if err != nil {
 		_ = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hprs)
-		return ctrl.Result{}, r.logErrorAndReturn(err, "Failed to reconcile Deployment")
+		return ctrl.Result{}, r.logErrorAndReturn(err, "Failed to reconcile Deployment") // Let requeue handle transient errors
 	}
 
 	// Reconcile Service using controllerutil.CreateOrUpdate
 	if err := r.reconcileService(ctx, hprs); err != nil {
 		_ = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hprs)
-		return ctrl.Result{}, r.logErrorAndReturn(err, "Failed to reconcile Service")
+		return ctrl.Result{}, r.logErrorAndReturn(err, "Failed to reconcile Service") // Let requeue handle transient errors
 	}
 
 	r.Log.Info("Reconciliation completed successfully")
@@ -359,10 +360,15 @@ func (r *HumioPdfRenderServiceReconciler) updateStatus(ctx context.Context, hprs
 				desiredReplicas = *deployment.Spec.Replicas
 			}
 
+			// Define the ScaledDown state using the constant (ensure this constant exists in api/v1alpha1)
+			const scaledDownState = humiov1alpha1.HumioClusterStateScaledDown // Assuming this constant exists
+
 			if desiredReplicas == 0 {
-				calculatedState = "ScaledDown" // Consider adding a constant
+				calculatedState = scaledDownState // Use constant
 			} else if deployment.Status.ReadyReplicas == desiredReplicas && deployment.Status.ObservedGeneration == deployment.Generation {
 				calculatedState = humiov1alpha1.HumioClusterStateRunning
+			} else if deployment.Status.ObservedGeneration == 0 && deployment.Generation > 0 { // Check if deployment controller hasn't observed initial spec yet
+				calculatedState = humiov1alpha1.HumioClusterStatePending // Treat initial state as Pending
 			} else if deployment.Status.ObservedGeneration < deployment.Generation || deployment.Status.UpdatedReplicas < desiredReplicas {
 				calculatedState = humiov1alpha1.HumioClusterStateUpgrading
 			} else {
@@ -376,12 +382,15 @@ func (r *HumioPdfRenderServiceReconciler) updateStatus(ctx context.Context, hprs
 	desiredStatus.Nodes = podNames
 
 	// *** Crucial Logic: Preserve ConfigError ***
-	// If the current state IS ConfigError, only allow transition to Running.
+	// If the current state IS ConfigError, only allow transition to Running or ScaledDown.
 	// Otherwise, update the state normally.
 	if originalStatus.State == humiov1alpha1.HumioClusterStateConfigError {
-		if calculatedState == humiov1alpha1.HumioClusterStateRunning {
-			desiredStatus.State = humiov1alpha1.HumioClusterStateRunning // Allow transition out of ConfigError only if Running
-			log.Info("Transitioning from ConfigError to Running")
+		// Allow transition out of ConfigError if the calculated state indicates resolution
+		// Use the constant for ScaledDown state check
+		const scaledDownState = humiov1alpha1.HumioClusterStateScaledDown                                    // Assuming this constant exists
+		if calculatedState == humiov1alpha1.HumioClusterStateRunning || calculatedState == scaledDownState { // Use constant
+			desiredStatus.State = calculatedState
+			log.Info("Transitioning from ConfigError to resolved state", "NewState", calculatedState)
 		} else {
 			desiredStatus.State = humiov1alpha1.HumioClusterStateConfigError // Preserve ConfigError
 			log.V(1).Info("Preserving ConfigError state", "CalculatedState", calculatedState)
@@ -527,11 +536,13 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(hprs *humio
 	return deployment
 }
 
+// ...existing code...
 // reconcileDeployment ensures the Deployment for the HumioPdfRenderService exists and matches the desired state.
 func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) (*appsv1.Deployment, error) {
 	log := log.FromContext(ctx)
 	desiredDeployment := r.constructDesiredDeployment(hprs)
 
+	// Ensure the controller Scheme is passed to SetControllerReference
 	if err := controllerutil.SetControllerReference(hprs, desiredDeployment, r.Scheme); err != nil {
 		return nil, r.logErrorAndReturn(err, "Failed to set controller reference on Deployment")
 	}
@@ -582,23 +593,21 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 	return foundDeployment, nil
 }
 
-// constructDesiredService builds the desired Service object based on the HumioPdfRenderService spec.
+// constructDesiredService builds the desired Service object (always ClusterIP) based on the HumioPdfRenderService spec.
 func (r *HumioPdfRenderServiceReconciler) constructDesiredService(hprs *humiov1alpha1.HumioPdfRenderService) *corev1.Service {
-	labels := labelsForHumioPdfRenderService(hprs.Name)
-	// Use hprs.Spec.Annotations for service annotations as ServiceAnnotations field doesn't exist
+	labels := labelsForHumioPdfRenderService(hprs.Name) // Use helper for consistent labels
+	// Use hprs.Spec.Annotations for service annotations
 	annotations := make(map[string]string)
-	for k, v := range hprs.Spec.Annotations {
-		annotations[k] = v
+	// Ensure annotations map is initialized even if spec is nil/empty
+	if hprs.Spec.Annotations != nil {
+		for k, v := range hprs.Spec.Annotations {
+			annotations[k] = v
+		}
 	}
 
 	port := hprs.Spec.Port
 	if port == 0 {
 		port = DefaultPdfRenderServicePort // Use default if not specified (though CRD has default)
-	}
-
-	serviceType := hprs.Spec.ServiceType
-	if serviceType == "" {
-		serviceType = corev1.ServiceTypeClusterIP // Default to ClusterIP if empty
 	}
 
 	tlsEnabled := hprs.Spec.TLS != nil && hprs.Spec.TLS.Enabled != nil && *hprs.Spec.TLS.Enabled
@@ -609,20 +618,21 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredService(hprs *humiov1a
 
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        r.getResourceName(hprs), // Use same name as deployment
+			Name:        r.getResourceName(hprs), // Use consistent resource name
 			Namespace:   hprs.Namespace,
-			Labels:      labels,
-			Annotations: annotations,
+			Labels:      labels,      // Apply standard labels
+			Annotations: annotations, // Apply annotations from CR spec
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: labels, // Select pods with matching labels
+			Type:     corev1.ServiceTypeClusterIP, // Always ClusterIP
+			Selector: labels,                      // Select pods with matching labels
 			Ports: []corev1.ServicePort{{
-				Name:     servicePortName, // Use dynamic port name
-				Port:     int32(port),
-				Protocol: corev1.ProtocolTCP,
-				// TargetPort defaults to Port
+				Name:       servicePortName, // Use dynamic port name based on TLS
+				Port:       int32(port),
+				TargetPort: intstr.FromInt(int(port)), // Explicitly set TargetPort
+				Protocol:   corev1.ProtocolTCP,
 			}},
-			Type: serviceType,
+			// No ExternalTrafficPolicy or LoadBalancerSourceRanges needed for ClusterIP
 		},
 	}
 	return service
@@ -631,41 +641,66 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredService(hprs *humiov1a
 // reconcileService ensures the Service for the HumioPdfRenderService exists and matches the desired state using CreateOrUpdate.
 func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
 	log := log.FromContext(ctx)
+	// 1. Construct the desired Service object
 	desiredService := r.constructDesiredService(hprs)
 	serviceName := desiredService.Name
 
-	// Create a function that encapsulates the logic to mutate the object to the desired state.
-	mutateFn := func() error {
-		// Set the controller reference.
-		if err := controllerutil.SetControllerReference(hprs, desiredService, r.Scheme); err != nil {
-			return fmt.Errorf("failed to set controller reference on Service: %w", err)
-		}
-		// Update the spec fields from the desired state.
-		// CreateOrUpdate handles merging metadata like labels/annotations.
-		// We need to ensure the Spec is updated correctly.
-		currentSpec := r.constructDesiredService(hprs).Spec // Get the truly desired spec
-		desiredService.Spec.Ports = currentSpec.Ports       // Update Ports
-		desiredService.Spec.Selector = currentSpec.Selector // Update Selector
-		desiredService.Spec.Type = currentSpec.Type         // Update Type
-		// Update other relevant Spec fields if necessary
+	// 2. Define the object key
+	serviceKey := client.ObjectKeyFromObject(desiredService)
 
-		log.V(1).Info("Applying desired state to Service inside CreateOrUpdate", "Service.Name", serviceName)
+	// 3. Create an empty Service object to pass to CreateOrUpdate
+	currentService := &corev1.Service{}
+	currentService.SetName(serviceKey.Name)
+	currentService.SetNamespace(serviceKey.Namespace)
+
+	// 4. Define the MutateFn (Simplified for ClusterIP)
+	mutateFn := func() error {
+		// Set Controller Reference
+		if err := controllerutil.SetControllerReference(hprs, currentService, r.Scheme); err != nil {
+			return fmt.Errorf("failed to set controller reference on Service %s: %w", serviceName, err)
+		}
+
+		// Explicitly copy desired metadata (Labels and Annotations) onto the object
+		// that CreateOrUpdate will use for comparison and potential update.
+		// Ensure maps are initialized if nil in desired state (though constructDesiredService handles annotations).
+		if desiredService.ObjectMeta.Labels == nil {
+			currentService.ObjectMeta.Labels = make(map[string]string)
+		} else {
+			currentService.ObjectMeta.Labels = desiredService.ObjectMeta.Labels
+		}
+		if desiredService.ObjectMeta.Annotations == nil {
+			currentService.ObjectMeta.Annotations = make(map[string]string)
+		} else {
+			currentService.ObjectMeta.Annotations = desiredService.ObjectMeta.Annotations
+		}
+
+		// CreateOrUpdate handles merging Labels and Annotations automatically.
+		// For ClusterIP, we primarily need to ensure Ports and Selector are correct.
+		// Type is constant (ClusterIP) and CreateOrUpdate preserves ClusterIP field.
+		currentService.Spec.Selector = desiredService.Spec.Selector // Ensure selector matches desired
+		currentService.Spec.Ports = desiredService.Spec.Ports       // Ensure ports match desired
+		// Type is implicitly handled as ClusterIP by constructDesiredService and CreateOrUpdate preserves the immutable ClusterIP value.
+
+		log.V(1).Info("Applying desired state (ClusterIP) to Service inside CreateOrUpdate", "Service.Name", serviceName)
 		return nil
 	}
 
-	// Use controllerutil.CreateOrUpdate.
-	opResult, err := controllerutil.CreateOrUpdate(ctx, r.Client, desiredService, mutateFn)
+	// 5. Use controllerutil.CreateOrUpdate
+	opResult, err := controllerutil.CreateOrUpdate(ctx, r.Client, currentService, mutateFn)
 
 	if err != nil {
-		return r.logErrorAndReturn(err, fmt.Sprintf("Failed to reconcile Service %s", serviceName))
+		// Log the specific error from CreateOrUpdate
+		return r.logErrorAndReturn(err, fmt.Sprintf("Failed to CreateOrUpdate Service %s", serviceName))
 	}
 
+	// Log the result (Created, Updated, Unchanged)
 	if opResult != controllerutil.OperationResultNone {
 		log.Info("Service reconciled", "Service.Name", serviceName, "Operation", opResult)
 	} else {
 		log.V(1).Info("Service already in desired state", "Service.Name", serviceName)
 	}
 	return nil
+
 }
 
 // checkEnvVarChanges compares the environment variables of the first container.

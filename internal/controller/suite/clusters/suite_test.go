@@ -166,6 +166,17 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controller.HumioPdfRenderServiceReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		BaseLogger: log,
+		Namespace:  testProcessNamespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		Expect(err).NotTo(HaveOccurred())
