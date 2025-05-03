@@ -53,11 +53,13 @@ const (
 	protocolHTTPS              string = "https"
 	tlsCertName                string = "tls-cert"
 	pdfRenderUseTLSEnvVar      string = "PDF_RENDER_USE_TLS"
-	pdfRenderTLSCertName       string = "pdf-render-tls-cert"
-	hprsFinalizer              string = "humio.com/finalizer"
-	pdfTLSCertVolumeName       string = "pdf-render-tls-cert-volume"
-	pdfRenderTLSCertPathEnvVar string = "PDF_RENDER_TLS_CERT_PATH"
-	pdfRenderTLSKeyPathEnvVar  string = "PDF_RENDER_TLS_KEY_PATH"
+	hprsFinalizer              string = "core.humio.com/finalizer" // Match controller constant
+	// Match controller constants
+	pdfTLSCertVolumeName       string = "tpdf-render-tls-cert-volume"
+	pdfTLSCertMountPath        string = "/certs"
+	pdfRenderTLSCertPathEnvVar string = "PDF_RENDER_TLS_CERT_PATH" // Match controller constant
+	pdfRenderTLSKeyPathEnvVar  string = "PDF_RENDER_TLS_KEY_PATH"  // Match controller constant
+	pdfRenderCAFileEnvVar      string = "PDF_RENDER_CA_FILE"       // Match controller constant
 )
 
 var _ = Describe("Humio Resources Controllers", func() {
