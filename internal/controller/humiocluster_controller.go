@@ -741,18 +741,52 @@ func (r *HumioClusterReconciler) removePdfRenderServiceIfExists(ctx context.Cont
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Cluster-specific PDF render service doesn't exist, nothing to do
+<<<<<<< HEAD
 			return false, nil
+=======
+			return nil
+>>>>>>> should correctly handle TLS configuration
 		}
 		// Other error getting the potential cluster-specific service
 		return false, r.logErrorAndReturn(err, fmt.Sprintf("failed to get potential cluster-specific HumioPdfRenderService %s", clusterSpecificPdfServiceName))
 	}
 
+<<<<<<< HEAD
 	// Only consider deletion if we're the owner
+=======
+	// Only delete if we're the owner
+>>>>>>> should correctly handle TLS configuration
 	if !metav1.IsControlledBy(pdfService, hc) {
 		r.Log.Info("Found cluster-specific HumioPdfRenderService but it's not owned by this HumioCluster - skipping deletion",
 			"pdfService", pdfService.Name,
 			"humioCluster", hc.Name)
+<<<<<<< HEAD
 		return false, nil
+=======
+		return nil
+	}
+
+	// Cluster-specific PDF render service exists, remove it
+	r.Log.Info("Removing cluster-specific HumioPdfRenderService", "name", pdfService.Name)
+	if err := r.Delete(ctx, pdfService); err != nil {
+		// Ignore not found errors during deletion, it might have been deleted already
+		if k8serrors.IsNotFound(err) {
+			r.Log.Info("Cluster-specific HumioPdfRenderService already deleted", "name", pdfService.Name)
+			return nil
+		}
+		return r.logErrorAndReturn(err, fmt.Sprintf("failed to delete cluster-specific HumioPdfRenderService %s", pdfService.Name))
+	}
+	r.Log.Info("Successfully initiated deletion of cluster-specific HumioPdfRenderService", "name", pdfService.Name)
+	// Requeue needed to confirm deletion? Or rely on garbage collection? Relying on GC for now.
+	return nil
+}
+
+// ensureReferencedPdfRenderServiceReady validates that a referenced PDF render service is ready
+func (r *HumioClusterReconciler) ensureReferencedPdfRenderServiceReady(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	if hc.Spec.PdfRenderServiceRef == nil || hc.Spec.PdfRenderServiceRef.Name == "" {
+		// No PDF render service referenced, nothing to do
+		return nil
+>>>>>>> should correctly handle TLS configuration
 	}
 
 	// Check if the service is already marked for deletion

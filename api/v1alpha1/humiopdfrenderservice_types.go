@@ -25,15 +25,49 @@ const (
 	// HumioPdfRenderServiceStateUnknown is the unknown state of the PDF rendering service.
 	HumioPdfRenderServiceStateUnknown = "Unknown"
 	// HumioPdfRenderServiceStateExists is the Exists state of the PDF rendering service.
+	// Deprecated: Use more specific states like Running, Configuring.
 	HumioPdfRenderServiceStateExists = "Exists"
 	// HumioPdfRenderServiceStateNotFound is the NotFound state of the PDF rendering service.
+	// Deprecated: Controller should handle resource absence.
 	HumioPdfRenderServiceStateNotFound = "NotFound"
 	// DefaultPdfRenderServiceLiveness is the default liveness path for the PDF rendering service.
 	DefaultPdfRenderServiceLiveness = "/health"
 	// DefaultPdfRenderServiceReadiness is the default readiness path for the PDF rendering service.
 	DefaultPdfRenderServiceReadiness = "/ready"
-	// HumioPdfRenderServiceStateConfigError is the state of the PDF rendering service when user-provided specification results in configuration error, such as non-existent humio cluster
+	// HumioPdfRenderServiceStateConfigError is the state of the PDF rendering service when user-provided specification results in configuration error, such as non-existent humio cluster or missing TLS secrets.
 	HumioPdfRenderServiceStateConfigError = "ConfigError"
+	// HumioPdfRenderServiceStateRunning is the state of the PDF rendering service when it is running, all replicas are ready and the deployment is stable.
+	HumioPdfRenderServiceStateRunning = "Running"
+	// HumioPdfRenderServiceStateScalingUp is the state of the PDF rendering service when it is scaling up.
+	// Deprecated: Covered by Configuring.
+	HumioPdfRenderServiceStateScalingUp = "ScalingUp"
+	// HumioPdfRenderServiceStateScaledDown is the state of the PDF rendering service when it is scaled down to zero replicas.
+	HumioPdfRenderServiceStateScaledDown = "ScaledDown"
+	// HumioPdfRenderServiceStateConfiguring is the state of the PDF rendering service when it is being configured, (e.g. deployment updating, scaling, waiting for pods to become ready).
+	HumioPdfRenderServiceStateConfiguring = "Configuring"
+	// HumioPdfRenderServiceStatePending is the state of the PDF rendering service when it is pending.
+	// Deprecated: Covered by Configuring.
+	HumioPdfRenderServiceStatePending = "Pending"
+	// HumioPdfRenderServiceStateUpgrading is the state of the PDF rendering service when it is upgrading.
+	// Deprecated: Covered by Configuring.
+	HumioPdfRenderServiceStateUpgrading = "Upgrading"
+	// HumioPdfRenderServiceStateError is a generic error state if not covered by ConfigError.
+	HumioPdfRenderServiceStateError = "Error"
+)
+
+// HumioPdfRenderServiceConditionType represents a condition type of a HumioPdfRenderService.
+type HumioPdfRenderServiceConditionType string
+
+// These are valid conditions of a HumioPdfRenderService.
+const (
+	// HumioPdfRenderServiceAvailable means the PDF rendering service is available.
+	HumioPdfRenderServiceAvailable HumioPdfRenderServiceConditionType = "Available"
+	// HumioPdfRenderServiceProgressing means the PDF rendering service is progressing.
+	HumioPdfRenderServiceProgressing HumioPdfRenderServiceConditionType = "Progressing"
+	// HumioPdfRenderServiceDegraded means the PDF rendering service is degraded.
+	HumioPdfRenderServiceDegraded HumioPdfRenderServiceConditionType = "Degraded"
+	// HumioPdfRenderServiceScaledDown means the PDF rendering service is scaled down.
+	HumioPdfRenderServiceScaledDown HumioPdfRenderServiceConditionType = "ScaledDown"
 )
 
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
@@ -70,6 +104,10 @@ type HumioPdfRenderServiceSpec struct {
 	// Labels allows to specify custom labels for the pods.
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
+
+	// ServiceAnnotations allows to specify custom annotations for the service.
+	// +optional
+	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
 
 	// LivenessProbe defines the liveness probe configuration.
 	// +optional
@@ -117,6 +155,10 @@ type HumioPdfRenderServiceSpec struct {
 	// - HTTPS scheme for liveness and readiness probes
 	// +optional
 	TLS *HumioClusterTLSSpec `json:"tls,omitempty"`
+
+	// HumioCluster is a reference to the HumioCluster this PDF Render Service belongs to.
+	// +kubebuilder:validation:Required
+	HumioCluster corev1.LocalObjectReference `json:"humioCluster"`
 }
 
 // HumioPdfRenderServiceStatus defines the observed state of HumioPdfRenderService
@@ -126,10 +168,29 @@ type HumioPdfRenderServiceStatus struct {
 	Nodes []string `json:"nodes,omitempty"`
 
 	// ReadyReplicas is the number of ready replicas.
+	// +optional
 	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
 
 	// State reflects the current state of the HumioPdfRenderService
+	// +optional
 	State string `json:"state,omitempty"`
+
+	// Message provides additional information about the state of the HumioPdfRenderService, typically an error message if something went wrong.
+	// +optional
+	Message string `json:"message,omitempty"`
+
+	// ObservedGeneration is the most recent generation observed for this HumioPdfRenderService. It corresponds to the
+	// resource's generation, which is updated on mutation by the API Server.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// Conditions represent the latest available observations of a replica set's state.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // +kubebuilder:object:root=true
@@ -145,7 +206,11 @@ type HumioPdfRenderService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HumioPdfRenderServiceSpec   `json:"spec,omitempty"`
+	// Spec defines the desired state of HumioPdfRenderService
+	// +kubebuilder:validation:Required
+	Spec HumioPdfRenderServiceSpec `json:"spec"`
+
+	// Status reflects the observed state of HumioPdfRenderService
 	Status HumioPdfRenderServiceStatus `json:"status,omitempty"`
 }
 
