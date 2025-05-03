@@ -104,9 +104,8 @@ func SidecarWaitForGlobalImageVersion() string {
 }
 
 func DefaultPDFRenderServiceImage() string {
-	version := []string{defaultPDFRenderServiceImage}
-	if helpers.UseDummyImage() {
-		version = append(version, dummyImageSuffix)
-	}
-	return strings.Join(version, "")
+	// Always return the specific default PDF render service image.
+	// If a dummy version is needed for testing this specific service,
+	// it should be a distinct dummy PDF render service image.
+	return defaultPDFRenderServiceImage
 }

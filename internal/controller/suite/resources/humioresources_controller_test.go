@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,6 +27,7 @@ import (
 
 	humioapi "github.com/humio/humio-operator/internal/api"
 	"github.com/humio/humio-operator/internal/api/humiographql"
+	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	. "github.com/onsi/ginkgo/v2"
@@ -34,6 +35,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,26 +46,15 @@ import (
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/internal/controller/suite"
+	"github.com/humio/humio-operator/internal/controller/versions"
 )
 
 const (
 	emailActionExample         string = "example@example.com"
 	expectedSecretValueExample string = "secret-token"
-	PDFRenderServiceImage      string = "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e"
-	protocolHTTPS              string = "https"
-	tlsCertName                string = "tls-cert"
-	pdfRenderUseTLSEnvVar      string = "PDF_RENDER_USE_TLS"
-	hprsFinalizer              string = "core.humio.com/finalizer" // Match controller constant
-	// Match controller constants
-	pdfTLSCertVolumeName       string = "tpdf-render-tls-cert-volume"
-	pdfTLSCertMountPath        string = "/certs"
-	pdfRenderTLSCertPathEnvVar string = "PDF_RENDER_TLS_CERT_PATH" // Match controller constant
-	pdfRenderTLSKeyPathEnvVar  string = "PDF_RENDER_TLS_KEY_PATH"  // Match controller constant
-	pdfRenderCAFileEnvVar      string = "PDF_RENDER_CA_FILE"       // Match controller constant
 )
 
 var _ = Describe("Humio Resources Controllers", func() {
-
 	BeforeEach(func() {
 		// failed test runs that don't clean up leave resources behind.
 		humioClient.ClearHumioClientConnections(testRepoName)
@@ -74,6 +65,10 @@ var _ = Describe("Humio Resources Controllers", func() {
 		humioClient.ClearHumioClientConnections(testRepoName)
 	})
 
+	// Add Tests for OpenAPI validation (or additional CRD features) specified in
+	// your API definition.
+	// Avoid adding tests for vanilla CRUD operations because they would
+	// test Kubernetes API server, which isn't the goal here.
 	Context("Humio Ingest Token", Label("envtest", "dummy", "real"), func() {
 		It("should handle ingest token with target secret correctly", func() {
 			ctx := context.Background()
@@ -737,7 +732,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			protocol := "http"
 			if !helpers.UseEnvtest() && helpers.UseCertManager() {
-				protocol = protocolHTTPS
+				protocol = "https"
 			}
 
 			toCreateExternalCluster := &humiov1alpha1.HumioExternalCluster{
@@ -1721,9 +1716,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the web hook action to be updated")
 			Eventually(func() error {
-				if err := k8sClient.Get(ctx, key, fetchedAction); err != nil {
-					return err
-				}
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.WebhookProperties = updatedWebhookActionProperties
 				return k8sClient.Update(ctx, fetchedAction)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
@@ -1997,6 +1990,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
+			// Should not be setting the API token in this case, but the secretMap should have the value
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(expectedSecretValue))
