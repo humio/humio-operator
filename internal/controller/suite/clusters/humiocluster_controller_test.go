@@ -1022,13 +1022,34 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &cluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			// Verify the cluster remains Running
-			suite.UsingClusterBy(clusterKey.Name, "Verifying cluster remains Running after removing reference")
-			Consistently(func() string {
+			// Verify the cluster enters Restarting state because the env var needs to be removed
+			suite.UsingClusterBy(clusterKey.Name, "Verifying cluster enters Restarting state after removing reference")
+			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
 				_ = k8sClient.Get(ctx, clusterKey, &cluster)
 				return cluster.Status.State
-			}, time.Second*10, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRestarting))
+
+			// Verify the cluster eventually returns to Running state
+			suite.UsingClusterBy(clusterKey.Name, "Verifying cluster returns to Running state after restart")
+			Eventually(func() string {
+				var cluster humiov1alpha1.HumioCluster
+				_ = k8sClient.Get(ctx, clusterKey, &cluster)
+				return cluster.Status.State
+			}, testTimeout*2, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning)) // Allow more time for restart
+
+			// Verify the environment variable is actually removed from the pods
+			suite.UsingClusterBy(clusterKey.Name, "Verifying DEFAULT_PDF_RENDER_SERVICE_URL is removed from Humio pods")
+			Eventually(func() []corev1.EnvVar {
+				env := fetchHumioPodEnv(ctx, k8sClient, clusterKey.Name, clusterKey.Namespace)
+				// fetchHumioPodEnv might return nil if pod not ready, Eventually handles this
+				envVars := []corev1.EnvVar{}
+				for name, value := range env {
+					envVars = append(envVars, corev1.EnvVar{Name: name, Value: value})
+				}
+				return envVars // Convert map to slice for Gomega matchers
+			}, testTimeout, suite.TestInterval).ShouldNot(ContainElement(HaveField("Name", PdfExportURLEnvVar)))
+
 		})
 
 		It("Should enter ConfigError state if the referenced HumioPdfRenderService is deleted", func() {
