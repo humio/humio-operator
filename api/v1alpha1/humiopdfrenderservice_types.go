@@ -34,6 +34,8 @@ const (
 	DefaultPdfRenderServiceReadiness = "/ready"
 	// HumioPdfRenderServiceStateConfigError is the state of the PDF rendering service when user-provided specification results in configuration error, such as non-existent humio cluster
 	HumioPdfRenderServiceStateConfigError = "ConfigError"
+	// HumioPdfRenderServiceStateRunning is the state of the PDF rendering service when it is running and healthy
+	HumioPdfRenderServiceStateRunning = "Running"
 )
 
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
