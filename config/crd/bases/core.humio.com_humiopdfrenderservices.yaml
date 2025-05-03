@@ -57,7 +57,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
+            description: Spec defines the desired state of HumioPdfRenderService
             properties:
               affinity:
                 description: Affinity defines the pod's scheduling constraints.
@@ -1940,6 +1940,12 @@ spec:
                 description: ServiceAccountName is the name of the Kubernetes Service
                   Account to use.
                 type: string
+              serviceAnnotations:
+                additionalProperties:
+                  type: string
+                description: ServiceAnnotations allows to specify custom annotations
+                  for the service.
+                type: object
               serviceType:
                 default: ClusterIP
                 description: ServiceType is the type of service to expose.
@@ -1949,8 +1955,7 @@ spec:
             - replicas
             type: object
           status:
-            description: HumioPdfRenderServiceStatus defines the observed state of
-              HumioPdfRenderService
+            description: Status reflects the observed state of HumioPdfRenderService
             properties:
               conditions:
                 description: Conditions represents the latest available observations
@@ -2025,6 +2030,8 @@ spec:
               state:
                 type: string
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

@@ -11915,7 +11915,7 @@ spec:
                           type: string
                         pdfRenderServiceRef:
                           description: |-
-                            HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+                            PdfRenderServiceRef points to a shared HumioPdfRenderService resource
                             that multiple HumioCluster resources can use
                           properties:
                             name:
@@ -14021,7 +14021,7 @@ spec:
                 type: string
               pdfRenderServiceRef:
                 description: |-
-                  HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+                  PdfRenderServiceRef points to a shared HumioPdfRenderService resource
                   that multiple HumioCluster resources can use
                 properties:
                   name:

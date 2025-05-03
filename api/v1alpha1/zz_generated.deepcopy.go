@@ -2036,6 +2036,13 @@ func (in *HumioPdfRenderServiceSpec) DeepCopyInto(out *HumioPdfRenderServiceSpec
 			(*out)[key] = val
 		}
 	}
+	if in.ServiceAnnotations != nil {
+		in, out := &in.ServiceAnnotations, &out.ServiceAnnotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.LivenessProbe != nil {
 		in, out := &in.LivenessProbe, &out.LivenessProbe
 		*out = new(v1.Probe)
