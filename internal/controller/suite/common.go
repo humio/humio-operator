@@ -149,6 +149,14 @@ func CleanupCluster(ctx context.Context, k8sClient client.Client, hc *humiov1alp
 	UsingClusterBy(cluster.Name, "Deleting the cluster")
 	Expect(k8sClient.Delete(ctx, &cluster)).To(Succeed())
 
+	// Wait for the HumioCluster resource to be fully deleted.
+	// This is crucial because finalizers might delay the actual removal.
+	UsingClusterBy(cluster.Name, "Waiting for HumioCluster resource deletion")
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, types.NamespacedName{Name: hc.Name, Namespace: hc.Namespace}, &humiov1alpha1.HumioCluster{})
+		return k8serrors.IsNotFound(err)
+	}, time.Second*30, TestInterval).Should(BeTrue(), "HumioCluster resource should be deleted") // Increased timeout slightly
+
 	if cluster.Spec.License.SecretKeyRef != nil {
 		UsingClusterBy(cluster.Name, fmt.Sprintf("Deleting the license secret %s", cluster.Spec.License.SecretKeyRef.Name))
 		_ = k8sClient.Delete(ctx, &corev1.Secret{
@@ -362,7 +370,7 @@ func CreateLicenseSecretIfNeeded(ctx context.Context, clusterKey types.Namespace
 
 	licenseSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-license", clusterKey.Name),
+			Name:      secretName,
 			Namespace: clusterKey.Namespace,
 		},
 		StringData: map[string]string{"license": licenseString},
