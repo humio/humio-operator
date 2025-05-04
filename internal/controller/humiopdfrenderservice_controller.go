@@ -122,13 +122,37 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// ---------------------------------------------------------------------
 	// 5. Success – update status
 	// ---------------------------------------------------------------------
-	_ = r.setStatus(ctx, hprs, humiov1alpha1.HumioClusterStateRunning, dep.Status.ReadyReplicas, nil, nil)
+	// Work out the state the CR should expose
+	var state string
+	desired := int32(1)
+	if dep.Spec.Replicas != nil {
+		desired = *dep.Spec.Replicas
+	}
+
+	switch {
+	case desired == 0:
+		// There is nothing to run – treat as scaled‑down explicitly.
+		state = "ScaledDown"
+	case dep.Status.ObservedGeneration < dep.Generation:
+		// A new Deployment generation is rolling out.
+		state = humiov1alpha1.HumioClusterStateUpgrading
+	case dep.Status.ReadyReplicas < desired:
+		// Pods still coming up.
+		state = humiov1alpha1.HumioClusterStatePending
+	default:
+		// Everything is up‑to‑date and ready.
+		state = humiov1alpha1.HumioClusterStateRunning
+	}
+
+	_ = r.setStatus(ctx, hprs, state, dep.Status.ReadyReplicas, nil, nil)
 	return ctrl.Result{RequeueAfter: time.Minute}, nil
 }
 
 // -----------------------------------------------------------------------------
 // Child resources
 // -----------------------------------------------------------------------------
+// reconcileDeployment reconciles the Deployment for the HumioPdfRenderService.
+// It creates or updates the Deployment based on the desired state.
 func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) (*appsv1.Deployment, error) {
 	log := log.FromContext(ctx)
 	desired := r.constructDesiredDeployment(hprs)
@@ -153,6 +177,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 	return &dep, nil
 }
 
+// reconcileService reconciles the Service for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
 	log := log.FromContext(ctx)
 	desired := r.constructDesiredService(hprs)
@@ -229,6 +254,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(hprs *humio
 	}
 }
 
+// constructDesiredService builds the desired Service object for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) constructDesiredService(hprs *humiov1alpha1.HumioPdfRenderService) *corev1.Service {
 	labels := labelsForHumioPdfRenderService(hprs.Name)
 	port := hprs.Spec.Port
@@ -290,9 +316,7 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 	return []corev1.Volume{vol}, []corev1.VolumeMount{mnt}
 }
 
-// -----------------------------------------------------------------------------
 // Status helpers
-// -----------------------------------------------------------------------------
 func (r *HumioPdfRenderServiceReconciler) setStatus(
 	ctx context.Context,
 	hprs *humiov1alpha1.HumioPdfRenderService,
@@ -321,9 +345,7 @@ func (r *HumioPdfRenderServiceReconciler) setStatus(
 	return r.Status().Update(ctx, hprs)
 }
 
-// -----------------------------------------------------------------------------
 // Finalizer helper
-// -----------------------------------------------------------------------------
 func (r *HumioPdfRenderServiceReconciler) finalize(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
 	// Best‑effort deletion – ignore not‑found errors
 	_ = r.Delete(ctx, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: hprs.Name, Namespace: hprs.Namespace}})
