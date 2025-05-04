@@ -3822,6 +3822,10 @@ spec:
             description: HumioPdfRenderServiceStatus defines the observed state of
               HumioPdfRenderService
             properties:
+              message:
+                description: Message provides additional information about the state
+                  of the HumioPdfRenderService
+                type: string
               nodes:
                 description: Nodes are the names of the PDF render service pods.
                 items:
