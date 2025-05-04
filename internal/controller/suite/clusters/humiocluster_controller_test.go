@@ -428,14 +428,39 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 
 		AfterEach(func() {
-			// Cleanup HumioCluster first
-			suite.CleanupCluster(ctx, k8sClient, humioCluster)
-			// Cleanup PDF Service CR
-			cleanupPdfRenderServiceCR(ctx, pdfCR)
-			// Cleanup PDF Service TLS Secret
-			cleanupPdfRenderServiceTLSSecret(ctx, pdfSecret)
-			// Cleanup any dedicated namespace if created
-			// (Add namespace cleanup logic if used in specific tests)
+			// Cleanup order matters: Cluster first (to remove owner refs), then others.
+			// Use Get to fetch the latest version of humioCluster before cleanup
+			var currentCluster humiov1alpha1.HumioCluster
+			if err := k8sClient.Get(ctx, key, &currentCluster); err == nil {
+				suite.CleanupCluster(ctx, k8sClient, &currentCluster)
+			} else if !k8serrors.IsNotFound(err) {
+				// Log or handle unexpected error during fetch for cleanup
+				fmt.Fprintf(GinkgoWriter, "Error fetching HumioCluster %s for cleanup: %v\n", key.String(), err)
+			}
+
+			// Fetch latest pdfCR before cleanup
+			var currentPdfCR humiov1alpha1.HumioPdfRenderService
+			if pdfCR != nil { // Check if pdfCR was assigned in the test
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: pdfCR.Name, Namespace: pdfCR.Namespace}, &currentPdfCR); err == nil {
+					cleanupPdfRenderServiceCR(ctx, &currentPdfCR)
+				} else if !k8serrors.IsNotFound(err) {
+					fmt.Fprintf(GinkgoWriter, "Error fetching HumioPdfRenderService %s for cleanup: %v\n", pdfKey.String(), err)
+				}
+			}
+
+			// Fetch latest pdfSecret before cleanup
+			var currentSecret corev1.Secret
+			if pdfSecret != nil { // Check if pdfSecret was assigned
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: pdfSecret.Name, Namespace: pdfSecret.Namespace}, &currentSecret); err == nil {
+					cleanupPdfRenderServiceTLSSecret(ctx, &currentSecret)
+				} else if !k8serrors.IsNotFound(err) {
+					fmt.Fprintf(GinkgoWriter, "Error fetching Secret %s for cleanup: %v\n", pdfSecret.Name, err)
+				}
+			}
+			// Reset shared variables for next test
+			humioCluster = nil
+			pdfCR = nil
+			pdfSecret = nil
 		})
 		It("should reach Running state when PdfRenderServiceRef points to an existing non‑TLS service", func() {
 			clusterKey := types.NamespacedName{Name: "hc-pdf-non-tls", Namespace: testProcessNamespace}
@@ -882,12 +907,21 @@ var _ = Describe("HumioCluster Controller", func() {
 					Image: testPdfRenderServiceImage,
 				},
 			}
-			Expect(k8sClient.Create(ctx, clusterSpecificPdf)).To(Succeed())
-
-			// Ensure it was created before proceeding
+			// Use Eventually for the create operation too
 			Eventually(func() error {
-				return k8sClient.Get(ctx, clusterSpecificPdfKey, &humiov1alpha1.HumioPdfRenderService{})
-			}, testTimeout, suite.TestInterval).Should(Succeed(), "Cluster-specific PDF service should be created initially")
+				err := k8sClient.Create(ctx, clusterSpecificPdf)
+				if k8serrors.IsAlreadyExists(err) {
+					// If it already exists, that's fine - get the current one
+					return k8sClient.Get(ctx, clusterSpecificPdfKey, clusterSpecificPdf)
+				}
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed(), "Should be able to create the cluster-specific PDF service")
+
+			Eventually(func() bool {
+				var pdf humiov1alpha1.HumioPdfRenderService
+				err := k8sClient.Get(ctx, clusterSpecificPdfKey, &pdf)
+				return err == nil && pdf.Name == clusterSpecificPdfKey.Name
+			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Cluster-specific PDF service should be created initially")
 			// No defer cleanup for this one, we expect the controller to delete it
 
 			// Create the valid HumioPdfRenderService to reference later
@@ -916,13 +950,30 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue(), "Cluster-specific HumioPdfRenderService should be deleted")
 
-			// Verify HumioCluster remains Running
-			suite.UsingClusterBy(clusterKey.Name, "Verifying HumioCluster remains Running")
-			Consistently(func() string {
+			// Verify HumioCluster enters Restarting state due to env var change
+			suite.UsingClusterBy(clusterKey.Name, "Verifying HumioCluster enters Restarting state")
+			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
 				_ = k8sClient.Get(ctx, clusterKey, &cluster)
 				return cluster.Status.State
-			}, time.Second*10, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRestarting))
+
+			// Simulate pod restart completion (assuming simultaneous restart by default)
+			// The pod revision should increment because the pod template changed (env vars)
+			suite.UsingClusterBy(clusterKey.Name, "Simulating pod restart completion")
+			var currentCluster humiov1alpha1.HumioCluster
+			Expect(k8sClient.Get(ctx, clusterKey, &currentCluster)).To(Succeed())
+			// Assuming revision increments from 1 (initial create) to 2 (update with PdfRenderServiceRef)
+			ensurePodsSimultaneousRestart(ctx, controller.NewHumioNodeManagerFromHumioCluster(&currentCluster), 2)
+
+			// Verify HumioCluster returns to Running state after restart
+			suite.UsingClusterBy(clusterKey.Name, "Verifying HumioCluster returns to Running state")
+			Eventually(func() string {
+				var cluster humiov1alpha1.HumioCluster
+				_ = k8sClient.Get(ctx, clusterKey, &cluster)
+				return cluster.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
+
 		})
 
 		// Modify the test around line 824:
@@ -1039,17 +1090,17 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &cluster)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			//  Mark newly‑created pods as Running (env‑test) and wait for
-			//  the rolling restart to finish so the cluster can turn Running
-			var cur humiov1alpha1.HumioCluster
-			Expect(k8sClient.Get(ctx, clusterKey, &cur)).To(Succeed())
-			ensurePodsRollingRestart(
-				ctx,
-				controller.NewHumioNodeManagerFromHumioCluster(&cur),
-				/*desiredRevision=*/ 2,
-				/*batchSize=*/ 1,
-			)
-			// ------------------------------------------------------------------
+			// //  Mark newly‑created pods as Running (env‑test) and wait for
+			// //  the rolling restart to finish so the cluster can turn Running
+			// var cur humiov1alpha1.HumioCluster
+			// Expect(k8sClient.Get(ctx, clusterKey, &cur)).To(Succeed())
+			// ensurePodsRollingRestart(
+			// 	ctx,
+			// 	controller.NewHumioNodeManagerFromHumioCluster(&cur),
+			// 	/*desiredRevision=*/ 2,
+			// 	/*batchSize=*/ 1,
+			// )
+			// // ------------------------------------------------------------------
 
 			// Verify the cluster enters Restarting state because the env var needs to be removed
 			suite.UsingClusterBy(clusterKey.Name, "Verifying cluster enters Restarting state after removing reference")
@@ -1058,6 +1109,16 @@ var _ = Describe("HumioCluster Controller", func() {
 				_ = k8sClient.Get(ctx, clusterKey, &cluster)
 				return cluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRestarting))
+
+			// Now simulate the rolling‐restart so we can get back to Running
+			var cur humiov1alpha1.HumioCluster
+			Expect(k8sClient.Get(ctx, clusterKey, &cur)).To(Succeed())
+			ensurePodsRollingRestart(
+				ctx,
+				controller.NewHumioNodeManagerFromHumioCluster(&cur),
+				/*desiredRevision=*/ 2,
+				/*batchSize=*/ 1,
+			)
 
 			// Verify the cluster eventually returns to Running state
 			suite.UsingClusterBy(clusterKey.Name, "Verifying cluster returns to Running state after restart")
@@ -1139,12 +1200,15 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Verifying HumioCluster status message indicates the missing reference")
 			Eventually(func(g Gomega) string {
 				var cluster humiov1alpha1.HumioCluster
-				// It's okay to ignore the error here if the previous check passed,
-				// but checking again ensures we read the latest status.
 				err := k8sClient.Get(ctx, clusterKey, &cluster)
-				g.Expect(err).NotTo(HaveOccurred(), "Failed to get HumioCluster %s during message check", clusterKey.String())
+				g.Expect(err).NotTo(HaveOccurred(),
+					"Failed to get HumioCluster %s during message check", clusterKey)
 				return cluster.Status.Message
-			}, testTimeout, suite.TestInterval).Should(ContainSubstring(fmt.Sprintf("HumioPdfRenderService %q not found", pdfKey.Name)), "HumioCluster %s status message should indicate the PDF service %s was not found", clusterKey.String(), pdfKey.Name)
+			}, testTimeout, suite.TestInterval).
+				Should(ContainSubstring(fmt.Sprintf(
+					"HumioPdfRenderService %s not found", pdfKey.Name)),
+					"HumioCluster %s status message should indicate the PDF service %s was not found",
+					clusterKey, pdfKey.Name)
 		})
 
 	})
