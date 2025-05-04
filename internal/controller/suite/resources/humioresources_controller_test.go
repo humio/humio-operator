@@ -4095,9 +4095,17 @@ var _ = Describe("Humio Resources Controllers", func() {
 					hprs.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{}
 				}
 				hprs.Spec.TLS.Enabled = helpers.BoolPtr(true)
-				// Note: We are NOT setting caSecretName here, testing the controller's default secret name logic.
 				return k8sClient.Update(ctx, hprs)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() (bool, error) {
+				if err := k8sClient.Get(ctx, key, hprs); err != nil {
+					return false, err
+				}
+				return hprs.Status.State == humiov1alpha1.HumioClusterStateRunning &&
+					hprs.Status.ReadyReplicas >= 1, nil
+			}, 1*time.Minute, suite.TestInterval).
+				Should(BeTrue(), "controller should have finished second reconcile with TLS enabled")
 
 			// 4. Verify Deployment is updated with TLS config
 			suite.UsingClusterBy(key.Name, "Verifying Deployment has TLS configuration")
