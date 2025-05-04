@@ -26,18 +26,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - apps
-  resources:
-  - deployments
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - core.humio.com
   resources:
   - humioactions
@@ -52,7 +40,6 @@ rules:
   - humioingesttokens
   - humioorganizationpermissionroles
   - humioparsers
-  - humiopdfrenderservices
   - humiorepositories
   - humioscheduledsearches
   - humiosystempermissionroles
@@ -82,7 +69,6 @@ rules:
   - humioingesttokens/finalizers
   - humioorganizationpermissionroles/finalizers
   - humioparsers/finalizers
-  - humiopdfrenderservices/finalizers
   - humiorepositories/finalizers
   - humioscheduledsearches/finalizers
   - humiosystempermissionroles/finalizers
@@ -106,7 +92,6 @@ rules:
   - humioingesttokens/status
   - humioorganizationpermissionroles/status
   - humioparsers/status
-  - humiopdfrenderservices/status
   - humiorepositories/status
   - humioscheduledsearches/status
   - humiosystempermissionroles/status

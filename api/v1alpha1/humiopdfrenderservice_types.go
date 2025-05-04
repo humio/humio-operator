@@ -135,6 +135,9 @@ type HumioPdfRenderServiceStatus struct {
 
 	// State reflects the current state of the HumioPdfRenderService
 	State string `json:"state,omitempty"`
+
+	// Message provides additional information about the state of the HumioPdfRenderService
+	Message string `json:"message,omitempty"`
 }
 
 // +kubebuilder:object:root=true
