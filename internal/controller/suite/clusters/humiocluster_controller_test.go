@@ -335,39 +335,39 @@ var _ = Describe("HumioCluster Controller", func() {
 		)
 
 		// Helper function to create a basic HumioPdfRenderService CR
-		createPdfRenderServiceCR := func(ctx context.Context, pdfKey types.NamespacedName, tlsEnabled bool) *humiov1alpha1.HumioPdfRenderService {
-			pdfCR := &humiov1alpha1.HumioPdfRenderService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      pdfKey.Name,
-					Namespace: pdfKey.Namespace,
-				},
-				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
-					Image:    testPdfRenderServiceImage,
-					Replicas: 1,
-					Port:     controller.DefaultPdfRenderServicePort,
-					// Add other necessary spec fields if needed
-				},
-			}
-			if tlsEnabled {
-				pdfCR.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{
-					Enabled: helpers.BoolPtr(true),
-				}
-			}
+		// createPdfRenderServiceCR := func(ctx context.Context, pdfKey types.NamespacedName, tlsEnabled bool) *humiov1alpha1.HumioPdfRenderService {
+		// 	pdfCR := &humiov1alpha1.HumioPdfRenderService{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:      pdfKey.Name,
+		// 			Namespace: pdfKey.Namespace,
+		// 		},
+		// 		Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
+		// 			Image:    testPdfRenderServiceImage,
+		// 			Replicas: 1,
+		// 			Port:     controller.DefaultPdfRenderServicePort,
+		// 			// Add other necessary spec fields if needed
+		// 		},
+		// 	}
+		// 	if tlsEnabled {
+		// 		pdfCR.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{
+		// 			Enabled: helpers.BoolPtr(true),
+		// 		}
+		// 	}
 
-			// Create the resource and handle potential errors
-			err := k8sClient.Create(ctx, pdfCR)
-			if err != nil {
-				Fail(fmt.Sprintf("Failed to create HumioPdfRenderService: %v", err))
-			}
+		// 	// Create the resource and handle potential errors
+		// 	err := k8sClient.Create(ctx, pdfCR)
+		// 	if err != nil {
+		// 		Fail(fmt.Sprintf("Failed to create HumioPdfRenderService: %v", err))
+		// 	}
 
-			// Wait for the CR to be created with increased timeout
-			Eventually(func() error {
-				return k8sClient.Get(ctx, pdfKey, pdfCR)
-			}, standardTimeout, quickInterval).Should(Succeed(),
-				"HumioPdfRenderService %s should be created", pdfKey.String())
+		// 	// Wait for the CR to be created with increased timeout
+		// 	Eventually(func() error {
+		// 		return k8sClient.Get(ctx, pdfKey, pdfCR)
+		// 	}, standardTimeout, quickInterval).Should(Succeed(),
+		// 		"HumioPdfRenderService %s should be created", pdfKey.String())
 
-			return pdfCR
-		}
+		// 	return pdfCR
+		// }
 
 		// Helper function to create a dummy TLS secret for PDF service
 		createPdfRenderServiceTLSSecret := func(ctx context.Context, pdfCR *humiov1alpha1.HumioPdfRenderService) *corev1.Secret {
@@ -538,7 +538,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			const customPdfImage = "humio/pdf-render-service:custom-tag"
 
 			By("Creating a HumioPdfRenderService with a custom image")
-			pdfCR := createPdfRenderServiceCR(ctx, pdfKey, false)
+			pdfCR := suite.CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, false)
 			pdfCR.Spec.Image = customPdfImage
 			Expect(k8sClient.Update(ctx, pdfCR)).To(Succeed())
 			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
@@ -573,7 +573,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			By("creating the referenced HumioPdfRenderService")
 			// Create the PDF render service
-			pdfCR = createPdfRenderServiceCR(ctx, pdfKey, false)
+			pdfCR = suite.CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, false)
 			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
 			// Always ensure deployment is ready before referencing in cluster
@@ -747,7 +747,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			)))
 
 			By("Creating the valid HumioPdfRenderService to reference later")
-			validPdfCR := createPdfRenderServiceCR(ctx, validPdfKey, false) // TLS disabled
+			validPdfCR := suite.CreatePdfRenderServiceCR(ctx, k8sClient, validPdfKey, false) // TLS disabled
 			defer cleanupPdfRenderServiceCR(ctx, validPdfCR)
 
 			By("Updating HumioCluster to add PdfRenderServiceRef")
@@ -844,7 +844,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			// Create the referenced HumioPdfRenderService in the same namespace
 			suite.UsingClusterBy(clusterKey.Name, "Creating the referenced HumioPdfRenderService in namespace "+pdfNamespace)
-			pdfCR := createPdfRenderServiceCR(ctx, pdfKey, false) // TLS disabled
+			pdfCR := suite.CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, false)
 			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
 			// Ensure PDF service is ready
@@ -884,7 +884,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			By("Creating the referenced HumioPdfRenderService (non-TLS)")
-			pdfCR := createPdfRenderServiceCR(ctx, pdfKey, false) // TLS disabled
+			pdfCR := suite.CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, false)
 			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
 			By("Ensuring PDF render deployment is ready")
@@ -969,7 +969,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			By("Creating the referenced HumioPdfRenderService: " + pdfKey.String())
-			pdfCR := createPdfRenderServiceCR(ctx, pdfKey, false)
+			pdfCR := suite.CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, false)
 			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
 			By("Ensuring PDF render deployment is ready")
