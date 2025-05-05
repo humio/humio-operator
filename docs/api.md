@@ -44604,10 +44604,27 @@ HumioPdfRenderServiceStatus defines the observed state of HumioPdfRenderService
         </tr>
     </thead>
     <tbody><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          Message provides additional information about the state of the HumioPdfRenderService<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>nodes</b></td>
         <td>[]string</td>
         <td>
           Nodes are the names of the PDF render service pods.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          ObservedGeneration is the most recent generation observed for this HumioPdfRenderService. It corresponds to the
+resource's generation, which is updated on mutation by the API Server.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
         </td>
         <td>false</td>
       </tr><tr>
