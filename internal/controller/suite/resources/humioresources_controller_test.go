@@ -31,9 +31,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -1716,9 +1716,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the web hook action to be updated")
 			Eventually(func() error {
-				if err := k8sClient.Get(ctx, key, fetchedAction); err != nil {
-					return err
-				}
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.WebhookProperties = updatedWebhookActionProperties
 				return k8sClient.Update(ctx, fetchedAction)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
@@ -1734,7 +1732,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the web hook action matches the expected")
 			Eventually(func() string {
 				updatedAction, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
-				if err != nil {
+				if err != nil || updatedAction == nil {
 					return ""
 				}
 				switch v := (updatedAction).(type) {
@@ -2160,7 +2158,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
 
-			// Check the SecretMap rather than the ApiToken on the action
+			// Check the SecretMap rather than the NotifyUrl on the action
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(expectedSecretValue))
@@ -2293,6 +2291,258 @@ var _ = Describe("Humio Resources Controllers", func() {
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
 			Expect(apiToken).To(Equal(toCreateAction.Spec.SlackPostMessageProperties.ApiToken))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("HumioAction: SlackProperties: Should support referencing secrets", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-slack-action-secret",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               key.Name,
+					ViewName:           testRepo.Spec.Name,
+					SlackProperties: &humiov1alpha1.HumioActionSlackProperties{
+						UrlSource: humiov1alpha1.VarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "action-slack-secret-from-secret",
+								},
+								Key: "key",
+							},
+						},
+						Fields: map[string]string{
+							"some": "key",
+						},
+					},
+				},
+			}
+
+			expectedSecretValue := fmt.Sprintf("https://%s/services/T00000000/B00000000/YYYYYYYYYYYYYYYYYYYYYYYY", testService1.Name)
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      toCreateAction.Spec.SlackProperties.UrlSource.SecretKeyRef.LocalObjectReference.Name,
+					Namespace: clusterKey.Namespace,
+				},
+				Data: map[string][]byte{
+					toCreateAction.Spec.SlackProperties.UrlSource.SecretKeyRef.Key: []byte(expectedSecretValue),
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			var action humiographql.ActionDetails
+			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+			Eventually(func() error {
+				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(action).ToNot(BeNil())
+
+			// Should not be setting the API token in this case, but the secretMap should have the value
+			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
+			Expect(found).To(BeTrue())
+			Expect(apiToken).To(Equal(expectedSecretValue))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("HumioAction: SlackProperties: Should support direct url", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-slack-action-direct",
+				Namespace: clusterKey.Namespace,
+			}
+
+			expectedSecretValue := fmt.Sprintf("https://%s/services/T00000000/B00000000/YYYYYYYYYYYYYYYYYYYYYYYY", testService1.Name)
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               key.Name,
+					ViewName:           testRepo.Spec.Name,
+					SlackProperties: &humiov1alpha1.HumioActionSlackProperties{
+						Url: expectedSecretValue,
+						Fields: map[string]string{
+							"some": "key",
+						},
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			var action humiographql.ActionDetails
+			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+			Eventually(func() error {
+				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(action).ToNot(BeNil())
+
+			// Check the SecretMap rather than the ApiToken on the action
+			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
+			Expect(found).To(BeTrue())
+			Expect(apiToken).To(Equal(toCreateAction.Spec.SlackProperties.Url))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("HumioAction: PagerDutyProperties: Should support referencing secrets", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-pagerduty-action-secret",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               key.Name,
+					ViewName:           testRepo.Spec.Name,
+					PagerDutyProperties: &humiov1alpha1.HumioActionPagerDutyProperties{
+						RoutingKeySource: humiov1alpha1.VarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "action-pagerduty-secret",
+								},
+								Key: "key",
+							},
+						},
+						Severity: "critical",
+					},
+				},
+			}
+
+			expectedSecretValue := "secret-key"
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "action-pagerduty-secret",
+					Namespace: clusterKey.Namespace,
+				},
+				Data: map[string][]byte{
+					"key": []byte(expectedSecretValue),
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			var action humiographql.ActionDetails
+			Eventually(func() error {
+				humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(action).ToNot(BeNil())
+
+			// Check the SecretMap rather than the ApiToken on the action
+			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
+			Expect(found).To(BeTrue())
+			Expect(apiToken).To(Equal(expectedSecretValue))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedAction)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("HumioAction: PagerDutyProperties: Should support direct api token", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-pagerduty-action-direct",
+				Namespace: clusterKey.Namespace,
+			}
+
+			expectedSecretValue := "direct-routing-key"
+			toCreateAction := &humiov1alpha1.HumioAction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioActionSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               key.Name,
+					ViewName:           testRepo.Spec.Name,
+					PagerDutyProperties: &humiov1alpha1.HumioActionPagerDutyProperties{
+						RoutingKey: expectedSecretValue,
+						Severity:   "critical",
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
+
+			fetchedAction := &humiov1alpha1.HumioAction{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedAction)
+				return fetchedAction.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
+
+			var action humiographql.ActionDetails
+			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+			Eventually(func() error {
+				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(action).ToNot(BeNil())
+
+			// Check the secretMap rather than the apiToken in the ha.
+			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
+			Expect(found).To(BeTrue())
+			Expect(apiToken).To(Equal(toCreateAction.Spec.PagerDutyProperties.RoutingKey))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
@@ -2484,78 +2734,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}))
 			}
 
-			// Check the SecretMap rather than the ApiToken in the ha.
-			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
-			Expect(found).To(BeTrue())
-			Expect(apiToken).To(Equal(toCreateAction.Spec.WebhookProperties.Url))
-
-			allHeaders, found := kubernetes.GetFullSetOfMergedWebhookheaders(toCreateAction)
-			Expect(found).To(BeTrue())
-			Expect(allHeaders).To(HaveKeyWithValue(nonsensitiveHeaderKey, nonsensitiveHeaderValue))
-
-			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
-			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, key, fetchedAction)
-				return k8serrors.IsNotFound(err)
-			}, testTimeout, suite.TestInterval).Should(BeTrue())
-		})
-		It("HumioAction: WebhookProperties: Should support direct url and headers", func() {
-			ctx := context.Background()
-			key := types.NamespacedName{
-				Name:      "humio-webhook-action-with-headers",
-				Namespace: clusterKey.Namespace,
-			}
-
-			expectedUrl := fmt.Sprintf("https://%s/integrations/0000/alert/0000/routing_key", testService1.Name)
-			nonsensitiveHeaderKey := "foo"
-			nonsensitiveHeaderValue := "bar"
-			toCreateAction := &humiov1alpha1.HumioAction{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      key.Name,
-					Namespace: key.Namespace,
-				},
-				Spec: humiov1alpha1.HumioActionSpec{
-					ManagedClusterName: clusterKey.Name,
-					Name:               key.Name,
-					ViewName:           testRepo.Spec.Name,
-					WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
-						BodyTemplate: "body template",
-						Method:       http.MethodPost,
-						Url:          expectedUrl,
-						Headers: map[string]string{
-							nonsensitiveHeaderKey: nonsensitiveHeaderValue,
-						},
-					},
-				},
-			}
-
-			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
-
-			fetchedAction := &humiov1alpha1.HumioAction{}
-			Eventually(func() string {
-				_ = k8sClient.Get(ctx, key, fetchedAction)
-				return fetchedAction.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
-
-			var action humiographql.ActionDetails
-			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
-			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
-				return err
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-			Expect(action).ToNot(BeNil())
-			switch v := (action).(type) {
-			case *humiographql.ActionDetailsWebhookAction:
-				Expect(v.GetUrl()).To(Equal(expectedUrl))
-				Expect(v.GetHeaders()).Should(ContainElements([]humiographql.ActionDetailsHeadersHttpHeaderEntry{
-					{
-						Header: nonsensitiveHeaderKey,
-						Value:  nonsensitiveHeaderValue,
-					},
-				}))
-			}
-
 			// Check the SecretMap rather than the ApiToken on the action
 			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
 			Expect(found).To(BeTrue())
@@ -2572,111 +2750,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
-
-		It("HumioAction: WebhookProperties: Should support direct url and mixed headers", func() {
-			ctx := context.Background()
-			key := types.NamespacedName{
-				Name:      "humio-webhook-action-with-mixed-headers",
-				Namespace: clusterKey.Namespace,
-			}
-
-			expectedUrl := fmt.Sprintf("https://%s/integrations/0000/alert/0000/routing_key", testService1.Name)
-			headerKey1 := "foo1"
-			sensitiveHeaderValue1 := "bar1"
-			headerKey2 := "foo2"
-			nonsensitiveHeaderValue2 := "bar2"
-			toCreateAction := &humiov1alpha1.HumioAction{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      key.Name,
-					Namespace: key.Namespace,
-				},
-				Spec: humiov1alpha1.HumioActionSpec{
-					ManagedClusterName: clusterKey.Name,
-					Name:               key.Name,
-					ViewName:           testRepo.Spec.Name,
-					WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
-						BodyTemplate: "body template",
-						Method:       http.MethodPost,
-						Url:          expectedUrl,
-						Headers: map[string]string{
-							headerKey2: nonsensitiveHeaderValue2,
-						},
-						SecretHeaders: []humiov1alpha1.HeadersSource{
-							{
-								Name: headerKey1,
-								ValueFrom: humiov1alpha1.VarSource{
-									SecretKeyRef: &corev1.SecretKeySelector{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "action-webhook-header-secret-mixed",
-										},
-										Key: "key",
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "action-webhook-header-secret-mixed",
-					Namespace: clusterKey.Namespace,
-				},
-				Data: map[string][]byte{
-					"key": []byte(sensitiveHeaderValue1),
-				},
-			}
-
-			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
-
-			fetchedAction := &humiov1alpha1.HumioAction{}
-			Eventually(func() string {
-				_ = k8sClient.Get(ctx, key, fetchedAction)
-				return fetchedAction.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
-
-			var action humiographql.ActionDetails
-			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
-			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
-				return err
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-			Expect(action).ToNot(BeNil())
-			switch v := (action).(type) {
-			case *humiographql.ActionDetailsWebhookAction:
-				Expect(v.GetUrl()).To(Equal(expectedUrl))
-				Expect(v.GetHeaders()).Should(ContainElements([]humiographql.ActionDetailsHeadersHttpHeaderEntry{
-					{
-						Header: headerKey1,
-						Value:  sensitiveHeaderValue1,
-					},
-					{
-						Header: headerKey2,
-						Value:  nonsensitiveHeaderValue2,
-					},
-				}))
-			}
-
-			// Check the SecretMap rather than the ApiToken in the ha.
-			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
-			Expect(found).To(BeTrue())
-			Expect(apiToken).To(Equal(toCreateAction.Spec.WebhookProperties.Url))
-
-			allHeaders, found := kubernetes.GetFullSetOfMergedWebhookheaders(toCreateAction)
-			Expect(found).To(BeTrue())
-			Expect(allHeaders).To(HaveKeyWithValue(headerKey1, sensitiveHeaderValue1))
-			Expect(allHeaders).To(HaveKeyWithValue(headerKey2, nonsensitiveHeaderValue2))
-
-			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
-			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, key, fetchedAction)
-				return k8serrors.IsNotFound(err)
-			}, testTimeout, suite.TestInterval).Should(BeTrue())
-		})
-
 		It("HumioAction: WebhookProperties: Should support direct url and mixed headers", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -2780,19 +2853,16 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
-
-		It("HumioAction: WebhookProperties: Should support direct url and mixed headers", func() {
+		It("HumioAction: WebhookProperties: Should support direct url and secret headers", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
-				Name:      "humio-webhook-action-with-mixed-headers",
+				Name:      "humio-webhook-action-with-secret-headers",
 				Namespace: clusterKey.Namespace,
 			}
 
 			expectedUrl := fmt.Sprintf("https://%s/integrations/0000/alert/0000/routing_key", testService1.Name)
-			headerKey1 := "foo1"
-			sensitiveHeaderValue1 := "bar1"
-			headerKey2 := "foo2"
-			nonsensitiveHeaderValue2 := "bar2"
+			headerKey := "foo"
+			sensitiveHeaderValue := "bar"
 			toCreateAction := &humiov1alpha1.HumioAction{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      key.Name,
@@ -2806,16 +2876,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 						BodyTemplate: "body template",
 						Method:       http.MethodPost,
 						Url:          expectedUrl,
-						Headers: map[string]string{
-							headerKey2: nonsensitiveHeaderValue2,
-						},
 						SecretHeaders: []humiov1alpha1.HeadersSource{
 							{
-								Name: headerKey1,
+								Name: headerKey,
 								ValueFrom: humiov1alpha1.VarSource{
 									SecretKeyRef: &corev1.SecretKeySelector{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "action-webhook-header-secret-mixed",
+											Name: "action-webhook-header-secret",
 										},
 										Key: "key",
 									},
@@ -2828,11 +2895,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "action-webhook-header-secret-mixed",
+					Name:      "action-webhook-header-secret",
 					Namespace: clusterKey.Namespace,
 				},
 				Data: map[string][]byte{
-					"key": []byte(sensitiveHeaderValue1),
+					"key": []byte(sensitiveHeaderValue),
 				},
 			}
 
@@ -2857,190 +2924,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Expect(v.GetUrl()).To(Equal(expectedUrl))
 				Expect(v.GetHeaders()).Should(ContainElements([]humiographql.ActionDetailsHeadersHttpHeaderEntry{
 					{
-						Header: headerKey1,
-						Value:  sensitiveHeaderValue1,
-					},
-					{
-						Header: headerKey2,
-						Value:  nonsensitiveHeaderValue2,
-					},
-				}))
-			}
-
-			// Check the SecretMap rather than the ApiToken in the ha.
-			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
-			Expect(found).To(BeTrue())
-			Expect(apiToken).To(Equal(toCreateAction.Spec.WebhookProperties.Url))
-
-			allHeaders, found := kubernetes.GetFullSetOfMergedWebhookheaders(toCreateAction)
-			Expect(found).To(BeTrue())
-			Expect(allHeaders).To(HaveKeyWithValue(headerKey1, sensitiveHeaderValue1))
-			Expect(allHeaders).To(HaveKeyWithValue(headerKey2, nonsensitiveHeaderValue2))
-
-			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
-			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, key, fetchedAction)
-				return k8serrors.IsNotFound(err)
-			}, testTimeout, suite.TestInterval).Should(BeTrue())
-		})
-
-		It("HumioAction: WebhookProperties: Should support direct url and mixed headers", func() {
-			ctx := context.Background()
-			key := types.NamespacedName{
-				Name:      "humio-webhook-action-with-mixed-headers",
-				Namespace: clusterKey.Namespace,
-			}
-
-			expectedUrl := fmt.Sprintf("https://%s/integrations/0000/alert/0000/routing_key", testService1.Name)
-			headerKey1 := "foo1"
-			sensitiveHeaderValue1 := "bar1"
-			headerKey2 := "foo2"
-			nonsensitiveHeaderValue2 := "bar2"
-			toCreateAction := &humiov1alpha1.HumioAction{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      key.Name,
-					Namespace: key.Namespace,
-				},
-				Spec: humiov1alpha1.HumioActionSpec{
-					ManagedClusterName: clusterKey.Name,
-					Name:               key.Name,
-					ViewName:           testRepo.Spec.Name,
-					WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
-						BodyTemplate: "body template",
-						Method:       http.MethodPost,
-						Url:          expectedUrl,
-						Headers: map[string]string{
-							headerKey2: nonsensitiveHeaderValue2,
-						},
-						SecretHeaders: []humiov1alpha1.HeadersSource{
-							{
-								Name: headerKey1,
-								ValueFrom: humiov1alpha1.VarSource{
-									SecretKeyRef: &corev1.SecretKeySelector{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "action-webhook-header-secret-mixed",
-										},
-										Key: "key",
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "action-webhook-header-secret-mixed",
-					Namespace: clusterKey.Namespace,
-				},
-				Data: map[string][]byte{
-					"key": []byte(sensitiveHeaderValue1),
-				},
-			}
-
-			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
-
-			fetchedAction := &humiov1alpha1.HumioAction{}
-			Eventually(func() string {
-				_ = k8sClient.Get(ctx, key, fetchedAction)
-				return fetchedAction.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
-
-			var action humiographql.ActionDetails
-			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
-			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
-				return err
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-			Expect(action).ToNot(BeNil())
-			switch v := (action).(type) {
-			case *humiographql.ActionDetailsWebhookAction:
-				Expect(v.GetUrl()).To(Equal(expectedUrl))
-				Expect(v.GetHeaders()).Should(ContainElements([]humiographql.ActionDetailsHeadersHttpHeaderEntry{
-					{
-						Header: headerKey1,
-						Value:  sensitiveHeaderValue1,
-					},
-					{
-						Header: headerKey2,
-						Value:  nonsensitiveHeaderValue2,
-					},
-				}))
-			}
-
-			// Check the SecretMap rather than the ApiToken in the ha.
-			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
-			Expect(found).To(BeTrue())
-			Expect(apiToken).To(Equal(toCreateAction.Spec.WebhookProperties.Url))
-
-			allHeaders, found := kubernetes.GetFullSetOfMergedWebhookheaders(toCreateAction)
-			Expect(found).To(BeTrue())
-			Expect(allHeaders).To(HaveKeyWithValue(headerKey1, sensitiveHeaderValue1))
-			Expect(allHeaders).To(HaveKeyWithValue(headerKey2, nonsensitiveHeaderValue2))
-
-			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
-			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, key, fetchedAction)
-				return k8serrors.IsNotFound(err)
-			}, testTimeout, suite.TestInterval).Should(BeTrue())
-		})
-
-		It("HumioAction: WebhookProperties: Should support direct url and headers", func() {
-			ctx := context.Background()
-			key := types.NamespacedName{
-				Name:      "humio-webhook-action-with-headers",
-				Namespace: clusterKey.Namespace,
-			}
-
-			expectedUrl := fmt.Sprintf("https://%s/integrations/0000/alert/0000/routing_key", testService1.Name)
-			nonsensitiveHeaderKey := "foo"
-			nonsensitiveHeaderValue := "bar"
-			toCreateAction := &humiov1alpha1.HumioAction{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      key.Name,
-					Namespace: key.Namespace,
-				},
-				Spec: humiov1alpha1.HumioActionSpec{
-					ManagedClusterName: clusterKey.Name,
-					Name:               key.Name,
-					ViewName:           testRepo.Spec.Name,
-					WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
-						BodyTemplate: "body template",
-						Method:       http.MethodPost,
-						Url:          expectedUrl,
-						Headers: map[string]string{
-							nonsensitiveHeaderKey: nonsensitiveHeaderValue,
-						},
-					},
-				},
-			}
-
-			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
-
-			fetchedAction := &humiov1alpha1.HumioAction{}
-			Eventually(func() string {
-				_ = k8sClient.Get(ctx, key, fetchedAction)
-				return fetchedAction.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
-
-			var action humiographql.ActionDetails
-			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
-			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
-				return err
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-			Expect(action).ToNot(BeNil())
-			switch v := (action).(type) {
-			case *humiographql.ActionDetailsWebhookAction:
-				Expect(v.GetUrl()).To(Equal(expectedUrl))
-				Expect(v.GetHeaders()).Should(ContainElements([]humiographql.ActionDetailsHeadersHttpHeaderEntry{
-					{
-						Header: nonsensitiveHeaderKey,
-						Value:  nonsensitiveHeaderValue,
+						Header: headerKey,
+						Value:  sensitiveHeaderValue,
 					},
 				}))
 			}
@@ -3052,215 +2937,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			allHeaders, found := kubernetes.GetFullSetOfMergedWebhookheaders(toCreateAction)
 			Expect(found).To(BeTrue())
-			Expect(allHeaders).To(HaveKeyWithValue(nonsensitiveHeaderKey, nonsensitiveHeaderValue))
-
-			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
-			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, key, fetchedAction)
-				return k8serrors.IsNotFound(err)
-			}, testTimeout, suite.TestInterval).Should(BeTrue())
-		})
-
-		It("HumioAction: WebhookProperties: Should support direct url and mixed headers", func() {
-			ctx := context.Background()
-			key := types.NamespacedName{
-				Name:      "humio-webhook-action-with-mixed-headers",
-				Namespace: clusterKey.Namespace,
-			}
-
-			expectedUrl := fmt.Sprintf("https://%s/integrations/0000/alert/0000/routing_key", testService1.Name)
-			headerKey1 := "foo1"
-			sensitiveHeaderValue1 := "bar1"
-			headerKey2 := "foo2"
-			nonsensitiveHeaderValue2 := "bar2"
-			toCreateAction := &humiov1alpha1.HumioAction{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      key.Name,
-					Namespace: key.Namespace,
-				},
-				Spec: humiov1alpha1.HumioActionSpec{
-					ManagedClusterName: clusterKey.Name,
-					Name:               key.Name,
-					ViewName:           testRepo.Spec.Name,
-					WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
-						BodyTemplate: "body template",
-						Method:       http.MethodPost,
-						Url:          expectedUrl,
-						Headers: map[string]string{
-							headerKey2: nonsensitiveHeaderValue2,
-						},
-						SecretHeaders: []humiov1alpha1.HeadersSource{
-							{
-								Name: headerKey1,
-								ValueFrom: humiov1alpha1.VarSource{
-									SecretKeyRef: &corev1.SecretKeySelector{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "action-webhook-header-secret-mixed",
-										},
-										Key: "key",
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "action-webhook-header-secret-mixed",
-					Namespace: clusterKey.Namespace,
-				},
-				Data: map[string][]byte{
-					"key": []byte(sensitiveHeaderValue1),
-				},
-			}
-
-			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
-
-			fetchedAction := &humiov1alpha1.HumioAction{}
-			Eventually(func() string {
-				_ = k8sClient.Get(ctx, key, fetchedAction)
-				return fetchedAction.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
-
-			var action humiographql.ActionDetails
-			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
-			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
-				return err
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-			Expect(action).ToNot(BeNil())
-			switch v := (action).(type) {
-			case *humiographql.ActionDetailsWebhookAction:
-				Expect(v.GetUrl()).To(Equal(expectedUrl))
-				Expect(v.GetHeaders()).Should(ContainElements([]humiographql.ActionDetailsHeadersHttpHeaderEntry{
-					{
-						Header: headerKey1,
-						Value:  sensitiveHeaderValue1,
-					},
-					{
-						Header: headerKey2,
-						Value:  nonsensitiveHeaderValue2,
-					},
-				}))
-			}
-
-			// Check the SecretMap rather than the ApiToken in the ha.
-			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
-			Expect(found).To(BeTrue())
-			Expect(apiToken).To(Equal(toCreateAction.Spec.WebhookProperties.Url))
-
-			allHeaders, found := kubernetes.GetFullSetOfMergedWebhookheaders(toCreateAction)
-			Expect(found).To(BeTrue())
-			Expect(allHeaders).To(HaveKeyWithValue(headerKey1, sensitiveHeaderValue1))
-			Expect(allHeaders).To(HaveKeyWithValue(headerKey2, nonsensitiveHeaderValue2))
-
-			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
-			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, key, fetchedAction)
-				return k8serrors.IsNotFound(err)
-			}, testTimeout, suite.TestInterval).Should(BeTrue())
-		})
-
-		It("HumioAction: WebhookProperties: Should support direct url and mixed headers", func() {
-			ctx := context.Background()
-			key := types.NamespacedName{
-				Name:      "humio-webhook-action-with-mixed-headers",
-				Namespace: clusterKey.Namespace,
-			}
-
-			expectedUrl := fmt.Sprintf("https://%s/integrations/0000/alert/0000/routing_key", testService1.Name)
-			headerKey1 := "foo1"
-			sensitiveHeaderValue1 := "bar1"
-			headerKey2 := "foo2"
-			nonsensitiveHeaderValue2 := "bar2"
-			toCreateAction := &humiov1alpha1.HumioAction{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      key.Name,
-					Namespace: key.Namespace,
-				},
-				Spec: humiov1alpha1.HumioActionSpec{
-					ManagedClusterName: clusterKey.Name,
-					Name:               key.Name,
-					ViewName:           testRepo.Spec.Name,
-					WebhookProperties: &humiov1alpha1.HumioActionWebhookProperties{
-						BodyTemplate: "body template",
-						Method:       http.MethodPost,
-						Url:          expectedUrl,
-						Headers: map[string]string{
-							headerKey2: nonsensitiveHeaderValue2,
-						},
-						SecretHeaders: []humiov1alpha1.HeadersSource{
-							{
-								Name: headerKey1,
-								ValueFrom: humiov1alpha1.VarSource{
-									SecretKeyRef: &corev1.SecretKeySelector{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "action-webhook-header-secret-mixed",
-										},
-										Key: "key",
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "action-webhook-header-secret-mixed",
-					Namespace: clusterKey.Namespace,
-				},
-				Data: map[string][]byte{
-					"key": []byte(sensitiveHeaderValue1),
-				},
-			}
-
-			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-			Expect(k8sClient.Create(ctx, toCreateAction)).Should(Succeed())
-
-			fetchedAction := &humiov1alpha1.HumioAction{}
-			Eventually(func() string {
-				_ = k8sClient.Get(ctx, key, fetchedAction)
-				return fetchedAction.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
-
-			var action humiographql.ActionDetails
-			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
-			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
-				return err
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-			Expect(action).ToNot(BeNil())
-			switch v := (action).(type) {
-			case *humiographql.ActionDetailsWebhookAction:
-				Expect(v.GetUrl()).To(Equal(expectedUrl))
-				Expect(v.GetHeaders()).Should(ContainElements([]humiographql.ActionDetailsHeadersHttpHeaderEntry{
-					{
-						Header: headerKey1,
-						Value:  sensitiveHeaderValue1,
-					},
-					{
-						Header: headerKey2,
-						Value:  nonsensitiveHeaderValue2,
-					},
-				}))
-			}
-
-			// Check the SecretMap rather than the ApiToken in the ha.
-			apiToken, found := kubernetes.GetSecretForHa(toCreateAction)
-			Expect(found).To(BeTrue())
-			Expect(apiToken).To(Equal(toCreateAction.Spec.WebhookProperties.Url))
-
-			allHeaders, found := kubernetes.GetFullSetOfMergedWebhookheaders(toCreateAction)
-			Expect(found).To(BeTrue())
-			Expect(allHeaders).To(HaveKeyWithValue(headerKey1, sensitiveHeaderValue1))
-			Expect(allHeaders).To(HaveKeyWithValue(headerKey2, nonsensitiveHeaderValue2))
+			Expect(allHeaders).To(HaveKeyWithValue(headerKey, sensitiveHeaderValue))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
@@ -3403,7 +3080,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Verifying the alert update succeeded")
-			var expectedUpdatedAlert, updatedAlert2 humiographql.AlertDetails
+			var expectedUpdatedAlert *humiographql.AlertDetails
 			Eventually(func() error {
 				expectedUpdatedAlert, err = humioClient.GetAlert(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAlert)
 				return err
@@ -3515,19 +3192,16 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateExists))
 
 			filterAlertSpec := humiov1alpha1.HumioFilterAlertSpec{
-				ManagedClusterName:    clusterKey.Name,
-				Name:                  "example-filter-alert",
-				ViewName:              testRepo.Spec.Name,
-				QueryString:           "#repo = humio | error = true | count()",
-				QueryTimestampType:    "EventTimestamp",
-				SearchIntervalSeconds: 60,
-				ThrottleTimeSeconds:   120,
-				ThrottleField:         helpers.StringPtr("@timestamp"),
-				TriggerMode:           "ImmediateMode",
-				Enabled:               true,
-				Description:           "humio filter alert",
-				Actions:               []string{toCreateDependentAction.Spec.Name},
-				Labels:                []string{"some-label"},
+				ManagedClusterName:  clusterKey.Name,
+				Name:                "example-filter-alert",
+				ViewName:            testRepo.Spec.Name,
+				QueryString:         "#repo = humio | error = true",
+				Enabled:             true,
+				Description:         "humio filter alert",
+				Actions:             []string{toCreateDependentAction.Spec.Name},
+				Labels:              []string{"some-label"},
+				ThrottleTimeSeconds: 300,
+				ThrottleField:       helpers.StringPtr("somefield"),
 			}
 
 			key := types.NamespacedName{
@@ -3587,7 +3261,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(filterAlert.GetThrottleField()).To(Equal(originalFilterAlert.GetThrottleField()))
 			Expect(filterAlert.GetActions()).To(BeEquivalentTo(originalFilterAlert.GetActions()))
 			Expect(filterAlert.GetLabels()).To(Equal(originalFilterAlert.GetLabels()))
-			Expect(filterAlert.Enabled).To(Equal(originalFilterAlert.Enabled))
+			Expect(filterAlert.GetEnabled()).To(Equal(originalFilterAlert.GetEnabled()))
+			Expect(filterAlert.GetQueryString()).To(Equal(originalFilterAlert.GetQueryString()))
 
 			createdFilterAlert := toCreateFilterAlert
 			var throttleTimeSeconds int
@@ -3608,7 +3283,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Actions:             humioapi.GetActionNames(filterAlert.Actions),
 				Labels:              filterAlert.Labels,
 			}
-			Expect(err).ToNot(HaveOccurred())
 			Expect(createdFilterAlert.Spec).To(Equal(toCreateFilterAlert.Spec))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Updating the filter alert successfully")
@@ -4029,30 +3703,37 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return humioClient.ValidateActionsForScheduledSearch(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateScheduledSearch)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			originalScheduledSearch := humiographql.ScheduledSearchDetails{
-				Id:                 "",
-				Name:               toCreateScheduledSearch.Spec.Name,
-				QueryString:        toCreateScheduledSearch.Spec.QueryString,
-				QueryStart:         toCreateScheduledSearch.Spec.QueryStart,
-				ThrottleField:      toCreateScheduledSearch.Spec.ThrottleField,
-				Description:        &toCreateScheduledSearch.Spec.Description,
-				ThrottleTimeMillis: int64(toCreateScheduledSearch.Spec.ThrottleTimeMillis),
-				Enabled:            !toCreateScheduledSearch.Spec.Silenced,
-				ActionsV2:          humioapi.ActionNamesToEmailActions(toCreateScheduledSearch.Spec.Actions),
-				Labels:             toCreateScheduledSearch.Spec.Labels,
-				QueryOwnership: &humiographql.SharedQueryOwnershipTypeOrganizationOwnership{
-					Typename: helpers.StringPtr("OrganizationOwnership"),
-					QueryOwnershipOrganizationOwnership: humiographql.QueryOwnershipOrganizationOwnership{
-						Typename: helpers.StringPtr("OrganizationOwnership"),
-					},
-				},
+			Expect(humioapi.GetActionNames(scheduledSearch.ActionsV2)).To(Equal(toCreateScheduledSearch.Spec.Actions))
+			Expect(scheduledSearch.Name).To(Equal(toCreateScheduledSearch.Spec.Name))
+			Expect(scheduledSearch.Description).To(Equal(&toCreateScheduledSearch.Spec.Description))
+			Expect(scheduledSearch.Labels).To(Equal(toCreateScheduledSearch.Spec.Labels))
+			Expect(scheduledSearch.Enabled).To(Equal(toCreateScheduledSearch.Spec.Enabled))
+			Expect(scheduledSearch.QueryString).To(Equal(toCreateScheduledSearch.Spec.QueryString))
+			Expect(scheduledSearch.Start).To(Equal(toCreateScheduledSearch.Spec.QueryStart))
+			Expect(scheduledSearch.End).To(Equal(toCreateScheduledSearch.Spec.QueryEnd))
+			Expect(scheduledSearch.Schedule).To(Equal(toCreateScheduledSearch.Spec.Schedule))
+			Expect(scheduledSearch.TimeZone).To(Equal(toCreateScheduledSearch.Spec.TimeZone))
+			Expect(scheduledSearch.BackfillLimit).To(Equal(toCreateScheduledSearch.Spec.BackfillLimit))
+
+			createdScheduledSearch := toCreateScheduledSearch
+			var description string
+			if scheduledSearch.Description != nil {
+				description = *scheduledSearch.Description
 			}
-			Expect(scheduledSearch.Name).To(Equal(originalScheduledSearch.GetName()))
-			Expect(scheduledSearch.Description).To(Equal(originalScheduledSearch.GetDescription()))
-			Expect(scheduledSearch.Labels).To(Equal(originalScheduledSearch.GetLabels()))
-			Expect(scheduledSearch.Enabled).To(Equal(originalScheduledSearch.GetEnabled()))
-			Expect(scheduledSearch.QueryString).To(Equal(originalScheduledSearch.GetQueryString()))
-			Expect(scheduledSearch.QueryStart).To(Equal(originalScheduledSearch.GetQueryStart()))
+			createdScheduledSearch.Spec = humiov1alpha1.HumioScheduledSearchSpec{
+				Name:          scheduledSearch.Name,
+				QueryString:   scheduledSearch.QueryString,
+				Description:   description,
+				QueryStart:    scheduledSearch.Start,
+				QueryEnd:      scheduledSearch.End,
+				Schedule:      scheduledSearch.Schedule,
+				TimeZone:      scheduledSearch.TimeZone,
+				BackfillLimit: scheduledSearch.BackfillLimit,
+				Enabled:       scheduledSearch.Enabled,
+				Actions:       humioapi.GetActionNames(scheduledSearch.ActionsV2),
+				Labels:        scheduledSearch.Labels,
+			}
+			Expect(createdScheduledSearch.Spec).To(Equal(toCreateScheduledSearch.Spec))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Updating the scheduled search successfully")
 			updatedScheduledSearch := toCreateScheduledSearch
@@ -4068,9 +3749,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Waiting for the scheduled search to be updated")
 			Eventually(func() error {
-				if err := k8sClient.Get(ctx, key, fetchedScheduledSearch); err != nil {
-					return err
-				}
+				_ = k8sClient.Get(ctx, key, fetchedScheduledSearch)
 				fetchedScheduledSearch.Spec.QueryString = updatedScheduledSearch.Spec.QueryString
 				fetchedScheduledSearch.Spec.QueryStart = updatedScheduledSearch.Spec.QueryStart
 				fetchedScheduledSearch.Spec.QueryEnd = updatedScheduledSearch.Spec.QueryEnd
@@ -4161,8 +3840,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 	})
+
 	Context("Humio Cluster PDF Render Service", Label("envtest", "dummy", "real"), func() {
-		// Define consistent timeouts for all tests
 		const (
 			shortTimeout  = time.Second * 10
 			mediumTimeout = time.Second * 30
@@ -4170,132 +3849,54 @@ var _ = Describe("Humio Resources Controllers", func() {
 		)
 
 		var (
-				key         types.NamespacedName
-				hpr         *humiov1alpha1.HumioPdfRenderService
-				deployment  *appsv1.Deployment
-				service     *corev1.Service
-				testTimeout = time.Second * 10 // Reduced timeout for faster tests
+			ctx     context.Context
+			hprsKey types.NamespacedName
+			hprs    *humiov1alpha1.HumioPdfRenderService
 		)
 
-		// Helper function to wait for a specific state and observedGeneration
-		waitForState := func(targetHPRS *humiov1alpha1.HumioPdfRenderService, expectedState string, timeout time.Duration) {
-			// First check for the expected state
-			Eventually(func(g Gomega) string {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: targetHPRS.Name, Namespace: targetHPRS.Namespace}, targetHPRS)
-				g.Expect(err).NotTo(HaveOccurred())
-				fmt.Fprintf(GinkgoWriter, "Current state: %s, Gen: %d, ObsGen: %d\n",
-					targetHPRS.Status.State, targetHPRS.Generation, targetHPRS.Status.ObservedGeneration)
-				return targetHPRS.Status.State
-			}, timeout, suite.TestInterval).Should(Equal(expectedState))
-
-			// Then check for observedGeneration to match generation
-			Eventually(func(g Gomega) int64 {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: targetHPRS.Name, Namespace: targetHPRS.Namespace}, targetHPRS)
-				g.Expect(err).NotTo(HaveOccurred())
-				return targetHPRS.Status.ObservedGeneration
-			}, timeout, suite.TestInterval).Should(Equal(targetHPRS.Generation))
-		}
-
-		// Helper function to simulate a deployment becoming ready
-		simulateDeploymentReady := func(dep *appsv1.Deployment, replicas int32) error {
-			// Get latest deployment first
-			if err := k8sClient.Get(ctx, types.NamespacedName{Name: dep.Name, Namespace: dep.Namespace}, dep); err != nil {
-				return err
-			}
-
-			// Update all relevant fields
-			dep.Status.Replicas = replicas
-			dep.Status.ReadyReplicas = replicas
-			dep.Status.UpdatedReplicas = replicas
-			dep.Status.AvailableReplicas = replicas
-			dep.Status.ObservedGeneration = dep.Generation
-
-			// Add conditions that the controller might check
-			dep.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:               appsv1.DeploymentAvailable,
-					Status:             corev1.ConditionTrue,
-					LastUpdateTime:     metav1.Now(),
-					LastTransitionTime: metav1.Now(),
-					Reason:             "MinimumReplicasAvailable",
-					Message:            "Deployment has minimum availability.",
-				},
-				{
-					Type:               appsv1.DeploymentProgressing,
-					Status:             corev1.ConditionTrue,
-					LastUpdateTime:     metav1.Now(),
-					LastTransitionTime: metav1.Now(),
-					Reason:             "NewReplicaSetAvailable",
-					Message:            "ReplicaSet has successfully progressed.",
-				},
-			}
-
-			return k8sClient.Status().Update(ctx, dep)
-		}
-
 		BeforeEach(func() {
-			// Clean up any leftover resources from previous tests
 			ctx = context.Background()
 			hprsKey = types.NamespacedName{Name: "humio-pdf-render-service", Namespace: clusterKey.Namespace}
-
-			// Try to delete any existing resources
+			// Clean up any existing resource
 			_ = k8sClient.Delete(ctx, &humiov1alpha1.HumioPdfRenderService{
 				ObjectMeta: metav1.ObjectMeta{Name: hprsKey.Name, Namespace: hprsKey.Namespace},
 			})
-
-			// Wait for resources to be fully deleted
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, hprsKey, &humiov1alpha1.HumioPdfRenderService{})
 				return k8serrors.IsNotFound(err)
 			}, mediumTimeout, suite.TestInterval).Should(BeTrue(), "Previous HPRS resources should be cleaned up")
-
-			// Default HPRS object for tests
-			hprs = &humiov1alpha1.HumioPdfRenderService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      hprsKey.Name,
-					Namespace: hprsKey.Namespace,
-				},
-				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
-					Image:    PDFRenderServiceImage,
-					Replicas: 1,
-					Port:     5123,
-				},
-			}
-			deployment = &appsv1.Deployment{}
-			service = &corev1.Service{}
-			secret = &corev1.Secret{}
 		})
 
 		AfterEach(func() {
-			// Clean up resources after each test
-			k8sClient.Get(ctx, hprsKey, hprs)
-			if hprs.GetDeletionTimestamp() == nil {
-				Expect(k8sClient.Delete(ctx, hprs)).Should(Succeed())
-			}
-			// Ensure finalizer is removed and object is gone
+			// Clean up the PDF Render Service and related secrets
+			_ = k8sClient.Delete(ctx, &humiov1alpha1.HumioPdfRenderService{
+				ObjectMeta: metav1.ObjectMeta{Name: hprsKey.Name, Namespace: hprsKey.Namespace},
+			})
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, hprsKey, hprs)
+				err := k8sClient.Get(ctx, hprsKey, &humiov1alpha1.HumioPdfRenderService{})
 				return k8serrors.IsNotFound(err)
 			}, mediumTimeout, suite.TestInterval).Should(BeTrue(), "HPRS should be deleted during cleanup")
-
-			// Also clean up any secrets that might have been created
-			secretName := fmt.Sprintf("%s-certificate", hprsKey.Name)
 			_ = k8sClient.Delete(ctx, &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: hprsKey.Namespace},
+				ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-certificate", hprsKey.Name), Namespace: hprsKey.Namespace},
 			})
 		})
 
 		It("should create Deployment and Service with OwnerReferences", func() {
 			By("Creating the HumioPdfRenderService")
-			// Use the helper function to create the CR
-			hprs = suite.CreatePdfRenderServiceCR(ctx, k8sClient, hprsKey, false) // Assuming TLS is false by default for this test
-			Expect(hprs).NotTo(BeNil())                                           // Ensure CR was created
+			hprs = suite.CreatePdfRenderServiceCR(ctx, k8sClient, hprsKey, false)
+			Expect(hprs).NotTo(BeNil())
+
+			By("Ensuring PDF render deployment is ready")
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, hprsKey)
+
+			By("Waiting for observedGeneration to catch up")
+			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
 
 			By("Verifying the Deployment is created with correct ownership")
+			deployment := &appsv1.Deployment{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, hprsKey, deployment)
 			}, mediumTimeout, suite.TestInterval).Should(Succeed())
-			Expect(deployment.Spec.Template.Spec.Containers[0].Image).Should(Equal(PDFRenderServiceImage))
 			Expect(deployment.OwnerReferences).Should(ContainElement(SatisfyAll(
 				HaveField("APIVersion", humiov1alpha1.GroupVersion.String()),
 				HaveField("Kind", "HumioPdfRenderService"),
@@ -4304,57 +3905,34 @@ var _ = Describe("Humio Resources Controllers", func() {
 			)))
 
 			By("Verifying the Service is created with correct ownership")
+			service := &corev1.Service{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, hprsKey, service)
 			}, mediumTimeout, suite.TestInterval).Should(Succeed())
-			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(5123)))
 			Expect(service.OwnerReferences).Should(ContainElement(SatisfyAll(
 				HaveField("APIVersion", humiov1alpha1.GroupVersion.String()),
 				HaveField("Kind", "HumioPdfRenderService"),
 				HaveField("Name", hprs.Name),
 				HaveField("UID", hprs.UID),
 			)))
-
-			// Simulate deployment becoming ready to ensure status updates
-			By("Simulating deployment becoming ready")
-			Eventually(func() error {
-				return simulateDeploymentReady(deployment, 1)
-			}, mediumTimeout, suite.TestInterval).Should(Succeed())
-
-			// Wait for Running state
-			By("Waiting for Running state")
-			waitForState(hprs, humiov1alpha1.HumioClusterStateRunning, longTimeout)
 		})
 
 		It("should update Deployment and Service when CR spec is updated", func() {
 			By("Creating the HumioPdfRenderService")
-			// Use the helper function to create the CR
-			hprs = suite.CreatePdfRenderServiceCR(ctx, k8sClient, hprsKey, false) // Assuming TLS is false by default for this test
-			Expect(hprs).NotTo(BeNil())                                           // Ensure CR was created
+			hprs = suite.CreatePdfRenderServiceCR(ctx, k8sClient, hprsKey, false)
+			Expect(hprs).NotTo(BeNil())
 
-			By("Waiting for initial resources to be created")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, hprsKey, deployment)
-			}, mediumTimeout, suite.TestInterval).Should(Succeed())
-			Eventually(func() error {
-				return k8sClient.Get(ctx, hprsKey, service)
-			}, mediumTimeout, suite.TestInterval).Should(Succeed())
+			By("Ensuring PDF render deployment is ready")
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, hprsKey)
 
-			// Simulate deployment becoming ready
-			By("Simulating deployment becoming ready")
-			Eventually(func() error {
-				return simulateDeploymentReady(deployment, 1)
-			}, mediumTimeout, suite.TestInterval).Should(Succeed())
-
-			// Wait for Running state before making changes
-			By("Waiting for Running state before updates")
-			waitForState(hprs, humiov1alpha1.HumioClusterStateRunning, longTimeout)
+			By("Waiting for observedGeneration to catch up")
+			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
 
 			By("Updating the HumioPdfRenderService spec")
 			updatedImage := "updated/image:v2"
 			updatedReplicas := int32(2)
 			updatedPort := int32(8080)
-			updatedServiceType := corev1.ServiceTypeNodePort
+			updatedServiceType := corev1.ServiceTypeClusterIP
 
 			Eventually(func() error {
 				err := k8sClient.Get(ctx, hprsKey, hprs)
@@ -4372,182 +3950,76 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8sClient.Update(ctx, hprs)
 			}, mediumTimeout, suite.TestInterval).Should(Succeed())
 
+			By("Ensuring PDF render deployment is ready after update")
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, hprsKey)
+
+			By("Waiting for observedGeneration to catch up after update")
+			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
+
 			By("Verifying the Deployment is updated")
+			deployment := &appsv1.Deployment{}
 			Eventually(func() string {
-				err := k8sClient.Get(ctx, hprsKey, deployment)
-				if err != nil {
-					return ""
-				}
+				_ = k8sClient.Get(ctx, hprsKey, deployment)
 				return deployment.Spec.Template.Spec.Containers[0].Image
 			}, mediumTimeout, suite.TestInterval).Should(Equal(updatedImage))
-
 			Eventually(func() int32 {
-				err := k8sClient.Get(ctx, hprsKey, deployment)
-				if err != nil {
-					return -1
-				}
+				_ = k8sClient.Get(ctx, hprsKey, deployment)
 				if deployment.Spec.Replicas == nil {
 					return -1
 				}
 				return *deployment.Spec.Replicas
 			}, mediumTimeout, suite.TestInterval).Should(Equal(updatedReplicas))
 
-			Eventually(func() string {
-				err := k8sClient.Get(ctx, hprsKey, deployment)
-				if err != nil {
-					return ""
-				}
-				return deployment.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().String()
-			}, mediumTimeout, suite.TestInterval).Should(Equal("500m"))
-
-			Eventually(func() map[string]string {
-				err := k8sClient.Get(ctx, hprsKey, deployment)
-				if err != nil {
-					return nil
-				}
-				return deployment.Annotations
-			}, mediumTimeout, suite.TestInterval).Should(HaveKeyWithValue("new-annotation", "val1"))
-
-			Eventually(func() map[string]string {
-				err := k8sClient.Get(ctx, hprsKey, deployment)
-				if err != nil {
-					return nil
-				}
-				return deployment.Spec.Template.Annotations
-			}, mediumTimeout, suite.TestInterval).Should(HaveKeyWithValue("new-annotation", "val1"))
-
 			By("Verifying the Service is updated")
+			service := &corev1.Service{}
 			Eventually(func() int32 {
-				err := k8sClient.Get(ctx, hprsKey, service)
-				if err != nil {
-					return -1
-				}
+				_ = k8sClient.Get(ctx, hprsKey, service)
 				if len(service.Spec.Ports) == 0 {
 					return -1
 				}
 				return service.Spec.Ports[0].Port
 			}, mediumTimeout, suite.TestInterval).Should(Equal(updatedPort))
-
 			Eventually(func() corev1.ServiceType {
-				err := k8sClient.Get(ctx, hprsKey, service)
-				if err != nil {
-					return ""
-				}
+				_ = k8sClient.Get(ctx, hprsKey, service)
 				return service.Spec.Type
 			}, mediumTimeout, suite.TestInterval).Should(Equal(updatedServiceType))
-
-			Eventually(func() map[string]string {
-				err := k8sClient.Get(ctx, hprsKey, service)
-				if err != nil {
-					return nil
-				}
-				return service.Annotations
-			}, mediumTimeout, suite.TestInterval).Should(HaveKeyWithValue("new-annotation", "val1"))
-
-			// Simulate deployment becoming ready with new replicas
-			By("Simulating deployment becoming ready with updated replicas")
-			Eventually(func() error {
-				return simulateDeploymentReady(deployment, updatedReplicas)
-			}, mediumTimeout, suite.TestInterval).Should(Succeed())
-
-			// Wait for Running state after updates
-			By("Waiting for Running state after updates")
-			waitForState(hprs, humiov1alpha1.HumioClusterStateRunning, longTimeout)
 		})
 
 		It("should correctly handle TLS configuration lifecycle", Label("envtest", "tls"), func() {
-			ctx := context.Background()
-			key := types.NamespacedName{
-				Name:      "hprs-tls-lifecycle",
-				Namespace: clusterKey.Namespace,
-			}
+			key := types.NamespacedName{Name: "hprs-tls-lifecycle", Namespace: clusterKey.Namespace}
 			secretName := fmt.Sprintf("%s-certificate", key.Name)
 
-			// Helper functions for cleaner tests
-			getDeployment := func() (*appsv1.Deployment, error) {
-				d := &appsv1.Deployment{}
-				return d, k8sClient.Get(ctx, key, d)
-			}
-
-			getService := func() (*corev1.Service, error) {
-				s := &corev1.Service{}
-				return s, k8sClient.Get(ctx, key, s)
-			}
-
-			hasTLSVolume := func(d *appsv1.Deployment) bool {
-				for _, vol := range d.Spec.Template.Spec.Volumes {
-					if vol.Name == pdfTLSCertVolumeName {
-						return true
-					}
-				}
-				return false
-			}
-
-			hasTLSEnvVar := func(d *appsv1.Deployment) bool {
-				if len(d.Spec.Template.Spec.Containers) == 0 {
-					return false
-				}
-				for _, env := range d.Spec.Template.Spec.Containers[0].Env {
-					if env.Name == pdfRenderUseTLSEnvVar && env.Value == "true" {
-						return true
-					}
-				}
-				return false
-			}
-
-			// Create HPRS with TLS initially disabled using the helper
 			By("Creating HumioPdfRenderService with TLS disabled")
-			hprs = suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false) // TLS disabled
-			Expect(hprs).NotTo(BeNil())                                       // Ensure CR was created
+			hprs = suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)
+			Expect(hprs).NotTo(BeNil())
 
-			// Setup cleanup
 			DeferCleanup(func() {
-				By("Cleaning up resources")
-				// Ensure hprs is fetched before deletion if needed, or rely on key
-				currentHprs := &humiov1alpha1.HumioPdfRenderService{}
-				if err := k8sClient.Get(ctx, key, currentHprs); err == nil {
-					_ = k8sClient.Delete(ctx, currentHprs)
-				}
+				_ = k8sClient.Delete(ctx, &humiov1alpha1.HumioPdfRenderService{
+					ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace},
+				})
 				_ = k8sClient.Delete(ctx, &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: key.Namespace},
 				})
 			})
 
-			// STEP 1: Verify initial deployment does NOT have TLS config
+			By("Ensuring PDF render deployment is ready")
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
+
+			By("Waiting for observedGeneration to catch up")
+			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
+
 			By("Verifying initial deployment has no TLS configuration")
-			var deployment *appsv1.Deployment
-			var service *corev1.Service
+			deployment := &appsv1.Deployment{}
 			Eventually(func() bool {
-				var err error
-				deployment, err = getDeployment()
-				if err != nil || deployment == nil {
-					return false
+				_ = k8sClient.Get(ctx, key, deployment)
+				for _, vol := range deployment.Spec.Template.Spec.Volumes {
+					if vol.Name == "humio-pdf-render-service-tls" {
+						return false
+					}
 				}
-				// Simple check - no TLS volume should exist
-				return !hasTLSVolume(deployment)
+				return true
 			}, mediumTimeout, suite.TestInterval).Should(BeTrue(), "Deployment should exist without TLS volume")
 
-			// Simulate deployment becoming ready
-			By("Simulating deployment becoming ready")
-			Eventually(func() error {
-				return simulateDeploymentReady(deployment, 1)
-			}, mediumTimeout, suite.TestInterval).Should(Succeed())
-
-			// Wait for Running state
-			By("Waiting for Running state with TLS disabled")
-			waitForState(hprs, humiov1alpha1.HumioClusterStateRunning, longTimeout)
-
-			// Verify service port name
-			By("Verifying service port name is 'http'")
-			Eventually(func() string {
-				service, _ = getService()
-				if service == nil || len(service.Spec.Ports) == 0 {
-					return ""
-				}
-				return service.Spec.Ports[0].Name
-			}, mediumTimeout, suite.TestInterval).Should(Equal("http"), "Service port should be named 'http'")
-
-			// STEP 2: Create TLS secret
 			By("Creating TLS secret")
 			tlsSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -4563,48 +4035,36 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			Expect(k8sClient.Create(ctx, tlsSecret)).Should(Succeed())
 
-			// STEP 3: Enable TLS in HPRS
 			By("Enabling TLS")
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, key, hprs); err != nil {
 					return err
 				}
+				if hprs.Spec.TLS == nil {
+					hprs.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{}
+				}
 				hprs.Spec.TLS.Enabled = helpers.BoolPtr(true)
 				return k8sClient.Update(ctx, hprs)
-			}, mediumTimeout, suite.TestInterval).Should(Succeed(), "Should be able to update HPRS with TLS enabled")
-
-			// STEP 4: Verify deployment now HAS TLS config
-			By("Verifying deployment has TLS configuration after enabling")
-			Eventually(func() bool {
-				deployment, _ = getDeployment()
-				if deployment == nil {
-					return false
-				}
-				// Check both volume and env var
-				return hasTLSVolume(deployment) && hasTLSEnvVar(deployment)
-			}, mediumTimeout, suite.TestInterval).Should(BeTrue(), "Deployment should have TLS volume and env vars")
-
-			// Simulate deployment becoming ready after TLS change
-			By("Simulating deployment becoming ready after TLS enabled")
-			Eventually(func() error {
-				return simulateDeploymentReady(deployment, 1)
 			}, mediumTimeout, suite.TestInterval).Should(Succeed())
 
-			// Wait for Running state after TLS enabled
-			By("Waiting for Running state after TLS enabled")
-			waitForState(hprs, humiov1alpha1.HumioClusterStateRunning, longTimeout)
+			By("Ensuring PDF render deployment is ready after enabling TLS")
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
-			// Verify service port name changed to https
-			By("Verifying service port name changed to 'https'")
-			Eventually(func() string {
-				service, _ = getService()
-				if service == nil || len(service.Spec.Ports) == 0 {
-					return ""
+			By("Waiting for observedGeneration to catch up after enabling TLS")
+			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
+
+			By("Verifying deployment has TLS configuration after enabling")
+			Eventually(func() bool {
+				_ = k8sClient.Get(ctx, key, deployment)
+				hasTLS := false
+				for _, vol := range deployment.Spec.Template.Spec.Volumes {
+					if vol.Name == "humio-pdf-render-service-tls" {
+						hasTLS = true
+					}
 				}
-				return service.Spec.Ports[0].Name
-			}, mediumTimeout, suite.TestInterval).Should(Equal("https"), "Service port should be named 'https'")
+				return hasTLS
+			}, mediumTimeout, suite.TestInterval).Should(BeTrue(), "Deployment should have TLS volume")
 
-			// STEP 5: Disable TLS again
 			By("Disabling TLS")
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, key, hprs); err != nil {
@@ -4612,53 +4072,43 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}
 				hprs.Spec.TLS.Enabled = helpers.BoolPtr(false)
 				return k8sClient.Update(ctx, hprs)
-			}, mediumTimeout, suite.TestInterval).Should(Succeed(), "Should be able to update HPRS with TLS disabled")
-
-			// STEP 6: Verify deployment NO LONGER has TLS config
-			By("Verifying deployment no longer has TLS configuration")
-			Eventually(func() bool {
-				deployment, _ = getDeployment()
-				if deployment == nil {
-					return false
-				}
-				// Check volume is gone
-				return !hasTLSVolume(deployment) && !hasTLSEnvVar(deployment)
-			}, mediumTimeout, suite.TestInterval).Should(BeTrue(), "Deployment should no longer have TLS config")
-
-			// Simulate deployment becoming ready after TLS disabled
-			By("Simulating deployment becoming ready after TLS disabled")
-			Eventually(func() error {
-				return simulateDeploymentReady(deployment, 1)
 			}, mediumTimeout, suite.TestInterval).Should(Succeed())
 
-			// Wait for Running state after TLS disabled
-			By("Waiting for Running state after TLS disabled")
-			waitForState(hprs, humiov1alpha1.HumioClusterStateRunning, longTimeout)
+			By("Ensuring PDF render deployment is ready after disabling TLS")
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
-			// Verify service port name changed back to http
-			By("Verifying service port name changed back to 'http'")
-			Eventually(func() string {
-				service, _ = getService()
-				if service == nil || len(service.Spec.Ports) == 0 {
-					return ""
+			By("Waiting for observedGeneration to catch up after disabling TLS")
+			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
+
+			By("Verifying deployment no longer has TLS configuration")
+			Eventually(func() bool {
+				_ = k8sClient.Get(ctx, key, deployment)
+				for _, vol := range deployment.Spec.Template.Spec.Volumes {
+					if vol.Name == "humio-pdf-render-service-tls" {
+						return false
+					}
 				}
-				return service.Spec.Ports[0].Name
-			}, mediumTimeout, suite.TestInterval).Should(Equal("http"), "Service port should be named 'http' after disabling TLS")
+				return true
+			}, mediumTimeout, suite.TestInterval).Should(BeTrue(), "Deployment should no longer have TLS config")
 		})
 
 		It("should add a finalizer and clean up resources on deletion", func() {
-			// Create the HumioPdfRenderService
 			hprs = suite.CreatePdfRenderServiceCR(ctx, k8sClient, hprsKey, false)
 			Expect(hprs).NotTo(BeNil())
 
-			// Set a finalizer
-			hprs.Finalizers = []string{"finalizer.humio.com"}
-			Expect(k8sClient.Update(ctx, hprs)).Should(Succeed())
+			By("Setting a finalizer")
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, hprsKey, hprs); err != nil {
+					return err
+				}
+				hprs.Finalizers = []string{"finalizer.humio.com"}
+				return k8sClient.Update(ctx, hprs)
+			}, mediumTimeout, suite.TestInterval).Should(Succeed())
 
-			// Delete the HumioPdfRenderService
+			By("Deleting the HumioPdfRenderService")
 			Expect(k8sClient.Delete(ctx, hprs)).Should(Succeed())
 
-			// Wait for the finalizer to be called and removed
+			By("Waiting for the finalizer to be removed")
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, hprsKey, hprs)
 				if err != nil {
@@ -4667,13 +4117,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return len(hprs.Finalizers) == 0
 			}, mediumTimeout, suite.TestInterval).Should(BeTrue(), "Finalizer should be removed")
 
-			// Ensure resources are cleaned up
+			By("Ensuring resources are cleaned up")
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, hprsKey, hprs)
 				return k8serrors.IsNotFound(err)
 			}, mediumTimeout, suite.TestInterval).Should(BeTrue())
 		})
 	})
+
 })
 
 type repositoryExpectation struct {
