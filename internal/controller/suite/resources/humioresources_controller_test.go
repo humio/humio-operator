@@ -40,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -1718,9 +1717,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Waiting for the web hook action to be updated")
 			Eventually(func() error {
-				if err := k8sClient.Get(ctx, key, fetchedAction); err != nil {
-					return err
-				}
+				_ = k8sClient.Get(ctx, key, fetchedAction)
 				fetchedAction.Spec.WebhookProperties = updatedWebhookActionProperties
 				return k8sClient.Update(ctx, fetchedAction)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
@@ -5104,6 +5101,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Delete(ctx, toCreateRepository)).Should(Succeed())
 		})
 	})
+	
 	// Common constants and setup for PDF Render Service tests
 	const (
 		shortTimeout  = time.Second * 10
