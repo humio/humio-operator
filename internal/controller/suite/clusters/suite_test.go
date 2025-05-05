@@ -540,3 +540,121 @@ func getProbeScheme(hc *humiov1alpha1.HumioCluster) corev1.URIScheme {
 
 	return corev1.URISchemeHTTPS
 }
+
+// ensurePdfRenderDeploymentReady creates (if missing) a dummy Deployment for the
+// given HumioPdfRenderService and patches .status so the HumioCluster controller
+// sees it as Ready when running in env‑test.
+func ensurePdfRenderDeploymentReady(ctx context.Context, c client.Client, key types.NamespacedName) {
+	if !helpers.UseEnvtest() {
+		return // real controller will create & update it in live clusters
+	}
+
+	// Define standard timeouts for this function
+	standardTimeout := 30 * time.Second
+	quickInterval := 250 * time.Millisecond
+
+	labels := map[string]string{
+		"app.kubernetes.io/name":       key.Name,
+		"app.kubernetes.io/component":  "pdf-render-service",
+		"app.kubernetes.io/managed-by": "humio-operator",
+	}
+
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      key.Name,
+			Namespace: key.Namespace,
+			Labels:    labels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: helpers.Int32Ptr(1),
+			Selector: &metav1.LabelSelector{MatchLabels: labels},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: labels},
+				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "pdf", Image: "dummy"}}},
+			},
+		},
+	}
+
+	// Create the deployment if it doesn't exist
+	err := c.Create(ctx, dep)
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		Fail(fmt.Sprintf("Failed to create deployment for PDF render service: %v", err))
+	}
+
+	// Wait for the deployment to exist
+	Eventually(func() error {
+		return c.Get(ctx, key, dep)
+	}, standardTimeout, quickInterval).Should(Succeed(),
+		"Deployment %s/%s should exist", key.Namespace, key.Name)
+
+	// Update the deployment status
+	Eventually(func() error {
+		// Get the latest version before updating status
+		if err := c.Get(ctx, key, dep); err != nil {
+			return err
+		}
+		dep.Status.Replicas = 1
+		dep.Status.ReadyReplicas = 1
+		dep.Status.AvailableReplicas = 1
+		dep.Status.UpdatedReplicas = 1
+		dep.Status.ObservedGeneration = dep.Generation
+		return c.Status().Update(ctx, dep)
+	}, standardTimeout, quickInterval).Should(Succeed(),
+		"Should be able to update deployment status")
+
+	// Verify the status update was applied
+	Eventually(func() int32 {
+		err := c.Get(ctx, key, dep)
+		if err != nil {
+			return 0
+		}
+		return dep.Status.ReadyReplicas
+	}, standardTimeout, quickInterval).Should(Equal(int32(1)),
+		"Deployment %s/%s should have 1 ready replica", key.Namespace, key.Name)
+}
+
+// fetchHumioPodEnv scans the first Humio pod and returns its env map.
+// Returns nil if no pods are found or if there's an error.
+func fetchHumioPodEnv(ctx context.Context, c client.Client, hcName, ns string) map[string]string {
+	// Define standard timeouts for this function
+	standardTimeout := 30 * time.Second
+	quickInterval := 250 * time.Millisecond
+
+	var pods []corev1.Pod
+	var err error
+
+	// Wait for pods to be available with proper error handling
+	Eventually(func() bool {
+		pods, err = kubernetes.ListPods(
+			ctx, c, ns, kubernetes.MatchingLabelsForHumio(hcName),
+		)
+		if err != nil {
+			fmt.Fprintf(GinkgoWriter, "Error listing pods for %s in namespace %s: %v\n",
+				hcName, ns, err)
+			return false
+		}
+		return len(pods) > 0
+	}, standardTimeout, quickInterval).Should(BeTrue(),
+		"Should find at least one pod for HumioCluster %s in namespace %s", hcName, ns)
+
+	// Verify pods are not empty
+	if len(pods) == 0 {
+		fmt.Fprintf(GinkgoWriter, "No pods found for HumioCluster %s in namespace %s\n",
+			hcName, ns)
+		return nil
+	}
+
+	// Verify pod has containers
+	if len(pods[0].Spec.Containers) == 0 {
+		fmt.Fprintf(GinkgoWriter, "Pod %s has no containers\n", pods[0].Name)
+		return nil
+	}
+
+	// Extract environment variables
+	envs := map[string]string{}
+	for _, env := range pods[0].Spec.Containers[0].Env {
+		envs[env.Name] = env.Value
+	}
+
+	return envs
+}

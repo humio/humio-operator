@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -16,8 +17,10 @@ import (
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,6 +41,7 @@ const (
 )
 
 const TestInterval = time.Second * 1
+const DefaultTestTimeout = time.Second * 30 // Standard timeout used throughout the tests
 
 func UsingClusterBy(cluster, text string, callbacks ...func()) {
 	timestamp := time.Now().Format(time.RFC3339Nano)
@@ -792,4 +796,141 @@ func GetHumioBootstrapToken(ctx context.Context, key types.NamespacedName, k8sCl
 		return humiov1alpha1.HumioBootstrapToken{}, fmt.Errorf("too many humiobootstraptokens for cluster %s. found list : %+v", key.Name, hbtList)
 	}
 	return hbtList[0], nil
+}
+
+// / WaitForObservedGeneration waits until the resource’s status.observedGeneration catches up with its metadata.generation.
+// It now has enhanced logging and clearer error reporting.
+func WaitForObservedGeneration(ctx context.Context, k8sClient client.Client, obj client.Object, timeout, interval time.Duration) {
+	key := client.ObjectKeyFromObject(obj)
+	Eventually(func(g Gomega) {
+		err := k8sClient.Get(ctx, key, obj)
+		g.Expect(err).ToNot(HaveOccurred(), "failed to get object %s/%s", obj.GetNamespace(), obj.GetName())
+
+		accessor, err := meta.Accessor(obj)
+		g.Expect(err).NotTo(HaveOccurred(), "failed to get metadata accessor for %T", obj)
+
+		// Work on a deep copy for status access to avoid potential race conditions.
+		statusCopy := obj.DeepCopyObject().(client.Object)
+		statusValue := reflect.ValueOf(statusCopy).Elem()
+		statusField := statusValue.FieldByName("Status")
+		g.Expect(statusField.IsValid()).To(BeTrue(), "Status field must exist on object %T", obj)
+
+		observedGenField := statusField.FieldByName("ObservedGeneration")
+		g.Expect(observedGenField.IsValid()).To(BeTrue(), "Status.ObservedGeneration field must exist on object %T", obj)
+		g.Expect(observedGenField.Kind()).To(Equal(reflect.Int64), "Expected ObservedGeneration to be Int64 on %T", obj)
+
+		observedGeneration := observedGenField.Int()
+		generation := accessor.GetGeneration()
+
+		// Enhanced logging for debugging.
+		if observedGeneration < generation {
+			fmt.Fprintf(GinkgoWriter, "[DEBUG] Waiting for observedGeneration %d to catch up to generation %d for %s/%s\n",
+				observedGeneration, generation, accessor.GetNamespace(), accessor.GetName())
+		} else {
+			fmt.Fprintf(GinkgoWriter, "[DEBUG] observedGeneration %d has caught up with generation %d for %s/%s\n",
+				observedGeneration, generation, accessor.GetNamespace(), accessor.GetName())
+		}
+
+		g.Expect(observedGeneration).To(BeNumerically(">=", generation),
+			"observedGeneration (%d) did not reach generation (%d) for %s/%s",
+			observedGeneration, generation, accessor.GetNamespace(), accessor.GetName())
+	}, timeout, interval).Should(Succeed(), "Timed out waiting for observedGeneration on %s/%s", obj.GetNamespace(), obj.GetName())
+}
+
+// WaitForClusterState waits until the HumioCluster reaches the expected state.
+// It calls WaitForObservedGeneration internally so that the latest spec is processed.
+func WaitForClusterState(ctx context.Context, k8sClient client.Client, key types.NamespacedName, expectedState string, timeout, interval time.Duration) {
+	Eventually(func() string {
+		var cluster humiov1alpha1.HumioCluster
+		if err := k8sClient.Get(ctx, key, &cluster); err != nil {
+			return fmt.Sprintf("error: %v", err)
+		}
+		// Ensure that the controller has processed the most recent update.
+		WaitForObservedGeneration(ctx, k8sClient, &cluster, timeout, interval)
+		return cluster.Status.State
+	}, timeout, interval).Should(Equal(expectedState),
+		"timed out waiting for cluster %s/%s to be in state %s", key.Namespace, key.Name, expectedState)
+}
+
+// CreatePdfRenderServiceCR creates a basic HumioPdfRenderService CR with better error handling
+func CreatePdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfKey types.NamespacedName, tlsEnabled bool) *humiov1alpha1.HumioPdfRenderService {
+	pdfCR := &humiov1alpha1.HumioPdfRenderService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pdfKey.Name,
+			Namespace: pdfKey.Namespace,
+		},
+		Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
+			Image:    versions.DefaultHumioImageVersion(),
+			Replicas: 1,
+			Port:     controller.DefaultPdfRenderServicePort,
+		},
+	}
+	if tlsEnabled {
+		pdfCR.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{
+			Enabled: helpers.BoolPtr(true),
+		}
+	}
+
+	UsingClusterBy(pdfKey.Name, fmt.Sprintf("Creating HumioPdfRenderService %s", pdfKey.String()))
+	Expect(k8sClient.Create(ctx, pdfCR)).Should(Succeed())
+
+	// Wait for the CR to be created with proper error handling
+	Eventually(func(g Gomega) *humiov1alpha1.HumioPdfRenderService {
+		var createdPdf humiov1alpha1.HumioPdfRenderService
+		err := k8sClient.Get(ctx, pdfKey, &createdPdf)
+		g.Expect(err).NotTo(HaveOccurred(), "Failed to get HumioPdfRenderService %s", pdfKey.String())
+		return &createdPdf
+	}, DefaultTestTimeout, TestInterval).ShouldNot(BeNil())
+
+	return pdfCR
+}
+
+// EnsurePdfRenderDeploymentReady ensures the PDF render deployment is ready
+func EnsurePdfRenderDeploymentReady(ctx context.Context, k8sClient client.Client, pdfKey types.NamespacedName) {
+	By(fmt.Sprintf("Ensuring PDF render deployment for %s is ready", pdfKey.String()))
+
+	// Get the deployment
+	deployment := &appsv1.Deployment{}
+	Eventually(func(g Gomega) error {
+		err := k8sClient.Get(ctx, pdfKey, deployment)
+		g.Expect(err).NotTo(HaveOccurred(), "Failed to get Deployment for PDF service")
+		return nil
+	}, DefaultTestTimeout, TestInterval).Should(Succeed())
+
+	// Update deployment status to simulate readiness
+	deployment.Status.Replicas = 1
+	deployment.Status.ReadyReplicas = 1
+	deployment.Status.AvailableReplicas = 1
+	deployment.Status.UpdatedReplicas = 1
+	deployment.Status.ObservedGeneration = deployment.Generation
+
+	Expect(k8sClient.Status().Update(ctx, deployment)).To(Succeed())
+
+	// Verify status was updated
+	Eventually(func(g Gomega) int32 {
+		err := k8sClient.Get(ctx, pdfKey, deployment)
+		g.Expect(err).NotTo(HaveOccurred())
+		return deployment.Status.ReadyReplicas
+	}, DefaultTestTimeout, TestInterval).Should(Equal(int32(1)))
+}
+
+// WaitForControllerToObserveChange waits for the controller to observe changes to a resource
+func WaitForControllerToObserveChange(ctx context.Context, k8sClient client.Client, key types.NamespacedName, initialGeneration int64) {
+	By("Waiting for controller to observe the change")
+	Eventually(func(g Gomega) bool {
+		var cluster humiov1alpha1.HumioCluster
+		err := k8sClient.Get(ctx, key, &cluster)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		// Convert ObservedGeneration from string to int64
+		observedGen, err := strconv.ParseInt(cluster.Status.ObservedGeneration, 10, 64)
+		if err != nil {
+			// Log the error for debugging
+			fmt.Fprintf(GinkgoWriter, "Error parsing ObservedGeneration '%s': %v\n",
+				cluster.Status.ObservedGeneration, err)
+			return false
+		}
+
+		return observedGen >= initialGeneration
+	}, DefaultTestTimeout, TestInterval).Should(BeTrue(), "Controller should observe the change")
 }
