@@ -101,7 +101,11 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// 3. Validate TLS config (short‑circuit if invalid)
 	// ---------------------------------------------------------------------
 	if err := r.validateTLSConfiguration(ctx, hprs); err != nil {
-		_ = r.setStatus(ctx, hprs, humiov1alpha1.HumioClusterStateConfigError, 0, nil, err)
+		updateErr := r.setStatus(ctx, hprs, humiov1alpha1.HumioClusterStateConfigError, 0, nil, err)
+		if updateErr != nil {
+			// If status update fails, return that error
+			return ctrl.Result{}, updateErr
+		}
 		return ctrl.Result{RequeueAfter: MaximumMinReadyRequeue}, nil
 	}
 
@@ -110,13 +114,23 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// ---------------------------------------------------------------------
 	dep, depErr := r.reconcileDeployment(ctx, hprs)
 	if depErr != nil {
-		_ = r.setStatus(ctx, hprs, humiov1alpha1.HumioClusterStateConfigError, 0, nil, depErr)
+		// Pass the deployment error to setStatus
+		updateErr := r.setStatus(ctx, hprs, humiov1alpha1.HumioClusterStateConfigError, 0, nil, depErr)
+		if updateErr != nil {
+			return ctrl.Result{}, updateErr
+		}
+		// Return the original deployment error
 		return ctrl.Result{}, depErr
 	}
 
-	if err := r.reconcileService(ctx, hprs); err != nil {
-		_ = r.setStatus(ctx, hprs, humiov1alpha1.HumioClusterStateConfigError, dep.Status.ReadyReplicas, nil, err)
-		return ctrl.Result{}, err
+	if svcErr := r.reconcileService(ctx, hprs); svcErr != nil {
+		// Pass the service error to setStatus
+		updateErr := r.setStatus(ctx, hprs, humiov1alpha1.HumioClusterStateConfigError, dep.Status.ReadyReplicas, nil, svcErr)
+		if updateErr != nil {
+			return ctrl.Result{}, updateErr
+		}
+		// Return the original service error
+		return ctrl.Result{}, svcErr
 	}
 
 	// ---------------------------------------------------------------------
@@ -144,7 +158,10 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		state = humiov1alpha1.HumioClusterStateRunning
 	}
 
-	_ = r.setStatus(ctx, hprs, state, dep.Status.ReadyReplicas, nil, nil)
+	finalErr := r.setStatus(ctx, hprs, state, dep.Status.ReadyReplicas, nil, nil)
+	if finalErr != nil {
+		return ctrl.Result{}, finalErr // Return error from status update
+	}
 	return ctrl.Result{RequeueAfter: time.Minute}, nil
 }
 
@@ -323,26 +340,48 @@ func (r *HumioPdfRenderServiceReconciler) setStatus(
 	state string,
 	ready int32,
 	pods []string,
-	err error,
+	reconcileErr error, // Renamed err to reconcileErr for clarity
 ) error {
+	// Always update observedGeneration to avoid race conditions in tests
+	newObservedGeneration := hprs.Generation
+
+	// Add more logging for debugging
+	r.Log.Info("Updating status",
+		"state", state,
+		"readyReplicas", ready,
+		"generation", hprs.Generation,
+		"observedGeneration", newObservedGeneration)
+
 	// no-op if nothing changed
 	if hprs.Status.State == state &&
 		hprs.Status.ReadyReplicas == ready &&
-		((err == nil && hprs.Status.Message == "") ||
-			(err != nil && hprs.Status.Message == err.Error())) {
+		hprs.Status.ObservedGeneration == newObservedGeneration && // Check observedGeneration too
+		((reconcileErr == nil && hprs.Status.Message == "") ||
+			(reconcileErr != nil && hprs.Status.Message == reconcileErr.Error())) {
 		return nil
 	}
 
 	hprs.Status.State = state
 	hprs.Status.ReadyReplicas = ready
 	hprs.Status.Nodes = pods
-	if err != nil {
-		hprs.Status.Message = err.Error()
+	hprs.Status.ObservedGeneration = newObservedGeneration
+	if reconcileErr != nil {
+		hprs.Status.Message = reconcileErr.Error()
 	} else {
 		hprs.Status.Message = ""
 	}
 
-	return r.Status().Update(ctx, hprs)
+	updateErr := r.Status().Update(ctx, hprs)
+	if updateErr != nil {
+		// Log the update error but return the original reconcile error if it exists
+		r.Log.Error(updateErr, "Failed to update HumioPdfRenderService status")
+		if reconcileErr != nil {
+			return reconcileErr // Prioritize returning the original error
+		}
+		return updateErr
+	}
+	// If the update succeeded, return the original reconcile error
+	return reconcileErr
 }
 
 // Finalizer helper
