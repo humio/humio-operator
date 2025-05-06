@@ -334,67 +334,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			quickInterval          = 250 * time.Millisecond
 		)
 
-		// Helper function to create a basic HumioPdfRenderService CR
-		// createPdfRenderServiceCR := func(ctx context.Context, pdfKey types.NamespacedName, tlsEnabled bool) *humiov1alpha1.HumioPdfRenderService {
-		// 	pdfCR := &humiov1alpha1.HumioPdfRenderService{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name:      pdfKey.Name,
-		// 			Namespace: pdfKey.Namespace,
-		// 		},
-		// 		Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
-		// 			Image:    testPdfRenderServiceImage,
-		// 			Replicas: 1,
-		// 			Port:     controller.DefaultPdfRenderServicePort,
-		// 			// Add other necessary spec fields if needed
-		// 		},
-		// 	}
-		// 	if tlsEnabled {
-		// 		pdfCR.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{
-		// 			Enabled: helpers.BoolPtr(true),
-		// 		}
-		// 	}
-
-		// 	// Create the resource and handle potential errors
-		// 	err := k8sClient.Create(ctx, pdfCR)
-		// 	if err != nil {
-		// 		Fail(fmt.Sprintf("Failed to create HumioPdfRenderService: %v", err))
-		// 	}
-
-		// 	// Wait for the CR to be created with increased timeout
-		// 	Eventually(func() error {
-		// 		return k8sClient.Get(ctx, pdfKey, pdfCR)
-		// 	}, standardTimeout, quickInterval).Should(Succeed(),
-		// 		"HumioPdfRenderService %s should be created", pdfKey.String())
-
-		// 	return pdfCR
-		// }
-
-		// Helper function to create a dummy TLS secret for PDF service
-		createPdfRenderServiceTLSSecret := func(ctx context.Context, pdfCR *humiov1alpha1.HumioPdfRenderService) *corev1.Secret {
-			secretName := fmt.Sprintf("%s-certificate", pdfCR.Name)
-			secretKey := types.NamespacedName{Name: secretName, Namespace: pdfCR.Namespace}
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      secretName,
-					Namespace: pdfCR.Namespace,
-				},
-				Data: map[string][]byte{
-					corev1.TLSCertKey:       []byte("dummy-cert-data"), // Replace with actual cert data if needed for deeper tests
-					corev1.TLSPrivateKeyKey: []byte("dummy-key-data"),  // Replace with actual key data if needed
-					// "ca.crt": []byte("dummy-ca-data"), // Optionally add CA data
-				},
-				Type: corev1.SecretTypeTLS,
-			}
-			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-
-			// Wait for the secret to be created
-			Eventually(func() error {
-				return k8sClient.Get(ctx, secretKey, secret)
-			}, time.Second*10, time.Millisecond*250).Should(Succeed())
-
-			return secret
-		}
-
 		// Helper function to cleanup HumioPdfRenderService CR
 		cleanupPdfRenderServiceCR := func(ctx context.Context, pdfCR *humiov1alpha1.HumioPdfRenderService) {
 			if pdfCR == nil {
@@ -599,9 +538,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      pdfKey.Name,
 				Namespace: pdfKey.Namespace,
 			}
-			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, hc, true,
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, humioCluster, true,
 				humiov1alpha1.HumioClusterStateRunning, testTimeout)
-			defer suite.CleanupCluster(ctx, k8sClient, hc)
+			defer suite.CleanupCluster(ctx, k8sClient, humioCluster)
 
 			By("simulating PDF deployment readiness in env‑test")
 			// Using DefaultTestTimeout defined in common.go
@@ -643,9 +582,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      pdfKey.Name,
 				Namespace: pdfKey.Namespace,
 			}
-			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, hc, true,
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, humioCluster, true,
 				humiov1alpha1.HumioClusterStateRunning, testTimeout)
-			defer suite.CleanupCluster(ctx, k8sClient, hc)
+			defer suite.CleanupCluster(ctx, k8sClient, humioCluster)
 
 			// -----------------------------------------------------------------
 			// 3. Wait for the **PDF service** to enter ConfigError state
