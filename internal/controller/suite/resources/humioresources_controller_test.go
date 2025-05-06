@@ -3995,20 +3995,32 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Namespace: clusterKey.Namespace,
 			}
 
+			By("Creating the HumioPdfRenderService CR")
 			// Create the HumioPdfRenderService CR using the suite helper for consistency and cleanup
 			hprs := suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)
 			Expect(hprs).NotTo(BeNil())
 
+			By("Ensuring the PDF render deployment is ready")
 			// Always ensure the deployment is ready (envtest)
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
+			By("Waiting for observedGeneration to catch up")
 			// Wait for observedGeneration to catch up
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, testTimeout*2, suite.TestInterval)
 
-			// Wait for controller to observe the change
-			suite.WaitForControllerToObserveChange(ctx, k8sClient, key, hprs.Generation)
+			// Instead of using WaitForControllerToObserveChange, directly verify the resource is in the expected state
+			By("Verifying the HumioPdfRenderService is in Running state")
+			Eventually(func() string {
+				updatedHprs := &humiov1alpha1.HumioPdfRenderService{}
+				err := k8sClient.Get(ctx, key, updatedHprs)
+				if err != nil {
+					return fmt.Sprintf("Error getting HumioPdfRenderService: %v", err)
+				}
+				return updatedHprs.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 
 			// Verify the Deployment is created with expected image and replicas
+			By("Verifying the initial Deployment configuration")
 			deploymentKey := types.NamespacedName{
 				Name:      key.Name + "-pdf-render-service",
 				Namespace: key.Namespace,
@@ -4039,28 +4051,57 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8sClient.Update(ctx, fresh)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			// Wait for controller to observe the change
-			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
+			By("Waiting for observedGeneration to catch up after update")
+			// Get the latest generation after update
+			var updatedGeneration int64
+			Eventually(func() error {
+				fresh := &humiov1alpha1.HumioPdfRenderService{}
+				if err := k8sClient.Get(ctx, key, fresh); err != nil {
+					return err
+				}
+				updatedGeneration = fresh.Generation
+				return nil
+			}, testTimeout, suite.TestInterval).Should(Succeed())
 
+			// Wait for observedGeneration to catch up using the latest generation
+			Eventually(func() bool {
+				fresh := &humiov1alpha1.HumioPdfRenderService{}
+				if err := k8sClient.Get(ctx, key, fresh); err != nil {
+					return false
+				}
+				return fresh.Status.ObservedGeneration == updatedGeneration
+			}, longTimeout, suite.TestInterval).Should(BeTrue(), "HumioPdfRenderService observedGeneration should match generation after update")
+
+			By("Ensuring the PDF render deployment is ready after update")
 			// Always ensure the deployment is ready after update (envtest)
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
-			// Wait for observedGeneration to catch up after update
-			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, testTimeout*2, suite.TestInterval)
-
+			By("Verifying the Deployment is updated with new image")
 			// Verify the Deployment is updated with new image and replicas
 			Eventually(func() string {
-				_ = k8sClient.Get(ctx, deploymentKey, deployment)
+				err := k8sClient.Get(ctx, deploymentKey, deployment)
+				if err != nil {
+					return ""
+				}
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
 				return deployment.Spec.Template.Spec.Containers[0].Image
 			}, testTimeout, suite.TestInterval).Should(Equal(updatedImage))
+
+			By("Verifying the Deployment is updated with new replicas")
 			Eventually(func() int32 {
-				_ = k8sClient.Get(ctx, deploymentKey, deployment)
+				err := k8sClient.Get(ctx, deploymentKey, deployment)
+				if err != nil {
+					return -1
+				}
 				if deployment.Spec.Replicas == nil {
 					return -1
 				}
 				return *deployment.Spec.Replicas
 			}, testTimeout, suite.TestInterval).Should(Equal(updatedReplicas))
 
+			By("Verifying the Service is updated with the new port")
 			// Verify the Service is updated with the new port and type
 			serviceKey := types.NamespacedName{
 				Name:      key.Name + "-pdf-render-service",
@@ -4068,14 +4109,22 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 			service := &corev1.Service{}
 			Eventually(func() int32 {
-				_ = k8sClient.Get(ctx, serviceKey, service)
+				err := k8sClient.Get(ctx, serviceKey, service)
+				if err != nil {
+					return -1
+				}
 				if len(service.Spec.Ports) == 0 {
 					return -1
 				}
 				return service.Spec.Ports[0].Port
 			}, testTimeout, suite.TestInterval).Should(Equal(updatedPort))
+
+			By("Verifying the Service is updated with the new type")
 			Eventually(func() corev1.ServiceType {
-				_ = k8sClient.Get(ctx, serviceKey, service)
+				err := k8sClient.Get(ctx, serviceKey, service)
+				if err != nil {
+					return ""
+				}
 				return service.Spec.Type
 			}, testTimeout, suite.TestInterval).Should(Equal(updatedServiceType))
 		})
@@ -4295,7 +4344,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 						ProbeHandler: corev1.ProbeHandler{
 							HTTPGet: &corev1.HTTPGetAction{
 								Path: "/health",
-								Port: intstr.FromInt(8080),
+								Port: intstr.FromInt(3152),
 							},
 						},
 						InitialDelaySeconds: 30,
@@ -4327,62 +4376,58 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			By("Verifying the Deployment has correct resource requirements")
-			Eventually(func() (string, string, string, string) {
-				dep := &appsv1.Deployment{}
-				err := k8sClient.Get(ctx, deploymentKey, dep)
-				if err != nil || len(dep.Spec.Template.Spec.Containers) == 0 {
-					return "", "", "", ""
+			// First, get and log the actual values for debugging
+			var dep appsv1.Deployment
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, deploymentKey, &dep); err != nil {
+					return err
 				}
+				if len(dep.Spec.Template.Spec.Containers) == 0 {
+					return fmt.Errorf("no containers found in deployment")
+				}
+
 				c := dep.Spec.Template.Spec.Containers[0]
-				return c.Resources.Limits.Cpu().String(),
-					c.Resources.Limits.Memory().String(),
-					c.Resources.Requests.Cpu().String(),
-					c.Resources.Requests.Memory().String()
-			}, longTimeout, suite.TestInterval).Should(Equal([4]string{"500m", "512Mi", "100m", "128Mi"}))
+				fmt.Printf("Actual resources in deployment - CPU Limits: %v, Memory Limits: %v, CPU Requests: %v, Memory Requests: %v\n",
+					c.Resources.Limits.Cpu(),
+					c.Resources.Limits.Memory(),
+					c.Resources.Requests.Cpu(),
+					c.Resources.Requests.Memory())
+
+				return nil
+			}, longTimeout, suite.TestInterval).Should(Succeed())
+
+			// Now check each resource value individually with better error messages
+			container := dep.Spec.Template.Spec.Containers[0]
+
+			By("Checking CPU limit")
+			Expect(container.Resources.Limits).To(HaveKey(corev1.ResourceCPU))
+			Expect(container.Resources.Limits.Cpu().String()).To(Equal("500m"))
+
+			By("Checking Memory limit")
+			Expect(container.Resources.Limits).To(HaveKey(corev1.ResourceMemory))
+			Expect(container.Resources.Limits.Memory().String()).To(Equal("512Mi"))
+
+			By("Checking CPU request")
+			Expect(container.Resources.Requests).To(HaveKey(corev1.ResourceCPU))
+			Expect(container.Resources.Requests.Cpu().String()).To(Equal("100m"))
+
+			By("Checking Memory request")
+			Expect(container.Resources.Requests).To(HaveKey(corev1.ResourceMemory))
+			Expect(container.Resources.Requests.Memory().String()).To(Equal("128Mi"))
 
 			By("Verifying the Deployment has correct liveness probe")
-			Eventually(func() *corev1.Probe {
-				dep := &appsv1.Deployment{}
-				_ = k8sClient.Get(ctx, deploymentKey, dep)
-				if len(dep.Spec.Template.Spec.Containers) == 0 {
-					return nil
-				}
-				return dep.Spec.Template.Spec.Containers[0].LivenessProbe
-			}, longTimeout, suite.TestInterval).ShouldNot(BeNil())
-
-			Eventually(func() (string, int32, int32) {
-				dep := &appsv1.Deployment{}
-				_ = k8sClient.Get(ctx, deploymentKey, dep)
-				if len(dep.Spec.Template.Spec.Containers) == 0 ||
-					dep.Spec.Template.Spec.Containers[0].LivenessProbe == nil ||
-					dep.Spec.Template.Spec.Containers[0].LivenessProbe.HTTPGet == nil {
-					return "", 0, 0
-				}
-				probe := dep.Spec.Template.Spec.Containers[0].LivenessProbe
-				return probe.HTTPGet.Path, probe.InitialDelaySeconds, probe.TimeoutSeconds
-			}, longTimeout, suite.TestInterval).Should(Equal([3]interface{}{"/health", int32(30), int32(60)}))
+			Expect(container.LivenessProbe).NotTo(BeNil())
+			Expect(container.LivenessProbe.HTTPGet).NotTo(BeNil())
+			Expect(container.LivenessProbe.HTTPGet.Path).To(Equal("/health"))
+			Expect(container.LivenessProbe.InitialDelaySeconds).To(Equal(int32(30)))
+			Expect(container.LivenessProbe.TimeoutSeconds).To(Equal(int32(60)))
 
 			By("Verifying the Deployment has correct readiness probe")
-			Eventually(func() *corev1.Probe {
-				dep := &appsv1.Deployment{}
-				_ = k8sClient.Get(ctx, deploymentKey, dep)
-				if len(dep.Spec.Template.Spec.Containers) == 0 {
-					return nil
-				}
-				return dep.Spec.Template.Spec.Containers[0].ReadinessProbe
-			}, longTimeout, suite.TestInterval).ShouldNot(BeNil())
-
-			Eventually(func() (string, int32, int32) {
-				dep := &appsv1.Deployment{}
-				_ = k8sClient.Get(ctx, deploymentKey, dep)
-				if len(dep.Spec.Template.Spec.Containers) == 0 ||
-					dep.Spec.Template.Spec.Containers[0].ReadinessProbe == nil ||
-					dep.Spec.Template.Spec.Containers[0].ReadinessProbe.HTTPGet == nil {
-					return "", 0, 0
-				}
-				probe := dep.Spec.Template.Spec.Containers[0].ReadinessProbe
-				return probe.HTTPGet.Path, probe.InitialDelaySeconds, probe.TimeoutSeconds
-			}, longTimeout, suite.TestInterval).Should(Equal([3]interface{}{"/ready", int32(30), int32(60)}))
+			Expect(container.ReadinessProbe).NotTo(BeNil())
+			Expect(container.ReadinessProbe.HTTPGet).NotTo(BeNil())
+			Expect(container.ReadinessProbe.HTTPGet.Path).To(Equal("/ready"))
+			Expect(container.ReadinessProbe.InitialDelaySeconds).To(Equal(int32(30)))
+			Expect(container.ReadinessProbe.TimeoutSeconds).To(Equal(int32(60)))
 		})
 
 		It("should correctly configure environment variables (create and update)", func() {

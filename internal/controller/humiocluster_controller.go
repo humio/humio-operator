@@ -564,7 +564,7 @@ func (r *HumioClusterReconciler) removePdfRenderServiceIfExists(ctx context.Cont
 	return nil
 }
 
-// ensureReferencedPdfRenderServiceReady validates that a referenced PDF render service is ready
+// ensureReferencedPdfRenderServiceReady checks if the referenced PDF render service exists and is ready
 func (r *HumioClusterReconciler) ensureReferencedPdfRenderServiceReady(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if hc.Spec.PdfRenderServiceRef == nil || hc.Spec.PdfRenderServiceRef.Name == "" {
 		// No PDF render service referenced, nothing to do
@@ -582,21 +582,48 @@ func (r *HumioClusterReconciler) ensureReferencedPdfRenderServiceReady(ctx conte
 		Namespace: namespace,
 	}, pdfService)
 
+	// Handle not found case
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			errMsg := fmt.Sprintf("referenced HumioPdfRenderService %q not found", hc.Spec.PdfRenderServiceRef.Name)
+			r.Log.Error(nil, errMsg,
+				"cluster", hc.Name,
+				"pdfService", hc.Spec.PdfRenderServiceRef.Name,
+				"namespace", namespace)
 			_ = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
 			return errors.New(errMsg)
 		}
 		return err
 	}
 
-	if pdfService.Status.State != humiov1alpha1.HumioPdfRenderServiceStateExists ||
-		pdfService.Status.ReadyReplicas == 0 {
-		errMsg := fmt.Sprintf("referenced HumioPdfRenderService %q is not ready", hc.Spec.PdfRenderServiceRef.Name)
+	// Improve state handling by accepting both Exists and Running states
+	isServiceReady := (pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateExists ||
+		pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning) &&
+		pdfService.Status.ReadyReplicas > 0
+
+	if !isServiceReady {
+		errMsg := fmt.Sprintf("referenced HumioPdfRenderService %q is not ready (state: %s, readyReplicas: %d)",
+			hc.Spec.PdfRenderServiceRef.Name,
+			pdfService.Status.State,
+			pdfService.Status.ReadyReplicas)
+
+		r.Log.Error(nil, errMsg,
+			"cluster", hc.Name,
+			"pdfService", hc.Spec.PdfRenderServiceRef.Name,
+			"namespace", namespace,
+			"state", pdfService.Status.State,
+			"readyReplicas", pdfService.Status.ReadyReplicas)
+
 		_ = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
 		return errors.New(errMsg)
 	}
+
+	r.Log.Info("PDF render service is ready",
+		"cluster", hc.Name,
+		"pdfService", hc.Spec.PdfRenderServiceRef.Name,
+		"namespace", namespace,
+		"state", pdfService.Status.State,
+		"readyReplicas", pdfService.Status.ReadyReplicas)
 
 	return nil
 }

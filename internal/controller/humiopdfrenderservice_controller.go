@@ -82,26 +82,29 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// -----------------------------------------------------------------------
 	// 1. Handle deletion
 	// -----------------------------------------------------------------------
+	// In Reconcile method
 	if !hprs.ObjectMeta.DeletionTimestamp.IsZero() {
-		if controllerutil.ContainsFinalizer(hprs, finalizer) {
-			_ = r.cleanupOwnedResources(ctx, hprs) // best-effort
-			controllerutil.RemoveFinalizer(hprs, finalizer)
-			_ = r.Update(ctx, hprs) // ignore conflict – object is terminating
+		if controllerutil.ContainsFinalizer(hprs, hprsFinalizer) {
+			if err := r.cleanupOwnedResources(ctx, hprs); err != nil {
+				log.FromContext(ctx).Error(err, "Error cleaning up owned resources during finalization (non-fatal)")
+			}
+			controllerutil.RemoveFinalizer(hprs, hprsFinalizer)
+			if err := r.Update(ctx, hprs); err != nil && !k8serrors.IsConflict(err) {
+				log.FromContext(ctx).Error(err, "Error removing finalizer during termination (non-fatal)")
+			}
 		}
 		return ctrl.Result{}, nil
 	}
 
 	// Ensure finalizer
-	if !controllerutil.ContainsFinalizer(hprs, finalizer) {
-		controllerutil.AddFinalizer(hprs, finalizer)
+	if !controllerutil.ContainsFinalizer(hprs, hprsFinalizer) {
+		controllerutil.AddFinalizer(hprs, hprsFinalizer)
 		if err := r.Update(ctx, hprs); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	// -----------------------------------------------------------------------
 	// 2. Reconcile children
-	// -----------------------------------------------------------------------
 	dep, err := r.reconcileDeployment(ctx, hprs)
 	if err != nil {
 		return r.updateStatus(ctx, hprs, humiov1alpha1.HumioClusterStateConfigError, err)
@@ -110,13 +113,27 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		return r.updateStatus(ctx, hprs, humiov1alpha1.HumioClusterStateConfigError, err)
 	}
 
-	// -----------------------------------------------------------------------
 	// 3. Determine “Running” vs “Configuring”
 	//    (env-test never creates pods, so we check only desired spec parity)
-	// -----------------------------------------------------------------------
-	state := humiov1alpha1.HumioClusterStateRunning
-	if dep.Status.ObservedGeneration != dep.Generation {
-		state = humiov1alpha1.HumioClusterStatePending
+	state := humiov1alpha1.HumioPdfRenderServiceStateRunning
+	// Handle explicit scaling to zero as a special case (ScaledDown state)
+	if dep.Spec.Replicas != nil && *dep.Spec.Replicas == 0 {
+		state = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
+	} else if dep.Status.ObservedGeneration != dep.Generation {
+		// Deployment hasn't processed the latest spec yet
+		// Note: There's no direct "Pending" state in HumioPdfRenderService,
+		// using Configuring is most appropriate
+		state = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
+	} else if dep.Status.ReadyReplicas < dep.Status.Replicas {
+		// Not all replicas are ready
+		state = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
+	}
+
+	// Add at the end of Reconcile method
+	if state == humiov1alpha1.HumioPdfRenderServiceStateConfiguring ||
+		state == humiov1alpha1.HumioPdfRenderServiceStateScalingUp {
+		// Requeue after a short delay for transitional states
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	return r.updateStatus(ctx, hprs, state, nil)
@@ -280,7 +297,6 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 	env []corev1.EnvVar,
 	mounts []corev1.VolumeMount,
 ) corev1.Container {
-
 	// Decide probe scheme
 	scheme := corev1.URISchemeHTTP
 	if hprs.Spec.TLS != nil && helpers.BoolTrue(hprs.Spec.TLS.Enabled) {
@@ -308,6 +324,21 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 		defProbe(humiov1alpha1.DefaultPdfRenderServiceReadiness),
 	)
 
+	// Ensure resources are properly set and never nil
+	resources := hprs.Spec.Resources
+	if resources.Limits == nil {
+		resources.Limits = corev1.ResourceList{}
+	}
+	if resources.Requests == nil {
+		resources.Requests = corev1.ResourceList{}
+	}
+
+	r.Log.Info("Creating container with resources",
+		"memoryRequests", resources.Requests.Memory(),
+		"cpuRequests", resources.Requests.Cpu(),
+		"memoryLimits", resources.Limits.Memory(),
+		"cpuLimits", resources.Limits.Cpu())
+
 	return corev1.Container{
 		Name:            "pdf-render-service",
 		Image:           hprs.Spec.Image,
@@ -320,7 +351,7 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 		VolumeMounts:    mounts,
 		LivenessProbe:   lProbe,
 		ReadinessProbe:  rProbe,
-		Resources:       hprs.Spec.Resources,
+		Resources:       resources,
 		SecurityContext: hprs.Spec.SecurityContext,
 	}
 }
@@ -445,14 +476,6 @@ func (r *HumioPdfRenderServiceReconciler) setStatus(
 	})
 }
 
-// Finalizer helper
-func (r *HumioPdfRenderServiceReconciler) finalize(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
-	// Best‑effort deletion – ignore not‑found errors
-	_ = r.Delete(ctx, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: childName(hprs), Namespace: hprs.Namespace}})
-	_ = r.Delete(ctx, &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: childName(hprs), Namespace: hprs.Namespace}})
-	return nil
-}
-
 // TLS validation (unchanged)
 func (r *HumioPdfRenderServiceReconciler) validateTLSConfiguration(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
 	if hprs.Spec.TLS == nil || hprs.Spec.TLS.Enabled == nil || !*hprs.Spec.TLS.Enabled {
@@ -475,20 +498,49 @@ func labelsForHumioPdfRenderService(name string) map[string]string {
 	}
 }
 
+// updateStatus updates the status of the HumioPdfRenderService with complete information
 func (r *HumioPdfRenderServiceReconciler) updateStatus(
 	ctx context.Context,
 	hprs *humiov1alpha1.HumioPdfRenderService,
 	state string,
 	reconcileErr error,
 ) (ctrl.Result, error) {
+	// Fetch Deployment to get replica status
+	var dep appsv1.Deployment
+	depKey := types.NamespacedName{Name: childName(hprs), Namespace: hprs.Namespace}
+	depErr := r.Get(ctx, depKey, &dep)
 
-	patch := client.MergeFrom(hprs.DeepCopy())
-	hprs.Status.State = state
-	hprs.Status.ObservedGeneration = hprs.Generation
-	if reconcileErr != nil {
-		hprs.Status.Message = reconcileErr.Error()
+	// Default ready to 0 if deployment not found
+	ready := int32(0)
+	var pods []string
+
+	// Get deployment status if available
+	if depErr == nil {
+		ready = dep.Status.ReadyReplicas
+
+		// Optionally collect pod names
+		podList := &corev1.PodList{}
+		if err := r.List(ctx, podList,
+			client.InNamespace(hprs.Namespace),
+			client.MatchingLabels(labelsForHumioPdfRenderService(hprs.Name))); err == nil {
+			for _, pod := range podList.Items {
+				pods = append(pods, pod.Name)
+			}
+		}
 	}
-	_ = r.Status().Patch(ctx, hprs, patch)
+
+	r.Log.Info("Updating status",
+		"state", state,
+		"readyReplicas", ready,
+		"generation", hprs.Generation,
+		"observedGeneration", hprs.Generation,
+	)
+
+	// Use the existing setStatus function with retry logic
+	err := r.setStatus(ctx, hprs, state, ready, pods, reconcileErr)
+	if err != nil {
+		return ctrl.Result{Requeue: true}, err
+	}
 	return ctrl.Result{}, reconcileErr
 }
 
@@ -503,7 +555,6 @@ func (r *HumioPdfRenderServiceReconciler) SetupWithManager(mgr ctrl.Manager) err
 		For(&humiov1alpha1.HumioPdfRenderService{}).
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.Deployment{}).
-		// watch TLS-certificate Secrets named "<CR-name>-certificate"
 		// watch TLS-certificate Secrets named "<CR-name>-certificate"
 		Watches(
 			&corev1.Secret{},
