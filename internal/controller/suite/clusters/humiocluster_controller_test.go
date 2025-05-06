@@ -543,11 +543,19 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(k8sClient.Update(ctx, pdfCR)).To(Succeed())
 			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
+			// Add this block to fetch the initial generation
+			var initialCluster humiov1alpha1.HumioCluster
+			Expect(k8sClient.Get(ctx, clusterKey, &initialCluster)).To(Succeed())
+			initialGeneration := initialCluster.Generation
+
+			// Wait for the PDF render service to be created
+			suite.WaitForControllerToObserveChange(ctx, k8sClient, clusterKey, initialGeneration)
+
 			By("Ensuring PDF render deployment is ready")
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
 
 			By("Creating a HumioCluster referencing the custom-image PDF service")
-			hc := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
+			hc := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, false)
 			hc.Spec.PdfRenderServiceRef = &humiov1alpha1.HumioPdfRenderServiceReference{
 				Name:      pdfKey.Name,
 				Namespace: pdfKey.Namespace,
@@ -580,7 +588,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
 
 			By("bootstrapping HumioCluster referencing the service")
-			hc := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
+			hc := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, false)
 			hc.Spec.PdfRenderServiceRef = &humiov1alpha1.HumioPdfRenderServiceReference{
 				Name:      pdfKey.Name,
 				Namespace: pdfKey.Namespace,
@@ -688,7 +696,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			By("Creating HumioCluster without PdfRenderServiceRef")
-			toCreate := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, false)
 			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true,
 				humiov1alpha1.HumioClusterStateRunning, standardTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
@@ -852,7 +860,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			// Create the HumioCluster referencing the PDF service
 			suite.UsingClusterBy(clusterKey.Name, "Creating the HumioCluster with PdfRenderServiceRef")
-			toCreate := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, false)
 			toCreate.Spec.PdfRenderServiceRef = &humiov1alpha1.HumioPdfRenderServiceReference{
 				Name:      pdfKey.Name,
 				Namespace: pdfKey.Namespace,
@@ -891,7 +899,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
 
 			By("Creating the HumioCluster with PdfRenderServiceRef")
-			toCreate := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, false)
 			toCreate.Spec.PdfRenderServiceRef = &humiov1alpha1.HumioPdfRenderServiceReference{
 				Name:      pdfKey.Name,
 				Namespace: pdfKey.Namespace,
@@ -976,7 +984,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
 
 			By("Creating HumioCluster that references the PDF render service")
-			hc := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
+			hc := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, false)
 			hc.Spec.PdfRenderServiceRef = &humiov1alpha1.HumioPdfRenderServiceReference{
 				Name:      pdfKey.Name,
 				Namespace: pdfKey.Namespace,
