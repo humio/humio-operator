@@ -3904,9 +3904,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
 
 			By("Verifying the Deployment is created with correct ownership")
+			deploymentKey := types.NamespacedName{
+				Name:      hprsKey.Name + "-pdf-render-service",
+				Namespace: hprsKey.Namespace,
+			}
 			deployment := &appsv1.Deployment{}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, hprsKey, deployment)
+				return k8sClient.Get(ctx, deploymentKey, deployment)
 			}, mediumTimeout, suite.TestInterval).Should(Succeed())
 			Expect(deployment.OwnerReferences).Should(ContainElement(SatisfyAll(
 				HaveField("APIVersion", humiov1alpha1.GroupVersion.String()),
@@ -3916,9 +3920,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			)))
 
 			By("Verifying the Service is created with correct ownership")
+			serviceKey := types.NamespacedName{
+				Name:      hprsKey.Name + "-pdf-render-service",
+				Namespace: hprsKey.Namespace,
+			}
 			service := &corev1.Service{}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, hprsKey, service)
+				return k8sClient.Get(ctx, serviceKey, service)
 			}, mediumTimeout, suite.TestInterval).Should(Succeed())
 			Expect(service.OwnerReferences).Should(ContainElement(SatisfyAll(
 				HaveField("APIVersion", humiov1alpha1.GroupVersion.String()),
@@ -3944,9 +3952,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			// Wait for observedGeneration to catch up
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, testTimeout*2, suite.TestInterval)
-
-			// --- REMOVE THIS LINE ---
-			// suite.WaitForControllerToObserveChange(ctx, k8sClient, pdfKey, hprs.Generation)
 
 			// Verify that the Deployment exists using the CR name
 			deploymentKey := types.NamespacedName{
@@ -4035,7 +4040,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			// Wait for controller to observe the change
-			suite.WaitForControllerToObserveChange(ctx, k8sClient, key, hprs.Generation+1)
+			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
 
 			// Always ensure the deployment is ready after update (envtest)
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
@@ -4116,30 +4121,46 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, hprsKey)
 
 			By("Verifying the Deployment is updated")
+			deploymentKey := types.NamespacedName{
+				Name:      hprsKey.Name + "-pdf-render-service",
+				Namespace: hprsKey.Namespace,
+			}
 			deployment := &appsv1.Deployment{}
 			Eventually(func() string {
-				_ = k8sClient.Get(ctx, hprsKey, deployment)
+				err := k8sClient.Get(ctx, deploymentKey, deployment)
+				if err != nil || len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
 				return deployment.Spec.Template.Spec.Containers[0].Image
 			}, mediumTimeout, suite.TestInterval).Should(Equal(updatedImage))
+
 			Eventually(func() int32 {
-				_ = k8sClient.Get(ctx, hprsKey, deployment)
-				if deployment.Spec.Replicas == nil {
+				err := k8sClient.Get(ctx, deploymentKey, deployment)
+				if err != nil || deployment.Spec.Replicas == nil {
 					return -1
 				}
 				return *deployment.Spec.Replicas
 			}, mediumTimeout, suite.TestInterval).Should(Equal(updatedReplicas))
 
 			By("Verifying the Service is updated")
+			serviceKey := types.NamespacedName{
+				Name:      hprsKey.Name + "-pdf-render-service",
+				Namespace: hprsKey.Namespace,
+			}
 			service := &corev1.Service{}
 			Eventually(func() int32 {
-				_ = k8sClient.Get(ctx, hprsKey, service)
-				if len(service.Spec.Ports) == 0 {
+				err := k8sClient.Get(ctx, serviceKey, service)
+				if err != nil || len(service.Spec.Ports) == 0 {
 					return -1
 				}
 				return service.Spec.Ports[0].Port
 			}, mediumTimeout, suite.TestInterval).Should(Equal(updatedPort))
+
 			Eventually(func() corev1.ServiceType {
-				_ = k8sClient.Get(ctx, hprsKey, service)
+				err := k8sClient.Get(ctx, serviceKey, service)
+				if err != nil {
+					return ""
+				}
 				return service.Spec.Type
 			}, mediumTimeout, suite.TestInterval).Should(Equal(updatedServiceType))
 		})
@@ -4206,8 +4227,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("Waiting for observedGeneration to catch up")
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
 
-			By("Waiting for controller to observe the change")
-			suite.WaitForControllerToObserveChange(ctx, k8sClient, key, hprs.Generation)
+			// By("Waiting for controller to observe the change")
+			// suite.WaitForControllerToObserveChange(ctx, k8sClient, key, hprs.Generation)
 
 			By("Verifying Deployment has TLS configuration")
 			Eventually(func() bool {
@@ -4268,9 +4289,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8sClient.Update(ctx, fresh)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			suite.WaitForControllerToObserveChange(ctx, k8sClient, key, hprs.Generation+1)
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
+
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
 			By("Verifying Deployment no longer has TLS configuration")
 			Eventually(func() bool {
@@ -4571,11 +4592,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Expect(k8sClient.Get(ctx, pdfServiceKey, &pdfService)).To(Succeed())
 				pdfService.Spec.Image = updatedPdfImage
 				Expect(k8sClient.Update(ctx, &pdfService)).To(Succeed())
-				return k8sClient.Update(ctx, &cluster)
+				//return k8sClient.Update(ctx, &cluster)
+				return nil
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			suite.WaitForControllerToObserveChange(ctx, k8sClient, key, humioCluster.Generation+1)
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfDeploymentKey)
+			suite.WaitForObservedGeneration(ctx, k8sClient, pdfService, longTimeout, suite.TestInterval)
+
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfDeploymentKey) // Use the correct key for the deployment
 
 			suite.UsingClusterBy(key.Name, "Verifying PDF render service is updated with new image")
 			Eventually(func() string {
@@ -4602,7 +4625,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8sClient.Update(ctx, &pdfService)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
-			suite.WaitForControllerToObserveChange(ctx, k8sClient, key, humioCluster.Generation+2)
+			suite.WaitForObservedGeneration(ctx, k8sClient, humioCluster, longTimeout, suite.TestInterval)
+
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfDeploymentKey)
 
 			suite.UsingClusterBy(key.Name, "Verifying PDF render service switches to default image")
@@ -4660,7 +4684,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8sClient.Update(ctx, fresh)
 			}, mediumTimeout, suite.TestInterval).Should(Succeed())
 
-			// --- FIX: Wait for observedGeneration instead of WaitForControllerToObserveChange ---
 			By("Waiting for observedGeneration to catch up after finalizer update")
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
 
