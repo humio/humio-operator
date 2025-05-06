@@ -3824,7 +3824,8 @@ spec:
             properties:
               message:
                 description: Message provides additional information about the state
-                  of the HumioPdfRenderService
+                  of the HumioPdfRenderService, typically an error message if something
+                  went wrong.
                 type: string
               nodes:
                 description: Nodes are the names of the PDF render service pods.

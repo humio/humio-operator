@@ -25,27 +25,34 @@ const (
 	// HumioPdfRenderServiceStateUnknown is the unknown state of the PDF rendering service.
 	HumioPdfRenderServiceStateUnknown = "Unknown"
 	// HumioPdfRenderServiceStateExists is the Exists state of the PDF rendering service.
+	// Deprecated: Use more specific states like Running, Configuring.
 	HumioPdfRenderServiceStateExists = "Exists"
 	// HumioPdfRenderServiceStateNotFound is the NotFound state of the PDF rendering service.
+	// Deprecated: Controller should handle resource absence.
 	HumioPdfRenderServiceStateNotFound = "NotFound"
 	// DefaultPdfRenderServiceLiveness is the default liveness path for the PDF rendering service.
 	DefaultPdfRenderServiceLiveness = "/health"
 	// DefaultPdfRenderServiceReadiness is the default readiness path for the PDF rendering service.
 	DefaultPdfRenderServiceReadiness = "/ready"
-	// HumioPdfRenderServiceStateConfigError is the state of the PDF rendering service when user-provided specification results in configuration error, such as non-existent humio cluster
+	// HumioPdfRenderServiceStateConfigError is the state of the PDF rendering service when user-provided specification results in configuration error, such as non-existent humio cluster or missing TLS secrets.
 	HumioPdfRenderServiceStateConfigError = "ConfigError"
-	// HumioPdfRenderServiceStateRunning is the state of the PDF rendering service when it is running and healthy
+	// HumioPdfRenderServiceStateRunning is the state of the PDF rendering service when it is running, all replicas are ready and the deployment is stable.
 	HumioPdfRenderServiceStateRunning = "Running"
-	// HumioPdfRenderServiceStateScalingUp is the state of the PDF rendering service when it is scaling up
+	// HumioPdfRenderServiceStateScalingUp is the state of the PDF rendering service when it is scaling up.
+	// Deprecated: Covered by Configuring.
 	HumioPdfRenderServiceStateScalingUp = "ScalingUp"
-	// HumioClusterStateScaledDown is the state of the PDF rendering service when it is scaled down
+	// HumioPdfRenderServiceStateScaledDown is the state of the PDF rendering service when it is scaled down to zero replicas.
 	HumioPdfRenderServiceStateScaledDown = "ScaledDown"
-	// HumioClusterStateConfiguring is the state of the PDF rendering service when it is configuring
+	// HumioPdfRenderServiceStateConfiguring is the state of the PDF rendering service when it is being configured, (e.g. deployment updating, scaling, waiting for pods to become ready).
 	HumioPdfRenderServiceStateConfiguring = "Configuring"
-	// HumioPdfRenderServiceStatePending is the state of the PDF rendering service when it is pending
+	// HumioPdfRenderServiceStatePending is the state of the PDF rendering service when it is pending.
+	// Deprecated: Covered by Configuring.
 	HumioPdfRenderServiceStatePending = "Pending"
-	// HumioPdfRenderServiceStateUpgrading is the state of the PDF rendering service when it is upgrading
+	// HumioPdfRenderServiceStateUpgrading is the state of the PDF rendering service when it is upgrading.
+	// Deprecated: Covered by Configuring.
 	HumioPdfRenderServiceStateUpgrading = "Upgrading"
+	// HumioPdfRenderServiceStateError is a generic error state if not covered by ConfigError.
+	HumioPdfRenderServiceStateError = "Error"
 )
 
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
@@ -138,12 +145,15 @@ type HumioPdfRenderServiceStatus struct {
 	Nodes []string `json:"nodes,omitempty"`
 
 	// ReadyReplicas is the number of ready replicas.
+	// +optional
 	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
 
 	// State reflects the current state of the HumioPdfRenderService
+	// +optional
 	State string `json:"state,omitempty"`
 
-	// Message provides additional information about the state of the HumioPdfRenderService
+	// Message provides additional information about the state of the HumioPdfRenderService, typically an error message if something went wrong.
+	// +optional
 	Message string `json:"message,omitempty"`
 
 	// ObservedGeneration is the most recent generation observed for this HumioPdfRenderService. It corresponds to the
