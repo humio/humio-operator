@@ -571,8 +571,14 @@ var _ = Describe("HumioCluster Controller", func() {
 			pdfCR = suite.CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, false)
 			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
+			// FIX: Use the correct deployment name format when checking for readiness
+			// The controller appends "-pdf-render-service" to the CR name for all child resources
+			deploymentKey := types.NamespacedName{
+				Name:      pdfKey.Name + "-pdf-render-service",
+				Namespace: pdfKey.Namespace,
+			}
 			// Always ensure deployment is ready before referencing in cluster
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
 
 			By("bootstrapping HumioCluster referencing the service")
 			hc := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, false)
@@ -883,15 +889,22 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
 			By("Ensuring PDF render deployment is ready")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
+			deploymentKey := types.NamespacedName{
+				Name:      pdfKey.Name + "-pdf-render-service",
+				Namespace: pdfKey.Namespace,
+			}
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
 
 			By("Creating the HumioCluster with PdfRenderServiceRef")
-			toCreate := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, false)
+			// Use true for useAutoCreatedLicense to ensure license configs are set properly
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
 			toCreate.Spec.PdfRenderServiceRef = &humiov1alpha1.HumioPdfRenderServiceReference{
 				Name:      pdfKey.Name,
 				Namespace: pdfKey.Namespace,
 			}
-			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true,
+
+			// Bootstrap the cluster with autoCreateLicense=false since we set it up in ConstructBasicSingleNodeHumioCluster
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, false,
 				humiov1alpha1.HumioClusterStateRunning, standardTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
@@ -967,8 +980,15 @@ var _ = Describe("HumioCluster Controller", func() {
 			pdfCR := suite.CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, false)
 			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
+			// Fix: Use the correct deployment name format when checking for readiness
+			// The controller appends "-pdf-render-service" to the CR name for all child resources
+			deploymentKey := types.NamespacedName{
+				Name:      pdfKey.Name + "-pdf-render-service",
+				Namespace: pdfKey.Namespace,
+			}
+
 			By("Ensuring PDF render deployment is ready")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
 
 			By("Creating HumioCluster that references the PDF render service")
 			hc := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, false)
