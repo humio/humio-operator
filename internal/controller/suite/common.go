@@ -354,8 +354,24 @@ func ConstructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 	return humioCluster
 }
 
+//
+
 func CreateLicenseSecret(ctx context.Context, clusterKey types.NamespacedName, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster) {
-	UsingClusterBy(cluster.Name, fmt.Sprintf("Creating the license secret %s", cluster.Spec.License.SecretKeyRef.Name))
+	// Check for nil cluster or nil License.SecretKeyRef
+	if cluster == nil {
+		// This shouldn't happen but better to be safe
+		return
+	}
+
+	var secretName string
+	if cluster.Spec.License.SecretKeyRef != nil {
+		secretName = cluster.Spec.License.SecretKeyRef.Name
+		UsingClusterBy(cluster.Name, fmt.Sprintf("Creating the license secret %s", secretName))
+	} else {
+		// Use default naming pattern if SecretKeyRef is not specified
+		secretName = fmt.Sprintf("%s-license", clusterKey.Name)
+		UsingClusterBy(cluster.Name, fmt.Sprintf("Creating a default license secret %s", secretName))
+	}
 
 	licenseString := "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzUxMiJ9.eyJpc09lbSI6ZmFsc2UsImF1ZCI6Ikh1bWlvLWxpY2Vuc2UtY2hlY2siLCJzdWIiOiJIdW1pbyBFMkUgdGVzdHMiLCJ1aWQiOiJGUXNvWlM3Yk1PUldrbEtGIiwibWF4VXNlcnMiOjEwLCJhbGxvd1NBQVMiOnRydWUsIm1heENvcmVzIjoxLCJ2YWxpZFVudGlsIjoxNzQzMTY2ODAwLCJleHAiOjE3NzQ1OTMyOTcsImlzVHJpYWwiOmZhbHNlLCJpYXQiOjE2Nzk5ODUyOTcsIm1heEluZ2VzdEdiUGVyRGF5IjoxfQ.someinvalidsignature"
 
@@ -366,7 +382,7 @@ func CreateLicenseSecret(ctx context.Context, clusterKey types.NamespacedName, k
 
 	licenseSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-license", clusterKey.Name),
+			Name:      secretName,
 			Namespace: clusterKey.Namespace,
 		},
 		StringData: map[string]string{"license": licenseString},
