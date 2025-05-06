@@ -46,6 +46,24 @@ mutation CreateRepository(
     }
 }
 
+mutation CreateRepositoryWithRetention(
+    $RepositoryName: String!
+    $RetentionInMillis: Long
+    $RetentionInIngestSizeBytes: Long
+    $RetentionInStorageSizeBytes: Long
+) {
+    createRepository(
+        name: $RepositoryName
+        retentionInMillis: $RetentionInMillis
+        retentionInIngestSizeBytes: $RetentionInIngestSizeBytes
+        retentionInStorageSizeBytes: $RetentionInStorageSizeBytes
+    ) {
+        repository {
+            ...RepositoryDetails
+        }
+    }
+}
+
 mutation UpdateTimeBasedRetention(
     $RepositoryName: String!
     $RetentionInDays: Float

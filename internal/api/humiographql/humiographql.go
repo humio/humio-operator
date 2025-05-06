@@ -2431,6 +2431,150 @@ func (v *CreateRepositoryResponse) GetCreateRepository() CreateRepositoryCreateR
 	return v.CreateRepository
 }
 
+// CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutation includes the requested fields of the GraphQL type CreateRepositoryMutation.
+type CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutation struct {
+	// Stability: Long-term
+	Repository CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository `json:"repository"`
+}
+
+// GetRepository returns CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutation.Repository, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutation) GetRepository() CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository {
+	return v.Repository
+}
+
+// CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository struct {
+	RepositoryDetails `json:"-"`
+}
+
+// GetId returns CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository.Id, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository) GetId() string {
+	return v.RepositoryDetails.Id
+}
+
+// GetName returns CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository.Name, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository) GetName() string {
+	return v.RepositoryDetails.Name
+}
+
+// GetDescription returns CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository.Description, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository) GetDescription() *string {
+	return v.RepositoryDetails.Description
+}
+
+// GetTimeBasedRetention returns CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository.TimeBasedRetention, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository) GetTimeBasedRetention() *float64 {
+	return v.RepositoryDetails.TimeBasedRetention
+}
+
+// GetIngestSizeBasedRetention returns CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository.IngestSizeBasedRetention, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository) GetIngestSizeBasedRetention() *float64 {
+	return v.RepositoryDetails.IngestSizeBasedRetention
+}
+
+// GetStorageSizeBasedRetention returns CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository.StorageSizeBasedRetention, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository) GetStorageSizeBasedRetention() *float64 {
+	return v.RepositoryDetails.StorageSizeBasedRetention
+}
+
+// GetCompressedByteSize returns CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository.CompressedByteSize, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository) GetCompressedByteSize() int64 {
+	return v.RepositoryDetails.CompressedByteSize
+}
+
+// GetAutomaticSearch returns CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository.AutomaticSearch, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository) GetAutomaticSearch() bool {
+	return v.RepositoryDetails.AutomaticSearch
+}
+
+// GetS3ArchivingConfiguration returns CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository.S3ArchivingConfiguration, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository) GetS3ArchivingConfiguration() *RepositoryDetailsS3ArchivingConfigurationS3Configuration {
+	return v.RepositoryDetails.S3ArchivingConfiguration
+}
+
+func (v *CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RepositoryDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	TimeBasedRetention *float64 `json:"timeBasedRetention"`
+
+	IngestSizeBasedRetention *float64 `json:"ingestSizeBasedRetention"`
+
+	StorageSizeBasedRetention *float64 `json:"storageSizeBasedRetention"`
+
+	CompressedByteSize int64 `json:"compressedByteSize"`
+
+	AutomaticSearch bool `json:"automaticSearch"`
+
+	S3ArchivingConfiguration *RepositoryDetailsS3ArchivingConfigurationS3Configuration `json:"s3ArchivingConfiguration"`
+}
+
+func (v *CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository) __premarshalJSON() (*__premarshalCreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository, error) {
+	var retval __premarshalCreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutationRepository
+
+	retval.Id = v.RepositoryDetails.Id
+	retval.Name = v.RepositoryDetails.Name
+	retval.Description = v.RepositoryDetails.Description
+	retval.TimeBasedRetention = v.RepositoryDetails.TimeBasedRetention
+	retval.IngestSizeBasedRetention = v.RepositoryDetails.IngestSizeBasedRetention
+	retval.StorageSizeBasedRetention = v.RepositoryDetails.StorageSizeBasedRetention
+	retval.CompressedByteSize = v.RepositoryDetails.CompressedByteSize
+	retval.AutomaticSearch = v.RepositoryDetails.AutomaticSearch
+	retval.S3ArchivingConfiguration = v.RepositoryDetails.S3ArchivingConfiguration
+	return &retval, nil
+}
+
+// CreateRepositoryWithRetentionResponse is returned by CreateRepositoryWithRetention on success.
+type CreateRepositoryWithRetentionResponse struct {
+	// Create a new repository.
+	// Stability: Short-term
+	CreateRepository CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutation `json:"createRepository"`
+}
+
+// GetCreateRepository returns CreateRepositoryWithRetentionResponse.CreateRepository, and is useful for accessing the field via an interface.
+func (v *CreateRepositoryWithRetentionResponse) GetCreateRepository() CreateRepositoryWithRetentionCreateRepositoryCreateRepositoryMutation {
+	return v.CreateRepository
+}
+
 // CreateScheduledSearchCreateScheduledSearch includes the requested fields of the GraphQL type ScheduledSearch.
 // The GraphQL type's documentation follows.
 //
@@ -13192,6 +13336,32 @@ type __CreateRepositoryInput struct {
 // GetRepositoryName returns __CreateRepositoryInput.RepositoryName, and is useful for accessing the field via an interface.
 func (v *__CreateRepositoryInput) GetRepositoryName() string { return v.RepositoryName }
 
+// __CreateRepositoryWithRetentionInput is used internally by genqlient
+type __CreateRepositoryWithRetentionInput struct {
+	RepositoryName              string `json:"RepositoryName"`
+	RetentionInMillis           *int64 `json:"RetentionInMillis"`
+	RetentionInIngestSizeBytes  *int64 `json:"RetentionInIngestSizeBytes"`
+	RetentionInStorageSizeBytes *int64 `json:"RetentionInStorageSizeBytes"`
+}
+
+// GetRepositoryName returns __CreateRepositoryWithRetentionInput.RepositoryName, and is useful for accessing the field via an interface.
+func (v *__CreateRepositoryWithRetentionInput) GetRepositoryName() string { return v.RepositoryName }
+
+// GetRetentionInMillis returns __CreateRepositoryWithRetentionInput.RetentionInMillis, and is useful for accessing the field via an interface.
+func (v *__CreateRepositoryWithRetentionInput) GetRetentionInMillis() *int64 {
+	return v.RetentionInMillis
+}
+
+// GetRetentionInIngestSizeBytes returns __CreateRepositoryWithRetentionInput.RetentionInIngestSizeBytes, and is useful for accessing the field via an interface.
+func (v *__CreateRepositoryWithRetentionInput) GetRetentionInIngestSizeBytes() *int64 {
+	return v.RetentionInIngestSizeBytes
+}
+
+// GetRetentionInStorageSizeBytes returns __CreateRepositoryWithRetentionInput.RetentionInStorageSizeBytes, and is useful for accessing the field via an interface.
+func (v *__CreateRepositoryWithRetentionInput) GetRetentionInStorageSizeBytes() *int64 {
+	return v.RetentionInStorageSizeBytes
+}
+
 // __CreateScheduledSearchInput is used internally by genqlient
 type __CreateScheduledSearchInput struct {
 	SearchDomainName   string              `json:"SearchDomainName"`
@@ -14884,6 +15054,64 @@ func CreateRepository(
 	}
 
 	data_ = &CreateRepositoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateRepositoryWithRetention.
+const CreateRepositoryWithRetention_Operation = `
+mutation CreateRepositoryWithRetention ($RepositoryName: String!, $RetentionInMillis: Long, $RetentionInIngestSizeBytes: Long, $RetentionInStorageSizeBytes: Long) {
+	createRepository(name: $RepositoryName, retentionInMillis: $RetentionInMillis, retentionInIngestSizeBytes: $RetentionInIngestSizeBytes, retentionInStorageSizeBytes: $RetentionInStorageSizeBytes) {
+		repository {
+			... RepositoryDetails
+		}
+	}
+}
+fragment RepositoryDetails on Repository {
+	id
+	name
+	description
+	timeBasedRetention
+	ingestSizeBasedRetention
+	storageSizeBasedRetention
+	compressedByteSize
+	automaticSearch
+	s3ArchivingConfiguration {
+		bucket
+		region
+		disabled
+		format
+	}
+}
+`
+
+func CreateRepositoryWithRetention(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	RepositoryName string,
+	RetentionInMillis *int64,
+	RetentionInIngestSizeBytes *int64,
+	RetentionInStorageSizeBytes *int64,
+) (data_ *CreateRepositoryWithRetentionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateRepositoryWithRetention",
+		Query:  CreateRepositoryWithRetention_Operation,
+		Variables: &__CreateRepositoryWithRetentionInput{
+			RepositoryName:              RepositoryName,
+			RetentionInMillis:           RetentionInMillis,
+			RetentionInIngestSizeBytes:  RetentionInIngestSizeBytes,
+			RetentionInStorageSizeBytes: RetentionInStorageSizeBytes,
+		},
+	}
+
+	data_ = &CreateRepositoryWithRetentionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
