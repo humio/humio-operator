@@ -885,7 +885,7 @@ func CreatePdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfK
 			Namespace: pdfKey.Namespace,
 		},
 		Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
-			Image:    versions.DefaultHumioImageVersion(),
+			Image:    versions.DefaultPDFRenderServiceImage(),
 			Replicas: 1,
 			Port:     controller.DefaultPdfRenderServicePort,
 		},
