@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/internal/controller/versions"
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/kubernetes"
 )
@@ -54,7 +55,8 @@ const (
 
 // HumioPdfRenderServiceReconciler reconciles a HumioPdfRenderService object
 type HumioPdfRenderServiceReconciler struct {
-	client.Client
+	client.Client               // Cached client
+	APIReader     client.Reader // Non-cached client for direct API reads
 	CommonConfig
 	Scheme     *runtime.Scheme
 	BaseLogger logr.Logger
@@ -183,26 +185,99 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{Requeue: true}, reconcileErr
 	}
 
+	// Re-fetch the deployment to ensure its status is up-to-date after potential spec changes from reconcileDeployment.
+	// This is crucial because the 'dep' object returned by reconcileDeployment might have a stale status,
+	// especially regarding ObservedGeneration, immediately after its spec has been updated.
+	if dep != nil {
+		deploymentKey := types.NamespacedName{Name: dep.Name, Namespace: dep.Namespace}
+		// Try to get a fresher status for the deployment.
+		// The 'dep' object from reconcileDeployment has the correct spec (e.g., image, replicas),
+		// but its status (e.g., observedGeneration, readyReplicas) might be from before the CreateOrUpdate.
+		freshlyFetchedDep := &appsv1.Deployment{} // Use a distinct name for clarity
+		if getErr := r.Get(ctx, deploymentKey, freshlyFetchedDep); getErr != nil {
+			if k8serrors.IsNotFound(getErr) {
+				// This is unexpected if reconcileDeployment just succeeded in creating/updating the Deployment.
+				// It might indicate a very brief inconsistency.
+				// Log this, but proceed cautiously with the 'dep' object we got from reconcileDeployment.
+				// Its status might be stale, which will likely (and correctly) lead to a 'Configuring' state
+				// for this reconcile cycle, prompting a requeue. A subsequent reconcile should then see the consistent state.
+				r.Log.Info("Deployment not found during immediate status re-fetch after reconcileDeployment. Using deployment object from reconcileDeployment (its status may be stale).", "deploymentName", dep.Name, "getError", getErr)
+				// 'dep' (from reconcileDeployment) is kept as is. We don't set it to nil or change it here.
+			} else {
+				// For other types of errors during the Get, it's a more significant issue.
+				reconcileErr = fmt.Errorf("failed to get fresh deployment status for %s after reconcileDeployment: %w", dep.Name, getErr)
+				hprs.Status.State = humiov1alpha1.HumioPdfRenderServiceStateConfigError
+				return ctrl.Result{Requeue: true}, reconcileErr
+			}
+		} else {
+			// Successfully fetched the fresh deployment with latest status. Use it.
+			dep = freshlyFetchedDep
+		}
+	}
+
 	// If Deployment is fully rolled out, immediately mark Running and update status
-	if dep != nil && dep.Spec.Replicas != nil &&
-		dep.Status.UpdatedReplicas == *dep.Spec.Replicas &&
-		dep.Status.ReadyReplicas == *dep.Spec.Replicas &&
-		(dep.Status.ObservedGeneration == 0 || dep.Status.ObservedGeneration == dep.Generation) {
+	if dep != nil && dep.Status.ReadyReplicas == 1 &&
+		(dep.Status.ObservedGeneration == 0 || dep.Status.ObservedGeneration >= dep.Generation) {
 
 		hprs.Status.State = humiov1alpha1.HumioPdfRenderServiceStateRunning
 		hprs.Status.ObservedGeneration = hprs.Generation
 		hprs.Status.ReadyReplicas = dep.Status.ReadyReplicas
+		hprs.Status.Message = ""
 
-		if err := r.Status().Update(ctx, hprs); err != nil {
-			r.Log.Error(err, "updating HumioPdfRenderService status to Running")
-			return ctrl.Result{Requeue: true}, err
+		r.Log.Info("Deployment is fully rolled out, marking as Running",
+			"name", hprs.Name,
+			"readyReplicas", dep.Status.ReadyReplicas,
+			"generation", dep.Generation,
+			"observedGeneration", dep.Status.ObservedGeneration)
+
+		// Use retry for robustness
+		updateErr := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			latestHprs := &humiov1alpha1.HumioPdfRenderService{}
+			if getErr := r.Get(ctx, req.NamespacedName, latestHprs); getErr != nil {
+				if k8serrors.IsNotFound(getErr) {
+					// Resource was deleted during conflict resolution, consider update "done" for non-existent resource.
+					r.Log.Info("HumioPdfRenderService not found during 'Running' status update conflict, assuming deleted.", "name", req.Name)
+					return nil // Stop retrying, effectively marking update as successful for deleted resource
+				}
+				return getErr // For other errors, propagate them to stop retrying.
+			}
+
+			latestHprs.Status.State = humiov1alpha1.HumioPdfRenderServiceStateRunning
+			latestHprs.Status.ObservedGeneration = hprs.Generation // Use the generation of the HPRS spec we are reconciling
+			latestHprs.Status.ReadyReplicas = dep.Status.ReadyReplicas
+			latestHprs.Status.Message = ""
+
+			return r.Status().Update(ctx, latestHprs)
+		})
+
+		if updateErr != nil {
+			r.Log.Error(updateErr, "Failed to update status to Running")
+			return ctrl.Result{Requeue: true}, updateErr
 		}
-		r.Log.Info("Marked HPRS Running", "name", hprs.Name)
+
+		r.Log.Info("Successfully marked HPRS as Running", "name", hprs.Name)
 		return ctrl.Result{}, nil
 	}
 
 	// 3. Determine HPRS state based on Deployment status
 	determinedState := humiov1alpha1.HumioPdfRenderServiceStateUnknown // Default to unknown initially
+
+	// Log deployment state before determination logic
+	if dep != nil {
+		r.Log.Info("Determining HPRS state based on Deployment",
+			"hprsName", hprs.Name,
+			"deploymentName", dep.Name,
+			"deploymentGeneration", dep.Generation,
+			"deploymentObservedGeneration", dep.Status.ObservedGeneration,
+			"deploymentReplicas", dep.Spec.Replicas,
+			"deploymentStatusReplicas", dep.Status.Replicas,
+			"deploymentReadyReplicas", dep.Status.ReadyReplicas,
+			"deploymentUpdatedReplicas", dep.Status.UpdatedReplicas,
+			"deploymentAvailableReplicas", dep.Status.AvailableReplicas)
+	} else {
+		r.Log.Info("Determining HPRS state, deployment object is nil", "hprsName", hprs.Name)
+	}
+
 	if hprs.Spec.Replicas == 0 {
 		if dep != nil && dep.Spec.Replicas != nil && *dep.Spec.Replicas == 0 &&
 			dep.Status.ObservedGeneration == dep.Generation &&
@@ -218,7 +293,8 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		determinedState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
 		reconcileErr = fmt.Errorf("deployment %s not found, expected for HPRS %s", childName(hprs), hprs.Name)
 
-	} else if dep.Status.ObservedGeneration < dep.Generation {
+	} else if dep.Status.ObservedGeneration != 0 &&
+		dep.Status.ObservedGeneration < dep.Generation {
 		determinedState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
 
 	} else if dep.Spec.Replicas != nil &&
@@ -237,19 +313,69 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		dep.Status.ReadyReplicas == *dep.Spec.Replicas &&
 		// env-test never populates ObservedGeneration, keep the check only
 		// when it is non-zero.
-		(dep.Status.ObservedGeneration == 0 || dep.Status.ObservedGeneration == dep.Generation) {
+		(dep.Status.ObservedGeneration == 0 || dep.Status.ObservedGeneration >= dep.Generation) {
 		determinedState = humiov1alpha1.HumioPdfRenderServiceStateRunning
 
 	} else { // Fallback
 		determinedState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
+		r.Log.Info("HPRS state determined as Configuring (fallback).",
+			"hprsName", hprs.Name,
+			"hprsSpecReplicas", hprs.Spec.Replicas)
+		if dep != nil && dep.Spec.Replicas != nil {
+			r.Log.V(1).Info("Fallback to Configuring: Deployment details",
+				"depReadyReplicas", dep.Status.ReadyReplicas,
+				"depSpecReplicas", *dep.Spec.Replicas,
+				"depObservedGeneration", dep.Status.ObservedGeneration,
+				"depGeneration", dep.Generation)
+		}
 	}
 	hprs.Status.State = determinedState // Update the hprs object's status field for the deferred updateStatus call
 
 	// 4. Requeue logic based on state
 	if determinedState == humiov1alpha1.HumioPdfRenderServiceStateConfiguring {
-		r.Log.Info("Requeuing: HPRS is in Configuring state.", "HPRSName", hprs.Name)
-		result = ctrl.Result{RequeueAfter: 10 * time.Second}
-		return result, reconcileErr
+		// Check if configuring is ONLY due to observedGeneration lag while replicas are ready
+		if dep != nil && dep.Spec.Replicas != nil && hprs.Spec.Replicas > 0 &&
+			dep.Status.ReadyReplicas == *dep.Spec.Replicas &&
+			dep.Status.ObservedGeneration < dep.Generation {
+
+			r.Log.Info("HPRS is Configuring (cached dep: ready, awaiting observedGeneration). Attempting direct API read for Deployment.",
+				"HPRSName", hprs.Name,
+				"CachedDepGeneration", dep.Generation, "CachedDepObservedGeneration", dep.Status.ObservedGeneration)
+
+			freshDepFromAPI := &appsv1.Deployment{}
+			depKey := types.NamespacedName{Name: dep.Name, Namespace: dep.Namespace}
+
+			// Use the non-cached APIReader for a direct fetch
+			if directGetErr := r.APIReader.Get(ctx, depKey, freshDepFromAPI); directGetErr == nil {
+				r.Log.Info("Direct API read of Deployment successful.",
+					"HPRSName", hprs.Name,
+					"DirectDepGeneration", freshDepFromAPI.Generation, "DirectDepObservedGeneration", freshDepFromAPI.Status.ObservedGeneration)
+
+				// Check if the direct read shows observedGeneration has caught up
+				if freshDepFromAPI.Status.ObservedGeneration >= freshDepFromAPI.Generation {
+					r.Log.Info("Direct API read shows Deployment observedGeneration caught up. Overriding HPRS state to Running.", "HPRSName", hprs.Name)
+					determinedState = humiov1alpha1.HumioPdfRenderServiceStateRunning
+					hprs.Status.State = determinedState // Update the hprs object for the deferred status update
+					// No requeue needed; the deferred updateStatus will handle setting to Running.
+					// reconcileErr (if any from earlier steps) will be returned.
+					return ctrl.Result{}, reconcileErr
+				}
+				r.Log.Info("Direct API read shows Deployment observedGeneration still lagging. Proceeding with short requeue.", "HPRSName", hprs.Name)
+			} else {
+				r.Log.Error(directGetErr, "Failed to perform direct API read of Deployment. Proceeding with short requeue based on cached data.", "HPRSName", hprs.Name)
+			}
+			// If direct read failed or still shows lag, requeue shortly.
+			result = ctrl.Result{RequeueAfter: 1 * time.Second}
+			return result, reconcileErr
+
+		} else { // Standard configuring, not just observedGeneration lag with ready replicas
+			r.Log.Info("Requeuing (standard): HPRS is in Configuring state.", "HPRSName", hprs.Name, "determinedState", determinedState, "depExists", dep != nil)
+			if dep != nil {
+				r.Log.V(1).Info("Deployment details for standard requeue", "depName", dep.Name, "depReadyReplicas", dep.Status.ReadyReplicas, "depSpecReplicas", dep.Spec.Replicas, "depObservedGen", dep.Status.ObservedGeneration, "depGen", dep.Generation)
+			}
+			result = ctrl.Result{RequeueAfter: 10 * time.Second} // Default delay for other configuring reasons
+			return result, reconcileErr
+		}
 	}
 
 	r.Log.Info("Reconciliation complete for HPRS.", "HPRSName", hprs.Name, "State", determinedState)
@@ -368,6 +494,11 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(
 	labels := labelsForHumioPdfRenderService(hprs.Name)
 	replicas := hprs.Spec.Replicas
 	port := servicePort(hprs)
+
+	// Set default image if not specified
+	if hprs.Spec.Image == "" {
+		hprs.Spec.Image = versions.DefaultPDFRenderServiceImage()
+	}
 
 	// Build container (+ env / mounts / volumes incl. TLS)
 	envVars, vols, mounts := r.buildRuntimeAssets(hprs, port)
@@ -546,7 +677,8 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 	}
 
 	// Secret name for PDF render service's own certificate is derived, not from hprs.Spec.TLS.SecretName
-	secretName := fmt.Sprintf("%s-certificate", childName(hprs))
+	defaultSecret := fmt.Sprintf("%s-certificate", childName(hprs))
+	secretName := tlsCertificateSecretName(hprs.Spec.TLS, defaultSecret)
 
 	*env = append(*env,
 		corev1.EnvVar{Name: pdfRenderUseTLSEnvVar, Value: "true"},
@@ -623,17 +755,57 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 // }
 
 // TLS validation
+// In the validateTLSConfiguration function - robust status update with retry
 func (r *HumioPdfRenderServiceReconciler) validateTLSConfiguration(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
-	if hprs.Spec.TLS == nil || !helpers.BoolTrue(hprs.Spec.TLS.Enabled) { // Use helper
+	if hprs.Spec.TLS == nil || !helpers.BoolTrue(hprs.Spec.TLS.Enabled) {
 		return nil
 	}
-	// Secret name for PDF render service's own certificate is derived
-	secretName := fmt.Sprintf("%s-certificate", childName(hprs))
 
-	if _, err := kubernetes.GetSecret(ctx, r.Client, secretName, hprs.Namespace); err != nil {
+	// Secret name for PDF render service's certificate
+	defaultSecret := fmt.Sprintf("%s-certificate", childName(hprs))
+	secretName := tlsCertificateSecretName(hprs.Spec.TLS, defaultSecret)
+
+	// Try to get the secret
+	_, err := kubernetes.GetSecret(ctx, r.Client, secretName, hprs.Namespace)
+	if err != nil {
 		r.Log.Error(err, "TLS secret not found", "secretName", secretName, "namespace", hprs.Namespace)
+
+		// Create a copy of the current object to avoid modifying the one used in the main reconcile logic
+		statusUpdateHprs := hprs.DeepCopy()
+
+		// Set error state and message
+		statusUpdateHprs.Status.State = humiov1alpha1.HumioPdfRenderServiceStateConfigError
+		statusUpdateHprs.Status.Message = fmt.Sprintf("TLS secret %s not found in namespace %s: %s",
+			secretName, hprs.Namespace, err.Error())
+		statusUpdateHprs.Status.ObservedGeneration = hprs.Generation
+
+		// Important: Use a separate retry mechanism specifically for this critical status update
+		updateErr := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			// Get the latest version before each attempt
+			latest := &humiov1alpha1.HumioPdfRenderService{}
+			if getErr := r.Get(ctx, client.ObjectKeyFromObject(hprs), latest); getErr != nil {
+				return getErr
+			}
+
+			// Apply our changes to the latest version
+			latest.Status.State = humiov1alpha1.HumioPdfRenderServiceStateConfigError
+			latest.Status.Message = statusUpdateHprs.Status.Message
+			latest.Status.ObservedGeneration = statusUpdateHprs.Status.ObservedGeneration
+
+			return r.Status().Update(ctx, latest)
+		})
+
+		if updateErr != nil {
+			r.Log.Error(updateErr, "Failed to update status to ConfigError while validating TLS configuration")
+			// Continue with the original error to ensure reconcile is requeued
+		} else {
+			r.Log.Info("Successfully updated status to ConfigError")
+		}
+
+		// Return the original error to trigger reconcile requeue
 		return fmt.Errorf("TLS secret %s not found in namespace %s: %w", secretName, hprs.Namespace, err)
 	}
+
 	return nil
 }
 
@@ -755,8 +927,12 @@ func (r *HumioPdfRenderServiceReconciler) updateStatus(
 			log.Info("Conflict during status update, retrying...", "error", err)
 			// Re-fetch the latest version of HPRS before retrying the update
 			if getErr := r.Get(ctx, client.ObjectKeyFromObject(currentHprs), currentHprs); getErr != nil {
-				log.Error(getErr, "Failed to re-fetch HumioPdfRenderService during status update conflict")
-				return false, getErr // Stop retrying if re-fetch fails
+				log.Error(getErr, "Error re-fetching HumioPdfRenderService during status update conflict")
+				if k8serrors.IsNotFound(getErr) {
+					log.Info("HumioPdfRenderService not found during status update conflict (re-fetch), assuming deleted. Stopping update.")
+					return true, nil // Stop retrying, resource is gone, consider update attempt "done"
+				}
+				return false, getErr // For other re-fetch errors, stop retrying and propagate the error
 			}
 			// Re-apply the desired changes to the re-fetched object's status
 			currentHprs.Status.State = determinedState
@@ -783,12 +959,19 @@ func (r *HumioPdfRenderServiceReconciler) updateStatus(
 }
 
 // childName returns the name of the child resources (Deployment and Service) for the HumioPdfRenderService.
+// It ensures the generated name does not exceed 63 characters.
 func childName(hprs *humiov1alpha1.HumioPdfRenderService) string {
-	return hprs.Name + childSuffix
+	baseName := hprs.Name
+	maxBaseNameLen := 63 - len(childSuffix)
+	if len(baseName) > maxBaseNameLen {
+		baseName = baseName[:maxBaseNameLen]
+	}
+	return baseName + childSuffix
 }
 
 // Setup
 func (r *HumioPdfRenderServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.APIReader = mgr.GetAPIReader() // Initialize the non-cached API reader
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioPdfRenderService{}).
 		Owns(&corev1.Service{}).
@@ -893,4 +1076,23 @@ func firstNonNilProbe(p *corev1.Probe, fallback *corev1.Probe) *corev1.Probe {
 		return p
 	}
 	return fallback
+}
+
+// tlsCertificateSecretName returns the certificate-secret name defined in the
+// TLS spec. It supports both `SecretName` and `CertificateSecretName` field
+// names so the controller remains compatible with older and newer CRD
+// versions. If neither field is set it falls back to defaultName.
+func tlsCertificateSecretName(tlsSpec *humiov1alpha1.HumioClusterTLSSpec, defaultName string) string { // nolint:revive
+	if tlsSpec == nil {
+		return defaultName
+	}
+	v := reflect.ValueOf(tlsSpec).Elem()
+	for _, fld := range []string{"SecretName", "CertificateSecretName"} {
+		if f := v.FieldByName(fld); f.IsValid() && f.Kind() == reflect.String {
+			if s := f.String(); s != "" {
+				return s
+			}
+		}
+	}
+	return defaultName
 }

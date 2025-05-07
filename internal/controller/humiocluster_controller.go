@@ -416,25 +416,41 @@ func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc 
 			pdfService.Status.ReadyReplicas > 0
 
 		if !isHprsReady {
-			errMsg := fmt.Sprintf("referenced HumioPdfRenderService %q is not ready (state: %s, readyReplicas: %d)",
+			errMsg := fmt.Sprintf("referenced HumioPdfRenderService %q in namespace %q is not ready (state: %s, readyReplicas: %d). HumioCluster %q will be set to ConfigError.",
 				hc.Spec.PdfRenderServiceRef.Name,
+				namespace, // Use resolved namespace
 				pdfService.Status.State,
-				pdfService.Status.ReadyReplicas)
-			r.Log.Error(nil, errMsg,
-				"name", hc.Spec.PdfRenderServiceRef.Name,
-				"namespace", namespace,
-				"state", pdfService.Status.State,
-				"readyReplicas", pdfService.Status.ReadyReplicas)
+				pdfService.Status.ReadyReplicas,
+				hc.Name)
+			r.Log.Info("Referenced HumioPdfRenderService is not ready, setting HumioCluster to ConfigError.",
+				"pdfServiceName", hc.Spec.PdfRenderServiceRef.Name,
+				"pdfServiceNamespace", namespace,
+				"pdfServiceState", pdfService.Status.State,
+				"pdfServiceReadyReplicas", pdfService.Status.ReadyReplicas,
+				"humioClusterName", hc.Name,
+				"humioClusterNamespace", hc.Namespace)
 
-			// Update the HumioCluster status with observed generation
-			// This ensures the observedGeneration is updated even when PDF service isn't ready
-			hc.Status.ObservedGeneration = fmt.Sprintf("%d", hc.Generation)
-			if err := r.Status().Update(ctx, hc); err != nil {
-				r.Log.Error(err, "Failed to update HumioCluster status with observed generation")
+			// Attempt to set the HumioCluster state to ConfigError.
+			// setState handles updating ObservedGeneration implicitly via its own status update mechanism if it uses the main updateStatus.
+			// However, setState directly calls r.Status().Update() which does not automatically add observedGeneration.
+			// The deferred updateStatus in the main Reconcile loop should handle observedGeneration.
+			// For now, prioritize setting the correct state.
+			if err := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc); err != nil {
+				r.Log.Error(err, "Failed to set HumioCluster state to ConfigError when referenced PDF service is not ready. HumioCluster status might be inconsistent.",
+					"humioClusterName", hc.Name)
+				// Return the error from setState, as this is critical.
+				return fmt.Errorf("failed to update HumioCluster %s/%s status to ConfigError due to unhealthy PDF service %s/%s (state: %s): %w",
+					hc.Namespace, hc.Name, namespace, hc.Spec.PdfRenderServiceRef.Name, pdfService.Status.State, err)
 			}
-
-			_ = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+			// If setState was successful, return the descriptive error message about the PDF service.
+			// This error will be used by the main reconcile loop's status update.
 			return errors.New(errMsg)
+		}
+
+		// Cleanup any existing cluster-specific PDF service now that we're using a shared one
+		if err := r.removePdfRenderServiceIfExists(ctx, hc); err != nil {
+			// Log the error but don't block reconciliation if cleanup fails
+			r.Log.Error(err, "Failed to remove cluster-specific HumioPdfRenderService during switch to shared service")
 		}
 
 		r.Log.Info("Using shared HumioPdfRenderService",

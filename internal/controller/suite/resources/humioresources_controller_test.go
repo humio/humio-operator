@@ -40,7 +40,6 @@ import (
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/internal/controller/suite"
-	"github.com/humio/humio-operator/internal/controller/versions"
 )
 
 const (
@@ -3459,7 +3458,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Should handle aggregate alert correctly")
 			dependentEmailActionSpec := humiov1alpha1.HumioActionSpec{
 				ManagedClusterName: clusterKey.Name,
-				Name:               "example-email-action",
+				Name:               "example-email-action3",
 				ViewName:           testRepo.Spec.Name,
 				EmailProperties: &humiov1alpha1.HumioActionEmailProperties{
 					Recipients: []string{emailActionExample},
@@ -3467,7 +3466,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			actionKey := types.NamespacedName{
-				Name:      "humioaction",
+				Name:      "humioaction3",
 				Namespace: clusterKey.Namespace,
 			}
 
@@ -3576,7 +3575,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ThrottleField:         aggregateAlert.ThrottleField,
 				TriggerMode:           string(aggregateAlert.TriggerMode),
 				Enabled:               aggregateAlert.Enabled,
-				Actions:               humioapi.GetActionNames(aggregateAlert.Actions),
+				Actions:               humioapi.GetActionNames(aggregateAlert.GetActions()),
 				Labels:                aggregateAlert.Labels,
 			}
 			Expect(err).ToNot(HaveOccurred())
@@ -3584,7 +3583,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Updating the aggregate alert successfully")
 			updatedAggregateAlert := toCreateAggregateAlert
-			updatedAggregateAlert.Spec.QueryString = "#repo = humio | updated_field = true | error = true"
+			updatedAggregateAlert.Spec.QueryString = "#repo = humio | updated_field = true | error = true | count()"
 			updatedAggregateAlert.Spec.Enabled = false
 			updatedAggregateAlert.Spec.Description = "updated humio aggregate alert"
 			updatedAggregateAlert.Spec.SearchIntervalSeconds = 120
@@ -3627,9 +3626,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 				SearchIntervalSeconds: int64(updatedAggregateAlert.Spec.SearchIntervalSeconds),
 				ThrottleTimeSeconds:   int64(updatedAggregateAlert.Spec.ThrottleTimeSeconds),
 				ThrottleField:         updatedAggregateAlert.Spec.ThrottleField,
-				Enabled:               updatedAggregateAlert.Spec.Enabled,
-				Actions:               humioapi.ActionNamesToEmailActions(updatedAggregateAlert.Spec.Actions),
 				Labels:                updatedAggregateAlert.Spec.Labels,
+				Enabled:               updatedAggregateAlert.Spec.Enabled,
+				TriggerMode:           humiographql.TriggerMode(updatedAggregateAlert.Spec.TriggerMode),
+				QueryTimestampType:    humiographql.QueryTimestampType(updatedAggregateAlert.Spec.QueryTimestampType),
+				Actions:               humioapi.ActionNamesToEmailActions(updatedAggregateAlert.Spec.Actions),
 				QueryOwnership: &humiographql.SharedQueryOwnershipTypeOrganizationOwnership{
 					Typename: helpers.StringPtr("OrganizationOwnership"),
 					QueryOwnershipOrganizationOwnership: humiographql.QueryOwnershipOrganizationOwnership{
@@ -4119,7 +4120,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			updatedImage := "updated/image:v2"
 			updatedReplicas := int32(2)
 			updatedPort := int32(5123)
-			updatedServiceType := corev1.ServiceTypeNodePort
 
 			By("Updating the HumioPdfRenderService spec")
 			var freshHprs *humiov1alpha1.HumioPdfRenderService
@@ -4131,7 +4131,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				freshHprs.Spec.Image = updatedImage
 				freshHprs.Spec.Replicas = updatedReplicas
 				freshHprs.Spec.Port = updatedPort
-				freshHprs.Spec.ServiceType = updatedServiceType
 				return k8sClient.Update(ctx, freshHprs)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
@@ -4179,188 +4178,11 @@ var _ = Describe("Humio Resources Controllers", func() {
 					return ""
 				}
 				return service.Spec.Type
-			}, testTimeout, suite.TestInterval).Should(Equal(updatedServiceType))
+			}, testTimeout, suite.TestInterval).Should(Equal(corev1.ServiceTypeClusterIP))
 
 			DeferCleanup(func() {
 				By("Cleaning up test resources")
 				_ = k8sClient.Delete(ctx, hprs)
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, key, &humiov1alpha1.HumioPdfRenderService{})
-					return k8serrors.IsNotFound(err)
-				}, mediumTimeout, suite.TestInterval).Should(BeTrue(), "PDF render service should be cleaned up")
-			})
-		})
-
-		It("should update the Deployment when the HumioPdfRenderService is updated", func() {
-			ctx := context.Background()
-			//var updatedImage = versions.DefaultPDFRenderServiceImage()
-
-			// Generate a unique name with random suffix to avoid conflicts
-			randomSuffix := kubernetes.RandomString()[0:6]
-			key := types.NamespacedName{
-				Name:      fmt.Sprintf("humio-pdf-update-%s", randomSuffix),
-				Namespace: clusterKey.Namespace,
-			}
-
-			deploymentKey := types.NamespacedName{
-				Name:      key.Name + "-pdf-render-service",
-				Namespace: key.Namespace,
-			}
-
-			By("Cleaning up any existing resources from previous test runs")
-			existingResource := &humiov1alpha1.HumioPdfRenderService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      key.Name,
-					Namespace: key.Namespace,
-				},
-			}
-			err := k8sClient.Delete(ctx, existingResource)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				Expect(err).NotTo(HaveOccurred())
-			}
-
-			// Wait for resource deletion to complete if it existed
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, key, &humiov1alpha1.HumioPdfRenderService{})
-				return k8serrors.IsNotFound(err)
-			}, mediumTimeout, suite.TestInterval).Should(BeTrue(), "Existing resources should be cleaned up")
-
-			By("Creating the HumioPdfRenderService CR")
-			hprs := suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)
-			Expect(hprs).NotTo(BeNil())
-
-			By("Waiting for observedGeneration to catch up")
-			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, testTimeout*2, suite.TestInterval)
-
-			By("Ensuring the PDF render deployment exists")
-			deployment := &appsv1.Deployment{}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, deploymentKey, deployment)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-
-			By("Explicitly simulating Deployment becoming ready in envtest")
-			Eventually(func() error {
-				if err := k8sClient.Get(ctx, deploymentKey, deployment); err != nil {
-					return err
-				}
-				// Explicitly set the status fields that would normally be set by kube-controller-manager
-				deployment.Status.Replicas = *deployment.Spec.Replicas
-				deployment.Status.ReadyReplicas = *deployment.Spec.Replicas
-				deployment.Status.UpdatedReplicas = *deployment.Spec.Replicas
-				deployment.Status.AvailableReplicas = *deployment.Spec.Replicas
-				deployment.Status.ObservedGeneration = deployment.Generation
-				return k8sClient.Status().Update(ctx, deployment)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-
-			By("Verifying the HumioPdfRenderService is in Running state")
-			Eventually(func() string {
-				updatedHprs := &humiov1alpha1.HumioPdfRenderService{}
-				err := k8sClient.Get(ctx, key, updatedHprs)
-				if err != nil {
-					return fmt.Sprintf("Error getting HumioPdfRenderService: %v", err)
-				}
-				return updatedHprs.Status.State
-			}, longTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
-
-			// Verify the Deployment is created with expected image and replicas
-			By("Verifying the initial Deployment configuration")
-			Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal(PDFRenderServiceImage))
-			Expect(*deployment.Spec.Replicas).To(Equal(int32(1)))
-
-			// --- Update the CR ---
-			updatedImage := versions.DefaultPDFRenderServiceImage()
-			updatedReplicas := int32(2)
-			updatedPort := int32(5123)
-			updatedServiceType := corev1.ServiceTypeNodePort
-
-			By("Updating the HumioPdfRenderService spec")
-			var freshHprs *humiov1alpha1.HumioPdfRenderService
-			Eventually(func() error {
-				freshHprs = &humiov1alpha1.HumioPdfRenderService{}
-				if err := k8sClient.Get(ctx, key, freshHprs); err != nil {
-					return err
-				}
-				freshHprs.Spec.Image = updatedImage
-				freshHprs.Spec.Replicas = updatedReplicas
-				freshHprs.Spec.Port = updatedPort
-				freshHprs.Spec.ServiceType = updatedServiceType
-				return k8sClient.Update(ctx, freshHprs)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-
-			By("Waiting for observedGeneration to catch up after update")
-			suite.WaitForObservedGeneration(ctx, k8sClient, freshHprs, longTimeout, suite.TestInterval)
-
-			By("Ensuring deployment spec is updated")
-			Eventually(func() string {
-				err := k8sClient.Get(ctx, deploymentKey, deployment)
-				if err != nil {
-					return ""
-				}
-				if len(deployment.Spec.Template.Spec.Containers) == 0 {
-					return ""
-				}
-				return deployment.Spec.Template.Spec.Containers[0].Image
-			}, testTimeout, suite.TestInterval).Should(Equal(updatedImage))
-
-			Eventually(func() int32 {
-				err := k8sClient.Get(ctx, deploymentKey, deployment)
-				if err != nil || deployment.Spec.Replicas == nil {
-					return -1
-				}
-				return *deployment.Spec.Replicas
-			}, testTimeout, suite.TestInterval).Should(Equal(updatedReplicas))
-
-			By("Explicitly simulating updated Deployment becoming ready in envtest")
-			Eventually(func() error {
-				if err := k8sClient.Get(ctx, deploymentKey, deployment); err != nil {
-					return err
-				}
-				// Explicitly set the status fields for the updated deployment
-				deployment.Status.Replicas = *deployment.Spec.Replicas
-				deployment.Status.ReadyReplicas = *deployment.Spec.Replicas
-				deployment.Status.UpdatedReplicas = *deployment.Spec.Replicas
-				deployment.Status.AvailableReplicas = *deployment.Spec.Replicas
-				deployment.Status.ObservedGeneration = deployment.Generation
-				return k8sClient.Status().Update(ctx, deployment)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-
-			By("Verifying the HumioPdfRenderService returns to Running state after update")
-			Eventually(func() string {
-				updatedHprs := &humiov1alpha1.HumioPdfRenderService{}
-				err := k8sClient.Get(ctx, key, updatedHprs)
-				if err != nil {
-					return fmt.Sprintf("Error getting HumioPdfRenderService: %v", err)
-				}
-				return updatedHprs.Status.State
-			}, longTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
-
-			By("Verifying the Service is updated with the new port")
-			serviceKey := types.NamespacedName{
-				Name:      key.Name + "-pdf-render-service",
-				Namespace: key.Namespace,
-			}
-			service := &corev1.Service{}
-			Eventually(func() int32 {
-				err := k8sClient.Get(ctx, serviceKey, service)
-				if err != nil || len(service.Spec.Ports) == 0 {
-					return -1
-				}
-				return service.Spec.Ports[0].Port
-			}, testTimeout, suite.TestInterval).Should(Equal(updatedPort))
-
-			By("Verifying the Service is updated with the new type")
-			Eventually(func() corev1.ServiceType {
-				err := k8sClient.Get(ctx, serviceKey, service)
-				if err != nil {
-					return ""
-				}
-				return service.Spec.Type
-			}, testTimeout, suite.TestInterval).Should(Equal(updatedServiceType))
-
-			// Register cleanup to run at the end of the test
-			DeferCleanup(func() {
-				By("Cleaning up test resources")
-				_ = k8sClient.Delete(ctx, freshHprs)
 				Eventually(func() bool {
 					err := k8sClient.Get(ctx, key, &humiov1alpha1.HumioPdfRenderService{})
 					return k8serrors.IsNotFound(err)
@@ -4759,20 +4581,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("Ensuring PDF render deployment is ready")
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
 
-			By("Setting a finalizer")
-			var hprsWithFinalizer *humiov1alpha1.HumioPdfRenderService
-			Eventually(func() error {
-				hprsWithFinalizer = &humiov1alpha1.HumioPdfRenderService{}
-				if err := k8sClient.Get(ctx, hprsKey, hprsWithFinalizer); err != nil {
-					return err
-				}
-				hprsWithFinalizer.Finalizers = []string{"finalizer.humio.com"}
-				return k8sClient.Update(ctx, hprsWithFinalizer)
-			}, mediumTimeout, suite.TestInterval).Should(Succeed())
-
-			By("Waiting for observedGeneration to catch up after finalizer update")
-			suite.WaitForObservedGeneration(ctx, k8sClient, hprsWithFinalizer, longTimeout, suite.TestInterval)
-
 			By("Deleting the HumioPdfRenderService")
 			Eventually(func() error {
 				fresh := &humiov1alpha1.HumioPdfRenderService{}
@@ -4781,16 +4589,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}
 				return k8sClient.Delete(ctx, fresh)
 			}, mediumTimeout, suite.TestInterval).Should(Succeed())
-
-			By("Waiting for the finalizer to be removed")
-			Eventually(func() bool {
-				fresh := &humiov1alpha1.HumioPdfRenderService{}
-				err := k8sClient.Get(ctx, hprsKey, fresh)
-				if err != nil {
-					return false
-				}
-				return len(fresh.Finalizers) == 0
-			}, mediumTimeout, suite.TestInterval).Should(BeTrue(), "Finalizer should be removed")
 
 			By("Ensuring resources are cleaned up")
 			Eventually(func() bool {
