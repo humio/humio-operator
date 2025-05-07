@@ -159,7 +159,7 @@ type HumioNodeSpec struct {
 	// HelperImage is the desired helper container image, including image tag
 	HelperImage string `json:"helperImage,omitempty"`
 
-	// PdfRenderServiceRef points to a shared HumioPdfRenderService resource
+	// HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
 	// that multiple HumioCluster resources can use
 	// +optional
 	PdfRenderServiceRef *HumioPdfRenderServiceReference `json:"pdfRenderServiceRef,omitempty"`
