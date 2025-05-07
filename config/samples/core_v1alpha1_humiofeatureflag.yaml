@@ -5,4 +5,4 @@ metadata:
 spec:
   managedClusterName: example-humiocluster
 #  externalClusterName: example-humiocluster
-  name: example-featureflag
+  name: MultiClusterSearch
