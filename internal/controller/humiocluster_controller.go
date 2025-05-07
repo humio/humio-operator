@@ -215,7 +215,14 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.ensurePdfRenderService,
 	} {
 		if err := fun(ctx, hc); err != nil {
+			// The function 'fun' (e.g., ensurePdfRenderService) is expected to set
+			// hc.Status.State and potentially hc.Status.Message in-memory if it encounters an error
+			// that requires a state change.
+			// We persist the in-memory state (hc.Status.State) and use err.Error() for the message.
+			// If 'fun' also set hc.Status.Message, err.Error() might be more generic or specific
+			// depending on what 'fun' returned.
 			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+				withState(hc.Status.State). // Persist the in-memory state set by 'fun'
 				withMessage(err.Error()))
 		}
 	}
@@ -231,7 +238,9 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			r.reconcileSinglePDB,
 		} {
 			if err := fun(ctx, hc, pool); err != nil {
+				// Similar to the loop above, 'fun' should modify hc.Status.State in-memory.
 				return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+					withState(hc.Status.State). // Persist the in-memory state
 					withMessage(err.Error()))
 			}
 		}
@@ -427,6 +436,27 @@ func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc 
 				namespace, hc.Spec.PdfRenderServiceRef.Name))
 		}
 
+		// Check if the referenced PDF service itself is in ConfigError state
+		if pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateConfigError {
+			errMsg := fmt.Sprintf("referenced HumioPdfRenderService %s/%s is in ConfigError state (state: %s). HumioCluster %s will also be set to ConfigError.",
+				namespace, hc.Spec.PdfRenderServiceRef.Name, pdfService.Status.State, hc.Name)
+			r.Log.Info("Referenced HumioPdfRenderService is in ConfigError state, setting HumioCluster to ConfigError.",
+				"pdfServiceName", hc.Spec.PdfRenderServiceRef.Name,
+				"pdfServiceNamespace", namespace,
+				"pdfServiceState", pdfService.Status.State,
+				"humioClusterName", hc.Name,
+				"humioClusterNamespace", hc.Namespace)
+
+			if errSetState := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc); errSetState != nil {
+				r.Log.Error(errSetState, "Failed to set HumioCluster state to ConfigError when referenced PDF service is in ConfigError.",
+					"humioClusterName", hc.Name, "humioClusterNamespace", hc.Namespace)
+				return fmt.Errorf("failed to update HumioCluster %s/%s status to ConfigError due to referenced PDF service %s/%s being in ConfigError state %s: %w",
+					hc.Namespace, hc.Name, namespace, hc.Spec.PdfRenderServiceRef.Name, pdfService.Status.State, errSetState)
+			}
+			// If setState was successful, return the descriptive error message to requeue and update status message.
+			return errors.New(errMsg)
+		}
+
 		// Verify the PDF render service is ready
 		isHprsReady := (pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateExists ||
 			pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning) &&
@@ -439,7 +469,7 @@ func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc 
 				pdfService.Status.State,
 				pdfService.Status.ReadyReplicas,
 				hc.Name)
-			r.Log.Info("Referenced HumioPdfRenderService is not ready, setting HumioCluster to ConfigError.",
+			r.Log.Info("Referenced HumioPdfRenderService is not ready. Setting HumioCluster state to ConfigError and updating message in memory.",
 				"pdfServiceName", hc.Spec.PdfRenderServiceRef.Name,
 				"pdfServiceNamespace", namespace,
 				"pdfServiceState", pdfService.Status.State,
@@ -447,20 +477,12 @@ func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc 
 				"humioClusterName", hc.Name,
 				"humioClusterNamespace", hc.Namespace)
 
-			// Attempt to set the HumioCluster state to ConfigError.
-			// setState handles updating ObservedGeneration implicitly via its own status update mechanism if it uses the main updateStatus.
-			// However, setState directly calls r.Status().Update() which does not automatically add observedGeneration.
-			// The deferred updateStatus in the main Reconcile loop should handle observedGeneration.
-			// For now, prioritize setting the correct state.
-			if err := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc); err != nil {
-				r.Log.Error(err, "Failed to set HumioCluster state to ConfigError when referenced PDF service is not ready. HumioCluster status might be inconsistent.",
-					"humioClusterName", hc.Name)
-				// Return the error from setState, as this is critical.
-				return fmt.Errorf("failed to update HumioCluster %s/%s status to ConfigError due to unhealthy PDF service %s/%s (state: %s): %w",
-					hc.Namespace, hc.Name, namespace, hc.Spec.PdfRenderServiceRef.Name, pdfService.Status.State, err)
-			}
-			// If setState was successful, return the descriptive error message about the PDF service.
-			// This error will be used by the main reconcile loop's status update.
+			// Set the state and message on the in-memory hc object.
+			// The error returned will cause the main reconcile loop to call updateStatus,
+			// which (due to the changes above) will persist these values.
+			hc.Status.State = humiov1alpha1.HumioClusterStateConfigError
+			hc.Status.Message = errMsg
+
 			return errors.New(errMsg)
 		}
 
@@ -3004,13 +3026,6 @@ func (r *HumioClusterReconciler) getDesiredLicenseString(ctx context.Context, hc
 		return "", r.logErrorAndReturn(err, "could not get license")
 	}
 
-	if hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
-		if _, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
-			withState(humiov1alpha1.HumioClusterStateRunning)); err != nil {
-			r.Log.Error(err, "failed to set state to %s", humiov1alpha1.HumioClusterStateRunning)
-		}
-	}
-
 	return string(licenseSecret.Data[licenseSecretKeySelector.Key]), nil
 }
 
@@ -3033,6 +3048,51 @@ func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx cont
 			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision(), pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), pool.GetZoneUnderMaintenance()))
+		}
+	}
+
+	// Verify referenced HumioPdfRenderService status
+	if hc.Spec.PdfRenderServiceRef != nil {
+		pdfNamespace := hc.Namespace
+		if hc.Spec.PdfRenderServiceRef.Namespace != "" {
+			pdfNamespace = hc.Spec.PdfRenderServiceRef.Namespace
+		}
+		pdfServiceKey := types.NamespacedName{
+			Namespace: pdfNamespace,
+			Name:      hc.Spec.PdfRenderServiceRef.Name,
+		}
+		pdfService := &humiov1alpha1.HumioPdfRenderService{}
+		err := r.Get(ctx, pdfServiceKey, pdfService)
+
+		if err != nil {
+			var errMsg string
+			if k8serrors.IsNotFound(err) {
+				errMsg = fmt.Sprintf("referenced HumioPdfRenderService %s not found", pdfServiceKey.String())
+				r.Log.Info("Referenced HumioPdfRenderService not found during validation.", "HumioPdfRenderService", pdfServiceKey.String())
+			} else {
+				errMsg = fmt.Sprintf("failed to get referenced HumioPdfRenderService %s during validation: %v", pdfServiceKey.String(), err)
+				r.Log.Error(err, "Failed to get referenced HumioPdfRenderService during validation.", "HumioPdfRenderService", pdfServiceKey.String())
+			}
+			hc.Status.State = humiov1alpha1.HumioClusterStateConfigError
+			hc.Status.Message = errMsg
+			return r.updateStatus(ctx, r.Status(), hc, statusOptions().withState(hc.Status.State).withMessage(hc.Status.Message))
+		}
+
+		// Check if the PDF service itself is in ConfigError or not ready
+		isHprsReady := (pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateExists ||
+			pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning) &&
+			pdfService.Status.ReadyReplicas > 0
+
+		if pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateConfigError || !isHprsReady {
+			errMsg := fmt.Sprintf("referenced HumioPdfRenderService %s is not ready or in ConfigError (state: %s, readyReplicas: %d)",
+				pdfServiceKey.String(), pdfService.Status.State, pdfService.Status.ReadyReplicas)
+			r.Log.Info("Referenced HumioPdfRenderService not ready or in ConfigError during validation.",
+				"HumioPdfRenderService", pdfServiceKey.String(),
+				"pdfServiceState", pdfService.Status.State,
+				"pdfServiceReadyReplicas", pdfService.Status.ReadyReplicas)
+			hc.Status.State = humiov1alpha1.HumioClusterStateConfigError
+			hc.Status.Message = errMsg
+			return r.updateStatus(ctx, r.Status(), hc, statusOptions().withState(hc.Status.State).withMessage(hc.Status.Message))
 		}
 	}
 
