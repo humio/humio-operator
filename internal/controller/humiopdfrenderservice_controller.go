@@ -196,13 +196,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		freshlyFetchedDep := &appsv1.Deployment{} // Use a distinct name for clarity
 		if getErr := r.Get(ctx, deploymentKey, freshlyFetchedDep); getErr != nil {
 			if k8serrors.IsNotFound(getErr) {
-				// This is unexpected if reconcileDeployment just succeeded in creating/updating the Deployment.
-				// It might indicate a very brief inconsistency.
-				// Log this, but proceed cautiously with the 'dep' object we got from reconcileDeployment.
-				// Its status might be stale, which will likely (and correctly) lead to a 'Configuring' state
-				// for this reconcile cycle, prompting a requeue. A subsequent reconcile should then see the consistent state.
 				r.Log.Info("Deployment not found during immediate status re-fetch after reconcileDeployment. Using deployment object from reconcileDeployment (its status may be stale).", "deploymentName", dep.Name, "getError", getErr)
-				// 'dep' (from reconcileDeployment) is kept as is. We don't set it to nil or change it here.
 			} else {
 				// For other types of errors during the Get, it's a more significant issue.
 				reconcileErr = fmt.Errorf("failed to get fresh deployment status for %s after reconcileDeployment: %w", dep.Name, getErr)
@@ -237,9 +231,10 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 				if k8serrors.IsNotFound(getErr) {
 					// Resource was deleted during conflict resolution, consider update "done" for non-existent resource.
 					r.Log.Info("HumioPdfRenderService not found during 'Running' status update conflict, assuming deleted.", "name", req.Name)
-					return nil // Stop retrying, effectively marking update as successful for deleted resource
+					// Stop retrying, effectively marking update as successful for deleted resource
+					return nil
 				}
-				return getErr // For other errors, propagate them to stop retrying.
+				return getErr
 			}
 
 			latestHprs.Status.State = humiov1alpha1.HumioPdfRenderServiceStateRunning
@@ -393,12 +388,10 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(
 	dep.Name, dep.Namespace = desired.Name, desired.Namespace
 
 	mutate := func() error {
-		// ------------------------------------------------------------------
 		// copy metadata
 		dep.Labels = desired.Labels
 		dep.Annotations = desired.Annotations
 
-		// ------------------------------------------------------------------
 		// copy spec – only set the selector on creation as it is immutable
 		if dep.Spec.Selector == nil {
 			dep.Spec.Selector = desired.Spec.Selector
@@ -456,22 +449,12 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 		}
 
 		// If the type is ClusterIP, and we had an existing ClusterIP (and it's not "None"), preserve it.
-		// CreateOrUpdate will clear ClusterIP if it's "None" and type is ClusterIP.
-		// If the service is being created (svc.ObjectMeta.ResourceVersion == ""), ClusterIP will be assigned by Kubernetes.
-		// If it's an update and currentClusterIP was valid, we re-assign it.
+		// CreateOrUpdate will clear ClusterIP if it's "None" and type is ClusterIP..
 		if svc.Spec.Type == corev1.ServiceTypeClusterIP {
 			if svc.ObjectMeta.ResourceVersion != "" && currentClusterIP != "" && currentClusterIP != "None" {
 				svc.Spec.ClusterIP = currentClusterIP
-			} else {
-				// On creation, or if currentClusterIP was "None", let Kubernetes assign it or leave it empty for "None".
-				// For "None", explicitly setting svc.Spec.ClusterIP = "None" might be needed if not handled by CreateOrUpdate.
-				// However, controllerutil.CreateOrUpdate should handle this correctly.
 			}
-		} else {
-			// For other service types (LoadBalancer, NodePort), ClusterIP might still be assigned.
-			// We don't need to manage it explicitly here; Kubernetes handles it.
 		}
-
 		return controllerutil.SetControllerReference(hprs, &svc, r.Scheme)
 	}
 
@@ -701,58 +684,6 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 	return []corev1.Volume{vol}, []corev1.VolumeMount{mnt}
 }
 
-// func (r *HumioPdfRenderServiceReconciler) setStatus(
-// 	ctx context.Context,
-// 	hprs *humiov1alpha1.HumioPdfRenderService,
-// 	state string,
-// 	ready int32,
-// 	pods []string,
-// 	reconcileErr error,
-// ) error {
-// 	newObservedGeneration := hprs.Generation
-
-// 	r.Log.Info("Updating status",
-// 		"state", state,
-// 		"readyReplicas", ready,
-// 		"generation", hprs.Generation,
-// 		"observedGeneration", newObservedGeneration,
-// 	)
-
-// 	updateStatus := func() error {
-// 		latest := &humiov1alpha1.HumioPdfRenderService{}
-// 		if err := r.Get(ctx, client.ObjectKeyFromObject(hprs), latest); err != nil {
-// 			return err
-// 		}
-// 		latest.Status.State = state
-// 		latest.Status.ReadyReplicas = ready
-// 		latest.Status.Nodes = pods
-// 		latest.Status.ObservedGeneration = newObservedGeneration
-// 		if reconcileErr != nil {
-// 			latest.Status.Message = reconcileErr.Error()
-// 		} else {
-// 			latest.Status.Message = ""
-// 		}
-// 		return r.Status().Update(ctx, latest)
-// 	}
-
-// 	// retry on resource‐version conflicts
-// 	return wait.ExponentialBackoff(wait.Backoff{
-// 		Steps:    5,
-// 		Duration: 50 * time.Millisecond,
-// 		Factor:   2.0,
-// 		Jitter:   0.1,
-// 	}, func() (bool, error) {
-// 		err := updateStatus()
-// 		if err == nil {
-// 			return true, nil
-// 		}
-// 		if k8serrors.IsConflict(err) {
-// 			r.Log.Info("Conflict updating HPRS.status, retrying", "err", err)
-// 			return false, nil
-// 		}
-// 		return false, err
-// 	})
-// }
 
 // TLS validation
 // In the validateTLSConfiguration function - robust status update with retry
