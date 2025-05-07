@@ -2833,15 +2833,15 @@ func (v *DeleteSearchDomainResponse) GetDeleteSearchDomain() DeleteSearchDomainD
 	return v.DeleteSearchDomain
 }
 
-// DisableFeatureFlagResponse is returned by DisableFeatureFlag on success.
-type DisableFeatureFlagResponse struct {
+// DisableGlobalFeatureFlagResponse is returned by DisableGlobalFeatureFlag on success.
+type DisableGlobalFeatureFlagResponse struct {
 	// Disable a feature.
 	// Stability: Short-term
 	DisableFeature bool `json:"disableFeature"`
 }
 
-// GetDisableFeature returns DisableFeatureFlagResponse.DisableFeature, and is useful for accessing the field via an interface.
-func (v *DisableFeatureFlagResponse) GetDisableFeature() bool { return v.DisableFeature }
+// GetDisableFeature returns DisableGlobalFeatureFlagResponse.DisableFeature, and is useful for accessing the field via an interface.
+func (v *DisableGlobalFeatureFlagResponse) GetDisableFeature() bool { return v.DisableFeature }
 
 // DisableS3ArchivingResponse is returned by DisableS3Archiving on success.
 type DisableS3ArchivingResponse struct {
@@ -2865,15 +2865,15 @@ func (v *DisableS3ArchivingS3DisableArchivingBooleanResultType) GetTypename() *s
 	return v.Typename
 }
 
-// EnableFeatureFlagResponse is returned by EnableFeatureFlag on success.
-type EnableFeatureFlagResponse struct {
+// EnableGlobalFeatureFlagResponse is returned by EnableGlobalFeatureFlag on success.
+type EnableGlobalFeatureFlagResponse struct {
 	// Enable a feature.
 	// Stability: Short-term
 	EnableFeature bool `json:"enableFeature"`
 }
 
-// GetEnableFeature returns EnableFeatureFlagResponse.EnableFeature, and is useful for accessing the field via an interface.
-func (v *EnableFeatureFlagResponse) GetEnableFeature() bool { return v.EnableFeature }
+// GetEnableFeature returns EnableGlobalFeatureFlagResponse.EnableFeature, and is useful for accessing the field via an interface.
+func (v *EnableGlobalFeatureFlagResponse) GetEnableFeature() bool { return v.EnableFeature }
 
 // EnableS3ArchivingResponse is returned by EnableS3Archiving on success.
 type EnableS3ArchivingResponse struct {
@@ -5261,6 +5261,30 @@ type GetEvictionStatusResponse struct {
 // GetCluster returns GetEvictionStatusResponse.Cluster, and is useful for accessing the field via an interface.
 func (v *GetEvictionStatusResponse) GetCluster() GetEvictionStatusCluster { return v.Cluster }
 
+// GetFeatureFlagsFeatureFlagsFeatureFlagV2 includes the requested fields of the GraphQL type FeatureFlagV2.
+// The GraphQL type's documentation follows.
+//
+// Feature flags with details
+type GetFeatureFlagsFeatureFlagsFeatureFlagV2 struct {
+	// Stability: Preview
+	Flag FeatureFlag `json:"flag"`
+}
+
+// GetFlag returns GetFeatureFlagsFeatureFlagsFeatureFlagV2.Flag, and is useful for accessing the field via an interface.
+func (v *GetFeatureFlagsFeatureFlagsFeatureFlagV2) GetFlag() FeatureFlag { return v.Flag }
+
+// GetFeatureFlagsResponse is returned by GetFeatureFlags on success.
+type GetFeatureFlagsResponse struct {
+	// List feature flags depending on filters and context
+	// Stability: Preview
+	FeatureFlags []GetFeatureFlagsFeatureFlagsFeatureFlagV2 `json:"featureFlags"`
+}
+
+// GetFeatureFlags returns GetFeatureFlagsResponse.FeatureFlags, and is useful for accessing the field via an interface.
+func (v *GetFeatureFlagsResponse) GetFeatureFlags() []GetFeatureFlagsFeatureFlagsFeatureFlagV2 {
+	return v.FeatureFlags
+}
+
 // GetFilterAlertByIDResponse is returned by GetFilterAlertByID on success.
 type GetFilterAlertByIDResponse struct {
 	// Stability: Long-term
@@ -6819,30 +6843,32 @@ type IngestTokenDetailsParser struct {
 // GetName returns IngestTokenDetailsParser.Name, and is useful for accessing the field via an interface.
 func (v *IngestTokenDetailsParser) GetName() string { return v.Name }
 
-// IsFeatureEnabledMetaHumioMetadata includes the requested fields of the GraphQL type HumioMetadata.
+// IsFeatureGloballyEnabledMetaHumioMetadata includes the requested fields of the GraphQL type HumioMetadata.
 // The GraphQL type's documentation follows.
 //
 // Represents information about the LogScale instance.
-type IsFeatureEnabledMetaHumioMetadata struct {
+type IsFeatureGloballyEnabledMetaHumioMetadata struct {
 	// Returns enabled features that are likely in beta.
 	// Stability: Short-term
 	IsFeatureFlagEnabled bool `json:"isFeatureFlagEnabled"`
 }
 
-// GetIsFeatureFlagEnabled returns IsFeatureEnabledMetaHumioMetadata.IsFeatureFlagEnabled, and is useful for accessing the field via an interface.
-func (v *IsFeatureEnabledMetaHumioMetadata) GetIsFeatureFlagEnabled() bool {
+// GetIsFeatureFlagEnabled returns IsFeatureGloballyEnabledMetaHumioMetadata.IsFeatureFlagEnabled, and is useful for accessing the field via an interface.
+func (v *IsFeatureGloballyEnabledMetaHumioMetadata) GetIsFeatureFlagEnabled() bool {
 	return v.IsFeatureFlagEnabled
 }
 
-// IsFeatureEnabledResponse is returned by IsFeatureEnabled on success.
-type IsFeatureEnabledResponse struct {
+// IsFeatureGloballyEnabledResponse is returned by IsFeatureGloballyEnabled on success.
+type IsFeatureGloballyEnabledResponse struct {
 	// This will return information about the LogScale instance
 	// Stability: Short-term
-	Meta IsFeatureEnabledMetaHumioMetadata `json:"meta"`
+	Meta IsFeatureGloballyEnabledMetaHumioMetadata `json:"meta"`
 }
 
-// GetMeta returns IsFeatureEnabledResponse.Meta, and is useful for accessing the field via an interface.
-func (v *IsFeatureEnabledResponse) GetMeta() IsFeatureEnabledMetaHumioMetadata { return v.Meta }
+// GetMeta returns IsFeatureGloballyEnabledResponse.Meta, and is useful for accessing the field via an interface.
+func (v *IsFeatureGloballyEnabledResponse) GetMeta() IsFeatureGloballyEnabledMetaHumioMetadata {
+	return v.Meta
+}
 
 // The version of the LogScale query language to use.
 type LanguageVersionEnum string
@@ -13755,13 +13781,13 @@ func (v *__DeleteSearchDomainInput) GetSearchDomainName() string { return v.Sear
 // GetDeleteMessage returns __DeleteSearchDomainInput.DeleteMessage, and is useful for accessing the field via an interface.
 func (v *__DeleteSearchDomainInput) GetDeleteMessage() string { return v.DeleteMessage }
 
-// __DisableFeatureFlagInput is used internally by genqlient
-type __DisableFeatureFlagInput struct {
+// __DisableGlobalFeatureFlagInput is used internally by genqlient
+type __DisableGlobalFeatureFlagInput struct {
 	FeatureFlagName FeatureFlag `json:"FeatureFlagName"`
 }
 
-// GetFeatureFlagName returns __DisableFeatureFlagInput.FeatureFlagName, and is useful for accessing the field via an interface.
-func (v *__DisableFeatureFlagInput) GetFeatureFlagName() FeatureFlag { return v.FeatureFlagName }
+// GetFeatureFlagName returns __DisableGlobalFeatureFlagInput.FeatureFlagName, and is useful for accessing the field via an interface.
+func (v *__DisableGlobalFeatureFlagInput) GetFeatureFlagName() FeatureFlag { return v.FeatureFlagName }
 
 // __DisableS3ArchivingInput is used internally by genqlient
 type __DisableS3ArchivingInput struct {
@@ -13771,13 +13797,13 @@ type __DisableS3ArchivingInput struct {
 // GetRepositoryName returns __DisableS3ArchivingInput.RepositoryName, and is useful for accessing the field via an interface.
 func (v *__DisableS3ArchivingInput) GetRepositoryName() string { return v.RepositoryName }
 
-// __EnableFeatureFlagInput is used internally by genqlient
-type __EnableFeatureFlagInput struct {
+// __EnableGlobalFeatureFlagInput is used internally by genqlient
+type __EnableGlobalFeatureFlagInput struct {
 	FeatureFlagName FeatureFlag `json:"FeatureFlagName"`
 }
 
-// GetFeatureFlagName returns __EnableFeatureFlagInput.FeatureFlagName, and is useful for accessing the field via an interface.
-func (v *__EnableFeatureFlagInput) GetFeatureFlagName() FeatureFlag { return v.FeatureFlagName }
+// GetFeatureFlagName returns __EnableGlobalFeatureFlagInput.FeatureFlagName, and is useful for accessing the field via an interface.
+func (v *__EnableGlobalFeatureFlagInput) GetFeatureFlagName() FeatureFlag { return v.FeatureFlagName }
 
 // __EnableS3ArchivingInput is used internally by genqlient
 type __EnableS3ArchivingInput struct {
@@ -13871,13 +13897,13 @@ type __GetUsersByUsernameInput struct {
 // GetUsername returns __GetUsersByUsernameInput.Username, and is useful for accessing the field via an interface.
 func (v *__GetUsersByUsernameInput) GetUsername() string { return v.Username }
 
-// __IsFeatureEnabledInput is used internally by genqlient
-type __IsFeatureEnabledInput struct {
+// __IsFeatureGloballyEnabledInput is used internally by genqlient
+type __IsFeatureGloballyEnabledInput struct {
 	FeatureFlagName FeatureFlag `json:"FeatureFlagName"`
 }
 
-// GetFeatureFlagName returns __IsFeatureEnabledInput.FeatureFlagName, and is useful for accessing the field via an interface.
-func (v *__IsFeatureEnabledInput) GetFeatureFlagName() FeatureFlag { return v.FeatureFlagName }
+// GetFeatureFlagName returns __IsFeatureGloballyEnabledInput.FeatureFlagName, and is useful for accessing the field via an interface.
+func (v *__IsFeatureGloballyEnabledInput) GetFeatureFlagName() FeatureFlag { return v.FeatureFlagName }
 
 // __ListActionsInput is used internally by genqlient
 type __ListActionsInput struct {
@@ -15753,27 +15779,27 @@ func DeleteSearchDomain(
 	return data_, err_
 }
 
-// The mutation executed by DisableFeatureFlag.
-const DisableFeatureFlag_Operation = `
-mutation DisableFeatureFlag ($FeatureFlagName: FeatureFlag!) {
+// The mutation executed by DisableGlobalFeatureFlag.
+const DisableGlobalFeatureFlag_Operation = `
+mutation DisableGlobalFeatureFlag ($FeatureFlagName: FeatureFlag!) {
 	disableFeature(feature: $FeatureFlagName)
 }
 `
 
-func DisableFeatureFlag(
+func DisableGlobalFeatureFlag(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	FeatureFlagName FeatureFlag,
-) (data_ *DisableFeatureFlagResponse, err_ error) {
+) (data_ *DisableGlobalFeatureFlagResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "DisableFeatureFlag",
-		Query:  DisableFeatureFlag_Operation,
-		Variables: &__DisableFeatureFlagInput{
+		OpName: "DisableGlobalFeatureFlag",
+		Query:  DisableGlobalFeatureFlag_Operation,
+		Variables: &__DisableGlobalFeatureFlagInput{
 			FeatureFlagName: FeatureFlagName,
 		},
 	}
 
-	data_ = &DisableFeatureFlagResponse{}
+	data_ = &DisableGlobalFeatureFlagResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -15819,27 +15845,27 @@ func DisableS3Archiving(
 	return data_, err_
 }
 
-// The mutation executed by EnableFeatureFlag.
-const EnableFeatureFlag_Operation = `
-mutation EnableFeatureFlag ($FeatureFlagName: FeatureFlag!) {
+// The mutation executed by EnableGlobalFeatureFlag.
+const EnableGlobalFeatureFlag_Operation = `
+mutation EnableGlobalFeatureFlag ($FeatureFlagName: FeatureFlag!) {
 	enableFeature(feature: $FeatureFlagName)
 }
 `
 
-func EnableFeatureFlag(
+func EnableGlobalFeatureFlag(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	FeatureFlagName FeatureFlag,
-) (data_ *EnableFeatureFlagResponse, err_ error) {
+) (data_ *EnableGlobalFeatureFlagResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "EnableFeatureFlag",
-		Query:  EnableFeatureFlag_Operation,
-		Variables: &__EnableFeatureFlagInput{
+		OpName: "EnableGlobalFeatureFlag",
+		Query:  EnableGlobalFeatureFlag_Operation,
+		Variables: &__EnableGlobalFeatureFlagInput{
 			FeatureFlagName: FeatureFlagName,
 		},
 	}
 
-	data_ = &EnableFeatureFlagResponse{}
+	data_ = &EnableGlobalFeatureFlagResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -16110,6 +16136,36 @@ func GetEvictionStatus(
 	}
 
 	data_ = &GetEvictionStatusResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetFeatureFlags.
+const GetFeatureFlags_Operation = `
+query GetFeatureFlags {
+	featureFlags {
+		flag
+	}
+}
+`
+
+func GetFeatureFlags(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *GetFeatureFlagsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetFeatureFlags",
+		Query:  GetFeatureFlags_Operation,
+	}
+
+	data_ = &GetFeatureFlagsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -16501,29 +16557,29 @@ func GetUsersByUsername(
 	return data_, err_
 }
 
-// The query executed by IsFeatureEnabled.
-const IsFeatureEnabled_Operation = `
-query IsFeatureEnabled ($FeatureFlagName: FeatureFlag!) {
+// The query executed by IsFeatureGloballyEnabled.
+const IsFeatureGloballyEnabled_Operation = `
+query IsFeatureGloballyEnabled ($FeatureFlagName: FeatureFlag!) {
 	meta {
 		isFeatureFlagEnabled(feature: $FeatureFlagName)
 	}
 }
 `
 
-func IsFeatureEnabled(
+func IsFeatureGloballyEnabled(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	FeatureFlagName FeatureFlag,
-) (data_ *IsFeatureEnabledResponse, err_ error) {
+) (data_ *IsFeatureGloballyEnabledResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "IsFeatureEnabled",
-		Query:  IsFeatureEnabled_Operation,
-		Variables: &__IsFeatureEnabledInput{
+		OpName: "IsFeatureGloballyEnabled",
+		Query:  IsFeatureGloballyEnabled_Operation,
+		Variables: &__IsFeatureGloballyEnabledInput{
 			FeatureFlagName: FeatureFlagName,
 		},
 	}
 
-	data_ = &IsFeatureEnabledResponse{}
+	data_ = &IsFeatureGloballyEnabledResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

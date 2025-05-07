@@ -7,8 +7,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/humio/humio-operator/internal/api/humiographql"
-
 	"github.com/go-logr/logr"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	humioapi "github.com/humio/humio-operator/internal/api"
@@ -59,14 +57,24 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.Log = r.Log.WithValues("Request.UID", featureFlag.UID)
 
 	cluster, err := helpers.NewCluster(ctx, r, featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName, featureFlag.Namespace, helpers.UseCertManager(), true, false)
-	if err != nil || cluster == nil || cluster.Config() == nil || !slices.Contains(humiographql.AllFeatureFlag, humiographql.FeatureFlag(featureFlag.Spec.Name)) {
+	if err != nil || cluster == nil || cluster.Config() == nil {
 		setStateErr := r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateConfigError, featureFlag)
 		if setStateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set feature flag state")
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
+
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
+
+	featureFlagNames, err := r.HumioClient.GetFeatureFlags(ctx, humioHttpClient)
+	if !slices.Contains(featureFlagNames, featureFlag.Spec.Name) {
+		setStateErr := r.setState(ctx, humiov1alpha1.HumioFeatureFlagStateConfigError, featureFlag)
+		if setStateErr != nil {
+			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set feature flag state")
+		}
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "feature flag with the specified name does not exist")
+	}
 
 	defer func(ctx context.Context, featureFlag *humiov1alpha1.HumioFeatureFlag) {
 		enabled, err := r.HumioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, featureFlag)
@@ -134,12 +142,10 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-
-		return reconcile.Result{Requeue: true}, nil
 	}
 
-	r.Log.Info("done reconciling")
-	return reconcile.Result{Requeue: true}, nil
+	r.Log.Info("done reconciling, will requeue in 15 seconds")
+	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

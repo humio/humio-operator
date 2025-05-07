@@ -116,6 +116,7 @@ type FilterAlertsClient interface {
 }
 
 type FeatureFlagsClient interface {
+	GetFeatureFlags(context.Context, *humioapi.Client) ([]string, error)
 	EnableFeatureFlag(context.Context, *humioapi.Client, *humiov1alpha1.HumioFeatureFlag) error
 	IsFeatureFlagEnabled(context.Context, *humioapi.Client, *humiov1alpha1.HumioFeatureFlag) (bool, error)
 	DisableFeatureFlag(context.Context, *humioapi.Client, *humiov1alpha1.HumioFeatureFlag) error
@@ -1417,8 +1418,21 @@ func (h *ClientConfig) DeleteFilterAlert(ctx context.Context, client *humioapi.C
 	return err
 }
 
+func (h *ClientConfig) GetFeatureFlags(ctx context.Context, client *humioapi.Client) ([]string, error) {
+	resp, err := humiographql.GetFeatureFlags(ctx, client)
+	if err != nil {
+		return nil, err
+	}
+	var featureFlagNames []string
+	for _, featureFlag := range resp.GetFeatureFlags() {
+		flag := featureFlag.GetFlag()
+		featureFlagNames = append(featureFlagNames, string(flag))
+	}
+	return featureFlagNames, nil
+}
+
 func (h *ClientConfig) EnableFeatureFlag(ctx context.Context, client *humioapi.Client, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
-	_, err := humiographql.EnableFeatureFlag(
+	_, err := humiographql.EnableGlobalFeatureFlag(
 		ctx,
 		client,
 		humiographql.FeatureFlag(featureFlag.Spec.Name),
@@ -1427,7 +1441,7 @@ func (h *ClientConfig) EnableFeatureFlag(ctx context.Context, client *humioapi.C
 }
 
 func (h *ClientConfig) IsFeatureFlagEnabled(ctx context.Context, client *humioapi.Client, featureFlag *humiov1alpha1.HumioFeatureFlag) (bool, error) {
-	response, err := humiographql.IsFeatureEnabled(
+	response, err := humiographql.IsFeatureGloballyEnabled(
 		ctx,
 		client,
 		humiographql.FeatureFlag(featureFlag.Spec.Name),
@@ -1440,7 +1454,7 @@ func (h *ClientConfig) IsFeatureFlagEnabled(ctx context.Context, client *humioap
 }
 
 func (h *ClientConfig) DisableFeatureFlag(ctx context.Context, client *humioapi.Client, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
-	_, err := humiographql.DisableFeatureFlag(
+	_, err := humiographql.DisableGlobalFeatureFlag(
 		ctx,
 		client,
 		humiographql.FeatureFlag(featureFlag.Spec.Name),

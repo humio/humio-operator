@@ -3439,6 +3439,10 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Trying to create an invalid feature flag")
 			Expect(k8sClient.Create(ctx, toCreateInvalidFeatureFlag)).Should(Not(Succeed()))
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, toCreateInvalidFeatureFlag)
+				return toCreateInvalidFeatureFlag.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFeatureFlagStateConfigError))
 		})
 	})
 

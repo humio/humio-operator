@@ -999,6 +999,10 @@ func (h *MockClientConfig) ValidateActionsForFilterAlert(context.Context, *humio
 	return nil
 }
 
+func (h *MockClientConfig) GetFeatureFlags(_ context.Context, _ *humioapi.Client) ([]string, error) {
+	return []string{}, nil
+}
+
 func (h *MockClientConfig) EnableFeatureFlag(_ context.Context, _ *humioapi.Client, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
