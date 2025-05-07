@@ -1000,7 +1000,7 @@ func (h *MockClientConfig) ValidateActionsForFilterAlert(context.Context, *humio
 }
 
 func (h *MockClientConfig) GetFeatureFlags(_ context.Context, _ *humioapi.Client) ([]string, error) {
-	return []string{}, nil
+	return []string{"ArrayFunctions"}, nil
 }
 
 func (h *MockClientConfig) EnableFeatureFlag(_ context.Context, _ *humioapi.Client, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
@@ -1021,7 +1021,7 @@ func (h *MockClientConfig) IsFeatureFlagEnabled(_ context.Context, _ *humioapi.C
 	defer humioClientMu.Unlock()
 	supportedFlag := resourceKey{
 		clusterName:  fmt.Sprintf("%s%s", featureFlag.Spec.ManagedClusterName, featureFlag.Spec.ExternalClusterName),
-		resourceName: "FleetLabels",
+		resourceName: "ArrayFunctions",
 	}
 	if _, found := h.apiClient.FeatureFlag[supportedFlag]; !found {
 		h.apiClient.FeatureFlag[supportedFlag] = false

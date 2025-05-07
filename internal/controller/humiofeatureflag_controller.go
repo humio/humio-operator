@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -73,6 +74,8 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if setStateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set feature flag state")
 		}
+		r.Log.Info("Supported feature flags: " + strings.Join(featureFlagNames, ", "))
+		r.Log.Info("Specified flag: " + featureFlag.Spec.Name)
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "feature flag with the specified name does not exist")
 	}
 

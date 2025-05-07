@@ -16150,7 +16150,7 @@ func GetEvictionStatus(
 // The query executed by GetFeatureFlags.
 const GetFeatureFlags_Operation = `
 query GetFeatureFlags {
-	featureFlags {
+	featureFlags(includeExperimentalFeatures: true) {
 		flag
 	}
 }

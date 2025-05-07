@@ -20,7 +20,7 @@ mutation DisableGlobalFeatureFlag (
 
 
 query GetFeatureFlags {
-    featureFlags {
+    featureFlags(includeExperimentalFeatures: true) {
         flag
     }
 }

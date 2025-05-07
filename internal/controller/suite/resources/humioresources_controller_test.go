@@ -3378,7 +3378,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		It("HumioFeatureFlag: Should enable and disable feature successfully", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
-				Name:      "fleet-labels",
+				Name:      "array-functions",
 				Namespace: clusterKey.Namespace,
 			}
 
@@ -3389,7 +3389,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: humiov1alpha1.HumioFeatureFlagSpec{
 					ManagedClusterName: clusterKey.Name,
-					Name:               "FleetLabels",
+					Name:               "ArrayFunctions",
 				},
 			}
 
@@ -3439,6 +3439,27 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Trying to create an invalid feature flag")
 			Expect(k8sClient.Create(ctx, toCreateInvalidFeatureFlag)).Should(Not(Succeed()))
+		})
+
+		It("HumioFeatureFlag: Should deny feature flag which is not available in LogScale", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "example-invalid-feature-flag",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateInvalidFeatureFlag := &humiov1alpha1.HumioFeatureFlag{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioFeatureFlagSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               key.Name,
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Trying to create a feature flag with an invalid name")
+			Expect(k8sClient.Create(ctx, toCreateInvalidFeatureFlag)).Should(Succeed())
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, key, toCreateInvalidFeatureFlag)
 				return toCreateInvalidFeatureFlag.Status.State
