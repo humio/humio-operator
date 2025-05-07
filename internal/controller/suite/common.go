@@ -17,6 +17,7 @@ import (
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -39,6 +40,7 @@ const (
 )
 
 const TestInterval = time.Second * 1
+const DefaultTestTimeout = time.Second * 30 // Standard timeout used throughout the tests
 
 func UsingClusterBy(cluster, text string, callbacks ...func()) {
 	timestamp := time.Now().Format(time.RFC3339Nano)
@@ -739,23 +741,36 @@ func verifyInitContainers(ctx context.Context, k8sClient client.Client, key type
 	return clusterPods
 }
 
-func WaitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sClient client.Client, currentHumioCluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
-	UsingClusterBy(key.Name, "Waiting for the reconcile loop to complete")
-	if currentHumioCluster == nil {
-		var updatedHumioCluster humiov1alpha1.HumioCluster
-		Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-		currentHumioCluster = &updatedHumioCluster
-	}
+// WaitForReconcileToSync waits until the controller has observed the latest
+// spec of the HumioCluster – i.e. .status.observedGeneration is at least the
+// current .metadata.generation.
+//
+// We re-read the object every poll to avoid the bug where the generation was
+// captured before the reconciler modified the spec (which increments the
+// generation).  This previously made the helper compare the *old* generation
+// with the *new* observedGeneration and fail with
+// “expected 3 to equal 2”.
+func WaitForReconcileToSync(
+	ctx context.Context,
+	key types.NamespacedName,
+	k8sClient client.Client,
+	cluster *humiov1alpha1.HumioCluster,
+	timeout time.Duration,
+) {
+	UsingClusterBy(key.Name, "Waiting for HumioCluster observedGeneration to catch up")
 
-	beforeGeneration := currentHumioCluster.GetGeneration()
-	Eventually(func() int64 {
-		Expect(k8sClient.Get(ctx, key, currentHumioCluster)).Should(Succeed())
-		observedGen, err := strconv.Atoi(currentHumioCluster.Status.ObservedGeneration)
-		if err != nil {
-			return -2
-		}
-		return int64(observedGen)
-	}, testTimeout, TestInterval).Should(BeNumerically("==", beforeGeneration))
+	Eventually(func(g Gomega) bool {
+		latest := &humiov1alpha1.HumioCluster{}
+		err := k8sClient.Get(ctx, key, latest)
+		g.Expect(err).NotTo(HaveOccurred(), "failed to fetch HumioCluster")
+
+		currentGen := latest.GetGeneration()
+
+		obsGen, _ := strconv.ParseInt(latest.Status.ObservedGeneration, 10, 64)
+		return obsGen >= currentGen
+	}, timeout, TestInterval).Should(BeTrue(),
+		"HumioCluster %s/%s observedGeneration did not reach generation",
+		key.Namespace, key.Name)
 }
 
 func UseDockerCredentials() bool {
@@ -1023,6 +1038,40 @@ func EnsurePdfRenderDeploymentReady(ctx context.Context, k8sClient client.Client
 	}, DefaultTestTimeout, TestInterval).Should(BeNumerically(">", 0))
 }
 
+// CleanupPdfRenderServiceResources cleans up all resources related to a PDF render service
+func CleanupPdfRenderServiceResources(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
+	// Delete HumioPdfRenderService if it exists
+	pdfCR := &humiov1alpha1.HumioPdfRenderService{}
+	if err := k8sClient.Get(ctx, key, pdfCR); err == nil {
+		UsingClusterBy(key.Name, fmt.Sprintf("Deleting HumioPdfRenderService %s", key.String()))
+		_ = k8sClient.Delete(ctx, pdfCR)
+
+		// Wait for deletion
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, key, &humiov1alpha1.HumioPdfRenderService{})
+			return k8serrors.IsNotFound(err)
+		}, DefaultTestTimeout, TestInterval).Should(BeTrue())
+	}
+
+	// Clean up any orphaned deployment
+	deploymentKey := types.NamespacedName{
+		Name:      key.Name + "-pdf-render-service",
+		Namespace: key.Namespace,
+	}
+	deployment := &appsv1.Deployment{}
+	if err := k8sClient.Get(ctx, deploymentKey, deployment); err == nil {
+		UsingClusterBy(key.Name, fmt.Sprintf("Deleting orphaned deployment %s", deploymentKey.String()))
+		_ = k8sClient.Delete(ctx, deployment)
+	}
+
+	// Clean up any orphaned service
+	service := &corev1.Service{}
+	if err := k8sClient.Get(ctx, deploymentKey, service); err == nil {
+		UsingClusterBy(key.Name, fmt.Sprintf("Deleting orphaned service %s", deploymentKey.String()))
+		_ = k8sClient.Delete(ctx, service)
+	}
+}
+
 // CleanupPdfRenderServiceCR safely deletes a HumioPdfRenderService CR and waits for its deletion
 func CleanupPdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfCR *humiov1alpha1.HumioPdfRenderService) {
 	if pdfCR == nil {
@@ -1061,4 +1110,49 @@ func CleanupPdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdf
 		return k8serrors.IsNotFound(err)
 	}, DefaultTestTimeout, TestInterval).Should(BeTrue(),
 		"HumioPdfRenderService %s/%s should be deleted", serviceNamespace, serviceName)
+}
+
+// CreatePdfRenderServiceAndWait is a convenience wrapper that
+// 1. Creates a HumioPdfRenderService CR (optionally overriding Image & TLS)
+// 2. Waits until the controller has observed the new generation
+// 3. Waits for the child Deployment to become “Ready”
+// The returned CR is suitable for defer-cleanup.
+func CreatePdfRenderServiceAndWait(
+	ctx context.Context,
+	k8sClient client.Client,
+	pdfKey types.NamespacedName,
+	image string,
+	tlsEnabled bool,
+) *humiov1alpha1.HumioPdfRenderService {
+
+	// Step 1 – create the CR
+	pdfCR := CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, tlsEnabled)
+
+	// Optional image override
+	if image != "" && pdfCR.Spec.Image != image {
+		pdfCR.Spec.Image = image
+		Expect(k8sClient.Update(ctx, pdfCR)).To(Succeed())
+	}
+
+	// Step 2 – wait for the controller to reconcile the change
+	WaitForObservedGeneration(ctx, k8sClient, pdfCR, DefaultTestTimeout, TestInterval)
+
+	// Step 3 – make sure the Deployment is rolled out & Ready
+	deploymentKey := types.NamespacedName{
+		Name:      pdfKey.Name + "-pdf-render-service",
+		Namespace: pdfKey.Namespace,
+	}
+	EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
+
+	return pdfCR
+}
+
+func CleanupClusterIfExists(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
+	var hc humiov1alpha1.HumioCluster
+	err := k8sClient.Get(ctx, key, &hc)
+	if k8serrors.IsNotFound(err) {
+		return // nothing to clean
+	}
+	Expect(err).NotTo(HaveOccurred())
+	CleanupCluster(ctx, k8sClient, &hc)
 }

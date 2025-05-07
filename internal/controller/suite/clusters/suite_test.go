@@ -54,7 +54,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	appsv1 "k8s.io/api/apps/v1"
 	// +kubebuilder:scaffold:imports
 )
 

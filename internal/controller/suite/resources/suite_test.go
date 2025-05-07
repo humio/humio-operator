@@ -345,13 +345,16 @@ var _ = BeforeSuite(func() {
 		HumioClient: humioClient,
 		BaseLogger:  log,
 		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&controller.HumioPdfRenderServiceReconciler{
 		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(), // <— add this
+		Scheme: k8sManager.GetScheme(),
 		CommonConfig: controller.CommonConfig{
 			RequeuePeriod: requeuePeriod,
 		},
-		BaseLogger: log, // <— and this
+		BaseLogger: log,
 		Namespace:  clusterKey.Namespace,
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
@@ -495,6 +498,8 @@ var _ = AfterSuite(func() {
 		Expect(k8sClient.Get(context.Background(), clusterKey, cluster)).Should(Succeed())
 		Expect(cluster.GetGeneration()).ShouldNot(BeNumerically(">", 100))
 
+		suite.CleanupCluster(context.TODO(), k8sClient, cluster)
+
 		if suite.UseDockerCredentials() {
 			By(fmt.Sprintf("Removing regcred secret for namespace: %s", testNamespace.Name))
 			Expect(k8sClient.Delete(context.TODO(), &corev1.Secret{
@@ -504,8 +509,6 @@ var _ = AfterSuite(func() {
 				},
 			})).To(Succeed())
 		}
-
-		suite.CleanupCluster(context.TODO(), k8sClient, cluster)
 
 		if testNamespace.Name != "" && !helpers.UseEnvtest() && helpers.PreserveKindCluster() {
 			By(fmt.Sprintf("Removing test namespace: %s", clusterKey.Namespace))

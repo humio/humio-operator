@@ -55,6 +55,21 @@ const (
 	HumioPdfRenderServiceStateError = "Error"
 )
 
+// HumioPdfRenderServiceConditionType represents a condition type of a HumioPdfRenderService.
+type HumioPdfRenderServiceConditionType string
+
+// These are valid conditions of a HumioPdfRenderService.
+const (
+	// HumioPdfRenderServiceAvailable means the PDF rendering service is available.
+	HumioPdfRenderServiceAvailable HumioPdfRenderServiceConditionType = "Available"
+	// HumioPdfRenderServiceProgressing means the PDF rendering service is progressing.
+	HumioPdfRenderServiceProgressing HumioPdfRenderServiceConditionType = "Progressing"
+	// HumioPdfRenderServiceDegraded means the PDF rendering service is degraded.
+	HumioPdfRenderServiceDegraded HumioPdfRenderServiceConditionType = "Degraded"
+	// HumioPdfRenderServiceScaledDown means the PDF rendering service is scaled down.
+	HumioPdfRenderServiceScaledDown HumioPdfRenderServiceConditionType = "ScaledDown"
+)
+
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
 type HumioPdfRenderServiceSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -98,6 +113,10 @@ type HumioPdfRenderServiceSpec struct {
 	// Labels allows to specify custom labels for the pods.
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
+
+	// ServiceAnnotations allows to specify custom annotations for the service.
+	// +optional
+	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
 
 	// LivenessProbe defines the liveness probe configuration.
 	// +optional
@@ -169,7 +188,11 @@ type HumioPdfRenderService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HumioPdfRenderServiceSpec   `json:"spec,omitempty"`
+	// Spec defines the desired state of HumioPdfRenderService
+	// +kubebuilder:validation:Required
+	Spec HumioPdfRenderServiceSpec `json:"spec"`
+
+	// Status reflects the observed state of HumioPdfRenderService
 	Status HumioPdfRenderServiceStatus `json:"status,omitempty"`
 }
 

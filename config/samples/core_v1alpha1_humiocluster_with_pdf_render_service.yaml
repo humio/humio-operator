@@ -1,22 +1,23 @@
 apiVersion: core.humio.com/v1alpha1
 kind: HumioCluster
 metadata:
-  name: example-humiocluster-with-pdf-render-service
+  name: example-humiocluster
   labels:
     app: 'humiocluster'
     app.kubernetes.io/name: 'humiocluster'
-    app.kubernetes.io/instance: 'example-humiocluster-with-pdf-render-service'
+    app.kubernetes.io/instance: 'example-humiocluster'
     app.kubernetes.io/managed-by: 'manual'
 spec:
   extraKafkaConfigs: "security.protocol=PLAINTEXT"
+  enablePdfRenderService: true
+  pdfRenderServiceRef:
+    name: "example-pdf-render-service"
+    namespace: "default"
   tls:
     enabled: false
   #image: "humio/humio-core:1.171.1"
   nodeCount: 1
   targetReplicationFactor: 1
-  pdfRenderServiceRef:
-    name: pdf-render-service
-    namespace: logging
   environmentVariables:
     - name: "HUMIO_OPTS"
       value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false"

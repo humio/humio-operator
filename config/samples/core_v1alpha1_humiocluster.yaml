@@ -9,7 +9,6 @@ metadata:
     app.kubernetes.io/managed-by: 'manual'
 spec:
   extraKafkaConfigs: "security.protocol=PLAINTEXT"
-  enablePdfRenderService: true
   tls:
     enabled: false
   #image: "humio/humio-core:1.171.1"

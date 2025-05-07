@@ -4508,7 +4508,7 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         <td><b><a href="#humioclusterspecpdfrenderserviceref">pdfRenderServiceRef</a></b></td>
         <td>object</td>
         <td>
-          HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+          PdfRenderServiceRef points to a shared HumioPdfRenderService resource
 that multiple HumioCluster resources can use<br/>
         </td>
         <td>false</td>
@@ -16964,7 +16964,7 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         <td><b><a href="#humioclusterspecnodepoolsindexspecpdfrenderserviceref">pdfRenderServiceRef</a></b></td>
         <td>object</td>
         <td>
-          HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+          PdfRenderServiceRef points to a shared HumioPdfRenderService resource
 that multiple HumioCluster resources can use<br/>
         </td>
         <td>false</td>
@@ -28492,7 +28492,7 @@ OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request ty
 
 
 
-HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+PdfRenderServiceRef points to a shared HumioPdfRenderService resource
 that multiple HumioCluster resources can use
 
 <table>
@@ -32375,7 +32375,7 @@ Humio pods can be updated in a rolling fashion or if they must be replaced at th
 
 
 
-HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+PdfRenderServiceRef points to a shared HumioPdfRenderService resource
 that multiple HumioCluster resources can use
 
 <table>
@@ -37622,14 +37622,14 @@ HumioPdfRenderService is the Schema for the humiopdfrenderservices API
         <td><b><a href="#humiopdfrenderservicespec">spec</a></b></td>
         <td>object</td>
         <td>
-          HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService<br/>
+          Spec defines the desired state of HumioPdfRenderService<br/>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humiopdfrenderservicestatus">status</a></b></td>
         <td>object</td>
         <td>
-          HumioPdfRenderServiceStatus defines the observed state of HumioPdfRenderService<br/>
+          Status reflects the observed state of HumioPdfRenderService<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -37641,7 +37641,7 @@ HumioPdfRenderService is the Schema for the humiopdfrenderservices API
 
 
 
-HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
+Spec defines the desired state of HumioPdfRenderService
 
 <table>
     <thead>
@@ -37769,6 +37769,13 @@ HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
         <td>string</td>
         <td>
           ServiceAccountName is the name of the Kubernetes Service Account to use.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>serviceAnnotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          ServiceAnnotations allows to specify custom annotations for the service.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -41258,7 +41265,7 @@ PodSecurityContext, the value specified in SecurityContext takes precedence.<br/
 
 
 
-HumioPdfRenderServiceStatus defines the observed state of HumioPdfRenderService
+Status reflects the observed state of HumioPdfRenderService
 
 <table>
     <thead>
