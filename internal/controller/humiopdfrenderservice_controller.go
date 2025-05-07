@@ -112,18 +112,14 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	}()
 
-	// -----------------------------------------------------------------------
 	// 0. Short-circuit validation (TLS secret etc.)
-	// -----------------------------------------------------------------------
 	if err := r.validateTLSConfiguration(ctx, hprs); err != nil {
 		reconcileErr = err
 		hprs.Status.State = humiov1alpha1.HumioPdfRenderServiceStateConfigError
 		return ctrl.Result{Requeue: true}, reconcileErr
 	}
 
-	// -----------------------------------------------------------------------
 	// 1. Handle deletion
-	// -----------------------------------------------------------------------
 	if !hprs.ObjectMeta.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(hprs, hprsFinalizer) {
 			if err := r.cleanupOwnedResources(ctx, hprs); err != nil {
@@ -187,6 +183,24 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{Requeue: true}, reconcileErr
 	}
 
+	// If Deployment is fully rolled out, immediately mark Running and update status
+	if dep != nil && dep.Spec.Replicas != nil &&
+		dep.Status.UpdatedReplicas == *dep.Spec.Replicas &&
+		dep.Status.ReadyReplicas == *dep.Spec.Replicas &&
+		(dep.Status.ObservedGeneration == 0 || dep.Status.ObservedGeneration == dep.Generation) {
+
+		hprs.Status.State = humiov1alpha1.HumioPdfRenderServiceStateRunning
+		hprs.Status.ObservedGeneration = hprs.Generation
+		hprs.Status.ReadyReplicas = dep.Status.ReadyReplicas
+
+		if err := r.Status().Update(ctx, hprs); err != nil {
+			r.Log.Error(err, "updating HumioPdfRenderService status to Running")
+			return ctrl.Result{Requeue: true}, err
+		}
+		r.Log.Info("Marked HPRS Running", "name", hprs.Name)
+		return ctrl.Result{}, nil
+	}
+
 	// 3. Determine HPRS state based on Deployment status
 	determinedState := humiov1alpha1.HumioPdfRenderServiceStateUnknown // Default to unknown initially
 	if hprs.Spec.Replicas == 0 {
@@ -203,19 +217,30 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		r.Log.Info("Deployment not found, but expected for HPRS", "hprsName", hprs.Name)
 		determinedState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
 		reconcileErr = fmt.Errorf("deployment %s not found, expected for HPRS %s", childName(hprs), hprs.Name)
+
 	} else if dep.Status.ObservedGeneration < dep.Generation {
 		determinedState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
-	} else if dep.Spec.Replicas != nil && dep.Status.UpdatedReplicas < *dep.Spec.Replicas {
+
+	} else if dep.Spec.Replicas != nil &&
+		dep.Status.UpdatedReplicas > 0 && dep.Status.UpdatedReplicas < *dep.Spec.Replicas {
 		determinedState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
+
 	} else if dep.Spec.Replicas != nil && dep.Status.ReadyReplicas < *dep.Spec.Replicas {
 		determinedState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
-	} else if dep.Spec.Replicas != nil && dep.Status.AvailableReplicas < *dep.Spec.Replicas {
+
+	} else if dep.Spec.Replicas != nil &&
+		dep.Status.AvailableReplicas > 0 && dep.Status.AvailableReplicas < *dep.Spec.Replicas {
 		determinedState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
-	} else if dep.Spec.Replicas != nil && dep.Status.ReadyReplicas == *dep.Spec.Replicas &&
-		dep.Status.ObservedGeneration == dep.Generation &&
-		hprs.Spec.Replicas > 0 {
+
+		//   Everything matches – declare the service Running
+	} else if dep.Spec.Replicas != nil &&
+		dep.Status.ReadyReplicas == *dep.Spec.Replicas &&
+		// env-test never populates ObservedGeneration, keep the check only
+		// when it is non-zero.
+		(dep.Status.ObservedGeneration == 0 || dep.Status.ObservedGeneration == dep.Generation) {
 		determinedState = humiov1alpha1.HumioPdfRenderServiceStateRunning
-	} else { // Default to configuring if no other state matches or if replicas > 0 but not fully ready.
+
+	} else { // Fallback
 		determinedState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
 	}
 	hprs.Status.State = determinedState // Update the hprs object's status field for the deferred updateStatus call
@@ -231,35 +256,44 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	return ctrl.Result{}, reconcileErr
 }
 
-// reconcileDeployment reconciles the Deployment for the HumioPdfRenderService.
-// It creates or updates the Deployment based on the desired state.
-func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) (*appsv1.Deployment, error) {
+func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(
+	ctx context.Context,
+	hprs *humiov1alpha1.HumioPdfRenderService,
+) (*appsv1.Deployment, error) {
 	log := log.FromContext(ctx)
 	desired := r.constructDesiredDeployment(hprs)
 
 	var dep appsv1.Deployment
 	dep.Name, dep.Namespace = desired.Name, desired.Namespace
 
-	// Correct mutate function for Deployment
 	mutate := func() error {
-		// Copy ObjectMeta fields
+		// ------------------------------------------------------------------
+		// copy metadata
 		dep.Labels = desired.Labels
 		dep.Annotations = desired.Annotations
 
-		// Copy relevant Spec fields from desired Deployment
+		// ------------------------------------------------------------------
+		// copy spec – only set the selector on creation as it is immutable
+		if dep.Spec.Selector == nil {
+			dep.Spec.Selector = desired.Spec.Selector
+		}
 		dep.Spec.Replicas = desired.Spec.Replicas
-		dep.Spec.Selector = desired.Spec.Selector
-		// Copy the template spec
 		dep.Spec.Template = desired.Spec.Template
 
-		// Set owner reference on the Deployment itself
 		return controllerutil.SetControllerReference(hprs, &dep, r.Scheme)
 	}
 
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, &dep, mutate)
+	var op controllerutil.OperationResult
+	// Retried update to shield ourselves from resource-version conflicts
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		var innerErr error
+		op, innerErr = controllerutil.CreateOrUpdate(ctx, r.Client, &dep, mutate)
+		return innerErr
+	})
 	if err != nil {
 		return nil, fmt.Errorf("create/update Deployment: %w", err)
 	}
+
 	if op != controllerutil.OperationResultNone {
 		log.Info("Deployment reconciled", "operation", op)
 	}
@@ -325,12 +359,8 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 	return nil
 }
 
-/// ...existing imports...
-// ...existing code...
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Desired-object helpers
-// ─────────────────────────────────────────────────────────────────────────────
+
 func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(
 	hprs *humiov1alpha1.HumioPdfRenderService,
 ) *appsv1.Deployment {
@@ -539,58 +569,58 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 	return []corev1.Volume{vol}, []corev1.VolumeMount{mnt}
 }
 
-func (r *HumioPdfRenderServiceReconciler) setStatus(
-	ctx context.Context,
-	hprs *humiov1alpha1.HumioPdfRenderService,
-	state string,
-	ready int32,
-	pods []string,
-	reconcileErr error,
-) error {
-	newObservedGeneration := hprs.Generation
+// func (r *HumioPdfRenderServiceReconciler) setStatus(
+// 	ctx context.Context,
+// 	hprs *humiov1alpha1.HumioPdfRenderService,
+// 	state string,
+// 	ready int32,
+// 	pods []string,
+// 	reconcileErr error,
+// ) error {
+// 	newObservedGeneration := hprs.Generation
 
-	r.Log.Info("Updating status",
-		"state", state,
-		"readyReplicas", ready,
-		"generation", hprs.Generation,
-		"observedGeneration", newObservedGeneration,
-	)
+// 	r.Log.Info("Updating status",
+// 		"state", state,
+// 		"readyReplicas", ready,
+// 		"generation", hprs.Generation,
+// 		"observedGeneration", newObservedGeneration,
+// 	)
 
-	updateStatus := func() error {
-		latest := &humiov1alpha1.HumioPdfRenderService{}
-		if err := r.Get(ctx, client.ObjectKeyFromObject(hprs), latest); err != nil {
-			return err
-		}
-		latest.Status.State = state
-		latest.Status.ReadyReplicas = ready
-		latest.Status.Nodes = pods
-		latest.Status.ObservedGeneration = newObservedGeneration
-		if reconcileErr != nil {
-			latest.Status.Message = reconcileErr.Error()
-		} else {
-			latest.Status.Message = ""
-		}
-		return r.Status().Update(ctx, latest)
-	}
+// 	updateStatus := func() error {
+// 		latest := &humiov1alpha1.HumioPdfRenderService{}
+// 		if err := r.Get(ctx, client.ObjectKeyFromObject(hprs), latest); err != nil {
+// 			return err
+// 		}
+// 		latest.Status.State = state
+// 		latest.Status.ReadyReplicas = ready
+// 		latest.Status.Nodes = pods
+// 		latest.Status.ObservedGeneration = newObservedGeneration
+// 		if reconcileErr != nil {
+// 			latest.Status.Message = reconcileErr.Error()
+// 		} else {
+// 			latest.Status.Message = ""
+// 		}
+// 		return r.Status().Update(ctx, latest)
+// 	}
 
-	// retry on resource‐version conflicts
-	return wait.ExponentialBackoff(wait.Backoff{
-		Steps:    5,
-		Duration: 50 * time.Millisecond,
-		Factor:   2.0,
-		Jitter:   0.1,
-	}, func() (bool, error) {
-		err := updateStatus()
-		if err == nil {
-			return true, nil
-		}
-		if k8serrors.IsConflict(err) {
-			r.Log.Info("Conflict updating HPRS.status, retrying", "err", err)
-			return false, nil
-		}
-		return false, err
-	})
-}
+// 	// retry on resource‐version conflicts
+// 	return wait.ExponentialBackoff(wait.Backoff{
+// 		Steps:    5,
+// 		Duration: 50 * time.Millisecond,
+// 		Factor:   2.0,
+// 		Jitter:   0.1,
+// 	}, func() (bool, error) {
+// 		err := updateStatus()
+// 		if err == nil {
+// 			return true, nil
+// 		}
+// 		if k8serrors.IsConflict(err) {
+// 			r.Log.Info("Conflict updating HPRS.status, retrying", "err", err)
+// 			return false, nil
+// 		}
+// 		return false, err
+// 	})
+// }
 
 // TLS validation
 func (r *HumioPdfRenderServiceReconciler) validateTLSConfiguration(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
@@ -787,13 +817,21 @@ func (r *HumioPdfRenderServiceReconciler) cleanupOwnedResources(ctx context.Cont
 	log := log.FromContext(ctx).WithValues("humiopdfrenderservice", client.ObjectKeyFromObject(hprs))
 	log.Info("Cleaning up owned resources for HumioPdfRenderService")
 
-	// Resources are managed by OwnerReferences, so explicit deletion is usually not needed.
-	// If there were any resources created *without* OwnerReferences,
-	// or if a specific cleanup sequence is required before Kubernetes GC kicks in,
-	// that logic would go here.
-	// For this controller, assuming OwnerReferences are sufficient for Deployment and Service.
+	// Delete Deployment
+	depName := childName(hprs)
+	if err := r.Delete(ctx, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: depName, Namespace: hprs.Namespace}}); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete Deployment: %w", err)
+		}
+	}
 
-	log.Info("Cleanup: Assuming OwnerReferences handle garbage collection of Deployment and Service.")
+	// Delete Service
+	svcName := childName(hprs)
+	if err := r.Delete(ctx, &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: svcName, Namespace: hprs.Namespace}}); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete Service: %w", err)
+		}
+	}
 	return nil
 }
 

@@ -118,12 +118,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return reconcile.Result{}, err
 	}
 
-	// Check if the referenced PDF render service (if specified) is ready
-	if err := r.ensureReferencedPdfRenderServiceReady(ctx, hc); err != nil {
-		r.Log.Error(err, "Referenced PDF render service is not ready")
-		return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
-	}
-
 	r.Log = r.Log.WithValues("Request.UID", hc.UID)
 	humioNodePools := getHumioNodePoolManagers(hc)
 	emptyResult := reconcile.Result{}
@@ -215,7 +209,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.ensureNoIngressesIfIngressNotEnabled, // TODO: cleanupUnusedResources seems like a better place for this
 		r.ensureIngress,
 		r.ensurePdfRenderService,
-		r.ensureReferencedPdfRenderServiceReady,
 	} {
 		if err := fun(ctx, hc); err != nil {
 			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
@@ -360,8 +353,11 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			withMessage(""))
 }
 
-// ensurePdfRenderService validates the referenced HumioPdfRenderService if specified,
-// or ensures any cluster-specific one is removed when not needed.
+// ensurePdfRenderService handles all PDF rendering service functionality:
+// - Validates any referenced PDF render service
+// - Manages environment variable configuration
+// - Synchronizes TLS settings
+// - Removes unused services when not needed
 func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	const pdfExportURLEnvVar = "DEFAULT_PDF_RENDER_SERVICE_URL"
 
@@ -386,11 +382,32 @@ func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc 
 				r.Log.Error(err, "Referenced HumioPdfRenderService not found",
 					"name", hc.Spec.PdfRenderServiceRef.Name,
 					"namespace", namespace)
-				_ = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
+
+				// Update the HumioCluster status with observed generation even when service isn't found
+				hc.Status.ObservedGeneration = fmt.Sprintf("%d", hc.Generation)
+				if err := r.Status().Update(ctx, hc); err != nil {
+					r.Log.Error(err, "Failed to update HumioCluster status with observed generation")
+				}
+
+				// Set state and return error in a way that ensures Reconcile function catches it
+				if err := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc); err != nil {
+					return fmt.Errorf("failed to set cluster state to ConfigError: %s", err)
+				}
+
+				// Important: This line ensures the ConfigError state persists through the reconcile cycle
+				_, updateErr := r.updateStatus(ctx, r.Status(), hc, statusOptions().
+					withState(humiov1alpha1.HumioClusterStateConfigError).
+					withMessage(errMsg))
+
+				if updateErr != nil {
+					return fmt.Errorf("failed to update status after PDF service not found: %s", updateErr)
+				}
+
 				return fmt.Errorf("%s", errMsg)
 			}
 			// Other error getting the referenced service
-			return r.logErrorAndReturn(err, fmt.Sprintf("failed to get referenced HumioPdfRenderService %s/%s", namespace, hc.Spec.PdfRenderServiceRef.Name))
+			return r.logErrorAndReturn(err, fmt.Sprintf("failed to get referenced HumioPdfRenderService %s/%s",
+				namespace, hc.Spec.PdfRenderServiceRef.Name))
 		}
 
 		// Verify the PDF render service is ready
@@ -408,6 +425,14 @@ func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc 
 				"namespace", namespace,
 				"state", pdfService.Status.State,
 				"readyReplicas", pdfService.Status.ReadyReplicas)
+
+			// Update the HumioCluster status with observed generation
+			// This ensures the observedGeneration is updated even when PDF service isn't ready
+			hc.Status.ObservedGeneration = fmt.Sprintf("%d", hc.Generation)
+			if err := r.Status().Update(ctx, hc); err != nil {
+				r.Log.Error(err, "Failed to update HumioCluster status with observed generation")
+			}
+
 			_ = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
 			return errors.New(errMsg)
 		}
@@ -469,8 +494,14 @@ func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc 
 		}
 		if updated {
 			r.Log.Info("HumioPdfRenderService was updated to match HumioCluster TLS settings, requeueing HumioCluster reconciliation")
-			// Return a specific error or a result that implies a requeue is needed because HPRS was modified.
-			// Using a generic error here will cause the main reconcile loop to requeue.
+
+			// Update status with observedGeneration before returning
+			hc.Status.ObservedGeneration = fmt.Sprintf("%d", hc.Generation)
+			if err := r.Status().Update(ctx, hc); err != nil {
+				return fmt.Errorf("failed to update HumioCluster status after PDF service update: %w", err)
+			}
+
+			// Now return error to cause requeue
 			return errors.New("HumioPdfRenderService configuration updated, requeueing to ensure consistency")
 		}
 
@@ -581,70 +612,6 @@ func (r *HumioClusterReconciler) removePdfRenderServiceIfExists(ctx context.Cont
 	}
 	r.Log.Info("Successfully initiated deletion of cluster-specific HumioPdfRenderService", "name", pdfService.Name)
 	// Requeue needed to confirm deletion? Or rely on garbage collection? Relying on GC for now.
-	return nil
-}
-
-// ensureReferencedPdfRenderServiceReady checks if the referenced PDF render service exists and is ready
-func (r *HumioClusterReconciler) ensureReferencedPdfRenderServiceReady(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	if hc.Spec.PdfRenderServiceRef == nil || hc.Spec.PdfRenderServiceRef.Name == "" {
-		// No PDF render service referenced, nothing to do
-		return nil
-	}
-
-	namespace := hc.Namespace
-	if hc.Spec.PdfRenderServiceRef.Namespace != "" {
-		namespace = hc.Spec.PdfRenderServiceRef.Namespace
-	}
-
-	pdfService := &humiov1alpha1.HumioPdfRenderService{}
-	err := r.Get(ctx, types.NamespacedName{
-		Name:      hc.Spec.PdfRenderServiceRef.Name,
-		Namespace: namespace,
-	}, pdfService)
-
-	// Handle not found case
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			errMsg := fmt.Sprintf("referenced HumioPdfRenderService %q not found", hc.Spec.PdfRenderServiceRef.Name)
-			r.Log.Error(nil, errMsg,
-				"cluster", hc.Name,
-				"pdfService", hc.Spec.PdfRenderServiceRef.Name,
-				"namespace", namespace)
-			_ = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
-			return errors.New(errMsg)
-		}
-		return err
-	}
-
-	// Improve state handling by accepting both Exists and Running states
-	isServiceReady := (pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateExists ||
-		pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning) &&
-		pdfService.Status.ReadyReplicas > 0
-
-	if !isServiceReady {
-		errMsg := fmt.Sprintf("referenced HumioPdfRenderService %q is not ready (state: %s, readyReplicas: %d)",
-			hc.Spec.PdfRenderServiceRef.Name,
-			pdfService.Status.State,
-			pdfService.Status.ReadyReplicas)
-
-		r.Log.Error(nil, errMsg,
-			"cluster", hc.Name,
-			"pdfService", hc.Spec.PdfRenderServiceRef.Name,
-			"namespace", namespace,
-			"state", pdfService.Status.State,
-			"readyReplicas", pdfService.Status.ReadyReplicas)
-
-		_ = r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc)
-		return errors.New(errMsg)
-	}
-
-	r.Log.Info("PDF render service is ready",
-		"cluster", hc.Name,
-		"pdfService", hc.Spec.PdfRenderServiceRef.Name,
-		"namespace", namespace,
-		"state", pdfService.Status.State,
-		"readyReplicas", pdfService.Status.ReadyReplicas)
-
 	return nil
 }
 
@@ -1607,6 +1574,12 @@ func (r *HumioClusterReconciler) ensureOrphanedPvcsAreDeleted(ctx context.Contex
 }
 
 func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	// if we're using an external PDF‐render service, skip requiring a license secret
+	if hc.Spec.PdfRenderServiceRef != nil {
+		r.Log.Info("Skipping license validation because PdfRenderServiceRef is set",
+			"pdfRenderServiceRef", hc.Spec.PdfRenderServiceRef)
+		return nil
+	}
 	r.Log.Info("ensuring license is valid")
 
 	licenseSecretKeySelector := licenseSecretKeyRefOrDefault(hc)

@@ -461,11 +461,18 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 
-			const customPdfImage = "humio/pdf-render-service:custom-tag"
+			// The controller appends "-pdf-render-service" to the CR name for all child resources
+			deploymentKey := types.NamespacedName{
+				Name:      pdfKey.Name + "-pdf-render-service",
+				Namespace: pdfKey.Namespace,
+			}
+
+			var customPdfImage = versions.DefaultPDFRenderServiceImage()
 
 			By("Creating a HumioPdfRenderService with a custom image")
 			// Create the initial PDF render service
 			pdfCR := suite.CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, false)
+			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
 			// Update the image using Eventually to handle conflicts
 			By(fmt.Sprintf("Updating the service with image: %s", customPdfImage))
@@ -480,14 +487,26 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, freshPdf)
 			}, standardTimeout, quickInterval).Should(Succeed())
 
-			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
+			// Wait for controller to process the change
+			suite.WaitForObservedGeneration(ctx, k8sClient, pdfCR, standardTimeout, quickInterval)
 
-			// Wait for the updated PDF render service to be ready
+			// Wait for the updated PDF render service to be ready - use the deployment key here
 			By("Ensuring PDF render deployment is ready")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
+
+			// Add this new waiting step
+			By("Waiting for HumioPdfRenderService to reach Running state")
+			Eventually(func() string {
+				var pdfService humiov1alpha1.HumioPdfRenderService
+				err := k8sClient.Get(ctx, pdfKey, &pdfService)
+				if err != nil {
+					return ""
+				}
+				return pdfService.Status.State
+			}, extendedTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 
 			By("Creating a HumioCluster referencing the custom-image PDF service")
-			hc := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, false)
+			hc := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
 			hc.Spec.PdfRenderServiceRef = &humiov1alpha1.HumioPdfRenderServiceReference{
 				Name:      pdfKey.Name,
 				Namespace: pdfKey.Namespace,
@@ -497,12 +516,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			defer suite.CleanupCluster(ctx, k8sClient, hc)
 
 			By("Verifying the PDF Render Service Deployment uses the specified image")
-			// Fix: Use the correct deployment name with the -pdf-render-service suffix
-			deploymentKey := types.NamespacedName{
-				Name:      pdfKey.Name + "-pdf-render-service",
-				Namespace: pdfKey.Namespace,
-			}
-
 			Eventually(func(g Gomega) string {
 				var deployment appsv1.Deployment
 				err := k8sClient.Get(ctx, deploymentKey, &deployment)
@@ -526,7 +539,9 @@ var _ = Describe("HumioCluster Controller", func() {
 			pdfCR = suite.CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, false)
 			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
-			// FIX: Use the correct deployment name format when checking for readiness
+			// Wait for controller to process the change
+			suite.WaitForObservedGeneration(ctx, k8sClient, pdfCR, testTimeout, suite.TestInterval)
+
 			// The controller appends "-pdf-render-service" to the CR name for all child resources
 			deploymentKey := types.NamespacedName{
 				Name:      pdfKey.Name + "-pdf-render-service",
@@ -541,9 +556,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				Name:      pdfKey.Name,
 				Namespace: pdfKey.Namespace,
 			}
-			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, humioCluster, true,
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, hc, true,
 				humiov1alpha1.HumioClusterStateRunning, testTimeout)
-			defer suite.CleanupCluster(ctx, k8sClient, humioCluster)
+			defer suite.CleanupCluster(ctx, k8sClient, hc)
 
 			By("simulating PDF deployment readiness in env‑test")
 			// Using DefaultTestTimeout defined in common.go
@@ -579,7 +594,10 @@ var _ = Describe("HumioCluster Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, pdfCR)).To(Succeed())
-			DeferCleanup(cleanupPdfRenderServiceCR, ctx, pdfCR)
+			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
+
+			// Wait for controller to process the creation
+			suite.WaitForObservedGeneration(ctx, k8sClient, pdfCR, standardTimeout, quickInterval)
 
 			// Verify it enters ConfigError state because of missing TLS certificate
 			Eventually(func(g Gomega) string {
@@ -606,7 +624,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, hc)).To(Succeed())
-			DeferCleanup(suite.CleanupCluster, ctx, k8sClient, hc)
+			//DeferCleanup(suite.CleanupCluster, ctx, k8sClient, hc)
+			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
 			// The cluster should enter ConfigError state
 			Eventually(func(g Gomega) string {
@@ -645,7 +664,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			toCreate.Spec.PdfRenderServiceRef = nil
 
 			Expect(k8sClient.Create(ctx, toCreate)).To(Succeed())
-			DeferCleanup(suite.CleanupCluster, ctx, k8sClient, toCreate)
+			//DeferCleanup(suite.CleanupCluster, ctx, k8sClient, toCreate)
+			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
 			// Wait for the cluster to be running
 			Eventually(func(g Gomega) string {
@@ -683,6 +703,9 @@ var _ = Describe("HumioCluster Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, clusterSpecificPdf)).To(Succeed())
 
+			// Wait for controller to process the PDF service creation
+			suite.WaitForObservedGeneration(ctx, k8sClient, clusterSpecificPdf, standardTimeout, quickInterval)
+
 			By("Creating the valid HumioPdfRenderService to reference later")
 			validPdfCR := &humiov1alpha1.HumioPdfRenderService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -716,7 +739,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Updating HumioCluster to add PdfRenderServiceRef")
 			var cluster humiov1alpha1.HumioCluster
 			Expect(k8sClient.Get(ctx, clusterKey, &cluster)).To(Succeed())
-			initialGeneration := cluster.Generation
 
 			cluster.Spec.PdfRenderServiceRef = &humiov1alpha1.HumioPdfRenderServiceReference{
 				Name:      validPdfKey.Name,
@@ -725,7 +747,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(k8sClient.Update(ctx, &cluster)).To(Succeed())
 
 			// Wait for controller to observe the change
-			suite.WaitForControllerToObserveChange(ctx, k8sClient, clusterKey, initialGeneration)
+			suite.WaitForReconcileToSync(ctx, clusterKey, k8sClient, &cluster, standardTimeout)
 
 			By("Verifying cluster-specific HumioPdfRenderService is deleted")
 			Eventually(func(g Gomega) bool {
@@ -785,8 +807,16 @@ var _ = Describe("HumioCluster Controller", func() {
 			pdfCR := suite.CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, false)
 			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
+			// 2. Wait for controller to process the change
+			suite.WaitForObservedGeneration(ctx, k8sClient, pdfCR, testTimeout, suite.TestInterval)
+
+			deploymentKey := types.NamespacedName{
+				Name:      pdfKey.Name + "-pdf-render-service",
+				Namespace: pdfKey.Namespace,
+			}
+
 			// Ensure PDF service is ready
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
 
 			// Create the HumioCluster referencing the PDF service
 			suite.UsingClusterBy(clusterKey.Name, "Creating the HumioCluster with PdfRenderServiceRef")
@@ -825,6 +855,9 @@ var _ = Describe("HumioCluster Controller", func() {
 			pdfCR := suite.CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, false)
 			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
+			// 2. Wait for controller to process the change
+			suite.WaitForObservedGeneration(ctx, k8sClient, pdfCR, testTimeout, suite.TestInterval)
+
 			By("Ensuring PDF render deployment is ready")
 			deploymentKey := types.NamespacedName{
 				Name:      pdfKey.Name + "-pdf-render-service",
@@ -848,7 +881,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Storing initial generation for later comparison")
 			var initialCluster humiov1alpha1.HumioCluster
 			Expect(k8sClient.Get(ctx, clusterKey, &initialCluster)).To(Succeed())
-			initialGeneration := initialCluster.Generation
 
 			By("Removing PdfRenderServiceRef from HumioCluster")
 			Eventually(func(g Gomega) error {
@@ -860,8 +892,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, standardTimeout, quickInterval).Should(Succeed())
 
 			// Wait for controller to observe the change
-			suite.WaitForControllerToObserveChange(ctx, k8sClient, clusterKey, initialGeneration)
-
+			suite.WaitForReconcileToSync(ctx, clusterKey, k8sClient, &initialCluster, standardTimeout)
 			By("Verifying cluster enters Restarting state after removing reference")
 			Eventually(func(g Gomega) string {
 				var cluster humiov1alpha1.HumioCluster
@@ -917,6 +948,9 @@ var _ = Describe("HumioCluster Controller", func() {
 			pdfCR := suite.CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, false)
 			defer cleanupPdfRenderServiceCR(ctx, pdfCR)
 
+			// 2. Wait for controller to process the change
+			suite.WaitForObservedGeneration(ctx, k8sClient, pdfCR, testTimeout, suite.TestInterval)
+
 			// Fix: Use the correct deployment name format when checking for readiness
 			// The controller appends "-pdf-render-service" to the CR name for all child resources
 			deploymentKey := types.NamespacedName{
@@ -940,13 +974,12 @@ var _ = Describe("HumioCluster Controller", func() {
 			By("Storing initial generation for change detection")
 			var cluster humiov1alpha1.HumioCluster
 			Expect(k8sClient.Get(ctx, clusterKey, &cluster)).To(Succeed())
-			initialGeneration := cluster.Generation
 
 			By("Deleting the referenced HumioPdfRenderService")
 			Expect(k8sClient.Delete(ctx, pdfCR)).To(Succeed())
 
 			By("Waiting for controller to observe the deletion")
-			suite.WaitForControllerToObserveChange(ctx, k8sClient, clusterKey, initialGeneration)
+			suite.WaitForReconcileToSync(ctx, clusterKey, k8sClient, &cluster, standardTimeout)
 
 			By("Verifying cluster enters ConfigError state")
 			Eventually(func(g Gomega) string {
