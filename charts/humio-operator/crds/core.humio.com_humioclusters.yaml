@@ -11913,6 +11913,23 @@ spec:
                             compatibility with pre-0.0.14 spec defaults, this should be set to `humio_{{.Zone}}`
                             Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in LogScale 1.80.0
                           type: string
+                        pdfRenderServiceRef:
+                          description: |-
+                            HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+                            that multiple HumioCluster resources can use
+                          properties:
+                            name:
+                              description: Name is the name of the HumioPdfRenderService
+                              minLength: 1
+                              type: string
+                            namespace:
+                              description: |-
+                                Namespace is the namespace of the HumioPdfRenderService
+                                If not specified, the HumioCluster's namespace is used.
+                              type: string
+                          required:
+                          - name
+                          type: object
                         podAnnotations:
                           additionalProperties:
                             type: string
@@ -14000,6 +14017,23 @@ spec:
               path:
                 description: Path is the root URI path of the Humio cluster
                 type: string
+              pdfRenderServiceRef:
+                description: |-
+                  HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
+                  that multiple HumioCluster resources can use
+                properties:
+                  name:
+                    description: Name is the name of the HumioPdfRenderService
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace is the namespace of the HumioPdfRenderService
+                      If not specified, the HumioCluster's namespace is used.
+                    type: string
+                required:
+                - name
+                type: object
               podAnnotations:
                 additionalProperties:
                   type: string

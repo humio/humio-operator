@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -38,6 +40,7 @@ const (
 )
 
 const TestInterval = time.Second * 1
+const DefaultTestTimeout = time.Second * 30 // Standard timeout used throughout the tests
 
 func UsingClusterBy(cluster, text string, callbacks ...func()) {
 	timestamp := time.Now().Format(time.RFC3339Nano)
@@ -147,6 +150,14 @@ func CleanupCluster(ctx context.Context, k8sClient client.Client, hc *humiov1alp
 
 	UsingClusterBy(cluster.Name, "Deleting the cluster")
 	Expect(k8sClient.Delete(ctx, &cluster)).To(Succeed())
+
+	// Wait for the HumioCluster resource to be fully deleted.
+	// This is crucial because finalizers might delay the actual removal.
+	UsingClusterBy(cluster.Name, "Waiting for HumioCluster resource deletion")
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, types.NamespacedName{Name: hc.Name, Namespace: hc.Namespace}, &humiov1alpha1.HumioCluster{})
+		return k8serrors.IsNotFound(err)
+	}, time.Second*30, TestInterval).Should(BeTrue(), "HumioCluster resource should be deleted") // Increased timeout slightly
 
 	if cluster.Spec.License.SecretKeyRef != nil {
 		UsingClusterBy(cluster.Name, fmt.Sprintf("Deleting the license secret %s", cluster.Spec.License.SecretKeyRef.Name))
@@ -317,8 +328,24 @@ func ConstructBasicSingleNodeHumioCluster(key types.NamespacedName, useAutoCreat
 	return humioCluster
 }
 
+//
+
 func CreateLicenseSecret(ctx context.Context, clusterKey types.NamespacedName, k8sClient client.Client, cluster *humiov1alpha1.HumioCluster) {
-	UsingClusterBy(cluster.Name, fmt.Sprintf("Creating the license secret %s", cluster.Spec.License.SecretKeyRef.Name))
+	// Check for nil cluster or nil License.SecretKeyRef
+	if cluster == nil {
+		// This shouldn't happen but better to be safe
+		return
+	}
+
+	var secretName string
+	if cluster.Spec.License.SecretKeyRef != nil {
+		secretName = cluster.Spec.License.SecretKeyRef.Name
+		UsingClusterBy(cluster.Name, fmt.Sprintf("Creating the license secret %s", secretName))
+	} else {
+		// Use default naming pattern if SecretKeyRef is not specified
+		secretName = fmt.Sprintf("%s-license", clusterKey.Name)
+		UsingClusterBy(cluster.Name, fmt.Sprintf("Creating a default license secret %s", secretName))
+	}
 
 	licenseString := "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzUxMiJ9.eyJpc09lbSI6ZmFsc2UsImF1ZCI6Ikh1bWlvLWxpY2Vuc2UtY2hlY2siLCJzdWIiOiJIdW1pbyBFMkUgdGVzdHMiLCJ1aWQiOiJGUXNvWlM3Yk1PUldrbEtGIiwibWF4VXNlcnMiOjEwLCJhbGxvd1NBQVMiOnRydWUsIm1heENvcmVzIjoxLCJ2YWxpZFVudGlsIjoxNzQzMTY2ODAwLCJleHAiOjE3NzQ1OTMyOTcsImlzVHJpYWwiOmZhbHNlLCJpYXQiOjE2Nzk5ODUyOTcsIm1heEluZ2VzdEdiUGVyRGF5IjoxfQ.someinvalidsignature"
 
@@ -329,7 +356,7 @@ func CreateLicenseSecret(ctx context.Context, clusterKey types.NamespacedName, k
 
 	licenseSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-license", clusterKey.Name),
+			Name:      secretName,
 			Namespace: clusterKey.Namespace,
 		},
 		StringData: map[string]string{"license": licenseString},
@@ -784,4 +811,165 @@ func GetHumioBootstrapToken(ctx context.Context, key types.NamespacedName, k8sCl
 		return humiov1alpha1.HumioBootstrapToken{}, fmt.Errorf("too many humiobootstraptokens for cluster %s. found list : %+v", key.Name, hbtList)
 	}
 	return hbtList[0], nil
+}
+
+// WaitForObservedGeneration waits until the observedGeneration matches the generation
+func WaitForObservedGeneration(ctx context.Context, k8sClient client.Client,
+	obj client.Object, timeout, interval time.Duration) {
+
+	objKind := obj.GetObjectKind().GroupVersionKind().Kind
+	if objKind == "" {
+		objKind = reflect.TypeOf(obj).String()
+	}
+
+	UsingClusterBy("", fmt.Sprintf("Waiting for observedGeneration to catch up for %s %s/%s",
+		objKind, obj.GetNamespace(), obj.GetName()))
+
+	key := client.ObjectKeyFromObject(obj)
+	generation := obj.GetGeneration()
+
+	Eventually(func(g Gomega) int64 {
+		// Get the latest version of the object
+		err := k8sClient.Get(ctx, key, obj)
+		g.Expect(err).NotTo(HaveOccurred(), "Failed to get resource")
+
+		// Get observed generation based on resource type
+		var observedGen int64
+
+		switch typedObj := obj.(type) {
+		case *humiov1alpha1.HumioPdfRenderService:
+			// HumioPdfRenderService.Status.ObservedGeneration is already an int64
+			observedGen = typedObj.Status.ObservedGeneration
+		case *humiov1alpha1.HumioCluster:
+			// HumioCluster.Status.ObservedGeneration is a string, convert to int64
+			val, err := strconv.ParseInt(typedObj.Status.ObservedGeneration, 10, 64)
+			if err != nil {
+				// If conversion fails, use 0 or log and continue
+				observedGen = 0
+			} else {
+				observedGen = val
+			}
+		case *appsv1.Deployment:
+			observedGen = typedObj.Status.ObservedGeneration
+		default:
+			// For resources without an explicit handler, return the generation
+			// to effectively skip the check
+			return generation
+		}
+		return observedGen
+	}, timeout, interval).Should(Equal(generation),
+		"%s %s/%s observedGeneration should match generation %d",
+		objKind, obj.GetNamespace(), obj.GetName(), generation)
+}
+
+// WaitForClusterState waits until the HumioCluster reaches the expected state.
+// It calls WaitForObservedGeneration internally so that the latest spec is processed.
+func WaitForClusterState(ctx context.Context, k8sClient client.Client, key types.NamespacedName, expectedState string, timeout, interval time.Duration) {
+	Eventually(func() string {
+		var cluster humiov1alpha1.HumioCluster
+		if err := k8sClient.Get(ctx, key, &cluster); err != nil {
+			return fmt.Sprintf("error: %v", err)
+		}
+		// Ensure that the controller has processed the most recent update.
+		WaitForObservedGeneration(ctx, k8sClient, &cluster, timeout, interval)
+		return cluster.Status.State
+	}, timeout, interval).Should(Equal(expectedState),
+		"timed out waiting for cluster %s/%s to be in state %s", key.Namespace, key.Name, expectedState)
+}
+
+// CreatePdfRenderServiceCR creates a basic HumioPdfRenderService CR with better error handling
+func CreatePdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfKey types.NamespacedName, tlsEnabled bool) *humiov1alpha1.HumioPdfRenderService {
+	pdfCR := &humiov1alpha1.HumioPdfRenderService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pdfKey.Name,
+			Namespace: pdfKey.Namespace,
+		},
+		Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
+			Image:    versions.DefaultPDFRenderServiceImage(),
+			Replicas: 1,
+			Port:     controller.DefaultPdfRenderServicePort,
+		},
+	}
+	if tlsEnabled {
+		pdfCR.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{
+			Enabled: helpers.BoolPtr(true),
+		}
+	}
+
+	UsingClusterBy(pdfKey.Name, fmt.Sprintf("Creating HumioPdfRenderService %s", pdfKey.String()))
+	Expect(k8sClient.Create(ctx, pdfCR)).Should(Succeed())
+
+	// Wait for the CR to be created with proper error handling
+	Eventually(func(g Gomega) *humiov1alpha1.HumioPdfRenderService {
+		var createdPdf humiov1alpha1.HumioPdfRenderService
+		err := k8sClient.Get(ctx, pdfKey, &createdPdf)
+		g.Expect(err).NotTo(HaveOccurred(), "Failed to get HumioPdfRenderService %s", pdfKey.String())
+		return &createdPdf
+	}, DefaultTestTimeout, TestInterval).ShouldNot(BeNil())
+
+	return pdfCR
+}
+
+// EnsurePdfRenderDeploymentReady waits for a PDF render service deployment to be ready
+// Accepts either the CR name (adds suffix) or the full deployment name
+func EnsurePdfRenderDeploymentReady(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
+	// Always use the correct deployment name format with suffix
+	deploymentKey := key
+	if !strings.HasSuffix(key.Name, "-pdf-render-service") {
+		deploymentKey.Name = key.Name + "-pdf-render-service"
+	}
+
+	UsingClusterBy(key.Name, fmt.Sprintf("Ensuring PDF render deployment %s in namespace %s is ready",
+		deploymentKey.Name, deploymentKey.Namespace))
+
+	// Wait for the deployment to exist first
+	Eventually(func(g Gomega) bool {
+		var deployment appsv1.Deployment
+		err := k8sClient.Get(ctx, deploymentKey, &deployment)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				// Log information but keep waiting instead of returning error
+				fmt.Printf("Deployment %s/%s not found yet, waiting...\n",
+					deploymentKey.Namespace, deploymentKey.Name)
+				return false
+			}
+			// Unexpected error
+			fmt.Printf("Error getting deployment %s/%s: %v\n",
+				deploymentKey.Namespace, deploymentKey.Name, err)
+			return false
+		}
+		return true
+	}, DefaultTestTimeout*2, TestInterval).Should(BeTrue(),
+		fmt.Sprintf("Timed out waiting for deployment %s/%s to exist",
+			deploymentKey.Namespace, deploymentKey.Name))
+
+	// For envtest: manually update the deployment status
+	if helpers.UseEnvtest() {
+		var deployment appsv1.Deployment
+		err := k8sClient.Get(ctx, deploymentKey, &deployment)
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to get deployment for status update")
+
+		deployment.Status.Replicas = 1
+		deployment.Status.ReadyReplicas = 1
+		deployment.Status.AvailableReplicas = 1
+		deployment.Status.ObservedGeneration = deployment.Generation
+
+		err = k8sClient.Status().Update(ctx, &deployment)
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to update deployment status")
+	}
+
+	// Verify deployment is ready
+	Eventually(func(g Gomega) int32 {
+		var updatedDeployment appsv1.Deployment
+		err := k8sClient.Get(ctx, deploymentKey, &updatedDeployment)
+		if err != nil {
+			fmt.Printf("Error checking deployment readiness for %s/%s: %v\n",
+				deploymentKey.Namespace, deploymentKey.Name, err)
+			return 0
+		}
+		fmt.Printf("Deployment %s/%s status: %d/%d replicas ready\n",
+			deploymentKey.Namespace, deploymentKey.Name,
+			updatedDeployment.Status.ReadyReplicas, updatedDeployment.Status.Replicas)
+		return updatedDeployment.Status.ReadyReplicas
+	}, DefaultTestTimeout, TestInterval).Should(BeNumerically(">", 0))
 }

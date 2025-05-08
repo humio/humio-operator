@@ -136,7 +136,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	duplicateEnvVars := findDuplicateEnvVars(hc.Spec.EnvironmentVariables)
 	if len(duplicateEnvVars) > 0 {
 		errorMsg := GetDuplicateEnvVarsErrorMessage(duplicateEnvVars)
-		r.Log.Error(fmt.Errorf("%s", errorMsg), "Found duplicate environment variables")
+		r.Log.Error(errors.New(errorMsg), "Found duplicate environment variables")
 
 		return r.updateStatus(ctx, r.Status(), hc, statusOptions().
 			withMessage(errorMsg).
@@ -192,7 +192,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// ensure pods that does not run the desired version or config gets deleted and update state accordingly
-	for _, pool := range humioNodePools.Items {
+	for _, pool := range humioNodePools.Items { // Corrected: Iterate over .Items
 		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
 			result, err := r.ensureMismatchedPodsAreDeleted(ctx, hc, pool)
 			if result != emptyResult || err != nil {
@@ -208,9 +208,17 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.ensureHumioClusterKeystoreSecret,
 		r.ensureNoIngressesIfIngressNotEnabled, // TODO: cleanupUnusedResources seems like a better place for this
 		r.ensureIngress,
+		r.ensurePdfRenderService,
 	} {
 		if err := fun(ctx, hc); err != nil {
+			// The function 'fun' (e.g., ensurePdfRenderService) is expected to set
+			// hc.Status.State and potentially hc.Status.Message in-memory if it encounters an error
+			// that requires a state change.
+			// We persist the in-memory state (hc.Status.State) and use err.Error() for the message.
+			// If 'fun' also set hc.Status.Message, err.Error() might be more generic or specific
+			// depending on what 'fun' returned.
 			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+				withState(hc.Status.State). // Persist the in-memory state set by 'fun'
 				withMessage(err.Error()))
 		}
 	}
@@ -226,7 +234,9 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			r.reconcileSinglePDB,
 		} {
 			if err := fun(ctx, hc, pool); err != nil {
+				// Similar to the loop above, 'fun' should modify hc.Status.State in-memory.
 				return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+					withState(hc.Status.State). // Persist the in-memory state
 					withMessage(err.Error()))
 			}
 		}
@@ -302,7 +312,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// construct humioClient configured with the admin token
 	cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withMessage(r.logErrorAndReturn(err, "unable to obtain humio client config").Error()).
 			withState(humiov1alpha1.HumioClusterStateConfigError))
 	}
@@ -317,7 +327,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				r.Log.Error(err, "unable to get cluster status")
 				return
 			}
-			_, _ = r.updateStatus(ctx, r.Status(), hc, opts.withVersion(status.Version))
+			_, _ = r.updateStatus(ctx, r.Client.Status(), hc, opts.withVersion(status.Version))
 		}
 	}(ctx, r.HumioClient, hc)
 
@@ -328,7 +338,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if pool.IsDownscalingFeatureEnabled() && r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
 			if result, err := r.processDownscaling(ctx, hc, pool, req); result != emptyResult || err != nil {
 				if err != nil {
-					_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
+					_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 						withMessage(err.Error()))
 				}
 				return result, err
@@ -344,12 +354,303 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	r.Log.Info("done reconciling")
 	return r.updateStatus(
 		ctx,
-		r.Status(),
+		r.Client.Status(),
 		hc,
 		statusOptions().
 			withState(hc.Status.State).
 			withRequeuePeriod(r.RequeuePeriod).
 			withMessage(""))
+}
+
+// ensurePdfRenderService handles all PDF rendering service functionality:
+// - Validates any referenced PDF render service
+// - Manages environment variable configuration
+// - Synchronizes TLS settings
+// - Removes unused services when not needed
+func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	const pdfExportURLEnvVar = "DEFAULT_PDF_RENDER_SERVICE_URL"
+
+	// Case 1: Using a referenced shared PDF render service
+	if hc.Spec.PdfRenderServiceRef != nil {
+		// Get referenced service namespace, defaulting to cluster's namespace if not specified
+		namespace := hc.Namespace
+		if hc.Spec.PdfRenderServiceRef.Namespace != "" {
+			namespace = hc.Spec.PdfRenderServiceRef.Namespace
+		}
+
+		// Check if the referenced PDF service exists
+		pdfService := &humiov1alpha1.HumioPdfRenderService{}
+		err := r.Get(ctx, types.NamespacedName{
+			Namespace: namespace,
+			Name:      hc.Spec.PdfRenderServiceRef.Name,
+		}, pdfService)
+
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				errMsg := fmt.Sprintf("referenced HumioPdfRenderService %s not found", hc.Spec.PdfRenderServiceRef.Name)
+				r.Log.Error(err, "Referenced HumioPdfRenderService not found",
+					"name", hc.Spec.PdfRenderServiceRef.Name,
+					"namespace", namespace)
+
+				// Update the HumioCluster status with observed generation even when service isn't found
+				hc.Status.ObservedGeneration = fmt.Sprintf("%d", hc.Generation)
+				if err := r.Status().Update(ctx, hc); err != nil {
+					r.Log.Error(err, "Failed to update HumioCluster status with observed generation")
+				}
+
+				// Set state and return error in a way that ensures Reconcile function catches it
+				if err := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc); err != nil {
+					return fmt.Errorf("failed to set cluster state to ConfigError: %s", err)
+				}
+
+				// Important: This line ensures the ConfigError state persists through the reconcile cycle
+				_, updateErr := r.updateStatus(ctx, r.Status(), hc, statusOptions().
+					withState(humiov1alpha1.HumioClusterStateConfigError).
+					withMessage(errMsg))
+
+				if updateErr != nil {
+					return fmt.Errorf("failed to update status after PDF service not found: %s", updateErr)
+				}
+
+				return fmt.Errorf("%s", errMsg)
+			}
+			// Other error getting the referenced service
+			return r.logErrorAndReturn(err, fmt.Sprintf("failed to get referenced HumioPdfRenderService %s/%s",
+				namespace, hc.Spec.PdfRenderServiceRef.Name))
+		}
+
+		// Check if the referenced PDF service itself is in ConfigError state
+		if pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateConfigError {
+			errMsg := fmt.Sprintf("referenced HumioPdfRenderService %s/%s is in ConfigError state (state: %s). HumioCluster %s will also be set to ConfigError.",
+				namespace, hc.Spec.PdfRenderServiceRef.Name, pdfService.Status.State, hc.Name)
+			r.Log.Info("Referenced HumioPdfRenderService is in ConfigError state, setting HumioCluster to ConfigError.",
+				"pdfServiceName", hc.Spec.PdfRenderServiceRef.Name,
+				"pdfServiceNamespace", namespace,
+				"pdfServiceState", pdfService.Status.State,
+				"humioClusterName", hc.Name,
+				"humioClusterNamespace", hc.Namespace)
+
+			if errSetState := r.setState(ctx, humiov1alpha1.HumioClusterStateConfigError, hc); errSetState != nil {
+				r.Log.Error(errSetState, "Failed to set HumioCluster state to ConfigError when referenced PDF service is in ConfigError.",
+					"humioClusterName", hc.Name, "humioClusterNamespace", hc.Namespace)
+				return fmt.Errorf("failed to update HumioCluster %s/%s status to ConfigError due to referenced PDF service %s/%s being in ConfigError state %s: %w",
+					hc.Namespace, hc.Name, namespace, hc.Spec.PdfRenderServiceRef.Name, pdfService.Status.State, errSetState)
+			}
+			// If setState was successful, return the descriptive error message to requeue and update status message.
+			return errors.New(errMsg)
+		}
+
+		// Verify the PDF render service is ready
+		isHprsReady := (pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateExists ||
+			pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning) &&
+			pdfService.Status.ReadyReplicas > 0
+
+		if !isHprsReady {
+			errMsg := fmt.Sprintf("referenced HumioPdfRenderService %q in namespace %q is not ready (state: %s, readyReplicas: %d). HumioCluster %q will be set to ConfigError.",
+				hc.Spec.PdfRenderServiceRef.Name,
+				namespace, // Use resolved namespace
+				pdfService.Status.State,
+				pdfService.Status.ReadyReplicas,
+				hc.Name)
+			r.Log.Info("Referenced HumioPdfRenderService is not ready. Setting HumioCluster state to ConfigError and updating message in memory.",
+				"pdfServiceName", hc.Spec.PdfRenderServiceRef.Name,
+				"pdfServiceNamespace", namespace,
+				"pdfServiceState", pdfService.Status.State,
+				"pdfServiceReadyReplicas", pdfService.Status.ReadyReplicas,
+				"humioClusterName", hc.Name,
+				"humioClusterNamespace", hc.Namespace)
+
+			// Set the state and message on the in-memory hc object.
+			// The error returned will cause the main reconcile loop to call updateStatus,
+			// which (due to the changes above) will persist these values.
+			hc.Status.State = humiov1alpha1.HumioClusterStateConfigError
+			hc.Status.Message = errMsg
+
+			return errors.New(errMsg)
+		}
+
+		// Cleanup any existing cluster-specific PDF service now that we're using a shared one
+		if err := r.removePdfRenderServiceIfExists(ctx, hc); err != nil {
+			// Log the error but don't block reconciliation if cleanup fails
+			r.Log.Error(err, "Failed to remove cluster-specific HumioPdfRenderService during switch to shared service")
+		}
+
+		r.Log.Info("Using shared HumioPdfRenderService",
+			"name", hc.Spec.PdfRenderServiceRef.Name,
+			"namespace", namespace)
+
+		// Calculate the service URL to use in the environment variable
+		// Use TLS or non-TLS protocol based on PDF service configuration
+		protocol := "http"
+		if pdfService.Spec.TLS != nil && helpers.BoolTrue(pdfService.Spec.TLS.Enabled) {
+			protocol = "https"
+		}
+
+		// Get port, using PDF service port or default
+		port := DefaultPdfRenderServicePort
+		if pdfService.Spec.Port > 0 {
+			port = int(pdfService.Spec.Port)
+		}
+
+		// Construct the service URL using namespace-qualified DNS
+		serviceURL := fmt.Sprintf("%s://%s-pdf-render-service.%s.svc:%d",
+			protocol, pdfService.Name, namespace, port)
+
+		// Set the environment variable in the HumioCluster CR to enable PDF rendering
+		// by updating the spec environment variables
+		existingEnvVar := false
+		for i := range hc.Spec.EnvironmentVariables {
+			if hc.Spec.EnvironmentVariables[i].Name == pdfExportURLEnvVar {
+				if hc.Spec.EnvironmentVariables[i].Value != serviceURL {
+					// Update the value if it's changed
+					hc.Spec.EnvironmentVariables[i].Value = serviceURL
+					if err := r.Update(ctx, hc); err != nil {
+						return r.logErrorAndReturn(err, "failed to update DEFAULT_PDF_RENDER_SERVICE_URL environment variable")
+					}
+				}
+				existingEnvVar = true
+				break
+			}
+		}
+
+		// If env var doesn't exist, add it
+		if !existingEnvVar {
+			hc.Spec.EnvironmentVariables = append(hc.Spec.EnvironmentVariables,
+				corev1.EnvVar{
+					Name:  pdfExportURLEnvVar,
+					Value: serviceURL,
+				})
+			if err := r.Update(ctx, hc); err != nil {
+				return r.logErrorAndReturn(err, "failed to add DEFAULT_PDF_RENDER_SERVICE_URL environment variable")
+			}
+		}
+
+		// Synchronize configuration between HumioCluster and HumioPdfRenderService
+		updated, err := r.syncPdfRenderServiceConfig(ctx, hc, pdfService)
+		if err != nil {
+			return r.logErrorAndReturn(err, "failed to synchronize configuration with PDF render service")
+		}
+		if updated {
+			r.Log.Info("HumioPdfRenderService was updated to match HumioCluster TLS settings, requeueing HumioCluster reconciliation")
+
+			// Update status with observedGeneration before returning
+			hc.Status.ObservedGeneration = fmt.Sprintf("%d", hc.Generation)
+			if err := r.Status().Update(ctx, hc); err != nil {
+				return fmt.Errorf("failed to update HumioCluster status after PDF service update: %w", err)
+			}
+
+			// Now return error to cause requeue
+			return errors.New("HumioPdfRenderService configuration updated, requeueing to ensure consistency")
+		}
+
+		// Referenced service exists, ensure any cluster-specific one is removed
+		return r.removePdfRenderServiceIfExists(ctx, hc)
+	}
+
+	// Case 2: No PDF rendering needed when PdfRenderServiceRef not specified
+	// Remove the environment variable if it exists
+	for i := range hc.Spec.EnvironmentVariables {
+		if hc.Spec.EnvironmentVariables[i].Name == pdfExportURLEnvVar {
+			// Remove the environment variable
+			hc.Spec.EnvironmentVariables = append(
+				hc.Spec.EnvironmentVariables[:i],
+				hc.Spec.EnvironmentVariables[i+1:]...,
+			)
+			if err := r.Update(ctx, hc); err != nil {
+				return r.logErrorAndReturn(err, "failed to remove DEFAULT_PDF_RENDER_SERVICE_URL environment variable")
+			}
+			break
+		}
+	}
+
+	// Remove any cluster-specific service that might exist
+	r.Log.Info("No PDF render service reference specified, ensuring any cluster-specific PDF service is removed")
+	return r.removePdfRenderServiceIfExists(ctx, hc)
+}
+
+// syncPdfRenderServiceConfig ensures the PdfRenderService configuration is in‑sync with the HumioCluster.
+// – It currently copies only TLS settings but is easy to extend with more fields.
+func (r *HumioClusterReconciler) syncPdfRenderServiceConfig(ctx context.Context, hc *humiov1alpha1.HumioCluster, hprs *humiov1alpha1.HumioPdfRenderService) (bool, error) { // Changed return type
+	desiredHprs := hprs.DeepCopy() // work on a copy
+
+	// 1. Compute the desired TLS block based on the cluster
+	var tlsEnabled bool
+	if helpers.TLSEnabled(hc) {
+		tlsEnabled = true
+	}
+
+	if desiredHprs.Spec.TLS == nil {
+		desiredHprs.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{}
+	}
+	desiredHprs.Spec.TLS.Enabled = helpers.BoolPtr(tlsEnabled)
+
+	// If the cluster uses a custom CA secret, mirror that.
+	// Also, ensure CASecretName is cleared if TLS is disabled on the cluster.
+	if tlsEnabled {
+		// hc.Spec.TLS is guaranteed not nil if tlsEnabled is true due to helpers.TLSEnabled logic
+		desiredHprs.Spec.TLS.CASecretName = hc.Spec.TLS.CASecretName
+	} else {
+		desiredHprs.Spec.TLS.CASecretName = "" // Clear CASecretName if cluster TLS is disabled
+	}
+
+	// 2. Short‑circuit if nothing changed
+	if reflect.DeepEqual(hprs.Spec.TLS, desiredHprs.Spec.TLS) {
+		return false, nil // No update needed, no error
+	}
+
+	// 3. Apply the desired modifications
+	hprs.Spec.TLS = desiredHprs.Spec.TLS
+
+	r.Log.Info("Updating HumioPdfRenderService to match cluster TLS settings",
+		"name", hprs.Name, "namespace", hprs.Namespace,
+		"enabled", tlsEnabled, "caSecret", desiredHprs.Spec.TLS.CASecretName)
+
+	if err := r.Update(ctx, hprs); err != nil {
+		return false, fmt.Errorf("failed to update HumioPdfRenderService %s/%s: %w",
+			hprs.Namespace, hprs.Name, err) // Update failed
+	}
+	return true, nil // Update successful
+}
+
+// removePdfRenderServiceIfExists removes the cluster-specific PDF render service if it exists
+func (r *HumioClusterReconciler) removePdfRenderServiceIfExists(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	clusterSpecificPdfServiceName := hc.Name + "-pdf-render-service"
+	pdfService := &humiov1alpha1.HumioPdfRenderService{}
+	err := r.Get(ctx, types.NamespacedName{
+		Namespace: hc.Namespace,
+		Name:      clusterSpecificPdfServiceName,
+	}, pdfService)
+
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			// Cluster-specific PDF render service doesn't exist, nothing to do
+			return nil
+		}
+		// Other error getting the potential cluster-specific service
+		return r.logErrorAndReturn(err, fmt.Sprintf("failed to get potential cluster-specific HumioPdfRenderService %s", clusterSpecificPdfServiceName))
+	}
+
+	// Only delete if we're the owner
+	if !metav1.IsControlledBy(pdfService, hc) {
+		r.Log.Info("Found cluster-specific HumioPdfRenderService but it's not owned by this HumioCluster - skipping deletion",
+			"pdfService", pdfService.Name,
+			"humioCluster", hc.Name)
+		return nil
+	}
+
+	// Cluster-specific PDF render service exists, remove it
+	r.Log.Info("Removing cluster-specific HumioPdfRenderService", "name", pdfService.Name)
+	if err := r.Delete(ctx, pdfService); err != nil {
+		// Ignore not found errors during deletion, it might have been deleted already
+		if k8serrors.IsNotFound(err) {
+			r.Log.Info("Cluster-specific HumioPdfRenderService already deleted", "name", pdfService.Name)
+			return nil
+		}
+		return r.logErrorAndReturn(err, fmt.Sprintf("failed to delete cluster-specific HumioPdfRenderService %s", pdfService.Name))
+	}
+	r.Log.Info("Successfully initiated deletion of cluster-specific HumioPdfRenderService", "name", pdfService.Name)
+	// Requeue needed to confirm deletion? Or rely on garbage collection? Relying on GC for now.
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -702,10 +1003,10 @@ func (r *HumioClusterReconciler) ensureIngress(ctx context.Context, hc *humiov1a
 		return nil
 	}
 	if len(hc.Spec.NodePools) > 0 {
-		return fmt.Errorf("ingress only supported if pods belong to HumioCluster.Spec.NodeCount")
+		return errors.New("ingress only supported if pods belong to HumioCluster.Spec.NodeCount")
 	}
 	if len(hc.Spec.Ingress.Controller) == 0 {
-		return r.logErrorAndReturn(fmt.Errorf("ingress enabled but no controller specified"), "could not ensure ingress")
+		return r.logErrorAndReturn(errors.New("ingress enabled but no controller specified"), "could not ensure ingress")
 	}
 
 	switch hc.Spec.Ingress.Controller {
@@ -733,7 +1034,7 @@ func (r *HumioClusterReconciler) getHumioHostnames(ctx context.Context, hc *humi
 
 	if hc.Spec.HostnameSource.SecretKeyRef != nil {
 		if hostname != "" {
-			return "", "", fmt.Errorf("conflicting fields: both hostname and hostnameSource.secretKeyRef are defined")
+			return "", "", errors.New("conflicting fields: both hostname and hostnameSource.secretKeyRef are defined")
 		}
 
 		hostnameSecret, err := kubernetes.GetSecret(ctx, r, hc.Spec.HostnameSource.SecretKeyRef.Name, hc.Namespace)
@@ -752,7 +1053,7 @@ func (r *HumioClusterReconciler) getHumioHostnames(ctx context.Context, hc *humi
 	}
 	if hc.Spec.ESHostnameSource.SecretKeyRef != nil {
 		if esHostname != "" {
-			return "", "", fmt.Errorf("conflicting fields: both esHostname and esHostnameSource.secretKeyRef are defined")
+			return "", "", errors.New("conflicting fields: both esHostname and esHostnameSource.secretKeyRef are defined")
 		}
 
 		esHostnameSecret, err := kubernetes.GetSecret(ctx, r, hc.Spec.ESHostnameSource.SecretKeyRef.Name, hc.Namespace)
@@ -770,7 +1071,7 @@ func (r *HumioClusterReconciler) getHumioHostnames(ctx context.Context, hc *humi
 	}
 
 	if hostname == "" && esHostname == "" {
-		return "", "", fmt.Errorf("one of the following must be set to enable ingress: hostname, esHostname, " +
+		return "", "", errors.New("one of the following must be set to enable ingress: hostname, esHostname, " +
 			"hostnameSource, esHostnameSource")
 	}
 
@@ -966,7 +1267,7 @@ func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *hu
 	}
 	// CA secret is not valid, return if user specified their own custom CA secret
 	if useExistingCA(hc) {
-		return r.logErrorAndReturn(fmt.Errorf("configured to use existing CA secret, but the CA secret is invalid or got error when validating, err=%v", err), "specified CA secret invalid")
+		return r.logErrorAndReturn(errors.New(fmt.Sprintf("configured to use existing CA secret, but the CA secret is invalid or got error when validating, err=%v", err)), "specified CA secret invalid")
 	}
 	// CA secret is not valid, and should generate our own if it is not already present
 	if !k8serrors.IsNotFound(err) {
@@ -1311,11 +1612,17 @@ func (r *HumioClusterReconciler) ensureOrphanedPvcsAreDeleted(ctx context.Contex
 }
 
 func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+	// if we're using an external PDF‐render service, skip requiring a license secret
+	if hc.Spec.PdfRenderServiceRef != nil {
+		r.Log.Info("Skipping license validation because PdfRenderServiceRef is set",
+			"pdfRenderServiceRef", hc.Spec.PdfRenderServiceRef)
+		return nil
+	}
 	r.Log.Info("ensuring license is valid")
 
 	licenseSecretKeySelector := licenseSecretKeyRefOrDefault(hc)
 	if licenseSecretKeySelector == nil {
-		return fmt.Errorf("no license secret key selector provided")
+		return errors.New("no license secret key selector provided")
 	}
 
 	licenseSecret, err := kubernetes.GetSecret(ctx, r, licenseSecretKeySelector.Name, hc.Namespace)
@@ -1323,7 +1630,7 @@ func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *h
 		return err
 	}
 	if _, ok := licenseSecret.Data[licenseSecretKeySelector.Key]; !ok {
-		return r.logErrorAndReturn(fmt.Errorf("could not read the license"),
+		return r.logErrorAndReturn(errors.New("could not read the license"),
 			fmt.Sprintf("key %s does not exist for secret %s", licenseSecretKeySelector.Key, licenseSecretKeySelector.Name))
 	}
 
@@ -1348,7 +1655,7 @@ func (r *HumioClusterReconciler) ensureLicenseAndAdminToken(ctx context.Context,
 
 	desiredLicenseString, err := r.getDesiredLicenseString(ctx, hc)
 	if err != nil {
-		_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
+		_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withMessage(err.Error()).
 			withState(humiov1alpha1.HumioClusterStateConfigError))
 		return reconcile.Result{}, err
@@ -1357,7 +1664,7 @@ func (r *HumioClusterReconciler) ensureLicenseAndAdminToken(ctx context.Context,
 	// Confirm we can parse the license provided in the HumioCluster resource
 	desiredLicenseUID, err := humio.GetLicenseUIDFromLicenseString(desiredLicenseString)
 	if err != nil {
-		_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
+		_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withMessage(err.Error()).
 			withState(humiov1alpha1.HumioClusterStateConfigError))
 		return reconcile.Result{}, err
@@ -1368,6 +1675,7 @@ func (r *HumioClusterReconciler) ensureLicenseAndAdminToken(ctx context.Context,
 	// Install initial license
 	if getErr != nil {
 		if errors.As(getErr, &humioapi.EntityNotFound{}) {
+
 			if installErr := r.HumioClient.InstallLicense(ctx, clientWithoutAPIToken, req, desiredLicenseString); installErr != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(installErr, "could not install initial license")
 			}
@@ -1386,7 +1694,7 @@ func (r *HumioClusterReconciler) ensureLicenseAndAdminToken(ctx context.Context,
 				Type:       "onprem",
 				Expiration: licenseExpiry.String(),
 			}
-			_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			_, _ = r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withLicense(licenseStatus))
 		}
 	}(ctx, hc)
@@ -1809,7 +2117,7 @@ func (r *HumioClusterReconciler) cleanupUnusedTLSCertificates(ctx context.Contex
 		}
 	}
 
-	// return empty result and no error indicating that everything was in the state we wanted it to be
+	// return empty result, which allows reconciliation to continue and create the new pods
 	return nil
 }
 
@@ -1839,7 +2147,7 @@ func (r *HumioClusterReconciler) getInitServiceAccountSecretName(ctx context.Con
 		for _, secret := range foundInitServiceAccountSecretsList {
 			secretNames = append(secretNames, secret.Name)
 		}
-		return "", fmt.Errorf("found more than one init service account secret: %s", strings.Join(secretNames, ", "))
+		return "", errors.New(fmt.Sprintf("found more than one init service account secret: %s", strings.Join(secretNames, ", ")))
 	}
 	return foundInitServiceAccountSecretsList[0].Name, nil
 }
@@ -1930,7 +2238,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	if hc.Status.State == humiov1alpha1.HumioClusterStateRunning || hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
 		if desiredLifecycleState.FoundVersionDifference() {
 			r.Log.Info(fmt.Sprintf("changing cluster state from %s to %s with pod revision %d for node pool %s", hc.Status.State, humiov1alpha1.HumioClusterStateUpgrading, hnp.GetDesiredPodRevision(), hnp.GetNodePoolName()))
-			if result, err := r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withNodePoolState(humiov1alpha1.HumioClusterStateUpgrading, hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), "")); err != nil {
 				return result, err
 			}
@@ -1938,7 +2246,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		}
 		if !desiredLifecycleState.FoundVersionDifference() && desiredLifecycleState.FoundConfigurationDifference() {
 			r.Log.Info(fmt.Sprintf("changing cluster state from %s to %s with pod revision %d for node pool %s", hc.Status.State, humiov1alpha1.HumioClusterStateRestarting, hnp.GetDesiredPodRevision(), hnp.GetNodePoolName()))
-			if result, err := r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			if result, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withNodePoolState(humiov1alpha1.HumioClusterStateRestarting, hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), "")); err != nil {
 				return result, err
 			}
@@ -1954,7 +2262,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		!desiredLifecycleState.FoundConfigurationDifference() &&
 		!desiredLifecycleState.FoundVersionDifference() {
 		r.Log.Info(fmt.Sprintf("updating cluster state as no difference was detected, updating from=%s to=%s", hnp.GetState(), humiov1alpha1.HumioClusterStateRunning))
-		_, err := r.updateStatus(ctx, r.Status(), hc, statusOptions().
+		_, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withNodePoolState(humiov1alpha1.HumioClusterStateRunning, hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), ""))
 		return reconcile.Result{Requeue: true}, err
 	}
@@ -1962,7 +2270,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 	// we expect an annotation for the bootstrap token to be present
 	desiredBootstrapTokenHash, found := desiredPod.Annotations[BootstrapTokenHashAnnotation]
 	if !found {
-		return reconcile.Result{}, fmt.Errorf("desiredPod does not have the mandatory annotation %s", BootstrapTokenHashAnnotation)
+		return reconcile.Result{}, errors.New(fmt.Sprintf("desiredPod does not have the mandatory annotation %s", BootstrapTokenHashAnnotation))
 	}
 
 	// calculate desired pod hash
@@ -1990,7 +2298,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 				hc.Status.State,
 			))
 
-			_, err := r.updateStatus(ctx, r.Status(), hc, statusOptions().withNodePoolState(hc.Status.State, hnp.GetNodePoolName(), newRevision, desiredPodHash, desiredBootstrapTokenHash, ""))
+			_, err := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().withNodePoolState(hc.Status.State, hnp.GetNodePoolName(), newRevision, desiredPodHash, desiredBootstrapTokenHash, ""))
 			return reconcile.Result{Requeue: true}, err
 		}
 	}
@@ -2000,7 +2308,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 		r.Log.Info(fmt.Sprintf("found %d humio pods requiring deletion", len(podsStatus.podsEvictedOrUsesPVCAttachedToHostThatNoLongerExists)))
 		r.Log.Info(fmt.Sprintf("deleting pod %s", podsStatus.podsEvictedOrUsesPVCAttachedToHostThatNoLongerExists[0].Name))
 		if err = r.Delete(ctx, &podsStatus.podsEvictedOrUsesPVCAttachedToHostThatNoLongerExists[0]); err != nil {
-			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s", podsStatus.podsEvictedOrUsesPVCAttachedToHostThatNoLongerExists[0].Name)).Error()))
 		}
 		return reconcile.Result{RequeueAfter: time.Second + 1}, nil
@@ -2026,7 +2334,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 				if newZoneUnderMaintenance != "" {
 					r.Log.Info(fmt.Sprintf("zone awareness enabled, pinning zone for nodePool=%s in oldZoneUnderMaintenance=%s newZoneUnderMaintenance=%s",
 						hnp.GetNodePoolName(), hnp.GetZoneUnderMaintenance(), newZoneUnderMaintenance))
-					return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+					return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 						withNodePoolState(hnp.GetState(), hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), newZoneUnderMaintenance))
 				}
 			}
@@ -2040,7 +2348,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 			if len(allPodsInZoneZoneUnderMaintenanceIncludingAlreadyMarkedForDeletionWithWrongHashOrRevision) == 0 {
 				r.Log.Info(fmt.Sprintf("zone awareness enabled, clearing zone nodePool=%s in oldZoneUnderMaintenance=%s newZoneUnderMaintenance=%s",
 					hnp.GetNodePoolName(), hnp.GetZoneUnderMaintenance(), ""))
-				return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 					withNodePoolState(hnp.GetState(), hnp.GetNodePoolName(), hnp.GetDesiredPodRevision(), hnp.GetDesiredPodHash(), hnp.GetDesiredBootstrapTokenHash(), ""))
 			}
 		}
@@ -2059,7 +2367,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 					"!podsStatus.haveUnschedulablePodsOrPodsWithBadStatusConditions()", !podsStatus.haveUnschedulablePodsOrPodsWithBadStatusConditions(),
 					"!podsStatus.foundEvictedPodsOrPodsWithOrpahanedPVCs()", !podsStatus.foundEvictedPodsOrPodsWithOrpahanedPVCs(),
 				)
-				return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 					withMessage(waitingOnPodsMessage))
 			}
 		}
@@ -2076,7 +2384,7 @@ func (r *HumioClusterReconciler) ensureMismatchedPodsAreDeleted(ctx context.Cont
 				"len(podsForDeletion)", len(podsForDeletion),
 			)
 			if err = r.Delete(ctx, &pod); err != nil {
-				return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+				return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 					withMessage(r.logErrorAndReturn(err, fmt.Sprintf("could not delete pod %s", pod.Name)).Error()))
 			}
 		}
@@ -2160,7 +2468,6 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 		if err := r.waitForNewPods(ctx, hnp, pods, expectedPodsList); err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "failed to validate new pod")
 		}
-
 		// We have created all pods. Requeue immediately even if the pods are not ready. We will check the readiness status on the next reconciliation.
 		return reconcile.Result{Requeue: true}, nil
 	}
@@ -2231,7 +2538,7 @@ func (r *HumioClusterReconciler) processDownscaling(ctx context.Context, hc *hum
 				r.Log.Info(fmt.Sprintf("successfully evicted data from vhost %d", vhost))
 				if !slices.Contains(hc.Status.EvictedNodeIds, vhost) {
 					hc.Status.EvictedNodeIds = append(hc.Status.EvictedNodeIds, vhost) // keep track of the evicted node for unregistering
-					err = r.Status().Update(ctx, hc)
+					err = r.Client.Status().Update(ctx, hc)
 					if err != nil {
 						r.Log.Error(err, "failed to update cluster status.")
 						return reconcile.Result{}, err
@@ -2311,7 +2618,7 @@ func (r *HumioClusterReconciler) unregisterNode(ctx context.Context, hc *humiov1
 	if registered := r.isNodeRegistered(nodesStatus, vhost); !registered {
 		r.Log.Info(fmt.Sprintf("vhost %d is already unregistered", vhost))
 		hc.Status.EvictedNodeIds = RemoveIntFromSlice(hc.Status.EvictedNodeIds, vhost) // remove unregistered node from the status list
-		err := r.Status().Update(ctx, hc)
+		err := r.Client.Status().Update(ctx, hc)
 		if err != nil {
 			r.Log.Error(err, "failed to update cluster status.")
 			return false, err
@@ -2336,7 +2643,7 @@ func (r *HumioClusterReconciler) unregisterNode(ctx context.Context, hc *humiov1
 		}
 
 		hc.Status.EvictedNodeIds = RemoveIntFromSlice(hc.Status.EvictedNodeIds, vhost) // remove unregistered node from the status list
-		err = r.Status().Update(ctx, hc)
+		err = r.Client.Status().Update(ctx, hc)
 		if err != nil {
 			r.Log.Error(err, "failed to update cluster status.")
 			return false, err
@@ -2548,7 +2855,7 @@ func (r *HumioClusterReconciler) getZoneForPodRemoval(ctx context.Context, podsI
 	zoneCount := map[string]int{}
 	for _, pod := range podsInNodePool {
 		nodeLabel, err := r.getZoneFromPodNode(ctx, pod)
-		if err != nil || nodeLabel == "" {
+		if err != nil {
 			return "", err
 		}
 		if _, ok := zoneCount[nodeLabel]; !ok {
@@ -2613,7 +2920,7 @@ func (r *HumioClusterReconciler) ensureValidStorageConfiguration(hnp *HumioNodeP
 		return nil
 	}
 
-	errInvalidStorageConfiguration := fmt.Errorf("exactly one of dataVolumeSource and dataVolumePersistentVolumeClaimSpecTemplate must be set")
+	errInvalidStorageConfiguration := errors.New("exactly one of dataVolumeSource and dataVolumePersistentVolumeClaimSpecTemplate must be set")
 
 	emptyVolumeSource := corev1.VolumeSource{}
 	emptyDataVolumePersistentVolumeClaimSpecTemplate := corev1.PersistentVolumeClaimSpec{}
@@ -2650,7 +2957,7 @@ func (r *HumioClusterReconciler) pvcList(ctx context.Context, hnp *HumioNodePool
 func (r *HumioClusterReconciler) getDesiredLicenseString(ctx context.Context, hc *humiov1alpha1.HumioCluster) (string, error) {
 	licenseSecretKeySelector := licenseSecretKeyRefOrDefault(hc)
 	if licenseSecretKeySelector == nil {
-		return "", fmt.Errorf("no license secret key selector provided")
+		return "", errors.New("no license secret key selector provided")
 	}
 
 	licenseSecret, err := kubernetes.GetSecret(ctx, r, licenseSecretKeySelector.Name, hc.Namespace)
@@ -2661,13 +2968,6 @@ func (r *HumioClusterReconciler) getDesiredLicenseString(ctx context.Context, hc
 		return "", r.logErrorAndReturn(err, "could not get license")
 	}
 
-	if hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
-		if _, err := r.updateStatus(ctx, r.Status(), hc, statusOptions().
-			withState(humiov1alpha1.HumioClusterStateRunning)); err != nil {
-			r.Log.Error(err, fmt.Sprintf("failed to set state to %s", humiov1alpha1.HumioClusterStateRunning))
-		}
-	}
-
 	return string(licenseSecret.Data[licenseSecretKeySelector.Key]), nil
 }
 
@@ -2675,21 +2975,66 @@ func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx cont
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if err := r.setImageFromSource(ctx, pool); err != nil {
 			r.Log.Info(fmt.Sprintf("failed to setImageFromSource, so setting ConfigError err=%v", err))
-			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision(), pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), pool.GetZoneUnderMaintenance()))
 		}
 		if err := r.ensureValidHumioVersion(pool); err != nil {
 			r.Log.Info(fmt.Sprintf("ensureValidHumioVersion failed, so setting ConfigError err=%v", err))
-			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision(), pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), pool.GetZoneUnderMaintenance()))
 		}
 		if err := r.ensureValidStorageConfiguration(pool); err != nil {
 			r.Log.Info(fmt.Sprintf("ensureValidStorageConfiguration failed, so setting ConfigError err=%v", err))
-			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision(), pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), pool.GetZoneUnderMaintenance()))
+		}
+	}
+
+	// Verify referenced HumioPdfRenderService status
+	if hc.Spec.PdfRenderServiceRef != nil {
+		pdfNamespace := hc.Namespace
+		if hc.Spec.PdfRenderServiceRef.Namespace != "" {
+			pdfNamespace = hc.Spec.PdfRenderServiceRef.Namespace
+		}
+		pdfServiceKey := types.NamespacedName{
+			Namespace: pdfNamespace,
+			Name:      hc.Spec.PdfRenderServiceRef.Name,
+		}
+		pdfService := &humiov1alpha1.HumioPdfRenderService{}
+		err := r.Get(ctx, pdfServiceKey, pdfService)
+
+		if err != nil {
+			var errMsg string
+			if k8serrors.IsNotFound(err) {
+				errMsg = fmt.Sprintf("referenced HumioPdfRenderService %s not found", pdfServiceKey.String())
+				r.Log.Info("Referenced HumioPdfRenderService not found during validation.", "HumioPdfRenderService", pdfServiceKey.String())
+			} else {
+				errMsg = fmt.Sprintf("failed to get referenced HumioPdfRenderService %s during validation: %v", pdfServiceKey.String(), err)
+				r.Log.Error(err, "Failed to get referenced HumioPdfRenderService during validation.", "HumioPdfRenderService", pdfServiceKey.String())
+			}
+			hc.Status.State = humiov1alpha1.HumioClusterStateConfigError
+			hc.Status.Message = errMsg
+			return r.updateStatus(ctx, r.Status(), hc, statusOptions().withState(hc.Status.State).withMessage(hc.Status.Message))
+		}
+
+		// Check if the PDF service itself is in ConfigError or not ready
+		isHprsReady := (pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateExists ||
+			pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning) &&
+			pdfService.Status.ReadyReplicas > 0
+
+		if pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateConfigError || !isHprsReady {
+			errMsg := fmt.Sprintf("referenced HumioPdfRenderService %s is not ready or in ConfigError (state: %s, readyReplicas: %d)",
+				pdfServiceKey.String(), pdfService.Status.State, pdfService.Status.ReadyReplicas)
+			r.Log.Info("Referenced HumioPdfRenderService not ready or in ConfigError during validation.",
+				"HumioPdfRenderService", pdfServiceKey.String(),
+				"pdfServiceState", pdfService.Status.State,
+				"pdfServiceReadyReplicas", pdfService.Status.ReadyReplicas)
+			hc.Status.State = humiov1alpha1.HumioClusterStateConfigError
+			hc.Status.Message = errMsg
+			return r.updateStatus(ctx, r.Status(), hc, statusOptions().withState(hc.Status.State).withMessage(hc.Status.Message))
 		}
 	}
 
@@ -2702,7 +3047,7 @@ func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx cont
 	} {
 		if err := fun(ctx, hc); err != nil {
 			r.Log.Info(fmt.Sprintf("someFunc failed, so setting ConfigError err=%v", err))
-			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withState(humiov1alpha1.HumioClusterStateConfigError))
 		}
@@ -2711,7 +3056,7 @@ func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx cont
 	if len(humioNodePools.Filter(NodePoolFilterHasNode)) > 0 {
 		if err := r.ensureNodePoolSpecificResourcesHaveLabelWithNodePoolName(ctx, humioNodePools.Filter(NodePoolFilterHasNode)[0]); err != nil {
 			r.Log.Info(fmt.Sprintf("ensureNodePoolSpecificResourcesHaveLabelWithNodePoolName failed, so setting ConfigError err=%v", err))
-			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withState(humiov1alpha1.HumioClusterStateConfigError))
 		}
@@ -2719,7 +3064,7 @@ func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx cont
 
 	if err := r.validateNodeCount(hc, humioNodePools.Items); err != nil {
 		r.Log.Info(fmt.Sprintf("validateNodeCount failed, so setting ConfigError err=%v", err))
-		return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+		return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withMessage(err.Error()).
 			withState(humiov1alpha1.HumioClusterStateConfigError))
 	}
@@ -2727,7 +3072,7 @@ func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx cont
 	for _, pool := range humioNodePools.Items {
 		if err := r.validateInitialPodSpec(pool); err != nil {
 			r.Log.Info(fmt.Sprintf("validateInitialPodSpec failed, so setting ConfigError err=%v", err))
-			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()).
 				withNodePoolState(humiov1alpha1.HumioClusterStateConfigError, pool.GetNodePoolName(), pool.GetDesiredPodRevision(), pool.GetDesiredPodHash(), pool.GetDesiredBootstrapTokenHash(), pool.GetZoneUnderMaintenance()))
 		}
@@ -2738,7 +3083,7 @@ func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx cont
 func (r *HumioClusterReconciler) cleanupUnusedResources(ctx context.Context, hc *humiov1alpha1.HumioCluster, humioNodePools HumioNodePoolList) (reconcile.Result, error) {
 	for _, hnp := range humioNodePools.Items {
 		if err := r.ensureOrphanedPvcsAreDeleted(ctx, hc, hnp); err != nil {
-			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()))
 		}
 
@@ -2746,7 +3091,7 @@ func (r *HumioClusterReconciler) cleanupUnusedResources(ctx context.Context, hc 
 			extraKafkaConfigsConfigMap, err := kubernetes.GetConfigMap(ctx, r, hnp.GetExtraKafkaConfigsConfigMapName(), hc.Namespace)
 			if err == nil {
 				if err = r.Delete(ctx, &extraKafkaConfigsConfigMap); err != nil {
-					return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+					return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 						withMessage(err.Error()))
 				}
 			}
@@ -2758,7 +3103,7 @@ func (r *HumioClusterReconciler) cleanupUnusedResources(ctx context.Context, hc 
 			viewGroupPermissionsConfigMap, err := kubernetes.GetConfigMap(ctx, r, hnp.GetViewGroupPermissionsConfigMapName(), hc.Namespace)
 			if err == nil {
 				if err = r.Delete(ctx, &viewGroupPermissionsConfigMap); err != nil {
-					return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+					return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 						withMessage(err.Error()))
 				}
 				break // only need to delete it once, since all node pools reference the same underlying configmap
@@ -2771,7 +3116,7 @@ func (r *HumioClusterReconciler) cleanupUnusedResources(ctx context.Context, hc 
 			rolePermissionsConfigMap, err := kubernetes.GetConfigMap(ctx, r, hnp.GetRolePermissionsConfigMapName(), hc.Namespace)
 			if err == nil {
 				if err = r.Delete(ctx, &rolePermissionsConfigMap); err != nil {
-					return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+					return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 						withMessage(err.Error()))
 				}
 				break // only need to delete it once, since all node pools reference the same underlying configmap
@@ -2781,7 +3126,7 @@ func (r *HumioClusterReconciler) cleanupUnusedResources(ctx context.Context, hc 
 
 	for _, nodePool := range humioNodePools.Filter(NodePoolFilterDoesNotHaveNodes) {
 		if err := r.cleanupUnusedService(ctx, nodePool); err != nil {
-			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()))
 		}
 	}
@@ -2792,7 +3137,7 @@ func (r *HumioClusterReconciler) cleanupUnusedResources(ctx context.Context, hc 
 		r.cleanupUnusedCAIssuer,
 	} {
 		if err := fun(ctx, hc); err != nil {
-			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
+			return r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 				withMessage(err.Error()))
 		}
 	}
@@ -2801,6 +3146,7 @@ func (r *HumioClusterReconciler) cleanupUnusedResources(ctx context.Context, hc 
 }
 
 func (r *HumioClusterReconciler) constructPodAttachments(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) (*podAttachments, reconcile.Result, error) {
+
 	attachments := &podAttachments{}
 
 	if hnp.DataVolumePersistentVolumeClaimSpecTemplateIsSetByUser() {
@@ -2809,7 +3155,7 @@ func (r *HumioClusterReconciler) constructPodAttachments(ctx context.Context, hc
 
 	envVarSourceData, err := r.getEnvVarSource(ctx, hnp)
 	if err != nil {
-		result, _ := r.updateStatus(ctx, r.Status(), hc, statusOptions().
+		result, _ := r.updateStatus(ctx, r.Client.Status(), hc, statusOptions().
 			withMessage(r.logErrorAndReturn(err, "got error when getting pod envVarSource").Error()).
 			withState(humiov1alpha1.HumioClusterStateConfigError))
 		return nil, result, err
@@ -2873,42 +3219,45 @@ func getHumioNodePoolManagers(hc *humiov1alpha1.HumioCluster) HumioNodePoolList 
 	return humioNodePools
 }
 
-// reconcileSinglePDB handles creation/update of a PDB for a single node pool
-func (r *HumioClusterReconciler) reconcileSinglePDB(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error {
+// reconcileSinglePDB ensures the PodDisruptionBudget (PDB) for a specific node pool is correctly configured.
+// It handles creation, update, and deletion of the PDB based on the HumioCluster spec.
+func (r *HumioClusterReconciler) reconcileSinglePDB(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool) error { // Changed signature to return only error
 	pdbSpec := hnp.GetPodDisruptionBudget()
-	pdbName := hnp.GetPodDisruptionBudgetName()
+	pdbName := hnp.GetPodDisruptionBudgetName() // Use GetPodDisruptionBudgetName from HumioNodePool
+
+	// If PDB is not configured for this node pool, ensure any existing PDB is deleted.
 	if pdbSpec == nil {
 		r.Log.Info("PDB not configured by user, deleting any existing PDB", "nodePool", hnp.GetNodePoolName(), "pdb", pdbName)
 		currentPDB := &policyv1.PodDisruptionBudget{}
 		err := r.Get(ctx, client.ObjectKey{Name: pdbName, Namespace: hc.Namespace}, currentPDB)
 		if err == nil {
 			if delErr := r.Delete(ctx, currentPDB); delErr != nil {
-				return fmt.Errorf("failed to delete orphaned PDB %s/%s: %w", hc.Namespace, pdbName, delErr)
+				return fmt.Errorf("failed to delete orphaned PDB %s/%s: %w", hc.Namespace, pdbName, delErr) // Return only error
 			}
 			r.Log.Info("deleted orphaned PDB", "pdb", pdbName)
 		} else if !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("failed to get PDB %s/%s: %w", hc.Namespace, pdbName, err)
+			return fmt.Errorf("failed to get PDB %s/%s: %w", hc.Namespace, pdbName, err) // Return only error
 		}
-		return nil
+		return nil // Return only nil
 	}
 
 	pods, err := kubernetes.ListPods(ctx, r, hc.Namespace, kubernetes.MatchingLabelsForHumio(hc.Name))
 	if err != nil {
-		return fmt.Errorf("failed to list pods: %w", err)
+		return fmt.Errorf("failed to list pods: %w", err) // Return only error
 	}
 
 	if len(pods) == 0 {
 		r.Log.Info("no pods found, skipping PDB creation")
-		return nil
+		return nil // Return only nil
 	}
 
 	desiredPDB, err := r.constructPDB(hc, hnp, pdbSpec)
 	if err != nil {
 		r.Log.Error(err, "failed to construct PDB", "pdbName", pdbName)
-		return fmt.Errorf("failed to construct PDB: %w", err)
+		return fmt.Errorf("failed to construct PDB: %w", err) // Return only error
 	}
 
-	return r.createOrUpdatePDB(ctx, hc, desiredPDB)
+	return r.createOrUpdatePDB(ctx, hc, desiredPDB) // Return only error from createOrUpdatePDB
 }
 
 // constructPDB creates a PodDisruptionBudget object for a given HumioCluster and HumioNodePool
