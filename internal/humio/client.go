@@ -136,9 +136,16 @@ type LicenseClient interface {
 }
 
 type UsersClient interface {
+	AddUser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioUser) error
+	GetUser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioUser) (*humiographql.UserDetails, error)
+	UpdateUser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioUser) error
+	DeleteUser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioUser) error
+
+	RotateUserApiTokenAndGet(context.Context, *humioapi.Client, reconcile.Request, string) (string, error)
+
+	// TODO: Rename the ones below, or perhaps get rid of them entirely?
 	AddUserAndGetUserID(context.Context, *humioapi.Client, reconcile.Request, string, bool) (string, error)
 	GetUserIDForUsername(context.Context, *humioapi.Client, reconcile.Request, string) (string, error)
-	RotateUserApiTokenAndGet(context.Context, *humioapi.Client, reconcile.Request, string) (string, error)
 }
 
 // ClientConfig stores our Humio api client
@@ -1772,4 +1779,53 @@ func (h *ClientConfig) AddUserAndGetUserID(ctx context.Context, client *humioapi
 	default:
 		return "", fmt.Errorf("got unknown user type=%v", v)
 	}
+}
+
+func (h *ClientConfig) AddUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+	_, err := humiographql.AddUser(
+		ctx,
+		client,
+		hu.Spec.UserName,
+		hu.Spec.IsRoot,
+	)
+	return err
+}
+
+func (h *ClientConfig) GetUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) (*humiographql.UserDetails, error) {
+	resp, err := humiographql.GetUsersByUsername(
+		ctx,
+		client,
+		hu.Spec.UserName,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	respUsers := resp.GetUsers()
+	for _, user := range respUsers {
+		if user.Username == hu.Spec.UserName {
+			return &user.UserDetails, nil
+		}
+	}
+
+	return nil, humioapi.UserNotFound(hu.Spec.UserName)
+}
+
+func (h *ClientConfig) UpdateUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+	_, err := humiographql.UpdateUser(
+		ctx,
+		client,
+		hu.Spec.UserName,
+		hu.Spec.IsRoot,
+	)
+	return err
+}
+
+func (h *ClientConfig) DeleteUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+	_, err := humiographql.RemoveUser(
+		ctx,
+		client,
+		hu.Spec.UserName,
+	)
+	return err
 }

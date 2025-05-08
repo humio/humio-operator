@@ -36,27 +36,33 @@ const (
 type HumioViewConnection struct {
 	// RepositoryName contains the name of the target repository
 	// +kubebuilder:validation:MinLength=1
-	// +required
+	// +kubebuilder:validation:Required
 	RepositoryName string `json:"repositoryName,omitempty"`
 	// Filter contains the prefix filter that will be applied for the given RepositoryName
 	Filter string `json:"filter,omitempty"`
 }
 
 // HumioViewSpec defines the desired state of HumioView.
+// +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioViewSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
 	// This conflicts with ExternalClusterName.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
 	ManagedClusterName string `json:"managedClusterName,omitempty"`
 	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
 	// This conflicts with ManagedClusterName.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the view inside Humio
 	// +kubebuilder:validation:MinLength=1
-	// +required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
+	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// Description contains the description that will be set on the view
-	// +optional
+	// +kubebuilder:validation:Optional
 	Description string `json:"description,omitempty"`
 	// Connections contains the connections to the Humio repositories which is accessible in this view
 	Connections []HumioViewConnection `json:"connections,omitempty"`
@@ -81,7 +87,8 @@ type HumioView struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HumioViewSpec   `json:"spec,omitempty"`
+	// +kubebuilder:validation:Required
+	Spec   HumioViewSpec   `json:"spec"`
 	Status HumioViewStatus `json:"status,omitempty"`
 }
 

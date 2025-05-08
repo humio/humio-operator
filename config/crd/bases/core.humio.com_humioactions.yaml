@@ -74,6 +74,7 @@ spec:
                 description: |-
                   ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
                   This conflicts with ManagedClusterName.
+                minLength: 1
                 type: string
               humioRepositoryProperties:
                 description: HumioRepositoryProperties indicates this is a Humio Repository
@@ -121,11 +122,15 @@ spec:
                   ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
                   resources should be created.
                   This conflicts with ExternalClusterName.
+                minLength: 1
                 type: string
               name:
                 description: Name is the name of the Action
                 minLength: 1
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               opsGenieProperties:
                 description: OpsGenieProperties indicates this is a Ops Genie Action,
                   and contains the corresponding properties
@@ -512,6 +517,16 @@ spec:
             - name
             - viewName
             type: object
+            x-kubernetes-validations:
+            - message: Must specify exactly one of managedClusterName or externalClusterName
+              rule: (has(self.managedClusterName) && self.managedClusterName != "")
+                != (has(self.externalClusterName) && self.externalClusterName != "")
+            - message: Exactly one action specific properties field must be specified
+              rule: '((has(self.emailProperties) ? 1 : 0) + (has(self.humioRepositoryProperties)
+                ? 1 : 0) + (has(self.opsGenieProperties) ? 1 : 0) + (has(self.pagerDutyProperties)
+                ? 1 : 0) + (has(self.slackProperties) ? 1 : 0) + (has(self.slackPostMessageProperties)
+                ? 1 : 0) + (has(self.victorOpsProperties) ? 1 : 0) + (has(self.webhookProperties)
+                ? 1 : 0)) == 1'
           status:
             description: HumioActionStatus defines the observed state of HumioAction.
             properties:
@@ -519,6 +534,8 @@ spec:
                 description: State reflects the current state of the HumioAction
                 type: string
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true
