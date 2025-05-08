@@ -70,6 +70,8 @@ spec:
           value: {{ .Values.defaultHumioCoreImage | quote }}
         - name: HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE
           value: {{ .Values.defaultHumioHelperImage | quote }}
+        - name: HUMIO_OPERATOR_DEFAULT_PDF_RENDER_SERVICE_IMAGE
+          value: {{ .Values.defaultPdfRenderServiceImage | quote }}
         livenessProbe:
           httpGet:
             path: /healthz
