@@ -20,11 +20,12 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
-	"github.com/humio/humio-operator/internal/controller"
-	"github.com/humio/humio-operator/internal/humio"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/humio/humio-operator/internal/controller"
+	"github.com/humio/humio-operator/internal/humio"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
