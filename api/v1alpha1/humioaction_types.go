@@ -62,7 +62,7 @@ type HumioActionWebhookProperties struct {
 type HeadersSource struct {
 	// Name is the name of the header.
 	// +kubebuilder:validation:MinLength=1
-	// +required
+	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// ValueFrom defines where to fetch the value of the header from.
 	ValueFrom VarSource `json:"valueFrom,omitempty"`
@@ -76,7 +76,7 @@ type HumioActionEmailProperties struct {
 	SubjectTemplate string `json:"subjectTemplate,omitempty"`
 	// Recipients holds the list of email addresses that the action should send emails to.
 	// +kubebuilder:validation:MinItems=1
-	// +required
+	// +kubebuilder:validation:Required
 	Recipients []string `json:"recipients,omitempty"`
 	// UseProxy is used to configure if the action should use the proxy configured on the system. For more details,
 	// see https://library.humio.com/falcon-logscale-self-hosted/configuration-http-proxy.html
@@ -180,21 +180,28 @@ type VarSource struct {
 }
 
 // HumioActionSpec defines the desired state of HumioAction.
+// +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
+// +kubebuilder:validation:XValidation:rule="((has(self.emailProperties) ? 1 : 0) + (has(self.humioRepositoryProperties) ? 1 : 0) + (has(self.opsGenieProperties) ? 1 : 0) + (has(self.pagerDutyProperties) ? 1 : 0) + (has(self.slackProperties) ? 1 : 0) + (has(self.slackPostMessageProperties) ? 1 : 0) + (has(self.victorOpsProperties) ? 1 : 0) + (has(self.webhookProperties) ? 1 : 0)) == 1",message="Exactly one action specific properties field must be specified"
 type HumioActionSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
 	// This conflicts with ExternalClusterName.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
 	ManagedClusterName string `json:"managedClusterName,omitempty"`
 	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
 	// This conflicts with ManagedClusterName.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the Action
 	// +kubebuilder:validation:MinLength=1
-	// +required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
+	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// ViewName is the name of the Humio View under which the Action will be managed. This can also be a Repository
 	// +kubebuilder:validation:MinLength=1
-	// +required
+	// +kubebuilder:validation:Required
 	ViewName string `json:"viewName"`
 	// EmailProperties indicates this is an Email Action, and contains the corresponding properties
 	EmailProperties *HumioActionEmailProperties `json:"emailProperties,omitempty"`
@@ -228,7 +235,8 @@ type HumioAction struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HumioActionSpec   `json:"spec,omitempty"`
+	// +kubebuilder:validation:Required
+	Spec   HumioActionSpec   `json:"spec"`
 	Status HumioActionStatus `json:"status,omitempty"`
 }
 

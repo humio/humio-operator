@@ -25,3 +25,29 @@ mutation AddUser(
         }
     }
 }
+
+mutation RemoveUser(
+    $Username: String!
+) {
+    removeUser(input: {
+        username: $Username
+    }) {
+        user {
+            ...UserDetails
+        }
+    }
+}
+
+mutation UpdateUser(
+    $Username: String!
+    $IsRoot: Boolean
+) {
+    updateUser(input: {
+        username: $Username
+        isRoot: $IsRoot
+    }) {
+        user {
+            ...UserDetails
+        }
+    }
+}

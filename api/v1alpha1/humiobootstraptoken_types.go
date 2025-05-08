@@ -29,11 +29,17 @@ const (
 )
 
 // HumioBootstrapTokenSpec defines the desired state of HumioBootstrapToken.
+// +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioBootstrapTokenSpec struct {
-	// ManagedClusterName refers to the name of the HumioCluster which will use this bootstrap token
+	// ManagedClusterName refers to the name of the HumioCluster which will use this bootstrap token.
+	// This conflicts with ExternalClusterName.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
 	ManagedClusterName string `json:"managedClusterName,omitempty"`
 	// ExternalClusterName refers to the name of the HumioExternalCluster which will use this bootstrap token for authentication
 	// This conflicts with ManagedClusterName.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Image can be set to override the image used to run when generating a bootstrap token. This will default to the image
 	// that is used by either the HumioCluster resource or the first NodePool resource if ManagedClusterName is set on the HumioBootstrapTokenSpec
@@ -107,7 +113,8 @@ type HumioBootstrapToken struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HumioBootstrapTokenSpec   `json:"spec,omitempty"`
+	// +kubebuilder:validation:Required
+	Spec   HumioBootstrapTokenSpec   `json:"spec"`
 	Status HumioBootstrapTokenStatus `json:"status,omitempty"`
 }
 

@@ -39,34 +39,40 @@ type HumioRetention struct {
 	// perhaps we should migrate to resource.Quantity? the Humio API needs float64, but that is not supported here, see more here:
 	// https://github.com/kubernetes-sigs/controller-tools/issues/245
 	// +kubebuilder:validation:Minimum=0
-	// +optional
+	// +kubebuilder:validation:Optional
 	IngestSizeInGB *int32 `json:"ingestSizeInGB,omitempty"`
 	// StorageSizeInGB sets the retention size in gigabytes measured as disk usage. In order words, this is the
 	// compressed size.
 	// +kubebuilder:validation:Minimum=0
-	// +optional
+	// +kubebuilder:validation:Optional
 	StorageSizeInGB *int32 `json:"storageSizeInGB,omitempty"`
 	// TimeInDays sets the data retention measured in days.
 	// +kubebuilder:validation:Minimum=1
-	// +optional
+	// +kubebuilder:validation:Optional
 	TimeInDays *int32 `json:"timeInDays,omitempty"`
 }
 
 // HumioRepositorySpec defines the desired state of HumioRepository.
+// +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioRepositorySpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
 	// This conflicts with ExternalClusterName.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
 	ManagedClusterName string `json:"managedClusterName,omitempty"`
 	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
 	// This conflicts with ManagedClusterName.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the repository inside Humio
 	// +kubebuilder:validation:MinLength=1
-	// +required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
+	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// Description contains the description that will be set on the repository
-	// +optional
+	// +kubebuilder:validation:Optional
 	Description string `json:"description,omitempty"`
 	// Retention defines the retention settings for the repository
 	Retention HumioRetention `json:"retention,omitempty"`
@@ -95,7 +101,8 @@ type HumioRepository struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HumioRepositorySpec   `json:"spec,omitempty"`
+	// +kubebuilder:validation:Required
+	Spec   HumioRepositorySpec   `json:"spec"`
 	Status HumioRepositoryStatus `json:"status,omitempty"`
 }
 
