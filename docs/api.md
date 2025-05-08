@@ -4406,7 +4406,7 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         <td><b><a href="#humioclusterspecpdfrenderserviceref">pdfRenderServiceRef</a></b></td>
         <td>object</td>
         <td>
-          PdfRenderServiceRef points to a shared HumioPdfRenderService resource
+          HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
 that multiple HumioCluster resources can use<br/>
         </td>
         <td>false</td>
@@ -16860,7 +16860,7 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         <td><b><a href="#humioclusterspecnodepoolsindexspecpdfrenderserviceref">pdfRenderServiceRef</a></b></td>
         <td>object</td>
         <td>
-          PdfRenderServiceRef points to a shared HumioPdfRenderService resource
+          HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
 that multiple HumioCluster resources can use<br/>
         </td>
         <td>false</td>
@@ -28386,7 +28386,7 @@ OperatorInternal. Defaults to [OperatorInternal]. To disallow all API request ty
 
 
 
-PdfRenderServiceRef points to a shared HumioPdfRenderService resource
+HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
 that multiple HumioCluster resources can use
 
 <table>
@@ -32269,7 +32269,7 @@ Humio pods can be updated in a rolling fashion or if they must be replaced at th
 
 
 
-PdfRenderServiceRef points to a shared HumioPdfRenderService resource
+HumioPdfRenderServiceReference points to a shared HumioPdfRenderService resource
 that multiple HumioCluster resources can use
 
 <table>

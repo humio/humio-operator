@@ -4409,11 +4409,17 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.CreateLicenseSecret(ctx, key, k8sClient, humioCluster)
 
-			pdfServiceName := "my-shared-pdf-service" // This is pdfService.Name
+			pdfServiceName := "my-shared-pdf-service"
 			pdfServiceKey := types.NamespacedName{
 				Name:      pdfServiceName,
-				Namespace: key.Namespace, // This is pdfService.Namespace
+				Namespace: key.Namespace,
 			}
+			// Define pdfDeploymentKey early for use in pre-HumioCluster readiness checks
+			pdfDeploymentKey := types.NamespacedName{
+				Name:      fmt.Sprintf("%s-pdf-render-service", pdfServiceName),
+				Namespace: key.Namespace, // pdfService will be in the same namespace as humioCluster (key.Namespace)
+			}
+
 			pdfService := &humiov1alpha1.HumioPdfRenderService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      pdfServiceName,
@@ -4429,6 +4435,29 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			By("Waiting for PDF Service's observedGeneration to catch up")
 			suite.WaitForObservedGeneration(ctx, k8sClient, pdfService, longTimeout, suite.TestInterval)
+
+			// Ensure the underlying PDF render deployment is ready.
+			// The HumioPdfRenderService CR will transition to 'Running' state only after its managed deployment is ready.
+			suite.UsingClusterBy(key.Name, fmt.Sprintf("Ensuring PDF deployment %s (for HPRS %s) is ready before checking HPRS status", pdfDeploymentKey.String(), pdfServiceKey.String()))
+			By("Ensuring PDF render deployment for HPRS is ready")
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfDeploymentKey)
+
+			// ADDED: Wait for the HumioPdfRenderService CR to report Running status
+			By("Waiting for HumioPdfRenderService to be Running")
+			Eventually(func() string {
+				currentHprs := &humiov1alpha1.HumioPdfRenderService{}
+				err := k8sClient.Get(ctx, pdfServiceKey, currentHprs)
+				if err != nil {
+					// Return error state to avoid panic and aid debugging
+					return fmt.Sprintf("ErrorFetchingHPRS:%v", err)
+				}
+				return currentHprs.Status.State
+			}, longTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning), "HumioPdfRenderService CR should become Running")
+
+			// Ensure the underlying PDF render deployment is ready
+			suite.UsingClusterBy(key.Name, fmt.Sprintf("Ensuring PDF deployment %s is ready before HumioCluster uses it", pdfDeploymentKey.String()))
+			By("Ensuring PDF render deployment is ready (pre-HumioCluster)")
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfDeploymentKey)
 
 			humioCluster.Spec.PdfRenderServiceRef = &humiov1alpha1.HumioPdfRenderServiceReference{
 				Name:      pdfServiceName,
@@ -4446,19 +4475,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Eventually(func() string {
 				var cluster humiov1alpha1.HumioCluster
 				if err := k8sClient.Get(ctx, key, &cluster); err != nil {
-					return ""
+					return "" // Or a distinct error string
 				}
 				return cluster.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 
-			pdfDeploymentKey := types.NamespacedName{
-				// The deployment name is typically <HumioPdfRenderService CR Name> + "-pdf-render-service"
-				Name:      fmt.Sprintf("%s-pdf-render-service", pdfService.Name),
-				Namespace: pdfService.Namespace,
-			}
-
-			suite.UsingClusterBy(key.Name, fmt.Sprintf("Ensuring PDF deployment %s is ready for envtest", pdfDeploymentKey.String()))
-			By("Ensuring PDF render deployment is ready")
+			// pdfDeploymentKey is already defined earlier. This ensures it's still ready or for subsequent checks.
+			suite.UsingClusterBy(key.Name, fmt.Sprintf("Ensuring PDF deployment %s is ready for envtest (post-HumioCluster ready)", pdfDeploymentKey.String()))
+			By("Ensuring PDF render deployment is ready (post-HumioCluster ready)")
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfDeploymentKey)
 
 			suite.UsingClusterBy(key.Name, "Verifying PDF render service is created with custom image")
@@ -4543,7 +4567,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			By("Waiting for HumioCluster's observedGeneration to catch up after removing PDF ref")
 			suite.WaitForObservedGeneration(ctx, k8sClient, updatedCluster, longTimeout, suite.TestInterval)
 
-			// FIXED EXPECTATION - should verify PDF service deployment still exists
+			// Should verify PDF service deployment still exists
 			suite.UsingClusterBy(key.Name, "Verifying PDF render service deployment remains available")
 			Eventually(func() bool {
 				deployment := &appsv1.Deployment{}
