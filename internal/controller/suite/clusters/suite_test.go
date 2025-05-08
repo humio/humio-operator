@@ -167,17 +167,6 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&controller.HumioPdfRenderServiceReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		BaseLogger: log,
-		Namespace:  testProcessNamespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		Expect(err).NotTo(HaveOccurred())
@@ -545,7 +534,7 @@ func getProbeScheme(hc *humiov1alpha1.HumioCluster) corev1.URIScheme {
 // ensurePdfRenderDeploymentReady creates (if missing) a dummy Deployment for the
 // given HumioPdfRenderService and patches .status so the HumioCluster controller
 // sees it as Ready when running in env‑test.
-func ensurePdfRenderDeploymentReady(ctx context.Context, c client.Client, key types.NamespacedName) {
+func EnsurePdfRenderDeploymentReady(ctx context.Context, c client.Client, key types.NamespacedName) {
 	if !helpers.UseEnvtest() {
 		return // real controller will create & update it in live clusters
 	}
@@ -616,23 +605,29 @@ func ensurePdfRenderDeploymentReady(ctx context.Context, c client.Client, key ty
 
 // fetchHumioPodEnv scans the first Humio pod and returns its env map.
 // Returns nil if no pods are found or if there's an error.
-func fetchHumioPodEnv(ctx context.Context, c client.Client, hcName, ns string) map[string]string {
+func FetchHumioPodEnv(ctx context.Context, c client.Client, hcName, ns string) map[string]string {
 	// Define standard timeouts for this function
 	standardTimeout := 30 * time.Second
 	quickInterval := 250 * time.Millisecond
 
 	var pods []corev1.Pod
-	var err error
 
 	// Wait for pods to be available with proper error handling
 	Eventually(func() bool {
+		var err error
 		pods, err = kubernetes.ListPods(
 			ctx, c, ns, kubernetes.MatchingLabelsForHumio(hcName),
 		)
+		// Only use the err variable in a condition to avoid the unused error
 		if err != nil {
-			fmt.Fprintf(GinkgoWriter, "Error listing pods for %s in namespace %s: %v\n",
+			_, _ = fmt.Fprintf(GinkgoWriter, "Error listing pods for %s in namespace %s: %v\n",
 				hcName, ns, err)
 			return false
+		}
+
+		if len(pods) == 0 {
+			_, _ = fmt.Fprintf(GinkgoWriter, "No pods found for HumioCluster %s in namespace %s\n",
+				hcName, ns)
 		}
 		return len(pods) > 0
 	}, standardTimeout, quickInterval).Should(BeTrue(),
@@ -640,14 +635,14 @@ func fetchHumioPodEnv(ctx context.Context, c client.Client, hcName, ns string) m
 
 	// Verify pods are not empty
 	if len(pods) == 0 {
-		fmt.Fprintf(GinkgoWriter, "No pods found for HumioCluster %s in namespace %s\n",
+		_, _ = fmt.Fprintf(GinkgoWriter, "No pods found for HumioCluster %s in namespace %s\n",
 			hcName, ns)
 		return nil
 	}
 
 	// Verify pod has containers
 	if len(pods[0].Spec.Containers) == 0 {
-		fmt.Fprintf(GinkgoWriter, "Pod %s has no containers\n", pods[0].Name)
+		_, _ = fmt.Fprintf(GinkgoWriter, "Pod %s has no containers\n", pods[0].Name)
 		return nil
 	}
 

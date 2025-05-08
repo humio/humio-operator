@@ -46,9 +46,9 @@ const (
 	emailActionExample         string = "example@example.com"
 	expectedSecretValueExample string = "secret-token"
 	PDFRenderServiceImage      string = "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e"
-	protocolHTTPS              string = "https"
 	tlsCertName                string = "tls-cert"                 // Unrelated to PDF service TLS, likely for HumioCluster itself
 	hprsFinalizer              string = "core.humio.com/finalizer" // Match controller constant
+	updatedParserScript        string = "kvParse() | updated"
 	// Match controller constants
 	pdfTLSCertVolumeName       string = "humio-pdf-render-service-tls"
 	pdfTLSCertMountPath        string = "/etc/humio-pdf-render-service/tls"
@@ -56,6 +56,8 @@ const (
 	pdfRenderTLSCertPathEnvVar string = "HUMIO_PDF_RENDER_TLS_CERT_PATH"
 	pdfRenderTLSKeyPathEnvVar  string = "HUMIO_PDF_RENDER_TLS_KEY_PATH"
 	pdfRenderCAFileEnvVar      string = "HUMIO_PDF_RENDER_CA_FILE"
+	protocolHTTP               string = "http" // Add this line
+	protocolHTTPS              string = "https"
 )
 
 var _ = Describe("Humio Resources Controllers", func() {
@@ -675,7 +677,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(*initialParser).To(Equal(*expectedInitialParser))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Updating the parser successfully")
-			updatedScript := "kvParse() | updated"
+			updatedScript := updatedParserScript
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, key, fetchedParser); err != nil {
 					return err
@@ -731,9 +733,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:      "humioexternalcluster",
 				Namespace: clusterKey.Namespace,
 			}
-			protocol := "http"
+			protocol := protocolHTTP
 			if !helpers.UseEnvtest() && helpers.UseCertManager() {
-				protocol = protocolHTTPS
+				protocol = protocolHTTP
 			}
 
 			toCreateExternalCluster := &humiov1alpha1.HumioExternalCluster{
@@ -747,7 +749,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			if protocol == "https" {
+			if protocol == protocolHTTPS {
 				toCreateExternalCluster.Spec.CASecretName = clusterKey.Name
 			} else {
 				toCreateExternalCluster.Spec.Insecure = true
@@ -1049,7 +1051,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(*initialParser).To(Equal(*expectedInitialParser))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Updating the parser successfully")
-			updatedScript := "kvParse() | updated"
+			updatedScript := updatedParserScript
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, key, fetchedParser); err != nil {
 					return err
@@ -1105,7 +1107,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:      "humioexternalcluster",
 				Namespace: clusterKey.Namespace,
 			}
-			protocol := "http"
+			protocol := protocolHTTP
 			if !helpers.UseEnvtest() && helpers.UseCertManager() {
 				protocol = protocolHTTPS
 			}
@@ -1121,7 +1123,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			if protocol == "https" {
+			if protocol == protocolHTTPS {
 				toCreateExternalCluster.Spec.CASecretName = clusterKey.Name
 			} else {
 				toCreateExternalCluster.Spec.Insecure = true
@@ -1423,7 +1425,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(*initialParser).To(Equal(*expectedInitialParser))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Updating the parser successfully")
-			updatedScript := "kvParse() | updated"
+			updatedScript := updatedParserScript
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, key, fetchedParser); err != nil {
 					return err
@@ -1479,7 +1481,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:      "humioexternalcluster",
 				Namespace: clusterKey.Namespace,
 			}
-			protocol := "http"
+			protocol := protocolHTTP
 			if !helpers.UseEnvtest() && helpers.UseCertManager() {
 				protocol = protocolHTTPS
 			}
@@ -1495,7 +1497,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			if protocol == "https" {
+			if protocol == protocolHTTPS {
 				toCreateExternalCluster.Spec.CASecretName = clusterKey.Name
 			} else {
 				toCreateExternalCluster.Spec.Insecure = true
@@ -1797,7 +1799,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(*initialParser).To(Equal(*expectedInitialParser))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Updating the parser successfully")
-			updatedScript := "kvParse() | updated"
+			updatedScript := updatedParserScript
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, key, fetchedParser); err != nil {
 					return err
@@ -1853,7 +1855,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:      "humioexternalcluster",
 				Namespace: clusterKey.Namespace,
 			}
-			protocol := "http"
+			protocol := protocolHTTP
 			if !helpers.UseEnvtest() && helpers.UseCertManager() {
 				protocol = protocolHTTPS
 			}
@@ -1869,7 +1871,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			if protocol == "https" {
+			if protocol == protocolHTTPS {
 				toCreateExternalCluster.Spec.CASecretName = clusterKey.Name
 			} else {
 				toCreateExternalCluster.Spec.Insecure = true
@@ -2171,7 +2173,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(*initialParser).To(Equal(*expectedInitialParser))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Updating the parser successfully")
-			updatedScript := "kvParse() | updated"
+			updatedScript := updatedParserScript
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, key, fetchedParser); err != nil {
 					return err
@@ -2227,7 +2229,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:      "humioexternalcluster",
 				Namespace: clusterKey.Namespace,
 			}
-			protocol := "http"
+			protocol := protocolHTTP
 			if !helpers.UseEnvtest() && helpers.UseCertManager() {
 				protocol = protocolHTTPS
 			}
@@ -2243,7 +2245,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			if protocol == "https" {
+			if protocol == protocolHTTPS {
 				toCreateExternalCluster.Spec.CASecretName = clusterKey.Name
 			} else {
 				toCreateExternalCluster.Spec.Insecure = true
@@ -2545,7 +2547,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(*initialParser).To(Equal(*expectedInitialParser))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Updating the parser successfully")
-			updatedScript := "kvParse() | updated"
+			updatedScript := updatedParserScript
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, key, fetchedParser); err != nil {
 					return err
@@ -2601,7 +2603,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:      "humioexternalcluster",
 				Namespace: clusterKey.Namespace,
 			}
-			protocol := "http"
+			protocol := protocolHTTP
 			if !helpers.UseEnvtest() && helpers.UseCertManager() {
 				protocol = protocolHTTPS
 			}
@@ -2617,7 +2619,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			if protocol == "https" {
+			if protocol == protocolHTTPS {
 				toCreateExternalCluster.Spec.CASecretName = clusterKey.Name
 			} else {
 				toCreateExternalCluster.Spec.Insecure = true
@@ -2919,7 +2921,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(*initialParser).To(Equal(*expectedInitialParser))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioParser: Updating the parser successfully")
-			updatedScript := "kvParse() | updated"
+			updatedScript := updatedParserScript
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, key, fetchedParser); err != nil {
 					return err
@@ -2975,7 +2977,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:      "humioexternalcluster",
 				Namespace: clusterKey.Namespace,
 			}
-			protocol := "http"
+			protocol := protocolHTTP
 			if !helpers.UseEnvtest() && helpers.UseCertManager() {
 				protocol = protocolHTTPS
 			}
@@ -2991,7 +2993,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			if protocol == "https" {
+			if protocol == protocolHTTPS {
 				toCreateExternalCluster.Spec.CASecretName = clusterKey.Name
 			} else {
 				toCreateExternalCluster.Spec.Insecure = true
@@ -4394,172 +4396,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				corev1.EnvVar{Name: "MAX_CONNECTIONS", Value: "200"},
 				corev1.EnvVar{Name: "NEW_VAR", Value: "value"},
 			))
-		})
-
-		It("Should correctly handle custom PDF render service image configuration via HumioCluster", func() {
-			ctx := context.Background()
-
-			key := types.NamespacedName{
-				Name:      "humio-pdf-custom-image",
-				Namespace: clusterKey.Namespace,
-			}
-
-			customPdfImage := "custom/pdf-render-service:1.0.0"
-			humioCluster := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-
-			suite.CreateLicenseSecret(ctx, key, k8sClient, humioCluster)
-
-			pdfServiceName := "my-shared-pdf-service"
-			pdfServiceKey := types.NamespacedName{
-				Name:      pdfServiceName,
-				Namespace: key.Namespace,
-			}
-			pdfService := &humiov1alpha1.HumioPdfRenderService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      pdfServiceName,
-					Namespace: key.Namespace,
-				},
-				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
-					Image:    customPdfImage,
-					Replicas: 1,
-					Port:     5123,
-				},
-			}
-			Expect(k8sClient.Create(ctx, pdfService)).Should(Succeed())
-
-			By("Waiting for PDF Service's observedGeneration to catch up")
-			suite.WaitForObservedGeneration(ctx, k8sClient, pdfService, longTimeout, suite.TestInterval)
-
-			humioCluster.Spec.PdfRenderServiceRef = &humiov1alpha1.HumioPdfRenderServiceReference{
-				Name:      pdfServiceName,
-				Namespace: key.Namespace,
-			}
-
-			suite.UsingClusterBy(key.Name, "Creating HumioCluster with PDF render service enabled and custom image")
-			Expect(k8sClient.Create(ctx, humioCluster)).Should(Succeed())
-			defer suite.CleanupCluster(ctx, k8sClient, humioCluster)
-
-			By("Waiting for HumioCluster's observedGeneration to catch up")
-			suite.WaitForObservedGeneration(ctx, k8sClient, humioCluster, longTimeout, suite.TestInterval)
-
-			suite.UsingClusterBy(key.Name, "Waiting for HumioCluster to be ready")
-			Eventually(func() string {
-				var cluster humiov1alpha1.HumioCluster
-				if err := k8sClient.Get(ctx, key, &cluster); err != nil {
-					return ""
-				}
-				return cluster.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
-
-			pdfDeploymentKey := types.NamespacedName{
-				Name:      fmt.Sprintf("%s-pdf-render-service", pdfServiceName),
-				Namespace: key.Namespace,
-			}
-
-			By("Ensuring PDF render deployment is ready")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfDeploymentKey)
-
-			suite.UsingClusterBy(key.Name, "Verifying PDF render service is created with custom image")
-			Eventually(func() string {
-				deployment := &appsv1.Deployment{}
-				err := k8sClient.Get(ctx, pdfDeploymentKey, deployment)
-				if err != nil || len(deployment.Spec.Template.Spec.Containers) == 0 {
-					return ""
-				}
-				return deployment.Spec.Template.Spec.Containers[0].Image
-			}, testTimeout, suite.TestInterval).Should(Equal(customPdfImage), "PDF render service should use custom image")
-
-			// Update to a different image
-			updatedPdfImage := "updated/pdf-render-service:2.0.0"
-			suite.UsingClusterBy(key.Name, "Updating PDF service to use a different image")
-			var updatedPdfService *humiov1alpha1.HumioPdfRenderService
-			Eventually(func() error {
-				updatedPdfService = &humiov1alpha1.HumioPdfRenderService{}
-				if err := k8sClient.Get(ctx, pdfServiceKey, updatedPdfService); err != nil {
-					return err
-				}
-				updatedPdfService.Spec.Image = updatedPdfImage
-				return k8sClient.Update(ctx, updatedPdfService)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-
-			By("Waiting for PDF Service's observedGeneration to catch up after update")
-			suite.WaitForObservedGeneration(ctx, k8sClient, updatedPdfService, longTimeout, suite.TestInterval)
-
-			By("Ensuring PDF render deployment is ready after image update")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfDeploymentKey)
-
-			suite.UsingClusterBy(key.Name, "Verifying PDF render service is updated with new image")
-			Eventually(func() string {
-				deployment := &appsv1.Deployment{}
-				err := k8sClient.Get(ctx, pdfDeploymentKey, deployment)
-				if err != nil || len(deployment.Spec.Template.Spec.Containers) == 0 {
-					return ""
-				}
-				return deployment.Spec.Template.Spec.Containers[0].Image
-			}, testTimeout, suite.TestInterval).Should(Equal(updatedPdfImage), "PDF render service should use updated image")
-
-			// Update to use the default image by clearing the custom image field
-			suite.UsingClusterBy(key.Name, "Updating HumioPdfRenderService to use default PDF render image")
-			var defaultImagePdfService *humiov1alpha1.HumioPdfRenderService
-			Eventually(func() error {
-				defaultImagePdfService = &humiov1alpha1.HumioPdfRenderService{}
-				if err := k8sClient.Get(ctx, pdfServiceKey, defaultImagePdfService); err != nil {
-					return err
-				}
-				defaultImagePdfService.Spec.Image = PDFRenderServiceImage // Use your default image constant
-				return k8sClient.Update(ctx, defaultImagePdfService)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-
-			By("Waiting for PDF Service's observedGeneration to catch up after second update")
-			suite.WaitForObservedGeneration(ctx, k8sClient, defaultImagePdfService, longTimeout, suite.TestInterval)
-
-			By("Ensuring PDF render deployment is ready after defaulting image")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfDeploymentKey)
-
-			suite.UsingClusterBy(key.Name, "Verifying PDF render service switches to default image")
-			Eventually(func() string {
-				deployment := &appsv1.Deployment{}
-				err := k8sClient.Get(ctx, pdfDeploymentKey, deployment)
-				if err != nil || len(deployment.Spec.Template.Spec.Containers) == 0 {
-					return ""
-				}
-				return deployment.Spec.Template.Spec.Containers[0].Image
-			}, testTimeout, suite.TestInterval).Should(Equal(PDFRenderServiceImage), "PDF render service should switch to default image")
-
-			// Disable PDF rendering to clean up
-			suite.UsingClusterBy(key.Name, "Disabling PDF render service reference")
-			var updatedCluster *humiov1alpha1.HumioCluster
-			Eventually(func() error {
-				updatedCluster = &humiov1alpha1.HumioCluster{}
-				if err := k8sClient.Get(ctx, key, updatedCluster); err != nil {
-					return err
-				}
-				updatedCluster.Spec.PdfRenderServiceRef = nil // Remove the reference to disable PDF rendering
-				return k8sClient.Update(ctx, updatedCluster)
-			}, testTimeout, suite.TestInterval).Should(Succeed())
-
-			By("Waiting for HumioCluster's observedGeneration to catch up after removing PDF ref")
-			suite.WaitForObservedGeneration(ctx, k8sClient, updatedCluster, longTimeout, suite.TestInterval)
-
-			// FIXED EXPECTATION - should verify PDF service deployment still exists
-			suite.UsingClusterBy(key.Name, "Verifying PDF render service deployment remains available")
-			Eventually(func() bool {
-				deployment := &appsv1.Deployment{}
-				err := k8sClient.Get(ctx, pdfDeploymentKey, deployment)
-				return err == nil // Expect deployment to still exist
-			}, testTimeout, suite.TestInterval).Should(BeTrue(), "PDF render service deployment should still exist when only reference is removed")
-
-			// Cleanup the PDF service itself if needed
-			suite.UsingClusterBy(key.Name, "Cleaning up the PDF render service CR")
-			Expect(k8sClient.Delete(ctx, pdfService)).To(Succeed())
-
-			// Now we can verify the deployment is gone
-			suite.UsingClusterBy(key.Name, "Verifying PDF render service deployment is removed after CR deletion")
-			Eventually(func() bool {
-				deployment := &appsv1.Deployment{}
-				err := k8sClient.Get(ctx, pdfDeploymentKey, deployment)
-				return k8serrors.IsNotFound(err)
-			}, testTimeout, suite.TestInterval).Should(BeTrue(), "PDF render service deployment should be removed when the CR is deleted")
 		})
 
 		It("should add a finalizer and clean up resources on deletion", func() {

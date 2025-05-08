@@ -72,6 +72,11 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	if err := r.Get(ctx, req.NamespacedName, hprs); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	// Initialize the current reconcile state
+	currentReconcileState := ""
+	if hprs.Status.State != "" {
+		currentReconcileState = hprs.Status.State
+	}
 
 	// Defer status update to ensure it's always called.
 	// The hprs object passed to updateStatus will be the one from the start of the reconcile loop (or fetched for finalizer removal).
@@ -88,19 +93,11 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 			// If the resource is gone, no need to update status.
 			return
 		}
-
-		// If an error occurred during reconciliation, reflect it in the status message.
-		// The state (e.g. ConfigError) should have been set on the hprs object within the main reconcile logic.
-		// We pass the hprs object from the main reconcile loop (which has the intended state)
-		// and the reconcileErr to updateStatus.
-		// updateStatus will then use hprs.Status.State and hprs.Generation.
-		currentReconcileState := hprs.Status.State // State determined by main reconcile logic
+		// Determine the current reconcile state based on the latest HPRS status.
+		//nolint:staticcheck
 		if reconcileErr != nil && currentReconcileState != humiov1alpha1.HumioPdfRenderServiceStateConfigError && currentReconcileState != humiov1alpha1.HumioPdfRenderServiceStateError {
-			// If a reconcile error occurred and we are not already in a specific error state,
-			// we might want to set a generic error state.
-			// For now, updateStatus will primarily use reconcileErr for the message.
-			// The state itself should be set appropriately by the main logic before this defer runs.
-			// If reconcileErr is not nil, updateStatus will set the message.
+			// Empty branch intentionally - the error message will be set in updateStatus via reconcileErr
+			// but we don't need to change the state in this specific case
 		}
 
 		// Pass the original hprs object (containing the generation processed and desired state)
@@ -122,7 +119,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// 1. Handle deletion
-	if !hprs.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !hprs.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(hprs, hprsFinalizer) {
 			if err := r.cleanupOwnedResources(ctx, hprs); err != nil {
 				r.Log.Error(err, "Error cleaning up owned resources during finalization")
@@ -255,7 +252,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// 3. Determine HPRS state based on Deployment status
-	determinedState := humiov1alpha1.HumioPdfRenderServiceStateUnknown // Default to unknown initially
+	var determinedState string
 
 	// Log deployment state before determination logic
 	if dep != nil {
@@ -451,7 +448,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 		// If the type is ClusterIP, and we had an existing ClusterIP (and it's not "None"), preserve it.
 		// CreateOrUpdate will clear ClusterIP if it's "None" and type is ClusterIP..
 		if svc.Spec.Type == corev1.ServiceTypeClusterIP {
-			if svc.ObjectMeta.ResourceVersion != "" && currentClusterIP != "" && currentClusterIP != "None" {
+			if svc.ResourceVersion != "" && currentClusterIP != "" && currentClusterIP != "None" {
 				svc.Spec.ClusterIP = currentClusterIP
 			}
 		}
@@ -484,7 +481,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(
 	}
 
 	// Build container (+ env / mounts / volumes incl. TLS)
-	envVars, vols, mounts := r.buildRuntimeAssets(hprs, port)
+	envVars, vols, mounts := r.buildRuntimeAssets(hprs)
 	container := r.buildPDFContainer(hprs, port, envVars, mounts)
 
 	return &appsv1.Deployment{
@@ -527,7 +524,6 @@ func servicePort(hprs *humiov1alpha1.HumioPdfRenderService) int32 {
 // including (optional) TLS assets.
 func (r *HumioPdfRenderServiceReconciler) buildRuntimeAssets(
 	hprs *humiov1alpha1.HumioPdfRenderService,
-	port int32,
 ) (env []corev1.EnvVar, vols []corev1.Volume, mounts []corev1.VolumeMount) {
 
 	// 1. env
@@ -645,7 +641,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredService(hprs *humiov1a
 			Selector: labels,
 			Ports: []corev1.ServicePort{{
 				Name:       protocol,
-				Port:       int32(port),
+				Port:       port,
 				TargetPort: intstr.FromInt(int(port)),
 				Protocol:   corev1.ProtocolTCP,
 			}},
@@ -683,7 +679,6 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 	}
 	return []corev1.Volume{vol}, []corev1.VolumeMount{mnt}
 }
-
 
 // TLS validation
 // In the validateTLSConfiguration function - robust status update with retry
@@ -947,22 +942,6 @@ func (r *HumioPdfRenderServiceReconciler) cleanupOwnedResources(ctx context.Cont
 		}
 	}
 	return nil
-}
-
-// labelsSubset returns true if all key-value pairs in 'sub' are present and equal in 'super'.
-func labelsSubset(sub, super map[string]string) bool {
-	if sub == nil {
-		return true
-	}
-	if super == nil {
-		return false
-	}
-	for k, v := range sub {
-		if superVal, ok := super[k]; !ok || superVal != v {
-			return false
-		}
-	}
-	return true
 }
 
 // dedupVolumes removes duplicate volumes, keeping the first occurrence of each volume name.
