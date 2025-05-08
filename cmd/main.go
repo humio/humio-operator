@@ -20,6 +20,8 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"github.com/humio/humio-operator/internal/controller"
+	"github.com/humio/humio-operator/internal/humio"
 	"os"
 	"path/filepath"
 	"time"
@@ -29,10 +31,7 @@ import (
 	"github.com/go-logr/zapr"
 	uberzap "go.uber.org/zap"
 
-	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/helpers"
-	"github.com/humio/humio-operator/internal/humio"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -228,6 +227,43 @@ func main() {
 		}
 	}
 
+	setupControllers(mgr, log, requeuePeriod)
+	// +kubebuilder:scaffold:builder
+
+	if metricsCertWatcher != nil {
+		ctrl.Log.Info("Adding metrics certificate watcher to manager")
+		if err := mgr.Add(metricsCertWatcher); err != nil {
+			ctrl.Log.Error(err, "unable to add metrics certificate watcher to manager")
+			os.Exit(1)
+		}
+	}
+
+	if webhookCertWatcher != nil {
+		ctrl.Log.Info("Adding webhook certificate watcher to manager")
+		if err := mgr.Add(webhookCertWatcher); err != nil {
+			ctrl.Log.Error(err, "unable to add webhook certificate watcher to manager")
+			os.Exit(1)
+		}
+	}
+
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		ctrl.Log.Error(err, "unable to set up health check")
+		os.Exit(1)
+	}
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		ctrl.Log.Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
+
+	ctrl.Log.Info(fmt.Sprintf("starting manager for humio-operator %s (%s on %s)", version, commit, date))
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+		ctrl.Log.Error(err, "problem running manager")
+		os.Exit(1)
+	}
+}
+
+func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Duration) {
+	var err error
 	userAgent := fmt.Sprintf("humio-operator/%s (%s on %s)", version, commit, date)
 
 	if err = (&controller.HumioActionReconciler{
@@ -376,38 +412,6 @@ func main() {
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioUser")
-		os.Exit(1)
-	}
-	// +kubebuilder:scaffold:builder
-
-	if metricsCertWatcher != nil {
-		ctrl.Log.Info("Adding metrics certificate watcher to manager")
-		if err := mgr.Add(metricsCertWatcher); err != nil {
-			ctrl.Log.Error(err, "unable to add metrics certificate watcher to manager")
-			os.Exit(1)
-		}
-	}
-
-	if webhookCertWatcher != nil {
-		ctrl.Log.Info("Adding webhook certificate watcher to manager")
-		if err := mgr.Add(webhookCertWatcher); err != nil {
-			ctrl.Log.Error(err, "unable to add webhook certificate watcher to manager")
-			os.Exit(1)
-		}
-	}
-
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		ctrl.Log.Error(err, "unable to set up health check")
-		os.Exit(1)
-	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		ctrl.Log.Error(err, "unable to set up ready check")
-		os.Exit(1)
-	}
-
-	ctrl.Log.Info(fmt.Sprintf("starting manager for humio-operator %s (%s on %s)", version, commit, date))
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		ctrl.Log.Error(err, "problem running manager")
 		os.Exit(1)
 	}
 }
