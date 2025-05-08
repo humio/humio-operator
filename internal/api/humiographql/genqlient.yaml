@@ -6,10 +6,12 @@ operations:
   - graphql/cluster.graphql
   - graphql/filter-alerts.graphql
   - graphql/fragments.graphql
+  - graphql/groups.graphql
   - graphql/ingest-tokens.graphql
   - graphql/license.graphql
   - graphql/parsers.graphql
   - graphql/repositories.graphql
+  - graphql/roles.graphql
   - graphql/scheduled-search.graphql
   - graphql/searchdomains.graphql
   - graphql/token.graphql

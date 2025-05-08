@@ -1,0 +1,117 @@
+fragment GroupDetails on Group {
+    id
+    displayName
+    lookupName
+    roles {
+        role {
+            id
+            displayName
+        }
+        searchDomain {
+            id
+            name
+        }
+    }
+}
+
+query GetGroupByDisplayName(
+    $DisplayName: String!
+) {
+    groupByDisplayName(
+        displayName: $DisplayName
+    ) {
+        ...GroupDetails
+    }
+}
+
+mutation CreateGroup(
+    $DisplayName: String!
+    $LookupName: String
+) {
+    addGroup(
+        displayName: $DisplayName
+        lookupName: $LookupName
+    ) {
+        group {
+            id
+        }
+    }
+}
+
+mutation UpdateGroup(
+    $GroupId: String!
+    $DisplayName: String
+    $LookupName: String
+) {
+    updateGroup(
+        input: {
+            groupId: $GroupId
+            displayName: $DisplayName
+            lookupName: $LookupName
+        }
+    ) {
+        group {
+            id
+        }
+    }
+}
+
+mutation DeleteGroup(
+    $GroupId: String!
+) {
+    removeGroup(
+        groupId: $GroupId
+    ) {
+        group {
+            displayName
+            userCount
+            searchDomainCount
+        }
+    }
+}
+
+mutation AssignRoleToGroup(
+    $GroupId: String!
+    $ViewId: String!
+    $RoleId: String!
+) {
+    assignRoleToGroup(
+        input: {
+            groupId: $GroupId
+            viewId: $ViewId
+            roleId: $RoleId
+        }
+    ) {
+        group {
+            role {
+                id
+                displayName
+            }
+            searchDomain {
+                id
+                name
+            }
+        }
+    }
+}
+
+mutation UnassignRoleFromGroup(
+    $GroupId: String!
+    $ViewId: String!
+    $RoleId: String!
+) {
+    unassignRoleFromGroup(
+        input: {
+            groupId: $GroupId
+            viewId: $ViewId
+            roleId: $RoleId
+        }
+    ) {
+        group {
+            id
+            displayName
+            userCount
+            searchDomainCount
+        }
+    }
+}
