@@ -4029,7 +4029,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			// Verify we validate this for all our CRD's
-			Expect(resources).To(HaveLen(13)) // Bump this as we introduce new CRD's
+			Expect(resources).To(HaveLen(14)) // Bump this as we introduce new CRD's
 
 			for i := range resources {
 				// Get the GVK information

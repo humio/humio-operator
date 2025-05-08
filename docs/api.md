@@ -36532,8 +36532,10 @@ HumioFeatureFlag is the Schema for the humioFeatureFlags API.
         <td>object</td>
         <td>
           HumioFeatureFlagSpec defines the desired state of HumioFeatureFlag.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humiofeatureflagstatus">status</a></b></td>
         <td>object</td>
@@ -36566,6 +36568,8 @@ HumioFeatureFlagSpec defines the desired state of HumioFeatureFlag.
         <td>string</td>
         <td>
           Name is the name of the feature flag inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>

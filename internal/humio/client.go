@@ -1459,25 +1459,19 @@ func (h *ClientConfig) GetFeatureFlags(ctx context.Context, client *humioapi.Cli
 		return nil, err
 	}
 	featureFlagNames := make([]string, len(resp.GetFeatureFlags()))
-	fmt.Println("Processing available feature flags")
 	for _, featureFlag := range resp.GetFeatureFlags() {
-		flag := featureFlag.GetFlag()
-		fmt.Println(flag)
-		featureFlagNames = append(featureFlagNames, string(flag))
+		featureFlagNames = append(featureFlagNames, string(featureFlag.GetFlag()))
 	}
-	fmt.Println(featureFlagNames)
 	return featureFlagNames, nil
 }
 
 func (h *ClientConfig) EnableFeatureFlag(ctx context.Context, client *humioapi.Client, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
-	resp, err := humiographql.EnableGlobalFeatureFlag(
+	_, err := humiographql.EnableGlobalFeatureFlag(
 		ctx,
 		client,
 		humiographql.FeatureFlag(featureFlag.Spec.Name),
 	)
 
-	fmt.Println("Feature flag enable response")
-	fmt.Println(resp.GetEnableFeature())
 	return err
 }
 
