@@ -58,6 +58,7 @@ spec:
                 description: |-
                   ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
                   This conflicts with ManagedClusterName.
+                minLength: 1
                 type: string
               labels:
                 description: Labels are a set of labels on the Alert
@@ -69,11 +70,15 @@ spec:
                   ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
                   resources should be created.
                   This conflicts with ExternalClusterName.
+                minLength: 1
                 type: string
               name:
                 description: Name is the name of the alert inside Humio
                 minLength: 1
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               query:
                 description: Query defines the desired state of the Humio query
                 properties:
@@ -119,6 +124,10 @@ spec:
             - query
             - viewName
             type: object
+            x-kubernetes-validations:
+            - message: Must specify exactly one of managedClusterName or externalClusterName
+              rule: (has(self.managedClusterName) && self.managedClusterName != "")
+                != (has(self.externalClusterName) && self.externalClusterName != "")
           status:
             description: HumioAlertStatus defines the observed state of HumioAlert.
             properties:
@@ -126,6 +135,8 @@ spec:
                 description: State reflects the current state of the HumioAlert
                 type: string
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

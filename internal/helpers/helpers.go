@@ -78,7 +78,7 @@ func TLSEnabled(hc *humiov1alpha1.HumioCluster) bool {
 // AsSHA256 does a sha 256 hash on an object and returns the result
 func AsSHA256(o interface{}) string {
 	h := sha256.New()
-	_, _ = h.Write([]byte(fmt.Sprintf("%v", o)))
+	_, _ = fmt.Fprintf(h, "%v", o)
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
@@ -113,6 +113,14 @@ func Int32PtrToFloat64Ptr(val *int32) *float64 {
 // BoolTrue returns true if the pointer is nil or true
 func BoolTrue(val *bool) bool {
 	return val == nil || *val
+}
+
+// BoolFalse returns false if the pointer is nil or false
+func BoolFalse(val *bool) bool {
+	if val == nil {
+		return false
+	}
+	return *val
 }
 
 // MapToSortedString prettifies a string map, so it's more suitable for readability when logging.

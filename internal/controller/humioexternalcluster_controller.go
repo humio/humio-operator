@@ -35,6 +35,7 @@ import (
 // HumioExternalClusterReconciler reconciles a HumioExternalCluster object
 type HumioExternalClusterReconciler struct {
 	client.Client
+	CommonConfig
 	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
@@ -85,8 +86,8 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 
 	err = r.HumioClient.TestAPIToken(ctx, cluster.Config(), req)
 	if err != nil {
-		r.Log.Error(err, "unable to test if the API token is works")
-		err = r.Client.Get(ctx, req.NamespacedName, hec)
+		r.Log.Error(err, "unable to test if the API token works")
+		err = r.Get(ctx, req.NamespacedName, hec)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "unable to get cluster state")
 		}
@@ -97,7 +98,7 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 	}
 
-	err = r.Client.Get(ctx, req.NamespacedName, hec)
+	err = r.Get(ctx, req.NamespacedName, hec)
 	if err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to get cluster state")
 	}
@@ -108,8 +109,8 @@ func (r *HumioExternalClusterReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 	}
 
-	r.Log.Info("done reconciling, will requeue after 15 seconds")
-	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

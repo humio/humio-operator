@@ -103,6 +103,9 @@ rules:
   - humiofilteralerts
   - humiofilteralerts/finalizers
   - humiofilteralerts/status
+  - humiousers
+  - humiousers/finalizers
+  - humiousers/status
   - humioaggregatealerts
   - humioaggregatealerts/finalizers
   - humioaggregatealerts/status

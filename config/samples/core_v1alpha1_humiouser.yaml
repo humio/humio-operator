@@ -1,0 +1,8 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioUser
+metadata:
+  name: humiouser-sample
+spec:
+  managedClusterName: example-humiocluster
+  userName: example@example.com
+  #isRoot: true

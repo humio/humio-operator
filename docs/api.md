@@ -32,6 +32,8 @@ Resource Types:
 
 - [HumioScheduledSearch](#humioscheduledsearch)
 
+- [HumioUser](#humiouser)
+
 - [HumioView](#humioview)
 
 
@@ -78,8 +80,10 @@ HumioAction is the Schema for the humioactions API.
         <td>object</td>
         <td>
           HumioActionSpec defines the desired state of HumioAction.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li><li>((has(self.emailProperties) ? 1 : 0) + (has(self.humioRepositoryProperties) ? 1 : 0) + (has(self.opsGenieProperties) ? 1 : 0) + (has(self.pagerDutyProperties) ? 1 : 0) + (has(self.slackProperties) ? 1 : 0) + (has(self.slackPostMessageProperties) ? 1 : 0) + (has(self.victorOpsProperties) ? 1 : 0) + (has(self.webhookProperties) ? 1 : 0)) == 1: Exactly one action specific properties field must be specified</li>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humioactionstatus">status</a></b></td>
         <td>object</td>
@@ -112,6 +116,8 @@ HumioActionSpec defines the desired state of HumioAction.
         <td>string</td>
         <td>
           Name is the name of the Action<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1334,8 +1340,10 @@ HumioAggregateAlert is the Schema for the humioaggregatealerts API.
         <td>object</td>
         <td>
           HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humioaggregatealertstatus">status</a></b></td>
         <td>object</td>
@@ -1375,6 +1383,8 @@ HumioAggregateAlertSpec defines the desired state of HumioAggregateAlert.
         <td>string</td>
         <td>
           Name is the name of the aggregate alert inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1537,8 +1547,10 @@ HumioAlert is the Schema for the humioalerts API.
         <td>object</td>
         <td>
           HumioAlertSpec defines the desired state of HumioAlert.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humioalertstatus">status</a></b></td>
         <td>object</td>
@@ -1578,6 +1590,8 @@ HumioAlertSpec defines the desired state of HumioAlert.
         <td>string</td>
         <td>
           Name is the name of the alert inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1767,8 +1781,10 @@ HumioBootstrapToken is the Schema for the humiobootstraptokens API.
         <td>object</td>
         <td>
           HumioBootstrapTokenSpec defines the desired state of HumioBootstrapToken.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humiobootstraptokenstatus">status</a></b></td>
         <td>object</td>
@@ -1840,7 +1856,8 @@ that are used by either the HumioCluster resource or the first NodePool resource
         <td><b>managedClusterName</b></td>
         <td>string</td>
         <td>
-          ManagedClusterName refers to the name of the HumioCluster which will use this bootstrap token<br/>
+          ManagedClusterName refers to the name of the HumioCluster which will use this bootstrap token.
+This conflicts with ExternalClusterName.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4010,7 +4027,7 @@ HumioCluster is the Schema for the humioclusters API.
         <td>
           HumioClusterSpec defines the desired state of HumioCluster.<br/>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humioclusterstatus">status</a></b></td>
         <td>object</td>
@@ -4414,6 +4431,8 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         <td>object</td>
         <td>
           PodDisruptionBudget defines the PDB configuration for this node spec<br/>
+          <br/>
+            <i>Validations</i>:<li>self.minAvailable == null || self.maxUnavailable == null: At most one of minAvailable or maxUnavailable can be specified</li>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16860,6 +16879,8 @@ Deprecated: LogScale 1.70.0 deprecated this option, and was later removed in Log
         <td>object</td>
         <td>
           PodDisruptionBudget defines the PDB configuration for this node spec<br/>
+          <br/>
+            <i>Validations</i>:<li>self.minAvailable == null || self.maxUnavailable == null: At most one of minAvailable or maxUnavailable can be specified</li>
         </td>
         <td>false</td>
       </tr><tr>
@@ -28387,7 +28408,7 @@ PodDisruptionBudget defines the PDB configuration for this node spec
         <td>
           Enabled indicates whether PodDisruptionBudget is enabled for this NodePool.<br/>
         </td>
-        <td>true</td>
+        <td>false</td>
       </tr><tr>
         <td><b>maxUnavailable</b></td>
         <td>int or string</td>
@@ -32234,7 +32255,7 @@ PodDisruptionBudget defines the PDB configuration for this node spec
         <td>
           Enabled indicates whether PodDisruptionBudget is enabled for this NodePool.<br/>
         </td>
-        <td>true</td>
+        <td>false</td>
       </tr><tr>
         <td><b>maxUnavailable</b></td>
         <td>int or string</td>
@@ -36369,7 +36390,7 @@ HumioExternalCluster is the Schema for the humioexternalclusters API.
         <td>
           HumioExternalClusterSpec defines the desired state of HumioExternalCluster.<br/>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humioexternalclusterstatus">status</a></b></td>
         <td>object</td>
@@ -36635,8 +36656,10 @@ HumioFilterAlert is the Schema for the humiofilteralerts API.
         <td>object</td>
         <td>
           HumioFilterAlertSpec defines the desired state of HumioFilterAlert.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humiofilteralertstatus">status</a></b></td>
         <td>object</td>
@@ -36676,6 +36699,8 @@ HumioFilterAlertSpec defines the desired state of HumioFilterAlert.
         <td>string</td>
         <td>
           Name is the name of the filter alert inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -36819,8 +36844,10 @@ HumioIngestToken is the Schema for the humioingesttokens API.
         <td>object</td>
         <td>
           HumioIngestTokenSpec defines the desired state of HumioIngestToken.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humioingesttokenstatus">status</a></b></td>
         <td>object</td>
@@ -36853,6 +36880,8 @@ HumioIngestTokenSpec defines the desired state of HumioIngestToken.
         <td>string</td>
         <td>
           Name is the name of the ingest token inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -36981,8 +37010,10 @@ HumioParser is the Schema for the humioparsers API.
         <td>object</td>
         <td>
           HumioParserSpec defines the desired state of HumioParser.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humioparserstatus">status</a></b></td>
         <td>object</td>
@@ -37015,6 +37046,8 @@ HumioParserSpec defines the desired state of HumioParser.
         <td>string</td>
         <td>
           Name is the name of the parser inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -37134,8 +37167,10 @@ HumioRepository is the Schema for the humiorepositories API.
         <td>object</td>
         <td>
           HumioRepositorySpec defines the desired state of HumioRepository.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humiorepositorystatus">status</a></b></td>
         <td>object</td>
@@ -37168,6 +37203,8 @@ HumioRepositorySpec defines the desired state of HumioRepository.
         <td>string</td>
         <td>
           Name is the name of the repository inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -37342,8 +37379,10 @@ HumioScheduledSearch is the Schema for the humioscheduledsearches API.
         <td>object</td>
         <td>
           HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humioscheduledsearchstatus">status</a></b></td>
         <td>object</td>
@@ -37390,6 +37429,8 @@ HumioScheduledSearchSpec defines the desired state of HumioScheduledSearch.
         <td>string</td>
         <td>
           Name is the name of the scheduled search inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>
@@ -37504,6 +37545,146 @@ HumioScheduledSearchStatus defines the observed state of HumioScheduledSearch.
       </tr></tbody>
 </table>
 
+## HumioUser
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioUser is the Schema for the humiousers API.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioUser</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiouserspec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioUserSpec defines the desired state of HumioUser.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiouserstatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioUserStatus defines the observed state of HumioUser.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioUser.spec
+<sup><sup>[↩ Parent](#humiouser)</sup></sup>
+
+
+
+HumioUserSpec defines the desired state of HumioUser.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>userName</b></td>
+        <td>string</td>
+        <td>
+          UserName defines the username for the LogScale user.<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+This conflicts with ManagedClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>isRoot</b></td>
+        <td>boolean</td>
+        <td>
+          IsRoot toggles whether the user should be marked as a root user or not.
+If explicitly set by the user, the value will be enforced, otherwise the root state of a user will be ignored.
+Updating the root status of a user requires elevated privileges. When using ExternalClusterName it is important
+to ensure the API token for the ExternalClusterName is one such privileged API token.
+When using ManagedClusterName the API token should already be one such privileged API token that allows managing
+the root status of users.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+resources should be created.
+This conflicts with ExternalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioUser.status
+<sup><sup>[↩ Parent](#humiouser)</sup></sup>
+
+
+
+HumioUserStatus defines the observed state of HumioUser.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State reflects the current state of the HumioParser<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
 ## HumioView
 <sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
 
@@ -37545,8 +37726,10 @@ HumioView is the Schema for the humioviews API.
         <td>object</td>
         <td>
           HumioViewSpec defines the desired state of HumioView.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humioviewstatus">status</a></b></td>
         <td>object</td>
@@ -37579,6 +37762,8 @@ HumioViewSpec defines the desired state of HumioView.
         <td>string</td>
         <td>
           Name is the name of the view inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
       </tr><tr>

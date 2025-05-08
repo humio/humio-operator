@@ -144,9 +144,16 @@ type LicenseClient interface {
 }
 
 type UsersClient interface {
+	AddUser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioUser) error
+	GetUser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioUser) (*humiographql.UserDetails, error)
+	UpdateUser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioUser) error
+	DeleteUser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioUser) error
+
+	RotateUserApiTokenAndGet(context.Context, *humioapi.Client, reconcile.Request, string) (string, error)
+
+	// TODO: Rename the ones below, or perhaps get rid of them entirely?
 	AddUserAndGetUserID(context.Context, *humioapi.Client, reconcile.Request, string, bool) (string, error)
 	GetUserIDForUsername(context.Context, *humioapi.Client, reconcile.Request, string) (string, error)
-	RotateUserApiTokenAndGet(context.Context, *humioapi.Client, reconcile.Request, string) (string, error)
 }
 
 // ClientConfig stores our Humio api client
@@ -478,12 +485,40 @@ func (h *ClientConfig) DeleteParser(ctx context.Context, client *humioapi.Client
 }
 
 func (h *ClientConfig) AddRepository(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
-	_, err := humiographql.CreateRepository(
-		ctx,
-		client,
-		hr.Spec.Name,
-	)
-	return err
+	retentionSpec := hr.Spec.Retention
+	if retentionSpec.TimeInDays != nil || retentionSpec.IngestSizeInGB != nil || retentionSpec.StorageSizeInGB != nil {
+		// use CreateRepositoryWithRetention() if any retention parameters are set
+		var retentionInMillis *int64
+		if retentionSpec.TimeInDays != nil {
+			duration := time.Duration(*retentionSpec.TimeInDays) * time.Hour * 24
+			retentionInMillis = helpers.Int64Ptr(duration.Milliseconds())
+		}
+		var retentionInIngestSizeBytes *int64
+		if retentionSpec.IngestSizeInGB != nil {
+			retentionInIngestSizeBytes = helpers.Int64Ptr(int64(*retentionSpec.IngestSizeInGB) * 1024 * 1024 * 1024)
+		}
+		var retentionInStorageSizeBytes *int64
+		if retentionSpec.StorageSizeInGB != nil {
+			retentionInStorageSizeBytes = helpers.Int64Ptr(int64(*retentionSpec.StorageSizeInGB) * 1024 * 1024 * 1024)
+		}
+		_, err := humiographql.CreateRepositoryWithRetention(
+			ctx,
+			client,
+			hr.Spec.Name,
+			retentionInMillis,
+			retentionInIngestSizeBytes,
+			retentionInStorageSizeBytes,
+		)
+		return err
+	} else {
+		// use the basic CreateRepository() if no retention parameters are set
+		_, err := humiographql.CreateRepository(
+			ctx,
+			client,
+			hr.Spec.Name,
+		)
+		return err
+	}
 }
 
 func (h *ClientConfig) GetRepository(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humiographql.RepositoryDetails, error) {
@@ -1802,4 +1837,53 @@ func (h *ClientConfig) AddUserAndGetUserID(ctx context.Context, client *humioapi
 	default:
 		return "", fmt.Errorf("got unknown user type=%v", v)
 	}
+}
+
+func (h *ClientConfig) AddUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+	_, err := humiographql.AddUser(
+		ctx,
+		client,
+		hu.Spec.UserName,
+		hu.Spec.IsRoot,
+	)
+	return err
+}
+
+func (h *ClientConfig) GetUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) (*humiographql.UserDetails, error) {
+	resp, err := humiographql.GetUsersByUsername(
+		ctx,
+		client,
+		hu.Spec.UserName,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	respUsers := resp.GetUsers()
+	for _, user := range respUsers {
+		if user.Username == hu.Spec.UserName {
+			return &user.UserDetails, nil
+		}
+	}
+
+	return nil, humioapi.UserNotFound(hu.Spec.UserName)
+}
+
+func (h *ClientConfig) UpdateUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+	_, err := humiographql.UpdateUser(
+		ctx,
+		client,
+		hu.Spec.UserName,
+		hu.Spec.IsRoot,
+	)
+	return err
+}
+
+func (h *ClientConfig) DeleteUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+	_, err := humiographql.RemoveUser(
+		ctx,
+		client,
+		hu.Spec.UserName,
+	)
+	return err
 }

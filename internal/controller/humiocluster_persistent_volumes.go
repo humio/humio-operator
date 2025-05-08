@@ -46,10 +46,10 @@ func FindPvcForPod(pvcList []corev1.PersistentVolumeClaim, pod corev1.Pod) (core
 	for _, pvc := range pvcList {
 		for _, volume := range pod.Spec.Volumes {
 			if volume.Name == HumioDataVolumeName {
-				if volume.VolumeSource.PersistentVolumeClaim == nil {
+				if volume.PersistentVolumeClaim == nil {
 					continue
 				}
-				if volume.VolumeSource.PersistentVolumeClaim.ClaimName == pvc.Name {
+				if volume.PersistentVolumeClaim.ClaimName == pvc.Name {
 					return pvc, nil
 				}
 			}

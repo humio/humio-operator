@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -37,8 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// HumioParserReconciler reconciles a HumioParser object
-type HumioParserReconciler struct {
+// HumioUserReconciler reconciles a HumioUser object
+type HumioUserReconciler struct {
 	client.Client
 	CommonConfig
 	BaseLogger  logr.Logger
@@ -47,11 +46,20 @@ type HumioParserReconciler struct {
 	Namespace   string
 }
 
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioparsers,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioparsers/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.humio.com,resources=humioparsers/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core.humio.com,resources=humiousers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.humio.com,resources=humiousers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core.humio.com,resources=humiousers/finalizers,verbs=update
 
-func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
+// TODO(user): Modify the Reconcile function to compare the state specified by
+// the HumioUser object against the actual cluster state, and then
+// perform operations to make the cluster state reflect the state specified by
+// the user.
+//
+// For more details, check Reconcile and its Result here:
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/reconcile
+func (r *HumioUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	if r.Namespace != "" {
 		if r.Namespace != req.Namespace {
 			return reconcile.Result{}, nil
@@ -59,10 +67,10 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	r.Log = r.BaseLogger.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name, "Request.Type", helpers.GetTypeName(r), "Reconcile.ID", kubernetes.RandomString())
-	r.Log.Info("Reconciling HumioParser")
+	r.Log.Info("Reconciling HumioUser")
 
-	// Fetch the HumioParser instance
-	hp := &humiov1alpha1.HumioParser{}
+	// Fetch the HumioUser instance
+	hp := &humiov1alpha1.HumioUser{}
 	err := r.Get(ctx, req.NamespacedName, hp)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -79,7 +87,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	cluster, err := helpers.NewCluster(ctx, r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioParserStateConfigError, hp)
+		setStateErr := r.setState(ctx, humiov1alpha1.HumioUserStateConfigError, hp)
 		if setStateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set cluster state")
 		}
@@ -87,14 +95,14 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
-	r.Log.Info("Checking if parser is marked to be deleted")
-	// Check if the HumioParser instance is marked to be deleted, which is
+	r.Log.Info("Checking if user is marked to be deleted")
+	// Check if the HumioUser instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
-	isHumioParserMarkedToBeDeleted := hp.GetDeletionTimestamp() != nil
-	if isHumioParserMarkedToBeDeleted {
-		r.Log.Info("Parser marked to be deleted")
+	isHumioUserMarkedToBeDeleted := hp.GetDeletionTimestamp() != nil
+	if isHumioUserMarkedToBeDeleted {
+		r.Log.Info("User marked to be deleted")
 		if helpers.ContainsElement(hp.GetFinalizers(), humioFinalizer) {
-			_, err := r.HumioClient.GetParser(ctx, humioHttpClient, req, hp)
+			_, err := r.HumioClient.GetUser(ctx, humioHttpClient, req, hp)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), humioFinalizer))
 				err := r.Update(ctx, hp)
@@ -108,7 +116,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			// Run finalization logic for humioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
-			r.Log.Info("Parser contains finalizer so run finalizer method")
+			r.Log.Info("User contains finalizer so run finalizer method")
 			if err := r.finalize(ctx, humioHttpClient, req, hp); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
@@ -118,70 +126,65 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Add finalizer for this CR
 	if !helpers.ContainsElement(hp.GetFinalizers(), humioFinalizer) {
-		r.Log.Info("Finalizer not present, adding finalizer to parser")
+		r.Log.Info("Finalizer not present, adding finalizer to user")
 		if err := r.addFinalizer(ctx, hp); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioParser) {
-		_, err := humioClient.GetParser(ctx, humioHttpClient, req, hp)
+	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioUser) {
+		_, err := humioClient.GetUser(ctx, humioHttpClient, req, hp)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
-			_ = r.setState(ctx, humiov1alpha1.HumioParserStateNotFound, hp)
+			_ = r.setState(ctx, humiov1alpha1.HumioUserStateNotFound, hp)
 			return
 		}
 		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioParserStateUnknown, hp)
+			_ = r.setState(ctx, humiov1alpha1.HumioUserStateUnknown, hp)
 			return
 		}
-		_ = r.setState(ctx, humiov1alpha1.HumioParserStateExists, hp)
+		_ = r.setState(ctx, humiov1alpha1.HumioUserStateExists, hp)
 	}(ctx, r.HumioClient, hp)
 
-	// Get current parser
-	r.Log.Info("get current parser")
-	curParser, err := r.HumioClient.GetParser(ctx, humioHttpClient, req, hp)
+	// Get current user
+	r.Log.Info("get current user")
+	curUser, err := r.HumioClient.GetUser(ctx, humioHttpClient, req, hp)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
-			r.Log.Info("parser doesn't exist. Now adding parser")
-			// create parser
-			addErr := r.HumioClient.AddParser(ctx, humioHttpClient, req, hp)
+			r.Log.Info("user doesn't exist. Now adding user")
+			// create user
+			addErr := r.HumioClient.AddUser(ctx, humioHttpClient, req, hp)
 			if addErr != nil {
-				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create parser")
+				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create user")
 			}
-			r.Log.Info("created parser")
+			r.Log.Info("created user")
 			return reconcile.Result{Requeue: true}, nil
 		}
-		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if parser exists")
+		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if user exists")
 	}
 
-	if asExpected, diffKeysAndValues := parserAlreadyAsExpected(hp, curParser); !asExpected {
+	if asExpected, diffKeysAndValues := userAlreadyAsExpected(hp, curUser); !asExpected {
 		r.Log.Info("information differs, triggering update",
 			"diff", diffKeysAndValues,
 		)
-		err = r.HumioClient.UpdateParser(ctx, humioHttpClient, req, hp)
+		err = r.HumioClient.UpdateUser(ctx, humioHttpClient, req, hp)
 		if err != nil {
-			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update parser")
+			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update user")
 		}
 	}
-
-	// TODO: handle updates to parser name and repositoryName. Right now we just create the new parser,
-	// and "leak/leave behind" the old parser.
-	// A solution could be to add an annotation that includes the "old name" so we can see if it was changed.
-	// A workaround for now is to delete the parser CR and create it again.
 
 	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
 	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *HumioParserReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *HumioUserReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&humiov1alpha1.HumioParser{}).
-		Named("humioparser").
+		For(&humiov1alpha1.HumioUser{}).
+		Named("humiouser").
 		Complete(r)
 }
 
-func (r *HumioParserReconciler) finalize(ctx context.Context, client *humioapi.Client, req reconcile.Request, hp *humiov1alpha1.HumioParser) error {
+func (r *HumioUserReconciler) finalize(ctx context.Context, client *humioapi.Client, req reconcile.Request, hp *humiov1alpha1.HumioUser) error {
 	_, err := helpers.NewCluster(ctx, r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -190,52 +193,43 @@ func (r *HumioParserReconciler) finalize(ctx context.Context, client *humioapi.C
 		return err
 	}
 
-	return r.HumioClient.DeleteParser(ctx, client, req, hp)
+	return r.HumioClient.DeleteUser(ctx, client, req, hp)
 }
 
-func (r *HumioParserReconciler) addFinalizer(ctx context.Context, hp *humiov1alpha1.HumioParser) error {
-	r.Log.Info("Adding Finalizer for the HumioParser")
+func (r *HumioUserReconciler) addFinalizer(ctx context.Context, hp *humiov1alpha1.HumioUser) error {
+	r.Log.Info("Adding Finalizer for the HumioUser")
 	hp.SetFinalizers(append(hp.GetFinalizers(), humioFinalizer))
 
 	// Update CR
 	err := r.Update(ctx, hp)
 	if err != nil {
-		return r.logErrorAndReturn(err, "Failed to update HumioParser with finalizer")
+		return r.logErrorAndReturn(err, "Failed to update HumioUser with finalizer")
 	}
 	return nil
 }
 
-func (r *HumioParserReconciler) setState(ctx context.Context, state string, hp *humiov1alpha1.HumioParser) error {
+func (r *HumioUserReconciler) setState(ctx context.Context, state string, hp *humiov1alpha1.HumioUser) error {
 	if hp.Status.State == state {
 		return nil
 	}
-	r.Log.Info(fmt.Sprintf("setting parser state to %s", state))
+	r.Log.Info(fmt.Sprintf("setting user state to %s", state))
 	hp.Status.State = state
 	return r.Status().Update(ctx, hp)
 }
 
-func (r *HumioParserReconciler) logErrorAndReturn(err error, msg string) error {
+func (r *HumioUserReconciler) logErrorAndReturn(err error, msg string) error {
 	r.Log.Error(err, msg)
 	return fmt.Errorf("%s: %w", msg, err)
 }
 
-// parserAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
+// userAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL. It returns a boolean indicating
 // if the details from GraphQL already matches what is in the desired state of the custom resource.
 // If they do not match, a map is returned with details on what the diff is.
-func parserAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioParser, fromGraphQL *humiographql.ParserDetails) (bool, map[string]string) {
+func userAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioUser, fromGraphQL *humiographql.UserDetails) (bool, map[string]string) {
 	keyValues := map[string]string{}
 
-	if diff := cmp.Diff(fromGraphQL.GetScript(), fromKubernetesCustomResource.Spec.ParserScript); diff != "" {
-		keyValues["parserScript"] = diff
-	}
-	tagFieldsFromGraphQL := fromGraphQL.GetFieldsToTag()
-	sort.Strings(tagFieldsFromGraphQL)
-	sort.Strings(fromKubernetesCustomResource.Spec.TagFields)
-	if diff := cmp.Diff(tagFieldsFromGraphQL, fromKubernetesCustomResource.Spec.TagFields); diff != "" {
-		keyValues["tagFields"] = diff
-	}
-	if diff := cmp.Diff(fromGraphQL.GetTestCases(), humioapi.TestDataToParserDetailsTestCasesParserTestCase(fromKubernetesCustomResource.Spec.TestData)); diff != "" {
-		keyValues["testData"] = diff
+	if diff := cmp.Diff(fromGraphQL.GetIsRoot(), helpers.BoolFalse(fromKubernetesCustomResource.Spec.IsRoot)); diff != "" {
+		keyValues["isRoot"] = diff
 	}
 
 	return len(keyValues) == 0, keyValues

@@ -40,6 +40,7 @@ import (
 // HumioActionReconciler reconciles a HumioAction object
 type HumioActionReconciler struct {
 	client.Client
+	CommonConfig
 	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
@@ -193,8 +194,8 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 		)
 	}
 
-	r.Log.Info("done reconciling, will requeue after 15 seconds")
-	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
 }
 
 func (r *HumioActionReconciler) resolveSecrets(ctx context.Context, ha *humiov1alpha1.HumioAction) error {

@@ -39,6 +39,7 @@ rules:
   - humioparsers
   - humiorepositories
   - humioscheduledsearches
+  - humiousers
   - humioviews
   verbs:
   - create
@@ -63,6 +64,7 @@ rules:
   - humioparsers/finalizers
   - humiorepositories/finalizers
   - humioscheduledsearches/finalizers
+  - humiousers/finalizers
   - humioviews/finalizers
   verbs:
   - update
@@ -81,6 +83,7 @@ rules:
   - humioparsers/status
   - humiorepositories/status
   - humioscheduledsearches/status
+  - humiousers/status
   - humioviews/status
   verbs:
   - get
