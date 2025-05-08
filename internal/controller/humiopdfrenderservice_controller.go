@@ -684,7 +684,6 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 	return []corev1.Volume{vol}, []corev1.VolumeMount{mnt}
 }
 
-
 // TLS validation
 // In the validateTLSConfiguration function - robust status update with retry
 func (r *HumioPdfRenderServiceReconciler) validateTLSConfiguration(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
