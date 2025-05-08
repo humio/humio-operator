@@ -563,6 +563,14 @@ func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc 
 		}
 	}
 
+	// Referenced service exists, ensure any cluster-specific one is removed
+	if hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
+		if err := r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc); err != nil {
+			return fmt.Errorf("failed to reset cluster state to Running: %w", err)
+		}
+		hc.Status.Message = ""
+	}
+
 	// Remove any cluster-specific service that might exist
 	r.Log.Info("No PDF render service reference specified, ensuring any cluster-specific PDF service is removed")
 	return r.removePdfRenderServiceIfExists(ctx, hc)
@@ -1612,17 +1620,11 @@ func (r *HumioClusterReconciler) ensureOrphanedPvcsAreDeleted(ctx context.Contex
 }
 
 func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
-	// if we're using an external PDF‐render service, skip requiring a license secret
-	if hc.Spec.PdfRenderServiceRef != nil {
-		r.Log.Info("Skipping license validation because PdfRenderServiceRef is set",
-			"pdfRenderServiceRef", hc.Spec.PdfRenderServiceRef)
-		return nil
-	}
 	r.Log.Info("ensuring license is valid")
 
 	licenseSecretKeySelector := licenseSecretKeyRefOrDefault(hc)
 	if licenseSecretKeySelector == nil {
-		return errors.New("no license secret key selector provided")
+		return fmt.Errorf("no license secret key selector provided")
 	}
 
 	licenseSecret, err := kubernetes.GetSecret(ctx, r, licenseSecretKeySelector.Name, hc.Namespace)
@@ -1630,7 +1632,7 @@ func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *h
 		return err
 	}
 	if _, ok := licenseSecret.Data[licenseSecretKeySelector.Key]; !ok {
-		return r.logErrorAndReturn(errors.New("could not read the license"),
+		return r.logErrorAndReturn(fmt.Errorf("could not read the license"),
 			fmt.Sprintf("key %s does not exist for secret %s", licenseSecretKeySelector.Key, licenseSecretKeySelector.Name))
 	}
 
