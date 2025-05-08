@@ -4687,10 +4687,10 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.CreateLicenseSecret(ctx, key, k8sClient, humioCluster)
 
-			pdfServiceName := "my-shared-pdf-service"
+			pdfServiceName := "my-shared-pdf-service" // This is pdfService.Name
 			pdfServiceKey := types.NamespacedName{
 				Name:      pdfServiceName,
-				Namespace: key.Namespace,
+				Namespace: key.Namespace, // This is pdfService.Namespace
 			}
 			pdfService := &humiov1alpha1.HumioPdfRenderService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -4730,10 +4730,12 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 
 			pdfDeploymentKey := types.NamespacedName{
-				Name:      fmt.Sprintf("%s-pdf-render-service", pdfServiceName),
-				Namespace: key.Namespace,
+				// The deployment name is typically <HumioPdfRenderService CR Name> + "-pdf-render-service"
+				Name:      fmt.Sprintf("%s-pdf-render-service", pdfService.Name),
+				Namespace: pdfService.Namespace,
 			}
 
+			suite.UsingClusterBy(key.Name, fmt.Sprintf("Ensuring PDF deployment %s is ready for envtest", pdfDeploymentKey.String()))
 			By("Ensuring PDF render deployment is ready")
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfDeploymentKey)
 
