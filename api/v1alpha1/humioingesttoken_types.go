@@ -32,37 +32,43 @@ const (
 )
 
 // HumioIngestTokenSpec defines the desired state of HumioIngestToken.
+// +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioIngestTokenSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
 	// This conflicts with ExternalClusterName.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
 	ManagedClusterName string `json:"managedClusterName,omitempty"`
 	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
 	// This conflicts with ManagedClusterName.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the ingest token inside Humio
 	// +kubebuilder:validation:MinLength=1
-	// +required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
+	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// ParserName is the name of the parser which will be assigned to the ingest token.
 	// +kubebuilder:validation:MinLength=1
-	// +required
+	// +kubebuilder:validation:Required
 	ParserName *string `json:"parserName,omitempty"`
 	// RepositoryName is the name of the Humio repository under which the ingest token will be created
 	// +kubebuilder:validation:MinLength=1
-	// +required
+	// +kubebuilder:validation:Required
 	RepositoryName string `json:"repositoryName,omitempty"`
 	// TokenSecretName specifies the name of the Kubernetes secret that will be created
 	// and contain the ingest token. The key in the secret storing the ingest token is "token".
-	// +optional
+	// +kubebuilder:validation:Optional
 	TokenSecretName string `json:"tokenSecretName,omitempty"`
 	// TokenSecretLabels specifies additional key,value pairs to add as labels on the Kubernetes Secret containing
 	// the ingest token.
-	// +optional
+	// +kubebuilder:validation:Optional
 	TokenSecretLabels map[string]string `json:"tokenSecretLabels,omitempty"`
 	// TokenSecretAnnotations specifies additional key,value pairs to add as annotations on the Kubernetes Secret containing
 	// the ingest token.
-	// +optional
+	// +kubebuilder:validation:Optional
 	TokenSecretAnnotations map[string]string `json:"tokenSecretAnnotations,omitempty"`
 }
 
@@ -83,7 +89,8 @@ type HumioIngestToken struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HumioIngestTokenSpec   `json:"spec,omitempty"`
+	// +kubebuilder:validation:Required
+	Spec   HumioIngestTokenSpec   `json:"spec"`
 	Status HumioIngestTokenStatus `json:"status,omitempty"`
 }
 

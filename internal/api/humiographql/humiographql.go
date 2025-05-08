@@ -10317,6 +10317,98 @@ func (v *RemoveIngestTokenResponse) GetRemoveIngestToken() RemoveIngestTokenRemo
 	return v.RemoveIngestToken
 }
 
+// RemoveUserRemoveUserRemoveUserMutation includes the requested fields of the GraphQL type RemoveUserMutation.
+type RemoveUserRemoveUserRemoveUserMutation struct {
+	// Stability: Long-term
+	User RemoveUserRemoveUserRemoveUserMutationUser `json:"user"`
+}
+
+// GetUser returns RemoveUserRemoveUserRemoveUserMutation.User, and is useful for accessing the field via an interface.
+func (v *RemoveUserRemoveUserRemoveUserMutation) GetUser() RemoveUserRemoveUserRemoveUserMutationUser {
+	return v.User
+}
+
+// RemoveUserRemoveUserRemoveUserMutationUser includes the requested fields of the GraphQL type User.
+// The GraphQL type's documentation follows.
+//
+// A user profile.
+type RemoveUserRemoveUserRemoveUserMutationUser struct {
+	UserDetails `json:"-"`
+}
+
+// GetId returns RemoveUserRemoveUserRemoveUserMutationUser.Id, and is useful for accessing the field via an interface.
+func (v *RemoveUserRemoveUserRemoveUserMutationUser) GetId() string { return v.UserDetails.Id }
+
+// GetUsername returns RemoveUserRemoveUserRemoveUserMutationUser.Username, and is useful for accessing the field via an interface.
+func (v *RemoveUserRemoveUserRemoveUserMutationUser) GetUsername() string {
+	return v.UserDetails.Username
+}
+
+// GetIsRoot returns RemoveUserRemoveUserRemoveUserMutationUser.IsRoot, and is useful for accessing the field via an interface.
+func (v *RemoveUserRemoveUserRemoveUserMutationUser) GetIsRoot() bool { return v.UserDetails.IsRoot }
+
+func (v *RemoveUserRemoveUserRemoveUserMutationUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RemoveUserRemoveUserRemoveUserMutationUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RemoveUserRemoveUserRemoveUserMutationUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRemoveUserRemoveUserRemoveUserMutationUser struct {
+	Id string `json:"id"`
+
+	Username string `json:"username"`
+
+	IsRoot bool `json:"isRoot"`
+}
+
+func (v *RemoveUserRemoveUserRemoveUserMutationUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RemoveUserRemoveUserRemoveUserMutationUser) __premarshalJSON() (*__premarshalRemoveUserRemoveUserRemoveUserMutationUser, error) {
+	var retval __premarshalRemoveUserRemoveUserRemoveUserMutationUser
+
+	retval.Id = v.UserDetails.Id
+	retval.Username = v.UserDetails.Username
+	retval.IsRoot = v.UserDetails.IsRoot
+	return &retval, nil
+}
+
+// RemoveUserResponse is returned by RemoveUser on success.
+type RemoveUserResponse struct {
+	// Remove a user.
+	// Stability: Long-term
+	RemoveUser RemoveUserRemoveUserRemoveUserMutation `json:"removeUser"`
+}
+
+// GetRemoveUser returns RemoveUserResponse.RemoveUser, and is useful for accessing the field via an interface.
+func (v *RemoveUserResponse) GetRemoveUser() RemoveUserRemoveUserRemoveUserMutation {
+	return v.RemoveUser
+}
+
 // RepositoryDetails includes the GraphQL fields of Repository requested by the fragment RepositoryDetails.
 // The GraphQL type's documentation follows.
 //
@@ -12889,6 +12981,98 @@ func (v *UpdateTimeBasedRetentionUpdateRetentionUpdateRetentionMutation) GetType
 	return v.Typename
 }
 
+// UpdateUserResponse is returned by UpdateUser on success.
+type UpdateUserResponse struct {
+	// Updates a user. Requires Root Permission.
+	// Stability: Long-term
+	UpdateUser UpdateUserUpdateUserUpdateUserMutation `json:"updateUser"`
+}
+
+// GetUpdateUser returns UpdateUserResponse.UpdateUser, and is useful for accessing the field via an interface.
+func (v *UpdateUserResponse) GetUpdateUser() UpdateUserUpdateUserUpdateUserMutation {
+	return v.UpdateUser
+}
+
+// UpdateUserUpdateUserUpdateUserMutation includes the requested fields of the GraphQL type UpdateUserMutation.
+type UpdateUserUpdateUserUpdateUserMutation struct {
+	// Stability: Long-term
+	User UpdateUserUpdateUserUpdateUserMutationUser `json:"user"`
+}
+
+// GetUser returns UpdateUserUpdateUserUpdateUserMutation.User, and is useful for accessing the field via an interface.
+func (v *UpdateUserUpdateUserUpdateUserMutation) GetUser() UpdateUserUpdateUserUpdateUserMutationUser {
+	return v.User
+}
+
+// UpdateUserUpdateUserUpdateUserMutationUser includes the requested fields of the GraphQL type User.
+// The GraphQL type's documentation follows.
+//
+// A user profile.
+type UpdateUserUpdateUserUpdateUserMutationUser struct {
+	UserDetails `json:"-"`
+}
+
+// GetId returns UpdateUserUpdateUserUpdateUserMutationUser.Id, and is useful for accessing the field via an interface.
+func (v *UpdateUserUpdateUserUpdateUserMutationUser) GetId() string { return v.UserDetails.Id }
+
+// GetUsername returns UpdateUserUpdateUserUpdateUserMutationUser.Username, and is useful for accessing the field via an interface.
+func (v *UpdateUserUpdateUserUpdateUserMutationUser) GetUsername() string {
+	return v.UserDetails.Username
+}
+
+// GetIsRoot returns UpdateUserUpdateUserUpdateUserMutationUser.IsRoot, and is useful for accessing the field via an interface.
+func (v *UpdateUserUpdateUserUpdateUserMutationUser) GetIsRoot() bool { return v.UserDetails.IsRoot }
+
+func (v *UpdateUserUpdateUserUpdateUserMutationUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateUserUpdateUserUpdateUserMutationUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateUserUpdateUserUpdateUserMutationUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateUserUpdateUserUpdateUserMutationUser struct {
+	Id string `json:"id"`
+
+	Username string `json:"username"`
+
+	IsRoot bool `json:"isRoot"`
+}
+
+func (v *UpdateUserUpdateUserUpdateUserMutationUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateUserUpdateUserUpdateUserMutationUser) __premarshalJSON() (*__premarshalUpdateUserUpdateUserUpdateUserMutationUser, error) {
+	var retval __premarshalUpdateUserUpdateUserUpdateUserMutationUser
+
+	retval.Id = v.UserDetails.Id
+	retval.Username = v.UserDetails.Username
+	retval.IsRoot = v.UserDetails.IsRoot
+	return &retval, nil
+}
+
 // UpdateVictorOpsActionResponse is returned by UpdateVictorOpsAction on success.
 type UpdateVictorOpsActionResponse struct {
 	// Update a VictorOps action.
@@ -13808,6 +13992,14 @@ func (v *__RemoveIngestTokenInput) GetRepositoryName() string { return v.Reposit
 // GetName returns __RemoveIngestTokenInput.Name, and is useful for accessing the field via an interface.
 func (v *__RemoveIngestTokenInput) GetName() string { return v.Name }
 
+// __RemoveUserInput is used internally by genqlient
+type __RemoveUserInput struct {
+	Username string `json:"Username"`
+}
+
+// GetUsername returns __RemoveUserInput.Username, and is useful for accessing the field via an interface.
+func (v *__RemoveUserInput) GetUsername() string { return v.Username }
+
 // __RotateTokenByIDInput is used internally by genqlient
 type __RotateTokenByIDInput struct {
 	TokenID string `json:"TokenID"`
@@ -14339,6 +14531,18 @@ func (v *__UpdateTimeBasedRetentionInput) GetRepositoryName() string { return v.
 
 // GetRetentionInDays returns __UpdateTimeBasedRetentionInput.RetentionInDays, and is useful for accessing the field via an interface.
 func (v *__UpdateTimeBasedRetentionInput) GetRetentionInDays() *float64 { return v.RetentionInDays }
+
+// __UpdateUserInput is used internally by genqlient
+type __UpdateUserInput struct {
+	Username string `json:"Username"`
+	IsRoot   *bool  `json:"IsRoot"`
+}
+
+// GetUsername returns __UpdateUserInput.Username, and is useful for accessing the field via an interface.
+func (v *__UpdateUserInput) GetUsername() string { return v.Username }
+
+// GetIsRoot returns __UpdateUserInput.IsRoot, and is useful for accessing the field via an interface.
+func (v *__UpdateUserInput) GetIsRoot() *bool { return v.IsRoot }
 
 // __UpdateVictorOpsActionInput is used internally by genqlient
 type __UpdateVictorOpsActionInput struct {
@@ -16912,6 +17116,47 @@ func RemoveIngestToken(
 	return data_, err_
 }
 
+// The mutation executed by RemoveUser.
+const RemoveUser_Operation = `
+mutation RemoveUser ($Username: String!) {
+	removeUser(input: {username:$Username}) {
+		user {
+			... UserDetails
+		}
+	}
+}
+fragment UserDetails on User {
+	id
+	username
+	isRoot
+}
+`
+
+func RemoveUser(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	Username string,
+) (data_ *RemoveUserResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RemoveUser",
+		Query:  RemoveUser_Operation,
+		Variables: &__RemoveUserInput{
+			Username: Username,
+		},
+	}
+
+	data_ = &RemoveUserResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RotateTokenByID.
 const RotateTokenByID_Operation = `
 mutation RotateTokenByID ($TokenID: String!) {
@@ -17894,6 +18139,49 @@ func UpdateTimeBasedRetention(
 	}
 
 	data_ = &UpdateTimeBasedRetentionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateUser.
+const UpdateUser_Operation = `
+mutation UpdateUser ($Username: String!, $IsRoot: Boolean) {
+	updateUser(input: {username:$Username,isRoot:$IsRoot}) {
+		user {
+			... UserDetails
+		}
+	}
+}
+fragment UserDetails on User {
+	id
+	username
+	isRoot
+}
+`
+
+func UpdateUser(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	Username string,
+	IsRoot *bool,
+) (data_ *UpdateUserResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateUser",
+		Query:  UpdateUser_Operation,
+		Variables: &__UpdateUserInput{
+			Username: Username,
+			IsRoot:   IsRoot,
+		},
+	}
+
+	data_ = &UpdateUserResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

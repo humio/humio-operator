@@ -115,6 +115,14 @@ func BoolTrue(val *bool) bool {
 	return val == nil || *val
 }
 
+// BoolFalse returns false if the pointer is nil or false
+func BoolFalse(val *bool) bool {
+	if val == nil {
+		return false
+	}
+	return *val
+}
+
 // MapToSortedString prettifies a string map, so it's more suitable for readability when logging.
 // The output is constructed by sorting the slice.
 func MapToSortedString(m map[string]string) string {

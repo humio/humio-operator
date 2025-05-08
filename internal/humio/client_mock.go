@@ -56,7 +56,8 @@ type ClientMock struct {
 	FilterAlert     map[resourceKey]humiographql.FilterAlertDetails
 	AggregateAlert  map[resourceKey]humiographql.AggregateAlertDetails
 	ScheduledSearch map[resourceKey]humiographql.ScheduledSearchDetails
-	UserID          map[resourceKey]string
+	User            map[resourceKey]humiographql.UserDetails
+	AdminUserID     map[resourceKey]string
 }
 
 type MockClientConfig struct {
@@ -76,7 +77,8 @@ func NewMockClient() *MockClientConfig {
 			FilterAlert:     make(map[resourceKey]humiographql.FilterAlertDetails),
 			AggregateAlert:  make(map[resourceKey]humiographql.AggregateAlertDetails),
 			ScheduledSearch: make(map[resourceKey]humiographql.ScheduledSearchDetails),
-			UserID:          make(map[resourceKey]string),
+			User:            make(map[resourceKey]humiographql.UserDetails),
+			AdminUserID:     make(map[resourceKey]string),
 		},
 	}
 
@@ -100,7 +102,8 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 	h.apiClient.FilterAlert = make(map[resourceKey]humiographql.FilterAlertDetails)
 	h.apiClient.AggregateAlert = make(map[resourceKey]humiographql.AggregateAlertDetails)
 	h.apiClient.ScheduledSearch = make(map[resourceKey]humiographql.ScheduledSearchDetails)
-	h.apiClient.UserID = make(map[resourceKey]string)
+	h.apiClient.User = make(map[resourceKey]humiographql.UserDetails)
+	h.apiClient.AdminUserID = make(map[resourceKey]string)
 }
 
 func (h *MockClientConfig) Status(_ context.Context, _ *humioapi.Client, _ reconcile.Request) (*humioapi.StatusResponse, error) {
@@ -1256,7 +1259,7 @@ func (h *MockClientConfig) GetUserIDForUsername(_ context.Context, _ *humioapi.C
 		resourceName: fmt.Sprintf("%s%s", req.Namespace, req.Name),
 	}
 
-	currentUserID, found := h.apiClient.UserID[key]
+	currentUserID, found := h.apiClient.AdminUserID[key]
 	if !found {
 		return "", humioapi.EntityNotFound{}
 	}
@@ -1272,7 +1275,7 @@ func (h *MockClientConfig) RotateUserApiTokenAndGet(_ context.Context, _ *humioa
 		resourceName: fmt.Sprintf("%s%s", req.Namespace, req.Name),
 	}
 
-	currentUserID, found := h.apiClient.UserID[key]
+	currentUserID, found := h.apiClient.AdminUserID[key]
 	if !found {
 		return "", fmt.Errorf("could not find user")
 	}
@@ -1288,6 +1291,81 @@ func (h *MockClientConfig) AddUserAndGetUserID(_ context.Context, _ *humioapi.Cl
 		resourceName: fmt.Sprintf("%s%s", req.Namespace, req.Name),
 	}
 
-	h.apiClient.UserID[key] = kubernetes.RandomString()
-	return h.apiClient.UserID[key], nil
+	h.apiClient.AdminUserID[key] = kubernetes.RandomString()
+	return h.apiClient.AdminUserID[key], nil
+}
+
+func (h *MockClientConfig) AddUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", hu.Spec.ManagedClusterName, hu.Spec.ExternalClusterName),
+		resourceName: hu.Spec.UserName,
+	}
+
+	if _, found := h.apiClient.User[key]; found {
+		return fmt.Errorf("user already exists with username %q", hu.Spec.UserName)
+	}
+
+	value := &humiographql.UserDetails{
+		Id:       kubernetes.RandomString(),
+		Username: hu.Spec.UserName,
+		IsRoot:   helpers.BoolFalse(hu.Spec.IsRoot),
+	}
+
+	h.apiClient.User[key] = *value
+	return nil
+}
+
+func (h *MockClientConfig) GetUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) (*humiographql.UserDetails, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", hu.Spec.ManagedClusterName, hu.Spec.ExternalClusterName),
+		resourceName: hu.Spec.UserName,
+	}
+	if value, found := h.apiClient.User[key]; found {
+		return &value, nil
+	}
+	return nil, fmt.Errorf("could not find user with username %q, err=%w", hu.Spec.UserName, humioapi.EntityNotFound{})
+}
+
+func (h *MockClientConfig) UpdateUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", hu.Spec.ManagedClusterName, hu.Spec.ExternalClusterName),
+		resourceName: hu.Spec.UserName,
+	}
+
+	currentUser, found := h.apiClient.User[key]
+
+	if !found {
+		return fmt.Errorf("could not find user with username %q, err=%w", hu.Spec.UserName, humioapi.EntityNotFound{})
+	}
+
+	value := &humiographql.UserDetails{
+		Id:       currentUser.GetId(),
+		Username: currentUser.GetUsername(),
+		IsRoot:   helpers.BoolFalse(hu.Spec.IsRoot),
+	}
+
+	h.apiClient.User[key] = *value
+	return nil
+}
+
+func (h *MockClientConfig) DeleteUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", hu.Spec.ManagedClusterName, hu.Spec.ExternalClusterName),
+		resourceName: hu.Spec.UserName,
+	}
+
+	delete(h.apiClient.User, key)
+	return nil
 }

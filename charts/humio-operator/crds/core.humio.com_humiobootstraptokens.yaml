@@ -982,6 +982,7 @@ spec:
                 description: |-
                   ExternalClusterName refers to the name of the HumioExternalCluster which will use this bootstrap token for authentication
                   This conflicts with ManagedClusterName.
+                minLength: 1
                 type: string
               hashedTokenSecret:
                 description: |-
@@ -1036,8 +1037,10 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
               managedClusterName:
-                description: ManagedClusterName refers to the name of the HumioCluster
-                  which will use this bootstrap token
+                description: |-
+                  ManagedClusterName refers to the name of the HumioCluster which will use this bootstrap token.
+                  This conflicts with ExternalClusterName.
+                minLength: 1
                 type: string
               resources:
                 description: Resources is the kubernetes resource limits for the bootstrap
@@ -1131,6 +1134,10 @@ spec:
                     x-kubernetes-map-type: atomic
                 type: object
             type: object
+            x-kubernetes-validations:
+            - message: Must specify exactly one of managedClusterName or externalClusterName
+              rule: (has(self.managedClusterName) && self.managedClusterName != "")
+                != (has(self.externalClusterName) && self.externalClusterName != "")
           status:
             description: HumioBootstrapTokenStatus defines the observed state of HumioBootstrapToken.
             properties:
@@ -1206,6 +1213,8 @@ spec:
                     x-kubernetes-map-type: atomic
                 type: object
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

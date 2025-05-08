@@ -11953,9 +11953,12 @@ spec:
                               - IfHealthyBudget
                               - AlwaysAllow
                               type: string
-                          required:
-                          - enabled
                           type: object
+                          x-kubernetes-validations:
+                          - message: At most one of minAvailable or maxUnavailable
+                              can be specified
+                            rule: self.minAvailable == null || self.maxUnavailable
+                              == null
                         podLabels:
                           additionalProperties:
                             type: string
@@ -14040,9 +14043,10 @@ spec:
                     - IfHealthyBudget
                     - AlwaysAllow
                     type: string
-                required:
-                - enabled
                 type: object
+                x-kubernetes-validations:
+                - message: At most one of minAvailable or maxUnavailable can be specified
+                  rule: self.minAvailable == null || self.maxUnavailable == null
               podLabels:
                 additionalProperties:
                   type: string
@@ -16194,6 +16198,8 @@ spec:
                 description: Version is the version of humio running
                 type: string
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

@@ -30,6 +30,7 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 	uberzap "go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
@@ -60,6 +61,7 @@ import (
 
 var cancel context.CancelFunc
 var ctx context.Context
+var testScheme *runtime.Scheme
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var k8sManager ctrl.Manager
@@ -280,6 +282,17 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controller.HumioUserReconciler{
+		Client: k8sManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	ctx, cancel = context.WithCancel(context.TODO())
 
 	go func() {
@@ -287,6 +300,7 @@ var _ = BeforeSuite(func() {
 		Expect(err).NotTo(HaveOccurred())
 	}()
 
+	testScheme = k8sManager.GetScheme()
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).NotTo(BeNil())
 

@@ -18,8 +18,11 @@ package resources
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
+	"strings"
 
 	humioapi "github.com/humio/humio-operator/internal/api"
 	"github.com/humio/humio-operator/internal/api/humiographql"
@@ -30,6 +33,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -1768,32 +1773,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the invalid action")
-			Expect(k8sClient.Create(ctx, toCreateInvalidAction)).Should(Succeed())
-
-			fetchedAction := &humiov1alpha1.HumioAction{}
-			Eventually(func() string {
-				_ = k8sClient.Get(ctx, key, fetchedAction)
-				return fetchedAction.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateConfigError))
-
-			var invalidAction humiographql.ActionDetails
-			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
-			Eventually(func() error {
-				invalidAction, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateInvalidAction)
-				if err == nil {
-					suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("HumioAction: Got the following back even though we did not expect to get anything back: %#+v", invalidAction))
-				}
-				return err
-			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
-			Expect(invalidAction).To(BeNil())
-
-			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
-			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, key, fetchedAction)
-				return k8serrors.IsNotFound(err)
-			}, testTimeout, suite.TestInterval).Should(BeTrue())
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Attempting to create invalid action")
+			Expect(k8sClient.Create(ctx, toCreateInvalidAction)).ShouldNot(Succeed())
 		})
 
 		It("HumioAction: Should deny improperly configured action with extra properties", func() {
@@ -1818,29 +1799,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Creating the invalid action")
-			Expect(k8sClient.Create(ctx, toCreateInvalidAction)).Should(Succeed())
-
-			fetchedAction := &humiov1alpha1.HumioAction{}
-			Eventually(func() string {
-				_ = k8sClient.Get(ctx, key, fetchedAction)
-				return fetchedAction.Status.State
-			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioActionStateConfigError))
-
-			var invalidAction humiographql.ActionDetails
-			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
-			Eventually(func() error {
-				invalidAction, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateInvalidAction)
-				return err
-			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
-			Expect(invalidAction).To(BeNil())
-
-			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Successfully deleting it")
-			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, key, fetchedAction)
-				return k8serrors.IsNotFound(err)
-			}, testTimeout, suite.TestInterval).Should(BeTrue())
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Attempting to create invalid action")
+			Expect(k8sClient.Create(ctx, toCreateInvalidAction)).ShouldNot(Succeed())
 		})
 
 		It("HumioAction: HumioRepositoryProperties: Should support referencing secrets", func() {
@@ -3831,6 +3791,195 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, toCreateInvalidScheduledSearch)).Should(Not(Succeed()))
 		})
 
+	})
+
+	Context("Humio User", Label("envtest", "dummy", "real"), func() {
+		It("HumioUser: Should handle user correctly", func() {
+			ctx := context.Background()
+			spec := humiov1alpha1.HumioUserSpec{
+				ManagedClusterName: clusterKey.Name,
+				UserName:           "example-user",
+				IsRoot:             nil,
+			}
+
+			key := types.NamespacedName{
+				Name:      "humiouser",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateUser := &humiov1alpha1.HumioUser{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: spec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioUser: Creating the user successfully with isRoot=nil")
+			Expect(k8sClient.Create(ctx, toCreateUser)).Should(Succeed())
+
+			fetchedUser := &humiov1alpha1.HumioUser{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedUser)
+				return fetchedUser.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioUserStateExists))
+
+			var initialUser *humiographql.UserDetails
+			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+			Eventually(func() error {
+				initialUser, err = humioClient.GetUser(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateUser)
+				if err != nil {
+					return err
+				}
+
+				// Ignore the ID when comparing content
+				initialUser.Id = ""
+
+				return nil
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(initialUser).ToNot(BeNil())
+
+			expectedInitialUser := &humiographql.UserDetails{
+				Id:       "",
+				Username: toCreateUser.Spec.UserName,
+				IsRoot:   false,
+			}
+			Expect(*initialUser).To(Equal(*expectedInitialUser))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioUser: Updating the user successfully to set isRoot=true")
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, key, fetchedUser); err != nil {
+					return err
+				}
+				fetchedUser.Spec.IsRoot = helpers.BoolPtr(true)
+				return k8sClient.Update(ctx, fetchedUser)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			expectedUpdatedUser := &humiographql.UserDetails{
+				Id:       "",
+				Username: toCreateUser.Spec.UserName,
+				IsRoot:   true,
+			}
+			Eventually(func() *humiographql.UserDetails {
+				updatedUser, err := humioClient.GetUser(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedUser)
+				if err != nil {
+					return nil
+				}
+
+				// Ignore the ID when comparing content
+				updatedUser.Id = ""
+
+				return updatedUser
+			}, testTimeout, suite.TestInterval).Should(Equal(expectedUpdatedUser))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioUser: Updating the user successfully to set isRoot=false")
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, key, fetchedUser); err != nil {
+					return err
+				}
+				fetchedUser.Spec.IsRoot = helpers.BoolPtr(false)
+				return k8sClient.Update(ctx, fetchedUser)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			expectedUpdatedUser = &humiographql.UserDetails{
+				Id:       "",
+				Username: toCreateUser.Spec.UserName,
+				IsRoot:   false,
+			}
+			Eventually(func() *humiographql.UserDetails {
+				updatedUser, err := humioClient.GetUser(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedUser)
+				if err != nil {
+					return nil
+				}
+
+				// Ignore the ID when comparing content
+				updatedUser.Id = ""
+
+				return updatedUser
+			}, testTimeout, suite.TestInterval).Should(Equal(expectedUpdatedUser))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioUser: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedUser)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedUser)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+	})
+
+	Context("Required Spec Validation", Label("envtest", "dummy", "real"), func() {
+		It("should reject with missing spec", func() {
+			// Verify the scheme was initialized before we continue
+			Expect(testScheme).ToNot(BeNil())
+
+			// Dynamically fetch all Humio CRD types from the scheme
+			var resources []runtime.Object
+
+			// Get all types registered in the scheme
+			for gvk := range testScheme.AllKnownTypes() {
+				// Filter for types in the humiov1alpha1 group/version that start with "Humio"
+				if gvk.Group == humiov1alpha1.GroupVersion.Group &&
+					gvk.Version == humiov1alpha1.GroupVersion.Version &&
+					strings.HasPrefix(gvk.Kind, "Humio") {
+
+					// Skip any list types
+					if strings.HasSuffix(gvk.Kind, "List") {
+						continue
+					}
+
+					// Create a new instance of this type
+					obj, err := testScheme.New(gvk)
+					if err == nil {
+						resources = append(resources, obj)
+					}
+				}
+			}
+
+			// Verify we validate this for all our CRD's
+			Expect(resources).To(HaveLen(13)) // Bump this as we introduce new CRD's
+
+			for i := range resources {
+				// Get the GVK information
+				obj := resources[i].DeepCopyObject()
+
+				// Get the type information
+				objType := reflect.TypeOf(obj).Elem()
+				kind := objType.Name()
+
+				// Fetch API group and version
+				apiGroup := humiov1alpha1.GroupVersion.Group
+				apiVersion := humiov1alpha1.GroupVersion.Version
+
+				// Create a raw JSON representation without spec
+				rawObj := fmt.Sprintf(`{
+            "apiVersion": "%s/%s",
+            "kind": "%s",
+            "metadata": {
+                "name": "%s-sample",
+                "namespace": "default"
+            }
+        }`, apiGroup, apiVersion, kind, strings.ToLower(kind))
+
+				// Convert to unstructured
+				unstructuredObj := &unstructured.Unstructured{}
+				err := json.Unmarshal([]byte(rawObj), unstructuredObj)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify the GVK is set correctly
+				gvk := unstructuredObj.GetObjectKind().GroupVersionKind()
+				Expect(gvk.Kind).To(Equal(kind))
+				Expect(gvk.Group).To(Equal(apiGroup))
+				Expect(gvk.Version).To(Equal(apiVersion))
+
+				// Attempt to create the resource with no spec field
+				err = k8sClient.Create(context.Background(), unstructuredObj)
+
+				// Expect an error because spec is required
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("spec: Required value"))
+
+			}
+		})
 	})
 })
 
