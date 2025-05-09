@@ -2538,10 +2538,18 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 		for i := 1; i+len(pods) <= hnp.GetNodeCount(); i++ {
 			attachments, err := r.newPodAttachments(ctx, hnp, pods, pvcClaimNamesInUse)
 			if err != nil {
+				if hc.Spec.PdfRenderServiceRef != nil && strings.Contains(err.Error(), "does not contain a status for the hashed token secret reference") {
+					r.Log.Info("Skipping pod creation due to missing bootstrap token status while PdfRenderServiceRef is active. This may be expected if the HumioCluster itself is not intended to run nodes.", "nodePool", hnp.GetNodePoolName(), "error", err.Error())
+					return reconcile.Result{}, nil // Allow other reconciliation to proceed
+				}
 				return reconcile.Result{RequeueAfter: time.Second * 5}, r.logErrorAndReturn(err, "failed to get pod attachments")
 			}
 			pod, err := r.createPod(ctx, hc, hnp, attachments, expectedPodsList)
 			if err != nil {
+				if hc.Spec.PdfRenderServiceRef != nil && strings.Contains(err.Error(), "does not contain a status for the hashed token secret reference") {
+					r.Log.Info("Skipping pod creation due to missing bootstrap token status while PdfRenderServiceRef is active. This may be expected if the HumioCluster itself is not intended to run nodes.", "nodePool", hnp.GetNodePoolName(), "error", err.Error())
+					return reconcile.Result{}, nil // Allow other reconciliation to proceed
+				}
 				return reconcile.Result{RequeueAfter: time.Second * 5}, r.logErrorAndReturn(err, "unable to create pod")
 			}
 			expectedPodsList = append(expectedPodsList, *pod)
