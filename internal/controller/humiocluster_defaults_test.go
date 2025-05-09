@@ -67,7 +67,7 @@ var _ = Describe("HumioCluster Defaults", func() {
 			}))
 
 			By("Confirming the humio node manager correctly returns a newly added unrelated environment variable")
-			toCreate.Spec.EnvironmentVariables = AppendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
+			toCreate.Spec.EnvironmentVariables = hnp.AppendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
 				corev1.EnvVar{
 					Name:  "test",
 					Value: "test",
@@ -82,7 +82,7 @@ var _ = Describe("HumioCluster Defaults", func() {
 			)
 
 			By("Confirming the humio node manager correctly overrides the PUBLIC_URL")
-			toCreate.Spec.EnvironmentVariables = AppendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
+			toCreate.Spec.EnvironmentVariables = hnp.AppendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
 				corev1.EnvVar{
 					Name:  "PUBLIC_URL",
 					Value: "test",
@@ -117,14 +117,14 @@ var _ = Describe("HumioCluster Defaults", func() {
 			toCreate := &humiov1alpha1.HumioCluster{
 				Spec: spec,
 			}
+			hnp := NewHumioNodeManagerFromHumioCluster(toCreate)
 
 			By("Confirming the humio node manager correctly overrides the PUBLIC_URL")
-			toCreate.Spec.EnvironmentVariables = AppendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
+			toCreate.Spec.EnvironmentVariables = hnp.AppendEnvVarToEnvVarsIfNotAlreadyPresent(toCreate.Spec.EnvironmentVariables,
 				corev1.EnvVar{
 					Name:  "PUBLIC_URL",
 					Value: "test",
 				})
-			hnp := NewHumioNodeManagerFromHumioCluster(toCreate)
 			Expect(hnp.GetEnvironmentVariables()).To(ContainElement(
 				corev1.EnvVar{
 					Name:  "PUBLIC_URL",
@@ -179,6 +179,96 @@ var _ = Describe("HumioCluster Defaults", func() {
 					},
 				}))
 			}
+		})
+	})
+
+	Context("When merging containers into pods", func() {
+		It("Should correctly merge regular containers", func() {
+			By("Merging a container into an empty pod")
+			emptyPodSpec := &corev1.PodSpec{
+				Containers: []corev1.Container{},
+			}
+			newContainer := corev1.Container{
+				Name:  "test-container",
+				Image: "test-image",
+				Env: []corev1.EnvVar{
+					{Name: "TEST_ENV", Value: "test-value"},
+				},
+			}
+			result := MergeContainerIntoPod(emptyPodSpec, newContainer)
+			Expect(result.Containers).To(HaveLen(1))
+			Expect(result.Containers[0]).To(Equal(newContainer))
+
+			By("Merging a container with an existing container")
+			existingPodSpec := &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "test-container",
+						Image: "old-image",
+						Env: []corev1.EnvVar{
+							{Name: "EXISTING_ENV", Value: "existing-value"},
+						},
+					},
+				},
+			}
+			updatedContainer := corev1.Container{
+				Name:  "test-container",
+				Image: "new-image",
+				Env: []corev1.EnvVar{
+					{Name: "NEW_ENV", Value: "new-value"},
+				},
+			}
+			result = MergeContainerIntoPod(existingPodSpec, updatedContainer)
+			Expect(result.Containers).To(HaveLen(1))
+			Expect(result.Containers[0].Image).To(Equal("new-image"))
+			Expect(result.Containers[0].Env).To(ContainElements(
+				corev1.EnvVar{Name: "EXISTING_ENV", Value: "existing-value"},
+				corev1.EnvVar{Name: "NEW_ENV", Value: "new-value"},
+			))
+		})
+
+		It("Should correctly merge init containers", func() {
+			By("Merging an init container into an empty pod")
+			emptyPodSpec := &corev1.PodSpec{
+				InitContainers: []corev1.Container{},
+			}
+			newInitContainer := corev1.Container{
+				Name:  "test-init-container",
+				Image: "test-init-image",
+				Env: []corev1.EnvVar{
+					{Name: "TEST_INIT_ENV", Value: "test-init-value"},
+				},
+			}
+			result := MergeInitContainerIntoPod(emptyPodSpec, newInitContainer)
+			Expect(result.InitContainers).To(HaveLen(1))
+			Expect(result.InitContainers[0]).To(Equal(newInitContainer))
+
+			By("Merging an init container with an existing init container")
+			existingPodSpec := &corev1.PodSpec{
+				InitContainers: []corev1.Container{
+					{
+						Name:  "test-init-container",
+						Image: "old-init-image",
+						Env: []corev1.EnvVar{
+							{Name: "EXISTING_INIT_ENV", Value: "existing-init-value"},
+						},
+					},
+				},
+			}
+			updatedInitContainer := corev1.Container{
+				Name:  "test-init-container",
+				Image: "new-init-image",
+				Env: []corev1.EnvVar{
+					{Name: "NEW_INIT_ENV", Value: "new-init-value"},
+				},
+			}
+			result = MergeInitContainerIntoPod(existingPodSpec, updatedInitContainer)
+			Expect(result.InitContainers).To(HaveLen(1))
+			Expect(result.InitContainers[0].Image).To(Equal("new-init-image"))
+			Expect(result.InitContainers[0].Env).To(ContainElements(
+				corev1.EnvVar{Name: "EXISTING_INIT_ENV", Value: "existing-init-value"},
+				corev1.EnvVar{Name: "NEW_INIT_ENV", Value: "new-init-value"},
+			))
 		})
 	})
 })

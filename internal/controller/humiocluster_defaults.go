@@ -27,6 +27,7 @@ import (
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -86,6 +87,7 @@ type HumioNodePool struct {
 	desiredPodHash            string
 	desiredBootstrapTokenHash string
 	podDisruptionBudget       *humiov1alpha1.HumioPodDisruptionBudgetSpec
+	managedFieldsTracker      corev1.Pod
 }
 
 func NewHumioNodeManagerFromHumioCluster(hc *humiov1alpha1.HumioCluster) *HumioNodePool {
@@ -289,7 +291,22 @@ func (hnp *HumioNodePool) GetImage() string {
 		return defaultImageFromEnvVar
 	}
 
-	return versions.DefaultHumioImageVersion()
+	image := helpers.GetDefaultHumioCoreImageManagedFromEnvVar()
+	if image == "" {
+		image = versions.DefaultHumioImageVersion()
+	}
+
+	// we are setting a default, which means the operator manages the field
+	// this is only for tracking purposes which sets the humio container image as a managed field on the humio pods.
+	// as a result, the operator managed fields annotation will change while the pod hash annotation will not, however
+	// due to the upgrade logic the pods will still be restarted if the operator-managed default humio image changes.
+	// to avoid humio pod restarts during operator upgrades, it's required that image be set on the HumioCluster CR.
+	hnp.AddManagedFieldForContainer(corev1.Container{
+		Name:  HumioContainerName,
+		Image: image,
+	})
+
+	return image
 }
 
 func (hnp *HumioNodePool) GetImageSource() *humiov1alpha1.HumioImageSource {
@@ -305,7 +322,21 @@ func (hnp *HumioNodePool) GetHelperImage() string {
 		return defaultHelperImageFromEnvVar
 	}
 
-	return versions.DefaultHelperImageVersion()
+	image := helpers.GetDefaultHumioHelperImageManagedFromEnvVar()
+	if image == "" {
+		image = versions.DefaultHelperImageVersion()
+	}
+
+	// we are setting a default, which means the operator manages the environment variable
+	// in most cases, the helper image is not being set on the HumioCluster CR and instead the default is being set by
+	// the operator. this becomes an operator managed field and since there is no additional upgrade logic around the
+	// helper image upgrades, the humio pods are not restarted during an operator upgrade in this case.
+	hnp.AddManagedFieldForContainer(corev1.Container{
+		Name:  InitContainerName,
+		Image: image,
+	})
+
+	return image
 }
 
 func (hnp *HumioNodePool) GetImagePullSecrets() []corev1.LocalObjectReference {
@@ -439,7 +470,7 @@ func (hnp *HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	}
 
 	for _, defaultEnvVar := range envDefaults {
-		envVars = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, defaultEnvVar)
+		envVars = hnp.AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, defaultEnvVar)
 	}
 
 	// Allow overriding PUBLIC_URL. This may be useful when other methods of exposing the cluster are used other than
@@ -451,12 +482,12 @@ func (hnp *HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 			pathSuffix = hnp.GetPath()
 		}
 		if hnp.GetIngress().Enabled {
-			envVars = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, corev1.EnvVar{
+			envVars = hnp.AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, corev1.EnvVar{
 				Name:  "PUBLIC_URL", // URL used by users/browsers.
 				Value: fmt.Sprintf("https://%s%s", hnp.GetHostname(), pathSuffix),
 			})
 		} else {
-			envVars = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, corev1.EnvVar{
+			envVars = hnp.AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, corev1.EnvVar{
 				Name:  "PUBLIC_URL", // URL used by users/browsers.
 				Value: fmt.Sprintf("%s://$(THIS_POD_IP):$(HUMIO_PORT)%s", scheme, pathSuffix),
 			})
@@ -464,7 +495,7 @@ func (hnp *HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 	}
 
 	if hnp.GetPath() != "/" {
-		envVars = AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, corev1.EnvVar{
+		envVars = hnp.AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, corev1.EnvVar{
 			Name:  "PROXY_PREFIX_URL",
 			Value: hnp.GetPath(),
 		})
@@ -912,13 +943,53 @@ func (hnp *HumioNodePool) GetNodePoolFeatureAllowedAPIRequestTypes() []string {
 	return []string{NodePoolFeatureAllowedAPIRequestType}
 }
 
-func AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars []corev1.EnvVar, defaultEnvVar corev1.EnvVar) []corev1.EnvVar {
+// AppendHumioContainerEnvVarToManagedFields merges the container into the managed fields for the node pool. for
+// supported fields, see mergeContainers()
+func (hnp *HumioNodePool) AppendHumioContainerEnvVarToManagedFields(envVar corev1.EnvVar) {
+	hnp.managedFieldsTracker.Spec = *MergeContainerIntoPod(&hnp.managedFieldsTracker.Spec, corev1.Container{
+		Name: HumioContainerName,
+		Env:  []corev1.EnvVar{envVar},
+	})
+}
+
+func (hnp *HumioNodePool) AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars []corev1.EnvVar, defaultEnvVar corev1.EnvVar) []corev1.EnvVar {
 	for _, envVar := range envVars {
 		if envVar.Name == defaultEnvVar.Name {
 			return envVars
 		}
 	}
+	// we are setting a default, which means the operator manages the environment variable
+	hnp.AppendHumioContainerEnvVarToManagedFields(defaultEnvVar)
 	return append(envVars, defaultEnvVar)
+}
+
+func (hnp *HumioNodePool) GetManagedFieldsPod(name string, namespace string) *corev1.Pod {
+	return &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: hnp.managedFieldsTracker.Spec,
+	}
+}
+
+// AddManagedFieldForContainer adds the managed field for the humio pod for the given container. this can be viewed
+// by looking at the managed fields on the pod. e.g.
+// kubectl get pod <pod name> -o jsonpath='{.metadata.managedFields}'
+// most of the managed fields (with the exception to the main humio image) can be changed through operator upgrades
+// and will not cause humio pod restarts. in these cases, a warning will be logged that describes the managed field
+// and the diff which exists until the pods are recreated.
+func (hnp *HumioNodePool) AddManagedFieldForContainer(container corev1.Container) {
+	switch containerName := container.Name; containerName {
+	case HumioContainerName:
+		hnp.managedFieldsTracker.Spec = *MergeContainerIntoPod(&hnp.managedFieldsTracker.Spec, container)
+	case InitContainerName:
+		hnp.managedFieldsTracker.Spec = *MergeInitContainerIntoPod(&hnp.managedFieldsTracker.Spec, container)
+	}
 }
 
 func certificateSecretNameOrDefault(hc *humiov1alpha1.HumioCluster) string {
@@ -985,4 +1056,66 @@ func NodePoolFilterHasNode(nodePool *HumioNodePool) bool {
 
 func NodePoolFilterDoesNotHaveNodes(nodePool *HumioNodePool) bool {
 	return !NodePoolFilterHasNode(nodePool)
+}
+
+func MergeContainerIntoPod(podSpec *corev1.PodSpec, newContainer corev1.Container) *corev1.PodSpec {
+	updatedPod := podSpec.DeepCopy()
+	found := false
+	for i := range updatedPod.Containers {
+		if updatedPod.Containers[i].Name == newContainer.Name {
+			mergeContainers(&newContainer, &updatedPod.Containers[i])
+			found = true
+			break
+		}
+	}
+	if !found {
+		updatedPod.Containers = append(updatedPod.Containers, newContainer)
+	}
+	return updatedPod
+}
+
+func MergeInitContainerIntoPod(podSpec *corev1.PodSpec, newContainer corev1.Container) *corev1.PodSpec {
+	updatedPod := podSpec.DeepCopy()
+	found := false
+	for i := range updatedPod.InitContainers {
+		if updatedPod.InitContainers[i].Name == newContainer.Name {
+			mergeContainers(&newContainer, &updatedPod.InitContainers[i])
+			found = true
+			break
+		}
+	}
+	if !found {
+		updatedPod.InitContainers = append(updatedPod.InitContainers, newContainer)
+	}
+	return updatedPod
+}
+
+// mergeContainers merges the image and env vars from one container to another. currently this function contains the
+// extent of the fields that are supported by the operator managed fields implementation. if we want to add more
+// supported fields later, this is where it would happen as well as adding AddManagedFieldForContainer for each of the
+// defaults that are set.
+// additionally, support in the pod hasher under podHasherMinusManagedFields() will need to be updated to account for
+// the new managed fields.
+func mergeContainers(src, dest *corev1.Container) {
+	if src.Image != "" {
+		dest.Image = src.Image
+	}
+	mergeEnvironmentVariables(src, dest)
+}
+
+func mergeEnvironmentVariables(src, dest *corev1.Container) {
+	if len(src.Env) == 0 {
+		return
+	}
+
+	existingEnv := make(map[string]bool)
+	for _, env := range dest.Env {
+		existingEnv[env.Name] = true
+	}
+
+	for _, newEnv := range src.Env {
+		if !existingEnv[newEnv.Name] {
+			dest.Env = append(dest.Env, newEnv)
+		}
+	}
 }
