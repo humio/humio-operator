@@ -228,7 +228,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&controller.HumioFeatureFlagReconciler{
-		Client:      k8sManager.GetClient(),
+		Client: k8sManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
 		HumioClient: humioClient,
 		BaseLogger:  log,
 		Namespace:   clusterKey.Namespace,
