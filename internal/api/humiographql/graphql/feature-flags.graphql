@@ -1,0 +1,26 @@
+query IsFeatureGloballyEnabled (
+    $FeatureFlagName: FeatureFlag!
+) {
+    meta {
+        isFeatureFlagEnabled(feature: $FeatureFlagName)
+    }
+}
+
+mutation EnableGlobalFeatureFlag (
+    $FeatureFlagName: FeatureFlag!
+) {
+    enableFeature(feature: $FeatureFlagName)
+}
+
+mutation DisableGlobalFeatureFlag (
+    $FeatureFlagName: FeatureFlag!
+) {
+    disableFeature(feature: $FeatureFlagName)
+}
+
+
+query GetFeatureFlags {
+    featureFlags(includeExperimentalFeatures: true) {
+        flag
+    }
+}

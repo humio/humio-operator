@@ -4,6 +4,7 @@ operations:
   - graphql/aggregate-alerts.graphql
   - graphql/alerts.graphql
   - graphql/cluster.graphql
+  - graphql/feature-flags.graphql
   - graphql/filter-alerts.graphql
   - graphql/fragments.graphql
   - graphql/ingest-tokens.graphql

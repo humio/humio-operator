@@ -1,0 +1,8 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioFeatureFlag
+metadata:
+  name: humiofeatureflag-example
+spec:
+  managedClusterName: example-humiocluster
+#  externalClusterName: example-humiocluster
+  name: MultiClusterSearch
