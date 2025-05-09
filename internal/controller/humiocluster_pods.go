@@ -780,11 +780,13 @@ func (r *HumioClusterReconciler) getPodDesiredLifecycleState(ctx context.Context
 			}
 		}
 
-		for _, mismatchedEnvironmentVariables := range podComparison.MismatchedEnvironmentVariables() {
+		for _, mismatchedEnvironmentVariable := range podComparison.MismatchedEnvironmentVariables() {
 			for _, envVar := range environmentVariablesRequiringSimultaneousRestartRestart {
-				if mismatchedEnvironmentVariables == envVar {
+				if mismatchedEnvironmentVariable == envVar {
 					r.Log.Info(fmt.Sprintf("%s changed so all pods must restart at the same time", envVar))
-					podLifecycleStateValue.configurationDifference.requiresSimultaneousRestart = true
+					podLifecycleStateValue.configurationDifference = &podLifecycleStateConfigurationDifference{
+						requiresSimultaneousRestart: true,
+					}
 				}
 			}
 		}
