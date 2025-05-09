@@ -12,6 +12,6 @@ test_scenarios:
       values_patch: "hack/helm-test/test-cases/test-values-update-no-restart-patch.yaml"
     to:
       version: "present"
-      values_patch: "hack/helm-test/test-cases/test-values-update-no-restart-update-patch.yaml
+      values_patch: "hack/helm-test/test-cases/test-values-update-no-restart-update-patch.yaml"
     expect_restarts: false
     description: "Should not trigger restart"
