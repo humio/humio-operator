@@ -14,7 +14,6 @@ const (
 	PodMismatchSeverityCritical PodMismatchSeverityType = "PodMismatchSeverityCritical"
 	PodMismatchSeverityWarning  PodMismatchSeverityType = "PodMismatchSeverityWarning"
 	PodMismatchVersion          PodMismatchType         = "PodMismatchVersion"
-	PodMismatchConfiguration    PodMismatchType         = "PodMismatchConfiguration"
 	PodMismatchAnnotation       PodMismatchType         = "PodMismatchAnnotation"
 )
 
@@ -101,10 +100,35 @@ func (pc *PodComparison) processHumioContainerImages() {
 	}
 }
 
+// processEnvironmentVariables returns a list of environment variables which do not match. we don't set
+// PodMismatchSeverityType here and instead rely on the annotations mismatches. this is because some environment
+// variables may be excluded from the pod hash because they are defaults managed by the operator.
+// we are only returning environment variables here in case there is specific restart behavior that needs to be
+// evaluated for a given environment variable. for example, see env vars defined in
+// environmentVariablesRequiringSimultaneousRestartRestart
 func (pc *PodComparison) processEnvironmentVariables() {
-	if EnvVarValue(pc.currentHumioContainer.Env, "EXTERNAL_URL") != EnvVarValue(pc.desiredHumioContainer.Env, "EXTERNAL_URL") {
-		pc.setDoesNotMatch(PodMismatchConfiguration, PodMismatchSeverityCritical)
-		pc.result.podEnvironmentVariableMismatches = append(pc.result.podEnvironmentVariableMismatches, "EXTERNAL_URL")
+	currentEnvVars := make(map[string]string)
+	desiredEnvVars := make(map[string]string)
+
+	for _, env := range pc.currentHumioContainer.Env {
+		currentEnvVars[env.Name] = EnvVarValue(pc.currentHumioContainer.Env, env.Name)
+	}
+
+	for _, env := range pc.desiredHumioContainer.Env {
+		desiredEnvVars[env.Name] = EnvVarValue(pc.desiredHumioContainer.Env, env.Name)
+	}
+
+	for envName, desiredValue := range desiredEnvVars {
+		currentValue, exists := currentEnvVars[envName]
+		if !exists || currentValue != desiredValue {
+			pc.result.podEnvironmentVariableMismatches = append(pc.result.podEnvironmentVariableMismatches, envName)
+		}
+	}
+
+	for envName := range currentEnvVars {
+		if _, exists := desiredEnvVars[envName]; !exists {
+			pc.result.podEnvironmentVariableMismatches = append(pc.result.podEnvironmentVariableMismatches, envName)
+		}
 	}
 }
 
