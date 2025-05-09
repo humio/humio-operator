@@ -973,3 +973,43 @@ func EnsurePdfRenderDeploymentReady(ctx context.Context, k8sClient client.Client
 		return updatedDeployment.Status.ReadyReplicas
 	}, DefaultTestTimeout, TestInterval).Should(BeNumerically(">", 0))
 }
+
+// CleanupPdfRenderServiceCR safely deletes a HumioPdfRenderService CR and waits for its deletion
+func CleanupPdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfCR *humiov1alpha1.HumioPdfRenderService) {
+	if pdfCR == nil {
+		return
+	}
+
+	serviceName := pdfCR.Name
+	serviceNamespace := pdfCR.Namespace
+	key := types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}
+
+	UsingClusterBy(serviceName, fmt.Sprintf("Cleaning up HumioPdfRenderService %s", key.String()))
+
+	// Get the latest version of the resource
+	latestPdfCR := &humiov1alpha1.HumioPdfRenderService{}
+	err := k8sClient.Get(ctx, key, latestPdfCR)
+
+	// If not found, it's already deleted
+	if k8serrors.IsNotFound(err) {
+		return
+	}
+
+	// If other error, report it but continue
+	if err != nil {
+		UsingClusterBy(serviceName, fmt.Sprintf("Error getting HumioPdfRenderService for cleanup: %v", err))
+		return
+	}
+
+	// Only attempt deletion if not already being deleted
+	if latestPdfCR.GetDeletionTimestamp() == nil {
+		Expect(k8sClient.Delete(ctx, latestPdfCR)).To(Succeed())
+	}
+
+	// Wait for deletion with appropriate timeout
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, key, latestPdfCR)
+		return k8serrors.IsNotFound(err)
+	}, DefaultTestTimeout, TestInterval).Should(BeTrue(),
+		"HumioPdfRenderService %s/%s should be deleted", serviceNamespace, serviceName)
+}
