@@ -10,6 +10,7 @@ resources:
 - bases/core.humio.com_humioviews.yaml
 - bases/core.humio.com_humioactions.yaml
 - bases/core.humio.com_humioalerts.yaml
+- bases/core.humio.com_humiofeatureflags.yaml
 - bases/core.humio.com_humiofilteralerts.yaml
 - bases/core.humio.com_humioscheduledsearches.yaml
 - bases/core.humio.com_humioaggregatealerts.yaml

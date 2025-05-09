@@ -5823,8 +5823,8 @@ spec:
                   type: object
                 type: array
               featureFlags:
-                description: FeatureFlags contains feature flags applied to this humio
-                  cluster.
+                description: OperatorFeatureFlags contains feature flags applied to
+                  the Humio operator.
                 properties:
                   enableDownscalingFeature:
                     default: false
