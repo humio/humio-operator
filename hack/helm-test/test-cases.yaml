@@ -1,19 +1,17 @@
 test_scenarios:
   - name: "restart_upgrade"
-    from_version: "0.28.0"
-    to_version: "present"
-    from_cluster: "hack/helm-test/test-cases/test-logscale-cluster.yaml"
-    to_cluster: "hack/helm-test/test-cases/test-logscale-cluster.yaml"
-    from_values: "hack/helm-test/test-cases/values.yaml"
-    to_values: "hack/helm-test/test-cases/values.yaml"
+    from:
+      version: "0.28.0"
+    to:
+      version: "present"
     expect_restarts: true
     description: "Should trigger restart"
   - name: "no_restart_upgrade_to_present"
-    from_version: "present"
-    to_version: "present"
-    from_cluster: "hack/helm-test/test-cases/test-logscale-cluster.yaml"
-    to_cluster: "hack/helm-test/test-cases/test-logscale-cluster.yaml"
-    from_values: "hack/helm-test/test-cases/test-values-update-no-restart.yaml"
-    to_values: "hack/helm-test/test-cases/test-values-update-no-restart-update.yaml"
+    from:
+      version: "present"
+      values_patch: "hack/helm-test/test-cases/test-values-update-no-restart-patch.yaml"
+    to:
+      version: "present"
+      values_patch: "hack/helm-test/test-cases/test-values-update-no-restart-update-patch.yaml
     expect_restarts: false
     description: "Should not trigger restart"

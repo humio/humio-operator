@@ -19,18 +19,25 @@ declare -r humio_ingest_token=${E2E_LOGS_HUMIO_INGEST_TOKEN:-none}
 declare -r docker_username=${DOCKER_USERNAME:-none}
 declare -r docker_password=${DOCKER_PASSWORD:-none}
 declare -r dummy_logscale_image=${DUMMY_LOGSCALE_IMAGE:-true}
+declare -r base_logscale_cluster_file="hack/helm-test/test-cases/base/test-logscale-cluster.yaml"
+declare -r base_values_file="hack/helm-test/test-cases/base/values.yaml"
+declare -r tmp_helm_test_case_dir="hack/helm-test/test-cases/tmp"
 
 run_test_suite() {
     trap "cleanup_upgrade" RETURN
 
     yq eval -o=j hack/helm-test/test-cases.yaml | jq -c '.test_scenarios[]' | while IFS= read -r scenario; do
         local name=$(echo "$scenario" | jq -r '.name')
-        local from_version=$(echo $scenario | jq -r '.from_version')
-        local to_version=$(echo $scenario | jq -r '.to_version')
-        local from_cluster=$(echo $scenario | jq -r '.from_cluster')
-        local to_cluster=$(echo $scenario | jq -r '.to_cluster')
-        local from_values=$(echo $scenario | jq -r '.from_values')
-        local to_values=$(echo $scenario | jq -r '.to_values')
+        local from_version=$(echo $scenario | jq -r '.from.version')
+        local to_version=$(echo $scenario | jq -r '.to.version')
+        local from_cluster=$(echo $scenario | jq -r '.from.cluster')
+        local from_cluster_patch=$(echo $scenario | jq -r '.from.cluster_patch')
+        local to_cluster=$(echo $scenario | jq -r '.to.cluster')
+        local to_cluster_patch=$(echo $scenario | jq -r '.to.cluster_patch')
+        local from_values=$(echo $scenario | jq -r '.from.values')
+        local from_values_patch=$(echo $scenario | jq -r '.from.values_patch')
+        local to_values=$(echo $scenario | jq -r '.to.values')
+        local to_values_patch=$(echo $scenario | jq -r '.to.values_patch')
         local expect_restarts=$(echo $scenario | jq -r '.expect_restarts')
         local description=$(echo $scenario | jq -r '.description')
 
@@ -38,7 +45,7 @@ run_test_suite() {
         echo "Description: $description"
 
         # Run test
-        if test_upgrade "$from_version" "$to_version" "$expect_restarts" "$from_cluster" "$to_cluster" "$from_values" "$to_values"; then
+        if test_upgrade "$from_version" "$to_version" "$expect_restarts" "$from_cluster" "$to_cluster" "$from_values" "$to_values" "$from_cluster_patch" "$to_cluster_patch" "$from_values_patch" "$to_values_patch"; then
             echo "✅ Test passed: $name"
         else
             echo "❌ Test failed: $name"
@@ -50,6 +57,7 @@ run_test_suite() {
 cleanup_helm_cluster() {
   cleanup_upgrade
   cleanup_humiocluster
+  cleanup_tmp_helm_test_case_dir
 }
 
 test_upgrade() {
@@ -60,8 +68,44 @@ test_upgrade() {
     local to_cluster=$5
     local from_values=$6
     local to_values=$7
+    local from_cluster_patch=$8
+    local to_cluster_patch=$9
+    local from_values_patch=${10}
+    local to_values_patch=${11}
 
-    echo "Testing upgrade from version: $from_version, to version: $to_version, from cluster: $from_cluster, to cluster: $to_cluster, expect restarts: $expect_restarts"
+    mkdir -p $tmp_helm_test_case_dir
+
+    if [ "$from_cluster_patch" != "null" ]; then
+      from_cluster=$tmp_helm_test_case_dir/from-cluster-$(date +"%Y%m%dT%H%M%S").yaml
+      yq eval-all '. as $item ireduce ({}; . * $item)' $base_logscale_cluster_file $from_cluster_patch > $from_cluster
+    fi
+    if [ "$to_cluster_patch" != "null" ]; then
+      to_cluster=$tmp_helm_test_case_dir/to-cluster-$(date +"%Y%m%dT%H%M%S").yaml
+      yq eval-all '. as $item ireduce ({}; . * $item)' $base_logscale_cluster_file $to_cluster_patch > $to_cluster
+    fi
+    if [ "$from_values_patch" != "null" ]; then
+      from_values=$tmp_helm_test_case_dir/from-values-$(date +"%Y%m%dT%H%M%S").yaml
+      yq eval-all '. as $item ireduce ({}; . * $item)' $base_values_file $from_values_patch > $from_values
+    fi
+    if [ "$to_values_patch" != "null" ]; then
+      to_values=$tmp_helm_test_case_dir/to-values-$(date +"%Y%m%dT%H%M%S").yaml
+      yq eval-all '. as $item ireduce ({}; . * $item)' $base_values_file $to_values_patch > $to_values
+    fi
+
+    if [ "$from_cluster" == "null" ]; then
+      from_cluster=$base_logscale_cluster_file
+    fi
+    if [ "$from_cluster" == "null" ]; then
+      to_cluster=$base_logscale_cluster_file
+    fi
+    if [ "$from_values" == "null" ]; then
+      from_values=$base_values_file
+    fi
+    if [ "$to_values" == "null" ]; then
+      to_values=$base_values_file
+    fi
+
+    echo "Testing upgrade from version: $from_version, to version: $to_version, from cluster: $from_cluster, to cluster: $to_cluster, from cluster patch: $from_cluster_patch, to cluster patch: $to_cluster_patch, from values: $from_values, to values: $to_values, expect restarts: $expect_restarts"
 
     kubectl create secret generic test-cluster-license --from-literal=data="${humio_e2e_license}"
 
@@ -113,6 +157,11 @@ cleanup_upgrade() {
 cleanup_humiocluster() {
   kubectl delete secret test-cluster-license || true
   kubectl delete humiocluster test-cluster || true
+}
+
+cleanup_tmp_helm_test_case_dir() {
+  find $tmp_helm_test_case_dir -name '*.yaml' -depth 1 -type f -exec rm -f '{}' \;
+  rmdir $tmp_helm_test_case_dir
 }
 
 capture_pod_states() {
