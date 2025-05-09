@@ -173,18 +173,38 @@ func GetDefaultHumioHelperImageFromEnvVar() string {
 	return GetDefaultHumioHelperImageUnmanagedFromEnvVar()
 }
 
+// GetDefaultHumioHelperImageManagedFromEnvVar is the "managed" version of the humio helper image that is set by the
+// operator as a default for the HumioClusters which are created without a helper image version set. managed in this
+// case means that the operator will own the image on the humio pods with a managedField entry on the pod for the
+// initContainer image. this means that subsequent updates to this "managed" resource will not trigger restarts of
+// the humio pods
 func GetDefaultHumioHelperImageManagedFromEnvVar() string {
 	return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE_MANAGED")
 }
 
+// GetDefaultHumioHelperImageUnmanagedFromEnvVar is the "unmanaged" version of the humio helper image that is set by the
+// operator as a default for the HumioClusters which are created without a helper image version set. unmanaged in this
+// case means that the operator will not own the image on the humio pods and no managedField entry on the pod for the
+// initContainer image will be set. this means that subsequent updates to this "unmanaged" resource will trigger restarts
+// of the humio pods
 func GetDefaultHumioHelperImageUnmanagedFromEnvVar() string {
 	return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_HELPER_IMAGE_UNMANAGED")
 }
 
+// GetDefaultHumioCoreImageManagedFromEnvVar is the "managed" version of the humio core image that is set by the
+// operator as a default for the HumioClusters which are created without a core image version set. managed in this
+// case means that the operator will own the image on the humio pods with a managedField entry on the pod for the
+// container image. due to the upgrade logic, updates to this image value will still trigger restarts of the humio pods
+// as they will enter the Upgrading state. in order to avoid restarts of humio pods during an operator upgrade that
+// changes the default core image, the image value should be set at the HumioCluster resource level
 func GetDefaultHumioCoreImageManagedFromEnvVar() string {
 	return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE_MANAGED")
 }
 
+// GetDefaultHumioCoreImageUnmanagedFromEnvVar is the "unmanaged" version of the humio core image that is set by the
+// operator as a default for the HumioClusters which are created without a core image version set. unmanaged in this
+// case means that the operator will not own the image on the humio pods and no managedField entry on the pod for the
+// container image will be set
 func GetDefaultHumioCoreImageUnmanagedFromEnvVar() string {
 	return os.Getenv("HUMIO_OPERATOR_DEFAULT_HUMIO_CORE_IMAGE_UNMANAGED")
 }
