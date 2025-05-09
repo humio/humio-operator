@@ -22,6 +22,7 @@ import (
 
 type HumioFeatureFlagReconciler struct {
 	client.Client
+	CommonConfig
 	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
@@ -145,8 +146,8 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	r.Log.Info("done reconciling, will requeue in 15 seconds")
-	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
