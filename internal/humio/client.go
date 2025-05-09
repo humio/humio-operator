@@ -47,6 +47,7 @@ type Client interface {
 	ActionsClient
 	AlertsClient
 	FilterAlertsClient
+	FeatureFlagsClient
 	AggregateAlertsClient
 	ScheduledSearchClient
 	UsersClient
@@ -112,6 +113,13 @@ type FilterAlertsClient interface {
 	UpdateFilterAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
 	DeleteFilterAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
 	ValidateActionsForFilterAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
+}
+
+type FeatureFlagsClient interface {
+	GetFeatureFlags(context.Context, *humioapi.Client) ([]string, error)
+	EnableFeatureFlag(context.Context, *humioapi.Client, *humiov1alpha1.HumioFeatureFlag) error
+	IsFeatureFlagEnabled(context.Context, *humioapi.Client, *humiov1alpha1.HumioFeatureFlag) (bool, error)
+	DisableFeatureFlag(context.Context, *humioapi.Client, *humiov1alpha1.HumioFeatureFlag) error
 }
 
 type AggregateAlertsClient interface {
@@ -1441,6 +1449,50 @@ func (h *ClientConfig) DeleteFilterAlert(ctx context.Context, client *humioapi.C
 		client,
 		hfa.Spec.ViewName,
 		currentFilterAlert.GetId(),
+	)
+	return err
+}
+
+func (h *ClientConfig) GetFeatureFlags(ctx context.Context, client *humioapi.Client) ([]string, error) {
+	resp, err := humiographql.GetFeatureFlags(ctx, client)
+	if err != nil {
+		return nil, err
+	}
+	featureFlagNames := make([]string, len(resp.GetFeatureFlags()))
+	for _, featureFlag := range resp.GetFeatureFlags() {
+		featureFlagNames = append(featureFlagNames, string(featureFlag.GetFlag()))
+	}
+	return featureFlagNames, nil
+}
+
+func (h *ClientConfig) EnableFeatureFlag(ctx context.Context, client *humioapi.Client, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
+	_, err := humiographql.EnableGlobalFeatureFlag(
+		ctx,
+		client,
+		humiographql.FeatureFlag(featureFlag.Spec.Name),
+	)
+
+	return err
+}
+
+func (h *ClientConfig) IsFeatureFlagEnabled(ctx context.Context, client *humioapi.Client, featureFlag *humiov1alpha1.HumioFeatureFlag) (bool, error) {
+	response, err := humiographql.IsFeatureGloballyEnabled(
+		ctx,
+		client,
+		humiographql.FeatureFlag(featureFlag.Spec.Name),
+	)
+	if response == nil {
+		return false, humioapi.FeatureFlagNotFound(featureFlag.Spec.Name)
+	}
+	responseMeta := response.GetMeta()
+	return responseMeta.GetIsFeatureFlagEnabled(), err
+}
+
+func (h *ClientConfig) DisableFeatureFlag(ctx context.Context, client *humioapi.Client, featureFlag *humiov1alpha1.HumioFeatureFlag) error {
+	_, err := humiographql.DisableGlobalFeatureFlag(
+		ctx,
+		client,
+		humiographql.FeatureFlag(featureFlag.Spec.Name),
 	)
 	return err
 }

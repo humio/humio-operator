@@ -3334,6 +3334,99 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
+	Context("Humio Feature Flag", Label("envtest", "dummy", "real"), func() {
+		It("HumioFeatureFlag: Should enable and disable feature successfully", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "array-functions",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toSetFeatureFlag := &humiov1alpha1.HumioFeatureFlag{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioFeatureFlagSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "ArrayFunctions",
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Enabling feature flag")
+			Expect(k8sClient.Create(ctx, toSetFeatureFlag)).Should(Succeed())
+
+			fetchedFeatureFlag := &humiov1alpha1.HumioFeatureFlag{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedFeatureFlag)
+				return fetchedFeatureFlag.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFeatureFlagStateExists))
+
+			var isFeatureFlagEnabled bool
+			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+			Eventually(func() error {
+				isFeatureFlagEnabled, err = humioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, toSetFeatureFlag)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(isFeatureFlagEnabled).To(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Disabling feature flag")
+			Expect(k8sClient.Delete(ctx, fetchedFeatureFlag)).To(Succeed())
+			Eventually(func() bool {
+				isFeatureFlagEnabled, err = humioClient.IsFeatureFlagEnabled(ctx, humioHttpClient, toSetFeatureFlag)
+				objErr := k8sClient.Get(ctx, key, fetchedFeatureFlag)
+
+				return k8serrors.IsNotFound(objErr) && !isFeatureFlagEnabled
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("HumioFeatureFlag: Should deny improperly configured feature flag with missing required values", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "example-invalid-feature-flag",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateInvalidFeatureFlag := &humiov1alpha1.HumioFeatureFlag{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioFeatureFlagSpec{
+					ManagedClusterName: clusterKey.Name,
+					//Name: key.Name,
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Trying to create an invalid feature flag")
+			Expect(k8sClient.Create(ctx, toCreateInvalidFeatureFlag)).Should(Not(Succeed()))
+		})
+
+		It("HumioFeatureFlag: Should deny feature flag which is not available in LogScale", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "example-invalid-feature-flag",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateInvalidFeatureFlag := &humiov1alpha1.HumioFeatureFlag{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioFeatureFlagSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               key.Name,
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioFeatureFlag: Trying to create a feature flag with an invalid name")
+			Expect(k8sClient.Create(ctx, toCreateInvalidFeatureFlag)).Should(Succeed())
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, toCreateInvalidFeatureFlag)
+				return toCreateInvalidFeatureFlag.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioFeatureFlagStateConfigError))
+		})
+	})
+
 	Context("Humio Aggregate Alert", Label("envtest", "dummy", "real"), func() {
 		It("should handle aggregate alert action correctly", func() {
 			ctx := context.Background()
@@ -3936,7 +4029,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			// Verify we validate this for all our CRD's
-			Expect(resources).To(HaveLen(13)) // Bump this as we introduce new CRD's
+			Expect(resources).To(HaveLen(14)) // Bump this as we introduce new CRD's
 
 			for i := range resources {
 				// Get the GVK information
