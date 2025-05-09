@@ -3988,7 +3988,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8serrors.IsNotFound(err)
 			}, testTimeout, suite.TestInterval).Should(BeTrue())
 
-			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Successfully deleting the action")
+			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Succeswith customsfully deleting the action")
 			Expect(k8sClient.Delete(ctx, fetchedAction)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, actionKey, fetchedAction)
