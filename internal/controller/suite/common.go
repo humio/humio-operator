@@ -482,7 +482,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 			Expect(err).Should(Succeed())
 		}
 		return updatedHumioCluster.Status.State
-	}, testTimeout, TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+	}, testTimeout, TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 
 	UsingClusterBy(key.Name, "Waiting to have the correct number of pods")
 
