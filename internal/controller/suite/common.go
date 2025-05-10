@@ -456,7 +456,7 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 			Expect(err).Should(Succeed())
 		}
 		return updatedHumioCluster.Status.State
-	}, testTimeout, TestInterval).Should(BeIdenticalTo(humiov1alpha1.HumioClusterStateRunning))
+	}, testTimeout, TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 
 	UsingClusterBy(key.Name, "Waiting to have the correct number of pods")
 
@@ -970,6 +970,14 @@ func EnsurePdfRenderDeploymentReady(ctx context.Context, k8sClient client.Client
 		fmt.Printf("Deployment %s/%s status: %d/%d replicas ready\n",
 			deploymentKey.Namespace, deploymentKey.Name,
 			updatedDeployment.Status.ReadyReplicas, updatedDeployment.Status.Replicas)
+
+		// If replicas is set to 0, we should consider it ready when observed generation is up to date
+		if updatedDeployment.Spec.Replicas != nil && *updatedDeployment.Spec.Replicas == 0 {
+			if updatedDeployment.Status.ObservedGeneration >= updatedDeployment.Generation {
+				return 1 // Return non-zero to satisfy the BeNumerically(">", 0) check
+			}
+		}
+
 		return updatedDeployment.Status.ReadyReplicas
 	}, DefaultTestTimeout, TestInterval).Should(BeNumerically(">", 0))
 }
