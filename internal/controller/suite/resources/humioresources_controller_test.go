@@ -3998,9 +3998,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 	})
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 
 	Context("Humio User", Label("envtest", "dummy", "real"), func() {
 		It("HumioUser: Should handle user correctly", func() {
