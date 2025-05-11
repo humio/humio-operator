@@ -1012,40 +1012,6 @@ func (r *HumioPdfRenderServiceReconciler) updateStatus(
 			return err
 		}
 
-		// Check if we need to update the status at all
-		if (currentHprs.Status.ObservedGeneration > hprsForStatusGenerationAndState.Generation ||
-			currentHprs.Status.ObservedGeneration == hprsForStatusGenerationAndState.Generation) &&
-			currentHprs.Status.State == currentStateFromReconcileLoop &&
-			currentHprs.Status.ReadyReplicas == hprsForStatusGenerationAndState.Status.ReadyReplicas {
-
-			// Also check message field if there's an error
-			skipUpdate := true
-			if reconcileErr != nil {
-				// If there's an error, make sure the message matches
-				if currentHprs.Status.Message == reconcileErr.Error() {
-					skipUpdate = true
-				} else {
-					skipUpdate = false
-				}
-			} else if currentHprs.Status.Message == "" {
-				// No error and message is empty, no need to update
-				skipUpdate = true
-			} else {
-				// No error but message is not empty, need to update to clear it
-				skipUpdate = false
-			}
-
-			if skipUpdate {
-				log.Info("Status already reflects current state. Skipping update to avoid unnecessary reconciliations.",
-					"currentObservedGeneration", currentHprs.Status.ObservedGeneration,
-					"statusUpdateObservedGeneration", hprsForStatusGenerationAndState.Generation,
-					"currentState", currentHprs.Status.State,
-					"readyReplicas", currentHprs.Status.ReadyReplicas)
-				updatedHprs = currentHprs
-				return nil
-			}
-		}
-
 		currentHprs.Status.ObservedGeneration = hprsForStatusGenerationAndState.Generation
 		currentHprs.Status.State = currentStateFromReconcileLoop
 

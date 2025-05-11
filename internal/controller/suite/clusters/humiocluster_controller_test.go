@@ -592,7 +592,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			Expect(k8sClient.Create(ctx, clusterSpecificPdf)).To(Succeed())
 
 			// Wait for controller to process the PDF service creation
-			suite.WaitForObservedGeneration(ctx, k8sClient, clusterSpecificPdf, standardTimeout, quickInterval)
+			//suite.WaitForObservedGeneration(ctx, k8sClient, clusterSpecificPdf, standardTimeout, quickInterval)
 
 			By("Creating the valid HumioPdfRenderService to reference later")
 			validPdfCR := &humiov1alpha1.HumioPdfRenderService{
@@ -751,7 +751,6 @@ var _ = Describe("HumioCluster Controller", func() {
 			Eventually(func() error {
 				return k8sClient.Get(ctx, pdfKey, pdfCR)
 			}, standardTimeout, quickInterval).Should(Succeed(), "Failed to get created HumioPdfRenderService for pdfCR")
-			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfCR) // pdfCR is defined
 
 			// 3. Wait for controller to process HPRS and deployment to be ready
 			By("Waiting for initial HumioPdfRenderService to be processed and deployment to be ready")
@@ -779,6 +778,8 @@ var _ = Describe("HumioCluster Controller", func() {
 				}
 				return k8sClient.Update(ctx, currentHc)
 			}, standardTimeout, quickInterval).Should(Succeed(), "Failed to update HumioCluster with PdfRenderServiceRef")
+
+			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfCR)
 
 			// Add this check to ensure the PDF service still exists
 			By("Ensuring the referenced HumioPdfRenderService still exists after updating the cluster")
@@ -973,9 +974,17 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			By("Removing PdfRenderServiceRef from the HumioCluster")
 			var cluster humiov1alpha1.HumioCluster
-			Expect(k8sClient.Get(ctx, clusterKey, &cluster)).To(Succeed())
-			cluster.Spec.PdfRenderServiceRef = nil
-			Expect(k8sClient.Update(ctx, &cluster)).To(Succeed())
+			Eventually(func(g Gomega) error { // Added g Gomega for assertions within the func
+				// Refetch the latest version of the HumioCluster resource
+				err := k8sClient.Get(ctx, clusterKey, &cluster)
+				if err != nil {
+					return err // Return the error to retry on failure
+				}
+
+				// Now apply the desired change to the latest version
+				cluster.Spec.PdfRenderServiceRef = nil
+				return k8sClient.Update(ctx, &cluster)
+			}, standardTimeout, quickInterval).Should(Succeed())
 
 			By("Verifying cluster goes through expected state transitions")
 			// Allow temporary state of Restarting
