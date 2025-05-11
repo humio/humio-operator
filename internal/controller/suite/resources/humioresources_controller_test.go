@@ -6196,8 +6196,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return k8serrors.IsNotFound(err)
 			}, longTimeout, suite.TestInterval).Should(BeTrue())
 		})
-	})
 })
+
 
 type repositoryExpectation struct {
 	Name                   string
