@@ -169,7 +169,11 @@ type HumioPdfRenderService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HumioPdfRenderServiceSpec   `json:"spec,omitempty"`
+	// Spec defines the desired state of HumioPdfRenderService
+	// +kubebuilder:validation:Required
+	Spec HumioPdfRenderServiceSpec `json:"spec"`
+
+	// Status reflects the observed state of HumioPdfRenderService
 	Status HumioPdfRenderServiceStatus `json:"status,omitempty"`
 }
 

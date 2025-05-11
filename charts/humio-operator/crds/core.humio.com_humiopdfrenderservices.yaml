@@ -58,7 +58,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
+            description: Spec defines the desired state of HumioPdfRenderService
             properties:
               affinity:
                 description: Affinity defines the pod's scheduling constraints.
@@ -3817,8 +3817,7 @@ spec:
             - replicas
             type: object
           status:
-            description: HumioPdfRenderServiceStatus defines the observed state of
-              HumioPdfRenderService
+            description: Status reflects the observed state of HumioPdfRenderService
             properties:
               message:
                 description: Message provides additional information about the state
@@ -3838,6 +3837,8 @@ spec:
                 description: State reflects the current state of the HumioPdfRenderService
                 type: string
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true
