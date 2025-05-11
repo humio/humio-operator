@@ -1063,6 +1063,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				g.Expect(err).NotTo(HaveOccurred())
 				return updatedCluster.Status.State
 			}, extendedTimeout, quickInterval).Should(Equal(humiov1alpha1.HumioClusterStateConfigError))
+
 		})
 	})
 

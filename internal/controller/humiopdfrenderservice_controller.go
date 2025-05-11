@@ -7,6 +7,7 @@ import (
 
 	// "reflect" // Removed unused import
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -115,7 +116,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	}
 
-	if !hprs.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !hprs.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(hprs, hprsFinalizer) {
 			// Explicitly clean up owned resources before removing finalizer
 			log.Info("Processing finalizer for HumioPdfRenderService", "name", hprs.Name, "namespace", hprs.Namespace)
@@ -151,9 +152,9 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 						"namespace", hprs.Namespace)
 
 					// Wait for deployment to be deleted
-					err := wait.PollImmediate(time.Second, 5*time.Second, func() (bool, error) {
+					err := wait.PollUntilContextTimeout(ctx, time.Second, 5*time.Second, true, func(context.Context) (done bool, err error) {
 						tempDep := &appsv1.Deployment{}
-						err := r.Get(ctx, depKey, tempDep)
+						err = r.Get(ctx, depKey, tempDep)
 						return k8serrors.IsNotFound(err), nil
 					})
 
@@ -305,9 +306,6 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 				return ctrl.Result{}, nil
 			}
 
-			// This is definitely a real change, and we need to wait for the deployment controller to process it
-			isRealChange = true
-
 			// Set a specific message for this case
 			hprs.Status.State = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
 			hprs.Status.ReadyReplicas = dep.Status.ReadyReplicas
@@ -405,7 +403,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		log.Info("Step: Deployment not (yet) considered fully rolled out for immediate 'Running' state.", "deploymentName", dep.Name, "readyReplicas", dep.Status.ReadyReplicas, "specReplicas", hprs.Spec.Replicas, "observedGeneration", dep.Status.ObservedGeneration, "generation", dep.Generation)
 	}
 
-	determinedState := humiov1alpha1.HumioPdfRenderServiceStateUnknown
+	var determinedState string
 	var stateReason string
 
 	log.Info("Step: Determining HPRS state based on Deployment status.")
@@ -567,10 +565,9 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 		},
 	}
 
-	var op controllerutil.OperationResult = controllerutil.OperationResultNone
-	var err error
+	op := controllerutil.OperationResultNone
 
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		var getErr error
 		key := client.ObjectKeyFromObject(dep)
 		getErr = r.Get(ctx, key, dep)
@@ -580,8 +577,8 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 
 			// Use CreateOrUpdate with a mutate function that sets all fields
 			op, createErr := controllerutil.CreateOrUpdate(ctx, r.Client, dep, func() error {
-				dep.ObjectMeta.Labels = desired.ObjectMeta.Labels
-				dep.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
+				dep.Labels = desired.Labels
+				dep.Annotations = desired.Annotations
 				dep.Spec = desired.Spec
 
 				// Set controller reference to ensure proper ownership and garbage collection
@@ -606,8 +603,8 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 		log.Info("Existing Deployment found.", "deploymentName", dep.Name, "currentImage", dep.Spec.Template.Spec.Containers[0].Image, "currentReplicas", dep.Spec.Replicas)
 		originalDeployment := dep.DeepCopy()
 
-		dep.ObjectMeta.Labels = desired.ObjectMeta.Labels
-		dep.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
+		dep.Labels = desired.Labels
+		dep.Annotations = desired.Annotations
 		dep.Spec.Replicas = desired.Spec.Replicas
 		dep.Spec.Template = desired.Spec.Template
 		dep.Spec.Strategy = desired.Spec.Strategy
@@ -625,47 +622,8 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 
 		// Check if there are any actual changes to apply
 		specChanged := !k8sApiEquality.Semantic.DeepEqual(originalDeployment.Spec, dep.Spec)
-		labelsChanged := !k8sApiEquality.Semantic.DeepEqual(originalDeployment.ObjectMeta.Labels, dep.ObjectMeta.Labels)
-		annotationsChanged := !k8sApiEquality.Semantic.DeepEqual(originalDeployment.ObjectMeta.Annotations, dep.ObjectMeta.Annotations)
-
-		// Detailed logging to identify what's changing
-		// if specChanged {
-		// 	log.Info("Deployment spec has changed", "deploymentName", dep.Name)
-
-		// 	// Check specific parts of the spec to identify what's changing
-		// 	replicasChanged := originalDeployment.Spec.Replicas != nil && dep.Spec.Replicas != nil &&
-		// 		*originalDeployment.Spec.Replicas != *dep.Spec.Replicas
-
-		// 	imageChanged := len(originalDeployment.Spec.Template.Spec.Containers) > 0 &&
-		// 		len(dep.Spec.Template.Spec.Containers) > 0 &&
-		// 		originalDeployment.Spec.Template.Spec.Containers[0].Image != dep.Spec.Template.Spec.Containers[0].Image
-
-		// 	// If we can identify specific changes, log them
-		// 	if replicasChanged {
-		// 		log.Info("Replicas change detected",
-		// 			"deploymentName", dep.Name,
-		// 			"oldReplicas", *originalDeployment.Spec.Replicas,
-		// 			"newReplicas", *dep.Spec.Replicas)
-		// 	}
-
-		// 	if imageChanged {
-		// 		log.Info("Image change detected",
-		// 			"deploymentName", dep.Name,
-		// 			"oldImage", originalDeployment.Spec.Template.Spec.Containers[0].Image,
-		// 			"newImage", dep.Spec.Template.Spec.Containers[0].Image)
-		// 	}
-
-		// 	// If neither replicas nor image changed, but spec is detected as changed,
-		// 	// it might be due to resource requirements or other fields that shouldn't trigger updates
-		// 	if !replicasChanged && !imageChanged {
-		// 		// Only update if there's a significant change (image or replicas)
-		// 		// This prevents unnecessary updates that cause the generation to increment
-		// 		log.Info("Deployment spec detected as changed, but no significant changes found. Skipping update.",
-		// 			"deploymentName", dep.Name)
-		// 		op = controllerutil.OperationResultNone
-		// 		return nil
-		// 	}
-		// }
+		labelsChanged := !k8sApiEquality.Semantic.DeepEqual(originalDeployment.Labels, dep.Labels)
+		annotationsChanged := !k8sApiEquality.Semantic.DeepEqual(originalDeployment.Annotations, dep.Annotations)
 
 		if specChanged {
 			log.Info("Deployment spec has changed, proceeding to update to pick up every difference (env, args, etc.)", "deploymentName", dep.Name)
@@ -740,7 +698,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 		},
 	}
 
-	var op controllerutil.OperationResult = controllerutil.OperationResultNone
+	var op controllerutil.OperationResult
 	var err error
 
 	// First set controller reference to ensure proper ownership
@@ -755,13 +713,13 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 		if svc.ResourceVersion != "" {
 			currentClusterIP = svc.Spec.ClusterIP
 		}
-		svc.ObjectMeta.Labels = desired.ObjectMeta.Labels
+		svc.Labels = desired.Labels
 		// For service annotations, use hprs.Spec.Annotations if that's the intent, or a dedicated field if it exists.
 		// HumioPdfRenderServiceSpec has `Annotations` for pod, not explicitly for service.
 		// If `desired.Annotations` (from constructDesiredService) is meant for service, ensure it's populated correctly there.
 		// Current constructDesiredService uses hprs.Spec.ServiceAnnotations, which is undefined.
 		// For now, let's assume desired.Annotations correctly holds service annotations if any.
-		svc.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
+		svc.Annotations = desired.Annotations
 		svc.Spec.Ports = desired.Spec.Ports
 		svc.Spec.Selector = desired.Spec.Selector
 		svc.Spec.Type = desired.Spec.Type
@@ -1054,14 +1012,38 @@ func (r *HumioPdfRenderServiceReconciler) updateStatus(
 			return err
 		}
 
-		if currentHprs.Status.ObservedGeneration > hprsForStatusGenerationAndState.Generation &&
-			currentHprs.Status.State == currentStateFromReconcileLoop {
-			log.Info("Status already reflects a newer or same generation for the target state. Skipping update.",
-				"currentObservedGeneration", currentHprs.Status.ObservedGeneration,
-				"statusUpdateObservedGeneration", hprsForStatusGenerationAndState.Generation,
-				"currentState", currentHprs.Status.State)
-			updatedHprs = currentHprs
-			return nil
+		// Check if we need to update the status at all
+		if (currentHprs.Status.ObservedGeneration > hprsForStatusGenerationAndState.Generation ||
+			currentHprs.Status.ObservedGeneration == hprsForStatusGenerationAndState.Generation) &&
+			currentHprs.Status.State == currentStateFromReconcileLoop &&
+			currentHprs.Status.ReadyReplicas == hprsForStatusGenerationAndState.Status.ReadyReplicas {
+
+			// Also check message field if there's an error
+			skipUpdate := true
+			if reconcileErr != nil {
+				// If there's an error, make sure the message matches
+				if currentHprs.Status.Message == reconcileErr.Error() {
+					skipUpdate = true
+				} else {
+					skipUpdate = false
+				}
+			} else if currentHprs.Status.Message == "" {
+				// No error and message is empty, no need to update
+				skipUpdate = true
+			} else {
+				// No error but message is not empty, need to update to clear it
+				skipUpdate = false
+			}
+
+			if skipUpdate {
+				log.Info("Status already reflects current state. Skipping update to avoid unnecessary reconciliations.",
+					"currentObservedGeneration", currentHprs.Status.ObservedGeneration,
+					"statusUpdateObservedGeneration", hprsForStatusGenerationAndState.Generation,
+					"currentState", currentHprs.Status.State,
+					"readyReplicas", currentHprs.Status.ReadyReplicas)
+				updatedHprs = currentHprs
+				return nil
+			}
 		}
 
 		currentHprs.Status.ObservedGeneration = hprsForStatusGenerationAndState.Generation
@@ -1148,7 +1130,27 @@ func (r *HumioPdfRenderServiceReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 func (r *HumioPdfRenderServiceReconciler) findHumioPdfRenderServicesForHumioCluster(ctx context.Context, obj client.Object) []reconcile.Request {
 	log := r.BaseLogger.WithValues("function", "findHumioPdfRenderServicesForHumioCluster", "clusterName", obj.GetName(), "clusterNamespace", obj.GetNamespace())
+
+	// Check if the object is a HumioCluster
+	humioCluster, ok := obj.(*humiov1alpha1.HumioCluster)
+	if !ok {
+		log.Error(fmt.Errorf("expected a HumioCluster but got a %T", obj), "failed to get HumioCluster")
+		return []reconcile.Request{}
+	}
+
 	log.Info("HumioCluster change detected, finding associated HumioPdfRenderServices.")
+
+	// Get the current generation and observed generation to check if this is a status-only update
+	generation := humioCluster.Generation
+	observedGenStr := humioCluster.Status.ObservedGeneration
+	observedGen, err := strconv.ParseInt(observedGenStr, 10, 64)
+	if err == nil && generation == observedGen && humioCluster.Status.State == humiov1alpha1.HumioClusterStateRunning {
+		// This is likely just a status update with no spec changes, we can skip reconciliation
+		// to avoid unnecessary processing
+		log.Info("Skipping HPRS reconciliation for status-only HumioCluster update",
+			"generation", generation, "observedGeneration", observedGen)
+		return []reconcile.Request{}
+	}
 
 	hprsList := &humiov1alpha1.HumioPdfRenderServiceList{}
 	listOpts := []client.ListOption{
@@ -1161,26 +1163,23 @@ func (r *HumioPdfRenderServiceReconciler) findHumioPdfRenderServicesForHumioClus
 
 	requests := make([]reconcile.Request, 0, len(hprsList.Items)) // Initialize with 0 length
 	for _, item := range hprsList.Items {
-		// A more specific check could be added here if HPRS spec refers to a HumioCluster
-		// e.g., if item.Spec.HumioClusterName == obj.GetName()
-		requests = append(requests, reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      item.GetName(),
-				Namespace: item.GetNamespace(),
-			},
-		})
-		log.Info("Queueing HPRS for reconciliation due to HumioCluster change", "hprsName", item.GetName())
-	}
-	return requests
-}
-
-func labelsSubset(sub, super map[string]string) bool {
-	for k, v := range sub {
-		if wv, ok := super[k]; !ok || wv != v {
-			return false
+		// Only queue reconciliation if the HPRS is in a stable state
+		// This helps prevent cascading reconciliations
+		if item.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning ||
+			item.Status.State == humiov1alpha1.HumioPdfRenderServiceStateConfigError {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      item.GetName(),
+					Namespace: item.GetNamespace(),
+				},
+			})
+			log.Info("Queueing HPRS for reconciliation due to HumioCluster change", "hprsName", item.GetName())
+		} else {
+			log.Info("Skipping HPRS reconciliation as it's already in a transitional state",
+				"hprsName", item.GetName(), "hprsState", item.Status.State)
 		}
 	}
-	return true
+	return requests
 }
 
 func dedupEnvVars(envVars []corev1.EnvVar) []corev1.EnvVar {
@@ -1235,19 +1234,4 @@ func firstNonNilProbe(p *corev1.Probe, fallback *corev1.Probe) *corev1.Probe {
 		return p
 	}
 	return fallback
-}
-
-// tlsCertificateSecretName returns the secret name for the HPRS's own server TLS certificate.
-// It defaults to "<hprs-name>-tls".
-// The `tlsSpec` parameter is from `hprs.Spec.TLS` which is of type `*humiov1alpha1.HumioClusterTLSSpec`.
-// `HumioClusterTLSSpec` itself does not have a `SecretName` field for the server cert, only `CASecretName`.
-// If HPRS needs its own server cert secret name to be configurable via `hprs.Spec.TLS.SecretName`,
-// then `HumioPdfRenderServiceSpec.TLS` should point to a HPRS-specific TLS spec type, not `HumioClusterTLSSpec`.
-// For now, we assume a convention or that cert-manager handles it if TLS is enabled.
-func tlsCertificateSecretName(hprsSpecTLS *humiov1alpha1.HumioClusterTLSSpec, defaultName string) string {
-	// HumioClusterTLSSpec does not have a 'SecretName' field for the server certificate itself.
-	// It has 'CASecretName' for the CA.
-	// So, we will rely on the defaultName convention for the server certificate secret.
-	// If hprsSpecTLS had a field like `ServerCertificateSecretName`, we would use it here.
-	return defaultName
 }
