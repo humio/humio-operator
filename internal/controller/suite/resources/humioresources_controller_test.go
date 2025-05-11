@@ -4010,7 +4010,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			key := types.NamespacedName{
 				Name:      "humiouser",
-				Namespace: clusterKey.Namespace,
+				Namespace: clusterKey.Namespace,x
 			}
 
 			toCreateUser := &humiov1alpha1.HumioUser{
