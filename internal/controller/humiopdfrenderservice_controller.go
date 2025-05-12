@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
+	"github.com/humio/humio-operator/internal/controller/versions"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8sApiEquality "k8s.io/apimachinery/pkg/api/equality"
@@ -20,10 +22,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
-	"github.com/humio/humio-operator/internal/controller/versions"
 )
 
 const (
@@ -87,7 +87,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	if err := r.validateTLSConfiguration(ctx, hprs); err != nil {
 		// validation failure ⇒ ConfigError
 		hprs.Status.ReadyReplicas = 0
-		_, _ = r.updateStatus(ctx, hprs, humiov1alpha1.HumioPdfRenderServiceStateConfigError, err)
+		_ = r.updateStatus(ctx, hprs, humiov1alpha1.HumioPdfRenderServiceStateConfigError, err)
 		return ctrl.Result{}, err
 	}
 
@@ -97,13 +97,13 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// Deployment
 	op, dep, err := r.reconcileDeployment(ctx, hprs)
 	if err != nil {
-		_, _ = r.updateStatus(ctx, hprs, humiov1alpha1.HumioPdfRenderServiceStateConfigError, err)
+		_ = r.updateStatus(ctx, hprs, humiov1alpha1.HumioPdfRenderServiceStateConfigError, err)
 		return ctrl.Result{}, err
 	}
 
 	// Service
 	if err := r.reconcileService(ctx, hprs); err != nil {
-		_, _ = r.updateStatus(ctx, hprs, humiov1alpha1.HumioPdfRenderServiceStateConfigError, err)
+		_ = r.updateStatus(ctx, hprs, humiov1alpha1.HumioPdfRenderServiceStateConfigError, err)
 		return ctrl.Result{}, err
 	}
 
@@ -122,7 +122,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// --------------------------------------------------------------------
 	// 5.  Update status
 	// --------------------------------------------------------------------
-	_, _ = r.updateStatus(ctx, hprs, targetState, nil)
+	_ = r.updateStatus(ctx, hprs, targetState, nil)
 
 	// --------------------------------------------------------------------
 	// 6.  Requeue while configuring
@@ -140,7 +140,6 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	return ctrl.Result{}, nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
 func (r *HumioPdfRenderServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.APIReader = mgr.GetAPIReader()
 
@@ -148,6 +147,10 @@ func (r *HumioPdfRenderServiceReconciler) SetupWithManager(mgr ctrl.Manager) err
 		For(&humiov1alpha1.HumioPdfRenderService{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
+		Watches(
+			&humiov1alpha1.HumioCluster{},
+			handler.EnqueueRequestsFromMapFunc(r.findHumioPdfRenderServicesForHumioCluster),
+		).
 		Complete(r)
 }
 
@@ -387,7 +390,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(
 ) *appsv1.Deployment {
 	labels := labelsForHumioPdfRenderService(hprs.Name)
 	replicas := hprs.Spec.Replicas
-	port := servicePort(hprs)
+	port := getPdfRenderServicePort(hprs)
 
 	if hprs.Spec.Image == "" {
 		hprs.Spec.Image = versions.DefaultPDFRenderServiceImage()
@@ -424,7 +427,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(
 	}
 }
 
-func servicePort(hprs *humiov1alpha1.HumioPdfRenderService) int32 {
+func getPdfRenderServicePort(hprs *humiov1alpha1.HumioPdfRenderService) int32 {
 	if hprs.Spec.Port != 0 {
 		return hprs.Spec.Port
 	}
@@ -503,7 +506,7 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 
 func (r *HumioPdfRenderServiceReconciler) constructDesiredService(hprs *humiov1alpha1.HumioPdfRenderService) *corev1.Service {
 	labels := labelsForHumioPdfRenderService(hprs.Name)
-	port := servicePort(hprs)
+	port := getPdfRenderServicePort(hprs)
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -622,7 +625,7 @@ func (r *HumioPdfRenderServiceReconciler) updateStatus(
 	hprsForStatusUpdate *humiov1alpha1.HumioPdfRenderService,
 	currentStateFromReconcileLoop string,
 	reconcileErr error,
-) (ctrl.Result, error) {
+) error {
 	log := r.Log.WithValues("function", "updateStatus", "targetState", currentStateFromReconcileLoop)
 
 	// Always update ObservedGeneration
@@ -641,11 +644,12 @@ func (r *HumioPdfRenderServiceReconciler) updateStatus(
 	availableStatus := metav1.ConditionFalse
 	availableReason := "DeploymentUnavailable"
 	availableMessage := "Deployment is not available"
-	if hprsForStatusUpdate.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning {
+	switch hprsForStatusUpdate.Status.State {
+	case humiov1alpha1.HumioPdfRenderServiceStateRunning:
 		availableStatus = metav1.ConditionTrue
 		availableReason = "DeploymentAvailable"
 		availableMessage = "Deployment is available and ready"
-	} else if hprsForStatusUpdate.Status.State == humiov1alpha1.HumioPdfRenderServiceStateScaledDown {
+	case humiov1alpha1.HumioPdfRenderServiceStateScaledDown:
 		availableStatus = metav1.ConditionFalse
 		availableReason = "ScaledDown"
 		availableMessage = "HPRS is scaled down to 0 replicas"
@@ -743,13 +747,12 @@ func (r *HumioPdfRenderServiceReconciler) updateStatus(
 		}
 		return updateErr // Return other errors to RetryOnConflict
 	})
-
 	if statusUpdateErr != nil {
 		log.Error(statusUpdateErr, "Failed to update HumioPdfRenderService status after retries.")
-		return ctrl.Result{Requeue: true}, statusUpdateErr // Requeue on persistent status update failure
+		return statusUpdateErr
 	}
 
-	return ctrl.Result{}, nil // Status update successful
+	return nil // Status update successful
 }
 
 // setStatusCondition sets the given condition in the status of the HumioPdfRenderService.
@@ -771,7 +774,7 @@ func (r *HumioPdfRenderServiceReconciler) findHumioPdfRenderServicesForHumioClus
 		client.MatchingFields{".spec.humioCluster.name": humioCluster.GetName()},
 	}
 
-	if err := r.Client.List(ctx, hprsList, listOpts...); err != nil {
+	if err := r.List(ctx, hprsList, listOpts...); err != nil {
 		log.Error(err, "failed to list HumioPdfRenderServices for HumioCluster")
 		return []reconcile.Request{}
 	}
