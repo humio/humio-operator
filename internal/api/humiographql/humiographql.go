@@ -2575,6 +2575,111 @@ func (v *CreateRepositoryWithRetentionResponse) GetCreateRepository() CreateRepo
 	return v.CreateRepository
 }
 
+// CreateRoleCreateRoleAddRoleMutation includes the requested fields of the GraphQL type AddRoleMutation.
+type CreateRoleCreateRoleAddRoleMutation struct {
+	// Stability: Long-term
+	Role CreateRoleCreateRoleAddRoleMutationRole `json:"role"`
+}
+
+// GetRole returns CreateRoleCreateRoleAddRoleMutation.Role, and is useful for accessing the field via an interface.
+func (v *CreateRoleCreateRoleAddRoleMutation) GetRole() CreateRoleCreateRoleAddRoleMutationRole {
+	return v.Role
+}
+
+// CreateRoleCreateRoleAddRoleMutationRole includes the requested fields of the GraphQL type Role.
+type CreateRoleCreateRoleAddRoleMutationRole struct {
+	RoleDetails `json:"-"`
+}
+
+// GetId returns CreateRoleCreateRoleAddRoleMutationRole.Id, and is useful for accessing the field via an interface.
+func (v *CreateRoleCreateRoleAddRoleMutationRole) GetId() string { return v.RoleDetails.Id }
+
+// GetDisplayName returns CreateRoleCreateRoleAddRoleMutationRole.DisplayName, and is useful for accessing the field via an interface.
+func (v *CreateRoleCreateRoleAddRoleMutationRole) GetDisplayName() string {
+	return v.RoleDetails.DisplayName
+}
+
+// GetViewPermissions returns CreateRoleCreateRoleAddRoleMutationRole.ViewPermissions, and is useful for accessing the field via an interface.
+func (v *CreateRoleCreateRoleAddRoleMutationRole) GetViewPermissions() []Permission {
+	return v.RoleDetails.ViewPermissions
+}
+
+// GetOrganizationPermissions returns CreateRoleCreateRoleAddRoleMutationRole.OrganizationPermissions, and is useful for accessing the field via an interface.
+func (v *CreateRoleCreateRoleAddRoleMutationRole) GetOrganizationPermissions() []OrganizationPermission {
+	return v.RoleDetails.OrganizationPermissions
+}
+
+// GetSystemPermissions returns CreateRoleCreateRoleAddRoleMutationRole.SystemPermissions, and is useful for accessing the field via an interface.
+func (v *CreateRoleCreateRoleAddRoleMutationRole) GetSystemPermissions() []SystemPermission {
+	return v.RoleDetails.SystemPermissions
+}
+
+func (v *CreateRoleCreateRoleAddRoleMutationRole) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateRoleCreateRoleAddRoleMutationRole
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateRoleCreateRoleAddRoleMutationRole = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RoleDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateRoleCreateRoleAddRoleMutationRole struct {
+	Id string `json:"id"`
+
+	DisplayName string `json:"displayName"`
+
+	ViewPermissions []Permission `json:"viewPermissions"`
+
+	OrganizationPermissions []OrganizationPermission `json:"organizationPermissions"`
+
+	SystemPermissions []SystemPermission `json:"systemPermissions"`
+}
+
+func (v *CreateRoleCreateRoleAddRoleMutationRole) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateRoleCreateRoleAddRoleMutationRole) __premarshalJSON() (*__premarshalCreateRoleCreateRoleAddRoleMutationRole, error) {
+	var retval __premarshalCreateRoleCreateRoleAddRoleMutationRole
+
+	retval.Id = v.RoleDetails.Id
+	retval.DisplayName = v.RoleDetails.DisplayName
+	retval.ViewPermissions = v.RoleDetails.ViewPermissions
+	retval.OrganizationPermissions = v.RoleDetails.OrganizationPermissions
+	retval.SystemPermissions = v.RoleDetails.SystemPermissions
+	return &retval, nil
+}
+
+// CreateRoleResponse is returned by CreateRole on success.
+type CreateRoleResponse struct {
+	// Adds a role. Only usable if roles are not managed externally, e.g. in LDAP.
+	// Stability: Long-term
+	CreateRole CreateRoleCreateRoleAddRoleMutation `json:"createRole"`
+}
+
+// GetCreateRole returns CreateRoleResponse.CreateRole, and is useful for accessing the field via an interface.
+func (v *CreateRoleResponse) GetCreateRole() CreateRoleCreateRoleAddRoleMutation { return v.CreateRole }
+
 // CreateScheduledSearchCreateScheduledSearch includes the requested fields of the GraphQL type ScheduledSearch.
 // The GraphQL type's documentation follows.
 //
@@ -2941,6 +3046,27 @@ type DeleteParserByIDResponse struct {
 // GetDeleteParser returns DeleteParserByIDResponse.DeleteParser, and is useful for accessing the field via an interface.
 func (v *DeleteParserByIDResponse) GetDeleteParser() DeleteParserByIDDeleteParserBooleanResultType {
 	return v.DeleteParser
+}
+
+// DeleteRoleByIDRemoveRoleBooleanResultType includes the requested fields of the GraphQL type BooleanResultType.
+type DeleteRoleByIDRemoveRoleBooleanResultType struct {
+	// Stability: Long-term
+	Result bool `json:"result"`
+}
+
+// GetResult returns DeleteRoleByIDRemoveRoleBooleanResultType.Result, and is useful for accessing the field via an interface.
+func (v *DeleteRoleByIDRemoveRoleBooleanResultType) GetResult() bool { return v.Result }
+
+// DeleteRoleByIDResponse is returned by DeleteRoleByID on success.
+type DeleteRoleByIDResponse struct {
+	// Removes a role. Only usable if roles are not managed externally, e.g. in LDAP.
+	// Stability: Long-term
+	RemoveRole DeleteRoleByIDRemoveRoleBooleanResultType `json:"removeRole"`
+}
+
+// GetRemoveRole returns DeleteRoleByIDResponse.RemoveRole, and is useful for accessing the field via an interface.
+func (v *DeleteRoleByIDResponse) GetRemoveRole() DeleteRoleByIDRemoveRoleBooleanResultType {
+	return v.RemoveRole
 }
 
 // DeleteScheduledSearchByIDResponse is returned by DeleteScheduledSearchByID on success.
@@ -9695,6 +9821,96 @@ func (v *ListRepositoriesResponse) GetRepositories() []ListRepositoriesRepositor
 	return v.Repositories
 }
 
+// ListRolesResponse is returned by ListRoles on success.
+type ListRolesResponse struct {
+	// All defined roles.
+	// Stability: Long-term
+	Roles []ListRolesRolesRole `json:"roles"`
+}
+
+// GetRoles returns ListRolesResponse.Roles, and is useful for accessing the field via an interface.
+func (v *ListRolesResponse) GetRoles() []ListRolesRolesRole { return v.Roles }
+
+// ListRolesRolesRole includes the requested fields of the GraphQL type Role.
+type ListRolesRolesRole struct {
+	RoleDetails `json:"-"`
+}
+
+// GetId returns ListRolesRolesRole.Id, and is useful for accessing the field via an interface.
+func (v *ListRolesRolesRole) GetId() string { return v.RoleDetails.Id }
+
+// GetDisplayName returns ListRolesRolesRole.DisplayName, and is useful for accessing the field via an interface.
+func (v *ListRolesRolesRole) GetDisplayName() string { return v.RoleDetails.DisplayName }
+
+// GetViewPermissions returns ListRolesRolesRole.ViewPermissions, and is useful for accessing the field via an interface.
+func (v *ListRolesRolesRole) GetViewPermissions() []Permission { return v.RoleDetails.ViewPermissions }
+
+// GetOrganizationPermissions returns ListRolesRolesRole.OrganizationPermissions, and is useful for accessing the field via an interface.
+func (v *ListRolesRolesRole) GetOrganizationPermissions() []OrganizationPermission {
+	return v.RoleDetails.OrganizationPermissions
+}
+
+// GetSystemPermissions returns ListRolesRolesRole.SystemPermissions, and is useful for accessing the field via an interface.
+func (v *ListRolesRolesRole) GetSystemPermissions() []SystemPermission {
+	return v.RoleDetails.SystemPermissions
+}
+
+func (v *ListRolesRolesRole) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListRolesRolesRole
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListRolesRolesRole = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RoleDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalListRolesRolesRole struct {
+	Id string `json:"id"`
+
+	DisplayName string `json:"displayName"`
+
+	ViewPermissions []Permission `json:"viewPermissions"`
+
+	OrganizationPermissions []OrganizationPermission `json:"organizationPermissions"`
+
+	SystemPermissions []SystemPermission `json:"systemPermissions"`
+}
+
+func (v *ListRolesRolesRole) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListRolesRolesRole) __premarshalJSON() (*__premarshalListRolesRolesRole, error) {
+	var retval __premarshalListRolesRolesRole
+
+	retval.Id = v.RoleDetails.Id
+	retval.DisplayName = v.RoleDetails.DisplayName
+	retval.ViewPermissions = v.RoleDetails.ViewPermissions
+	retval.OrganizationPermissions = v.RoleDetails.OrganizationPermissions
+	retval.SystemPermissions = v.RoleDetails.SystemPermissions
+	return &retval, nil
+}
+
 // ListScheduledSearchesResponse is returned by ListScheduledSearches on success.
 type ListScheduledSearchesResponse struct {
 	// Stability: Long-term
@@ -10283,6 +10499,61 @@ func (v *ListSearchDomainsSearchDomainsView) GetName() string { return v.Name }
 // GetAutomaticSearch returns ListSearchDomainsSearchDomainsView.AutomaticSearch, and is useful for accessing the field via an interface.
 func (v *ListSearchDomainsSearchDomainsView) GetAutomaticSearch() bool { return v.AutomaticSearch }
 
+// Organization permissions
+type OrganizationPermission string
+
+const (
+	OrganizationPermissionExportorganization                     OrganizationPermission = "ExportOrganization"
+	OrganizationPermissionChangeorganizationpermissions          OrganizationPermission = "ChangeOrganizationPermissions"
+	OrganizationPermissionChangeidentityproviders                OrganizationPermission = "ChangeIdentityProviders"
+	OrganizationPermissionCreaterepository                       OrganizationPermission = "CreateRepository"
+	OrganizationPermissionManageusers                            OrganizationPermission = "ManageUsers"
+	OrganizationPermissionViewusage                              OrganizationPermission = "ViewUsage"
+	OrganizationPermissionChangeorganizationsettings             OrganizationPermission = "ChangeOrganizationSettings"
+	OrganizationPermissionChangeipfilters                        OrganizationPermission = "ChangeIPFilters"
+	OrganizationPermissionChangesessions                         OrganizationPermission = "ChangeSessions"
+	OrganizationPermissionChangeallvieworrepositorypermissions   OrganizationPermission = "ChangeAllViewOrRepositoryPermissions"
+	OrganizationPermissionIngestacrossallreposwithinorganization OrganizationPermission = "IngestAcrossAllReposWithinOrganization"
+	OrganizationPermissionDeleteallrepositories                  OrganizationPermission = "DeleteAllRepositories"
+	OrganizationPermissionDeleteallviews                         OrganizationPermission = "DeleteAllViews"
+	OrganizationPermissionViewallinternalnotifications           OrganizationPermission = "ViewAllInternalNotifications"
+	OrganizationPermissionChangefleetmanagement                  OrganizationPermission = "ChangeFleetManagement"
+	OrganizationPermissionViewfleetmanagement                    OrganizationPermission = "ViewFleetManagement"
+	OrganizationPermissionChangetriggerstorunasotherusers        OrganizationPermission = "ChangeTriggersToRunAsOtherUsers"
+	OrganizationPermissionMonitorqueries                         OrganizationPermission = "MonitorQueries"
+	OrganizationPermissionBlockqueries                           OrganizationPermission = "BlockQueries"
+	OrganizationPermissionChangesecuritypolicies                 OrganizationPermission = "ChangeSecurityPolicies"
+	OrganizationPermissionChangeexternalfunctions                OrganizationPermission = "ChangeExternalFunctions"
+	OrganizationPermissionChangefieldaliases                     OrganizationPermission = "ChangeFieldAliases"
+	OrganizationPermissionManageviewconnections                  OrganizationPermission = "ManageViewConnections"
+)
+
+var AllOrganizationPermission = []OrganizationPermission{
+	OrganizationPermissionExportorganization,
+	OrganizationPermissionChangeorganizationpermissions,
+	OrganizationPermissionChangeidentityproviders,
+	OrganizationPermissionCreaterepository,
+	OrganizationPermissionManageusers,
+	OrganizationPermissionViewusage,
+	OrganizationPermissionChangeorganizationsettings,
+	OrganizationPermissionChangeipfilters,
+	OrganizationPermissionChangesessions,
+	OrganizationPermissionChangeallvieworrepositorypermissions,
+	OrganizationPermissionIngestacrossallreposwithinorganization,
+	OrganizationPermissionDeleteallrepositories,
+	OrganizationPermissionDeleteallviews,
+	OrganizationPermissionViewallinternalnotifications,
+	OrganizationPermissionChangefleetmanagement,
+	OrganizationPermissionViewfleetmanagement,
+	OrganizationPermissionChangetriggerstorunasotherusers,
+	OrganizationPermissionMonitorqueries,
+	OrganizationPermissionBlockqueries,
+	OrganizationPermissionChangesecuritypolicies,
+	OrganizationPermissionChangeexternalfunctions,
+	OrganizationPermissionChangefieldaliases,
+	OrganizationPermissionManageviewconnections,
+}
+
 // ParserDetails includes the GraphQL fields of Parser requested by the fragment ParserDetails.
 // The GraphQL type's documentation follows.
 //
@@ -10429,6 +10700,117 @@ type ParserTestEventInput struct {
 
 // GetRawString returns ParserTestEventInput.RawString, and is useful for accessing the field via an interface.
 func (v *ParserTestEventInput) GetRawString() string { return v.RawString }
+
+// Permissions on a view
+type Permission string
+
+const (
+	PermissionChangeuseraccess Permission = "ChangeUserAccess"
+	// Permission to administer alerts, scheduled searches and actions
+	PermissionChangetriggersandactions Permission = "ChangeTriggersAndActions"
+	// Permission to administer alerts and scheduled searches
+	PermissionChangetriggers Permission = "ChangeTriggers"
+	PermissionCreatetriggers Permission = "CreateTriggers"
+	PermissionUpdatetriggers Permission = "UpdateTriggers"
+	PermissionDeletetriggers Permission = "DeleteTriggers"
+	// Permission to administer actions
+	PermissionChangeactions                     Permission = "ChangeActions"
+	PermissionCreateactions                     Permission = "CreateActions"
+	PermissionUpdateactions                     Permission = "UpdateActions"
+	PermissionDeleteactions                     Permission = "DeleteActions"
+	PermissionChangedashboards                  Permission = "ChangeDashboards"
+	PermissionCreatedashboards                  Permission = "CreateDashboards"
+	PermissionUpdatedashboards                  Permission = "UpdateDashboards"
+	PermissionDeletedashboards                  Permission = "DeleteDashboards"
+	PermissionChangedashboardreadonlytoken      Permission = "ChangeDashboardReadonlyToken"
+	PermissionChangefiles                       Permission = "ChangeFiles"
+	PermissionCreatefiles                       Permission = "CreateFiles"
+	PermissionUpdatefiles                       Permission = "UpdateFiles"
+	PermissionDeletefiles                       Permission = "DeleteFiles"
+	PermissionChangeinteractions                Permission = "ChangeInteractions"
+	PermissionChangeparsers                     Permission = "ChangeParsers"
+	PermissionChangesavedqueries                Permission = "ChangeSavedQueries"
+	PermissionCreatesavedqueries                Permission = "CreateSavedQueries"
+	PermissionUpdatesavedqueries                Permission = "UpdateSavedQueries"
+	PermissionDeletesavedqueries                Permission = "DeleteSavedQueries"
+	PermissionConnectview                       Permission = "ConnectView"
+	PermissionChangedatadeletionpermissions     Permission = "ChangeDataDeletionPermissions"
+	PermissionChangeretention                   Permission = "ChangeRetention"
+	PermissionChangedefaultsearchsettings       Permission = "ChangeDefaultSearchSettings"
+	PermissionChanges3archivingsettings         Permission = "ChangeS3ArchivingSettings"
+	PermissionDeletedatasources                 Permission = "DeleteDataSources"
+	PermissionDeleterepositoryorview            Permission = "DeleteRepositoryOrView"
+	PermissionDeleteevents                      Permission = "DeleteEvents"
+	PermissionReadaccess                        Permission = "ReadAccess"
+	PermissionChangeingesttokens                Permission = "ChangeIngestTokens"
+	PermissionChangepackages                    Permission = "ChangePackages"
+	PermissionChangevieworrepositorydescription Permission = "ChangeViewOrRepositoryDescription"
+	PermissionChangeconnections                 Permission = "ChangeConnections"
+	// Permission to administer event forwarding rules
+	PermissionEventforwarding                   Permission = "EventForwarding"
+	PermissionQuerydashboard                    Permission = "QueryDashboard"
+	PermissionChangevieworrepositorypermissions Permission = "ChangeViewOrRepositoryPermissions"
+	PermissionChangefdrfeeds                    Permission = "ChangeFdrFeeds"
+	PermissionOrganizationownedqueries          Permission = "OrganizationOwnedQueries"
+	PermissionReadexternalfunctions             Permission = "ReadExternalFunctions"
+	PermissionChangeingestfeeds                 Permission = "ChangeIngestFeeds"
+	PermissionChangescheduledreports            Permission = "ChangeScheduledReports"
+	PermissionCreatescheduledreports            Permission = "CreateScheduledReports"
+	PermissionUpdatescheduledreports            Permission = "UpdateScheduledReports"
+	PermissionDeletescheduledreports            Permission = "DeleteScheduledReports"
+)
+
+var AllPermission = []Permission{
+	PermissionChangeuseraccess,
+	PermissionChangetriggersandactions,
+	PermissionChangetriggers,
+	PermissionCreatetriggers,
+	PermissionUpdatetriggers,
+	PermissionDeletetriggers,
+	PermissionChangeactions,
+	PermissionCreateactions,
+	PermissionUpdateactions,
+	PermissionDeleteactions,
+	PermissionChangedashboards,
+	PermissionCreatedashboards,
+	PermissionUpdatedashboards,
+	PermissionDeletedashboards,
+	PermissionChangedashboardreadonlytoken,
+	PermissionChangefiles,
+	PermissionCreatefiles,
+	PermissionUpdatefiles,
+	PermissionDeletefiles,
+	PermissionChangeinteractions,
+	PermissionChangeparsers,
+	PermissionChangesavedqueries,
+	PermissionCreatesavedqueries,
+	PermissionUpdatesavedqueries,
+	PermissionDeletesavedqueries,
+	PermissionConnectview,
+	PermissionChangedatadeletionpermissions,
+	PermissionChangeretention,
+	PermissionChangedefaultsearchsettings,
+	PermissionChanges3archivingsettings,
+	PermissionDeletedatasources,
+	PermissionDeleterepositoryorview,
+	PermissionDeleteevents,
+	PermissionReadaccess,
+	PermissionChangeingesttokens,
+	PermissionChangepackages,
+	PermissionChangevieworrepositorydescription,
+	PermissionChangeconnections,
+	PermissionEventforwarding,
+	PermissionQuerydashboard,
+	PermissionChangevieworrepositorypermissions,
+	PermissionChangefdrfeeds,
+	PermissionOrganizationownedqueries,
+	PermissionReadexternalfunctions,
+	PermissionChangeingestfeeds,
+	PermissionChangescheduledreports,
+	PermissionCreatescheduledreports,
+	PermissionUpdatescheduledreports,
+	PermissionDeletescheduledreports,
+}
 
 // QueryOwnership includes the GraphQL fields of QueryOwnership requested by the fragment QueryOwnership.
 // The GraphQL type's documentation follows.
@@ -10827,6 +11209,37 @@ func (v *RepositoryDetailsS3ArchivingConfigurationS3Configuration) GetDisabled()
 func (v *RepositoryDetailsS3ArchivingConfigurationS3Configuration) GetFormat() *S3ArchivingFormat {
 	return v.Format
 }
+
+// RoleDetails includes the GraphQL fields of Role requested by the fragment RoleDetails.
+type RoleDetails struct {
+	// Stability: Long-term
+	Id string `json:"id"`
+	// Stability: Long-term
+	DisplayName string `json:"displayName"`
+	// Stability: Long-term
+	ViewPermissions []Permission `json:"viewPermissions"`
+	// Stability: Long-term
+	OrganizationPermissions []OrganizationPermission `json:"organizationPermissions"`
+	// Stability: Long-term
+	SystemPermissions []SystemPermission `json:"systemPermissions"`
+}
+
+// GetId returns RoleDetails.Id, and is useful for accessing the field via an interface.
+func (v *RoleDetails) GetId() string { return v.Id }
+
+// GetDisplayName returns RoleDetails.DisplayName, and is useful for accessing the field via an interface.
+func (v *RoleDetails) GetDisplayName() string { return v.DisplayName }
+
+// GetViewPermissions returns RoleDetails.ViewPermissions, and is useful for accessing the field via an interface.
+func (v *RoleDetails) GetViewPermissions() []Permission { return v.ViewPermissions }
+
+// GetOrganizationPermissions returns RoleDetails.OrganizationPermissions, and is useful for accessing the field via an interface.
+func (v *RoleDetails) GetOrganizationPermissions() []OrganizationPermission {
+	return v.OrganizationPermissions
+}
+
+// GetSystemPermissions returns RoleDetails.SystemPermissions, and is useful for accessing the field via an interface.
+func (v *RoleDetails) GetSystemPermissions() []SystemPermission { return v.SystemPermissions }
 
 // RotateTokenByIDResponse is returned by RotateTokenByID on success.
 type RotateTokenByIDResponse struct {
@@ -12086,6 +12499,47 @@ func (v *SlackFieldEntryInput) GetFieldName() string { return v.FieldName }
 // GetValue returns SlackFieldEntryInput.Value, and is useful for accessing the field via an interface.
 func (v *SlackFieldEntryInput) GetValue() string { return v.Value }
 
+// System permissions
+type SystemPermission string
+
+const (
+	SystemPermissionReadhealthcheck                   SystemPermission = "ReadHealthCheck"
+	SystemPermissionVieworganizations                 SystemPermission = "ViewOrganizations"
+	SystemPermissionManageorganizations               SystemPermission = "ManageOrganizations"
+	SystemPermissionImportorganization                SystemPermission = "ImportOrganization"
+	SystemPermissionDeleteorganizations               SystemPermission = "DeleteOrganizations"
+	SystemPermissionChangesystempermissions           SystemPermission = "ChangeSystemPermissions"
+	SystemPermissionManagecluster                     SystemPermission = "ManageCluster"
+	SystemPermissionIngestacrossallreposwithincluster SystemPermission = "IngestAcrossAllReposWithinCluster"
+	SystemPermissionDeletehumioownedrepositoryorview  SystemPermission = "DeleteHumioOwnedRepositoryOrView"
+	SystemPermissionChangeusername                    SystemPermission = "ChangeUsername"
+	SystemPermissionChangefeatureflags                SystemPermission = "ChangeFeatureFlags"
+	SystemPermissionChangesubdomains                  SystemPermission = "ChangeSubdomains"
+	SystemPermissionListsubdomains                    SystemPermission = "ListSubdomains"
+	SystemPermissionPatchglobal                       SystemPermission = "PatchGlobal"
+	SystemPermissionChangebucketstorage               SystemPermission = "ChangeBucketStorage"
+	SystemPermissionManageorganizationlinks           SystemPermission = "ManageOrganizationLinks"
+)
+
+var AllSystemPermission = []SystemPermission{
+	SystemPermissionReadhealthcheck,
+	SystemPermissionVieworganizations,
+	SystemPermissionManageorganizations,
+	SystemPermissionImportorganization,
+	SystemPermissionDeleteorganizations,
+	SystemPermissionChangesystempermissions,
+	SystemPermissionManagecluster,
+	SystemPermissionIngestacrossallreposwithincluster,
+	SystemPermissionDeletehumioownedrepositoryorview,
+	SystemPermissionChangeusername,
+	SystemPermissionChangefeatureflags,
+	SystemPermissionChangesubdomains,
+	SystemPermissionListsubdomains,
+	SystemPermissionPatchglobal,
+	SystemPermissionChangebucketstorage,
+	SystemPermissionManageorganizationlinks,
+}
+
 // Trigger mode for an aggregate alert.
 type TriggerMode string
 
@@ -12993,6 +13447,112 @@ type UpdatePagerDutyActionUpdatePagerDutyAction struct {
 // GetTypename returns UpdatePagerDutyActionUpdatePagerDutyAction.Typename, and is useful for accessing the field via an interface.
 func (v *UpdatePagerDutyActionUpdatePagerDutyAction) GetTypename() *string { return v.Typename }
 
+// UpdateRoleResponse is returned by UpdateRole on success.
+type UpdateRoleResponse struct {
+	// Stability: Long-term
+	UpdateRole UpdateRoleUpdateRoleUpdateRoleMutation `json:"updateRole"`
+}
+
+// GetUpdateRole returns UpdateRoleResponse.UpdateRole, and is useful for accessing the field via an interface.
+func (v *UpdateRoleResponse) GetUpdateRole() UpdateRoleUpdateRoleUpdateRoleMutation {
+	return v.UpdateRole
+}
+
+// UpdateRoleUpdateRoleUpdateRoleMutation includes the requested fields of the GraphQL type UpdateRoleMutation.
+type UpdateRoleUpdateRoleUpdateRoleMutation struct {
+	// Stability: Long-term
+	Role UpdateRoleUpdateRoleUpdateRoleMutationRole `json:"role"`
+}
+
+// GetRole returns UpdateRoleUpdateRoleUpdateRoleMutation.Role, and is useful for accessing the field via an interface.
+func (v *UpdateRoleUpdateRoleUpdateRoleMutation) GetRole() UpdateRoleUpdateRoleUpdateRoleMutationRole {
+	return v.Role
+}
+
+// UpdateRoleUpdateRoleUpdateRoleMutationRole includes the requested fields of the GraphQL type Role.
+type UpdateRoleUpdateRoleUpdateRoleMutationRole struct {
+	RoleDetails `json:"-"`
+}
+
+// GetId returns UpdateRoleUpdateRoleUpdateRoleMutationRole.Id, and is useful for accessing the field via an interface.
+func (v *UpdateRoleUpdateRoleUpdateRoleMutationRole) GetId() string { return v.RoleDetails.Id }
+
+// GetDisplayName returns UpdateRoleUpdateRoleUpdateRoleMutationRole.DisplayName, and is useful for accessing the field via an interface.
+func (v *UpdateRoleUpdateRoleUpdateRoleMutationRole) GetDisplayName() string {
+	return v.RoleDetails.DisplayName
+}
+
+// GetViewPermissions returns UpdateRoleUpdateRoleUpdateRoleMutationRole.ViewPermissions, and is useful for accessing the field via an interface.
+func (v *UpdateRoleUpdateRoleUpdateRoleMutationRole) GetViewPermissions() []Permission {
+	return v.RoleDetails.ViewPermissions
+}
+
+// GetOrganizationPermissions returns UpdateRoleUpdateRoleUpdateRoleMutationRole.OrganizationPermissions, and is useful for accessing the field via an interface.
+func (v *UpdateRoleUpdateRoleUpdateRoleMutationRole) GetOrganizationPermissions() []OrganizationPermission {
+	return v.RoleDetails.OrganizationPermissions
+}
+
+// GetSystemPermissions returns UpdateRoleUpdateRoleUpdateRoleMutationRole.SystemPermissions, and is useful for accessing the field via an interface.
+func (v *UpdateRoleUpdateRoleUpdateRoleMutationRole) GetSystemPermissions() []SystemPermission {
+	return v.RoleDetails.SystemPermissions
+}
+
+func (v *UpdateRoleUpdateRoleUpdateRoleMutationRole) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateRoleUpdateRoleUpdateRoleMutationRole
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateRoleUpdateRoleUpdateRoleMutationRole = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RoleDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateRoleUpdateRoleUpdateRoleMutationRole struct {
+	Id string `json:"id"`
+
+	DisplayName string `json:"displayName"`
+
+	ViewPermissions []Permission `json:"viewPermissions"`
+
+	OrganizationPermissions []OrganizationPermission `json:"organizationPermissions"`
+
+	SystemPermissions []SystemPermission `json:"systemPermissions"`
+}
+
+func (v *UpdateRoleUpdateRoleUpdateRoleMutationRole) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateRoleUpdateRoleUpdateRoleMutationRole) __premarshalJSON() (*__premarshalUpdateRoleUpdateRoleUpdateRoleMutationRole, error) {
+	var retval __premarshalUpdateRoleUpdateRoleUpdateRoleMutationRole
+
+	retval.Id = v.RoleDetails.Id
+	retval.DisplayName = v.RoleDetails.DisplayName
+	retval.ViewPermissions = v.RoleDetails.ViewPermissions
+	retval.OrganizationPermissions = v.RoleDetails.OrganizationPermissions
+	retval.SystemPermissions = v.RoleDetails.SystemPermissions
+	return &retval, nil
+}
+
 // UpdateS3ArchivingConfigurationResponse is returned by UpdateS3ArchivingConfiguration on success.
 type UpdateS3ArchivingConfigurationResponse struct {
 	// Configures S3 archiving for a repository. E.g. bucket and region.
@@ -13865,6 +14425,18 @@ func (v *__CreateRepositoryWithRetentionInput) GetRetentionInStorageSizeBytes() 
 	return v.RetentionInStorageSizeBytes
 }
 
+// __CreateRoleInput is used internally by genqlient
+type __CreateRoleInput struct {
+	RoleName          string             `json:"RoleName"`
+	SystemPermissions []SystemPermission `json:"SystemPermissions"`
+}
+
+// GetRoleName returns __CreateRoleInput.RoleName, and is useful for accessing the field via an interface.
+func (v *__CreateRoleInput) GetRoleName() string { return v.RoleName }
+
+// GetSystemPermissions returns __CreateRoleInput.SystemPermissions, and is useful for accessing the field via an interface.
+func (v *__CreateRoleInput) GetSystemPermissions() []SystemPermission { return v.SystemPermissions }
+
 // __CreateScheduledSearchInput is used internally by genqlient
 type __CreateScheduledSearchInput struct {
 	SearchDomainName   string              `json:"SearchDomainName"`
@@ -14110,6 +14682,14 @@ func (v *__DeleteParserByIDInput) GetRepositoryName() string { return v.Reposito
 
 // GetParserID returns __DeleteParserByIDInput.ParserID, and is useful for accessing the field via an interface.
 func (v *__DeleteParserByIDInput) GetParserID() string { return v.ParserID }
+
+// __DeleteRoleByIDInput is used internally by genqlient
+type __DeleteRoleByIDInput struct {
+	RoleID string `json:"RoleID"`
+}
+
+// GetRoleID returns __DeleteRoleByIDInput.RoleID, and is useful for accessing the field via an interface.
+func (v *__DeleteRoleByIDInput) GetRoleID() string { return v.RoleID }
 
 // __DeleteScheduledSearchByIDInput is used internally by genqlient
 type __DeleteScheduledSearchByIDInput struct {
@@ -14708,6 +15288,32 @@ func (v *__UpdatePagerDutyActionInput) GetRoutingKey() string { return v.Routing
 
 // GetUseProxy returns __UpdatePagerDutyActionInput.UseProxy, and is useful for accessing the field via an interface.
 func (v *__UpdatePagerDutyActionInput) GetUseProxy() bool { return v.UseProxy }
+
+// __UpdateRoleInput is used internally by genqlient
+type __UpdateRoleInput struct {
+	RoleId                  string                   `json:"RoleId"`
+	RoleName                string                   `json:"RoleName"`
+	ViewPermissions         []Permission             `json:"ViewPermissions"`
+	OrganizationPermissions []OrganizationPermission `json:"OrganizationPermissions"`
+	SystemPermissions       []SystemPermission       `json:"SystemPermissions"`
+}
+
+// GetRoleId returns __UpdateRoleInput.RoleId, and is useful for accessing the field via an interface.
+func (v *__UpdateRoleInput) GetRoleId() string { return v.RoleId }
+
+// GetRoleName returns __UpdateRoleInput.RoleName, and is useful for accessing the field via an interface.
+func (v *__UpdateRoleInput) GetRoleName() string { return v.RoleName }
+
+// GetViewPermissions returns __UpdateRoleInput.ViewPermissions, and is useful for accessing the field via an interface.
+func (v *__UpdateRoleInput) GetViewPermissions() []Permission { return v.ViewPermissions }
+
+// GetOrganizationPermissions returns __UpdateRoleInput.OrganizationPermissions, and is useful for accessing the field via an interface.
+func (v *__UpdateRoleInput) GetOrganizationPermissions() []OrganizationPermission {
+	return v.OrganizationPermissions
+}
+
+// GetSystemPermissions returns __UpdateRoleInput.SystemPermissions, and is useful for accessing the field via an interface.
+func (v *__UpdateRoleInput) GetSystemPermissions() []SystemPermission { return v.SystemPermissions }
 
 // __UpdateS3ArchivingConfigurationInput is used internally by genqlient
 type __UpdateS3ArchivingConfigurationInput struct {
@@ -15670,6 +16276,51 @@ func CreateRepositoryWithRetention(
 	return data_, err_
 }
 
+// The mutation executed by CreateRole.
+const CreateRole_Operation = `
+mutation CreateRole ($RoleName: String!, $SystemPermissions: [SystemPermission!]!) {
+	createRole(input: {displayName:$RoleName,viewPermissions:[],systemPermissions:$SystemPermissions}) {
+		role {
+			... RoleDetails
+		}
+	}
+}
+fragment RoleDetails on Role {
+	id
+	displayName
+	viewPermissions
+	organizationPermissions
+	systemPermissions
+}
+`
+
+func CreateRole(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	RoleName string,
+	SystemPermissions []SystemPermission,
+) (data_ *CreateRoleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateRole",
+		Query:  CreateRole_Operation,
+		Variables: &__CreateRoleInput{
+			RoleName:          RoleName,
+			SystemPermissions: SystemPermissions,
+		},
+	}
+
+	data_ = &CreateRoleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateScheduledSearch.
 const CreateScheduledSearch_Operation = `
 mutation CreateScheduledSearch ($SearchDomainName: String!, $Name: String!, $Description: String, $QueryString: String!, $QueryStart: String!, $QueryEnd: String!, $Schedule: String!, $TimeZone: String!, $BackfillLimit: Int!, $Enabled: Boolean!, $ActionIdsOrNames: [String!]!, $Labels: [String!]!, $QueryOwnershipType: QueryOwnershipType) {
@@ -16130,6 +16781,40 @@ func DeleteParserByID(
 	}
 
 	data_ = &DeleteParserByIDResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteRoleByID.
+const DeleteRoleByID_Operation = `
+mutation DeleteRoleByID ($RoleID: String!) {
+	removeRole(roleId: $RoleID) {
+		result
+	}
+}
+`
+
+func DeleteRoleByID(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	RoleID string,
+) (data_ *DeleteRoleByIDResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteRoleByID",
+		Query:  DeleteRoleByID_Operation,
+		Variables: &__DeleteRoleByIDInput{
+			RoleID: RoleID,
+		},
+	}
+
+	data_ = &DeleteRoleByIDResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -17416,6 +18101,43 @@ func ListRepositories(
 	return data_, err_
 }
 
+// The query executed by ListRoles.
+const ListRoles_Operation = `
+query ListRoles {
+	roles {
+		... RoleDetails
+	}
+}
+fragment RoleDetails on Role {
+	id
+	displayName
+	viewPermissions
+	organizationPermissions
+	systemPermissions
+}
+`
+
+func ListRoles(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *ListRolesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListRoles",
+		Query:  ListRoles_Operation,
+	}
+
+	data_ = &ListRolesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ListScheduledSearches.
 const ListScheduledSearches_Operation = `
 query ListScheduledSearches ($SearchDomainName: String!) {
@@ -18321,6 +19043,57 @@ func UpdatePagerDutyAction(
 	}
 
 	data_ = &UpdatePagerDutyActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateRole.
+const UpdateRole_Operation = `
+mutation UpdateRole ($RoleId: String!, $RoleName: String!, $ViewPermissions: [Permission!]!, $OrganizationPermissions: [OrganizationPermission!], $SystemPermissions: [SystemPermission!]) {
+	updateRole(input: {roleId:$RoleId,displayName:$RoleName,viewPermissions:$ViewPermissions,organizationPermissions:$OrganizationPermissions,systemPermissions:$SystemPermissions}) {
+		role {
+			... RoleDetails
+		}
+	}
+}
+fragment RoleDetails on Role {
+	id
+	displayName
+	viewPermissions
+	organizationPermissions
+	systemPermissions
+}
+`
+
+func UpdateRole(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	RoleId string,
+	RoleName string,
+	ViewPermissions []Permission,
+	OrganizationPermissions []OrganizationPermission,
+	SystemPermissions []SystemPermission,
+) (data_ *UpdateRoleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateRole",
+		Query:  UpdateRole_Operation,
+		Variables: &__UpdateRoleInput{
+			RoleId:                  RoleId,
+			RoleName:                RoleName,
+			ViewPermissions:         ViewPermissions,
+			OrganizationPermissions: OrganizationPermissions,
+			SystemPermissions:       SystemPermissions,
+		},
+	}
+
+	data_ = &UpdateRoleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
