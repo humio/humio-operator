@@ -11,10 +11,15 @@ type PodMismatchSeverityType string
 type PodMismatchType string
 
 const (
+	// PodMismatchSeverityCritical indicates that the pods mismatch and should be restarted
 	PodMismatchSeverityCritical PodMismatchSeverityType = "PodMismatchSeverityCritical"
-	PodMismatchSeverityWarning  PodMismatchSeverityType = "PodMismatchSeverityWarning"
-	PodMismatchVersion          PodMismatchType         = "PodMismatchVersion"
-	PodMismatchAnnotation       PodMismatchType         = "PodMismatchAnnotation"
+	// PodMismatchSeverityWarning indicates that the pods mismatch but don't need to be restarted. a warning should be
+	// logged by the operator in this case
+	PodMismatchSeverityWarning PodMismatchSeverityType = "PodMismatchSeverityWarning"
+	// PodMismatchVersion indicates the pods mismatch and the version is different between them
+	PodMismatchVersion PodMismatchType = "PodMismatchVersion"
+	// PodMismatchAnnotation indicates the pods mismatch and the annotations are different between them
+	PodMismatchAnnotation PodMismatchType = "PodMismatchAnnotation"
 )
 
 // PodComparison holds the pods to compare and comparison results
