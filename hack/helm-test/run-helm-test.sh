@@ -160,8 +160,7 @@ cleanup_humiocluster() {
 }
 
 cleanup_tmp_helm_test_case_dir() {
-  find $tmp_helm_test_case_dir -name '*.yaml' -depth 1 -type f -exec rm -f '{}' \;
-  rmdir $tmp_helm_test_case_dir
+  rm -rf $tmp_helm_test_case_dir
 }
 
 capture_pod_states() {
