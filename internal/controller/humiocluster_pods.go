@@ -679,18 +679,6 @@ func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha
 		return &corev1.Pod{}, err
 	}
 
-	// immediately patch the pod. this will not affect any change, but will populate the pod's managedFieldsTracker for
-	// informational purposes. one can view the managedFieldsTracker to determine which fields will cause humio pods to be
-	// restarted
-	err = r.Patch(context.Background(), hnp.GetManagedFieldsPod(pod.Name, pod.Namespace), client.Apply,
-		&client.PatchOptions{
-			FieldManager: "humio-operator",
-			Force:        helpers.BoolPtr(true),
-		})
-	if err != nil {
-		return pod, r.logErrorAndReturn(err, "failed to patch new pod with managed fields")
-	}
-
 	r.Log.Info(fmt.Sprintf("successfully created pod %s with revision %d", pod.Name, hnp.GetDesiredPodRevision()))
 	return pod, nil
 }
