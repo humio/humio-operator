@@ -713,10 +713,17 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 	return op, dep, nil
 }
 
-func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
+func (r *HumioPdfRenderServiceReconciler) reconcileService(
+	ctx context.Context,
+	hprs *humiov1alpha1.HumioPdfRenderService,
+) error {
 	log := r.Log.WithValues("function", "reconcileService")
+
 	desired := r.constructDesiredService(hprs)
-	log.Info("Constructed desired Service spec.", "serviceName", desired.Name, "desiredType", desired.Spec.Type, "desiredPorts", desired.Spec.Ports)
+	log.Info("Constructed desired Service spec.",
+		"serviceName", desired.Name,
+		"desiredType", desired.Spec.Type,
+		"desiredPorts", desired.Spec.Ports)
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -725,56 +732,33 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(ctx context.Context, 
 		},
 	}
 
-	var op controllerutil.OperationResult
-	var err error
-
-	// First set controller reference to ensure proper ownership
-	if errCtrl := controllerutil.SetControllerReference(hprs, svc, r.Scheme); errCtrl != nil {
-		log.Error(errCtrl, "Failed to set controller reference on Service object before create/update")
-		return errCtrl
-	}
-
-	op, err = controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
-		log.Info("Mutating service", "serviceName", svc.Name, "currentResourceVersion", svc.ResourceVersion)
-		var currentClusterIP string
-		if svc.ResourceVersion != "" {
-			currentClusterIP = svc.Spec.ClusterIP
+	// Create-or-Update handles both creation and patching
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
+		// When the object exists we arrive here with the *live* object in `svc`.
+		// Preserve immutable fields:
+		if svc.Spec.ClusterIP != "" &&
+			svc.Spec.ClusterIP != "None" &&
+			desired.Spec.Type == corev1.ServiceTypeClusterIP {
+			desired.Spec.ClusterIP = svc.Spec.ClusterIP
 		}
+
+		// Apply the desired state
 		svc.Labels = desired.Labels
-		// For service annotations, use hprs.Spec.Annotations if that's the intent, or a dedicated field if it exists.
-		// HumioPdfRenderServiceSpec has `Annotations` for pod, not explicitly for service.
-		// If `desired.Annotations` (from constructDesiredService) is meant for service, ensure it's populated correctly there.
-		// Current constructDesiredService uses hprs.Spec.ServiceAnnotations, which is undefined.
-		// For now, let's assume desired.Annotations correctly holds service annotations if any.
 		svc.Annotations = desired.Annotations
+		svc.Spec.Type = desired.Spec.Type
 		svc.Spec.Ports = desired.Spec.Ports
 		svc.Spec.Selector = desired.Spec.Selector
-		svc.Spec.Type = desired.Spec.Type
-		if svc.Spec.Type == "" {
-			svc.Spec.Type = corev1.ServiceTypeClusterIP
-		}
-		if svc.Spec.Type == corev1.ServiceTypeClusterIP && currentClusterIP != "" && currentClusterIP != "None" {
-			svc.Spec.ClusterIP = currentClusterIP
-		}
-		log.Info("Service spec after mutation", "serviceName", svc.Name, "specType", svc.Spec.Type, "specClusterIP", svc.Spec.ClusterIP)
+		svc.Spec.ClusterIP = desired.Spec.ClusterIP
 
-		// Log ownership information for debugging
-		log.Info("Checking service ownership", "serviceName", svc.Name, "ownerReferences", svc.OwnerReferences)
-
-		// Controller reference already set above
-		return nil
+		// Set owner reference
+		return controllerutil.SetControllerReference(hprs, svc, r.Scheme)
 	})
-
 	if err != nil {
-		log.Error(err, "Create/Update Service failed.", "serviceName", desired.Name)
-		return fmt.Errorf("create/update Service %s failed: %w", desired.Name, err)
+		log.Error(err, "failed to create or update Service", "serviceName", desired.Name)
+		return fmt.Errorf("failed to reconcile Service %s: %w", desired.Name, err)
 	}
 
-	if op != controllerutil.OperationResultNone {
-		log.Info("Service successfully reconciled.", "serviceName", svc.Name, "operation", op)
-	} else {
-		log.Info("Service spec was already up-to-date.", "serviceName", svc.Name, "operation", op)
-	}
+	log.Info("Service reconciled successfully.", "serviceName", svc.Name)
 	return nil
 }
 
