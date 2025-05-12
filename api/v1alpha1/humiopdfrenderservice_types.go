@@ -90,6 +90,10 @@ type HumioPdfRenderServiceSpec struct {
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
 
+	// ServiceAnnotations allows to specify custom annotations for the service.
+	// +optional
+	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
+
 	// LivenessProbe defines the liveness probe configuration.
 	// +optional
 	LivenessProbe *corev1.Probe `json:"livenessProbe,omitempty"`
