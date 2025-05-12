@@ -158,6 +158,19 @@ type HumioPdfRenderServiceStatus struct {
 	// Message provides additional information about the state of the HumioPdfRenderService, typically an error message if something went wrong.
 	// +optional
 	Message string `json:"message,omitempty"`
+
+	// ObservedGeneration is the most recent generation observed for this HumioPdfRenderService. It corresponds to the
+	// resource's generation, which is updated on mutation by the API Server.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// Conditions represent the latest available observations of a replica set's state.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // +kubebuilder:object:root=true
