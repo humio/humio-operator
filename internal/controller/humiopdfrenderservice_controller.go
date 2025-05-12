@@ -336,31 +336,9 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		log.Info("Deployment update was a no-op, continuing reconciliation", "deploymentName", depNameForLog)
 	}
 
-	if dep != nil {
-		deploymentKey := types.NamespacedName{Name: dep.Name, Namespace: dep.Namespace}
-		freshDepFromAPIReader := &appsv1.Deployment{}
-		log.Info("Step: Attempting to fetch fresh Deployment status via APIReader.", "deploymentName", dep.Name)
-		if getErr := r.APIReader.Get(ctx, deploymentKey, freshDepFromAPIReader); getErr != nil {
-			if k8serrors.IsNotFound(getErr) {
-				if hprs.Spec.Replicas > 0 {
-					log.Error(getErr, "Deployment not found by APIReader, but it's expected as HPRS spec.replicas > 0.", "deploymentName", dep.Name, "hprsSpecReplicas", hprs.Spec.Replicas)
-					reconcileErr = fmt.Errorf("deployment %s not found by APIReader, but expected for HPRS %s with %d replicas", dep.Name, hprs.Name, hprs.Spec.Replicas)
-					hprs.Status.State = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
-					return ctrl.Result{Requeue: true}, reconcileErr
-				}
-				log.Info("Deployment not found by APIReader, and HPRS spec.replicas is 0. Treating as no deployment (scaled down).", "deploymentName", dep.Name)
-				dep = nil
-			} else {
-				reconcileErr = fmt.Errorf("failed to get fresh deployment status for %s via APIReader: %w", dep.Name, getErr)
-				hprs.Status.State = humiov1alpha1.HumioPdfRenderServiceStateConfigError
-				log.Error(reconcileErr, "Failed to fetch fresh Deployment status via APIReader.")
-				return ctrl.Result{Requeue: true}, reconcileErr
-			}
-		} else {
-			log.Info("Successfully fetched fresh Deployment status via APIReader.", "deploymentName", freshDepFromAPIReader.Name, "freshGeneration", freshDepFromAPIReader.Generation, "freshObservedGeneration", freshDepFromAPIReader.Status.ObservedGeneration, "freshReadyReplicas", freshDepFromAPIReader.Status.ReadyReplicas, "freshAvailableReplicas", freshDepFromAPIReader.Status.AvailableReplicas, "freshUpdatedReplicas", freshDepFromAPIReader.Status.UpdatedReplicas)
-			dep = freshDepFromAPIReader
-		}
-	}
+	// Remove APIReader usage - rely on cached client and status updates
+	// The dep object returned by CreateOrUpdate should be sufficient for initial status checks
+	// and subsequent reconciles will get the updated status from the cached client.
 
 	if dep != nil && hprs.Spec.Replicas > 0 && dep.Status.ReadyReplicas >= hprs.Spec.Replicas &&
 		(dep.Status.ObservedGeneration == 0 || dep.Status.ObservedGeneration >= dep.Generation ||
@@ -551,6 +529,55 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 
 	log.Info("Reconciliation cycle completed.", "finalHprsState", hprs.Status.State, "finalHprsMessage", hprs.Status.Message, "requeueDecision", result, "finalReconcileError", reconcileErr)
 	return result, reconcileErr
+}
+
+func (r *HumioPdfRenderServiceReconciler) ensureFinalizer(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) (ctrl.Result, error) {
+	if hprs.DeletionTimestamp.IsZero() {
+		if controllerutil.AddFinalizer(hprs, hprsFinalizer) {
+			return ctrl.Result{Requeue: true}, r.Update(ctx, hprs)
+		}
+		return ctrl.Result{}, nil
+	}
+	// TODO: Implement deleteChildren in the next step
+	if err := r.deleteChildren(ctx, hprs); err != nil {
+		return ctrl.Result{}, err
+	}
+	if controllerutil.RemoveFinalizer(hprs, hprsFinalizer) {
+		return ctrl.Result{Requeue: true}, r.Update(ctx, hprs)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *HumioPdfRenderServiceReconciler) deleteChildren(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
+	r.Log.Info("Explicitly deleting owned resources.")
+
+	depName := childName(hprs)
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      depName,
+			Namespace: hprs.Namespace,
+		},
+	}
+	if err := r.Delete(ctx, dep); client.IgnoreNotFound(err) != nil {
+		r.Log.Error(err, "Failed to delete deployment", "deploymentName", depName)
+		return fmt.Errorf("failed to delete deployment %s: %w", depName, err)
+	}
+	r.Log.Info("Attempted to delete deployment", "deploymentName", depName)
+
+	svcName := childName(hprs)
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      svcName,
+			Namespace: hprs.Namespace,
+		},
+	}
+	if err := r.Delete(ctx, svc); client.IgnoreNotFound(err) != nil {
+		r.Log.Error(err, "Failed to delete service", "serviceName", svcName)
+		return fmt.Errorf("failed to delete service %s: %w", svcName, err)
+	}
+	r.Log.Info("Attempted to delete service", "serviceName", svcName)
+
+	return nil
 }
 
 func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) (controllerutil.OperationResult, *appsv1.Deployment, error) {
