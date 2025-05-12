@@ -55,6 +55,21 @@ const (
 	HumioPdfRenderServiceStateError = "Error"
 )
 
+// ConditionType represents a condition type of a HumioPdfRenderService.
+type HumioPdfRenderServiceConditionType string
+
+// These are valid conditions of a HumioPdfRenderService.
+const (
+	// HumioPdfRenderServiceAvailable means the PDF rendering service is available.
+	HumioPdfRenderServiceAvailable HumioPdfRenderServiceConditionType = "Available"
+	// HumioPdfRenderServiceProgressing means the PDF rendering service is progressing.
+	HumioPdfRenderServiceProgressing HumioPdfRenderServiceConditionType = "Progressing"
+	// HumioPdfRenderServiceDegraded means the PDF rendering service is degraded.
+	HumioPdfRenderServiceDegraded HumioPdfRenderServiceConditionType = "Degraded"
+	// HumioPdfRenderServiceScaledDown means the PDF rendering service is scaled down.
+	HumioPdfRenderServiceScaledDown HumioPdfRenderServiceConditionType = "ScaledDown"
+)
+
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
 type HumioPdfRenderServiceSpec struct {
 	// Image is the container image to use for the PDF rendering service.
