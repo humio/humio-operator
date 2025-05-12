@@ -55,7 +55,7 @@ const (
 	HumioPdfRenderServiceStateError = "Error"
 )
 
-// ConditionType represents a condition type of a HumioPdfRenderService.
+// HumioPdfRenderServiceConditionType represents a condition type of a HumioPdfRenderService.
 type HumioPdfRenderServiceConditionType string
 
 // These are valid conditions of a HumioPdfRenderService.
