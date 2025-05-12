@@ -164,6 +164,14 @@ type HumioPdfRenderServiceStatus struct {
 	// resource's generation, which is updated on mutation by the API Server.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// Conditions represent the latest available observations of a replica set's state.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // +kubebuilder:object:root=true

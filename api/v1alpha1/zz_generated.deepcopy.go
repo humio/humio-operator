@@ -22,6 +22,7 @@ package v1alpha1
 
 import (
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -1901,6 +1902,13 @@ func (in *HumioPdfRenderServiceStatus) DeepCopyInto(out *HumioPdfRenderServiceSt
 		in, out := &in.Nodes, &out.Nodes
 		*out = make([]string, len(*in))
 		copy(*out, *in)
+	}
+	if in.Conditions != nil {
+		in, out := &in.Conditions, &out.Conditions
+		*out = make([]metav1.Condition, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 }
 

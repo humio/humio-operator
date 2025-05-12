@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8sApiEquality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -67,6 +68,11 @@ type HumioPdfRenderServiceReconciler struct {
 	BaseLogger logr.Logger
 	Log        logr.Logger
 	Namespace  string
+}
+
+// setStatusCondition sets the given condition in the status of the HumioPdfRenderService.
+func setStatusCondition(hprs *humiov1alpha1.HumioPdfRenderService, condition metav1.Condition) {
+	meta.SetStatusCondition(&hprs.Status.Conditions, condition)
 }
 
 // Reconcile implements the reconciliation logic for HumioPdfRenderService.
@@ -1004,7 +1010,7 @@ func labelsForHumioPdfRenderService(name string) map[string]string {
 func (r *HumioPdfRenderServiceReconciler) updateStatus(
 	ctx context.Context,
 	hprsForStatusGenerationAndState *humiov1alpha1.HumioPdfRenderService,
-	currentStateFromReconcileLoop string, // Changed type to string
+	currentStateFromReconcileLoop string,
 	reconcileErr error,
 ) (*humiov1alpha1.HumioPdfRenderService, error) {
 	log := r.Log.WithValues("function", "updateStatus", "targetState", currentStateFromReconcileLoop)
@@ -1023,44 +1029,61 @@ func (r *HumioPdfRenderServiceReconciler) updateStatus(
 			return err
 		}
 
+		// Update ObservedGeneration
 		currentHprs.Status.ObservedGeneration = hprsForStatusGenerationAndState.Generation
+
+		// Update State and Message
 		currentHprs.Status.State = currentStateFromReconcileLoop
-
-		// Ensure ReadyReplicas is set correctly
-		if currentStateFromReconcileLoop == humiov1alpha1.HumioPdfRenderServiceStateRunning {
-			// If state is Running, ensure ReadyReplicas is at least equal to Spec.Replicas
-			if hprsForStatusGenerationAndState.Status.ReadyReplicas < hprsForStatusGenerationAndState.Spec.Replicas {
-				log.Info("State is Running but ReadyReplicas is less than Spec.Replicas. Setting ReadyReplicas to match Spec.Replicas.",
-					"currentReadyReplicas", hprsForStatusGenerationAndState.Status.ReadyReplicas,
-					"specReplicas", hprsForStatusGenerationAndState.Spec.Replicas)
-				currentHprs.Status.ReadyReplicas = hprsForStatusGenerationAndState.Spec.Replicas
-			} else {
-				currentHprs.Status.ReadyReplicas = hprsForStatusGenerationAndState.Status.ReadyReplicas
-			}
-		} else {
-			// For other states, just copy the ReadyReplicas value
-			currentHprs.Status.ReadyReplicas = hprsForStatusGenerationAndState.Status.ReadyReplicas
-		}
-
 		if reconcileErr != nil {
 			currentHprs.Status.Message = reconcileErr.Error()
-			if currentStateFromReconcileLoop != humiov1alpha1.HumioPdfRenderServiceStateConfigError &&
-				currentStateFromReconcileLoop != humiov1alpha1.HumioPdfRenderServiceStateError {
-				log.Info("Reconcile error present, but target state is not an error state. Setting message from error.", "error", reconcileErr.Error())
-			}
 		} else {
+			// Clear message if no error and not in an error state
 			if currentStateFromReconcileLoop != humiov1alpha1.HumioPdfRenderServiceStateConfigError &&
 				currentStateFromReconcileLoop != humiov1alpha1.HumioPdfRenderServiceStateError {
 				currentHprs.Status.Message = ""
 			}
 		}
 
+		// Update ReadyReplicas
+		currentHprs.Status.ReadyReplicas = hprsForStatusGenerationAndState.Status.ReadyReplicas
+
+		// Update Conditions using the helper
+		// This is a simplified example; actual conditions logic would be more complex
+		// based on deployment status, errors, etc.
+		conditionStatus := metav1.ConditionFalse
+		reason := "Reconciling"
+		message := currentHprs.Status.Message
+		if currentStateFromReconcileLoop == humiov1alpha1.HumioPdfRenderServiceStateRunning {
+			conditionStatus = metav1.ConditionTrue
+			reason = "Running"
+			message = "PDF Render Service is running"
+		} else if currentStateFromReconcileLoop == humiov1alpha1.HumioPdfRenderServiceStateScaledDown {
+			conditionStatus = metav1.ConditionFalse
+			reason = "ScaledDown"
+			message = "PDF Render Service is scaled down"
+		} else if currentStateFromReconcileLoop == humiov1alpha1.HumioPdfRenderServiceStateConfigError ||
+			currentStateFromReconcileLoop == humiov1alpha1.HumioPdfRenderServiceStateError {
+			conditionStatus = metav1.ConditionFalse
+			reason = "Error"
+			// Message is already set from reconcileErr
+		}
+
+		setStatusCondition(currentHprs, metav1.Condition{
+			Type:               "Available", // Example condition type
+			Status:             conditionStatus,
+			Reason:             reason,
+			Message:            message,
+			LastTransitionTime: metav1.Now(),
+			ObservedGeneration: currentHprs.Status.ObservedGeneration,
+		})
+
 		log.Info("Attempting Status().Update()",
 			"newObservedGeneration", currentHprs.Status.ObservedGeneration,
 			"newState", currentHprs.Status.State,
 			"newReadyReplicas", currentHprs.Status.ReadyReplicas,
-			"specReplicas", hprsForStatusGenerationAndState.Spec.Replicas,
-			"newMessage", currentHprs.Status.Message)
+			"newMessage", currentHprs.Status.Message,
+			"conditions", currentHprs.Status.Conditions) // Log conditions
+
 		updateErr := r.Status().Update(ctx, currentHprs)
 		if updateErr == nil {
 			updatedHprs = currentHprs
