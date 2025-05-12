@@ -72,6 +72,8 @@ const (
 	waitingOnPodsMessage = "waiting for pods to become ready"
 
 	humioVersionMinimumForReliableDownscaling = "1.173.0"
+
+	fieldManagerOperatorManagedName = "humio-operator"
 )
 
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch;create;update;patch;delete
@@ -265,6 +267,19 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
 		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
 			if result, err := r.ensurePodsExist(ctx, hc, pool); result != emptyResult || err != nil {
+				if err != nil {
+					_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
+						withMessage(err.Error()))
+				}
+				return result, err
+			}
+		}
+	}
+
+	// patch the pods with managedFields
+	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
+		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
+			if result, err := r.ensurePodsPatchedWithManagedFields(ctx, pool); result != emptyResult || err != nil {
 				if err != nil {
 					_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
 						withMessage(err.Error()))
@@ -2167,6 +2182,40 @@ func (r *HumioClusterReconciler) ensurePodsExist(ctx context.Context, hc *humiov
 
 		// We have created all pods. Requeue immediately even if the pods are not ready. We will check the readiness status on the next reconciliation.
 		return reconcile.Result{Requeue: true}, nil
+	}
+
+	return reconcile.Result{}, nil
+}
+
+// ensurePodsPatchedWithManagedFields patches the pod. this will not affect any change, but will populate the pod's
+// managedFieldsTracker for informational purposes. one can view the managedFieldsTracker to determine which fields will
+// cause humio pods to be restarted
+func (r *HumioClusterReconciler) ensurePodsPatchedWithManagedFields(ctx context.Context, hnp *HumioNodePool) (reconcile.Result, error) {
+	pods, err := kubernetes.ListPods(ctx, r, hnp.GetNamespace(), hnp.GetNodePoolLabels())
+	if err != nil {
+		return reconcile.Result{}, r.logErrorAndReturn(err, "failed to list pods")
+	}
+
+	for _, pod := range pods {
+		var hasOperatorManagedField bool
+		for _, managedField := range pod.GetManagedFields() {
+			if managedField.Manager == fieldManagerOperatorManagedName {
+				hasOperatorManagedField = true
+				break
+			}
+		}
+		if !hasOperatorManagedField {
+			err = r.Patch(context.Background(), hnp.GetManagedFieldsPod(pod.Name, pod.Namespace), client.Apply,
+				&client.PatchOptions{
+					FieldManager: fieldManagerOperatorManagedName,
+					Force:        helpers.BoolPtr(true),
+				})
+			if err != nil {
+				return reconcile.Result{}, r.logErrorAndReturn(err, "failed to patch new pod with managed fields")
+			}
+			return reconcile.Result{Requeue: true}, nil
+		}
+
 	}
 
 	return reconcile.Result{}, nil
