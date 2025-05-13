@@ -129,7 +129,11 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	if hprs.Spec.Replicas == 0 {
 		targetState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
 	}
-	hprs.Status.ReadyReplicas = dep.Status.ReadyReplicas
+	if dep != nil {
+		hprs.Status.ReadyReplicas = dep.Status.ReadyReplicas
+	} else {
+		hprs.Status.ReadyReplicas = 0
+	}
 
 	// --------------------------------------------------------------------
 	// 5.  Update status
