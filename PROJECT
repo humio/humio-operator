@@ -137,4 +137,13 @@ resources:
   kind: HumioUser
   path: github.com/humio/humio-operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: humio.com
+  group: core
+  kind: HumioOrganizationPermissionRole
+  path: github.com/humio/humio-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"
