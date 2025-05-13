@@ -240,34 +240,34 @@ func (r *HumioPdfRenderServiceReconciler) ensureFinalizer(ctx context.Context, h
 }
 
 func (r *HumioPdfRenderServiceReconciler) deleteChildren(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
-	r.Log.Info("Explicitly deleting owned resources.")
+	// bulk delete by label selector
+	r.Log.Info("Bulk-deleting child Deployments and Services")
 
-	depName := childName(hprs)
-	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      depName,
-			Namespace: hprs.Namespace,
-		},
-	}
-	if err := r.Delete(ctx, dep); client.IgnoreNotFound(err) != nil {
-		r.Log.Error(err, "Failed to delete deployment", "deploymentName", depName)
-		return fmt.Errorf("failed to delete deployment %s: %w", depName, err)
-	}
-	r.Log.Info("Attempted to delete deployment", "deploymentName", depName)
+	selector := client.MatchingLabels{"humio-pdf-render-service": hprs.Name}
 
-	svcName := childName(hprs)
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      svcName,
-			Namespace: hprs.Namespace,
-		},
+	// Delete all Deployments
+	if err := r.Client.DeleteAllOf(
+		ctx,
+		&appsv1.Deployment{},
+		client.InNamespace(hprs.Namespace),
+		selector,
+	); err != nil {
+		r.Log.Error(err, "Failed to bulk delete Deployments")
+		return err
 	}
-	if err := r.Delete(ctx, svc); client.IgnoreNotFound(err) != nil {
-		r.Log.Error(err, "Failed to delete service", "serviceName", svcName)
-		return fmt.Errorf("failed to delete service %s: %w", svcName, err)
-	}
-	r.Log.Info("Attempted to delete service", "serviceName", svcName)
 
+	// Delete all Services
+	if err := r.Client.DeleteAllOf(
+		ctx,
+		&corev1.Service{},
+		client.InNamespace(hprs.Namespace),
+		selector,
+	); err != nil {
+		r.Log.Error(err, "Failed to bulk delete Services")
+		return err
+	}
+
+	r.Log.Info("Bulk delete completed")
 	return nil
 }
 
