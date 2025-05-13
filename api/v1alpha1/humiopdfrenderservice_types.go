@@ -155,6 +155,10 @@ type HumioPdfRenderServiceSpec struct {
 	// - HTTPS scheme for liveness and readiness probes
 	// +optional
 	TLS *HumioClusterTLSSpec `json:"tls,omitempty"`
+
+	// HumioCluster is a reference to the HumioCluster this PDF Render Service belongs to.
+	// +kubebuilder:validation:Required
+	HumioCluster corev1.LocalObjectReference `json:"humioCluster"`
 }
 
 // HumioPdfRenderServiceStatus defines the observed state of HumioPdfRenderService

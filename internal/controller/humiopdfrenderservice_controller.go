@@ -159,15 +159,67 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 func (r *HumioPdfRenderServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.APIReader = mgr.GetAPIReader()
 
+	// ------------------------------------------------------------------
+	// Register index: .spec.humioCluster.name  →  HumioPdfRenderService
+	// Needed by findHumioPdfRenderServicesForHumioCluster() and HC tests
+	// ------------------------------------------------------------------
+	if err := mgr.GetFieldIndexer().IndexField(
+		context.Background(),
+		&humiov1alpha1.HumioPdfRenderService{},
+		".spec.humioClusterRef.name",
+		func(obj client.Object) []string {
+			h := obj.(*humiov1alpha1.HumioPdfRenderService)
+			if h.Spec.HumioCluster.Name != "" {
+				return []string{h.Spec.HumioCluster.Name}
+			}
+			return nil
+		},
+	); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioPdfRenderService{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
+		// Re-queue when a referenced Secret changes (TLS rotation)
+		// Re-queue when a referenced Secret changes (TLS rotation)
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(
+			func(ctx context.Context, obj client.Object) []reconcile.Request {
+				secret := obj.(*corev1.Secret)
+				hprsList := &humiov1alpha1.HumioPdfRenderServiceList{}
+				_ = mgr.GetClient().List(ctx, hprsList, client.InNamespace(secret.Namespace))
+				var reqs []reconcile.Request
+				for _, h := range hprsList.Items {
+					if shouldWatchSecret(&h, secret.Name) {
+						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+							Name: h.Name, Namespace: h.Namespace}})
+					}
+				}
+				return reqs
+			},
+		)).
 		Watches(
 			&humiov1alpha1.HumioCluster{},
 			handler.EnqueueRequestsFromMapFunc(r.findHumioPdfRenderServicesForHumioCluster),
 		).
 		Complete(r)
+}
+
+// shouldWatchSecret checks if the given secret is referenced by the HumioPdfRenderService's TLS configuration.
+func shouldWatchSecret(hprs *humiov1alpha1.HumioPdfRenderService, secretName string) bool {
+	if hprs.Spec.TLS != nil {
+		// watch the CA secret if specified
+		if hprs.Spec.TLS.CASecretName != "" && hprs.Spec.TLS.CASecretName == secretName {
+			return true
+		}
+		// watch the generated server TLS secret by naming convention
+		serverCertSecretName := childName(hprs) + "-tls"
+		if secretName == serverCertSecretName {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *HumioPdfRenderServiceReconciler) ensureFinalizer(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) (ctrl.Result, error) {
@@ -787,7 +839,7 @@ func (r *HumioPdfRenderServiceReconciler) findHumioPdfRenderServicesForHumioClus
 	hprsList := &humiov1alpha1.HumioPdfRenderServiceList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(humioCluster.GetNamespace()),
-		client.MatchingFields{".spec.humioCluster.name": humioCluster.GetName()},
+		client.MatchingFields{".spec.humioClusterRef.name": humioCluster.GetName()},
 	}
 
 	if err := r.List(ctx, hprsList, listOpts...); err != nil {
