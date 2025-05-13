@@ -103,6 +103,9 @@ rules:
   - humiofilteralerts
   - humiofilteralerts/finalizers
   - humiofilteralerts/status
+  - humioorganizationpermissionroles
+  - humioorganizationpermissionroles/finalizers
+  - humioorganizationpermissionroles/status
   - humiousers
   - humiousers/finalizers
   - humiousers/status
