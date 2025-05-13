@@ -74,6 +74,18 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
+	// Always publish status at the end of the reconcile loop
+	var (
+		reconcileErr error
+		finalState   string
+	)
+	defer func() {
+		// Only update status if the resource still exists and is not being deleted
+		if hprs != nil && hprs.DeletionTimestamp.IsZero() {
+			_ = r.updateStatus(ctx, hprs, finalState, reconcileErr)
+		}
+	}()
+
 	// --------------------------------------------------------------------
 	// 1.  Finalizer
 	// --------------------------------------------------------------------
