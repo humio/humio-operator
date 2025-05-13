@@ -1773,7 +1773,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 
-			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Attempting to create invalid action")
+			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Confirming creation of invalid action gets rejected")
 			Expect(k8sClient.Create(ctx, toCreateInvalidAction)).ShouldNot(Succeed())
 		})
 
@@ -4029,7 +4029,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			// Verify we validate this for all our CRD's
-			Expect(resources).To(HaveLen(14)) // Bump this as we introduce new CRD's
+			Expect(resources).To(HaveLen(15)) // Bump this as we introduce new CRD's
 
 			for i := range resources {
 				// Get the GVK information
@@ -4072,6 +4072,180 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Expect(err.Error()).To(ContainSubstring("spec: Required value"))
 
 			}
+		})
+	})
+
+	Context("HumioSystemPermissionRole", Label("envtest", "dummy", "real"), func() {
+		It("Working config: create it, verify it is there, update it, delete it, validate it is gone", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-system-permission-role",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateSystemPermissionRole := &humiov1alpha1.HumioSystemPermissionRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioSystemPermissionRoleSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "example-system-permission",
+					Permissions: []string{
+						string(humiographql.SystemPermissionReadhealthcheck),
+					},
+				},
+			}
+			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+
+			suite.UsingClusterBy(clusterKey.Name, "Confirming the system permission role does not exist in LogScale before we start")
+			Eventually(func() error {
+				_, err := humioClient.GetSystemPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateSystemPermissionRole)
+				return err
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating the system permission role custom resource")
+			Expect(k8sClient.Create(ctx, toCreateSystemPermissionRole)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "Custom resource for system permission role should be marked with Exists")
+			Eventually(func() string {
+				updatedHumioSystemPermissionRole := humiov1alpha1.HumioSystemPermissionRole{}
+				err = k8sClient.Get(ctx, key, &updatedHumioSystemPermissionRole)
+				if err != nil {
+					return err.Error()
+				}
+				return updatedHumioSystemPermissionRole.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioSystemPermissionRoleStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "Confirming the system permission role does exist in LogScale after custom resource indicates that it does")
+			var fetchedRoleDetails *humiographql.RoleDetails
+			Eventually(func() error {
+				fetchedRoleDetails, err = humioClient.GetSystemPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateSystemPermissionRole)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(fetchedRoleDetails.SystemPermissions).Should(HaveExactElements([]humiographql.SystemPermission{
+				humiographql.SystemPermissionReadhealthcheck,
+			}))
+
+			suite.UsingClusterBy(clusterKey.Name, "Add a permission to custom resource using k8sClient, ChangeUsername")
+			Eventually(func() error {
+				updatedHumioSystemPermissionRole := humiov1alpha1.HumioSystemPermissionRole{}
+				err = k8sClient.Get(ctx, key, &updatedHumioSystemPermissionRole)
+				if err != nil {
+					return err
+				}
+				updatedHumioSystemPermissionRole.Spec.Permissions = append(updatedHumioSystemPermissionRole.Spec.Permissions, string(humiographql.SystemPermissionChangeusername))
+				return k8sClient.Update(ctx, &updatedHumioSystemPermissionRole)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "verify it was added according to humioClient")
+			Eventually(func() ([]humiographql.SystemPermission, error) {
+				fetchedRoleDetails, err = humioClient.GetSystemPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateSystemPermissionRole)
+				if err != nil {
+					return nil, err
+				}
+				Expect(fetchedRoleDetails).ToNot(BeNil())
+				return fetchedRoleDetails.SystemPermissions, err
+			}, testTimeout, suite.TestInterval).Should(HaveLen(2))
+			Expect(fetchedRoleDetails.SystemPermissions).Should(HaveExactElements([]humiographql.SystemPermission{
+				humiographql.SystemPermissionChangeusername,
+				humiographql.SystemPermissionReadhealthcheck,
+			}))
+
+			suite.UsingClusterBy(clusterKey.Name, "Remove one permission using k8sClient")
+			Eventually(func() error {
+				updatedHumioSystemPermissionRole := humiov1alpha1.HumioSystemPermissionRole{}
+				err = k8sClient.Get(ctx, key, &updatedHumioSystemPermissionRole)
+				if err != nil {
+					return err
+				}
+				updatedHumioSystemPermissionRole.Spec.Permissions = []string{string(humiographql.SystemPermissionChangeusername)}
+				return k8sClient.Update(ctx, &updatedHumioSystemPermissionRole)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "Verify it was removed using humioClient")
+			Eventually(func() ([]humiographql.SystemPermission, error) {
+				fetchedRoleDetails, err = humioClient.GetSystemPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateSystemPermissionRole)
+				if err != nil {
+					return nil, err
+				}
+				Expect(fetchedRoleDetails).ToNot(BeNil())
+				return fetchedRoleDetails.SystemPermissions, err
+			}, testTimeout, suite.TestInterval).Should(HaveLen(1))
+			Expect(fetchedRoleDetails.SystemPermissions).Should(HaveExactElements([]humiographql.SystemPermission{
+				humiographql.SystemPermissionChangeusername,
+			}))
+
+			suite.UsingClusterBy(clusterKey.Name, "Delete custom resource using k8sClient")
+			Expect(k8sClient.Delete(ctx, toCreateSystemPermissionRole)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, toCreateSystemPermissionRole)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "Verify role was removed using humioClient")
+			Eventually(func() string {
+				fetchedRoleDetails, err = humioClient.GetSystemPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateSystemPermissionRole)
+				return err.Error()
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(humioapi.SystemPermissionRoleNotFound(toCreateSystemPermissionRole.Spec.Name).Error()))
+		})
+
+		It("Should indicate improperly configured system permission role with unknown permission", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-system-permission-role-unknown-perm",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateInvalidSystemPermissionRole := &humiov1alpha1.HumioSystemPermissionRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioSystemPermissionRoleSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "example-unknown-system-permission",
+					Permissions:        []string{"SomeUnknownPermission"},
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating the system permission role with unknown permission")
+			Expect(k8sClient.Create(ctx, toCreateInvalidSystemPermissionRole)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "System permission role should be marked with NotFound")
+			Eventually(func() string {
+				updatedHumioSystemPermissionRole := humiov1alpha1.HumioSystemPermissionRole{}
+				err = k8sClient.Get(ctx, key, &updatedHumioSystemPermissionRole)
+				if err != nil {
+					return err.Error()
+				}
+				return updatedHumioSystemPermissionRole.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioSystemPermissionRoleStateNotFound))
+		})
+
+		It("Should deny improperly configured system permission role with empty list of permissions", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-system-permission-role-empty-list",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateInvalidSystemPermissionRole := &humiov1alpha1.HumioSystemPermissionRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioSystemPermissionRoleSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "example-invalid-system-permission-role",
+					Permissions:        nil,
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating the system permission role with nil slice")
+			Expect(k8sClient.Create(ctx, toCreateInvalidSystemPermissionRole)).Should(Not(Succeed()))
+
+			toCreateInvalidSystemPermissionRole.Spec.Permissions = []string{}
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating the system permission role with empty slice")
+			Expect(k8sClient.Create(ctx, toCreateInvalidSystemPermissionRole)).Should(Not(Succeed()))
 		})
 	})
 })

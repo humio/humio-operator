@@ -51,6 +51,7 @@ type Client interface {
 	AggregateAlertsClient
 	ScheduledSearchClient
 	UsersClient
+	SystemPermissionRolesClient
 }
 
 type ClusterClient interface {
@@ -149,11 +150,17 @@ type UsersClient interface {
 	UpdateUser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioUser) error
 	DeleteUser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioUser) error
 
-	RotateUserApiTokenAndGet(context.Context, *humioapi.Client, reconcile.Request, string) (string, error)
-
 	// TODO: Rename the ones below, or perhaps get rid of them entirely?
 	AddUserAndGetUserID(context.Context, *humioapi.Client, reconcile.Request, string, bool) (string, error)
 	GetUserIDForUsername(context.Context, *humioapi.Client, reconcile.Request, string) (string, error)
+	RotateUserApiTokenAndGet(context.Context, *humioapi.Client, reconcile.Request, string) (string, error)
+}
+
+type SystemPermissionRolesClient interface {
+	AddSystemPermissionRole(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioSystemPermissionRole) error
+	GetSystemPermissionRole(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioSystemPermissionRole) (*humiographql.RoleDetails, error)
+	UpdateSystemPermissionRole(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioSystemPermissionRole) error
+	DeleteSystemPermissionRole(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioSystemPermissionRole) error
 }
 
 // ClientConfig stores our Humio api client
@@ -1831,6 +1838,86 @@ func (h *ClientConfig) AddUserAndGetUserID(ctx context.Context, client *humioapi
 	default:
 		return "", fmt.Errorf("got unknown user type=%v", v)
 	}
+}
+
+func (h *ClientConfig) AddSystemPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioSystemPermissionRole) error {
+	// convert strings to graphql types and call update
+	systemPermissions := make([]humiographql.SystemPermission, len(role.Spec.Permissions))
+	for idx := range role.Spec.Permissions {
+		systemPermissions[idx] = humiographql.SystemPermission(role.Spec.Permissions[idx])
+	}
+
+	_, err := humiographql.CreateRole(ctx, client, role.Spec.Name, systemPermissions)
+	return err
+}
+
+func (h *ClientConfig) GetSystemPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioSystemPermissionRole) (*humiographql.RoleDetails, error) {
+	resp, err := humiographql.ListRoles(
+		ctx,
+		client,
+	)
+	if err != nil {
+		return nil, err
+	}
+	respGetRoles := resp.GetRoles()
+	for i := range respGetRoles {
+		respRole := respGetRoles[i]
+		if respRole.GetDisplayName() == role.Spec.Name && len(respRole.GetSystemPermissions()) > 0 {
+			return &respGetRoles[i].RoleDetails, err
+		}
+	}
+
+	return nil, humioapi.SystemPermissionRoleNotFound(role.Spec.Name)
+}
+
+func (h *ClientConfig) UpdateSystemPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioSystemPermissionRole) error {
+	resp, listErr := humiographql.ListRoles(
+		ctx,
+		client,
+	)
+	if listErr != nil {
+		return listErr
+	}
+	if resp == nil {
+		return fmt.Errorf("unable to fetch list of roles")
+	}
+
+	// list all roles
+	respGetRoles := resp.GetRoles()
+	for i := range respGetRoles {
+		respRole := respGetRoles[i]
+
+		// pick the role with the correct name and which is a role with system permissions
+		if respRole.GetDisplayName() == role.Spec.Name && len(respRole.GetSystemPermissions()) > 0 {
+
+			// convert strings to graphql types and call update
+			systemPermissions := make([]humiographql.SystemPermission, len(role.Spec.Permissions))
+			for idx := range role.Spec.Permissions {
+				systemPermissions[idx] = humiographql.SystemPermission(role.Spec.Permissions[idx])
+			}
+			_, err := humiographql.UpdateRole(ctx, client, respGetRoles[i].GetId(), respGetRoles[i].GetDisplayName(), []humiographql.Permission{}, nil, systemPermissions)
+			return err
+		}
+	}
+	return humioapi.SystemPermissionRoleNotFound(role.Spec.Name)
+}
+
+func (h *ClientConfig) DeleteSystemPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioSystemPermissionRole) error {
+	resp, listErr := humiographql.ListRoles(ctx, client)
+	if listErr != nil {
+		return listErr
+	}
+	if resp == nil {
+		return fmt.Errorf("unable to fetch list of roles")
+	}
+	respListRolesGetRoles := resp.GetRoles()
+	for i := range respListRolesGetRoles {
+		if respListRolesGetRoles[i].GetDisplayName() == role.Spec.Name && len(respListRolesGetRoles[i].GetSystemPermissions()) > 0 {
+			_, err := humiographql.DeleteRoleByID(ctx, client, respListRolesGetRoles[i].GetId())
+			return err
+		}
+	}
+	return nil
 }
 
 func (h *ClientConfig) AddUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
