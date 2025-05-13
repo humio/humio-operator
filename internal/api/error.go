@@ -7,19 +7,20 @@ import (
 type entityType string
 
 const (
-	entityTypeSearchDomain         entityType = "search-domain"
-	entityTypeRepository           entityType = "repository"
-	entityTypeView                 entityType = "view"
-	entityTypeIngestToken          entityType = "ingest-token"
-	entityTypeParser               entityType = "parser"
-	entityTypeAction               entityType = "action"
-	entityTypeAlert                entityType = "alert"
-	entityTypeFilterAlert          entityType = "filter-alert"
-	entityTypeFeatureFlag          entityType = "feature-flag"
-	entityTypeScheduledSearch      entityType = "scheduled-search"
-	entityTypeAggregateAlert       entityType = "aggregate-alert"
-	entityTypeUser                 entityType = "user"
-	entityTypeSystemPermissionRole entityType = "system-permission-role" // TODO: Consider removing this
+	entityTypeSearchDomain    entityType = "search-domain"
+	entityTypeRepository      entityType = "repository"
+	entityTypeView            entityType = "view"
+	entityTypeIngestToken     entityType = "ingest-token"
+	entityTypeParser          entityType = "parser"
+	entityTypeAction          entityType = "action"
+	entityTypeAlert           entityType = "alert"
+	entityTypeFilterAlert     entityType = "filter-alert"
+	entityTypeFeatureFlag     entityType = "feature-flag"
+	entityTypeScheduledSearch entityType = "scheduled-search"
+	entityTypeAggregateAlert  entityType = "aggregate-alert"
+	entityTypeUser            entityType = "user"
+	entityTypeOrganizationPermissionRole entityType = "organization-permission-role"
+	entityTypeSystemPermissionRole entityType = "system-permission-role"
 )
 
 func (e entityType) String() string {
@@ -130,6 +131,13 @@ func UserNotFound(name string) error {
 func SystemPermissionRoleNotFound(name string) error {
 	return EntityNotFound{
 		entityType: entityTypeSystemPermissionRole,
+		key:        name,
+	}
+}
+
+func OrganizationPermissionRoleNotFound(name string) error {
+	return EntityNotFound{
+		entityType: entityTypeOrganizationPermissionRole,
 		key:        name,
 	}
 }

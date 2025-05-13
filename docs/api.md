@@ -26,6 +26,8 @@ Resource Types:
 
 - [HumioIngestToken](#humioingesttoken)
 
+- [HumioOrganizationPermissionRole](#humioorganizationpermissionrole)
+
 - [HumioParser](#humioparser)
 
 - [HumioRepository](#humiorepository)
@@ -36970,6 +36972,142 @@ HumioIngestTokenStatus defines the observed state of HumioIngestToken.
         <td>string</td>
         <td>
           State reflects the current state of the HumioIngestToken<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioOrganizationPermissionRole
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioOrganizationPermissionRole is the Schema for the humioorganizationpermissionroles API.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioOrganizationPermissionRole</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioorganizationpermissionrolespec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioOrganizationPermissionRoleSpec defines the desired state of HumioOrganizationPermissionRole.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioorganizationpermissionrolestatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioOrganizationPermissionRoleStatus defines the observed state of HumioOrganizationPermissionRole.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioOrganizationPermissionRole.spec
+<sup><sup>[↩ Parent](#humioorganizationpermissionrole)</sup></sup>
+
+
+
+HumioOrganizationPermissionRoleSpec defines the desired state of HumioOrganizationPermissionRole.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the role inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>permissions</b></td>
+        <td>[]string</td>
+        <td>
+          Permissions is the list of organization permissions that this role grants.
+For more details, see https://library.humio.com/logscale-graphql-reference-datatypes/graphql-enum-organizationpermission.html<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+This conflicts with ManagedClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+resources should be created.
+This conflicts with ExternalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioOrganizationPermissionRole.status
+<sup><sup>[↩ Parent](#humioorganizationpermissionrole)</sup></sup>
+
+
+
+HumioOrganizationPermissionRoleStatus defines the observed state of HumioOrganizationPermissionRole.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State reflects the current state of the HumioOrganizationPermissionRole<br/>
         </td>
         <td>false</td>
       </tr></tbody>

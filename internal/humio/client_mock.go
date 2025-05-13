@@ -1523,3 +1523,101 @@ func (h *MockClientConfig) DeleteSystemPermissionRole(ctx context.Context, clien
 	delete(h.apiClient.Role, key)
 	return nil
 }
+
+func (h *MockClientConfig) AddOrganizationPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioOrganizationPermissionRole) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", role.Spec.ManagedClusterName, role.Spec.ExternalClusterName),
+		resourceName: role.Spec.Name,
+	}
+
+	if _, found := h.apiClient.Role[key]; found {
+		return fmt.Errorf("role already exists with name %s", role.Spec.Name)
+	}
+
+	for idx := range role.Spec.Permissions {
+		if !slices.Contains(humiographql.AllOrganizationPermission, humiographql.OrganizationPermission(role.Spec.Permissions[idx])) {
+			// nolint:staticcheck // ST1005 - keep the capitalization the same as how LogScale responds
+			return fmt.Errorf("Expected type 'OrganizationPermission!', found '%s'. Enum value '%s' is undefined in enum type 'OrganizationPermission'", role.Spec.Permissions[idx], role.Spec.Permissions[idx])
+		}
+	}
+	oraganizationPermissions := make([]humiographql.OrganizationPermission, len(role.Spec.Permissions))
+	for idx := range role.Spec.Permissions {
+		oraganizationPermissions[idx] = humiographql.OrganizationPermission(role.Spec.Permissions[idx])
+	}
+
+	h.apiClient.Role[key] = humiographql.RoleDetails{
+		Id:                      kubernetes.RandomString(),
+		DisplayName:             role.Spec.Name,
+		ViewPermissions:         []humiographql.Permission{},
+		OrganizationPermissions: oraganizationPermissions,
+		SystemPermissions:       nil,
+	}
+	return nil
+}
+
+func (h *MockClientConfig) GetOrganizationPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioOrganizationPermissionRole) (*humiographql.RoleDetails, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", role.Spec.ManagedClusterName, role.Spec.ExternalClusterName),
+		resourceName: role.Spec.Name,
+	}
+	if value, found := h.apiClient.Role[key]; found {
+		return &value, nil
+
+	}
+	return nil, humioapi.OrganizationPermissionRoleNotFound(role.Spec.Name)
+}
+
+func (h *MockClientConfig) UpdateOrganizationPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioOrganizationPermissionRole) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", role.Spec.ManagedClusterName, role.Spec.ExternalClusterName),
+		resourceName: role.Spec.Name,
+	}
+
+	currentRole, found := h.apiClient.Role[key]
+
+	if !found {
+		return humioapi.OrganizationPermissionRoleNotFound(role.Spec.Name)
+	}
+
+	for idx := range role.Spec.Permissions {
+		if !slices.Contains(humiographql.AllOrganizationPermission, humiographql.OrganizationPermission(role.Spec.Permissions[idx])) {
+			// nolint:staticcheck // ST1005 - keep the capitalization the same as how LogScale responds
+			return fmt.Errorf("Expected type 'OrganizationPermission!', found '%s'. Enum value '%s' is undefined in enum type 'OrganizationPermission'", role.Spec.Permissions[idx], role.Spec.Permissions[idx])
+		}
+	}
+	oraganizationPermissions := make([]humiographql.OrganizationPermission, len(role.Spec.Permissions))
+	for idx := range role.Spec.Permissions {
+		oraganizationPermissions[idx] = humiographql.OrganizationPermission(role.Spec.Permissions[idx])
+	}
+
+	h.apiClient.Role[key] = humiographql.RoleDetails{
+		Id:                      currentRole.GetId(),
+		DisplayName:             role.Spec.Name,
+		ViewPermissions:         []humiographql.Permission{},
+		OrganizationPermissions: oraganizationPermissions,
+		SystemPermissions:       nil,
+	}
+	return nil
+}
+
+func (h *MockClientConfig) DeleteOrganizationPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioOrganizationPermissionRole) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", role.Spec.ManagedClusterName, role.Spec.ExternalClusterName),
+		resourceName: role.Spec.Name,
+	}
+
+	delete(h.apiClient.Role, key)
+	return nil
+}

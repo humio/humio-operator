@@ -36,6 +36,7 @@ rules:
   - humiofeatureflags
   - humiofilteralerts
   - humioingesttokens
+  - humioorganizationpermissionroles
   - humioparsers
   - humiorepositories
   - humioscheduledsearches
@@ -62,6 +63,7 @@ rules:
   - humiofeatureflags/finalizers
   - humiofilteralerts/finalizers
   - humioingesttokens/finalizers
+  - humioorganizationpermissionroles/finalizers
   - humioparsers/finalizers
   - humiorepositories/finalizers
   - humioscheduledsearches/finalizers
@@ -82,6 +84,7 @@ rules:
   - humiofeatureflags/status
   - humiofilteralerts/status
   - humioingesttokens/status
+  - humioorganizationpermissionroles/status
   - humioparsers/status
   - humiorepositories/status
   - humioscheduledsearches/status

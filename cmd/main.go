@@ -229,7 +229,6 @@ func main() {
 	}
 
 	setupControllers(mgr, log, requeuePeriod)
-	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {
 		ctrl.Log.Info("Adding metrics certificate watcher to manager")
@@ -429,4 +428,16 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioSystemPermissionRole")
 		os.Exit(1)
 	}
+	if err = (&controller.HumioOrganizationPermissionRoleReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioOrganizationPermissionRole")
+		os.Exit(1)
+	}
+	// +kubebuilder:scaffold:builder
 }

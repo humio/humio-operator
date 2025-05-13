@@ -15,12 +15,14 @@ query ListRoles {
 
 mutation CreateRole(
     $RoleName: String!
-    $SystemPermissions: [SystemPermission!]!
-
+    $ViewPermissions: [Permission!]!
+    $OrganizationPermissions: [OrganizationPermission!]
+    $SystemPermissions: [SystemPermission!]
 ) {
     createRole(input: {
         displayName: $RoleName
-        viewPermissions: []
+        viewPermissions: $ViewPermissions
+        organizationPermissions: $OrganizationPermissions
         systemPermissions: $SystemPermissions
     }) {
         role {
