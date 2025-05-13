@@ -86,16 +86,18 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	}()
 
-	// --------------------------------------------------------------------
-	// 1.  Finalizer
-	// --------------------------------------------------------------------
+	// Replica sanity check
+	if hprs.Spec.Replicas < 0 {
+		reconcileErr = fmt.Errorf("spec.replicas must be non-negative")
+		finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
+		return ctrl.Result{}, reconcileErr
+	}
+	// Finalizer
 	if res, err := r.ensureFinalizer(ctx, hprs); err != nil || res.Requeue {
 		return res, err
 	}
 
-	// --------------------------------------------------------------------
-	// 2.  Validate spec (TLS etc.)
-	// --------------------------------------------------------------------
+	// Validate spec (TLS etc.)
 	if err := r.validateTLSConfiguration(ctx, hprs); err != nil {
 		// validation failure ⇒ ConfigError
 		hprs.Status.ReadyReplicas = 0
@@ -103,10 +105,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	// --------------------------------------------------------------------
-	// 3.  Reconcile children
-	// --------------------------------------------------------------------
-	// Deployment
+	// Reconcile children Deployment
 	op, dep, err := r.reconcileDeployment(ctx, hprs)
 	if err != nil {
 		_ = r.updateStatus(ctx, hprs, humiov1alpha1.HumioPdfRenderServiceStateConfigError, err)
@@ -119,9 +118,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	// --------------------------------------------------------------------
-	// 4.  Determine state
-	// --------------------------------------------------------------------
+	// Determine state
 	targetState := humiov1alpha1.HumioPdfRenderServiceStateRunning
 	if dep == nil || dep.Status.ReadyReplicas < hprs.Spec.Replicas {
 		targetState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
@@ -135,14 +132,10 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		hprs.Status.ReadyReplicas = 0
 	}
 
-	// --------------------------------------------------------------------
-	// 5.  Update status
-	// --------------------------------------------------------------------
+	// Update status
 	_ = r.updateStatus(ctx, hprs, targetState, nil)
 
-	// --------------------------------------------------------------------
-	// 6.  Requeue while configuring
-	// --------------------------------------------------------------------
+	// Requeue while configuring
 	if targetState == humiov1alpha1.HumioPdfRenderServiceStateConfiguring {
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
