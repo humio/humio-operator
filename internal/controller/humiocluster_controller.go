@@ -190,8 +190,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// NEW: reconcile the PDF‐service reference *now*, so that a spec‐removal
 	// clears ConfigError / removes env var *before* we ever hit bootstrap‐token/pod logic.
-	if err := r.ensurePdfRenderService(ctx, hc); err != nil {
-		// ensurePdfRenderService will set hc.Status.State + .Message in‐memory
+	if err := r.reconcilePdfRenderService(ctx, hc); err != nil {
+		// reconcilePdfRenderService will set hc.Status.State + .Message in‐memory
 		return r.updateStatus(ctx, r.Status(), hc, statusOptions().
 			withState(hc.Status.State).
 			withMessage(err.Error()).
@@ -288,7 +288,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.ensureHumioClusterKeystoreSecret,
 		r.ensureNoIngressesIfIngressNotEnabled, // TODO: cleanupUnusedResources seems like a better place for this
 		r.ensureIngress,
-		r.ensurePdfRenderService,
 	} {
 		if err := fun(ctx, hc); err != nil {
 			return r.updateStatus(ctx, r.Status(), hc, statusOptions().
@@ -454,7 +453,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 // - Manages environment variable configuration
 // - Synchronizes TLS settings
 // - Removes unused services when not needed
-func (r *HumioClusterReconciler) ensurePdfRenderService(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+func (r *HumioClusterReconciler) reconcilePdfRenderService(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	const pdfExportURLEnvVar = "DEFAULT_PDF_RENDER_SERVICE_URL"
 
 	// Helper: Set or update the PDF env var in the cluster spec
