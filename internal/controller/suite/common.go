@@ -716,23 +716,36 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	}
 }
 
-func WaitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sClient client.Client, currentHumioCluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
-	UsingClusterBy(key.Name, "Waiting for the reconcile loop to complete")
-	if currentHumioCluster == nil {
-		var updatedHumioCluster humiov1alpha1.HumioCluster
-		Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-		currentHumioCluster = &updatedHumioCluster
-	}
+// WaitForReconcileToSync waits until the controller has observed the latest
+// spec of the HumioCluster – i.e. .status.observedGeneration is at least the
+// current .metadata.generation.
+//
+// We re-read the object every poll to avoid the bug where the generation was
+// captured before the reconciler modified the spec (which increments the
+// generation).  This previously made the helper compare the *old* generation
+// with the *new* observedGeneration and fail with
+// “expected 3 to equal 2”.
+func WaitForReconcileToSync(
+	ctx context.Context,
+	key types.NamespacedName,
+	k8sClient client.Client,
+	cluster *humiov1alpha1.HumioCluster,
+	timeout time.Duration,
+) {
+	UsingClusterBy(key.Name, "Waiting for HumioCluster observedGeneration to catch up")
 
-	beforeGeneration := currentHumioCluster.GetGeneration()
-	Eventually(func() int64 {
-		Expect(k8sClient.Get(ctx, key, currentHumioCluster)).Should(Succeed())
-		observedGen, err := strconv.Atoi(currentHumioCluster.Status.ObservedGeneration)
-		if err != nil {
-			return -2
-		}
-		return int64(observedGen)
-	}, testTimeout, TestInterval).Should(BeNumerically("==", beforeGeneration))
+	Eventually(func(g Gomega) bool {
+		latest := &humiov1alpha1.HumioCluster{}
+		err := k8sClient.Get(ctx, key, latest)
+		g.Expect(err).NotTo(HaveOccurred(), "failed to fetch HumioCluster")
+
+		currentGen := latest.GetGeneration()
+
+		obsGen, _ := strconv.ParseInt(latest.Status.ObservedGeneration, 10, 64)
+		return obsGen >= currentGen
+	}, timeout, TestInterval).Should(BeTrue(),
+		"HumioCluster %s/%s observedGeneration did not reach generation",
+		key.Namespace, key.Name)
 }
 
 func UseDockerCredentials() bool {
