@@ -559,6 +559,15 @@ func (r *HumioClusterReconciler) reconcilePdfRenderService(ctx context.Context, 
 			return errors.New(msg)
 		}
 
+		// 9.4: Auto-clear ConfigError when HPRS is now ready
+		if hc.Status.State == humiov1alpha1.HumioClusterStateConfigError {
+			r.Log.Info("Referenced HumioPdfRenderService is now ready. Clearing ConfigError and setting HumioCluster state to Running.")
+			if err := r.setState(ctx, humiov1alpha1.HumioClusterStateRunning, hc); err != nil {
+				return fmt.Errorf("failed to reset cluster state to Running: %w", err)
+			}
+			hc.Status.Message = ""
+		}
+
 		if _, err := r.removePdfRenderServiceIfExists(ctx, hc); err != nil {
 			r.Log.Error(err, "Failed to remove cluster-specific HumioPdfRenderService during switch to shared service. Continuing with shared service.")
 			// Non-fatal, but log it.
