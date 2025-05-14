@@ -7,18 +7,19 @@ import (
 type entityType string
 
 const (
-	entityTypeSearchDomain    entityType = "search-domain"
-	entityTypeRepository      entityType = "repository"
-	entityTypeView            entityType = "view"
-	entityTypeIngestToken     entityType = "ingest-token"
-	entityTypeParser          entityType = "parser"
-	entityTypeAction          entityType = "action"
-	entityTypeAlert           entityType = "alert"
-	entityTypeFilterAlert     entityType = "filter-alert"
-	entityTypeFeatureFlag     entityType = "feature-flag"
-	entityTypeScheduledSearch entityType = "scheduled-search"
-	entityTypeAggregateAlert  entityType = "aggregate-alert"
-	entityTypeUser            entityType = "user"
+	entityTypeSearchDomain       entityType = "search-domain"
+	entityTypeRepository         entityType = "repository"
+	entityTypeView               entityType = "view"
+	entityTypeIngestToken        entityType = "ingest-token"
+	entityTypeParser             entityType = "parser"
+	entityTypeAction             entityType = "action"
+	entityTypeAlert              entityType = "alert"
+	entityTypeFilterAlert        entityType = "filter-alert"
+	entityTypeFeatureFlag        entityType = "feature-flag"
+	entityTypeScheduledSearch    entityType = "scheduled-search"
+	entityTypeAggregateAlert     entityType = "aggregate-alert"
+	entityTypeUser               entityType = "user"
+	entityTypeViewPermissionRole entityType = "view-permission-role"
 )
 
 func (e entityType) String() string {
@@ -122,6 +123,13 @@ func AggregateAlertNotFound(name string) error {
 func UserNotFound(name string) error {
 	return EntityNotFound{
 		entityType: entityTypeUser,
+		key:        name,
+	}
+}
+
+func ViewPermissionRoleNotFound(name string) error {
+	return EntityNotFound{
+		entityType: entityTypeViewPermissionRole,
 		key:        name,
 	}
 }

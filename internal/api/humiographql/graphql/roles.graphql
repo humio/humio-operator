@@ -1,0 +1,61 @@
+fragment RoleDetails on Role {
+    id
+    displayName
+    viewPermissions
+    organizationPermissions
+    systemPermissions
+    #    description # Should we use this to flag it as managed by humio-operator?
+}
+
+query ListRoles {
+    roles {
+        ...RoleDetails
+    }
+}
+
+mutation CreateRole(
+    $RoleName: String!
+    $ViewPermissions: [Permission!]!
+    $OrganizationPermissions: [OrganizationPermission!]
+    $SystemPermissions: [SystemPermission!]
+
+) {
+    createRole(input: {
+        displayName: $RoleName
+        viewPermissions: $ViewPermissions
+        organizationPermissions: $OrganizationPermissions
+        systemPermissions: $SystemPermissions
+    }) {
+        role {
+            ...RoleDetails
+        }
+    }
+}
+
+mutation UpdateRole(
+    $RoleId: String!
+    $RoleName: String!
+    $ViewPermissions: [Permission!]!
+    $OrganizationPermissions: [OrganizationPermission!]
+    $SystemPermissions: [SystemPermission!]
+) {
+    updateRole(input: {
+        roleId: $RoleId
+        displayName: $RoleName
+        viewPermissions: $ViewPermissions
+        organizationPermissions: $OrganizationPermissions
+        systemPermissions: $SystemPermissions
+    }) {
+        role {
+            ...RoleDetails
+        }
+    }
+}
+
+mutation DeleteRoleByID(
+    $RoleID: String!
+) {
+    removeRole(roleId: $RoleID) {
+        result
+    }
+}
