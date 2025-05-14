@@ -456,8 +456,11 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *HumioClusterReconciler) reconcilePdfRenderService(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	const pdfExportURLEnvVar = "DEFAULT_PDF_RENDER_SERVICE_URL"
 
-	// Helper: Set or update the PDF env var in the cluster spec
-	setOrUpdatePdfEnvVar := func(serviceURL string) (bool, error) {
+	// Batch env-var update: track if we need to update hc.Spec
+	var needSpecUpdate bool
+
+	// Helper: Set or update the PDF env var in the cluster spec (batched)
+	setOrUpdatePdfEnvVar := func(serviceURL string) bool {
 		updated := false
 		found := false
 		for i := range hc.Spec.EnvironmentVariables {
@@ -478,23 +481,24 @@ func (r *HumioClusterReconciler) reconcilePdfRenderService(ctx context.Context, 
 			updated = true
 		}
 		if updated {
-			return true, r.Update(ctx, hc)
+			needSpecUpdate = true
 		}
-		return false, nil
+		return updated
 	}
 
-	// Helper: Remove the PDF env var from the cluster spec
-	removePdfEnvVar := func() (wasRemoved bool, err error) {
+	// Helper: Remove the PDF env var from the cluster spec (batched)
+	removePdfEnvVar := func() bool {
 		for i := range hc.Spec.EnvironmentVariables {
 			if hc.Spec.EnvironmentVariables[i].Name == pdfExportURLEnvVar {
 				hc.Spec.EnvironmentVariables = append(
 					hc.Spec.EnvironmentVariables[:i],
 					hc.Spec.EnvironmentVariables[i+1:]...,
 				)
-				return true, r.Update(ctx, hc)
+				needSpecUpdate = true
+				return true
 			}
 		}
-		return false, nil
+		return false
 	}
 
 	// --- CASE 1: PdfRenderServiceRef is set ---
@@ -568,15 +572,7 @@ func (r *HumioClusterReconciler) reconcilePdfRenderService(ctx context.Context, 
 		}
 		serviceURL := fmt.Sprintf("%s://%s-pdf-render-service.%s.svc:%d", protocol, pdfService.Name, namespace, port)
 
-		envVarUpdated, err := setOrUpdatePdfEnvVar(serviceURL)
-		if err != nil {
-			return r.logErrorAndReturn(err, "failed to set DEFAULT_PDF_RENDER_SERVICE_URL environment variable")
-		}
-		if envVarUpdated {
-			// If hc.Spec was updated, hc is stale. Requeue to get fresh hc.
-			r.Log.Info("DEFAULT_PDF_RENDER_SERVICE_URL updated in HumioCluster spec, requeueing.")
-			return errors.New("HumioCluster spec updated with PDF_EXPORT_URL, requeueing")
-		}
+		_ = setOrUpdatePdfEnvVar(serviceURL)
 
 		configUpdated, err := r.syncPdfRenderServiceConfig(ctx, hc, pdfService)
 		if err != nil {
@@ -613,15 +609,15 @@ func (r *HumioClusterReconciler) reconcilePdfRenderService(ctx context.Context, 
 			hc.Status.Message = "" // Clear previous error message
 		}
 
-		pdfEnvVarWasRemoved, err := removePdfEnvVar()
-		if err != nil {
-			return r.logErrorAndReturn(err, "failed to remove PDF environment variable")
-		}
-		if pdfEnvVarWasRemoved {
-			r.Log.Info("DEFAULT_PDF_RENDER_SERVICE_URL removed from HumioCluster spec, requeueing.")
-			// If hc.Spec was updated, hc is stale. Requeue to get fresh hc.
-			// Also, if state was changed, this error ensures status update happens.
-			return errors.New("HumioCluster spec updated (PDF_EXPORT_URL removed), requeueing")
+		pdfEnvVarWasRemoved := removePdfEnvVar()
+		// At the end, if any env var changes were made, update the spec once and requeue
+		if needSpecUpdate {
+			r.Log.Info("Batch update: updating HumioCluster spec due to PDF env var changes.")
+			if err := r.Update(ctx, hc); err != nil {
+				return r.logErrorAndReturn(err, "failed to update HumioCluster spec after PDF env var changes")
+			}
+			// After spec update, requeue to get fresh hc
+			return errors.New("HumioCluster spec updated (batched PDF env var changes), requeueing")
 		}
 
 		if stateChanged && !pdfEnvVarWasRemoved {
