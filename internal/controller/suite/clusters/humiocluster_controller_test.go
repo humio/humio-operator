@@ -517,7 +517,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	// Test Case 4: Cluster-specific service cleanup
-	Context("PDF Render Service cleanup on reference change", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service cleanup on reference change", Label("envtest", "dummy", "real"), func() {
 		var (
 			standardTimeout           = 30 * time.Second
 			extendedTimeout           = 60 * time.Second

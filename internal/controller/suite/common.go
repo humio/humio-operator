@@ -690,23 +690,36 @@ func CreateAndBootstrapCluster(ctx context.Context, k8sClient client.Client, hum
 	}
 }
 
-func WaitForReconcileToSync(ctx context.Context, key types.NamespacedName, k8sClient client.Client, currentHumioCluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
-	UsingClusterBy(key.Name, "Waiting for the reconcile loop to complete")
-	if currentHumioCluster == nil {
-		var updatedHumioCluster humiov1alpha1.HumioCluster
-		Expect(k8sClient.Get(ctx, key, &updatedHumioCluster)).Should(Succeed())
-		currentHumioCluster = &updatedHumioCluster
-	}
+// WaitForReconcileToSync waits until the controller has observed the latest
+// spec of the HumioCluster – i.e. .status.observedGeneration is at least the
+// current .metadata.generation.
+//
+// We re-read the object every poll to avoid the bug where the generation was
+// captured before the reconciler modified the spec (which increments the
+// generation).  This previously made the helper compare the *old* generation
+// with the *new* observedGeneration and fail with
+// “expected 3 to equal 2”.
+func WaitForReconcileToSync(
+	ctx context.Context,
+	key types.NamespacedName,
+	k8sClient client.Client,
+	cluster *humiov1alpha1.HumioCluster,
+	timeout time.Duration,
+) {
+	UsingClusterBy(key.Name, "Waiting for HumioCluster observedGeneration to catch up")
 
-	beforeGeneration := currentHumioCluster.GetGeneration()
-	Eventually(func() int64 {
-		Expect(k8sClient.Get(ctx, key, currentHumioCluster)).Should(Succeed())
-		observedGen, err := strconv.Atoi(currentHumioCluster.Status.ObservedGeneration)
-		if err != nil {
-			return -2
-		}
-		return int64(observedGen)
-	}, testTimeout, TestInterval).Should(BeNumerically("==", beforeGeneration))
+	Eventually(func(g Gomega) bool {
+		latest := &humiov1alpha1.HumioCluster{}
+		err := k8sClient.Get(ctx, key, latest)
+		g.Expect(err).NotTo(HaveOccurred(), "failed to fetch HumioCluster")
+
+		currentGen := latest.GetGeneration()
+
+		obsGen, _ := strconv.ParseInt(latest.Status.ObservedGeneration, 10, 64)
+		return obsGen >= currentGen
+	}, timeout, TestInterval).Should(BeTrue(),
+		"HumioCluster %s/%s observedGeneration did not reach generation",
+		key.Namespace, key.Name)
 }
 
 func UseDockerCredentials() bool {
@@ -813,54 +826,63 @@ func GetHumioBootstrapToken(ctx context.Context, key types.NamespacedName, k8sCl
 	return hbtList[0], nil
 }
 
-// WaitForObservedGeneration waits until the observedGeneration matches the generation
-func WaitForObservedGeneration(ctx context.Context, k8sClient client.Client,
-	obj client.Object, timeout, interval time.Duration) {
-
+// WaitForObservedGeneration waits until .status.observedGeneration is at least the
+// current .metadata.generation. It re-reads the object on every poll so it is
+// tolerant of extra reconciles that may bump the generation while we are
+// waiting.
+func WaitForObservedGeneration(
+	ctx context.Context,
+	k8sClient client.Client,
+	obj client.Object,
+	timeout, interval time.Duration,
+) {
 	objKind := obj.GetObjectKind().GroupVersionKind().Kind
 	if objKind == "" {
 		objKind = reflect.TypeOf(obj).String()
 	}
 
-	UsingClusterBy("", fmt.Sprintf("Waiting for observedGeneration to catch up for %s %s/%s",
+	UsingClusterBy("", fmt.Sprintf(
+		"Waiting for observedGeneration to catch up for %s %s/%s",
 		objKind, obj.GetNamespace(), obj.GetName()))
 
 	key := client.ObjectKeyFromObject(obj)
-	generation := obj.GetGeneration()
 
-	Eventually(func(g Gomega) int64 {
-		// Get the latest version of the object
-		err := k8sClient.Get(ctx, key, obj)
+	Eventually(func(g Gomega) bool {
+		// Always work on a fresh copy so we see the latest generation.
+		latest := obj.DeepCopyObject().(client.Object)
+		err := k8sClient.Get(ctx, key, latest)
 		g.Expect(err).NotTo(HaveOccurred(), "Failed to get resource")
 
-		// Get observed generation based on resource type
+		currentGeneration := latest.GetGeneration()
 		var observedGen int64
 
-		switch typedObj := obj.(type) {
+		switch typed := latest.(type) {
 		case *humiov1alpha1.HumioPdfRenderService:
-			// HumioPdfRenderService.Status.ObservedGeneration is already an int64
-			observedGen = typedObj.Status.ObservedGeneration
+			observedGen = typed.Status.ObservedGeneration
+
 		case *humiov1alpha1.HumioCluster:
-			// HumioCluster.Status.ObservedGeneration is a string, convert to int64
-			val, err := strconv.ParseInt(typedObj.Status.ObservedGeneration, 10, 64)
+			val, err := strconv.ParseInt(typed.Status.ObservedGeneration, 10, 64)
 			if err != nil {
-				// If conversion fails, use 0 or log and continue
 				observedGen = 0
 			} else {
 				observedGen = val
 			}
+
 		case *appsv1.Deployment:
-			observedGen = typedObj.Status.ObservedGeneration
+			observedGen = typed.Status.ObservedGeneration
+
 		default:
-			// For resources without an explicit handler, return the generation
-			// to effectively skip the check
-			return generation
+			// Resource does not expose observedGeneration – consider it ready.
+			return true
 		}
-		return observedGen
-	}, timeout, interval).Should(Equal(generation),
-		"%s %s/%s observedGeneration should match generation %d",
-		objKind, obj.GetNamespace(), obj.GetName(), generation)
+
+		return observedGen >= currentGeneration
+	}, timeout, interval).Should(BeTrue(),
+		"%s %s/%s observedGeneration did not catch up with generation",
+		objKind, obj.GetNamespace(), obj.GetName())
 }
+
+// ...existing
 
 // WaitForClusterState waits until the HumioCluster reaches the expected state.
 // It calls WaitForObservedGeneration internally so that the latest spec is processed.
