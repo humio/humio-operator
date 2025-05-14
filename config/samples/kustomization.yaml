@@ -27,4 +27,5 @@ resources:
 - core_v1alpha1_humiouser.yaml
 - core_v1alpha1_humioorganizationpermissionrole.yaml
 - core_v1alpha1_humiosystempermissionrole.yaml
+- core_v1alpha1_humioviewpermissionrole.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

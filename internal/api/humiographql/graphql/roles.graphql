@@ -4,7 +4,6 @@ fragment RoleDetails on Role {
     viewPermissions
     organizationPermissions
     systemPermissions
-#    description # Should we use this to flag it as managed by humio-operator?
 }
 
 query ListRoles {

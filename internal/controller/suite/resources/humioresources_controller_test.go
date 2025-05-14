@@ -4029,7 +4029,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			// Verify we validate this for all our CRD's
-			Expect(resources).To(HaveLen(16)) // Bump this as we introduce new CRD's
+			Expect(resources).To(HaveLen(17)) // Bump this as we introduce new CRD's
 
 			for i := range resources {
 				// Get the GVK information
@@ -4420,6 +4420,180 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Creating the organization permission role with empty slice")
 			Expect(k8sClient.Create(ctx, toCreateInvalidOrganizationPermissionRole)).Should(Not(Succeed()))
+		})
+	})
+
+	Context("HumioViewPermissionRole", Label("envtest", "dummy", "real"), func() {
+		It("Working config: create it, verify it is there, update it, delete it, validate it is gone", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-view-permission-role",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateViewPermissionRole := &humiov1alpha1.HumioViewPermissionRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioViewPermissionRoleSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "example-view-permission",
+					Permissions: []string{
+						string(humiographql.PermissionReadaccess),
+					},
+				},
+			}
+			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+
+			suite.UsingClusterBy(clusterKey.Name, "Confirming the view permission role does not exist in LogScale before we start")
+			Eventually(func() error {
+				_, err := humioClient.GetViewPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateViewPermissionRole)
+				return err
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating the view permission role custom resource")
+			Expect(k8sClient.Create(ctx, toCreateViewPermissionRole)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "Custom resource for view permission role should be marked with Exists")
+			Eventually(func() string {
+				updatedHumioViewPermissionRole := humiov1alpha1.HumioViewPermissionRole{}
+				err = k8sClient.Get(ctx, key, &updatedHumioViewPermissionRole)
+				if err != nil {
+					return err.Error()
+				}
+				return updatedHumioViewPermissionRole.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewPermissionRoleStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "Confirming the view permission role does exist in LogScale after custom resource indicates that it does")
+			var fetchedRoleDetails *humiographql.RoleDetails
+			Eventually(func() error {
+				fetchedRoleDetails, err = humioClient.GetViewPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateViewPermissionRole)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(fetchedRoleDetails.ViewPermissions).Should(HaveExactElements([]humiographql.Permission{
+				humiographql.PermissionReadaccess,
+			}))
+
+			suite.UsingClusterBy(clusterKey.Name, "Add a permission to custom resource using k8sClient, ViewUsage")
+			Eventually(func() error {
+				updatedHumioViewPermissionRole := humiov1alpha1.HumioViewPermissionRole{}
+				err = k8sClient.Get(ctx, key, &updatedHumioViewPermissionRole)
+				if err != nil {
+					return err
+				}
+				updatedHumioViewPermissionRole.Spec.Permissions = append(updatedHumioViewPermissionRole.Spec.Permissions, string(humiographql.PermissionChangeretention))
+				return k8sClient.Update(ctx, &updatedHumioViewPermissionRole)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "verify it was added according to humioClient")
+			Eventually(func() ([]humiographql.Permission, error) {
+				fetchedRoleDetails, err = humioClient.GetViewPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateViewPermissionRole)
+				if err != nil {
+					return nil, err
+				}
+				Expect(fetchedRoleDetails).ToNot(BeNil())
+				return fetchedRoleDetails.ViewPermissions, err
+			}, testTimeout, suite.TestInterval).Should(HaveLen(2))
+			Expect(fetchedRoleDetails.ViewPermissions).Should(HaveExactElements([]humiographql.Permission{
+				humiographql.PermissionChangeretention,
+				humiographql.PermissionReadaccess,
+			}))
+
+			suite.UsingClusterBy(clusterKey.Name, "Remove one permission using k8sClient")
+			Eventually(func() error {
+				updatedHumioViewPermissionRole := humiov1alpha1.HumioViewPermissionRole{}
+				err = k8sClient.Get(ctx, key, &updatedHumioViewPermissionRole)
+				if err != nil {
+					return err
+				}
+				updatedHumioViewPermissionRole.Spec.Permissions = []string{string(humiographql.PermissionChangeretention)}
+				return k8sClient.Update(ctx, &updatedHumioViewPermissionRole)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "Verify it was removed using humioClient")
+			Eventually(func() ([]humiographql.Permission, error) {
+				fetchedRoleDetails, err = humioClient.GetViewPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateViewPermissionRole)
+				if err != nil {
+					return nil, err
+				}
+				Expect(fetchedRoleDetails).ToNot(BeNil())
+				return fetchedRoleDetails.ViewPermissions, err
+			}, testTimeout, suite.TestInterval).Should(HaveLen(1))
+			Expect(fetchedRoleDetails.ViewPermissions).Should(HaveExactElements([]humiographql.Permission{
+				humiographql.PermissionChangeretention,
+			}))
+
+			suite.UsingClusterBy(clusterKey.Name, "Delete custom resource using k8sClient")
+			Expect(k8sClient.Delete(ctx, toCreateViewPermissionRole)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, toCreateViewPermissionRole)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "Verify role was removed using humioClient")
+			Eventually(func() string {
+				fetchedRoleDetails, err = humioClient.GetViewPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateViewPermissionRole)
+				return err.Error()
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(humioapi.ViewPermissionRoleNotFound(toCreateViewPermissionRole.Spec.Name).Error()))
+		})
+
+		It("Should indicate improperly configured view permission role with unknown permission", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-view-permission-role-unknown-perm",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateInvalidViewPermissionRole := &humiov1alpha1.HumioViewPermissionRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioViewPermissionRoleSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "example-unknown-view-permission",
+					Permissions:        []string{"SomeUnknownPermission"},
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating the view permission role with unknown permission")
+			Expect(k8sClient.Create(ctx, toCreateInvalidViewPermissionRole)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "Organization permission role should be marked with NotFound")
+			Eventually(func() string {
+				updatedHumioViewPermissionRole := humiov1alpha1.HumioViewPermissionRole{}
+				err = k8sClient.Get(ctx, key, &updatedHumioViewPermissionRole)
+				if err != nil {
+					return err.Error()
+				}
+				return updatedHumioViewPermissionRole.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewPermissionRoleStateNotFound))
+		})
+
+		It("Should deny improperly configured view permission role with empty list of permissions", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-view-permission-role-empty-list",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateInvalidViewPermissionRole := &humiov1alpha1.HumioViewPermissionRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioViewPermissionRoleSpec{
+					ManagedClusterName: clusterKey.Name,
+					Name:               "example-invalid-view-permission-role",
+					Permissions:        nil,
+				},
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating the view permission role with nil slice")
+			Expect(k8sClient.Create(ctx, toCreateInvalidViewPermissionRole)).Should(Not(Succeed()))
+
+			toCreateInvalidViewPermissionRole.Spec.Permissions = []string{}
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating the view permission role with empty slice")
+			Expect(k8sClient.Create(ctx, toCreateInvalidViewPermissionRole)).Should(Not(Succeed()))
 		})
 	})
 })

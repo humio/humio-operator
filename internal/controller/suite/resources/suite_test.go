@@ -326,6 +326,17 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controller.HumioViewPermissionRoleReconciler{
+		Client: k8sManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	ctx, cancel = context.WithCancel(context.TODO())
 
 	go func() {

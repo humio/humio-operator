@@ -16,16 +16,6 @@ resources:
 #- auth_proxy_role.yaml
 #- auth_proxy_role_binding.yaml
 #- auth_proxy_client_clusterrole.yaml
-# For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
-# default, aiding admins in cluster management. Those roles are
-# not used by the {{ .ProjectName }} itself. You can comment the following lines
-# if you do not want those helpers be installed with your Project.
-- humioorganizationpermissionrole_admin_role.yaml
-- humioorganizationpermissionrole_editor_role.yaml
-- humioorganizationpermissionrole_viewer_role.yaml
-- humiouser_admin_role.yaml
-- humiouser_editor_role.yaml
-- humiouser_viewer_role.yaml
 
 # For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
 # default, aiding admins in cluster management. Those roles are
@@ -34,4 +24,12 @@ resources:
 - humiosystempermissionrole_admin_role.yaml
 - humiosystempermissionrole_editor_role.yaml
 - humiosystempermissionrole_viewer_role.yaml
-
+- humioorganizationpermissionrole_admin_role.yaml
+- humioorganizationpermissionrole_editor_role.yaml
+- humioorganizationpermissionrole_viewer_role.yaml
+- humioviewpermissionrole_admin_role.yaml
+- humioviewpermissionrole_editor_role.yaml
+- humioviewpermissionrole_viewer_role.yaml
+- humiouser_admin_role.yaml
+- humiouser_editor_role.yaml
+- humiouser_viewer_role.yaml

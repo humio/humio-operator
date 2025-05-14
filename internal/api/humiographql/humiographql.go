@@ -14427,12 +14427,22 @@ func (v *__CreateRepositoryWithRetentionInput) GetRetentionInStorageSizeBytes() 
 
 // __CreateRoleInput is used internally by genqlient
 type __CreateRoleInput struct {
-	RoleName          string             `json:"RoleName"`
-	SystemPermissions []SystemPermission `json:"SystemPermissions"`
+	RoleName                string                   `json:"RoleName"`
+	ViewPermissions         []Permission             `json:"ViewPermissions"`
+	OrganizationPermissions []OrganizationPermission `json:"OrganizationPermissions"`
+	SystemPermissions       []SystemPermission       `json:"SystemPermissions"`
 }
 
 // GetRoleName returns __CreateRoleInput.RoleName, and is useful for accessing the field via an interface.
 func (v *__CreateRoleInput) GetRoleName() string { return v.RoleName }
+
+// GetViewPermissions returns __CreateRoleInput.ViewPermissions, and is useful for accessing the field via an interface.
+func (v *__CreateRoleInput) GetViewPermissions() []Permission { return v.ViewPermissions }
+
+// GetOrganizationPermissions returns __CreateRoleInput.OrganizationPermissions, and is useful for accessing the field via an interface.
+func (v *__CreateRoleInput) GetOrganizationPermissions() []OrganizationPermission {
+	return v.OrganizationPermissions
+}
 
 // GetSystemPermissions returns __CreateRoleInput.SystemPermissions, and is useful for accessing the field via an interface.
 func (v *__CreateRoleInput) GetSystemPermissions() []SystemPermission { return v.SystemPermissions }
@@ -16278,8 +16288,8 @@ func CreateRepositoryWithRetention(
 
 // The mutation executed by CreateRole.
 const CreateRole_Operation = `
-mutation CreateRole ($RoleName: String!, $SystemPermissions: [SystemPermission!]!) {
-	createRole(input: {displayName:$RoleName,viewPermissions:[],systemPermissions:$SystemPermissions}) {
+mutation CreateRole ($RoleName: String!, $ViewPermissions: [Permission!]!, $OrganizationPermissions: [OrganizationPermission!], $SystemPermissions: [SystemPermission!]) {
+	createRole(input: {displayName:$RoleName,viewPermissions:$ViewPermissions,organizationPermissions:$OrganizationPermissions,systemPermissions:$SystemPermissions}) {
 		role {
 			... RoleDetails
 		}
@@ -16298,14 +16308,18 @@ func CreateRole(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	RoleName string,
+	ViewPermissions []Permission,
+	OrganizationPermissions []OrganizationPermission,
 	SystemPermissions []SystemPermission,
 ) (data_ *CreateRoleResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateRole",
 		Query:  CreateRole_Operation,
 		Variables: &__CreateRoleInput{
-			RoleName:          RoleName,
-			SystemPermissions: SystemPermissions,
+			RoleName:                RoleName,
+			ViewPermissions:         ViewPermissions,
+			OrganizationPermissions: OrganizationPermissions,
+			SystemPermissions:       SystemPermissions,
 		},
 	}
 
