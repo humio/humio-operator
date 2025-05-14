@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"slices"
 	"sync"
 	"time"
 
@@ -59,6 +60,7 @@ type ClientMock struct {
 	ScheduledSearch map[resourceKey]humiographql.ScheduledSearchDetails
 	User            map[resourceKey]humiographql.UserDetails
 	AdminUserID     map[resourceKey]string
+	Role            map[resourceKey]humiographql.RoleDetails
 }
 
 type MockClientConfig struct {
@@ -81,6 +83,7 @@ func NewMockClient() *MockClientConfig {
 			ScheduledSearch: make(map[resourceKey]humiographql.ScheduledSearchDetails),
 			User:            make(map[resourceKey]humiographql.UserDetails),
 			AdminUserID:     make(map[resourceKey]string),
+			Role:            make(map[resourceKey]humiographql.RoleDetails),
 		},
 	}
 
@@ -107,6 +110,7 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 	h.apiClient.ScheduledSearch = make(map[resourceKey]humiographql.ScheduledSearchDetails)
 	h.apiClient.User = make(map[resourceKey]humiographql.UserDetails)
 	h.apiClient.AdminUserID = make(map[resourceKey]string)
+	h.apiClient.Role = make(map[resourceKey]humiographql.RoleDetails)
 }
 
 func (h *MockClientConfig) Status(_ context.Context, _ *humioapi.Client, _ reconcile.Request) (*humioapi.StatusResponse, error) {
@@ -1421,5 +1425,103 @@ func (h *MockClientConfig) DeleteUser(ctx context.Context, client *humioapi.Clie
 	}
 
 	delete(h.apiClient.User, key)
+	return nil
+}
+
+func (h *MockClientConfig) AddViewPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioViewPermissionRole) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", role.Spec.ManagedClusterName, role.Spec.ExternalClusterName),
+		resourceName: role.Spec.Name,
+	}
+
+	if _, found := h.apiClient.Role[key]; found {
+		return fmt.Errorf("role already exists with name %s", role.Spec.Name)
+	}
+
+	for idx := range role.Spec.Permissions {
+		if !slices.Contains(humiographql.AllPermission, humiographql.Permission(role.Spec.Permissions[idx])) {
+			// nolint:staticcheck // ST1005 - keep the capitalization the same as how LogScale responds
+			return fmt.Errorf("Expected type 'Permission!', found '%s'. Enum value '%s' is undefined in enum type 'Permission'", role.Spec.Permissions[idx], role.Spec.Permissions[idx])
+		}
+	}
+	viewPermissions := make([]humiographql.Permission, len(role.Spec.Permissions))
+	for idx := range role.Spec.Permissions {
+		viewPermissions[idx] = humiographql.Permission(role.Spec.Permissions[idx])
+	}
+
+	h.apiClient.Role[key] = humiographql.RoleDetails{
+		Id:                      kubernetes.RandomString(),
+		DisplayName:             role.Spec.Name,
+		ViewPermissions:         viewPermissions,
+		OrganizationPermissions: nil,
+		SystemPermissions:       nil,
+	}
+	return nil
+}
+
+func (h *MockClientConfig) GetViewPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioViewPermissionRole) (*humiographql.RoleDetails, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", role.Spec.ManagedClusterName, role.Spec.ExternalClusterName),
+		resourceName: role.Spec.Name,
+	}
+	if value, found := h.apiClient.Role[key]; found {
+		return &value, nil
+
+	}
+	return nil, humioapi.ViewPermissionRoleNotFound(role.Spec.Name)
+}
+
+func (h *MockClientConfig) UpdateViewPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioViewPermissionRole) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", role.Spec.ManagedClusterName, role.Spec.ExternalClusterName),
+		resourceName: role.Spec.Name,
+	}
+
+	currentRole, found := h.apiClient.Role[key]
+
+	if !found {
+		return humioapi.ViewPermissionRoleNotFound(role.Spec.Name)
+	}
+
+	for idx := range role.Spec.Permissions {
+		if !slices.Contains(humiographql.AllPermission, humiographql.Permission(role.Spec.Permissions[idx])) {
+			// nolint:staticcheck // ST1005 - keep the capitalization the same as how LogScale responds
+			return fmt.Errorf("Expected type 'Permission!', found '%s'. Enum value '%s' is undefined in enum type 'Permission'", role.Spec.Permissions[idx], role.Spec.Permissions[idx])
+		}
+	}
+	viewPermissions := make([]humiographql.Permission, len(role.Spec.Permissions))
+	for idx := range role.Spec.Permissions {
+		viewPermissions[idx] = humiographql.Permission(role.Spec.Permissions[idx])
+	}
+
+	h.apiClient.Role[key] = humiographql.RoleDetails{
+		Id:                      currentRole.GetId(),
+		DisplayName:             role.Spec.Name,
+		ViewPermissions:         viewPermissions,
+		OrganizationPermissions: nil,
+		SystemPermissions:       nil,
+	}
+	return nil
+}
+
+func (h *MockClientConfig) DeleteViewPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioViewPermissionRole) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", role.Spec.ManagedClusterName, role.Spec.ExternalClusterName),
+		resourceName: role.Spec.Name,
+	}
+
+	delete(h.apiClient.Role, key)
 	return nil
 }

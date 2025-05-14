@@ -112,6 +112,9 @@ rules:
   - humioscheduledsearches
   - humioscheduledsearches/finalizers
   - humioscheduledsearches/status
+  - humioviewpermissionroles
+  - humioviewpermissionroles/finalizers
+  - humioviewpermissionroles/status
   verbs:
   - create
   - delete

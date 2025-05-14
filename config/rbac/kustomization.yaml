@@ -20,6 +20,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the {{ .ProjectName }} itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- humioviewpermissionrole_admin_role.yaml
+- humioviewpermissionrole_editor_role.yaml
+- humioviewpermissionrole_viewer_role.yaml
 - humiouser_admin_role.yaml
 - humiouser_editor_role.yaml
 - humiouser_viewer_role.yaml
