@@ -167,7 +167,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// This is to ensure that switching to an external service promptly cleans up the internal one,
 	// without being blocked by other potentially long-running steps like bootstrap token generation.
 	// The main ensurePdfRenderService call later will handle full configuration and also re-attempt removal if necessary.
-	// Update the Reconcile method to handle special deletion cases:
+	// Update the Reconcile method to handle special deletion cases.
 
 	// If PdfRenderServiceRef is set, attempt to remove any existing cluster-specific HPRS early.
 	if hc.Spec.PdfRenderServiceRef != nil {
@@ -189,28 +189,52 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.Log.Info("Early check: Cluster-specific HumioPdfRenderService was already absent or successfully confirmed removed.")
 	}
 
-	// NEW: reconcile the PDF‐service reference *now*, so that a spec‐removal
+	// Reconcile the PDF‐service reference *now*, so that a spec‐removal
 	// clears ConfigError / removes env var *before* we ever hit bootstrap‐token/pod logic.
-	if err := r.reconcilePdfRenderService(ctx, hc); err != nil {
-		// reconcilePdfRenderService will set hc.Status.State + .Message in‐memory
+	pdfErr := r.reconcilePdfRenderService(ctx, hc)
+	if pdfErr != nil {
+		// Check if the error is the specific one for spec update
+		if pdfErr.Error() == "HumioCluster spec updated (PDF env var changes), requeueing for spec update" {
+			r.Log.Info("HumioCluster spec requires update due to PDF env var changes. Persisting and requeueing.")
+			if updateErr := r.Update(ctx, hc); updateErr != nil {
+				r.Log.Error(updateErr, "Failed to update HumioCluster spec for PDF env var changes")
+				// If spec update fails, the cluster is in a problematic configuration state regarding PDF.
+				// Set status to ConfigError and use the updateErr as the message.
+				// The in-memory hc.Status.State might have been set to Running by reconcilePdfRenderService's sub-functions,
+				// but the failure to apply the spec change should override that and signal a ConfigError.
+				hc.Status.State = humiov1alpha1.HumioClusterStateConfigError
+				hc.Status.Message = fmt.Sprintf("Failed to apply PDF-related spec update: %v", updateErr)
+				_, statusUpdateErr := r.updateStatus(ctx, r.Status(), hc, statusOptions().
+					withState(hc.Status.State).
+					withMessage(hc.Status.Message).
+					withObservedGeneration(hc.GetGeneration()))
+				if statusUpdateErr != nil {
+					r.Log.Error(statusUpdateErr, "Additionally failed to update status after spec update failure")
+				}
+				return reconcile.Result{}, updateErr // Return the original update error
+			}
+			// After spec update, requeue to get fresh hc and re-process with the updated spec.
+			return reconcile.Result{Requeue: true}, nil
+		}
+
+		// For other errors, reconcilePdfRenderService (or its sub-functions) should have set
+		// hc.Status.State and hc.Status.Message in-memory.
+		// The existing r.updateStatus call will persist these.
 		return r.updateStatus(ctx, r.Status(), hc, statusOptions().
-			withState(hc.Status.State).
-			withMessage(err.Error()).
-			withObservedGeneration(hc.GetGeneration())) // ADDED
+			withState(hc.Status.State).  // Uses the in-memory state set by reconcilePdfRenderService
+			withMessage(pdfErr.Error()). // Uses the error message from reconcilePdfRenderService
+			withObservedGeneration(hc.GetGeneration()))
 	}
 
-	// create HumioBootstrapToken and block until we have a hashed bootstrap token,
-	// but ONLY if we are NOT using an external PdfRenderServiceRef.
-	// If PdfRenderServiceRef is set, the cluster might not need its own bootstrap token
-	// for the core reconciliation logic related to the external service to proceed.
-	// Skipping this prevents getting stuck if the bootstrap token controller fails in this scenario.
+	// If PdfRenderServiceRef is nil, ensure the PDF render service is not set in the environment variables.
 	if hc.Spec.PdfRenderServiceRef == nil {
 		r.Log.Info("Ensuring HumioBootstrapToken as PdfRenderServiceRef is not set")
 		if result, err := r.ensureHumioClusterBootstrapToken(ctx, hc); result != emptyResult || err != nil {
 			if err != nil {
 				_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
-					withMessage(err.Error()).
-					withObservedGeneration(hc.GetGeneration())) // ADDED
+					withState(hc.Status.State).  // Use in-memory state set by sub-function (e.g., reconcileWithExternalPdfService or reconcileWithoutPdfService)
+					withMessage(pdfErr.Error()). // Use the error from sub-function as the message
+					withObservedGeneration(hc.GetGeneration()))
 			}
 			return result, err
 		}
@@ -358,14 +382,11 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	// patch the pods with managedFields
-	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
+	// ensure pods that does not run the desired version or config gets deleted and update state accordingly
+	for _, pool := range humioNodePools.Items {
 		if r.nodePoolAllowsMaintenanceOperations(hc, pool, humioNodePools.Items) {
-			if result, err := r.ensurePodsPatchedWithManagedFields(ctx, pool); result != emptyResult || err != nil {
-				if err != nil {
-					_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
-						withMessage(err.Error()))
-				}
+			result, err := r.ensureMismatchedPodsAreDeleted(ctx, hc, pool)
+			if result != emptyResult || err != nil {
 				return result, err
 			}
 		}
@@ -429,6 +450,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 						withMessage(err.Error()))
 				}
 				return result, err
+			}
 		}
 	}
 
