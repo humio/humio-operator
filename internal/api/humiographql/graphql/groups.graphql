@@ -1,0 +1,59 @@
+fragment GroupDetails on Group {
+    id
+    displayName
+    lookupName
+}
+
+query GetGroupByDisplayName(
+    $DisplayName: String!
+) {
+    groupByDisplayName(
+        displayName: $DisplayName
+    ) {
+        ...GroupDetails
+    }
+}
+
+mutation CreateGroup(
+    $DisplayName: String!
+    $LookupName: String
+) {
+    addGroup(
+        displayName: $DisplayName
+        lookupName: $LookupName
+    ) {
+        group {
+            ...GroupDetails
+        }
+    }
+}
+
+mutation UpdateGroup(
+    $GroupId: String!
+    $DisplayName: String
+    $LookupName: String
+) {
+    updateGroup(
+        input: {
+            groupId: $GroupId
+            displayName: $DisplayName
+            lookupName: $LookupName
+        }
+    ) {
+        group {
+            ...GroupDetails
+        }
+    }
+}
+
+mutation DeleteGroup(
+    $GroupId: String!
+) {
+    removeGroup(
+        groupId: $GroupId
+    ) {
+        group {
+            ...GroupDetails
+        }
+    }
+}

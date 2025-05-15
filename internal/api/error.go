@@ -10,6 +10,7 @@ const (
 	entityTypeSearchDomain    entityType = "search-domain"
 	entityTypeRepository      entityType = "repository"
 	entityTypeView            entityType = "view"
+	entityTypeGroup           entityType = "group"
 	entityTypeIngestToken     entityType = "ingest-token"
 	entityTypeParser          entityType = "parser"
 	entityTypeAction          entityType = "action"
@@ -59,6 +60,13 @@ func RepositoryNotFound(name string) error {
 func ViewNotFound(name string) error {
 	return EntityNotFound{
 		entityType: entityTypeView,
+		key:        name,
+	}
+}
+
+func GroupNotFound(name string) error {
+	return EntityNotFound{
+		entityType: entityTypeGroup,
 		key:        name,
 	}
 }

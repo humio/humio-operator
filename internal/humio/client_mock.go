@@ -49,6 +49,8 @@ type ClientMock struct {
 	LicenseUID      map[resourceKey]string
 	Repository      map[resourceKey]humiographql.RepositoryDetails
 	View            map[resourceKey]humiographql.GetSearchDomainSearchDomainView
+	Group           map[resourceKey]humiographql.GroupDetails
+	Role            map[resourceKey]humiographql.ListRolesRolesRole
 	IngestToken     map[resourceKey]humiographql.IngestTokenDetails
 	Parser          map[resourceKey]humiographql.ParserDetails
 	Action          map[resourceKey]humiographql.ActionDetails
@@ -71,6 +73,8 @@ func NewMockClient() *MockClientConfig {
 			LicenseUID:      make(map[resourceKey]string),
 			Repository:      make(map[resourceKey]humiographql.RepositoryDetails),
 			View:            make(map[resourceKey]humiographql.GetSearchDomainSearchDomainView),
+			Group:           make(map[resourceKey]humiographql.GroupDetails),
+			Role:            make(map[resourceKey]humiographql.ListRolesRolesRole),
 			IngestToken:     make(map[resourceKey]humiographql.IngestTokenDetails),
 			Parser:          make(map[resourceKey]humiographql.ParserDetails),
 			Action:          make(map[resourceKey]humiographql.ActionDetails),
@@ -97,6 +101,8 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 		}
 	}
 	h.apiClient.View = make(map[resourceKey]humiographql.GetSearchDomainSearchDomainView)
+	h.apiClient.Group = make(map[resourceKey]humiographql.GroupDetails)
+	h.apiClient.Role = make(map[resourceKey]humiographql.ListRolesRolesRole)
 	h.apiClient.IngestToken = make(map[resourceKey]humiographql.IngestTokenDetails)
 	h.apiClient.Parser = make(map[resourceKey]humiographql.ParserDetails)
 	h.apiClient.Action = make(map[resourceKey]humiographql.ActionDetails)
@@ -531,6 +537,85 @@ func (h *MockClientConfig) DeleteView(_ context.Context, _ *humioapi.Client, _ r
 	}
 
 	delete(h.apiClient.View, key)
+	return nil
+}
+
+func (h *MockClientConfig) AddGroup(_ context.Context, _ *humioapi.Client, group *humiov1alpha1.HumioGroup) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", group.Spec.ManagedClusterName, group.Spec.ExternalClusterName)
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: group.Spec.Name,
+	}
+	if _, found := h.apiClient.Group[key]; found {
+		return fmt.Errorf("group already exists with name %s", group.Spec.Name)
+	}
+
+	value := &humiographql.GroupDetails{
+		Id:          kubernetes.RandomString(),
+		DisplayName: group.Spec.Name,
+		LookupName:  group.Spec.ExternalMappingName,
+	}
+
+	h.apiClient.Group[key] = *value
+	return nil
+}
+
+func (h *MockClientConfig) GetGroup(_ context.Context, _ *humioapi.Client, group *humiov1alpha1.HumioGroup) (*humiographql.GroupDetails, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", group.Spec.ManagedClusterName, group.Spec.ExternalClusterName),
+		resourceName: group.Spec.Name,
+	}
+	if value, found := h.apiClient.Group[key]; found {
+		return &value, nil
+	}
+	return nil, humioapi.GroupNotFound(group.Spec.Name)
+}
+
+func (h *MockClientConfig) UpdateGroup(_ context.Context, _ *humioapi.Client, group *humiov1alpha1.HumioGroup) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", group.Spec.ManagedClusterName, group.Spec.ExternalClusterName),
+		resourceName: group.Spec.Name,
+	}
+	currentGroup, found := h.apiClient.Group[key]
+
+	if !found {
+		return humioapi.GroupNotFound(group.Spec.Name)
+	}
+
+	newLookupName := group.Spec.ExternalMappingName
+	if group.Spec.ExternalMappingName != nil && *group.Spec.ExternalMappingName == "" {
+		// LogScale returns null from graphql when lookup name is updated to empty string
+		newLookupName = nil
+	}
+
+	value := &humiographql.GroupDetails{
+		Id:          currentGroup.GetId(),
+		DisplayName: group.Spec.Name,
+		LookupName:  newLookupName,
+	}
+
+	h.apiClient.Group[key] = *value
+	return nil
+}
+
+func (h *MockClientConfig) DeleteGroup(_ context.Context, _ *humioapi.Client, group *humiov1alpha1.HumioGroup) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", group.Spec.ManagedClusterName, group.Spec.ExternalClusterName),
+		resourceName: group.Spec.Name,
+	}
+	delete(h.apiClient.Group, key)
 	return nil
 }
 
