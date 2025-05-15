@@ -87,7 +87,7 @@ func (r *HumioAggregateAlertReconciler) Reconcile(ctx context.Context, req ctrl.
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	defer func(ctx context.Context, haa *humiov1alpha1.HumioAggregateAlert) {
-		curAggregateAlert, err := r.HumioClient.GetAggregateAlert(ctx, humioHttpClient, req, haa)
+		curAggregateAlert, err := r.HumioClient.GetAggregateAlert(ctx, humioHttpClient, haa)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioAggregateAlertStateNotFound, haa)
 			return
@@ -99,17 +99,17 @@ func (r *HumioAggregateAlertReconciler) Reconcile(ctx context.Context, req ctrl.
 		_ = r.setState(ctx, humiov1alpha1.HumioAggregateAlertStateExists, haa)
 	}(ctx, haa)
 
-	return r.reconcileHumioAggregateAlert(ctx, humioHttpClient, haa, req)
+	return r.reconcileHumioAggregateAlert(ctx, humioHttpClient, haa)
 }
 
-func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context.Context, client *humioapi.Client, haa *humiov1alpha1.HumioAggregateAlert, req ctrl.Request) (reconcile.Result, error) {
+func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context.Context, client *humioapi.Client, haa *humiov1alpha1.HumioAggregateAlert) (reconcile.Result, error) {
 	// Delete
 	r.Log.Info("Checking if alert is marked to be deleted")
 	isMarkedForDeletion := haa.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
 		r.Log.Info("AggregateAlert marked to be deleted")
 		if helpers.ContainsElement(haa.GetFinalizers(), humioFinalizer) {
-			_, err := r.HumioClient.GetAggregateAlert(ctx, client, req, haa)
+			_, err := r.HumioClient.GetAggregateAlert(ctx, client, haa)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				haa.SetFinalizers(helpers.RemoveElement(haa.GetFinalizers(), humioFinalizer))
 				err := r.Update(ctx, haa)
@@ -124,7 +124,7 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting aggregate alert")
-			if err := r.HumioClient.DeleteAggregateAlert(ctx, client, req, haa); err != nil {
+			if err := r.HumioClient.DeleteAggregateAlert(ctx, client, haa); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete aggregate alert returned error")
 			}
 		}
@@ -155,11 +155,11 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 
 	r.Log.Info("Checking if aggregate alert needs to be created")
 	// Add Alert
-	curAggregateAlert, err := r.HumioClient.GetAggregateAlert(ctx, client, req, haa)
+	curAggregateAlert, err := r.HumioClient.GetAggregateAlert(ctx, client, haa)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			r.Log.Info("AggregateAlert doesn't exist. Now adding aggregate alert")
-			addErr := r.HumioClient.AddAggregateAlert(ctx, client, req, haa)
+			addErr := r.HumioClient.AddAggregateAlert(ctx, client, haa)
 			if addErr != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create aggregate alert")
 			}
@@ -173,7 +173,7 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 
 	r.Log.Info("Checking if aggregate alert needs to be updated")
 	// Update
-	if err := r.HumioClient.ValidateActionsForAggregateAlert(ctx, client, req, haa); err != nil {
+	if err := r.HumioClient.ValidateActionsForAggregateAlert(ctx, client, haa); err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not validate actions for aggregate alert")
 	}
 
@@ -181,7 +181,7 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 		r.Log.Info("information differs, triggering update",
 			"diff", diffKeysAndValues,
 		)
-		updateErr := r.HumioClient.UpdateAggregateAlert(ctx, client, req, haa)
+		updateErr := r.HumioClient.UpdateAggregateAlert(ctx, client, haa)
 		if updateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(updateErr, "could not update aggregate alert")
 		}

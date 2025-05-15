@@ -93,7 +93,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if isMarkedForDeletion {
 		r.Log.Info("View marked to be deleted")
 		if helpers.ContainsElement(hv.GetFinalizers(), humioFinalizer) {
-			_, err := r.HumioClient.GetView(ctx, humioHttpClient, req, hv)
+			_, err := r.HumioClient.GetView(ctx, humioHttpClient, hv)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hv.SetFinalizers(helpers.RemoveElement(hv.GetFinalizers(), humioFinalizer))
 				err := r.Update(ctx, hv)
@@ -108,7 +108,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting View")
-			if err := r.HumioClient.DeleteView(ctx, humioHttpClient, req, hv); err != nil {
+			if err := r.HumioClient.DeleteView(ctx, humioHttpClient, hv); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete view returned error")
 			}
 		}
@@ -127,7 +127,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return reconcile.Result{Requeue: true}, nil
 	}
 	defer func(ctx context.Context, hv *humiov1alpha1.HumioView) {
-		_, err := r.HumioClient.GetView(ctx, humioHttpClient, req, hv)
+		_, err := r.HumioClient.GetView(ctx, humioHttpClient, hv)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioViewStateNotFound, hv)
 			return
@@ -140,11 +140,11 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}(ctx, hv)
 
 	r.Log.Info("get current view")
-	curView, err := r.HumioClient.GetView(ctx, humioHttpClient, req, hv)
+	curView, err := r.HumioClient.GetView(ctx, humioHttpClient, hv)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			r.Log.Info("View doesn't exist. Now adding view")
-			addErr := r.HumioClient.AddView(ctx, humioHttpClient, req, hv)
+			addErr := r.HumioClient.AddView(ctx, humioHttpClient, hv)
 			if addErr != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create view")
 			}
@@ -158,7 +158,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.Log.Info("information differs, triggering update",
 			"diff", diffKeysAndValues,
 		)
-		updateErr := r.HumioClient.UpdateView(ctx, humioHttpClient, req, hv)
+		updateErr := r.HumioClient.UpdateView(ctx, humioHttpClient, hv)
 		if updateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(updateErr, "could not update view")
 		}

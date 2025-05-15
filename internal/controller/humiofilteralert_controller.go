@@ -87,7 +87,7 @@ func (r *HumioFilterAlertReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	defer func(ctx context.Context, hfa *humiov1alpha1.HumioFilterAlert) {
-		_, err := r.HumioClient.GetFilterAlert(ctx, humioHttpClient, req, hfa)
+		_, err := r.HumioClient.GetFilterAlert(ctx, humioHttpClient, hfa)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioFilterAlertStateNotFound, hfa)
 			return
@@ -99,16 +99,16 @@ func (r *HumioFilterAlertReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		_ = r.setState(ctx, humiov1alpha1.HumioFilterAlertStateExists, hfa)
 	}(ctx, hfa)
 
-	return r.reconcileHumioFilterAlert(ctx, humioHttpClient, hfa, req)
+	return r.reconcileHumioFilterAlert(ctx, humioHttpClient, hfa)
 }
 
-func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Context, client *humioapi.Client, hfa *humiov1alpha1.HumioFilterAlert, req ctrl.Request) (reconcile.Result, error) {
+func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Context, client *humioapi.Client, hfa *humiov1alpha1.HumioFilterAlert) (reconcile.Result, error) {
 	r.Log.Info("Checking if filter alert is marked to be deleted")
 	isMarkedForDeletion := hfa.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
 		r.Log.Info("FilterAlert marked to be deleted")
 		if helpers.ContainsElement(hfa.GetFinalizers(), humioFinalizer) {
-			_, err := r.HumioClient.GetFilterAlert(ctx, client, req, hfa)
+			_, err := r.HumioClient.GetFilterAlert(ctx, client, hfa)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hfa.SetFinalizers(helpers.RemoveElement(hfa.GetFinalizers(), humioFinalizer))
 				err := r.Update(ctx, hfa)
@@ -123,7 +123,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting filter alert")
-			if err := r.HumioClient.DeleteFilterAlert(ctx, client, req, hfa); err != nil {
+			if err := r.HumioClient.DeleteFilterAlert(ctx, client, hfa); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete filter alert returned error")
 			}
 		}
@@ -153,11 +153,11 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 	}
 
 	r.Log.Info("Checking if filter alert needs to be created")
-	curFilterAlert, err := r.HumioClient.GetFilterAlert(ctx, client, req, hfa)
+	curFilterAlert, err := r.HumioClient.GetFilterAlert(ctx, client, hfa)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			r.Log.Info("FilterAlert doesn't exist. Now adding filter alert")
-			addErr := r.HumioClient.AddFilterAlert(ctx, client, req, hfa)
+			addErr := r.HumioClient.AddFilterAlert(ctx, client, hfa)
 			if addErr != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create filter alert")
 			}
@@ -170,7 +170,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 	}
 
 	r.Log.Info("Checking if filter alert needs to be updated")
-	if err := r.HumioClient.ValidateActionsForFilterAlert(ctx, client, req, hfa); err != nil {
+	if err := r.HumioClient.ValidateActionsForFilterAlert(ctx, client, hfa); err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not get action id mapping")
 	}
 
@@ -178,7 +178,7 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 		r.Log.Info("information differs, triggering update",
 			"diff", diffKeysAndValues,
 		)
-		updateErr := r.HumioClient.UpdateFilterAlert(ctx, client, req, hfa)
+		updateErr := r.HumioClient.UpdateFilterAlert(ctx, client, hfa)
 		if updateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(updateErr, "could not update filter alert")
 		}
