@@ -95,10 +95,10 @@ type ViewsClient interface {
 }
 
 type GroupsClient interface {
-	AddGroup(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioGroup) error
-	GetGroup(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioGroup) (*humiographql.GroupDetails, error)
-	UpdateGroup(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioGroup) error
-	DeleteGroup(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioGroup) error
+	AddGroup(context.Context, *humioapi.Client, *humiov1alpha1.HumioGroup) error
+	GetGroup(context.Context, *humioapi.Client, *humiov1alpha1.HumioGroup) (*humiographql.GroupDetails, error)
+	UpdateGroup(context.Context, *humioapi.Client, *humiov1alpha1.HumioGroup) error
+	DeleteGroup(context.Context, *humioapi.Client, *humiov1alpha1.HumioGroup) error
 }
 
 type ActionsClient interface {
@@ -808,7 +808,7 @@ func validateSearchDomain(ctx context.Context, client *humioapi.Client, searchDo
 	return humioapi.SearchDomainNotFound(searchDomainName)
 }
 
-func (h *ClientConfig) AddGroup(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hg *humiov1alpha1.HumioGroup) error {
+func (h *ClientConfig) AddGroup(ctx context.Context, client *humioapi.Client, hg *humiov1alpha1.HumioGroup) error {
 	_, err := humiographql.CreateGroup(
 		ctx,
 		client,
@@ -818,7 +818,7 @@ func (h *ClientConfig) AddGroup(ctx context.Context, client *humioapi.Client, _ 
 	return err
 }
 
-func (h *ClientConfig) GetGroup(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hg *humiov1alpha1.HumioGroup) (*humiographql.GroupDetails, error) {
+func (h *ClientConfig) GetGroup(ctx context.Context, client *humioapi.Client, hg *humiov1alpha1.HumioGroup) (*humiographql.GroupDetails, error) {
 	getGroupResp, err := humiographql.GetGroupByDisplayName(
 		ctx,
 		client,
@@ -836,8 +836,8 @@ func (h *ClientConfig) GetGroup(ctx context.Context, client *humioapi.Client, _ 
 	}, nil
 }
 
-func (h *ClientConfig) UpdateGroup(ctx context.Context, client *humioapi.Client, request reconcile.Request, hg *humiov1alpha1.HumioGroup) error {
-	curGroup, err := h.GetGroup(ctx, client, request, hg)
+func (h *ClientConfig) UpdateGroup(ctx context.Context, client *humioapi.Client, hg *humiov1alpha1.HumioGroup) error {
+	curGroup, err := h.GetGroup(ctx, client, hg)
 	if err != nil {
 		return err
 	}
@@ -858,8 +858,8 @@ func (h *ClientConfig) UpdateGroup(ctx context.Context, client *humioapi.Client,
 	return err
 }
 
-func (h *ClientConfig) DeleteGroup(ctx context.Context, client *humioapi.Client, request reconcile.Request, hg *humiov1alpha1.HumioGroup) error {
-	group, err := h.GetGroup(ctx, client, request, hg)
+func (h *ClientConfig) DeleteGroup(ctx context.Context, client *humioapi.Client, hg *humiov1alpha1.HumioGroup) error {
+	group, err := h.GetGroup(ctx, client, hg)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			return nil

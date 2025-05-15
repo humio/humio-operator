@@ -76,7 +76,7 @@ func (r *HumioGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if isMarkedForDeletion {
 		r.Log.Info("group marked to be deleted")
 		if helpers.ContainsElement(hg.GetFinalizers(), humioFinalizer) {
-			_, err := r.HumioClient.GetGroup(ctx, humioHttpClient, req, hg)
+			_, err := r.HumioClient.GetGroup(ctx, humioHttpClient, hg)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hg.SetFinalizers(helpers.RemoveElement(hg.GetFinalizers(), humioFinalizer))
 				err := r.Update(ctx, hg)
@@ -91,7 +91,7 @@ func (r *HumioGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting Group")
-			if err := r.HumioClient.DeleteGroup(ctx, humioHttpClient, req, hg); err != nil {
+			if err := r.HumioClient.DeleteGroup(ctx, humioHttpClient, hg); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete group returned error")
 			}
 		}
@@ -108,7 +108,7 @@ func (r *HumioGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}
 	defer func(ctx context.Context, hg *humiov1alpha1.HumioGroup) {
-		_, err := r.HumioClient.GetGroup(ctx, humioHttpClient, req, hg)
+		_, err := r.HumioClient.GetGroup(ctx, humioHttpClient, hg)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioGroupStateNotFound, hg)
 			return
@@ -121,11 +121,11 @@ func (r *HumioGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}(ctx, hg)
 
 	r.Log.Info("get current group")
-	curGroup, err := r.HumioClient.GetGroup(ctx, humioHttpClient, req, hg)
+	curGroup, err := r.HumioClient.GetGroup(ctx, humioHttpClient, hg)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			r.Log.Info("Group doesn't exist. Now adding group")
-			addErr := r.HumioClient.AddGroup(ctx, humioHttpClient, req, hg)
+			addErr := r.HumioClient.AddGroup(ctx, humioHttpClient, hg)
 			if addErr != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create group")
 			}
@@ -139,7 +139,7 @@ func (r *HumioGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		r.Log.Info("information differs, triggering update",
 			"diff", diffKeysAndValues,
 		)
-		updateErr := r.HumioClient.UpdateGroup(ctx, humioHttpClient, req, hg)
+		updateErr := r.HumioClient.UpdateGroup(ctx, humioHttpClient, hg)
 		if updateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(updateErr, "could not update group")
 		}

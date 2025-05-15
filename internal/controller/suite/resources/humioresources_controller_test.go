@@ -3908,7 +3908,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Confirming the group does not exist in LogScale before we start")
 			Eventually(func() error {
-				_, err := humioClient.GetGroup(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateGroup)
+				_, err := humioClient.GetGroup(ctx, humioHttpClient, toCreateGroup)
 				return err
 			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
 
@@ -3928,7 +3928,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "Confirming the group does exist in LogScale after custom resource indicates that it does")
 			var fetchedGroupDetails *humiographql.GroupDetails
 			Eventually(func() error {
-				fetchedGroupDetails, err = humioClient.GetGroup(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateGroup)
+				fetchedGroupDetails, err = humioClient.GetGroup(ctx, humioHttpClient, toCreateGroup)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(fetchedGroupDetails.LookupName).Should(Equal(toCreateGroup.Spec.ExternalMappingName))
@@ -3947,7 +3947,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "verify it was updated according to humioClient")
 			Eventually(func() (*string, error) {
-				fetchedGroupDetails, err = humioClient.GetGroup(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateGroup)
+				fetchedGroupDetails, err = humioClient.GetGroup(ctx, humioHttpClient, toCreateGroup)
 				if err != nil {
 					return nil, err
 				}
@@ -3968,7 +3968,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "verify it was updated according to humioClient")
 			Eventually(func() (*string, error) {
-				fetchedGroupDetails, err = humioClient.GetGroup(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateGroup)
+				fetchedGroupDetails, err = humioClient.GetGroup(ctx, humioHttpClient, toCreateGroup)
 				if err != nil {
 					return nil, err
 				}
@@ -3985,7 +3985,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Verify group was removed using humioClient")
 			Eventually(func() string {
-				fetchedGroupDetails, err = humioClient.GetGroup(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateGroup)
+				fetchedGroupDetails, err = humioClient.GetGroup(ctx, humioHttpClient, toCreateGroup)
 				return err.Error()
 			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(humioapi.GroupNotFound(toCreateGroup.Spec.Name).Error()))
 		})

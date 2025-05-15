@@ -540,7 +540,7 @@ func (h *MockClientConfig) DeleteView(_ context.Context, _ *humioapi.Client, _ r
 	return nil
 }
 
-func (h *MockClientConfig) AddGroup(_ context.Context, _ *humioapi.Client, _ reconcile.Request, group *humiov1alpha1.HumioGroup) error {
+func (h *MockClientConfig) AddGroup(_ context.Context, _ *humioapi.Client, group *humiov1alpha1.HumioGroup) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -563,7 +563,7 @@ func (h *MockClientConfig) AddGroup(_ context.Context, _ *humioapi.Client, _ rec
 	return nil
 }
 
-func (h *MockClientConfig) GetGroup(_ context.Context, _ *humioapi.Client, _ reconcile.Request, group *humiov1alpha1.HumioGroup) (*humiographql.GroupDetails, error) {
+func (h *MockClientConfig) GetGroup(_ context.Context, _ *humioapi.Client, group *humiov1alpha1.HumioGroup) (*humiographql.GroupDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -577,7 +577,7 @@ func (h *MockClientConfig) GetGroup(_ context.Context, _ *humioapi.Client, _ rec
 	return nil, humioapi.GroupNotFound(group.Spec.Name)
 }
 
-func (h *MockClientConfig) UpdateGroup(_ context.Context, _ *humioapi.Client, _ reconcile.Request, group *humiov1alpha1.HumioGroup) error {
+func (h *MockClientConfig) UpdateGroup(_ context.Context, _ *humioapi.Client, group *humiov1alpha1.HumioGroup) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -607,7 +607,7 @@ func (h *MockClientConfig) UpdateGroup(_ context.Context, _ *humioapi.Client, _ 
 	return nil
 }
 
-func (h *MockClientConfig) DeleteGroup(_ context.Context, _ *humioapi.Client, _ reconcile.Request, group *humiov1alpha1.HumioGroup) error {
+func (h *MockClientConfig) DeleteGroup(_ context.Context, _ *humioapi.Client, group *humiov1alpha1.HumioGroup) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
