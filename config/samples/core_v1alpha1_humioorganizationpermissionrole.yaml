@@ -1,0 +1,12 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioOrganizationPermissionRole
+metadata:
+  labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humioorganizationpermissionrole-sample
+spec:
+  managedClusterName: example-humiocluster
+  name: example-organization-permission-role
+  permissions:
+    - CreateRepository
