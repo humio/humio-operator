@@ -97,7 +97,7 @@ func (r *HumioOrganizationPermissionRoleReconciler) Reconcile(ctx context.Contex
 	if isHumioOrganizationPermissionRoleMarkedToBeDeleted {
 		r.Log.Info("OrganizationPermissionRole marked to be deleted")
 		if helpers.ContainsElement(hp.GetFinalizers(), humioFinalizer) {
-			_, err := r.HumioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, req, hp)
+			_, err := r.HumioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, hp)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), humioFinalizer))
 				err := r.Update(ctx, hp)
@@ -112,7 +112,7 @@ func (r *HumioOrganizationPermissionRoleReconciler) Reconcile(ctx context.Contex
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("OrganizationPermissionRole contains finalizer so run finalizer method")
-			if err := r.finalize(ctx, humioHttpClient, req, hp); err != nil {
+			if err := r.finalize(ctx, humioHttpClient, hp); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
 		}
@@ -128,7 +128,7 @@ func (r *HumioOrganizationPermissionRoleReconciler) Reconcile(ctx context.Contex
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioOrganizationPermissionRole) {
-		_, err := humioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, req, hp)
+		_, err := humioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, hp)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioOrganizationPermissionRoleStateNotFound, hp)
 			return
@@ -142,12 +142,12 @@ func (r *HumioOrganizationPermissionRoleReconciler) Reconcile(ctx context.Contex
 
 	// Get current organizationPermissionRole
 	r.Log.Info("get current organizationPermissionRole")
-	curOrganizationPermissionRole, err := r.HumioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, req, hp)
+	curOrganizationPermissionRole, err := r.HumioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, hp)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			r.Log.Info("organizationPermissionRole doesn't exist. Now adding organizationPermissionRole")
 			// create organizationPermissionRole
-			addErr := r.HumioClient.AddOrganizationPermissionRole(ctx, humioHttpClient, req, hp)
+			addErr := r.HumioClient.AddOrganizationPermissionRole(ctx, humioHttpClient, hp)
 			if addErr != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create organizationPermissionRole")
 			}
@@ -161,7 +161,7 @@ func (r *HumioOrganizationPermissionRoleReconciler) Reconcile(ctx context.Contex
 		r.Log.Info("information differs, triggering update",
 			"diff", diffKeysAndValues,
 		)
-		err = r.HumioClient.UpdateOrganizationPermissionRole(ctx, humioHttpClient, req, hp)
+		err = r.HumioClient.UpdateOrganizationPermissionRole(ctx, humioHttpClient, hp)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update organizationPermissionRole")
 		}
@@ -179,7 +179,7 @@ func (r *HumioOrganizationPermissionRoleReconciler) SetupWithManager(mgr ctrl.Ma
 		Complete(r)
 }
 
-func (r *HumioOrganizationPermissionRoleReconciler) finalize(ctx context.Context, client *humioapi.Client, req reconcile.Request, hp *humiov1alpha1.HumioOrganizationPermissionRole) error {
+func (r *HumioOrganizationPermissionRoleReconciler) finalize(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioOrganizationPermissionRole) error {
 	_, err := helpers.NewCluster(ctx, r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -188,7 +188,7 @@ func (r *HumioOrganizationPermissionRoleReconciler) finalize(ctx context.Context
 		return err
 	}
 
-	return r.HumioClient.DeleteOrganizationPermissionRole(ctx, client, req, hp)
+	return r.HumioClient.DeleteOrganizationPermissionRole(ctx, client, hp)
 }
 
 func (r *HumioOrganizationPermissionRoleReconciler) addFinalizer(ctx context.Context, hp *humiov1alpha1.HumioOrganizationPermissionRole) error {

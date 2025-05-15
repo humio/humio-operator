@@ -1428,7 +1428,7 @@ func (h *MockClientConfig) DeleteUser(ctx context.Context, client *humioapi.Clie
 	return nil
 }
 
-func (h *MockClientConfig) AddSystemPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioSystemPermissionRole) error {
+func (h *MockClientConfig) AddSystemPermissionRole(ctx context.Context, client *humioapi.Client, role *humiov1alpha1.HumioSystemPermissionRole) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1462,7 +1462,7 @@ func (h *MockClientConfig) AddSystemPermissionRole(ctx context.Context, client *
 	return nil
 }
 
-func (h *MockClientConfig) GetSystemPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioSystemPermissionRole) (*humiographql.RoleDetails, error) {
+func (h *MockClientConfig) GetSystemPermissionRole(ctx context.Context, client *humioapi.Client, role *humiov1alpha1.HumioSystemPermissionRole) (*humiographql.RoleDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1477,7 +1477,7 @@ func (h *MockClientConfig) GetSystemPermissionRole(ctx context.Context, client *
 	return nil, humioapi.SystemPermissionRoleNotFound(role.Spec.Name)
 }
 
-func (h *MockClientConfig) UpdateSystemPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioSystemPermissionRole) error {
+func (h *MockClientConfig) UpdateSystemPermissionRole(ctx context.Context, client *humioapi.Client, role *humiov1alpha1.HumioSystemPermissionRole) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1513,7 +1513,7 @@ func (h *MockClientConfig) UpdateSystemPermissionRole(ctx context.Context, clien
 	return nil
 }
 
-func (h *MockClientConfig) DeleteSystemPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioSystemPermissionRole) error {
+func (h *MockClientConfig) DeleteSystemPermissionRole(ctx context.Context, client *humioapi.Client, role *humiov1alpha1.HumioSystemPermissionRole) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1526,7 +1526,7 @@ func (h *MockClientConfig) DeleteSystemPermissionRole(ctx context.Context, clien
 	return nil
 }
 
-func (h *MockClientConfig) AddOrganizationPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioOrganizationPermissionRole) error {
+func (h *MockClientConfig) AddOrganizationPermissionRole(ctx context.Context, client *humioapi.Client, role *humiov1alpha1.HumioOrganizationPermissionRole) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1560,7 +1560,7 @@ func (h *MockClientConfig) AddOrganizationPermissionRole(ctx context.Context, cl
 	return nil
 }
 
-func (h *MockClientConfig) GetOrganizationPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioOrganizationPermissionRole) (*humiographql.RoleDetails, error) {
+func (h *MockClientConfig) GetOrganizationPermissionRole(ctx context.Context, client *humioapi.Client, role *humiov1alpha1.HumioOrganizationPermissionRole) (*humiographql.RoleDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1575,7 +1575,7 @@ func (h *MockClientConfig) GetOrganizationPermissionRole(ctx context.Context, cl
 	return nil, humioapi.OrganizationPermissionRoleNotFound(role.Spec.Name)
 }
 
-func (h *MockClientConfig) UpdateOrganizationPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioOrganizationPermissionRole) error {
+func (h *MockClientConfig) UpdateOrganizationPermissionRole(ctx context.Context, client *humioapi.Client, role *humiov1alpha1.HumioOrganizationPermissionRole) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1611,7 +1611,7 @@ func (h *MockClientConfig) UpdateOrganizationPermissionRole(ctx context.Context,
 	return nil
 }
 
-func (h *MockClientConfig) DeleteOrganizationPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioOrganizationPermissionRole) error {
+func (h *MockClientConfig) DeleteOrganizationPermissionRole(ctx context.Context, client *humioapi.Client, role *humiov1alpha1.HumioOrganizationPermissionRole) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1624,7 +1624,7 @@ func (h *MockClientConfig) DeleteOrganizationPermissionRole(ctx context.Context,
 	return nil
 }
 
-func (h *MockClientConfig) AddViewPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioViewPermissionRole) error {
+func (h *MockClientConfig) AddViewPermissionRole(ctx context.Context, client *humioapi.Client, role *humiov1alpha1.HumioViewPermissionRole) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1658,7 +1658,7 @@ func (h *MockClientConfig) AddViewPermissionRole(ctx context.Context, client *hu
 	return nil
 }
 
-func (h *MockClientConfig) GetViewPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioViewPermissionRole) (*humiographql.RoleDetails, error) {
+func (h *MockClientConfig) GetViewPermissionRole(ctx context.Context, client *humioapi.Client, role *humiov1alpha1.HumioViewPermissionRole) (*humiographql.RoleDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1673,7 +1673,7 @@ func (h *MockClientConfig) GetViewPermissionRole(ctx context.Context, client *hu
 	return nil, humioapi.ViewPermissionRoleNotFound(role.Spec.Name)
 }
 
-func (h *MockClientConfig) UpdateViewPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioViewPermissionRole) error {
+func (h *MockClientConfig) UpdateViewPermissionRole(ctx context.Context, client *humioapi.Client, role *humiov1alpha1.HumioViewPermissionRole) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1709,7 +1709,7 @@ func (h *MockClientConfig) UpdateViewPermissionRole(ctx context.Context, client 
 	return nil
 }
 
-func (h *MockClientConfig) DeleteViewPermissionRole(ctx context.Context, client *humioapi.Client, request reconcile.Request, role *humiov1alpha1.HumioViewPermissionRole) error {
+func (h *MockClientConfig) DeleteViewPermissionRole(ctx context.Context, client *humioapi.Client, role *humiov1alpha1.HumioViewPermissionRole) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 

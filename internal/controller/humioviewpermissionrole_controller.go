@@ -97,7 +97,7 @@ func (r *HumioViewPermissionRoleReconciler) Reconcile(ctx context.Context, req c
 	if isHumioViewPermissionRoleMarkedToBeDeleted {
 		r.Log.Info("ViewPermissionRole marked to be deleted")
 		if helpers.ContainsElement(hp.GetFinalizers(), humioFinalizer) {
-			_, err := r.HumioClient.GetViewPermissionRole(ctx, humioHttpClient, req, hp)
+			_, err := r.HumioClient.GetViewPermissionRole(ctx, humioHttpClient, hp)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), humioFinalizer))
 				err := r.Update(ctx, hp)
@@ -112,7 +112,7 @@ func (r *HumioViewPermissionRoleReconciler) Reconcile(ctx context.Context, req c
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("ViewPermissionRole contains finalizer so run finalizer method")
-			if err := r.finalize(ctx, humioHttpClient, req, hp); err != nil {
+			if err := r.finalize(ctx, humioHttpClient, hp); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
 		}
@@ -128,7 +128,7 @@ func (r *HumioViewPermissionRoleReconciler) Reconcile(ctx context.Context, req c
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioViewPermissionRole) {
-		_, err := humioClient.GetViewPermissionRole(ctx, humioHttpClient, req, hp)
+		_, err := humioClient.GetViewPermissionRole(ctx, humioHttpClient, hp)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioViewPermissionRoleStateNotFound, hp)
 			return
@@ -142,12 +142,12 @@ func (r *HumioViewPermissionRoleReconciler) Reconcile(ctx context.Context, req c
 
 	// Get current viewPermissionRole
 	r.Log.Info("get current viewPermissionRole")
-	curViewPermissionRole, err := r.HumioClient.GetViewPermissionRole(ctx, humioHttpClient, req, hp)
+	curViewPermissionRole, err := r.HumioClient.GetViewPermissionRole(ctx, humioHttpClient, hp)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			r.Log.Info("viewPermissionRole doesn't exist. Now adding viewPermissionRole")
 			// create viewPermissionRole
-			addErr := r.HumioClient.AddViewPermissionRole(ctx, humioHttpClient, req, hp)
+			addErr := r.HumioClient.AddViewPermissionRole(ctx, humioHttpClient, hp)
 			if addErr != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create viewPermissionRole")
 			}
@@ -161,7 +161,7 @@ func (r *HumioViewPermissionRoleReconciler) Reconcile(ctx context.Context, req c
 		r.Log.Info("information differs, triggering update",
 			"diff", diffKeysAndValues,
 		)
-		err = r.HumioClient.UpdateViewPermissionRole(ctx, humioHttpClient, req, hp)
+		err = r.HumioClient.UpdateViewPermissionRole(ctx, humioHttpClient, hp)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update viewPermissionRole")
 		}
@@ -179,7 +179,7 @@ func (r *HumioViewPermissionRoleReconciler) SetupWithManager(mgr ctrl.Manager) e
 		Complete(r)
 }
 
-func (r *HumioViewPermissionRoleReconciler) finalize(ctx context.Context, client *humioapi.Client, req reconcile.Request, hp *humiov1alpha1.HumioViewPermissionRole) error {
+func (r *HumioViewPermissionRoleReconciler) finalize(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioViewPermissionRole) error {
 	_, err := helpers.NewCluster(ctx, r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -188,7 +188,7 @@ func (r *HumioViewPermissionRoleReconciler) finalize(ctx context.Context, client
 		return err
 	}
 
-	return r.HumioClient.DeleteViewPermissionRole(ctx, client, req, hp)
+	return r.HumioClient.DeleteViewPermissionRole(ctx, client, hp)
 }
 
 func (r *HumioViewPermissionRoleReconciler) addFinalizer(ctx context.Context, hp *humiov1alpha1.HumioViewPermissionRole) error {

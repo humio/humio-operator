@@ -4099,7 +4099,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Confirming the system permission role does not exist in LogScale before we start")
 			Eventually(func() error {
-				_, err := humioClient.GetSystemPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateSystemPermissionRole)
+				_, err := humioClient.GetSystemPermissionRole(ctx, humioHttpClient, toCreateSystemPermissionRole)
 				return err
 			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
 
@@ -4119,7 +4119,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "Confirming the system permission role does exist in LogScale after custom resource indicates that it does")
 			var fetchedRoleDetails *humiographql.RoleDetails
 			Eventually(func() error {
-				fetchedRoleDetails, err = humioClient.GetSystemPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateSystemPermissionRole)
+				fetchedRoleDetails, err = humioClient.GetSystemPermissionRole(ctx, humioHttpClient, toCreateSystemPermissionRole)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(fetchedRoleDetails.SystemPermissions).Should(HaveExactElements([]humiographql.SystemPermission{
@@ -4139,7 +4139,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "verify it was added according to humioClient")
 			Eventually(func() ([]humiographql.SystemPermission, error) {
-				fetchedRoleDetails, err = humioClient.GetSystemPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateSystemPermissionRole)
+				fetchedRoleDetails, err = humioClient.GetSystemPermissionRole(ctx, humioHttpClient, toCreateSystemPermissionRole)
 				if err != nil {
 					return nil, err
 				}
@@ -4164,7 +4164,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Verify it was removed using humioClient")
 			Eventually(func() ([]humiographql.SystemPermission, error) {
-				fetchedRoleDetails, err = humioClient.GetSystemPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateSystemPermissionRole)
+				fetchedRoleDetails, err = humioClient.GetSystemPermissionRole(ctx, humioHttpClient, toCreateSystemPermissionRole)
 				if err != nil {
 					return nil, err
 				}
@@ -4184,7 +4184,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Verify role was removed using humioClient")
 			Eventually(func() string {
-				fetchedRoleDetails, err = humioClient.GetSystemPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateSystemPermissionRole)
+				fetchedRoleDetails, err = humioClient.GetSystemPermissionRole(ctx, humioHttpClient, toCreateSystemPermissionRole)
 				return err.Error()
 			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(humioapi.SystemPermissionRoleNotFound(toCreateSystemPermissionRole.Spec.Name).Error()))
 		})
@@ -4273,7 +4273,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Confirming the organization permission role does not exist in LogScale before we start")
 			Eventually(func() error {
-				_, err := humioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateOrganizationPermissionRole)
+				_, err := humioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, toCreateOrganizationPermissionRole)
 				return err
 			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
 
@@ -4293,7 +4293,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "Confirming the organization permission role does exist in LogScale after custom resource indicates that it does")
 			var fetchedRoleDetails *humiographql.RoleDetails
 			Eventually(func() error {
-				fetchedRoleDetails, err = humioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateOrganizationPermissionRole)
+				fetchedRoleDetails, err = humioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, toCreateOrganizationPermissionRole)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(fetchedRoleDetails.OrganizationPermissions).Should(HaveExactElements([]humiographql.OrganizationPermission{
@@ -4313,7 +4313,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "verify it was added according to humioClient")
 			Eventually(func() ([]humiographql.OrganizationPermission, error) {
-				fetchedRoleDetails, err = humioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateOrganizationPermissionRole)
+				fetchedRoleDetails, err = humioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, toCreateOrganizationPermissionRole)
 				if err != nil {
 					return nil, err
 				}
@@ -4338,7 +4338,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Verify it was removed using humioClient")
 			Eventually(func() ([]humiographql.OrganizationPermission, error) {
-				fetchedRoleDetails, err = humioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateOrganizationPermissionRole)
+				fetchedRoleDetails, err = humioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, toCreateOrganizationPermissionRole)
 				if err != nil {
 					return nil, err
 				}
@@ -4358,7 +4358,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Verify role was removed using humioClient")
 			Eventually(func() string {
-				fetchedRoleDetails, err = humioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateOrganizationPermissionRole)
+				fetchedRoleDetails, err = humioClient.GetOrganizationPermissionRole(ctx, humioHttpClient, toCreateOrganizationPermissionRole)
 				return err.Error()
 			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(humioapi.OrganizationPermissionRoleNotFound(toCreateOrganizationPermissionRole.Spec.Name).Error()))
 		})
@@ -4447,7 +4447,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Confirming the view permission role does not exist in LogScale before we start")
 			Eventually(func() error {
-				_, err := humioClient.GetViewPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateViewPermissionRole)
+				_, err := humioClient.GetViewPermissionRole(ctx, humioHttpClient, toCreateViewPermissionRole)
 				return err
 			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
 
@@ -4467,7 +4467,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "Confirming the view permission role does exist in LogScale after custom resource indicates that it does")
 			var fetchedRoleDetails *humiographql.RoleDetails
 			Eventually(func() error {
-				fetchedRoleDetails, err = humioClient.GetViewPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateViewPermissionRole)
+				fetchedRoleDetails, err = humioClient.GetViewPermissionRole(ctx, humioHttpClient, toCreateViewPermissionRole)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(fetchedRoleDetails.ViewPermissions).Should(HaveExactElements([]humiographql.Permission{
@@ -4487,7 +4487,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "verify it was added according to humioClient")
 			Eventually(func() ([]humiographql.Permission, error) {
-				fetchedRoleDetails, err = humioClient.GetViewPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateViewPermissionRole)
+				fetchedRoleDetails, err = humioClient.GetViewPermissionRole(ctx, humioHttpClient, toCreateViewPermissionRole)
 				if err != nil {
 					return nil, err
 				}
@@ -4512,7 +4512,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Verify it was removed using humioClient")
 			Eventually(func() ([]humiographql.Permission, error) {
-				fetchedRoleDetails, err = humioClient.GetViewPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateViewPermissionRole)
+				fetchedRoleDetails, err = humioClient.GetViewPermissionRole(ctx, humioHttpClient, toCreateViewPermissionRole)
 				if err != nil {
 					return nil, err
 				}
@@ -4532,7 +4532,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "Verify role was removed using humioClient")
 			Eventually(func() string {
-				fetchedRoleDetails, err = humioClient.GetViewPermissionRole(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateViewPermissionRole)
+				fetchedRoleDetails, err = humioClient.GetViewPermissionRole(ctx, humioHttpClient, toCreateViewPermissionRole)
 				return err.Error()
 			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(humioapi.ViewPermissionRoleNotFound(toCreateViewPermissionRole.Spec.Name).Error()))
 		})
