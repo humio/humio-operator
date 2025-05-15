@@ -251,7 +251,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// Only create / reconcile a bootstrap-token when we are NOT using an external
 	// PDF render service.
-	if totalDesiredNodes > 0 && hc.Spec.PdfRenderServiceRef == nil {
+	if totalDesiredNodes > 0 {
 		r.Log.Info("Ensuring HumioBootstrapToken because cluster is expected to run nodes",
 			"totalDesiredNodes", totalDesiredNodes)
 
@@ -259,12 +259,10 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			if err != nil {
 				_, _ = r.updateStatus(ctx, r.Status(), hc,
 					statusOptions().withMessage(err.Error()).
-						withObservedGeneration(hc.GetGeneration())) // ADDED
+						withObservedGeneration(hc.GetGeneration()))
 			}
 			return result, err
 		}
-	} else if totalDesiredNodes > 0 {
-		r.Log.Info("Skipping HumioBootstrapToken because PdfRenderServiceRef is set")
 	} else {
 		r.Log.Info("Skipping HumioBootstrapToken – cluster configured to run zero nodes")
 	}

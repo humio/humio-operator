@@ -882,23 +882,6 @@ func WaitForObservedGeneration(
 		objKind, obj.GetNamespace(), obj.GetName())
 }
 
-// ...existing
-
-// WaitForClusterState waits until the HumioCluster reaches the expected state.
-// It calls WaitForObservedGeneration internally so that the latest spec is processed.
-func WaitForClusterState(ctx context.Context, k8sClient client.Client, key types.NamespacedName, expectedState string, timeout, interval time.Duration) {
-	Eventually(func() string {
-		var cluster humiov1alpha1.HumioCluster
-		if err := k8sClient.Get(ctx, key, &cluster); err != nil {
-			return fmt.Sprintf("error: %v", err)
-		}
-		// Ensure that the controller has processed the most recent update.
-		WaitForObservedGeneration(ctx, k8sClient, &cluster, timeout, interval)
-		return cluster.Status.State
-	}, timeout, interval).Should(Equal(expectedState),
-		"timed out waiting for cluster %s/%s to be in state %s", key.Namespace, key.Name, expectedState)
-}
-
 // CreatePdfRenderServiceCR creates a basic HumioPdfRenderService CR with better error handling
 func CreatePdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfKey types.NamespacedName, tlsEnabled bool) *humiov1alpha1.HumioPdfRenderService {
 	pdfCR := &humiov1alpha1.HumioPdfRenderService{
