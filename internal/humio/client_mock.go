@@ -109,29 +109,29 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 	h.apiClient.AdminUserID = make(map[resourceKey]string)
 }
 
-func (h *MockClientConfig) Status(_ context.Context, _ *humioapi.Client, _ reconcile.Request) (*humioapi.StatusResponse, error) {
+func (h *MockClientConfig) Status(_ context.Context, _ *humioapi.Client) (*humioapi.StatusResponse, error) {
 	return &humioapi.StatusResponse{
 		Version: "x.y.z",
 	}, nil
 }
 
-func (h *MockClientConfig) GetCluster(_ context.Context, _ *humioapi.Client, _ reconcile.Request) (*humiographql.GetClusterResponse, error) {
+func (h *MockClientConfig) GetCluster(_ context.Context, _ *humioapi.Client) (*humiographql.GetClusterResponse, error) {
 	return nil, nil
 }
 
-func (h *MockClientConfig) GetEvictionStatus(_ context.Context, _ *humioapi.Client, _ reconcile.Request) (*humiographql.GetEvictionStatusResponse, error) {
+func (h *MockClientConfig) GetEvictionStatus(_ context.Context, _ *humioapi.Client) (*humiographql.GetEvictionStatusResponse, error) {
 	return nil, nil
 }
 
-func (h *MockClientConfig) SetIsBeingEvicted(_ context.Context, _ *humioapi.Client, _ reconcile.Request, vhost int, isBeingEvicted bool) error {
+func (h *MockClientConfig) SetIsBeingEvicted(_ context.Context, _ *humioapi.Client, vhost int, isBeingEvicted bool) error {
 	return nil
 }
 
-func (h *MockClientConfig) RefreshClusterManagementStats(_ context.Context, _ *humioapi.Client, _ reconcile.Request, vhost int) (*humiographql.RefreshClusterManagementStatsResponse, error) {
+func (h *MockClientConfig) RefreshClusterManagementStats(_ context.Context, _ *humioapi.Client, vhost int) (*humiographql.RefreshClusterManagementStatsResponse, error) {
 	return nil, nil
 }
 
-func (h *MockClientConfig) UnregisterClusterNode(ctx context.Context, client *humioapi.Client, request reconcile.Request, i int, b bool) (*humiographql.UnregisterClusterNodeResponse, error) {
+func (h *MockClientConfig) UnregisterClusterNode(ctx context.Context, client *humioapi.Client, i int, b bool) (*humiographql.UnregisterClusterNodeResponse, error) {
 	return &humiographql.UnregisterClusterNodeResponse{}, nil
 }
 
@@ -139,7 +139,7 @@ func (h *MockClientConfig) TestAPIToken(_ context.Context, _ *humioapi.Config, _
 	return nil
 }
 
-func (h *MockClientConfig) AddIngestToken(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hit *humiov1alpha1.HumioIngestToken) error {
+func (h *MockClientConfig) AddIngestToken(_ context.Context, _ *humioapi.Client, hit *humiov1alpha1.HumioIngestToken) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -170,7 +170,7 @@ func (h *MockClientConfig) AddIngestToken(_ context.Context, _ *humioapi.Client,
 	return nil
 }
 
-func (h *MockClientConfig) GetIngestToken(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hit *humiov1alpha1.HumioIngestToken) (*humiographql.IngestTokenDetails, error) {
+func (h *MockClientConfig) GetIngestToken(_ context.Context, _ *humioapi.Client, hit *humiov1alpha1.HumioIngestToken) (*humiographql.IngestTokenDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -186,7 +186,7 @@ func (h *MockClientConfig) GetIngestToken(_ context.Context, _ *humioapi.Client,
 	return nil, fmt.Errorf("could not find ingest token in repository %s with name %s, err=%w", hit.Spec.RepositoryName, hit.Spec.Name, humioapi.EntityNotFound{})
 }
 
-func (h *MockClientConfig) UpdateIngestToken(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hit *humiov1alpha1.HumioIngestToken) error {
+func (h *MockClientConfig) UpdateIngestToken(_ context.Context, _ *humioapi.Client, hit *humiov1alpha1.HumioIngestToken) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -215,7 +215,7 @@ func (h *MockClientConfig) UpdateIngestToken(_ context.Context, _ *humioapi.Clie
 	return nil
 }
 
-func (h *MockClientConfig) DeleteIngestToken(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hit *humiov1alpha1.HumioIngestToken) error {
+func (h *MockClientConfig) DeleteIngestToken(_ context.Context, _ *humioapi.Client, hit *humiov1alpha1.HumioIngestToken) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -229,7 +229,7 @@ func (h *MockClientConfig) DeleteIngestToken(_ context.Context, _ *humioapi.Clie
 	return nil
 }
 
-func (h *MockClientConfig) AddParser(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hp *humiov1alpha1.HumioParser) error {
+func (h *MockClientConfig) AddParser(_ context.Context, _ *humioapi.Client, hp *humiov1alpha1.HumioParser) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -258,7 +258,7 @@ func (h *MockClientConfig) AddParser(_ context.Context, _ *humioapi.Client, _ re
 	return nil
 }
 
-func (h *MockClientConfig) GetParser(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hp *humiov1alpha1.HumioParser) (*humiographql.ParserDetails, error) {
+func (h *MockClientConfig) GetParser(_ context.Context, _ *humioapi.Client, hp *humiov1alpha1.HumioParser) (*humiographql.ParserDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -274,7 +274,7 @@ func (h *MockClientConfig) GetParser(_ context.Context, _ *humioapi.Client, _ re
 	return nil, fmt.Errorf("could not find parser in repository %s with name %s, err=%w", hp.Spec.RepositoryName, hp.Spec.Name, humioapi.EntityNotFound{})
 }
 
-func (h *MockClientConfig) UpdateParser(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hp *humiov1alpha1.HumioParser) error {
+func (h *MockClientConfig) UpdateParser(_ context.Context, _ *humioapi.Client, hp *humiov1alpha1.HumioParser) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -300,7 +300,7 @@ func (h *MockClientConfig) UpdateParser(_ context.Context, _ *humioapi.Client, _
 	return nil
 }
 
-func (h *MockClientConfig) DeleteParser(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hp *humiov1alpha1.HumioParser) error {
+func (h *MockClientConfig) DeleteParser(_ context.Context, _ *humioapi.Client, hp *humiov1alpha1.HumioParser) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -314,7 +314,7 @@ func (h *MockClientConfig) DeleteParser(_ context.Context, _ *humioapi.Client, _
 	return nil
 }
 
-func (h *MockClientConfig) AddRepository(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
+func (h *MockClientConfig) AddRepository(_ context.Context, _ *humioapi.Client, hr *humiov1alpha1.HumioRepository) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -357,7 +357,7 @@ func (h *MockClientConfig) AddRepository(_ context.Context, _ *humioapi.Client, 
 	return nil
 }
 
-func (h *MockClientConfig) GetRepository(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humiographql.RepositoryDetails, error) {
+func (h *MockClientConfig) GetRepository(_ context.Context, _ *humioapi.Client, hr *humiov1alpha1.HumioRepository) (*humiographql.RepositoryDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -373,7 +373,7 @@ func (h *MockClientConfig) GetRepository(_ context.Context, _ *humioapi.Client, 
 
 }
 
-func (h *MockClientConfig) UpdateRepository(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
+func (h *MockClientConfig) UpdateRepository(_ context.Context, _ *humioapi.Client, hr *humiov1alpha1.HumioRepository) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -412,7 +412,7 @@ func (h *MockClientConfig) UpdateRepository(_ context.Context, _ *humioapi.Clien
 	return nil
 }
 
-func (h *MockClientConfig) DeleteRepository(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
+func (h *MockClientConfig) DeleteRepository(_ context.Context, _ *humioapi.Client, hr *humiov1alpha1.HumioRepository) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -427,7 +427,7 @@ func (h *MockClientConfig) DeleteRepository(_ context.Context, _ *humioapi.Clien
 	return nil
 }
 
-func (h *MockClientConfig) GetView(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hv *humiov1alpha1.HumioView) (*humiographql.GetSearchDomainSearchDomainView, error) {
+func (h *MockClientConfig) GetView(_ context.Context, _ *humioapi.Client, hv *humiov1alpha1.HumioView) (*humiographql.GetSearchDomainSearchDomainView, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -442,7 +442,7 @@ func (h *MockClientConfig) GetView(_ context.Context, _ *humioapi.Client, _ reco
 	return nil, fmt.Errorf("could not find view with name %s, err=%w", hv.Spec.Name, humioapi.EntityNotFound{})
 }
 
-func (h *MockClientConfig) AddView(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hv *humiov1alpha1.HumioView) error {
+func (h *MockClientConfig) AddView(_ context.Context, _ *humioapi.Client, hv *humiov1alpha1.HumioView) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -482,7 +482,7 @@ func (h *MockClientConfig) AddView(_ context.Context, _ *humioapi.Client, _ reco
 	return nil
 }
 
-func (h *MockClientConfig) UpdateView(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hv *humiov1alpha1.HumioView) error {
+func (h *MockClientConfig) UpdateView(_ context.Context, _ *humioapi.Client, hv *humiov1alpha1.HumioView) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -519,7 +519,7 @@ func (h *MockClientConfig) UpdateView(_ context.Context, _ *humioapi.Client, _ r
 	return nil
 }
 
-func (h *MockClientConfig) DeleteView(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hv *humiov1alpha1.HumioView) error {
+func (h *MockClientConfig) DeleteView(_ context.Context, _ *humioapi.Client, hv *humiov1alpha1.HumioView) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -566,7 +566,7 @@ func (h *MockClientConfig) InstallLicense(_ context.Context, _ *humioapi.Client,
 	return nil
 }
 
-func (h *MockClientConfig) GetAction(_ context.Context, _ *humioapi.Client, _ reconcile.Request, ha *humiov1alpha1.HumioAction) (humiographql.ActionDetails, error) {
+func (h *MockClientConfig) GetAction(_ context.Context, _ *humioapi.Client, ha *humiov1alpha1.HumioAction) (humiographql.ActionDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -582,7 +582,7 @@ func (h *MockClientConfig) GetAction(_ context.Context, _ *humioapi.Client, _ re
 	return nil, fmt.Errorf("could not find action in view %q with name %q, err=%w", ha.Spec.ViewName, ha.Spec.Name, humioapi.EntityNotFound{})
 }
 
-func (h *MockClientConfig) AddAction(_ context.Context, _ *humioapi.Client, _ reconcile.Request, ha *humiov1alpha1.HumioAction) error {
+func (h *MockClientConfig) AddAction(_ context.Context, _ *humioapi.Client, ha *humiov1alpha1.HumioAction) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -679,7 +679,7 @@ func (h *MockClientConfig) AddAction(_ context.Context, _ *humioapi.Client, _ re
 	return nil
 }
 
-func (h *MockClientConfig) UpdateAction(_ context.Context, _ *humioapi.Client, _ reconcile.Request, ha *humiov1alpha1.HumioAction) error {
+func (h *MockClientConfig) UpdateAction(_ context.Context, _ *humioapi.Client, ha *humiov1alpha1.HumioAction) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -773,7 +773,7 @@ func (h *MockClientConfig) UpdateAction(_ context.Context, _ *humioapi.Client, _
 	return nil
 }
 
-func (h *MockClientConfig) DeleteAction(_ context.Context, _ *humioapi.Client, _ reconcile.Request, ha *humiov1alpha1.HumioAction) error {
+func (h *MockClientConfig) DeleteAction(_ context.Context, _ *humioapi.Client, ha *humiov1alpha1.HumioAction) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -787,7 +787,7 @@ func (h *MockClientConfig) DeleteAction(_ context.Context, _ *humioapi.Client, _
 	return nil
 }
 
-func (h *MockClientConfig) GetAlert(_ context.Context, _ *humioapi.Client, _ reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humiographql.AlertDetails, error) {
+func (h *MockClientConfig) GetAlert(_ context.Context, _ *humioapi.Client, ha *humiov1alpha1.HumioAlert) (*humiographql.AlertDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -803,7 +803,7 @@ func (h *MockClientConfig) GetAlert(_ context.Context, _ *humioapi.Client, _ rec
 	return nil, fmt.Errorf("could not find alert in view %q with name %q, err=%w", ha.Spec.ViewName, ha.Spec.Name, humioapi.EntityNotFound{})
 }
 
-func (h *MockClientConfig) AddAlert(_ context.Context, _ *humioapi.Client, _ reconcile.Request, ha *humiov1alpha1.HumioAlert) error {
+func (h *MockClientConfig) AddAlert(_ context.Context, _ *humioapi.Client, ha *humiov1alpha1.HumioAlert) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -843,7 +843,7 @@ func (h *MockClientConfig) AddAlert(_ context.Context, _ *humioapi.Client, _ rec
 	return nil
 }
 
-func (h *MockClientConfig) UpdateAlert(_ context.Context, _ *humioapi.Client, _ reconcile.Request, ha *humiov1alpha1.HumioAlert) error {
+func (h *MockClientConfig) UpdateAlert(_ context.Context, _ *humioapi.Client, ha *humiov1alpha1.HumioAlert) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -879,7 +879,7 @@ func (h *MockClientConfig) UpdateAlert(_ context.Context, _ *humioapi.Client, _ 
 	return nil
 }
 
-func (h *MockClientConfig) DeleteAlert(_ context.Context, _ *humioapi.Client, _ reconcile.Request, ha *humiov1alpha1.HumioAlert) error {
+func (h *MockClientConfig) DeleteAlert(_ context.Context, _ *humioapi.Client, ha *humiov1alpha1.HumioAlert) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -893,7 +893,7 @@ func (h *MockClientConfig) DeleteAlert(_ context.Context, _ *humioapi.Client, _ 
 	return nil
 }
 
-func (h *MockClientConfig) GetFilterAlert(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humiographql.FilterAlertDetails, error) {
+func (h *MockClientConfig) GetFilterAlert(_ context.Context, _ *humioapi.Client, hfa *humiov1alpha1.HumioFilterAlert) (*humiographql.FilterAlertDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -909,7 +909,7 @@ func (h *MockClientConfig) GetFilterAlert(_ context.Context, _ *humioapi.Client,
 	return nil, fmt.Errorf("could not find alert in view %q with name %q, err=%w", hfa.Spec.ViewName, hfa.Spec.Name, humioapi.EntityNotFound{})
 }
 
-func (h *MockClientConfig) AddFilterAlert(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+func (h *MockClientConfig) AddFilterAlert(_ context.Context, _ *humioapi.Client, hfa *humiov1alpha1.HumioFilterAlert) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -948,7 +948,7 @@ func (h *MockClientConfig) AddFilterAlert(_ context.Context, _ *humioapi.Client,
 	return nil
 }
 
-func (h *MockClientConfig) UpdateFilterAlert(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+func (h *MockClientConfig) UpdateFilterAlert(_ context.Context, _ *humioapi.Client, hfa *humiov1alpha1.HumioFilterAlert) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -984,7 +984,7 @@ func (h *MockClientConfig) UpdateFilterAlert(_ context.Context, _ *humioapi.Clie
 	return nil
 }
 
-func (h *MockClientConfig) DeleteFilterAlert(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+func (h *MockClientConfig) DeleteFilterAlert(_ context.Context, _ *humioapi.Client, hfa *humiov1alpha1.HumioFilterAlert) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -998,7 +998,7 @@ func (h *MockClientConfig) DeleteFilterAlert(_ context.Context, _ *humioapi.Clie
 	return nil
 }
 
-func (h *MockClientConfig) ValidateActionsForFilterAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error {
+func (h *MockClientConfig) ValidateActionsForFilterAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioFilterAlert) error {
 	return nil
 }
 
@@ -1053,7 +1053,7 @@ func (h *MockClientConfig) DisableFeatureFlag(_ context.Context, _ *humioapi.Cli
 	return nil
 }
 
-func (h *MockClientConfig) GetAggregateAlert(_ context.Context, _ *humioapi.Client, _ reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) (*humiographql.AggregateAlertDetails, error) {
+func (h *MockClientConfig) GetAggregateAlert(_ context.Context, _ *humioapi.Client, haa *humiov1alpha1.HumioAggregateAlert) (*humiographql.AggregateAlertDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1069,7 +1069,7 @@ func (h *MockClientConfig) GetAggregateAlert(_ context.Context, _ *humioapi.Clie
 	return nil, fmt.Errorf("could not find aggregate alert in view %q with name %q, err=%w", haa.Spec.ViewName, haa.Spec.Name, humioapi.EntityNotFound{})
 }
 
-func (h *MockClientConfig) AddAggregateAlert(ctx context.Context, client *humioapi.Client, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) error {
+func (h *MockClientConfig) AddAggregateAlert(ctx context.Context, client *humioapi.Client, haa *humiov1alpha1.HumioAggregateAlert) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1082,7 +1082,7 @@ func (h *MockClientConfig) AddAggregateAlert(ctx context.Context, client *humioa
 	if _, found := h.apiClient.AggregateAlert[key]; found {
 		return fmt.Errorf("aggregate alert already exists with name %s", haa.Spec.Name)
 	}
-	if err := h.ValidateActionsForAggregateAlert(ctx, client, req, haa); err != nil {
+	if err := h.ValidateActionsForAggregateAlert(ctx, client, haa); err != nil {
 		return fmt.Errorf("could not get action id mapping: %w", err)
 	}
 
@@ -1109,7 +1109,7 @@ func (h *MockClientConfig) AddAggregateAlert(ctx context.Context, client *humioa
 	return nil
 }
 
-func (h *MockClientConfig) UpdateAggregateAlert(_ context.Context, _ *humioapi.Client, _ reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) error {
+func (h *MockClientConfig) UpdateAggregateAlert(_ context.Context, _ *humioapi.Client, haa *humiov1alpha1.HumioAggregateAlert) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1148,7 +1148,7 @@ func (h *MockClientConfig) UpdateAggregateAlert(_ context.Context, _ *humioapi.C
 	return nil
 }
 
-func (h *MockClientConfig) DeleteAggregateAlert(_ context.Context, _ *humioapi.Client, _ reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) error {
+func (h *MockClientConfig) DeleteAggregateAlert(_ context.Context, _ *humioapi.Client, haa *humiov1alpha1.HumioAggregateAlert) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1162,11 +1162,11 @@ func (h *MockClientConfig) DeleteAggregateAlert(_ context.Context, _ *humioapi.C
 	return nil
 }
 
-func (h *MockClientConfig) ValidateActionsForAggregateAlert(_ context.Context, _ *humioapi.Client, _ reconcile.Request, _ *humiov1alpha1.HumioAggregateAlert) error {
+func (h *MockClientConfig) ValidateActionsForAggregateAlert(_ context.Context, _ *humioapi.Client, _ *humiov1alpha1.HumioAggregateAlert) error {
 	return nil
 }
 
-func (h *MockClientConfig) AddScheduledSearch(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) error {
+func (h *MockClientConfig) AddScheduledSearch(_ context.Context, _ *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1208,7 +1208,7 @@ func (h *MockClientConfig) AddScheduledSearch(_ context.Context, _ *humioapi.Cli
 	return nil
 }
 
-func (h *MockClientConfig) GetScheduledSearch(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) (*humiographql.ScheduledSearchDetails, error) {
+func (h *MockClientConfig) GetScheduledSearch(_ context.Context, _ *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) (*humiographql.ScheduledSearchDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1224,7 +1224,7 @@ func (h *MockClientConfig) GetScheduledSearch(_ context.Context, _ *humioapi.Cli
 	return nil, fmt.Errorf("could not find scheduled search in view %q with name %q, err=%w", hss.Spec.ViewName, hss.Spec.Name, humioapi.EntityNotFound{})
 }
 
-func (h *MockClientConfig) UpdateScheduledSearch(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) error {
+func (h *MockClientConfig) UpdateScheduledSearch(_ context.Context, _ *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1263,7 +1263,7 @@ func (h *MockClientConfig) UpdateScheduledSearch(_ context.Context, _ *humioapi.
 	return nil
 }
 
-func (h *MockClientConfig) DeleteScheduledSearch(_ context.Context, _ *humioapi.Client, _ reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) error {
+func (h *MockClientConfig) DeleteScheduledSearch(_ context.Context, _ *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1277,7 +1277,7 @@ func (h *MockClientConfig) DeleteScheduledSearch(_ context.Context, _ *humioapi.
 	return nil
 }
 
-func (h *MockClientConfig) ValidateActionsForScheduledSearch(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioScheduledSearch) error {
+func (h *MockClientConfig) ValidateActionsForScheduledSearch(context.Context, *humioapi.Client, *humiov1alpha1.HumioScheduledSearch) error {
 	return nil
 }
 
@@ -1349,7 +1349,7 @@ func (h *MockClientConfig) AddUserAndGetUserID(_ context.Context, _ *humioapi.Cl
 	return h.apiClient.AdminUserID[key], nil
 }
 
-func (h *MockClientConfig) AddUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+func (h *MockClientConfig) AddUser(ctx context.Context, client *humioapi.Client, hu *humiov1alpha1.HumioUser) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1372,7 +1372,7 @@ func (h *MockClientConfig) AddUser(ctx context.Context, client *humioapi.Client,
 	return nil
 }
 
-func (h *MockClientConfig) GetUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) (*humiographql.UserDetails, error) {
+func (h *MockClientConfig) GetUser(ctx context.Context, client *humioapi.Client, hu *humiov1alpha1.HumioUser) (*humiographql.UserDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1386,7 +1386,7 @@ func (h *MockClientConfig) GetUser(ctx context.Context, client *humioapi.Client,
 	return nil, fmt.Errorf("could not find user with username %q, err=%w", hu.Spec.UserName, humioapi.EntityNotFound{})
 }
 
-func (h *MockClientConfig) UpdateUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+func (h *MockClientConfig) UpdateUser(ctx context.Context, client *humioapi.Client, hu *humiov1alpha1.HumioUser) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -1411,7 +1411,7 @@ func (h *MockClientConfig) UpdateUser(ctx context.Context, client *humioapi.Clie
 	return nil
 }
 
-func (h *MockClientConfig) DeleteUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+func (h *MockClientConfig) DeleteUser(ctx context.Context, client *humioapi.Client, hu *humiov1alpha1.HumioUser) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 

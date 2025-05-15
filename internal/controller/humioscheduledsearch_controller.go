@@ -87,7 +87,7 @@ func (r *HumioScheduledSearchReconciler) Reconcile(ctx context.Context, req ctrl
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	defer func(ctx context.Context, hss *humiov1alpha1.HumioScheduledSearch) {
-		_, err := r.HumioClient.GetScheduledSearch(ctx, humioHttpClient, req, hss)
+		_, err := r.HumioClient.GetScheduledSearch(ctx, humioHttpClient, hss)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateNotFound, hss)
 			return
@@ -99,16 +99,16 @@ func (r *HumioScheduledSearchReconciler) Reconcile(ctx context.Context, req ctrl
 		_ = r.setState(ctx, humiov1alpha1.HumioScheduledSearchStateExists, hss)
 	}(ctx, hss)
 
-	return r.reconcileHumioScheduledSearch(ctx, humioHttpClient, hss, req)
+	return r.reconcileHumioScheduledSearch(ctx, humioHttpClient, hss)
 }
 
-func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx context.Context, client *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch, req ctrl.Request) (reconcile.Result, error) {
+func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx context.Context, client *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) (reconcile.Result, error) {
 	r.Log.Info("Checking if scheduled search is marked to be deleted")
 	isMarkedForDeletion := hss.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
 		r.Log.Info("ScheduledSearch marked to be deleted")
 		if helpers.ContainsElement(hss.GetFinalizers(), humioFinalizer) {
-			_, err := r.HumioClient.GetScheduledSearch(ctx, client, req, hss)
+			_, err := r.HumioClient.GetScheduledSearch(ctx, client, hss)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hss.SetFinalizers(helpers.RemoveElement(hss.GetFinalizers(), humioFinalizer))
 				err := r.Update(ctx, hss)
@@ -123,7 +123,7 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting scheduled search")
-			if err := r.HumioClient.DeleteScheduledSearch(ctx, client, req, hss); err != nil {
+			if err := r.HumioClient.DeleteScheduledSearch(ctx, client, hss); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete scheduled search returned error")
 			}
 		}
@@ -144,11 +144,11 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 	}
 
 	r.Log.Info("Checking if scheduled search needs to be created")
-	curScheduledSearch, err := r.HumioClient.GetScheduledSearch(ctx, client, req, hss)
+	curScheduledSearch, err := r.HumioClient.GetScheduledSearch(ctx, client, hss)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			r.Log.Info("ScheduledSearch doesn't exist. Now adding scheduled search")
-			addErr := r.HumioClient.AddScheduledSearch(ctx, client, req, hss)
+			addErr := r.HumioClient.AddScheduledSearch(ctx, client, hss)
 			if addErr != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create scheduled search")
 			}
@@ -159,7 +159,7 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 	}
 
 	r.Log.Info("Checking if scheduled search needs to be updated")
-	if err := r.HumioClient.ValidateActionsForScheduledSearch(ctx, client, req, hss); err != nil {
+	if err := r.HumioClient.ValidateActionsForScheduledSearch(ctx, client, hss); err != nil {
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not get action id mapping")
 	}
 
@@ -167,7 +167,7 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 		r.Log.Info("information differs, triggering update",
 			"diff", diffKeysAndValues,
 		)
-		updateErr := r.HumioClient.UpdateScheduledSearch(ctx, client, req, hss)
+		updateErr := r.HumioClient.UpdateScheduledSearch(ctx, client, hss)
 		if updateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(updateErr, "could not update scheduled search")
 		}
