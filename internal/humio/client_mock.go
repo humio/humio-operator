@@ -540,102 +540,80 @@ func (h *MockClientConfig) DeleteView(_ context.Context, _ *humioapi.Client, _ r
 	return nil
 }
 
-func (h *MockClientConfig) AddGroup(ctx context.Context, client *humioapi.Client, request reconcile.Request, group *humiov1alpha1.HumioGroup) error {
+func (h *MockClientConfig) AddGroup(_ context.Context, _ *humioapi.Client, _ reconcile.Request, group *humiov1alpha1.HumioGroup) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
 	clusterName := fmt.Sprintf("%s%s", group.Spec.ManagedClusterName, group.Spec.ExternalClusterName)
 	key := resourceKey{
 		clusterName:  clusterName,
-		resourceName: group.Spec.DisplayName,
+		resourceName: group.Spec.Name,
 	}
 	if _, found := h.apiClient.Group[key]; found {
-		return fmt.Errorf("group already exists with name %s", group.Spec.DisplayName)
+		return fmt.Errorf("group already exists with name %s", group.Spec.Name)
 	}
 
-	roles := make([]humiographql.GroupDetailsRolesSearchDomainRole, 0)
-	for _, role := range group.Spec.Assignments {
-		roles = append(roles, humiographql.GroupDetailsRolesSearchDomainRole{
-			Role: humiographql.GroupDetailsRolesSearchDomainRoleRole{
-				Id:          role.RoleName,
-				DisplayName: role.RoleName,
-			},
-			SearchDomain: &humiographql.GroupDetailsRolesSearchDomainRoleSearchDomainView{
-				Id:   role.ViewName,
-				Name: role.ViewName,
-			},
-		})
-	}
 	value := &humiographql.GroupDetails{
 		Id:          kubernetes.RandomString(),
-		DisplayName: group.Spec.DisplayName,
-		LookupName:  group.Spec.LookupName,
-		Roles:       roles,
+		DisplayName: group.Spec.Name,
+		LookupName:  group.Spec.ExternalMappingName,
 	}
 
 	h.apiClient.Group[key] = *value
 	return nil
 }
 
-func (h *MockClientConfig) GetGroup(ctx context.Context, client *humioapi.Client, request reconcile.Request, group *humiov1alpha1.HumioGroup) (*humiographql.GroupDetails, error) {
+func (h *MockClientConfig) GetGroup(_ context.Context, _ *humioapi.Client, _ reconcile.Request, group *humiov1alpha1.HumioGroup) (*humiographql.GroupDetails, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
 	key := resourceKey{
 		clusterName:  fmt.Sprintf("%s%s", group.Spec.ManagedClusterName, group.Spec.ExternalClusterName),
-		resourceName: group.Spec.DisplayName,
+		resourceName: group.Spec.Name,
 	}
 	if value, found := h.apiClient.Group[key]; found {
 		return &value, nil
 	}
-	return nil, fmt.Errorf("could not find group with name %s, err=%w", group.Spec.DisplayName, humioapi.EntityNotFound{})
+	return nil, humioapi.GroupNotFound(group.Spec.Name)
 }
 
-func (h *MockClientConfig) UpdateGroup(ctx context.Context, client *humioapi.Client, request reconcile.Request, group *humiov1alpha1.HumioGroup) error {
+func (h *MockClientConfig) UpdateGroup(_ context.Context, _ *humioapi.Client, _ reconcile.Request, group *humiov1alpha1.HumioGroup) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
 	key := resourceKey{
 		clusterName:  fmt.Sprintf("%s%s", group.Spec.ManagedClusterName, group.Spec.ExternalClusterName),
-		resourceName: group.Spec.DisplayName,
+		resourceName: group.Spec.Name,
 	}
 	currentGroup, found := h.apiClient.Group[key]
 
 	if !found {
-		return fmt.Errorf("group not found with name %s, err=%w", group.Spec.DisplayName, humioapi.EntityNotFound{})
+		return humioapi.GroupNotFound(group.Spec.Name)
 	}
 
-	roles := make([]humiographql.GroupDetailsRolesSearchDomainRole, 0)
-	for _, role := range group.Spec.Assignments {
-		roles = append(roles, humiographql.GroupDetailsRolesSearchDomainRole{
-			Role: humiographql.GroupDetailsRolesSearchDomainRoleRole{
-				Id:          role.RoleName,
-				DisplayName: role.RoleName,
-			},
-			SearchDomain: &humiographql.GroupDetailsRolesSearchDomainRoleSearchDomainView{
-				Id:   role.ViewName,
-				Name: role.ViewName,
-			},
-		})
+	newLookupName := group.Spec.ExternalMappingName
+	if group.Spec.ExternalMappingName != nil && *group.Spec.ExternalMappingName == "" {
+		// LogScale returns null from graphql when lookup name is updated to empty string
+		newLookupName = nil
 	}
+
 	value := &humiographql.GroupDetails{
 		Id:          currentGroup.GetId(),
-		DisplayName: group.Spec.DisplayName,
-		LookupName:  group.Spec.LookupName,
-		Roles:       roles,
+		DisplayName: group.Spec.Name,
+		LookupName:  newLookupName,
 	}
 
 	h.apiClient.Group[key] = *value
 	return nil
 }
 
-func (h *MockClientConfig) DeleteGroup(ctx context.Context, client *humioapi.Client, request reconcile.Request, group *humiov1alpha1.HumioGroup) error {
+func (h *MockClientConfig) DeleteGroup(_ context.Context, _ *humioapi.Client, _ reconcile.Request, group *humiov1alpha1.HumioGroup) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
 	key := resourceKey{
 		clusterName:  fmt.Sprintf("%s%s", group.Spec.ManagedClusterName, group.Spec.ExternalClusterName),
-		resourceName: group.Spec.DisplayName,
+		resourceName: group.Spec.Name,
 	}
 	delete(h.apiClient.Group, key)
 	return nil

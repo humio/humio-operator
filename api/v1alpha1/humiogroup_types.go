@@ -15,19 +15,8 @@ const (
 	HumioGroupStateConfigError = "ConfigError"
 )
 
-// HumioGroupRoleAssignment represents a role assignment for a group
-type HumioGroupRoleAssignment struct {
-	// RoleName contains the name of the role to assign
-	// +kubebuilder:validation:MinLength=1
-	// +required
-	RoleName string `json:"roleName"`
-	// ViewName contains the name of the view to associate the group with
-	// +kubebuilder:validation:MinLength=1
-	// +required
-	ViewName string `json:"viewName"`
-}
-
 // HumioGroupSpec defines the desired state of HumioGroup.
+// +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioGroupSpec struct {
 	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
 	// resources should be created.
@@ -36,16 +25,15 @@ type HumioGroupSpec struct {
 	// ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
-	// DisplayName is the display name of the HumioGroup
+	// Name is the display name of the HumioGroup
 	// +kubebuilder:validation:MinLength=1
-	// +required
-	DisplayName string `json:"displayName"`
-	// LookupName is the lookup name of the HumioGroup
-	// +optional
-	LookupName *string `json:"lookupName,omitempty"`
-	// Assignments contains the list of role assignments for the group
-	// +optional
-	Assignments []HumioGroupRoleAssignment `json:"assignments,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+	// ExternalMappingName is the mapping name from the external provider that will assign the user to this HumioGroup
+	// +kubebuilder:validation:MinLength=2
+	// +kubebuilder:validation:Optional
+	ExternalMappingName *string `json:"externalMappingName,omitempty"`
 }
 
 // HumioGroupStatus defines the observed state of HumioGroup.
@@ -65,6 +53,7 @@ type HumioGroup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// +kubebuilder:validation:Required
 	Spec   HumioGroupSpec   `json:"spec,omitempty"`
 	Status HumioGroupStatus `json:"status,omitempty"`
 }

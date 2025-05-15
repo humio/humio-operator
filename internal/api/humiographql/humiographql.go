@@ -1589,274 +1589,6 @@ func (v *AssignParserToIngestTokenResponse) GetAssignParserToIngestTokenV2() Ass
 	return v.AssignParserToIngestTokenV2
 }
 
-// AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutation includes the requested fields of the GraphQL type AssignRoleToGroupMutation.
-type AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutation struct {
-	// Stability: Long-term
-	Group AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole `json:"group"`
-}
-
-// GetGroup returns AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutation.Group, and is useful for accessing the field via an interface.
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutation) GetGroup() AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole {
-	return v.Group
-}
-
-// AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole includes the requested fields of the GraphQL type SearchDomainRole.
-// The GraphQL type's documentation follows.
-//
-// The role assigned in a searchDomain.
-type AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole struct {
-	// Stability: Long-term
-	Role AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleRole `json:"role"`
-	// Stability: Long-term
-	SearchDomain AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain `json:"-"`
-}
-
-// GetRole returns AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole.Role, and is useful for accessing the field via an interface.
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole) GetRole() AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleRole {
-	return v.Role
-}
-
-// GetSearchDomain returns AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole.SearchDomain, and is useful for accessing the field via an interface.
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole) GetSearchDomain() AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain {
-	return v.SearchDomain
-}
-
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole
-		SearchDomain json.RawMessage `json:"searchDomain"`
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.SearchDomain
-		src := firstPass.SearchDomain
-		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalAssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain(
-				src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole.SearchDomain: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type __premarshalAssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole struct {
-	Role AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleRole `json:"role"`
-
-	SearchDomain json.RawMessage `json:"searchDomain"`
-}
-
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole) __premarshalJSON() (*__premarshalAssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole, error) {
-	var retval __premarshalAssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole
-
-	retval.Role = v.Role
-	{
-
-		dst := &retval.SearchDomain
-		src := v.SearchDomain
-		var err error
-		*dst, err = __marshalAssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRole.SearchDomain: %w", err)
-		}
-	}
-	return &retval, nil
-}
-
-// AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleRole includes the requested fields of the GraphQL type Role.
-type AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleRole struct {
-	// Stability: Long-term
-	Id string `json:"id"`
-	// Stability: Long-term
-	DisplayName string `json:"displayName"`
-}
-
-// GetId returns AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleRole.Id, and is useful for accessing the field via an interface.
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleRole) GetId() string {
-	return v.Id
-}
-
-// GetDisplayName returns AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleRole.DisplayName, and is useful for accessing the field via an interface.
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleRole) GetDisplayName() string {
-	return v.DisplayName
-}
-
-// AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain includes the requested fields of the GraphQL interface SearchDomain.
-//
-// AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain is implemented by the following types:
-// AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainRepository
-// AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainView
-// The GraphQL type's documentation follows.
-//
-// Common interface for Repositories and Views.
-type AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain interface {
-	implementsGraphQLInterfaceAssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
-	// GetId returns the interface-field "id" from its implementation.
-	// The GraphQL interface field's documentation follows.
-	//
-	// Common interface for Repositories and Views.
-	GetId() string
-	// GetName returns the interface-field "name" from its implementation.
-	// The GraphQL interface field's documentation follows.
-	//
-	// Common interface for Repositories and Views.
-	GetName() string
-}
-
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainRepository) implementsGraphQLInterfaceAssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain() {
-}
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainView) implementsGraphQLInterfaceAssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain() {
-}
-
-func __unmarshalAssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain(b []byte, v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain) error {
-	if string(b) == "null" {
-		return nil
-	}
-
-	var tn struct {
-		TypeName string `json:"__typename"`
-	}
-	err := json.Unmarshal(b, &tn)
-	if err != nil {
-		return err
-	}
-
-	switch tn.TypeName {
-	case "Repository":
-		*v = new(AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainRepository)
-		return json.Unmarshal(b, *v)
-	case "View":
-		*v = new(AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainView)
-		return json.Unmarshal(b, *v)
-	case "":
-		return fmt.Errorf(
-			"response was missing SearchDomain.__typename")
-	default:
-		return fmt.Errorf(
-			`unexpected concrete type for AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain: "%v"`, tn.TypeName)
-	}
-}
-
-func __marshalAssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain(v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain) ([]byte, error) {
-
-	var typename string
-	switch v := (*v).(type) {
-	case *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainRepository:
-		typename = "Repository"
-
-		result := struct {
-			TypeName string `json:"__typename"`
-			*AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainRepository
-		}{typename, v}
-		return json.Marshal(result)
-	case *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainView:
-		typename = "View"
-
-		result := struct {
-			TypeName string `json:"__typename"`
-			*AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainView
-		}{typename, v}
-		return json.Marshal(result)
-	case nil:
-		return []byte("null"), nil
-	default:
-		return nil, fmt.Errorf(
-			`unexpected concrete type for AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomain: "%T"`, v)
-	}
-}
-
-// AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainRepository includes the requested fields of the GraphQL type Repository.
-// The GraphQL type's documentation follows.
-//
-// A repository stores ingested data, configures parsers and data retention policies.
-type AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainRepository struct {
-	Typename *string `json:"__typename"`
-	// Common interface for Repositories and Views.
-	Id string `json:"id"`
-	// Common interface for Repositories and Views.
-	Name string `json:"name"`
-}
-
-// GetTypename returns AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainRepository.Typename, and is useful for accessing the field via an interface.
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainRepository) GetTypename() *string {
-	return v.Typename
-}
-
-// GetId returns AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainRepository.Id, and is useful for accessing the field via an interface.
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainRepository) GetId() string {
-	return v.Id
-}
-
-// GetName returns AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainRepository.Name, and is useful for accessing the field via an interface.
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainRepository) GetName() string {
-	return v.Name
-}
-
-// AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainView includes the requested fields of the GraphQL type View.
-// The GraphQL type's documentation follows.
-//
-// Represents information about a view, pulling data from one or several repositories.
-type AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainView struct {
-	Typename *string `json:"__typename"`
-	// Common interface for Repositories and Views.
-	Id string `json:"id"`
-	// Common interface for Repositories and Views.
-	Name string `json:"name"`
-}
-
-// GetTypename returns AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainView.Typename, and is useful for accessing the field via an interface.
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainView) GetTypename() *string {
-	return v.Typename
-}
-
-// GetId returns AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainView.Id, and is useful for accessing the field via an interface.
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainView) GetId() string {
-	return v.Id
-}
-
-// GetName returns AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainView.Name, and is useful for accessing the field via an interface.
-func (v *AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutationGroupSearchDomainRoleSearchDomainView) GetName() string {
-	return v.Name
-}
-
-// AssignRoleToGroupResponse is returned by AssignRoleToGroup on success.
-type AssignRoleToGroupResponse struct {
-	// Assigns a role to a group for a given view. If called with overrideExistingAssignmentsForView=false, this mutation can assign multiple roles for the same view. Calling with overrideExistingAssignmentsForView=false is thus only available if the MultipleViewRoleBindings feature is enabled.
-	// Stability: Long-term
-	AssignRoleToGroup AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutation `json:"assignRoleToGroup"`
-}
-
-// GetAssignRoleToGroup returns AssignRoleToGroupResponse.AssignRoleToGroup, and is useful for accessing the field via an interface.
-func (v *AssignRoleToGroupResponse) GetAssignRoleToGroup() AssignRoleToGroupAssignRoleToGroupAssignRoleToGroupMutation {
-	return v.AssignRoleToGroup
-}
-
 // CreateAggregateAlertCreateAggregateAlert includes the requested fields of the GraphQL type AggregateAlert.
 // The GraphQL type's documentation follows.
 //
@@ -2407,12 +2139,71 @@ func (v *CreateGroupAddGroupAddGroupMutation) GetGroup() CreateGroupAddGroupAddG
 //
 // A group.
 type CreateGroupAddGroupAddGroupMutationGroup struct {
-	// Stability: Long-term
-	Id string `json:"id"`
+	GroupDetails `json:"-"`
 }
 
 // GetId returns CreateGroupAddGroupAddGroupMutationGroup.Id, and is useful for accessing the field via an interface.
-func (v *CreateGroupAddGroupAddGroupMutationGroup) GetId() string { return v.Id }
+func (v *CreateGroupAddGroupAddGroupMutationGroup) GetId() string { return v.GroupDetails.Id }
+
+// GetDisplayName returns CreateGroupAddGroupAddGroupMutationGroup.DisplayName, and is useful for accessing the field via an interface.
+func (v *CreateGroupAddGroupAddGroupMutationGroup) GetDisplayName() string {
+	return v.GroupDetails.DisplayName
+}
+
+// GetLookupName returns CreateGroupAddGroupAddGroupMutationGroup.LookupName, and is useful for accessing the field via an interface.
+func (v *CreateGroupAddGroupAddGroupMutationGroup) GetLookupName() *string {
+	return v.GroupDetails.LookupName
+}
+
+func (v *CreateGroupAddGroupAddGroupMutationGroup) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateGroupAddGroupAddGroupMutationGroup
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateGroupAddGroupAddGroupMutationGroup = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.GroupDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateGroupAddGroupAddGroupMutationGroup struct {
+	Id string `json:"id"`
+
+	DisplayName string `json:"displayName"`
+
+	LookupName *string `json:"lookupName"`
+}
+
+func (v *CreateGroupAddGroupAddGroupMutationGroup) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateGroupAddGroupAddGroupMutationGroup) __premarshalJSON() (*__premarshalCreateGroupAddGroupAddGroupMutationGroup, error) {
+	var retval __premarshalCreateGroupAddGroupAddGroupMutationGroup
+
+	retval.Id = v.GroupDetails.Id
+	retval.DisplayName = v.GroupDetails.DisplayName
+	retval.LookupName = v.GroupDetails.LookupName
+	return &retval, nil
+}
 
 // CreateGroupResponse is returned by CreateGroup on success.
 type CreateGroupResponse struct {
@@ -3240,25 +3031,70 @@ func (v *DeleteGroupRemoveGroupRemoveGroupMutation) GetGroup() DeleteGroupRemove
 //
 // A group.
 type DeleteGroupRemoveGroupRemoveGroupMutationGroup struct {
-	// Stability: Long-term
-	DisplayName string `json:"displayName"`
-	// Stability: Long-term
-	UserCount int `json:"userCount"`
-	// Stability: Long-term
-	SearchDomainCount int `json:"searchDomainCount"`
+	GroupDetails `json:"-"`
 }
+
+// GetId returns DeleteGroupRemoveGroupRemoveGroupMutationGroup.Id, and is useful for accessing the field via an interface.
+func (v *DeleteGroupRemoveGroupRemoveGroupMutationGroup) GetId() string { return v.GroupDetails.Id }
 
 // GetDisplayName returns DeleteGroupRemoveGroupRemoveGroupMutationGroup.DisplayName, and is useful for accessing the field via an interface.
 func (v *DeleteGroupRemoveGroupRemoveGroupMutationGroup) GetDisplayName() string {
-	return v.DisplayName
+	return v.GroupDetails.DisplayName
 }
 
-// GetUserCount returns DeleteGroupRemoveGroupRemoveGroupMutationGroup.UserCount, and is useful for accessing the field via an interface.
-func (v *DeleteGroupRemoveGroupRemoveGroupMutationGroup) GetUserCount() int { return v.UserCount }
+// GetLookupName returns DeleteGroupRemoveGroupRemoveGroupMutationGroup.LookupName, and is useful for accessing the field via an interface.
+func (v *DeleteGroupRemoveGroupRemoveGroupMutationGroup) GetLookupName() *string {
+	return v.GroupDetails.LookupName
+}
 
-// GetSearchDomainCount returns DeleteGroupRemoveGroupRemoveGroupMutationGroup.SearchDomainCount, and is useful for accessing the field via an interface.
-func (v *DeleteGroupRemoveGroupRemoveGroupMutationGroup) GetSearchDomainCount() int {
-	return v.SearchDomainCount
+func (v *DeleteGroupRemoveGroupRemoveGroupMutationGroup) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*DeleteGroupRemoveGroupRemoveGroupMutationGroup
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.DeleteGroupRemoveGroupRemoveGroupMutationGroup = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.GroupDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalDeleteGroupRemoveGroupRemoveGroupMutationGroup struct {
+	Id string `json:"id"`
+
+	DisplayName string `json:"displayName"`
+
+	LookupName *string `json:"lookupName"`
+}
+
+func (v *DeleteGroupRemoveGroupRemoveGroupMutationGroup) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *DeleteGroupRemoveGroupRemoveGroupMutationGroup) __premarshalJSON() (*__premarshalDeleteGroupRemoveGroupRemoveGroupMutationGroup, error) {
+	var retval __premarshalDeleteGroupRemoveGroupRemoveGroupMutationGroup
+
+	retval.Id = v.GroupDetails.Id
+	retval.DisplayName = v.GroupDetails.DisplayName
+	retval.LookupName = v.GroupDetails.LookupName
+	return &retval, nil
 }
 
 // DeleteGroupResponse is returned by DeleteGroup on success.
@@ -6146,11 +5982,6 @@ func (v *GetGroupByDisplayNameGroupByDisplayNameGroup) GetLookupName() *string {
 	return v.GroupDetails.LookupName
 }
 
-// GetRoles returns GetGroupByDisplayNameGroupByDisplayNameGroup.Roles, and is useful for accessing the field via an interface.
-func (v *GetGroupByDisplayNameGroupByDisplayNameGroup) GetRoles() []GroupDetailsRolesSearchDomainRole {
-	return v.GroupDetails.Roles
-}
-
 func (v *GetGroupByDisplayNameGroupByDisplayNameGroup) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -6182,8 +6013,6 @@ type __premarshalGetGroupByDisplayNameGroupByDisplayNameGroup struct {
 	DisplayName string `json:"displayName"`
 
 	LookupName *string `json:"lookupName"`
-
-	Roles []GroupDetailsRolesSearchDomainRole `json:"roles"`
 }
 
 func (v *GetGroupByDisplayNameGroupByDisplayNameGroup) MarshalJSON() ([]byte, error) {
@@ -6200,7 +6029,6 @@ func (v *GetGroupByDisplayNameGroupByDisplayNameGroup) __premarshalJSON() (*__pr
 	retval.Id = v.GroupDetails.Id
 	retval.DisplayName = v.GroupDetails.DisplayName
 	retval.LookupName = v.GroupDetails.LookupName
-	retval.Roles = v.GroupDetails.Roles
 	return &retval, nil
 }
 
@@ -7390,8 +7218,6 @@ type GroupDetails struct {
 	DisplayName string `json:"displayName"`
 	// Stability: Long-term
 	LookupName *string `json:"lookupName"`
-	// Stability: Long-term
-	Roles []GroupDetailsRolesSearchDomainRole `json:"roles"`
 }
 
 // GetId returns GroupDetails.Id, and is useful for accessing the field via an interface.
@@ -7402,240 +7228,6 @@ func (v *GroupDetails) GetDisplayName() string { return v.DisplayName }
 
 // GetLookupName returns GroupDetails.LookupName, and is useful for accessing the field via an interface.
 func (v *GroupDetails) GetLookupName() *string { return v.LookupName }
-
-// GetRoles returns GroupDetails.Roles, and is useful for accessing the field via an interface.
-func (v *GroupDetails) GetRoles() []GroupDetailsRolesSearchDomainRole { return v.Roles }
-
-// GroupDetailsRolesSearchDomainRole includes the requested fields of the GraphQL type SearchDomainRole.
-// The GraphQL type's documentation follows.
-//
-// The role assigned in a searchDomain.
-type GroupDetailsRolesSearchDomainRole struct {
-	// Stability: Long-term
-	Role GroupDetailsRolesSearchDomainRoleRole `json:"role"`
-	// Stability: Long-term
-	SearchDomain GroupDetailsRolesSearchDomainRoleSearchDomain `json:"-"`
-}
-
-// GetRole returns GroupDetailsRolesSearchDomainRole.Role, and is useful for accessing the field via an interface.
-func (v *GroupDetailsRolesSearchDomainRole) GetRole() GroupDetailsRolesSearchDomainRoleRole {
-	return v.Role
-}
-
-// GetSearchDomain returns GroupDetailsRolesSearchDomainRole.SearchDomain, and is useful for accessing the field via an interface.
-func (v *GroupDetailsRolesSearchDomainRole) GetSearchDomain() GroupDetailsRolesSearchDomainRoleSearchDomain {
-	return v.SearchDomain
-}
-
-func (v *GroupDetailsRolesSearchDomainRole) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*GroupDetailsRolesSearchDomainRole
-		SearchDomain json.RawMessage `json:"searchDomain"`
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.GroupDetailsRolesSearchDomainRole = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	{
-		dst := &v.SearchDomain
-		src := firstPass.SearchDomain
-		if len(src) != 0 && string(src) != "null" {
-			err = __unmarshalGroupDetailsRolesSearchDomainRoleSearchDomain(
-				src, dst)
-			if err != nil {
-				return fmt.Errorf(
-					"unable to unmarshal GroupDetailsRolesSearchDomainRole.SearchDomain: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
-type __premarshalGroupDetailsRolesSearchDomainRole struct {
-	Role GroupDetailsRolesSearchDomainRoleRole `json:"role"`
-
-	SearchDomain json.RawMessage `json:"searchDomain"`
-}
-
-func (v *GroupDetailsRolesSearchDomainRole) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *GroupDetailsRolesSearchDomainRole) __premarshalJSON() (*__premarshalGroupDetailsRolesSearchDomainRole, error) {
-	var retval __premarshalGroupDetailsRolesSearchDomainRole
-
-	retval.Role = v.Role
-	{
-
-		dst := &retval.SearchDomain
-		src := v.SearchDomain
-		var err error
-		*dst, err = __marshalGroupDetailsRolesSearchDomainRoleSearchDomain(
-			&src)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to marshal GroupDetailsRolesSearchDomainRole.SearchDomain: %w", err)
-		}
-	}
-	return &retval, nil
-}
-
-// GroupDetailsRolesSearchDomainRoleRole includes the requested fields of the GraphQL type Role.
-type GroupDetailsRolesSearchDomainRoleRole struct {
-	// Stability: Long-term
-	Id string `json:"id"`
-	// Stability: Long-term
-	DisplayName string `json:"displayName"`
-}
-
-// GetId returns GroupDetailsRolesSearchDomainRoleRole.Id, and is useful for accessing the field via an interface.
-func (v *GroupDetailsRolesSearchDomainRoleRole) GetId() string { return v.Id }
-
-// GetDisplayName returns GroupDetailsRolesSearchDomainRoleRole.DisplayName, and is useful for accessing the field via an interface.
-func (v *GroupDetailsRolesSearchDomainRoleRole) GetDisplayName() string { return v.DisplayName }
-
-// GroupDetailsRolesSearchDomainRoleSearchDomain includes the requested fields of the GraphQL interface SearchDomain.
-//
-// GroupDetailsRolesSearchDomainRoleSearchDomain is implemented by the following types:
-// GroupDetailsRolesSearchDomainRoleSearchDomainRepository
-// GroupDetailsRolesSearchDomainRoleSearchDomainView
-// The GraphQL type's documentation follows.
-//
-// Common interface for Repositories and Views.
-type GroupDetailsRolesSearchDomainRoleSearchDomain interface {
-	implementsGraphQLInterfaceGroupDetailsRolesSearchDomainRoleSearchDomain()
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
-	// GetId returns the interface-field "id" from its implementation.
-	// The GraphQL interface field's documentation follows.
-	//
-	// Common interface for Repositories and Views.
-	GetId() string
-	// GetName returns the interface-field "name" from its implementation.
-	// The GraphQL interface field's documentation follows.
-	//
-	// Common interface for Repositories and Views.
-	GetName() string
-}
-
-func (v *GroupDetailsRolesSearchDomainRoleSearchDomainRepository) implementsGraphQLInterfaceGroupDetailsRolesSearchDomainRoleSearchDomain() {
-}
-func (v *GroupDetailsRolesSearchDomainRoleSearchDomainView) implementsGraphQLInterfaceGroupDetailsRolesSearchDomainRoleSearchDomain() {
-}
-
-func __unmarshalGroupDetailsRolesSearchDomainRoleSearchDomain(b []byte, v *GroupDetailsRolesSearchDomainRoleSearchDomain) error {
-	if string(b) == "null" {
-		return nil
-	}
-
-	var tn struct {
-		TypeName string `json:"__typename"`
-	}
-	err := json.Unmarshal(b, &tn)
-	if err != nil {
-		return err
-	}
-
-	switch tn.TypeName {
-	case "Repository":
-		*v = new(GroupDetailsRolesSearchDomainRoleSearchDomainRepository)
-		return json.Unmarshal(b, *v)
-	case "View":
-		*v = new(GroupDetailsRolesSearchDomainRoleSearchDomainView)
-		return json.Unmarshal(b, *v)
-	case "":
-		return fmt.Errorf(
-			"response was missing SearchDomain.__typename")
-	default:
-		return fmt.Errorf(
-			`unexpected concrete type for GroupDetailsRolesSearchDomainRoleSearchDomain: "%v"`, tn.TypeName)
-	}
-}
-
-func __marshalGroupDetailsRolesSearchDomainRoleSearchDomain(v *GroupDetailsRolesSearchDomainRoleSearchDomain) ([]byte, error) {
-
-	var typename string
-	switch v := (*v).(type) {
-	case *GroupDetailsRolesSearchDomainRoleSearchDomainRepository:
-		typename = "Repository"
-
-		result := struct {
-			TypeName string `json:"__typename"`
-			*GroupDetailsRolesSearchDomainRoleSearchDomainRepository
-		}{typename, v}
-		return json.Marshal(result)
-	case *GroupDetailsRolesSearchDomainRoleSearchDomainView:
-		typename = "View"
-
-		result := struct {
-			TypeName string `json:"__typename"`
-			*GroupDetailsRolesSearchDomainRoleSearchDomainView
-		}{typename, v}
-		return json.Marshal(result)
-	case nil:
-		return []byte("null"), nil
-	default:
-		return nil, fmt.Errorf(
-			`unexpected concrete type for GroupDetailsRolesSearchDomainRoleSearchDomain: "%T"`, v)
-	}
-}
-
-// GroupDetailsRolesSearchDomainRoleSearchDomainRepository includes the requested fields of the GraphQL type Repository.
-// The GraphQL type's documentation follows.
-//
-// A repository stores ingested data, configures parsers and data retention policies.
-type GroupDetailsRolesSearchDomainRoleSearchDomainRepository struct {
-	Typename *string `json:"__typename"`
-	// Common interface for Repositories and Views.
-	Id string `json:"id"`
-	// Common interface for Repositories and Views.
-	Name string `json:"name"`
-}
-
-// GetTypename returns GroupDetailsRolesSearchDomainRoleSearchDomainRepository.Typename, and is useful for accessing the field via an interface.
-func (v *GroupDetailsRolesSearchDomainRoleSearchDomainRepository) GetTypename() *string {
-	return v.Typename
-}
-
-// GetId returns GroupDetailsRolesSearchDomainRoleSearchDomainRepository.Id, and is useful for accessing the field via an interface.
-func (v *GroupDetailsRolesSearchDomainRoleSearchDomainRepository) GetId() string { return v.Id }
-
-// GetName returns GroupDetailsRolesSearchDomainRoleSearchDomainRepository.Name, and is useful for accessing the field via an interface.
-func (v *GroupDetailsRolesSearchDomainRoleSearchDomainRepository) GetName() string { return v.Name }
-
-// GroupDetailsRolesSearchDomainRoleSearchDomainView includes the requested fields of the GraphQL type View.
-// The GraphQL type's documentation follows.
-//
-// Represents information about a view, pulling data from one or several repositories.
-type GroupDetailsRolesSearchDomainRoleSearchDomainView struct {
-	Typename *string `json:"__typename"`
-	// Common interface for Repositories and Views.
-	Id string `json:"id"`
-	// Common interface for Repositories and Views.
-	Name string `json:"name"`
-}
-
-// GetTypename returns GroupDetailsRolesSearchDomainRoleSearchDomainView.Typename, and is useful for accessing the field via an interface.
-func (v *GroupDetailsRolesSearchDomainRoleSearchDomainView) GetTypename() *string { return v.Typename }
-
-// GetId returns GroupDetailsRolesSearchDomainRoleSearchDomainView.Id, and is useful for accessing the field via an interface.
-func (v *GroupDetailsRolesSearchDomainRoleSearchDomainView) GetId() string { return v.Id }
-
-// GetName returns GroupDetailsRolesSearchDomainRoleSearchDomainView.Name, and is useful for accessing the field via an interface.
-func (v *GroupDetailsRolesSearchDomainRoleSearchDomainView) GetName() string { return v.Name }
 
 // Http(s) Header entry.
 type HttpHeaderEntryInput struct {
@@ -12846,60 +12438,6 @@ func (v *UnassignParserToIngestTokenUnassignIngestTokenUnassignIngestTokenMutati
 	return v.Typename
 }
 
-// UnassignRoleFromGroupResponse is returned by UnassignRoleFromGroup on success.
-type UnassignRoleFromGroupResponse struct {
-	// Removes the role assigned to the group for a given view.
-	// Stability: Long-term
-	UnassignRoleFromGroup UnassignRoleFromGroupUnassignRoleFromGroup `json:"unassignRoleFromGroup"`
-}
-
-// GetUnassignRoleFromGroup returns UnassignRoleFromGroupResponse.UnassignRoleFromGroup, and is useful for accessing the field via an interface.
-func (v *UnassignRoleFromGroupResponse) GetUnassignRoleFromGroup() UnassignRoleFromGroupUnassignRoleFromGroup {
-	return v.UnassignRoleFromGroup
-}
-
-// UnassignRoleFromGroupUnassignRoleFromGroup includes the requested fields of the GraphQL type UnassignRoleFromGroup.
-type UnassignRoleFromGroupUnassignRoleFromGroup struct {
-	// Stability: Long-term
-	Group UnassignRoleFromGroupUnassignRoleFromGroupGroup `json:"group"`
-}
-
-// GetGroup returns UnassignRoleFromGroupUnassignRoleFromGroup.Group, and is useful for accessing the field via an interface.
-func (v *UnassignRoleFromGroupUnassignRoleFromGroup) GetGroup() UnassignRoleFromGroupUnassignRoleFromGroupGroup {
-	return v.Group
-}
-
-// UnassignRoleFromGroupUnassignRoleFromGroupGroup includes the requested fields of the GraphQL type Group.
-// The GraphQL type's documentation follows.
-//
-// A group.
-type UnassignRoleFromGroupUnassignRoleFromGroupGroup struct {
-	// Stability: Long-term
-	Id string `json:"id"`
-	// Stability: Long-term
-	DisplayName string `json:"displayName"`
-	// Stability: Long-term
-	UserCount int `json:"userCount"`
-	// Stability: Long-term
-	SearchDomainCount int `json:"searchDomainCount"`
-}
-
-// GetId returns UnassignRoleFromGroupUnassignRoleFromGroupGroup.Id, and is useful for accessing the field via an interface.
-func (v *UnassignRoleFromGroupUnassignRoleFromGroupGroup) GetId() string { return v.Id }
-
-// GetDisplayName returns UnassignRoleFromGroupUnassignRoleFromGroupGroup.DisplayName, and is useful for accessing the field via an interface.
-func (v *UnassignRoleFromGroupUnassignRoleFromGroupGroup) GetDisplayName() string {
-	return v.DisplayName
-}
-
-// GetUserCount returns UnassignRoleFromGroupUnassignRoleFromGroupGroup.UserCount, and is useful for accessing the field via an interface.
-func (v *UnassignRoleFromGroupUnassignRoleFromGroupGroup) GetUserCount() int { return v.UserCount }
-
-// GetSearchDomainCount returns UnassignRoleFromGroupUnassignRoleFromGroupGroup.SearchDomainCount, and is useful for accessing the field via an interface.
-func (v *UnassignRoleFromGroupUnassignRoleFromGroupGroup) GetSearchDomainCount() int {
-	return v.SearchDomainCount
-}
-
 // UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation includes the requested fields of the GraphQL type UnregisterNodeMutation.
 type UnregisterClusterNodeClusterUnregisterNodeUnregisterNodeMutation struct {
 	// Stability: Long-term
@@ -13534,12 +13072,71 @@ func (v *UpdateGroupUpdateGroupUpdateGroupMutation) GetGroup() UpdateGroupUpdate
 //
 // A group.
 type UpdateGroupUpdateGroupUpdateGroupMutationGroup struct {
-	// Stability: Long-term
-	Id string `json:"id"`
+	GroupDetails `json:"-"`
 }
 
 // GetId returns UpdateGroupUpdateGroupUpdateGroupMutationGroup.Id, and is useful for accessing the field via an interface.
-func (v *UpdateGroupUpdateGroupUpdateGroupMutationGroup) GetId() string { return v.Id }
+func (v *UpdateGroupUpdateGroupUpdateGroupMutationGroup) GetId() string { return v.GroupDetails.Id }
+
+// GetDisplayName returns UpdateGroupUpdateGroupUpdateGroupMutationGroup.DisplayName, and is useful for accessing the field via an interface.
+func (v *UpdateGroupUpdateGroupUpdateGroupMutationGroup) GetDisplayName() string {
+	return v.GroupDetails.DisplayName
+}
+
+// GetLookupName returns UpdateGroupUpdateGroupUpdateGroupMutationGroup.LookupName, and is useful for accessing the field via an interface.
+func (v *UpdateGroupUpdateGroupUpdateGroupMutationGroup) GetLookupName() *string {
+	return v.GroupDetails.LookupName
+}
+
+func (v *UpdateGroupUpdateGroupUpdateGroupMutationGroup) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateGroupUpdateGroupUpdateGroupMutationGroup
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateGroupUpdateGroupUpdateGroupMutationGroup = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.GroupDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateGroupUpdateGroupUpdateGroupMutationGroup struct {
+	Id string `json:"id"`
+
+	DisplayName string `json:"displayName"`
+
+	LookupName *string `json:"lookupName"`
+}
+
+func (v *UpdateGroupUpdateGroupUpdateGroupMutationGroup) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateGroupUpdateGroupUpdateGroupMutationGroup) __premarshalJSON() (*__premarshalUpdateGroupUpdateGroupUpdateGroupMutationGroup, error) {
+	var retval __premarshalUpdateGroupUpdateGroupUpdateGroupMutationGroup
+
+	retval.Id = v.GroupDetails.Id
+	retval.DisplayName = v.GroupDetails.DisplayName
+	retval.LookupName = v.GroupDetails.LookupName
+	return &retval, nil
+}
 
 // UpdateHumioRepoActionResponse is returned by UpdateHumioRepoAction on success.
 type UpdateHumioRepoActionResponse struct {
@@ -14358,22 +13955,6 @@ func (v *__AssignParserToIngestTokenInput) GetIngestTokenName() string { return 
 
 // GetParserName returns __AssignParserToIngestTokenInput.ParserName, and is useful for accessing the field via an interface.
 func (v *__AssignParserToIngestTokenInput) GetParserName() string { return v.ParserName }
-
-// __AssignRoleToGroupInput is used internally by genqlient
-type __AssignRoleToGroupInput struct {
-	GroupId string `json:"GroupId"`
-	ViewId  string `json:"ViewId"`
-	RoleId  string `json:"RoleId"`
-}
-
-// GetGroupId returns __AssignRoleToGroupInput.GroupId, and is useful for accessing the field via an interface.
-func (v *__AssignRoleToGroupInput) GetGroupId() string { return v.GroupId }
-
-// GetViewId returns __AssignRoleToGroupInput.ViewId, and is useful for accessing the field via an interface.
-func (v *__AssignRoleToGroupInput) GetViewId() string { return v.ViewId }
-
-// GetRoleId returns __AssignRoleToGroupInput.RoleId, and is useful for accessing the field via an interface.
-func (v *__AssignRoleToGroupInput) GetRoleId() string { return v.RoleId }
 
 // __CreateAggregateAlertInput is used internally by genqlient
 type __CreateAggregateAlertInput struct {
@@ -15243,22 +14824,6 @@ func (v *__UnassignParserToIngestTokenInput) GetRepositoryName() string { return
 // GetIngestTokenName returns __UnassignParserToIngestTokenInput.IngestTokenName, and is useful for accessing the field via an interface.
 func (v *__UnassignParserToIngestTokenInput) GetIngestTokenName() string { return v.IngestTokenName }
 
-// __UnassignRoleFromGroupInput is used internally by genqlient
-type __UnassignRoleFromGroupInput struct {
-	GroupId string `json:"GroupId"`
-	ViewId  string `json:"ViewId"`
-	RoleId  string `json:"RoleId"`
-}
-
-// GetGroupId returns __UnassignRoleFromGroupInput.GroupId, and is useful for accessing the field via an interface.
-func (v *__UnassignRoleFromGroupInput) GetGroupId() string { return v.GroupId }
-
-// GetViewId returns __UnassignRoleFromGroupInput.ViewId, and is useful for accessing the field via an interface.
-func (v *__UnassignRoleFromGroupInput) GetViewId() string { return v.ViewId }
-
-// GetRoleId returns __UnassignRoleFromGroupInput.RoleId, and is useful for accessing the field via an interface.
-func (v *__UnassignRoleFromGroupInput) GetRoleId() string { return v.RoleId }
-
 // __UnregisterClusterNodeInput is used internally by genqlient
 type __UnregisterClusterNodeInput struct {
 	NodeId int  `json:"NodeId"`
@@ -15982,54 +15547,6 @@ func AssignParserToIngestToken(
 	return data_, err_
 }
 
-// The mutation executed by AssignRoleToGroup.
-const AssignRoleToGroup_Operation = `
-mutation AssignRoleToGroup ($GroupId: String!, $ViewId: String!, $RoleId: String!) {
-	assignRoleToGroup(input: {groupId:$GroupId,viewId:$ViewId,roleId:$RoleId}) {
-		group {
-			role {
-				id
-				displayName
-			}
-			searchDomain {
-				__typename
-				id
-				name
-			}
-		}
-	}
-}
-`
-
-func AssignRoleToGroup(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	GroupId string,
-	ViewId string,
-	RoleId string,
-) (data_ *AssignRoleToGroupResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "AssignRoleToGroup",
-		Query:  AssignRoleToGroup_Operation,
-		Variables: &__AssignRoleToGroupInput{
-			GroupId: GroupId,
-			ViewId:  ViewId,
-			RoleId:  RoleId,
-		},
-	}
-
-	data_ = &AssignRoleToGroupResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The mutation executed by CreateAggregateAlert.
 const CreateAggregateAlert_Operation = `
 mutation CreateAggregateAlert ($SearchDomainName: RepoOrViewName!, $Name: String!, $Description: String, $QueryString: String!, $SearchIntervalSeconds: Long!, $ActionIdsOrNames: [String!]!, $Labels: [String!]!, $Enabled: Boolean!, $ThrottleField: String, $ThrottleTimeSeconds: Long!, $TriggerMode: TriggerMode!, $QueryTimestampMode: QueryTimestampType!, $QueryOwnershipType: QueryOwnershipType!) {
@@ -16319,9 +15836,14 @@ const CreateGroup_Operation = `
 mutation CreateGroup ($DisplayName: String!, $LookupName: String) {
 	addGroup(displayName: $DisplayName, lookupName: $LookupName) {
 		group {
-			id
+			... GroupDetails
 		}
 	}
+}
+fragment GroupDetails on Group {
+	id
+	displayName
+	lookupName
 }
 `
 
@@ -17084,11 +16606,14 @@ const DeleteGroup_Operation = `
 mutation DeleteGroup ($GroupId: String!) {
 	removeGroup(groupId: $GroupId) {
 		group {
-			displayName
-			userCount
-			searchDomainCount
+			... GroupDetails
 		}
 	}
+}
+fragment GroupDetails on Group {
+	id
+	displayName
+	lookupName
 }
 `
 
@@ -17695,17 +17220,6 @@ fragment GroupDetails on Group {
 	id
 	displayName
 	lookupName
-	roles {
-		role {
-			id
-			displayName
-		}
-		searchDomain {
-			__typename
-			id
-			name
-		}
-	}
 }
 `
 
@@ -18859,49 +18373,6 @@ func UnassignParserToIngestToken(
 	return data_, err_
 }
 
-// The mutation executed by UnassignRoleFromGroup.
-const UnassignRoleFromGroup_Operation = `
-mutation UnassignRoleFromGroup ($GroupId: String!, $ViewId: String!, $RoleId: String!) {
-	unassignRoleFromGroup(input: {groupId:$GroupId,viewId:$ViewId,roleId:$RoleId}) {
-		group {
-			id
-			displayName
-			userCount
-			searchDomainCount
-		}
-	}
-}
-`
-
-func UnassignRoleFromGroup(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	GroupId string,
-	ViewId string,
-	RoleId string,
-) (data_ *UnassignRoleFromGroupResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "UnassignRoleFromGroup",
-		Query:  UnassignRoleFromGroup_Operation,
-		Variables: &__UnassignRoleFromGroupInput{
-			GroupId: GroupId,
-			ViewId:  ViewId,
-			RoleId:  RoleId,
-		},
-	}
-
-	data_ = &UnassignRoleFromGroupResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The mutation executed by UnregisterClusterNode.
 const UnregisterClusterNode_Operation = `
 mutation UnregisterClusterNode ($NodeId: Int!, $Force: Boolean!) {
@@ -19275,9 +18746,14 @@ const UpdateGroup_Operation = `
 mutation UpdateGroup ($GroupId: String!, $DisplayName: String, $LookupName: String) {
 	updateGroup(input: {groupId:$GroupId,displayName:$DisplayName,lookupName:$LookupName}) {
 		group {
-			id
+			... GroupDetails
 		}
 	}
+}
+fragment GroupDetails on Group {
+	id
+	displayName
+	lookupName
 }
 `
 

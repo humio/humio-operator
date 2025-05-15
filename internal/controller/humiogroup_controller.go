@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -130,7 +129,7 @@ func (r *HumioGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			if addErr != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create group")
 			}
-			r.Log.Info("created group", "GroupName", hg.Spec.DisplayName)
+			r.Log.Info("created group", "GroupName", hg.Spec.Name)
 			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not check if group exists")
@@ -178,33 +177,9 @@ func (r *HumioGroupReconciler) logErrorAndReturn(err error, msg string) error {
 func groupAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioGroup, fromGraphQL *humiographql.GroupDetails) (bool, map[string]string) {
 	keyValues := map[string]string{}
 
-	if diff := cmp.Diff(fromGraphQL.GetDisplayName(), &fromKubernetesCustomResource.Spec.DisplayName); diff != "" {
-		keyValues["displayName"] = diff
-	}
-	if diff := cmp.Diff(fromGraphQL.GetLookupName(), &fromKubernetesCustomResource.Spec.LookupName); diff != "" {
-		keyValues["lookupName"] = diff
-	}
-
-	roleAssignmentsFromGraphQL := make([]string, len(fromGraphQL.GetRoles()))
-	for _, assignment := range fromGraphQL.GetRoles() {
-		role := assignment.GetRole()
-		view := assignment.GetSearchDomain()
-		roleAssignmentsFromGraphQL = append(roleAssignmentsFromGraphQL, formatRoleAssignmentString(role.GetDisplayName(), view.GetName()))
-	}
-	roleAssignmentsFromKubernetes := make([]string, len(fromKubernetesCustomResource.Spec.Assignments))
-	for _, assignment := range fromKubernetesCustomResource.Spec.Assignments {
-		roleAssignmentsFromKubernetes = append(roleAssignmentsFromKubernetes, formatRoleAssignmentString(assignment.RoleName, assignment.ViewName))
-	}
-	// sort the two lists for comparison
-	sort.Strings(roleAssignmentsFromGraphQL)
-	sort.Strings(roleAssignmentsFromKubernetes)
-	if diff := cmp.Diff(roleAssignmentsFromGraphQL, roleAssignmentsFromKubernetes); diff != "" {
-		keyValues["roleAssignments"] = diff
+	if diff := cmp.Diff(fromGraphQL.GetLookupName(), fromKubernetesCustomResource.Spec.ExternalMappingName); diff != "" {
+		keyValues["externalMappingName"] = diff
 	}
 
 	return len(keyValues) == 0, keyValues
-}
-
-func formatRoleAssignmentString(roleName string, viewName string) string {
-	return fmt.Sprintf("%s:%s", roleName, viewName)
 }

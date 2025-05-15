@@ -36850,8 +36850,10 @@ HumioGroup is the Schema for the humiogroups API
         <td>object</td>
         <td>
           HumioGroupSpec defines the desired state of HumioGroup.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
         <td><b><a href="#humiogroupstatus">status</a></b></td>
         <td>object</td>
@@ -36880,19 +36882,14 @@ HumioGroupSpec defines the desired state of HumioGroup.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>displayName</b></td>
+        <td><b>name</b></td>
         <td>string</td>
         <td>
-          DisplayName is the display name of the HumioGroup<br/>
+          Name is the display name of the HumioGroup<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
         </td>
         <td>true</td>
-      </tr><tr>
-        <td><b><a href="#humiogroupspecassignmentsindex">assignments</a></b></td>
-        <td>[]object</td>
-        <td>
-          Assignments contains the list of role assignments for the group<br/>
-        </td>
-        <td>false</td>
       </tr><tr>
         <td><b>externalClusterName</b></td>
         <td>string</td>
@@ -36902,10 +36899,10 @@ This conflicts with ManagedClusterName.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b>lookupName</b></td>
+        <td><b>externalMappingName</b></td>
         <td>string</td>
         <td>
-          LookupName is the lookup name of the HumioGroup<br/>
+          ExternalMappingName is the mapping name from the external provider that will assign the user to this HumioGroup<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -36917,40 +36914,6 @@ resources should be created.
 This conflicts with ExternalClusterName.<br/>
         </td>
         <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### HumioGroup.spec.assignments[index]
-<sup><sup>[↩ Parent](#humiogroupspec)</sup></sup>
-
-
-
-HumioGroupRoleAssignment represents a role assignment for a group
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>roleName</b></td>
-        <td>string</td>
-        <td>
-          RoleName contains the name of the role to assign<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>viewName</b></td>
-        <td>string</td>
-        <td>
-          ViewName contains the name of the view to associate the group with<br/>
-        </td>
-        <td>true</td>
       </tr></tbody>
 </table>
 
