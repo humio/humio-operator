@@ -24,6 +24,8 @@ Resource Types:
 
 - [HumioFilterAlert](#humiofilteralert)
 
+- [HumioGroup](#humiogroup)
+
 - [HumioIngestToken](#humioingesttoken)
 
 - [HumioParser](#humioparser)
@@ -36802,6 +36804,178 @@ HumioFilterAlertStatus defines the observed state of HumioFilterAlert.
         <td>string</td>
         <td>
           State reflects the current state of the HumioFilterAlert<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioGroup
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioGroup is the Schema for the humiogroups API
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioGroup</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiogroupspec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioGroupSpec defines the desired state of HumioGroup.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiogroupstatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioGroupStatus defines the observed state of HumioGroup.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioGroup.spec
+<sup><sup>[↩ Parent](#humiogroup)</sup></sup>
+
+
+
+HumioGroupSpec defines the desired state of HumioGroup.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>displayName</b></td>
+        <td>string</td>
+        <td>
+          DisplayName is the display name of the HumioGroup<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiogroupspecassignmentsindex">assignments</a></b></td>
+        <td>[]object</td>
+        <td>
+          Assignments contains the list of role assignments for the group<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+This conflicts with ManagedClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lookupName</b></td>
+        <td>string</td>
+        <td>
+          LookupName is the lookup name of the HumioGroup<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+resources should be created.
+This conflicts with ExternalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioGroup.spec.assignments[index]
+<sup><sup>[↩ Parent](#humiogroupspec)</sup></sup>
+
+
+
+HumioGroupRoleAssignment represents a role assignment for a group
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>roleName</b></td>
+        <td>string</td>
+        <td>
+          RoleName contains the name of the role to assign<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>viewName</b></td>
+        <td>string</td>
+        <td>
+          ViewName contains the name of the view to associate the group with<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioGroup.status
+<sup><sup>[↩ Parent](#humiogroup)</sup></sup>
+
+
+
+HumioGroupStatus defines the observed state of HumioGroup.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State reflects the current state of the HumioGroup<br/>
         </td>
         <td>false</td>
       </tr></tbody>
