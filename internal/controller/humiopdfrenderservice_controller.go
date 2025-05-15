@@ -372,23 +372,23 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 
 	// After successful update, if we're updating the deployment, ensure we get the latest version
 	// with updated status fields to properly check readiness
-	if op == controllerutil.OperationResultUpdated {
-		// Use APIReader to get the most up-to-date version of the deployment
-		freshDep := &appsv1.Deployment{}
-		if err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(dep), freshDep); err != nil {
-			if !k8serrors.IsNotFound(err) {
-				log.Error(err, "Failed to get fresh deployment after update", "deploymentName", dep.Name)
-			}
-			// Continue with the existing deployment object if we can't get a fresh one
-		} else {
-			// Use the fresh deployment with the most up-to-date status
-			dep = freshDep
-			log.Info("Retrieved fresh deployment after update",
-				"deploymentName", dep.Name,
-				"generation", dep.Generation,
-				"observedGeneration", dep.Status.ObservedGeneration,
-				"readyReplicas", dep.Status.ReadyReplicas)
+	// After successful creation or update, ensure we get the latest version
+	// with updated status fields to properly check readiness
+	// Use APIReader to get the most up-to-date version of the deployment
+	freshDep := &appsv1.Deployment{}
+	if err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(dep), freshDep); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			log.Error(err, "Failed to get fresh deployment after reconciliation", "deploymentName", dep.Name)
 		}
+		// Continue with the existing deployment object if we can't get a fresh one
+	} else {
+		// Use the fresh deployment with the most up-to-date status
+		dep = freshDep
+		log.Info("Retrieved fresh deployment after reconciliation",
+			"deploymentName", dep.Name,
+			"generation", dep.Generation,
+			"observedGeneration", dep.Status.ObservedGeneration,
+			"readyReplicas", dep.Status.ReadyReplicas)
 	}
 
 	if op != controllerutil.OperationResultNone {
