@@ -239,7 +239,8 @@ func (r *HumioPdfRenderServiceReconciler) deleteChildren(ctx context.Context, hp
 	selector := client.MatchingLabels{"humio-pdf-render-service": hprs.Name}
 
 	// Delete all Deployments
-	if err := r.Client.DeleteAllOf(
+
+	if err := r.DeleteAllOf(
 		ctx,
 		&appsv1.Deployment{},
 		client.InNamespace(hprs.Namespace),
@@ -250,7 +251,7 @@ func (r *HumioPdfRenderServiceReconciler) deleteChildren(ctx context.Context, hp
 	}
 
 	// Delete all Services
-	if err := r.Client.DeleteAllOf(
+	if err := r.DeleteAllOf(
 		ctx,
 		&corev1.Service{},
 		client.InNamespace(hprs.Namespace),
@@ -264,6 +265,7 @@ func (r *HumioPdfRenderServiceReconciler) deleteChildren(ctx context.Context, hp
 	return nil
 }
 
+// reconcileDeployment creates or updates the Deployment for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) (controllerutil.OperationResult, *appsv1.Deployment, error) {
 	log := r.Log.WithValues("function", "reconcileDeployment")
 	desired := r.constructDesiredDeployment(hprs)
@@ -397,6 +399,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 	return op, dep, nil
 }
 
+// reconcileService creates or updates the Service for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) reconcileService(
 	ctx context.Context,
 	hprs *humiov1alpha1.HumioPdfRenderService,
@@ -446,6 +449,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(
 	return nil
 }
 
+// constructDesiredDeployment creates a new Deployment object for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(
 	hprs *humiov1alpha1.HumioPdfRenderService,
 ) *appsv1.Deployment {
@@ -488,6 +492,7 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(
 	}
 }
 
+// Get the port for the PDF Render Service
 func getPdfRenderServicePort(hprs *humiov1alpha1.HumioPdfRenderService) int32 {
 	if hprs.Spec.Port != 0 {
 		return hprs.Spec.Port
@@ -495,6 +500,7 @@ func getPdfRenderServicePort(hprs *humiov1alpha1.HumioPdfRenderService) int32 {
 	return DefaultPdfRenderServicePort
 }
 
+// buildRuntimeAssets constructs the runtime assets for the PDF Render Service.
 func (r *HumioPdfRenderServiceReconciler) buildRuntimeAssets(
 	hprs *humiov1alpha1.HumioPdfRenderService,
 	port int32,
@@ -517,6 +523,7 @@ func (r *HumioPdfRenderServiceReconciler) buildRuntimeAssets(
 	return dedupEnvVars(envVars), dedupVolumes(vols), dedupVolumeMounts(mounts)
 }
 
+// buildPDFContainer constructs the container for the PDF Render Service.
 func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 	hprs *humiov1alpha1.HumioPdfRenderService,
 	port int32,
@@ -565,6 +572,7 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 	return container
 }
 
+// constructDesiredService creates a new Service object for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) constructDesiredService(hprs *humiov1alpha1.HumioPdfRenderService) *corev1.Service {
 	labels := labelsForHumioPdfRenderService(hprs.Name)
 	port := getPdfRenderServicePort(hprs)
@@ -595,6 +603,8 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredService(hprs *humiov1a
 	return svc
 }
 
+// tlsVolumesAndMounts constructs the TLS volumes and mounts for the PDF Render Service.
+// It also sets the appropriate environment variables for TLS configuration.
 func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha1.HumioPdfRenderService, env *[]corev1.EnvVar) ([]corev1.Volume, []corev1.VolumeMount) {
 	var vols []corev1.Volume
 	var mounts []corev1.VolumeMount
@@ -634,6 +644,9 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 	return dedupVolumes(vols), dedupVolumeMounts(mounts)
 }
 
+// validateTLSConfiguration checks if the TLS configuration is valid.
+// It verifies that the server certificate secret exists and contains the required keys.
+// It also checks if the CA certificate secret exists if specified.
 func (r *HumioPdfRenderServiceReconciler) validateTLSConfiguration(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
 	// Check hprs.Spec.TLS and hprs.Spec.TLS.Enabled safely
 	if hprs.Spec.TLS == nil || hprs.Spec.TLS.Enabled == nil || !*hprs.Spec.TLS.Enabled {
@@ -673,14 +686,17 @@ func (r *HumioPdfRenderServiceReconciler) validateTLSConfiguration(ctx context.C
 	return nil
 }
 
+// childName generates the name for the child resources (Deployment, Service) of the HumioPdfRenderService.
 func childName(hprs *humiov1alpha1.HumioPdfRenderService) string {
 	return hprs.Name + childSuffix
 }
 
+// labelsForHumioPdfRenderService returns the labels for the HumioPdfRenderService resources.
 func labelsForHumioPdfRenderService(name string) map[string]string {
 	return map[string]string{"app": "humio-pdf-render-service", "humio-pdf-render-service": name}
 }
 
+// updateStatus updates the status of the HumioPdfRenderService resource.
 func (r *HumioPdfRenderServiceReconciler) updateStatus(
 	ctx context.Context,
 	hprsForStatusUpdate *humiov1alpha1.HumioPdfRenderService,
@@ -821,6 +837,7 @@ func setStatusCondition(hprs *humiov1alpha1.HumioPdfRenderService, condition met
 	meta.SetStatusCondition(&hprs.Status.Conditions, condition)
 }
 
+// findHumioPdfRenderServicesForHumioCluster returns a list of reconcile.Requests for HumioPdfRenderService resources
 func (r *HumioPdfRenderServiceReconciler) findHumioPdfRenderServicesForHumioCluster(ctx context.Context, obj client.Object) []reconcile.Request {
 	log := r.BaseLogger.WithValues("function", "findHumioPdfRenderServicesForHumioCluster")
 	humioCluster, ok := obj.(*humiov1alpha1.HumioCluster)
@@ -853,6 +870,7 @@ func (r *HumioPdfRenderServiceReconciler) findHumioPdfRenderServicesForHumioClus
 	return requests
 }
 
+// dedupEnvVars, dedupVolumes, and dedupVolumeMounts are utility functions to remove duplicates from slices
 func dedupEnvVars(envVars []corev1.EnvVar) []corev1.EnvVar {
 	seen := make(map[string]corev1.EnvVar)
 	order := []string{}
