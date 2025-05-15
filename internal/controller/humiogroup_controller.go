@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
@@ -16,13 +19,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sort"
-	"time"
 )
 
 // HumioGroupReconciler reconciles a HumioGroup object
 type HumioGroupReconciler struct {
 	client.Client
+	CommonConfig
 	BaseLogger  logr.Logger
 	Log         logr.Logger
 	HumioClient humio.Client
@@ -144,8 +146,8 @@ func (r *HumioGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}
 
-	r.Log.Info("done reconciling, will requeue after 15 seconds")
-	return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
+	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
