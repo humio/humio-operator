@@ -252,5 +252,8 @@ install_yq
 start_kind_cluster
 preload_container_images
 kubectl_create_dockerhub_secret
+helm_install_shippers
+helm_install_zookeeper_and_kafka
+wait_for_kafka_ready
 
 run_test_suite
