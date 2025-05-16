@@ -228,10 +228,14 @@ wait_for_cluster_ready() {
       sleep $interval
       elapsed=$((elapsed + interval))
 
-      if kubectl wait --for=condition=ready -l app.kubernetes.io/instance=test-cluster pod --timeout=5m; then
-        sleep 30
+      if kubectl wait --for=condition=ready -l app.kubernetes.io/instance=test-cluster pod --timeout=30s; then
+        sleep 10
         break
       fi
+
+      kubectl get pods -l app.kubernetes.io/instance=test-cluster
+      kubectl describe pods -l app.kubernetes.io/instance=test-cluster
+      kubectl logs -l app.kubernetes.io/instance=test-cluster | tail -100
     done
 }
 
