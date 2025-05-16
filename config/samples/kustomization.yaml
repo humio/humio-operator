@@ -25,4 +25,5 @@ resources:
 - core_v1alpha1_humioscheduledsearch.yaml
 - core_v1alpha1_humioview.yaml
 - core_v1alpha1_humiouser.yaml
+- core_v1alpha1_humiopdfrenderservice.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

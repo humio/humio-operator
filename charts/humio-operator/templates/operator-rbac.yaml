@@ -112,6 +112,9 @@ rules:
   - humioscheduledsearches
   - humioscheduledsearches/finalizers
   - humioscheduledsearches/status
+  - humiopdfrenderservices
+  - humiopdfrenderservices/finalizers
+  - humiopdfrenderservices/status
   verbs:
   - create
   - delete
