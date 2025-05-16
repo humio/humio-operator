@@ -239,6 +239,30 @@ wait_for_cluster_ready() {
     done
 }
 
+wait_for_kafka_ready () {
+    local timeout=300  # 5 minutes
+    local interval=10  # 10 seconds
+    local elapsed=0
+
+    zookeeper_ready=
+    kafka_ready=
+
+    while [ $elapsed -lt $timeout ]; do
+      sleep $interval
+      elapsed=$((elapsed + interval))
+      if kubectl wait --for=condition=ready -l app=cp-zookeeper pod --timeout=30s; then
+        zookeeper_ready="true"
+      fi
+      if kubectl wait --for=condition=ready -l app=cp-kafka pod --timeout=30s; then
+        kafka_ready="true"
+      fi
+      if [ "${zookeeper_ready}" == "true" ] && [ "${kafka_ready}" == "true" ]; then
+        sleep 2
+        break
+      fi
+    done
+}
+
 if [ ! -d $bin_dir ]; then
   mkdir -p $bin_dir
 fi
@@ -252,5 +276,6 @@ install_yq
 start_kind_cluster
 preload_container_images
 kubectl_create_dockerhub_secret
+wait_for_kafka_ready
 
 run_test_suite
