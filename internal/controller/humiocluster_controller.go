@@ -232,8 +232,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if result, err := r.ensureHumioClusterBootstrapToken(ctx, hc); result != emptyResult || err != nil {
 			if err != nil {
 				_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
-					withState(hc.Status.State).  // Use in-memory state set by sub-function (e.g., reconcileWithExternalPdfService or reconcileWithoutPdfService)
-					withMessage(pdfErr.Error()). // Use the error from sub-function as the message
+					withState(hc.Status.State). // Use in-memory state set by sub-function (e.g., reconcileWithExternalPdfService or reconcileWithoutPdfService)
+					withMessage(err.Error()).   // Use the actual error from ensureHumioClusterBootstrapToken
 					withObservedGeneration(hc.GetGeneration()))
 			}
 			return result, err

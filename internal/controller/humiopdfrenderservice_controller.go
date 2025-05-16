@@ -278,6 +278,15 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 		},
 	}
 
+	if err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(dep), dep); err == nil {
+		if k8sApiEquality.Semantic.DeepEqual(dep.Spec, desired.Spec) &&
+			k8sApiEquality.Semantic.DeepEqual(dep.Labels, desired.Labels) &&
+			k8sApiEquality.Semantic.DeepEqual(dep.Annotations, desired.Annotations) {
+			log.Info("Deployment already up-to-date")
+			return controllerutil.OperationResultNone, dep, nil
+		}
+	}
+
 	op := controllerutil.OperationResultNone
 
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -523,6 +532,36 @@ func (r *HumioPdfRenderServiceReconciler) buildRuntimeAssets(
 	return dedupEnvVars(envVars), dedupVolumes(vols), dedupVolumeMounts(mounts)
 }
 
+// cleanResources removes 0-valued CPU/Memory requests & limits so the object
+// stored by the API server equals the one we later rebuild in reconcile loops.
+func cleanResources(rr corev1.ResourceRequirements) corev1.ResourceRequirements {
+	clean := corev1.ResourceRequirements{}
+
+	// Requests
+	if len(rr.Requests) > 0 {
+		for k, v := range rr.Requests {
+			if !v.IsZero() {
+				if clean.Requests == nil {
+					clean.Requests = corev1.ResourceList{}
+				}
+				clean.Requests[k] = v.DeepCopy()
+			}
+		}
+	}
+	// Limits
+	if len(rr.Limits) > 0 {
+		for k, v := range rr.Limits {
+			if !v.IsZero() {
+				if clean.Limits == nil {
+					clean.Limits = corev1.ResourceList{}
+				}
+				clean.Limits[k] = v.DeepCopy()
+			}
+		}
+	}
+	return clean
+}
+
 // buildPDFContainer constructs the container for the PDF Render Service.
 func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 	hprs *humiov1alpha1.HumioPdfRenderService,
@@ -533,13 +572,12 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 	container := corev1.Container{
 		Name:  "humio-pdf-render-service",
 		Image: hprs.Spec.Image,
-		// ImagePullPolicy is not on HPRS spec, defaults or set on container directly if needed
 		Ports: []corev1.ContainerPort{
 			{Name: "http", ContainerPort: port, Protocol: corev1.ProtocolTCP},
 		},
 		Env:          envVars,
 		VolumeMounts: mounts,
-		Resources:    hprs.Spec.Resources,
+		Resources:    cleanResources(hprs.Spec.Resources),
 	}
 
 	defaultLivenessProbe := &corev1.Probe{
@@ -568,7 +606,12 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 		container.SecurityContext = hprs.Spec.SecurityContext
 	}
 
-	r.Log.Info("Creating container with resources", "memoryRequests", container.Resources.Requests.Memory().String(), "cpuRequests", container.Resources.Requests.Cpu().String(), "memoryLimits", container.Resources.Limits.Memory().String(), "cpuLimits", container.Resources.Limits.Cpu().String())
+	r.Log.Info("Creating container with resources",
+		"memoryRequests", container.Resources.Requests.Memory().String(),
+		"cpuRequests", container.Resources.Requests.Cpu().String(),
+		"memoryLimits", container.Resources.Limits.Memory().String(),
+		"cpuLimits", container.Resources.Limits.Cpu().String())
+
 	return container
 }
 
