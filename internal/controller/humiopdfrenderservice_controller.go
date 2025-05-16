@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sort"
 	"time"
 
@@ -739,140 +740,115 @@ func labelsForHumioPdfRenderService(name string) map[string]string {
 	return map[string]string{"app": "humio-pdf-render-service", "humio-pdf-render-service": name}
 }
 
-// updateStatus updates the status of the HumioPdfRenderService resource.
 func (r *HumioPdfRenderServiceReconciler) updateStatus(
 	ctx context.Context,
-	hprsForStatusUpdate *humiov1alpha1.HumioPdfRenderService,
-	currentStateFromReconcileLoop string,
+	hprs *humiov1alpha1.HumioPdfRenderService,
+	targetState string,
 	reconcileErr error,
 ) error {
-	log := r.Log.WithValues("function", "updateStatus", "targetState", currentStateFromReconcileLoop)
+	log := r.Log.WithValues("function", "updateStatus", "targetState", targetState)
 
-	// Always update ObservedGeneration
-	hprsForStatusUpdate.Status.ObservedGeneration = hprsForStatusUpdate.Generation
+	// ------------------------------------------------------------------
+	// 1. Build the *desired* status in-memory
+	// ------------------------------------------------------------------
+	desired := hprs.Status.DeepCopy()
 
-	// Update State and Message based on the outcome of the reconcile loop
-	hprsForStatusUpdate.Status.State = currentStateFromReconcileLoop
+	desired.ObservedGeneration = hprs.Generation
+	desired.State = targetState
+
 	if reconcileErr != nil {
-		hprsForStatusUpdate.Status.Message = fmt.Sprintf("Reconciliation failed: %v", reconcileErr)
-	} else if hprsForStatusUpdate.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning || hprsForStatusUpdate.Status.State == humiov1alpha1.HumioPdfRenderServiceStateScaledDown {
-		hprsForStatusUpdate.Status.Message = "" // Clear message on success/scaled down
+		desired.Message = fmt.Sprintf("Reconciliation failed: %v", reconcileErr)
+	} else if targetState == humiov1alpha1.HumioPdfRenderServiceStateRunning ||
+		targetState == humiov1alpha1.HumioPdfRenderServiceStateScaledDown {
+		desired.Message = ""
 	}
 
-	// Update Conditions based on the determined state
-	// Condition: Available
-	availableStatus := metav1.ConditionFalse
-	availableReason := "DeploymentUnavailable"
-	availableMessage := "Deployment is not available"
-	switch hprsForStatusUpdate.Status.State {
-	case humiov1alpha1.HumioPdfRenderServiceStateRunning:
-		availableStatus = metav1.ConditionTrue
-		availableReason = "DeploymentAvailable"
-		availableMessage = "Deployment is available and ready"
-	case humiov1alpha1.HumioPdfRenderServiceStateScaledDown:
-		availableStatus = metav1.ConditionFalse
-		availableReason = "ScaledDown"
-		availableMessage = "HPRS is scaled down to 0 replicas"
-	}
-	setStatusCondition(hprsForStatusUpdate, metav1.Condition{
-		Type:               string(humiov1alpha1.HumioPdfRenderServiceAvailable),
-		Status:             availableStatus,
-		Reason:             availableReason,
-		Message:            availableMessage,
-		LastTransitionTime: metav1.Now(),
-		ObservedGeneration: hprsForStatusUpdate.Generation,
-	})
+	// ----- Conditions --------------------------------------------------
+	setStatusCondition(&humiov1alpha1.HumioPdfRenderService{
+		Status: *desired,
+	}, buildCondition(
+		string(humiov1alpha1.HumioPdfRenderServiceAvailable),
+		targetState == humiov1alpha1.HumioPdfRenderServiceStateRunning,
+		"DeploymentAvailable", "DeploymentUnavailable",
+	))
 
-	// Condition: Progressing
-	progressingStatus := metav1.ConditionFalse
-	progressingReason := "ReconciliationComplete"
-	progressingMessage := "Reconciliation is complete"
-	if hprsForStatusUpdate.Status.State == humiov1alpha1.HumioPdfRenderServiceStateConfiguring {
-		progressingStatus = metav1.ConditionTrue
-		progressingReason = "Configuring"
-		progressingMessage = hprsForStatusUpdate.Status.Message // Use the stateReason from reconcile loop
-	}
-	setStatusCondition(hprsForStatusUpdate, metav1.Condition{
-		Type:               string(humiov1alpha1.HumioPdfRenderServiceProgressing),
-		Status:             progressingStatus,
-		Reason:             progressingReason,
-		Message:            progressingMessage,
-		LastTransitionTime: metav1.Now(),
-		ObservedGeneration: hprsForStatusUpdate.Generation,
-	})
+	setStatusCondition(&humiov1alpha1.HumioPdfRenderService{
+		Status: *desired,
+	}, buildCondition(
+		string(humiov1alpha1.HumioPdfRenderServiceProgressing),
+		targetState == humiov1alpha1.HumioPdfRenderServiceStateConfiguring,
+		"Configuring", "ReconciliationComplete",
+		desired.Message,
+	))
 
-	// Condition: Degraded
-	degradedStatus := metav1.ConditionFalse
-	degradedReason := "ReconciliationSucceeded"
-	degradedMessage := "Reconciliation succeeded"
-	if hprsForStatusUpdate.Status.State == humiov1alpha1.HumioPdfRenderServiceStateConfigError {
-		degradedStatus = metav1.ConditionTrue
-		degradedReason = "ConfigError"
-		degradedMessage = hprsForStatusUpdate.Status.Message // Use the error message from reconcile loop
-	} else if reconcileErr != nil {
-		degradedStatus = metav1.ConditionTrue
-		degradedReason = "ReconciliationFailed"
-		degradedMessage = fmt.Sprintf("Reconciliation failed: %v", reconcileErr)
-	}
-	setStatusCondition(hprsForStatusUpdate, metav1.Condition{
-		Type:               string(humiov1alpha1.HumioPdfRenderServiceDegraded),
-		Status:             degradedStatus,
-		Reason:             degradedReason,
-		Message:            degradedMessage,
-		LastTransitionTime: metav1.Now(),
-		ObservedGeneration: hprsForStatusUpdate.Generation,
-	})
+	setStatusCondition(&humiov1alpha1.HumioPdfRenderService{
+		Status: *desired,
+	}, buildCondition(
+		string(humiov1alpha1.HumioPdfRenderServiceDegraded),
+		targetState == humiov1alpha1.HumioPdfRenderServiceStateConfigError || reconcileErr != nil,
+		"ConfigError", "ReconciliationSucceeded",
+		desired.Message,
+	))
 
-	// Condition: ScaledDown
-	scaledDownStatus := metav1.ConditionFalse
-	scaledDownReason := "NotScaledDown"
-	scaledDownMessage := "HPRS is not scaled down"
-	if hprsForStatusUpdate.Status.State == humiov1alpha1.HumioPdfRenderServiceStateScaledDown {
-		scaledDownStatus = metav1.ConditionTrue
-		scaledDownReason = "ScaledDown"
-		scaledDownMessage = "HPRS is scaled down to 0 replicas"
-	}
-	setStatusCondition(hprsForStatusUpdate, metav1.Condition{
-		Type:               string(humiov1alpha1.HumioPdfRenderServiceScaledDown),
-		Status:             scaledDownStatus,
-		Reason:             scaledDownReason,
-		Message:            scaledDownMessage,
-		LastTransitionTime: metav1.Now(),
-		ObservedGeneration: hprsForStatusUpdate.Generation,
-	})
+	setStatusCondition(&humiov1alpha1.HumioPdfRenderService{
+		Status: *desired,
+	}, buildCondition(
+		string(humiov1alpha1.HumioPdfRenderServiceScaledDown),
+		targetState == humiov1alpha1.HumioPdfRenderServiceStateScaledDown,
+		"ScaledDown", "NotScaledDown",
+	))
 
-	// Attempt to update the status with retries
-	statusUpdateErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		currentHprs := &humiov1alpha1.HumioPdfRenderService{}
-		err := r.Get(ctx, types.NamespacedName{Name: hprsForStatusUpdate.Name, Namespace: hprsForStatusUpdate.Namespace}, currentHprs)
-		if err != nil {
-			return err // Return the error to RetryOnConflict
+	// ------------------------------------------------------------------
+	// 2. Short-circuit if nothing actually changed
+	// ------------------------------------------------------------------
+	if reflect.DeepEqual(hprs.Status, *desired) {
+		return nil
+	}
+
+	// ------------------------------------------------------------------
+	// 3. Persist the new status with conflict-retry
+	// ------------------------------------------------------------------
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &humiov1alpha1.HumioPdfRenderService{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(hprs), current); err != nil {
+			return err
 		}
 
-		// Update the status fields on the fetched object
-		currentHprs.Status.ObservedGeneration = hprsForStatusUpdate.Status.ObservedGeneration
-		currentHprs.Status.State = hprsForStatusUpdate.Status.State
-		currentHprs.Status.Message = hprsForStatusUpdate.Status.Message
-		currentHprs.Status.ReadyReplicas = hprsForStatusUpdate.Status.ReadyReplicas
-		currentHprs.Status.Conditions = hprsForStatusUpdate.Status.Conditions // Copy the updated conditions
-
-		updateErr := r.Status().Update(ctx, currentHprs)
-		if updateErr == nil {
-			log.Info("Successfully updated HumioPdfRenderService status.")
-			return nil // Success
+		current.Status = *desired
+		if err := r.Status().Update(ctx, current); err != nil {
+			if k8serrors.IsConflict(err) {
+				log.Info("Status conflict – retrying")
+			} else {
+				log.Error(err, "Failed to update status")
+			}
+			return err
 		}
-		if k8serrors.IsConflict(updateErr) {
-			log.Info("Conflict updating status, will retry.")
-			return updateErr // Return conflict error to RetryOnConflict
-		}
-		return updateErr // Return other errors to RetryOnConflict
+		log.Info("Status updated", "observedGeneration", desired.ObservedGeneration, "state", desired.State)
+		return nil
 	})
-	if statusUpdateErr != nil {
-		log.Error(statusUpdateErr, "Failed to update HumioPdfRenderService status after retries.")
-		return statusUpdateErr
-	}
+}
 
-	return nil // Status update successful
+// ----------------------------------------------------------------------
+// helpers
+// ----------------------------------------------------------------------
+func buildCondition(condType string, trueStatus bool, trueReason, falseReason string, msg ...string) metav1.Condition {
+	status := metav1.ConditionFalse
+	reason := falseReason
+	if trueStatus {
+		status = metav1.ConditionTrue
+		reason = trueReason
+	}
+	message := ""
+	if len(msg) > 0 {
+		message = msg[0]
+	}
+	return metav1.Condition{
+		Type:               condType,
+		Status:             status,
+		Reason:             reason,
+		Message:            message,
+		LastTransitionTime: metav1.Now(),
+	}
 }
 
 // setStatusCondition sets the given condition in the status of the HumioPdfRenderService.
