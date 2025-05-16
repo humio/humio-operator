@@ -254,7 +254,6 @@ preload_container_images
 kubectl_create_dockerhub_secret
 helm_install_shippers
 helm_install_zookeeper_and_kafka
-kubectl_create_dockerhub_secret
 wait_for_kafka_ready
 
 run_test_suite
