@@ -234,6 +234,8 @@ wait_for_cluster_ready() {
       fi
 
       kubectl get pods -l app.kubernetes.io/instance=test-cluster
+      kubectl describe pods -l app.kubernetes.io/instance=test-cluster
+      kubectl logs -l app.kubernetes.io/instance=test-cluster | tail -100
     done
 }
 
