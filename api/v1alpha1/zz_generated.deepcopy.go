@@ -617,6 +617,17 @@ func (in *HumioBootstrapTokenSpec) DeepCopyInto(out *HumioBootstrapTokenSpec) {
 		*out = new(v1.Affinity)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Tolerations != nil {
+		in, out := &in.Tolerations, &out.Tolerations
+		*out = new([]v1.Toleration)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make([]v1.Toleration, len(*in))
+			for i := range *in {
+				(*in)[i].DeepCopyInto(&(*out)[i])
+			}
+		}
+	}
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
 		*out = new(v1.ResourceRequirements)

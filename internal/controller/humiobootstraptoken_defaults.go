@@ -116,6 +116,22 @@ func (b *HumioBootstrapTokenConfig) affinity() *corev1.Affinity {
 	return nil
 }
 
+func (b *HumioBootstrapTokenConfig) tolerations() []corev1.Toleration {
+	if b.BootstrapToken.Spec.Tolerations != nil {
+		return *b.BootstrapToken.Spec.Tolerations
+	}
+	humioNodePools := getHumioNodePoolManagers(b.ManagedHumioCluster)
+	for idx := range humioNodePools.Items {
+		if humioNodePools.Items[idx].GetNodeCount() > 0 {
+			pod, err := ConstructPod(humioNodePools.Items[idx], "", &podAttachments{})
+			if err == nil {
+				return pod.Spec.Tolerations
+			}
+		}
+	}
+	return []corev1.Toleration{}
+}
+
 func (b *HumioBootstrapTokenConfig) resources() corev1.ResourceRequirements {
 	if b.BootstrapToken.Spec.Resources != nil {
 		return *b.BootstrapToken.Spec.Resources
@@ -132,10 +148,10 @@ func (b *HumioBootstrapTokenConfig) resources() corev1.ResourceRequirements {
 	}
 }
 
-func (b *HumioBootstrapTokenConfig) podName() string {
+func (b *HumioBootstrapTokenConfig) PodName() string {
 	return fmt.Sprintf("%s-%s", b.BootstrapToken.Name, bootstrapTokenPodNameSuffix)
 }
 
-func (b *HumioBootstrapTokenConfig) namespace() string {
+func (b *HumioBootstrapTokenConfig) Namespace() string {
 	return b.BootstrapToken.Namespace
 }

@@ -1875,6 +1875,14 @@ This conflicts with ExternalClusterName.<br/>
 token for the BootstrapToken rather than letting the operator create one by running a bootstrap token onetime pod<br/>
         </td>
         <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiobootstraptokenspectolerationsindex">tolerations</a></b></td>
+        <td>[]object</td>
+        <td>
+          Tolerations defines the tolerations for the bootstrap onetime pod. This will default to the tolerations of the first
+non-empty node pool if ManagedClusterName is set on the HumioBootstrapTokenSpec<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -3776,6 +3784,73 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
         <td>boolean</td>
         <td>
           Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioBootstrapToken.spec.tolerations[index]
+<sup><sup>[↩ Parent](#humiobootstraptokenspec)</sup></sup>
+
+
+
+The pod this Toleration is attached to tolerates any taint that matches
+the triple <key,value,effect> using the matching operator <operator>.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>effect</b></td>
+        <td>string</td>
+        <td>
+          Effect indicates the taint effect to match. Empty means match all taint effects.
+When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key is the taint key that the toleration applies to. Empty means match all taint keys.
+If the key is empty, operator must be Exists; this combination means to match all values and all keys.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>operator</b></td>
+        <td>string</td>
+        <td>
+          Operator represents a key's relationship to the value.
+Valid operators are Exists and Equal. Defaults to Equal.
+Exists is equivalent to wildcard for value, so that a pod can
+tolerate all taints of a particular category.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>tolerationSeconds</b></td>
+        <td>integer</td>
+        <td>
+          TolerationSeconds represents the period of time the toleration (which must be
+of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+it is not set, which means tolerate the taint forever (do not evict). Zero and
+negative values will be treated as 0 (evict immediately) by the system.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          Value is the taint value the toleration matches to.
+If the operator is Exists, the value should be empty, otherwise just a regular string.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
