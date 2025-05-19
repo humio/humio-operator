@@ -94,7 +94,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if isHumioParserMarkedToBeDeleted {
 		r.Log.Info("Parser marked to be deleted")
 		if helpers.ContainsElement(hp.GetFinalizers(), humioFinalizer) {
-			_, err := r.HumioClient.GetParser(ctx, humioHttpClient, req, hp)
+			_, err := r.HumioClient.GetParser(ctx, humioHttpClient, hp)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), humioFinalizer))
 				err := r.Update(ctx, hp)
@@ -109,7 +109,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Parser contains finalizer so run finalizer method")
-			if err := r.finalize(ctx, humioHttpClient, req, hp); err != nil {
+			if err := r.finalize(ctx, humioHttpClient, hp); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
 		}
@@ -125,7 +125,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioParser) {
-		_, err := humioClient.GetParser(ctx, humioHttpClient, req, hp)
+		_, err := humioClient.GetParser(ctx, humioHttpClient, hp)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioParserStateNotFound, hp)
 			return
@@ -139,12 +139,12 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Get current parser
 	r.Log.Info("get current parser")
-	curParser, err := r.HumioClient.GetParser(ctx, humioHttpClient, req, hp)
+	curParser, err := r.HumioClient.GetParser(ctx, humioHttpClient, hp)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			r.Log.Info("parser doesn't exist. Now adding parser")
 			// create parser
-			addErr := r.HumioClient.AddParser(ctx, humioHttpClient, req, hp)
+			addErr := r.HumioClient.AddParser(ctx, humioHttpClient, hp)
 			if addErr != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create parser")
 			}
@@ -158,7 +158,7 @@ func (r *HumioParserReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		r.Log.Info("information differs, triggering update",
 			"diff", diffKeysAndValues,
 		)
-		err = r.HumioClient.UpdateParser(ctx, humioHttpClient, req, hp)
+		err = r.HumioClient.UpdateParser(ctx, humioHttpClient, hp)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update parser")
 		}
@@ -181,7 +181,7 @@ func (r *HumioParserReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *HumioParserReconciler) finalize(ctx context.Context, client *humioapi.Client, req reconcile.Request, hp *humiov1alpha1.HumioParser) error {
+func (r *HumioParserReconciler) finalize(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioParser) error {
 	_, err := helpers.NewCluster(ctx, r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -190,7 +190,7 @@ func (r *HumioParserReconciler) finalize(ctx context.Context, client *humioapi.C
 		return err
 	}
 
-	return r.HumioClient.DeleteParser(ctx, client, req, hp)
+	return r.HumioClient.DeleteParser(ctx, client, hp)
 }
 
 func (r *HumioParserReconciler) addFinalizer(ctx context.Context, hp *humiov1alpha1.HumioParser) error {

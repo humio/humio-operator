@@ -102,7 +102,7 @@ func (r *HumioUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if isHumioUserMarkedToBeDeleted {
 		r.Log.Info("User marked to be deleted")
 		if helpers.ContainsElement(hp.GetFinalizers(), humioFinalizer) {
-			_, err := r.HumioClient.GetUser(ctx, humioHttpClient, req, hp)
+			_, err := r.HumioClient.GetUser(ctx, humioHttpClient, hp)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hp.SetFinalizers(helpers.RemoveElement(hp.GetFinalizers(), humioFinalizer))
 				err := r.Update(ctx, hp)
@@ -117,7 +117,7 @@ func (r *HumioUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("User contains finalizer so run finalizer method")
-			if err := r.finalize(ctx, humioHttpClient, req, hp); err != nil {
+			if err := r.finalize(ctx, humioHttpClient, hp); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
 		}
@@ -133,7 +133,7 @@ func (r *HumioUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	defer func(ctx context.Context, humioClient humio.Client, hp *humiov1alpha1.HumioUser) {
-		_, err := humioClient.GetUser(ctx, humioHttpClient, req, hp)
+		_, err := humioClient.GetUser(ctx, humioHttpClient, hp)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioUserStateNotFound, hp)
 			return
@@ -147,12 +147,12 @@ func (r *HumioUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// Get current user
 	r.Log.Info("get current user")
-	curUser, err := r.HumioClient.GetUser(ctx, humioHttpClient, req, hp)
+	curUser, err := r.HumioClient.GetUser(ctx, humioHttpClient, hp)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			r.Log.Info("user doesn't exist. Now adding user")
 			// create user
-			addErr := r.HumioClient.AddUser(ctx, humioHttpClient, req, hp)
+			addErr := r.HumioClient.AddUser(ctx, humioHttpClient, hp)
 			if addErr != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create user")
 			}
@@ -166,7 +166,7 @@ func (r *HumioUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.Log.Info("information differs, triggering update",
 			"diff", diffKeysAndValues,
 		)
-		err = r.HumioClient.UpdateUser(ctx, humioHttpClient, req, hp)
+		err = r.HumioClient.UpdateUser(ctx, humioHttpClient, hp)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update user")
 		}
@@ -184,7 +184,7 @@ func (r *HumioUserReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *HumioUserReconciler) finalize(ctx context.Context, client *humioapi.Client, req reconcile.Request, hp *humiov1alpha1.HumioUser) error {
+func (r *HumioUserReconciler) finalize(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioUser) error {
 	_, err := helpers.NewCluster(ctx, r, hp.Spec.ManagedClusterName, hp.Spec.ExternalClusterName, hp.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -193,7 +193,7 @@ func (r *HumioUserReconciler) finalize(ctx context.Context, client *humioapi.Cli
 		return err
 	}
 
-	return r.HumioClient.DeleteUser(ctx, client, req, hp)
+	return r.HumioClient.DeleteUser(ctx, client, hp)
 }
 
 func (r *HumioUserReconciler) addFinalizer(ctx context.Context, hp *humiov1alpha1.HumioUser) error {
