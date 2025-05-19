@@ -866,9 +866,9 @@ func (h *ClientConfig) UpdateGroup(ctx context.Context, client *humioapi.Client,
 	}
 
 	newLookupName := hg.Spec.ExternalMappingName
-	if hg.Spec.ExternalMappingName != nil && *hg.Spec.ExternalMappingName == "" {
+	if hg.Spec.ExternalMappingName == nil {
 		// LogScale returns null from graphql when lookup name is updated to empty string
-		newLookupName = nil
+		newLookupName = helpers.StringPtr("")
 	}
 
 	_, err = humiographql.UpdateGroup(
