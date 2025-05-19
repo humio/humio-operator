@@ -58,43 +58,43 @@ type Client interface {
 }
 
 type ClusterClient interface {
-	GetCluster(context.Context, *humioapi.Client, reconcile.Request) (*humiographql.GetClusterResponse, error)
+	GetCluster(context.Context, *humioapi.Client) (*humiographql.GetClusterResponse, error)
 	GetHumioHttpClient(*humioapi.Config, reconcile.Request) *humioapi.Client
 	ClearHumioClientConnections(string)
 	TestAPIToken(context.Context, *humioapi.Config, reconcile.Request) error
-	Status(context.Context, *humioapi.Client, reconcile.Request) (*humioapi.StatusResponse, error)
-	GetEvictionStatus(context.Context, *humioapi.Client, reconcile.Request) (*humiographql.GetEvictionStatusResponse, error)
-	SetIsBeingEvicted(context.Context, *humioapi.Client, reconcile.Request, int, bool) error
-	RefreshClusterManagementStats(context.Context, *humioapi.Client, reconcile.Request, int) (*humiographql.RefreshClusterManagementStatsResponse, error)
-	UnregisterClusterNode(context.Context, *humioapi.Client, reconcile.Request, int, bool) (*humiographql.UnregisterClusterNodeResponse, error)
+	Status(context.Context, *humioapi.Client) (*humioapi.StatusResponse, error)
+	GetEvictionStatus(context.Context, *humioapi.Client) (*humiographql.GetEvictionStatusResponse, error)
+	SetIsBeingEvicted(context.Context, *humioapi.Client, int, bool) error
+	RefreshClusterManagementStats(context.Context, *humioapi.Client, int) (*humiographql.RefreshClusterManagementStatsResponse, error)
+	UnregisterClusterNode(context.Context, *humioapi.Client, int, bool) (*humiographql.UnregisterClusterNodeResponse, error)
 }
 
 type IngestTokensClient interface {
-	AddIngestToken(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioIngestToken) error
-	GetIngestToken(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioIngestToken) (*humiographql.IngestTokenDetails, error)
-	UpdateIngestToken(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioIngestToken) error
-	DeleteIngestToken(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioIngestToken) error
+	AddIngestToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioIngestToken) error
+	GetIngestToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioIngestToken) (*humiographql.IngestTokenDetails, error)
+	UpdateIngestToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioIngestToken) error
+	DeleteIngestToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioIngestToken) error
 }
 
 type ParsersClient interface {
-	AddParser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioParser) error
-	GetParser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioParser) (*humiographql.ParserDetails, error)
-	UpdateParser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioParser) error
-	DeleteParser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioParser) error
+	AddParser(context.Context, *humioapi.Client, *humiov1alpha1.HumioParser) error
+	GetParser(context.Context, *humioapi.Client, *humiov1alpha1.HumioParser) (*humiographql.ParserDetails, error)
+	UpdateParser(context.Context, *humioapi.Client, *humiov1alpha1.HumioParser) error
+	DeleteParser(context.Context, *humioapi.Client, *humiov1alpha1.HumioParser) error
 }
 
 type RepositoriesClient interface {
-	AddRepository(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioRepository) error
-	GetRepository(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioRepository) (*humiographql.RepositoryDetails, error)
-	UpdateRepository(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioRepository) error
-	DeleteRepository(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioRepository) error
+	AddRepository(context.Context, *humioapi.Client, *humiov1alpha1.HumioRepository) error
+	GetRepository(context.Context, *humioapi.Client, *humiov1alpha1.HumioRepository) (*humiographql.RepositoryDetails, error)
+	UpdateRepository(context.Context, *humioapi.Client, *humiov1alpha1.HumioRepository) error
+	DeleteRepository(context.Context, *humioapi.Client, *humiov1alpha1.HumioRepository) error
 }
 
 type ViewsClient interface {
-	AddView(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioView) error
-	GetView(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioView) (*humiographql.GetSearchDomainSearchDomainView, error)
-	UpdateView(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioView) error
-	DeleteView(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioView) error
+	AddView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) error
+	GetView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) (*humiographql.GetSearchDomainSearchDomainView, error)
+	UpdateView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) error
+	DeleteView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) error
 }
 
 type GroupsClient interface {
@@ -105,25 +105,25 @@ type GroupsClient interface {
 }
 
 type ActionsClient interface {
-	AddAction(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioAction) error
-	GetAction(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioAction) (humiographql.ActionDetails, error)
-	UpdateAction(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioAction) error
-	DeleteAction(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioAction) error
+	AddAction(context.Context, *humioapi.Client, *humiov1alpha1.HumioAction) error
+	GetAction(context.Context, *humioapi.Client, *humiov1alpha1.HumioAction) (humiographql.ActionDetails, error)
+	UpdateAction(context.Context, *humioapi.Client, *humiov1alpha1.HumioAction) error
+	DeleteAction(context.Context, *humioapi.Client, *humiov1alpha1.HumioAction) error
 }
 
 type AlertsClient interface {
-	AddAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioAlert) error
-	GetAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioAlert) (*humiographql.AlertDetails, error)
-	UpdateAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioAlert) error
-	DeleteAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioAlert) error
+	AddAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioAlert) error
+	GetAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioAlert) (*humiographql.AlertDetails, error)
+	UpdateAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioAlert) error
+	DeleteAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioAlert) error
 }
 
 type FilterAlertsClient interface {
-	AddFilterAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
-	GetFilterAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFilterAlert) (*humiographql.FilterAlertDetails, error)
-	UpdateFilterAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
-	DeleteFilterAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
-	ValidateActionsForFilterAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioFilterAlert) error
+	AddFilterAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioFilterAlert) error
+	GetFilterAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioFilterAlert) (*humiographql.FilterAlertDetails, error)
+	UpdateFilterAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioFilterAlert) error
+	DeleteFilterAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioFilterAlert) error
+	ValidateActionsForFilterAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioFilterAlert) error
 }
 
 type FeatureFlagsClient interface {
@@ -134,19 +134,19 @@ type FeatureFlagsClient interface {
 }
 
 type AggregateAlertsClient interface {
-	AddAggregateAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioAggregateAlert) error
-	GetAggregateAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioAggregateAlert) (*humiographql.AggregateAlertDetails, error)
-	UpdateAggregateAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioAggregateAlert) error
-	DeleteAggregateAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioAggregateAlert) error
-	ValidateActionsForAggregateAlert(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioAggregateAlert) error
+	AddAggregateAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioAggregateAlert) error
+	GetAggregateAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioAggregateAlert) (*humiographql.AggregateAlertDetails, error)
+	UpdateAggregateAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioAggregateAlert) error
+	DeleteAggregateAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioAggregateAlert) error
+	ValidateActionsForAggregateAlert(context.Context, *humioapi.Client, *humiov1alpha1.HumioAggregateAlert) error
 }
 
 type ScheduledSearchClient interface {
-	AddScheduledSearch(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioScheduledSearch) error
-	GetScheduledSearch(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioScheduledSearch) (*humiographql.ScheduledSearchDetails, error)
-	UpdateScheduledSearch(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioScheduledSearch) error
-	DeleteScheduledSearch(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioScheduledSearch) error
-	ValidateActionsForScheduledSearch(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioScheduledSearch) error
+	AddScheduledSearch(context.Context, *humioapi.Client, *humiov1alpha1.HumioScheduledSearch) error
+	GetScheduledSearch(context.Context, *humioapi.Client, *humiov1alpha1.HumioScheduledSearch) (*humiographql.ScheduledSearchDetails, error)
+	UpdateScheduledSearch(context.Context, *humioapi.Client, *humiov1alpha1.HumioScheduledSearch) error
+	DeleteScheduledSearch(context.Context, *humioapi.Client, *humiov1alpha1.HumioScheduledSearch) error
+	ValidateActionsForScheduledSearch(context.Context, *humioapi.Client, *humiov1alpha1.HumioScheduledSearch) error
 }
 
 type LicenseClient interface {
@@ -155,10 +155,10 @@ type LicenseClient interface {
 }
 
 type UsersClient interface {
-	AddUser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioUser) error
-	GetUser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioUser) (*humiographql.UserDetails, error)
-	UpdateUser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioUser) error
-	DeleteUser(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioUser) error
+	AddUser(context.Context, *humioapi.Client, *humiov1alpha1.HumioUser) error
+	GetUser(context.Context, *humioapi.Client, *humiov1alpha1.HumioUser) (*humiographql.UserDetails, error)
+	UpdateUser(context.Context, *humioapi.Client, *humiov1alpha1.HumioUser) error
+	DeleteUser(context.Context, *humioapi.Client, *humiov1alpha1.HumioUser) error
 
 	// TODO: Rename the ones below, or perhaps get rid of them entirely?
 	AddUserAndGetUserID(context.Context, *humioapi.Client, reconcile.Request, string, bool) (string, error)
@@ -275,12 +275,12 @@ func (h *ClientConfig) ClearHumioClientConnections(_ string) {
 }
 
 // Status returns the status of the humio cluster
-func (h *ClientConfig) Status(ctx context.Context, client *humioapi.Client, _ reconcile.Request) (*humioapi.StatusResponse, error) {
+func (h *ClientConfig) Status(ctx context.Context, client *humioapi.Client) (*humioapi.StatusResponse, error) {
 	return client.Status(ctx)
 }
 
 // GetCluster returns a humio cluster and can be mocked via the Client interface
-func (h *ClientConfig) GetCluster(ctx context.Context, client *humioapi.Client, _ reconcile.Request) (*humiographql.GetClusterResponse, error) {
+func (h *ClientConfig) GetCluster(ctx context.Context, client *humioapi.Client) (*humiographql.GetClusterResponse, error) {
 	resp, err := humiographql.GetCluster(
 		ctx,
 		client,
@@ -293,7 +293,7 @@ func (h *ClientConfig) GetCluster(ctx context.Context, client *humioapi.Client, 
 }
 
 // GetEvictionStatus returns the EvictionStatus of the humio cluster nodes and can be mocked via the Client interface
-func (h *ClientConfig) GetEvictionStatus(ctx context.Context, client *humioapi.Client, _ reconcile.Request) (*humiographql.GetEvictionStatusResponse, error) {
+func (h *ClientConfig) GetEvictionStatus(ctx context.Context, client *humioapi.Client) (*humiographql.GetEvictionStatusResponse, error) {
 	resp, err := humiographql.GetEvictionStatus(
 		ctx,
 		client,
@@ -306,7 +306,7 @@ func (h *ClientConfig) GetEvictionStatus(ctx context.Context, client *humioapi.C
 }
 
 // SetIsBeingEvicted sets the EvictionStatus of a humio cluster node and can be mocked via the Client interface
-func (h *ClientConfig) SetIsBeingEvicted(ctx context.Context, client *humioapi.Client, _ reconcile.Request, vhost int, isBeingEvicted bool) error {
+func (h *ClientConfig) SetIsBeingEvicted(ctx context.Context, client *humioapi.Client, vhost int, isBeingEvicted bool) error {
 	_, err := humiographql.SetIsBeingEvicted(
 		ctx,
 		client,
@@ -318,7 +318,7 @@ func (h *ClientConfig) SetIsBeingEvicted(ctx context.Context, client *humioapi.C
 
 // RefreshClusterManagementStats invalidates the cache and refreshes the stats related to the cluster management. This is useful for checking various cluster details,
 // such as whether a node can be safely unregistered.
-func (h *ClientConfig) RefreshClusterManagementStats(ctx context.Context, client *humioapi.Client, _ reconcile.Request, vhost int) (*humiographql.RefreshClusterManagementStatsResponse, error) {
+func (h *ClientConfig) RefreshClusterManagementStats(ctx context.Context, client *humioapi.Client, vhost int) (*humiographql.RefreshClusterManagementStatsResponse, error) {
 	response, err := humiographql.RefreshClusterManagementStats(
 		ctx,
 		client,
@@ -328,7 +328,7 @@ func (h *ClientConfig) RefreshClusterManagementStats(ctx context.Context, client
 }
 
 // UnregisterClusterNode unregisters a humio node from the cluster and can be mocked via the Client interface
-func (h *ClientConfig) UnregisterClusterNode(ctx context.Context, client *humioapi.Client, _ reconcile.Request, nodeId int, force bool) (*humiographql.UnregisterClusterNodeResponse, error) {
+func (h *ClientConfig) UnregisterClusterNode(ctx context.Context, client *humioapi.Client, nodeId int, force bool) (*humiographql.UnregisterClusterNodeResponse, error) {
 	resp, err := humiographql.UnregisterClusterNode(
 		ctx,
 		client,
@@ -349,7 +349,7 @@ func (h *ClientConfig) TestAPIToken(ctx context.Context, config *humioapi.Config
 	return err
 }
 
-func (h *ClientConfig) AddIngestToken(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hit *humiov1alpha1.HumioIngestToken) error {
+func (h *ClientConfig) AddIngestToken(ctx context.Context, client *humioapi.Client, hit *humiov1alpha1.HumioIngestToken) error {
 	_, err := humiographql.AddIngestToken(
 		ctx,
 		client,
@@ -360,7 +360,7 @@ func (h *ClientConfig) AddIngestToken(ctx context.Context, client *humioapi.Clie
 	return err
 }
 
-func (h *ClientConfig) GetIngestToken(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hit *humiov1alpha1.HumioIngestToken) (*humiographql.IngestTokenDetails, error) {
+func (h *ClientConfig) GetIngestToken(ctx context.Context, client *humioapi.Client, hit *humiov1alpha1.HumioIngestToken) (*humiographql.IngestTokenDetails, error) {
 	resp, err := humiographql.ListIngestTokens(
 		ctx,
 		client,
@@ -389,7 +389,7 @@ func (h *ClientConfig) GetIngestToken(ctx context.Context, client *humioapi.Clie
 	return nil, humioapi.IngestTokenNotFound(hit.Spec.Name)
 }
 
-func (h *ClientConfig) UpdateIngestToken(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hit *humiov1alpha1.HumioIngestToken) error {
+func (h *ClientConfig) UpdateIngestToken(ctx context.Context, client *humioapi.Client, hit *humiov1alpha1.HumioIngestToken) error {
 	if hit.Spec.ParserName != nil {
 		_, err := humiographql.AssignParserToIngestToken(
 			ctx,
@@ -410,7 +410,7 @@ func (h *ClientConfig) UpdateIngestToken(ctx context.Context, client *humioapi.C
 	return err
 }
 
-func (h *ClientConfig) DeleteIngestToken(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hit *humiov1alpha1.HumioIngestToken) error {
+func (h *ClientConfig) DeleteIngestToken(ctx context.Context, client *humioapi.Client, hit *humiov1alpha1.HumioIngestToken) error {
 	_, err := humiographql.RemoveIngestToken(
 		ctx,
 		client,
@@ -420,7 +420,7 @@ func (h *ClientConfig) DeleteIngestToken(ctx context.Context, client *humioapi.C
 	return err
 }
 
-func (h *ClientConfig) AddParser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hp *humiov1alpha1.HumioParser) error {
+func (h *ClientConfig) AddParser(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioParser) error {
 	tagFields := []string{}
 	if hp.Spec.TagFields != nil {
 		tagFields = hp.Spec.TagFields
@@ -439,7 +439,7 @@ func (h *ClientConfig) AddParser(ctx context.Context, client *humioapi.Client, _
 	return err
 }
 
-func (h *ClientConfig) GetParser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hp *humiov1alpha1.HumioParser) (*humiographql.ParserDetails, error) {
+func (h *ClientConfig) GetParser(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioParser) (*humiographql.ParserDetails, error) {
 	// list parsers to get the parser ID
 	resp, err := humiographql.ListParsers(
 		ctx,
@@ -482,7 +482,7 @@ func (h *ClientConfig) GetParser(ctx context.Context, client *humioapi.Client, _
 	return nil, humioapi.ParserNotFound(hp.Spec.Name)
 }
 
-func (h *ClientConfig) UpdateParser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hp *humiov1alpha1.HumioParser) error {
+func (h *ClientConfig) UpdateParser(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioParser) error {
 	_, err := humiographql.CreateParserOrUpdate(
 		ctx,
 		client,
@@ -497,8 +497,8 @@ func (h *ClientConfig) UpdateParser(ctx context.Context, client *humioapi.Client
 	return err
 }
 
-func (h *ClientConfig) DeleteParser(ctx context.Context, client *humioapi.Client, req reconcile.Request, hp *humiov1alpha1.HumioParser) error {
-	parser, err := h.GetParser(ctx, client, req, hp)
+func (h *ClientConfig) DeleteParser(ctx context.Context, client *humioapi.Client, hp *humiov1alpha1.HumioParser) error {
+	parser, err := h.GetParser(ctx, client, hp)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			return nil
@@ -515,7 +515,7 @@ func (h *ClientConfig) DeleteParser(ctx context.Context, client *humioapi.Client
 	return err
 }
 
-func (h *ClientConfig) AddRepository(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
+func (h *ClientConfig) AddRepository(ctx context.Context, client *humioapi.Client, hr *humiov1alpha1.HumioRepository) error {
 	retentionSpec := hr.Spec.Retention
 	if retentionSpec.TimeInDays != nil || retentionSpec.IngestSizeInGB != nil || retentionSpec.StorageSizeInGB != nil {
 		// use CreateRepositoryWithRetention() if any retention parameters are set
@@ -552,7 +552,7 @@ func (h *ClientConfig) AddRepository(ctx context.Context, client *humioapi.Clien
 	}
 }
 
-func (h *ClientConfig) GetRepository(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hr *humiov1alpha1.HumioRepository) (*humiographql.RepositoryDetails, error) {
+func (h *ClientConfig) GetRepository(ctx context.Context, client *humioapi.Client, hr *humiov1alpha1.HumioRepository) (*humiographql.RepositoryDetails, error) {
 	getRepositoryResp, err := humiographql.GetRepository(
 		ctx,
 		client,
@@ -575,8 +575,8 @@ func (h *ClientConfig) GetRepository(ctx context.Context, client *humioapi.Clien
 	}, nil
 }
 
-func (h *ClientConfig) UpdateRepository(ctx context.Context, client *humioapi.Client, req reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
-	curRepository, err := h.GetRepository(ctx, client, req, hr)
+func (h *ClientConfig) UpdateRepository(ctx context.Context, client *humioapi.Client, hr *humiov1alpha1.HumioRepository) error {
+	curRepository, err := h.GetRepository(ctx, client, hr)
 	if err != nil {
 		return err
 	}
@@ -684,8 +684,8 @@ func (h *ClientConfig) UpdateRepository(ctx context.Context, client *humioapi.Cl
 	return nil
 }
 
-func (h *ClientConfig) DeleteRepository(ctx context.Context, client *humioapi.Client, req reconcile.Request, hr *humiov1alpha1.HumioRepository) error {
-	_, err := h.GetRepository(ctx, client, req, hr)
+func (h *ClientConfig) DeleteRepository(ctx context.Context, client *humioapi.Client, hr *humiov1alpha1.HumioRepository) error {
+	_, err := h.GetRepository(ctx, client, hr)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			return nil
@@ -706,7 +706,7 @@ func (h *ClientConfig) DeleteRepository(ctx context.Context, client *humioapi.Cl
 	return err
 }
 
-func (h *ClientConfig) GetView(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hv *humiov1alpha1.HumioView) (*humiographql.GetSearchDomainSearchDomainView, error) {
+func (h *ClientConfig) GetView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioView) (*humiographql.GetSearchDomainSearchDomainView, error) {
 	resp, err := humiographql.GetSearchDomain(
 		ctx,
 		client,
@@ -725,7 +725,7 @@ func (h *ClientConfig) GetView(ctx context.Context, client *humioapi.Client, _ r
 	}
 }
 
-func (h *ClientConfig) AddView(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hv *humiov1alpha1.HumioView) error {
+func (h *ClientConfig) AddView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioView) error {
 	viewConnections := hv.GetViewConnections()
 	internalConnType := make([]humiographql.ViewConnectionInput, len(viewConnections))
 	for i := range viewConnections {
@@ -744,8 +744,8 @@ func (h *ClientConfig) AddView(ctx context.Context, client *humioapi.Client, _ r
 	return err
 }
 
-func (h *ClientConfig) UpdateView(ctx context.Context, client *humioapi.Client, req reconcile.Request, hv *humiov1alpha1.HumioView) error {
-	curView, err := h.GetView(ctx, client, req, hv)
+func (h *ClientConfig) UpdateView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioView) error {
+	curView, err := h.GetView(ctx, client, hv)
 	if err != nil {
 		return err
 	}
@@ -797,8 +797,8 @@ func (h *ClientConfig) UpdateView(ctx context.Context, client *humioapi.Client, 
 	return nil
 }
 
-func (h *ClientConfig) DeleteView(ctx context.Context, client *humioapi.Client, req reconcile.Request, hv *humiov1alpha1.HumioView) error {
-	_, err := h.GetView(ctx, client, req, hv)
+func (h *ClientConfig) DeleteView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioView) error {
+	_, err := h.GetView(ctx, client, hv)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			return nil
@@ -898,7 +898,7 @@ func (h *ClientConfig) DeleteGroup(ctx context.Context, client *humioapi.Client,
 	return err
 }
 
-func (h *ClientConfig) GetAction(ctx context.Context, client *humioapi.Client, _ reconcile.Request, ha *humiov1alpha1.HumioAction) (humiographql.ActionDetails, error) {
+func (h *ClientConfig) GetAction(ctx context.Context, client *humioapi.Client, ha *humiov1alpha1.HumioAction) (humiographql.ActionDetails, error) {
 	err := validateSearchDomain(ctx, client, ha.Spec.ViewName)
 	if err != nil {
 		return nil, fmt.Errorf("problem getting view for action %s: %w", ha.Spec.Name, err)
@@ -991,7 +991,7 @@ func (h *ClientConfig) GetAction(ctx context.Context, client *humioapi.Client, _
 	return nil, humioapi.ActionNotFound(ha.Spec.Name)
 }
 
-func (h *ClientConfig) AddAction(ctx context.Context, client *humioapi.Client, _ reconcile.Request, ha *humiov1alpha1.HumioAction) error {
+func (h *ClientConfig) AddAction(ctx context.Context, client *humioapi.Client, ha *humiov1alpha1.HumioAction) error {
 	err := validateSearchDomain(ctx, client, ha.Spec.ViewName)
 	if err != nil {
 		return fmt.Errorf("problem getting view for action %s: %w", ha.Spec.Name, err)
@@ -1123,7 +1123,7 @@ func (h *ClientConfig) AddAction(ctx context.Context, client *humioapi.Client, _
 	return fmt.Errorf("no action details specified or unsupported action type used")
 }
 
-func (h *ClientConfig) UpdateAction(ctx context.Context, client *humioapi.Client, req reconcile.Request, ha *humiov1alpha1.HumioAction) error {
+func (h *ClientConfig) UpdateAction(ctx context.Context, client *humioapi.Client, ha *humiov1alpha1.HumioAction) error {
 	err := validateSearchDomain(ctx, client, ha.Spec.ViewName)
 	if err != nil {
 		return fmt.Errorf("problem getting view for action %s: %w", ha.Spec.Name, err)
@@ -1134,7 +1134,7 @@ func (h *ClientConfig) UpdateAction(ctx context.Context, client *humioapi.Client
 		return err
 	}
 
-	currentAction, err := h.GetAction(ctx, client, req, ha)
+	currentAction, err := h.GetAction(ctx, client, ha)
 	if err != nil {
 		return fmt.Errorf("could not find action with name: %q", ha.Spec.Name)
 	}
@@ -1268,8 +1268,8 @@ func (h *ClientConfig) UpdateAction(ctx context.Context, client *humioapi.Client
 	return fmt.Errorf("no action details specified or unsupported action type used")
 }
 
-func (h *ClientConfig) DeleteAction(ctx context.Context, client *humioapi.Client, req reconcile.Request, ha *humiov1alpha1.HumioAction) error {
-	action, err := h.GetAction(ctx, client, req, ha)
+func (h *ClientConfig) DeleteAction(ctx context.Context, client *humioapi.Client, ha *humiov1alpha1.HumioAction) error {
+	action, err := h.GetAction(ctx, client, ha)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			return nil
@@ -1321,7 +1321,7 @@ func (h *ClientConfig) InstallLicense(ctx context.Context, client *humioapi.Clie
 
 }
 
-func (h *ClientConfig) GetAlert(ctx context.Context, client *humioapi.Client, _ reconcile.Request, ha *humiov1alpha1.HumioAlert) (*humiographql.AlertDetails, error) {
+func (h *ClientConfig) GetAlert(ctx context.Context, client *humioapi.Client, ha *humiov1alpha1.HumioAlert) (*humiographql.AlertDetails, error) {
 	err := validateSearchDomain(ctx, client, ha.Spec.ViewName)
 	if err != nil {
 		if !errors.As(err, &humioapi.EntityNotFound{}) {
@@ -1360,7 +1360,7 @@ func (h *ClientConfig) GetAlert(ctx context.Context, client *humioapi.Client, _ 
 	return nil, humioapi.AlertNotFound(ha.Spec.Name)
 }
 
-func (h *ClientConfig) AddAlert(ctx context.Context, client *humioapi.Client, _ reconcile.Request, ha *humiov1alpha1.HumioAlert) error {
+func (h *ClientConfig) AddAlert(ctx context.Context, client *humioapi.Client, ha *humiov1alpha1.HumioAlert) error {
 	err := validateSearchDomain(ctx, client, ha.Spec.ViewName)
 	if err != nil {
 		return fmt.Errorf("problem getting view for alert: %w", err)
@@ -1386,13 +1386,13 @@ func (h *ClientConfig) AddAlert(ctx context.Context, client *humioapi.Client, _ 
 	return err
 }
 
-func (h *ClientConfig) UpdateAlert(ctx context.Context, client *humioapi.Client, req reconcile.Request, ha *humiov1alpha1.HumioAlert) error {
+func (h *ClientConfig) UpdateAlert(ctx context.Context, client *humioapi.Client, ha *humiov1alpha1.HumioAlert) error {
 	err := validateSearchDomain(ctx, client, ha.Spec.ViewName)
 	if err != nil {
 		return fmt.Errorf("problem getting view for action: %w", err)
 	}
 
-	currentAlert, err := h.GetAlert(ctx, client, req, ha)
+	currentAlert, err := h.GetAlert(ctx, client, ha)
 	if err != nil {
 		return fmt.Errorf("could not find alert with name: %q", ha.Spec.Name)
 	}
@@ -1417,8 +1417,8 @@ func (h *ClientConfig) UpdateAlert(ctx context.Context, client *humioapi.Client,
 	return err
 }
 
-func (h *ClientConfig) DeleteAlert(ctx context.Context, client *humioapi.Client, req reconcile.Request, ha *humiov1alpha1.HumioAlert) error {
-	alert, err := h.GetAlert(ctx, client, req, ha)
+func (h *ClientConfig) DeleteAlert(ctx context.Context, client *humioapi.Client, ha *humiov1alpha1.HumioAlert) error {
+	alert, err := h.GetAlert(ctx, client, ha)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			return nil
@@ -1435,7 +1435,7 @@ func (h *ClientConfig) DeleteAlert(ctx context.Context, client *humioapi.Client,
 	return err
 }
 
-func (h *ClientConfig) GetFilterAlert(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) (*humiographql.FilterAlertDetails, error) {
+func (h *ClientConfig) GetFilterAlert(ctx context.Context, client *humioapi.Client, hfa *humiov1alpha1.HumioFilterAlert) (*humiographql.FilterAlertDetails, error) {
 	err := validateSearchDomain(ctx, client, hfa.Spec.ViewName)
 	if err != nil {
 		return nil, fmt.Errorf("problem getting view for filter alert %s: %w", hfa.Spec.Name, err)
@@ -1475,12 +1475,12 @@ func (h *ClientConfig) GetFilterAlert(ctx context.Context, client *humioapi.Clie
 	return &respFilterAlert.FilterAlertDetails, nil
 }
 
-func (h *ClientConfig) AddFilterAlert(ctx context.Context, client *humioapi.Client, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+func (h *ClientConfig) AddFilterAlert(ctx context.Context, client *humioapi.Client, hfa *humiov1alpha1.HumioFilterAlert) error {
 	err := validateSearchDomain(ctx, client, hfa.Spec.ViewName)
 	if err != nil {
 		return fmt.Errorf("problem getting view for filter alert: %w", err)
 	}
-	if err = h.ValidateActionsForFilterAlert(ctx, client, req, hfa); err != nil {
+	if err = h.ValidateActionsForFilterAlert(ctx, client, hfa); err != nil {
 		return fmt.Errorf("could not get action id mapping: %w", err)
 	}
 
@@ -1501,16 +1501,16 @@ func (h *ClientConfig) AddFilterAlert(ctx context.Context, client *humioapi.Clie
 	return err
 }
 
-func (h *ClientConfig) UpdateFilterAlert(ctx context.Context, client *humioapi.Client, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+func (h *ClientConfig) UpdateFilterAlert(ctx context.Context, client *humioapi.Client, hfa *humiov1alpha1.HumioFilterAlert) error {
 	err := validateSearchDomain(ctx, client, hfa.Spec.ViewName)
 	if err != nil {
 		return fmt.Errorf("problem getting view for action: %w", err)
 	}
-	if err = h.ValidateActionsForFilterAlert(ctx, client, req, hfa); err != nil {
+	if err = h.ValidateActionsForFilterAlert(ctx, client, hfa); err != nil {
 		return fmt.Errorf("could not get action id mapping: %w", err)
 	}
 
-	currentAlert, err := h.GetFilterAlert(ctx, client, req, hfa)
+	currentAlert, err := h.GetFilterAlert(ctx, client, hfa)
 	if err != nil {
 		return fmt.Errorf("could not find filter alert with name: %q", hfa.Spec.Name)
 	}
@@ -1533,8 +1533,8 @@ func (h *ClientConfig) UpdateFilterAlert(ctx context.Context, client *humioapi.C
 	return err
 }
 
-func (h *ClientConfig) DeleteFilterAlert(ctx context.Context, client *humioapi.Client, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
-	currentFilterAlert, err := h.GetFilterAlert(ctx, client, req, hfa)
+func (h *ClientConfig) DeleteFilterAlert(ctx context.Context, client *humioapi.Client, hfa *humiov1alpha1.HumioFilterAlert) error {
+	currentFilterAlert, err := h.GetFilterAlert(ctx, client, hfa)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			return nil
@@ -1595,12 +1595,12 @@ func (h *ClientConfig) DisableFeatureFlag(ctx context.Context, client *humioapi.
 	return err
 }
 
-func (h *ClientConfig) AddScheduledSearch(ctx context.Context, client *humioapi.Client, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) error {
+func (h *ClientConfig) AddScheduledSearch(ctx context.Context, client *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) error {
 	err := validateSearchDomain(ctx, client, hss.Spec.ViewName)
 	if err != nil {
 		return fmt.Errorf("problem getting view for scheduled search: %w", err)
 	}
-	if err = h.ValidateActionsForScheduledSearch(ctx, client, req, hss); err != nil {
+	if err = h.ValidateActionsForScheduledSearch(ctx, client, hss); err != nil {
 		return fmt.Errorf("could not get action id mapping: %w", err)
 	}
 	queryOwnershipType := humiographql.QueryOwnershipTypeOrganization
@@ -1624,7 +1624,7 @@ func (h *ClientConfig) AddScheduledSearch(ctx context.Context, client *humioapi.
 	return err
 }
 
-func (h *ClientConfig) GetScheduledSearch(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) (*humiographql.ScheduledSearchDetails, error) {
+func (h *ClientConfig) GetScheduledSearch(ctx context.Context, client *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) (*humiographql.ScheduledSearchDetails, error) {
 	err := validateSearchDomain(ctx, client, hss.Spec.ViewName)
 	if err != nil {
 		return nil, fmt.Errorf("problem getting view for scheduled search %s: %w", hss.Spec.Name, err)
@@ -1663,15 +1663,15 @@ func (h *ClientConfig) GetScheduledSearch(ctx context.Context, client *humioapi.
 	return &respGetScheduledSearch.ScheduledSearchDetails, nil
 }
 
-func (h *ClientConfig) UpdateScheduledSearch(ctx context.Context, client *humioapi.Client, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) error {
+func (h *ClientConfig) UpdateScheduledSearch(ctx context.Context, client *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) error {
 	err := validateSearchDomain(ctx, client, hss.Spec.ViewName)
 	if err != nil {
 		return fmt.Errorf("problem getting view for scheduled search: %w", err)
 	}
-	if err = h.ValidateActionsForScheduledSearch(ctx, client, req, hss); err != nil {
+	if err = h.ValidateActionsForScheduledSearch(ctx, client, hss); err != nil {
 		return fmt.Errorf("could not get action id mapping: %w", err)
 	}
-	currentScheduledSearch, err := h.GetScheduledSearch(ctx, client, req, hss)
+	currentScheduledSearch, err := h.GetScheduledSearch(ctx, client, hss)
 	if err != nil {
 		return fmt.Errorf("could not find scheduled search with name: %q", hss.Spec.Name)
 	}
@@ -1698,8 +1698,8 @@ func (h *ClientConfig) UpdateScheduledSearch(ctx context.Context, client *humioa
 	return err
 }
 
-func (h *ClientConfig) DeleteScheduledSearch(ctx context.Context, client *humioapi.Client, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) error {
-	currentScheduledSearch, err := h.GetScheduledSearch(ctx, client, req, hss)
+func (h *ClientConfig) DeleteScheduledSearch(ctx context.Context, client *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) error {
+	currentScheduledSearch, err := h.GetScheduledSearch(ctx, client, hss)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			return nil
@@ -1716,7 +1716,7 @@ func (h *ClientConfig) DeleteScheduledSearch(ctx context.Context, client *humioa
 	return err
 }
 
-func (h *ClientConfig) getAndValidateAction(ctx context.Context, client *humioapi.Client, req reconcile.Request, actionName string, viewName string) error {
+func (h *ClientConfig) getAndValidateAction(ctx context.Context, client *humioapi.Client, actionName string, viewName string) error {
 	action := &humiov1alpha1.HumioAction{
 		Spec: humiov1alpha1.HumioActionSpec{
 			Name:     actionName,
@@ -1724,34 +1724,34 @@ func (h *ClientConfig) getAndValidateAction(ctx context.Context, client *humioap
 		},
 	}
 
-	_, err := h.GetAction(ctx, client, req, action)
+	_, err := h.GetAction(ctx, client, action)
 	return err
 }
 
-func (h *ClientConfig) ValidateActionsForFilterAlert(ctx context.Context, client *humioapi.Client, req reconcile.Request, hfa *humiov1alpha1.HumioFilterAlert) error {
+func (h *ClientConfig) ValidateActionsForFilterAlert(ctx context.Context, client *humioapi.Client, hfa *humiov1alpha1.HumioFilterAlert) error {
 	for _, actionNameForAlert := range hfa.Spec.Actions {
-		if err := h.getAndValidateAction(ctx, client, req, actionNameForAlert, hfa.Spec.ViewName); err != nil {
+		if err := h.getAndValidateAction(ctx, client, actionNameForAlert, hfa.Spec.ViewName); err != nil {
 			return fmt.Errorf("problem getting action for filter alert %s: %w", hfa.Spec.Name, err)
 		}
 	}
 	return nil
 }
 
-func (h *ClientConfig) ValidateActionsForScheduledSearch(ctx context.Context, client *humioapi.Client, req reconcile.Request, hss *humiov1alpha1.HumioScheduledSearch) error {
+func (h *ClientConfig) ValidateActionsForScheduledSearch(ctx context.Context, client *humioapi.Client, hss *humiov1alpha1.HumioScheduledSearch) error {
 	for _, actionNameForScheduledSearch := range hss.Spec.Actions {
-		if err := h.getAndValidateAction(ctx, client, req, actionNameForScheduledSearch, hss.Spec.ViewName); err != nil {
+		if err := h.getAndValidateAction(ctx, client, actionNameForScheduledSearch, hss.Spec.ViewName); err != nil {
 			return fmt.Errorf("problem getting action for scheduled search %s: %w", hss.Spec.Name, err)
 		}
 	}
 	return nil
 }
 
-func (h *ClientConfig) AddAggregateAlert(ctx context.Context, client *humioapi.Client, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) error {
+func (h *ClientConfig) AddAggregateAlert(ctx context.Context, client *humioapi.Client, haa *humiov1alpha1.HumioAggregateAlert) error {
 	err := validateSearchDomain(ctx, client, haa.Spec.ViewName)
 	if err != nil {
 		return fmt.Errorf("problem getting view for action: %w", err)
 	}
-	if err = h.ValidateActionsForAggregateAlert(ctx, client, req, haa); err != nil {
+	if err = h.ValidateActionsForAggregateAlert(ctx, client, haa); err != nil {
 		return fmt.Errorf("could not get action id mapping: %w", err)
 	}
 
@@ -1775,7 +1775,7 @@ func (h *ClientConfig) AddAggregateAlert(ctx context.Context, client *humioapi.C
 	return err
 }
 
-func (h *ClientConfig) GetAggregateAlert(ctx context.Context, client *humioapi.Client, _ reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) (*humiographql.AggregateAlertDetails, error) {
+func (h *ClientConfig) GetAggregateAlert(ctx context.Context, client *humioapi.Client, haa *humiov1alpha1.HumioAggregateAlert) (*humiographql.AggregateAlertDetails, error) {
 	err := validateSearchDomain(ctx, client, haa.Spec.ViewName)
 	if err != nil {
 		return nil, fmt.Errorf("problem getting view for action %s: %w", haa.Spec.Name, err)
@@ -1813,15 +1813,15 @@ func (h *ClientConfig) GetAggregateAlert(ctx context.Context, client *humioapi.C
 	return &respAggregateAlert.AggregateAlertDetails, nil
 }
 
-func (h *ClientConfig) UpdateAggregateAlert(ctx context.Context, client *humioapi.Client, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) error {
+func (h *ClientConfig) UpdateAggregateAlert(ctx context.Context, client *humioapi.Client, haa *humiov1alpha1.HumioAggregateAlert) error {
 	err := validateSearchDomain(ctx, client, haa.Spec.ViewName)
 	if err != nil {
 		return fmt.Errorf("problem getting view for action %s: %w", haa.Spec.Name, err)
 	}
-	if err = h.ValidateActionsForAggregateAlert(ctx, client, req, haa); err != nil {
+	if err = h.ValidateActionsForAggregateAlert(ctx, client, haa); err != nil {
 		return fmt.Errorf("could not get action id mapping: %w", err)
 	}
-	currentAggregateAlert, err := h.GetAggregateAlert(ctx, client, req, haa)
+	currentAggregateAlert, err := h.GetAggregateAlert(ctx, client, haa)
 	if err != nil {
 		return fmt.Errorf("could not find aggregate alert with name: %q", haa.Spec.Name)
 	}
@@ -1847,8 +1847,8 @@ func (h *ClientConfig) UpdateAggregateAlert(ctx context.Context, client *humioap
 	return err
 }
 
-func (h *ClientConfig) DeleteAggregateAlert(ctx context.Context, client *humioapi.Client, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) error {
-	currentAggregateAlert, err := h.GetAggregateAlert(ctx, client, req, haa)
+func (h *ClientConfig) DeleteAggregateAlert(ctx context.Context, client *humioapi.Client, haa *humiov1alpha1.HumioAggregateAlert) error {
+	currentAggregateAlert, err := h.GetAggregateAlert(ctx, client, haa)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			return nil
@@ -1865,10 +1865,10 @@ func (h *ClientConfig) DeleteAggregateAlert(ctx context.Context, client *humioap
 	return err
 }
 
-func (h *ClientConfig) ValidateActionsForAggregateAlert(ctx context.Context, client *humioapi.Client, req reconcile.Request, haa *humiov1alpha1.HumioAggregateAlert) error {
+func (h *ClientConfig) ValidateActionsForAggregateAlert(ctx context.Context, client *humioapi.Client, haa *humiov1alpha1.HumioAggregateAlert) error {
 	// validate action
 	for _, actionNameForAlert := range haa.Spec.Actions {
-		if err := h.getAndValidateAction(ctx, client, req, actionNameForAlert, haa.Spec.ViewName); err != nil {
+		if err := h.getAndValidateAction(ctx, client, actionNameForAlert, haa.Spec.ViewName); err != nil {
 			return fmt.Errorf("problem getting action for aggregate alert %s: %w", haa.Spec.Name, err)
 		}
 	}
@@ -2011,7 +2011,7 @@ func (h *ClientConfig) DeleteSystemPermissionRole(ctx context.Context, client *h
 	return nil
 }
 
-func (h *ClientConfig) AddUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+func (h *ClientConfig) AddUser(ctx context.Context, client *humioapi.Client, hu *humiov1alpha1.HumioUser) error {
 	_, err := humiographql.AddUser(
 		ctx,
 		client,
@@ -2021,7 +2021,7 @@ func (h *ClientConfig) AddUser(ctx context.Context, client *humioapi.Client, _ r
 	return err
 }
 
-func (h *ClientConfig) GetUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) (*humiographql.UserDetails, error) {
+func (h *ClientConfig) GetUser(ctx context.Context, client *humioapi.Client, hu *humiov1alpha1.HumioUser) (*humiographql.UserDetails, error) {
 	resp, err := humiographql.GetUsersByUsername(
 		ctx,
 		client,
@@ -2041,7 +2041,7 @@ func (h *ClientConfig) GetUser(ctx context.Context, client *humioapi.Client, _ r
 	return nil, humioapi.UserNotFound(hu.Spec.UserName)
 }
 
-func (h *ClientConfig) UpdateUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+func (h *ClientConfig) UpdateUser(ctx context.Context, client *humioapi.Client, hu *humiov1alpha1.HumioUser) error {
 	_, err := humiographql.UpdateUser(
 		ctx,
 		client,
@@ -2051,7 +2051,7 @@ func (h *ClientConfig) UpdateUser(ctx context.Context, client *humioapi.Client, 
 	return err
 }
 
-func (h *ClientConfig) DeleteUser(ctx context.Context, client *humioapi.Client, _ reconcile.Request, hu *humiov1alpha1.HumioUser) error {
+func (h *ClientConfig) DeleteUser(ctx context.Context, client *humioapi.Client, hu *humiov1alpha1.HumioUser) error {
 	_, err := humiographql.RemoveUser(
 		ctx,
 		client,

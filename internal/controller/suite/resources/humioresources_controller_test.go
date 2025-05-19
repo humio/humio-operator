@@ -113,7 +113,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var humioIngestToken *humiographql.IngestTokenDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() *humiographql.IngestTokenDetailsParser {
-				humioIngestToken, _ = humioClient.GetIngestToken(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedIngestToken)
+				humioIngestToken, _ = humioClient.GetIngestToken(ctx, humioHttpClient, fetchedIngestToken)
 				if humioIngestToken != nil {
 					return humioIngestToken.Parser
 				}
@@ -131,7 +131,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			Eventually(func() *humiographql.IngestTokenDetailsParser {
-				humioIngestToken, err = humioClient.GetIngestToken(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedIngestToken)
+				humioIngestToken, err = humioClient.GetIngestToken(ctx, humioHttpClient, fetchedIngestToken)
 				if humioIngestToken != nil {
 					return humioIngestToken.Parser
 				}
@@ -356,7 +356,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var initialRepository *humiographql.RepositoryDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				initialRepository, err = humioClient.GetRepository(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateRepository)
+				initialRepository, err = humioClient.GetRepository(ctx, humioHttpClient, toCreateRepository)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(initialRepository).ToNot(BeNil())
@@ -380,7 +380,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				AutomaticSearch:        true,
 			}
 			Eventually(func() repositoryExpectation {
-				initialRepository, err := humioClient.GetRepository(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedRepository)
+				initialRepository, err := humioClient.GetRepository(ctx, humioHttpClient, fetchedRepository)
 				if err != nil {
 					return repositoryExpectation{}
 				}
@@ -409,7 +409,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			var updatedRepository *humiographql.RepositoryDetails
 			Eventually(func() error {
-				updatedRepository, err = humioClient.GetRepository(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedRepository)
+				updatedRepository, err = humioClient.GetRepository(ctx, humioHttpClient, fetchedRepository)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(updatedRepository).ToNot(BeNil())
@@ -433,7 +433,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				AutomaticSearch:        helpers.BoolTrue(fetchedRepository.Spec.AutomaticSearch),
 			}
 			Eventually(func() repositoryExpectation {
-				updatedRepository, err := humioClient.GetRepository(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedRepository)
+				updatedRepository, err := humioClient.GetRepository(ctx, humioHttpClient, fetchedRepository)
 				if err != nil {
 					return repositoryExpectation{}
 				}
@@ -519,7 +519,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioView: Creating the view successfully in Humio")
 			var initialView *humiographql.GetSearchDomainSearchDomainView
 			Eventually(func() error {
-				initialView, err = humioClient.GetView(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, viewToCreate)
+				initialView, err = humioClient.GetView(ctx, humioHttpClient, viewToCreate)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(initialView).ToNot(BeNil())
@@ -534,7 +534,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Eventually(func() humiographql.GetSearchDomainSearchDomainView {
-				initialView, err := humioClient.GetView(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedView)
+				initialView, err := humioClient.GetView(ctx, humioHttpClient, fetchedView)
 				if err != nil {
 					return humiographql.GetSearchDomainSearchDomainView{}
 				}
@@ -567,7 +567,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioView: Updating the view successfully in Humio")
 			var updatedView *humiographql.GetSearchDomainSearchDomainView
 			Eventually(func() error {
-				updatedView, err = humioClient.GetView(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedView)
+				updatedView, err = humioClient.GetView(ctx, humioHttpClient, fetchedView)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(updatedView).ToNot(BeNil())
@@ -581,7 +581,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				AutomaticSearch: *fetchedView.Spec.AutomaticSearch,
 			}
 			Eventually(func() humiographql.GetSearchDomainSearchDomainView {
-				updatedView, err := humioClient.GetView(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedView)
+				updatedView, err := humioClient.GetView(ctx, humioHttpClient, fetchedView)
 				if err != nil {
 					return humiographql.GetSearchDomainSearchDomainView{}
 				}
@@ -646,7 +646,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var initialParser *humiographql.ParserDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				initialParser, err = humioClient.GetParser(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateParser)
+				initialParser, err = humioClient.GetParser(ctx, humioHttpClient, toCreateParser)
 				if err != nil {
 					return err
 				}
@@ -679,7 +679,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			var updatedParser *humiographql.ParserDetails
 			Eventually(func() error {
-				updatedParser, err = humioClient.GetParser(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedParser)
+				updatedParser, err = humioClient.GetParser(ctx, humioHttpClient, fetchedParser)
 
 				// Ignore the ID when comparing parser content
 				updatedParser.Id = ""
@@ -696,7 +696,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				TestCases:   humioapi.TestDataToParserDetailsTestCasesParserTestCase(fetchedParser.Spec.TestData),
 			}
 			Eventually(func() *humiographql.ParserDetails {
-				updatedParser, err := humioClient.GetParser(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedParser)
+				updatedParser, err := humioClient.GetParser(ctx, humioHttpClient, fetchedParser)
 				if err != nil {
 					return nil
 				}
@@ -1021,7 +1021,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -1044,7 +1044,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the action update succeeded")
 			var expectedUpdatedAction, updatedAction2 humiographql.ActionDetails
 			Eventually(func() error {
-				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(err).ToNot(HaveOccurred())
@@ -1052,7 +1052,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the action matches the expected")
 			Eventually(func() *string {
-				updatedAction2, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				updatedAction2, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				if err != nil {
 					return helpers.StringPtr(err.Error())
 				}
@@ -1116,7 +1116,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -1140,14 +1140,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the humio repo action update succeeded")
 			var expectedUpdatedAction, updatedAction2 humiographql.ActionDetails
 			Eventually(func() error {
-				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the humio repo action matches the expected")
 			Eventually(func() string {
-				updatedAction2, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				updatedAction2, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				if err != nil {
 					return ""
 				}
@@ -1205,7 +1205,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -1230,14 +1230,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the ops genie action update succeeded")
 			var expectedUpdatedAction, updatedAction2 humiographql.ActionDetails
 			Eventually(func() error {
-				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the ops genie action matches the expected")
 			Eventually(func() string {
-				updatedAction2, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				updatedAction2, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				if err != nil {
 					return ""
 				}
@@ -1299,7 +1299,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -1323,14 +1323,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the pagerduty action update succeeded")
 			var expectedUpdatedAction, updatedAction2 humiographql.ActionDetails
 			Eventually(func() error {
-				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the pagerduty action matches the expected")
 			Eventually(func() string {
-				updatedAction2, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				updatedAction2, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				if err != nil {
 					return ""
 				}
@@ -1394,7 +1394,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -1424,14 +1424,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack post message action update succeeded")
 			var expectedUpdatedAction, updatedAction2 humiographql.ActionDetails
 			Eventually(func() error {
-				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack post message action matches the expected")
 			Eventually(func() string {
-				updatedAction2, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				updatedAction2, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				if err != nil {
 					return ""
 				}
@@ -1498,7 +1498,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -1527,14 +1527,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack action update succeeded")
 			var expectedUpdatedAction, updatedAction2 humiographql.ActionDetails
 			Eventually(func() error {
-				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the slack action matches the expected")
 			Eventually(func() string {
-				updatedAction2, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				updatedAction2, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				if err != nil {
 					return ""
 				}
@@ -1598,7 +1598,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -1623,14 +1623,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the victor ops action update succeeded")
 			var expectedUpdatedAction, updatedAction2 humiographql.ActionDetails
 			Eventually(func() error {
-				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the victor ops action matches the expected")
 			Eventually(func() string {
-				updatedAction2, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				updatedAction2, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				if err != nil {
 					return ""
 				}
@@ -1693,7 +1693,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -1718,14 +1718,14 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the web hook action update succeeded")
 			var expectedUpdatedAction, updatedAction humiographql.ActionDetails
 			Eventually(func() error {
-				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				expectedUpdatedAction, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAction).ToNot(BeNil())
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAction: Verifying the web hook action matches the expected")
 			Eventually(func() string {
-				updatedAction, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAction)
+				updatedAction, err = humioClient.GetAction(ctx, humioHttpClient, fetchedAction)
 				if err != nil || updatedAction == nil {
 					return ""
 				}
@@ -1855,7 +1855,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -1926,7 +1926,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -1979,7 +1979,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -2050,7 +2050,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -2103,7 +2103,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -2177,7 +2177,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -2232,7 +2232,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -2305,7 +2305,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -2360,7 +2360,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -2431,7 +2431,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			Eventually(func() error {
 				humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -2484,7 +2484,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -2538,7 +2538,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -2610,7 +2610,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -2669,7 +2669,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -2767,7 +2767,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -2865,7 +2865,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var action humiographql.ActionDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				action, err = humioClient.GetAction(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAction)
+				action, err = humioClient.GetAction(ctx, humioHttpClient, toCreateAction)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(action).ToNot(BeNil())
@@ -2974,7 +2974,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var alert *humiographql.AlertDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				alert, err = humioClient.GetAlert(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAlert)
+				alert, err = humioClient.GetAlert(ctx, humioHttpClient, toCreateAlert)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(alert).ToNot(BeNil())
@@ -3032,7 +3032,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Verifying the alert update succeeded")
 			var expectedUpdatedAlert *humiographql.AlertDetails
 			Eventually(func() error {
-				expectedUpdatedAlert, err = humioClient.GetAlert(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAlert)
+				expectedUpdatedAlert, err = humioClient.GetAlert(ctx, humioHttpClient, fetchedAlert)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAlert).ToNot(BeNil())
@@ -3057,7 +3057,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 			}
 			Eventually(func() *humiographql.AlertDetails {
-				updatedAlert, err := humioClient.GetAlert(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAlert)
+				updatedAlert, err := humioClient.GetAlert(ctx, humioHttpClient, fetchedAlert)
 				if err != nil {
 					return nil
 				}
@@ -3179,13 +3179,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var filterAlert *humiographql.FilterAlertDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				filterAlert, err = humioClient.GetFilterAlert(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateFilterAlert)
+				filterAlert, err = humioClient.GetFilterAlert(ctx, humioHttpClient, toCreateFilterAlert)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(filterAlert).ToNot(BeNil())
 
 			Eventually(func() error {
-				return humioClient.ValidateActionsForFilterAlert(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateFilterAlert)
+				return humioClient.ValidateActionsForFilterAlert(ctx, humioHttpClient, toCreateFilterAlert)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			originalFilterAlert := humiographql.FilterAlertDetails{
@@ -3260,7 +3260,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioFilterAlert: Verifying the filter alert update succeeded")
 			var expectedUpdatedFilterAlert *humiographql.FilterAlertDetails
 			Eventually(func() error {
-				expectedUpdatedFilterAlert, err = humioClient.GetFilterAlert(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedFilterAlert)
+				expectedUpdatedFilterAlert, err = humioClient.GetFilterAlert(ctx, humioHttpClient, fetchedFilterAlert)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedFilterAlert).ToNot(BeNil())
@@ -3285,7 +3285,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Eventually(func() *humiographql.FilterAlertDetails {
-				updatedFilterAlert, err := humioClient.GetFilterAlert(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedFilterAlert)
+				updatedFilterAlert, err := humioClient.GetFilterAlert(ctx, humioHttpClient, fetchedFilterAlert)
 				if err != nil {
 					return nil
 				}
@@ -3503,13 +3503,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var aggregateAlert *humiographql.AggregateAlertDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				aggregateAlert, err = humioClient.GetAggregateAlert(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAggregateAlert)
+				aggregateAlert, err = humioClient.GetAggregateAlert(ctx, humioHttpClient, toCreateAggregateAlert)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(aggregateAlert).ToNot(BeNil())
 
 			Eventually(func() error {
-				return humioClient.ValidateActionsForAggregateAlert(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateAggregateAlert)
+				return humioClient.ValidateActionsForAggregateAlert(ctx, humioHttpClient, toCreateAggregateAlert)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			originalAggregateAlert := humiographql.AggregateAlertDetails{
@@ -3587,7 +3587,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioAggregateAlert: Verifying the aggregate alert update succeeded")
 			var expectedUpdatedAggregateAlert *humiographql.AggregateAlertDetails
 			Eventually(func() error {
-				expectedUpdatedAggregateAlert, err = humioClient.GetAggregateAlert(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAggregateAlert)
+				expectedUpdatedAggregateAlert, err = humioClient.GetAggregateAlert(ctx, humioHttpClient, fetchedAggregateAlert)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedAggregateAlert).ToNot(BeNil())
@@ -3615,7 +3615,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Eventually(func() *humiographql.AggregateAlertDetails {
-				updatedAggregateAlert, err := humioClient.GetAggregateAlert(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedAggregateAlert)
+				updatedAggregateAlert, err := humioClient.GetAggregateAlert(ctx, humioHttpClient, fetchedAggregateAlert)
 				if err != nil {
 					return nil
 				}
@@ -3739,13 +3739,13 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var scheduledSearch *humiographql.ScheduledSearchDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				scheduledSearch, err = humioClient.GetScheduledSearch(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateScheduledSearch)
+				scheduledSearch, err = humioClient.GetScheduledSearch(ctx, humioHttpClient, toCreateScheduledSearch)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(scheduledSearch).ToNot(BeNil())
 
 			Eventually(func() error {
-				return humioClient.ValidateActionsForScheduledSearch(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateScheduledSearch)
+				return humioClient.ValidateActionsForScheduledSearch(ctx, humioHttpClient, toCreateScheduledSearch)
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			Expect(humioapi.GetActionNames(scheduledSearch.ActionsV2)).To(Equal(toCreateScheduledSearch.Spec.Actions))
@@ -3809,7 +3809,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioScheduledSearch: Verifying the scheduled search update succeeded")
 			var expectedUpdatedScheduledSearch *humiographql.ScheduledSearchDetails
 			Eventually(func() error {
-				expectedUpdatedScheduledSearch, err = humioClient.GetScheduledSearch(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedScheduledSearch)
+				expectedUpdatedScheduledSearch, err = humioClient.GetScheduledSearch(ctx, humioHttpClient, fetchedScheduledSearch)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(expectedUpdatedScheduledSearch).ToNot(BeNil())
@@ -3836,7 +3836,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Eventually(func() *humiographql.ScheduledSearchDetails {
-				updatedScheduledSearch, err := humioClient.GetScheduledSearch(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedScheduledSearch)
+				updatedScheduledSearch, err := humioClient.GetScheduledSearch(ctx, humioHttpClient, fetchedScheduledSearch)
 				if err != nil {
 					return nil
 				}
@@ -4025,7 +4025,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			var initialUser *humiographql.UserDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 			Eventually(func() error {
-				initialUser, err = humioClient.GetUser(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, toCreateUser)
+				initialUser, err = humioClient.GetUser(ctx, humioHttpClient, toCreateUser)
 				if err != nil {
 					return err
 				}
@@ -4059,7 +4059,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				IsRoot:   true,
 			}
 			Eventually(func() *humiographql.UserDetails {
-				updatedUser, err := humioClient.GetUser(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedUser)
+				updatedUser, err := humioClient.GetUser(ctx, humioHttpClient, fetchedUser)
 				if err != nil {
 					return nil
 				}
@@ -4085,7 +4085,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				IsRoot:   false,
 			}
 			Eventually(func() *humiographql.UserDetails {
-				updatedUser, err := humioClient.GetUser(ctx, humioHttpClient, reconcile.Request{NamespacedName: clusterKey}, fetchedUser)
+				updatedUser, err := humioClient.GetUser(ctx, humioHttpClient, fetchedUser)
 				if err != nil {
 					return nil
 				}

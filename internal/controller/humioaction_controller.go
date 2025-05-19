@@ -87,7 +87,7 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
 
 	defer func(ctx context.Context, ha *humiov1alpha1.HumioAction) {
-		_, err := r.HumioClient.GetAction(ctx, humioHttpClient, req, ha)
+		_, err := r.HumioClient.GetAction(ctx, humioHttpClient, ha)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioActionStateNotFound, ha)
 			return
@@ -99,16 +99,16 @@ func (r *HumioActionReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		_ = r.setState(ctx, humiov1alpha1.HumioActionStateExists, ha)
 	}(ctx, ha)
 
-	return r.reconcileHumioAction(ctx, humioHttpClient, ha, req)
+	return r.reconcileHumioAction(ctx, humioHttpClient, ha)
 }
 
-func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client *humioapi.Client, ha *humiov1alpha1.HumioAction, req ctrl.Request) (reconcile.Result, error) {
+func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client *humioapi.Client, ha *humiov1alpha1.HumioAction) (reconcile.Result, error) {
 	// Delete
 	r.Log.Info("Checking if Action is marked to be deleted")
 	if ha.GetDeletionTimestamp() != nil {
 		r.Log.Info("Action marked to be deleted")
 		if helpers.ContainsElement(ha.GetFinalizers(), humioFinalizer) {
-			_, err := r.HumioClient.GetAction(ctx, client, req, ha)
+			_, err := r.HumioClient.GetAction(ctx, client, ha)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				ha.SetFinalizers(helpers.RemoveElement(ha.GetFinalizers(), humioFinalizer))
 				err := r.Update(ctx, ha)
@@ -123,7 +123,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting Action")
-			if err := r.HumioClient.DeleteAction(ctx, client, req, ha); err != nil {
+			if err := r.HumioClient.DeleteAction(ctx, client, ha); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete Action returned error")
 			}
 		}
@@ -158,11 +158,11 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 
 	r.Log.Info("Checking if action needs to be created")
 	// Add Action
-	curAction, err := r.HumioClient.GetAction(ctx, client, req, ha)
+	curAction, err := r.HumioClient.GetAction(ctx, client, ha)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			r.Log.Info("Action doesn't exist. Now adding action")
-			addErr := r.HumioClient.AddAction(ctx, client, req, ha)
+			addErr := r.HumioClient.AddAction(ctx, client, ha)
 			if addErr != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(addErr, "could not create action")
 			}
@@ -185,7 +185,7 @@ func (r *HumioActionReconciler) reconcileHumioAction(ctx context.Context, client
 		r.Log.Info("information differs, triggering update",
 			"diff", diffKeysAndValues,
 		)
-		err = r.HumioClient.UpdateAction(ctx, client, req, ha)
+		err = r.HumioClient.UpdateAction(ctx, client, ha)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not update action")
 		}
