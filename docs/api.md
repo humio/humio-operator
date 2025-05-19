@@ -24,6 +24,8 @@ Resource Types:
 
 - [HumioFilterAlert](#humiofilteralert)
 
+- [HumioGroup](#humiogroup)
+
 - [HumioIngestToken](#humioingesttoken)
 
 - [HumioOrganizationPermissionRole](#humioorganizationpermissionrole)
@@ -36808,6 +36810,141 @@ HumioFilterAlertStatus defines the observed state of HumioFilterAlert.
         <td>string</td>
         <td>
           State reflects the current state of the HumioFilterAlert<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioGroup
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioGroup is the Schema for the humiogroups API
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioGroup</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiogroupspec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioGroupSpec defines the desired state of HumioGroup.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiogroupstatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioGroupStatus defines the observed state of HumioGroup.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioGroup.spec
+<sup><sup>[↩ Parent](#humiogroup)</sup></sup>
+
+
+
+HumioGroupSpec defines the desired state of HumioGroup.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the display name of the HumioGroup<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+This conflicts with ManagedClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>externalMappingName</b></td>
+        <td>string</td>
+        <td>
+          ExternalMappingName is the mapping name from the external provider that will assign the user to this HumioGroup<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+resources should be created.
+This conflicts with ExternalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioGroup.status
+<sup><sup>[↩ Parent](#humiogroup)</sup></sup>
+
+
+
+HumioGroupStatus defines the observed state of HumioGroup.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State reflects the current state of the HumioGroup<br/>
         </td>
         <td>false</td>
       </tr></tbody>

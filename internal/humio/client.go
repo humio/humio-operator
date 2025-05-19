@@ -43,6 +43,7 @@ type Client interface {
 	ParsersClient
 	RepositoriesClient
 	ViewsClient
+	GroupsClient
 	LicenseClient
 	ActionsClient
 	AlertsClient
@@ -94,6 +95,13 @@ type ViewsClient interface {
 	GetView(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioView) (*humiographql.GetSearchDomainSearchDomainView, error)
 	UpdateView(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioView) error
 	DeleteView(context.Context, *humioapi.Client, reconcile.Request, *humiov1alpha1.HumioView) error
+}
+
+type GroupsClient interface {
+	AddGroup(context.Context, *humioapi.Client, *humiov1alpha1.HumioGroup) error
+	GetGroup(context.Context, *humioapi.Client, *humiov1alpha1.HumioGroup) (*humiographql.GroupDetails, error)
+	UpdateGroup(context.Context, *humioapi.Client, *humiov1alpha1.HumioGroup) error
+	DeleteGroup(context.Context, *humioapi.Client, *humiov1alpha1.HumioGroup) error
 }
 
 type ActionsClient interface {
@@ -821,6 +829,73 @@ func validateSearchDomain(ctx context.Context, client *humioapi.Client, searchDo
 	}
 
 	return humioapi.SearchDomainNotFound(searchDomainName)
+}
+
+func (h *ClientConfig) AddGroup(ctx context.Context, client *humioapi.Client, hg *humiov1alpha1.HumioGroup) error {
+	_, err := humiographql.CreateGroup(
+		ctx,
+		client,
+		hg.Spec.Name,
+		hg.Spec.ExternalMappingName,
+	)
+	return err
+}
+
+func (h *ClientConfig) GetGroup(ctx context.Context, client *humioapi.Client, hg *humiov1alpha1.HumioGroup) (*humiographql.GroupDetails, error) {
+	getGroupResp, err := humiographql.GetGroupByDisplayName(
+		ctx,
+		client,
+		hg.Spec.Name,
+	)
+	if err != nil {
+		return nil, humioapi.GroupNotFound(hg.Spec.Name)
+	}
+
+	group := getGroupResp.GetGroupByDisplayName()
+	return &humiographql.GroupDetails{
+		Id:          group.GetId(),
+		DisplayName: group.GetDisplayName(),
+		LookupName:  group.GetLookupName(),
+	}, nil
+}
+
+func (h *ClientConfig) UpdateGroup(ctx context.Context, client *humioapi.Client, hg *humiov1alpha1.HumioGroup) error {
+	curGroup, err := h.GetGroup(ctx, client, hg)
+	if err != nil {
+		return err
+	}
+
+	newLookupName := hg.Spec.ExternalMappingName
+	if hg.Spec.ExternalMappingName == nil {
+		// LogScale returns null from graphql when lookup name is updated to empty string
+		newLookupName = helpers.StringPtr("")
+	}
+
+	_, err = humiographql.UpdateGroup(
+		ctx,
+		client,
+		curGroup.GetId(),
+		&hg.Spec.Name,
+		newLookupName,
+	)
+	return err
+}
+
+func (h *ClientConfig) DeleteGroup(ctx context.Context, client *humioapi.Client, hg *humiov1alpha1.HumioGroup) error {
+	group, err := h.GetGroup(ctx, client, hg)
+	if err != nil {
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			return nil
+		}
+		return err
+	}
+
+	_, err = humiographql.DeleteGroup(
+		ctx,
+		client,
+		group.Id,
+	)
+	return err
 }
 
 func (h *ClientConfig) GetAction(ctx context.Context, client *humioapi.Client, _ reconcile.Request, ha *humiov1alpha1.HumioAction) (humiographql.ActionDetails, error) {
