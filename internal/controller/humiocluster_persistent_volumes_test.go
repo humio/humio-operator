@@ -176,10 +176,14 @@ func TestFilterSchedulablePVCs(t *testing.T) {
 			// Create a fake client with the mock objects
 			client := fake.NewFakeClient()
 			if tt.mockPV != nil {
-				client.Create(context.TODO(), tt.mockPV)
+				if err := client.Create(context.TODO(), tt.mockPV); err != nil {
+					t.Errorf("failed to create mock PV")
+				}
 			}
 			if tt.mockNode != nil {
-				client.Create(context.TODO(), tt.mockNode)
+				if err := client.Create(context.TODO(), tt.mockNode); err != nil {
+					t.Errorf("failed to create mock node")
+				}
 			}
 
 			// Create reconciler with the fake client
