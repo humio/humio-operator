@@ -6,4 +6,9 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: humiosystempermissionrole-sample
 spec:
-  # TODO(user): Add fields here
+  managedClusterName: example-humiocluster
+  name: example-system-permission-role
+  permissions:
+    - ReadHealthCheck
+  groupNames:
+    - example-group

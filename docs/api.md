@@ -37222,6 +37222,14 @@ resources should be created.
 This conflicts with ExternalClusterName.<br/>
         </td>
         <td>false</td>
+      </tr><tr>
+        <td><b>roleAssignmentGroupNames</b></td>
+        <td>[]string</td>
+        <td>
+          RoleAssignmentGroupNames lists the names of LogScale groups that this role is assigned to.
+It is optional to specify the list of role assignments. If not specified, the role will not be assigned to any groups.<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -37934,6 +37942,14 @@ resources should be created.
 This conflicts with ExternalClusterName.<br/>
         </td>
         <td>false</td>
+      </tr><tr>
+        <td><b>roleAssignmentGroupNames</b></td>
+        <td>[]string</td>
+        <td>
+          RoleAssignmentGroupNames lists the names of LogScale groups that this role is assigned to.
+It is optional to specify the list of role assignments. If not specified, the role will not be assigned to any groups.<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -38210,6 +38226,48 @@ resources should be created.
 This conflicts with ExternalClusterName.<br/>
         </td>
         <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humioviewpermissionrolespecroleassignmentsindex">roleAssignments</a></b></td>
+        <td>[]object</td>
+        <td>
+          RoleAssignments lists the names of LogScale groups that this role is assigned to and for which views/repositories.
+It is optional to specify the list of role assignments. If not specified, the role will not be assigned to any groups.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioViewPermissionRole.spec.roleAssignments[index]
+<sup><sup>[↩ Parent](#humioviewpermissionrolespec)</sup></sup>
+
+
+
+HumioViewPermissionRoleAssignment specifies a view or repo and a group to assign it to.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>groupName</b></td>
+        <td>string</td>
+        <td>
+          GroupName specifies the name of the group to assign the view permission role to.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>repoOrViewName</b></td>
+        <td>string</td>
+        <td>
+          RepoOrViewName specifies the name of the view or repo to assign the view permission role.<br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 

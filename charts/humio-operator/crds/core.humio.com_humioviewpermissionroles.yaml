@@ -75,6 +75,29 @@ spec:
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: set
+              roleAssignments:
+                description: |-
+                  RoleAssignments lists the names of LogScale groups that this role is assigned to and for which views/repositories.
+                  It is optional to specify the list of role assignments. If not specified, the role will not be assigned to any groups.
+                items:
+                  description: HumioViewPermissionRoleAssignment specifies a view
+                    or repo and a group to assign it to.
+                  properties:
+                    groupName:
+                      description: GroupName specifies the name of the group to assign
+                        the view permission role to.
+                      minLength: 1
+                      type: string
+                    repoOrViewName:
+                      description: RepoOrViewName specifies the name of the view or
+                        repo to assign the view permission role.
+                      minLength: 1
+                      type: string
+                  required:
+                  - groupName
+                  - repoOrViewName
+                  type: object
+                type: array
             required:
             - name
             - permissions

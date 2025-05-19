@@ -194,7 +194,6 @@ func (r *HumioSystemPermissionRoleReconciler) finalize(ctx context.Context, clie
 		}
 		return err
 	}
-
 	return r.HumioClient.DeleteSystemPermissionRole(ctx, client, hp)
 }
 
@@ -242,6 +241,17 @@ func systemPermissionRoleAlreadyAsExpected(fromKubernetesCustomResource *humiov1
 	sort.Strings(fromKubernetesCustomResource.Spec.Permissions)
 	if diff := cmp.Diff(systemPermissionsToStrings, fromKubernetesCustomResource.Spec.Permissions); diff != "" {
 		keyValues["permissions"] = diff
+	}
+
+	groupsFromGraphQL := fromGraphQL.GetGroups()
+	groupsToStrings := make([]string, len(groupsFromGraphQL))
+	for idx := range groupsFromGraphQL {
+		groupsToStrings[idx] = groupsFromGraphQL[idx].GetDisplayName()
+	}
+	sort.Strings(groupsToStrings)
+	sort.Strings(fromKubernetesCustomResource.Spec.RoleAssignmentGroupNames)
+	if diff := cmp.Diff(groupsToStrings, fromKubernetesCustomResource.Spec.RoleAssignmentGroupNames); diff != "" {
+		keyValues["roleAssignmentGroupNames"] = diff
 	}
 
 	return len(keyValues) == 0, keyValues
