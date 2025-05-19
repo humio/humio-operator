@@ -24,15 +24,15 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/humio/humio-operator/internal/controller"
-	"github.com/humio/humio-operator/internal/humio"
-
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	uberzap "go.uber.org/zap"
 
+	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/helpers"
+	"github.com/humio/humio-operator/internal/humio"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -415,6 +415,17 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		BaseLogger:  log,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioUser")
+		os.Exit(1)
+	}
+	if err = (&controller.HumioGroupReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioGroup")
 		os.Exit(1)
 	}
 	if err = (&controller.HumioViewPermissionRoleReconciler{

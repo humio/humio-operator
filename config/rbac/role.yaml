@@ -35,6 +35,7 @@ rules:
   - humioexternalclusters
   - humiofeatureflags
   - humiofilteralerts
+  - humiogroups
   - humioingesttokens
   - humioorganizationpermissionroles
   - humioparsers
@@ -63,6 +64,7 @@ rules:
   - humioexternalclusters/finalizers
   - humiofeatureflags/finalizers
   - humiofilteralerts/finalizers
+  - humiogroups/finalizers
   - humioingesttokens/finalizers
   - humioorganizationpermissionroles/finalizers
   - humioparsers/finalizers
@@ -85,6 +87,7 @@ rules:
   - humioexternalclusters/status
   - humiofeatureflags/status
   - humiofilteralerts/status
+  - humiogroups/status
   - humioingesttokens/status
   - humioorganizationpermissionroles/status
   - humioparsers/status
