@@ -11,6 +11,7 @@ operations:
   - graphql/license.graphql
   - graphql/parsers.graphql
   - graphql/repositories.graphql
+  - graphql/roles.graphql
   - graphql/scheduled-search.graphql
   - graphql/searchdomains.graphql
   - graphql/token.graphql
