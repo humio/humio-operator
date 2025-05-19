@@ -50,6 +50,9 @@ type HumioBootstrapTokenSpec struct {
 	// Affinity defines the affinity for the bootstrap onetime pod. This will default to the affinity of the first
 	// non-empty node pool if ManagedClusterName is set on the HumioBootstrapTokenSpec
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+	// Tolerations defines the tolerations for the bootstrap onetime pod. This will default to the tolerations of the first
+	// non-empty node pool if ManagedClusterName is set on the HumioBootstrapTokenSpec
+	Tolerations *[]corev1.Toleration `json:"tolerations,omitempty"`
 	// Resources is the kubernetes resource limits for the bootstrap onetime pod
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 	// TokenSecret is the secret reference that contains the token to use for this HumioBootstrapToken. This is used if one wants to use an existing
