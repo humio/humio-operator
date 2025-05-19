@@ -85,3 +85,4 @@ testbin/
 *-junit.xml
 .envrc
 tmp/**
+humio-operator.iml

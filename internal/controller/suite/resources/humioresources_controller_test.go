@@ -3886,6 +3886,111 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 	})
 
+	Context("HumioGroup", Label("envtest", "dummy", "real"), func() {
+		It("Should successfully create, update and delete group with valid configuration", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-group",
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateGroup := &humiov1alpha1.HumioGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: humiov1alpha1.HumioGroupSpec{
+					ManagedClusterName:  clusterKey.Name,
+					Name:                "example-group",
+					ExternalMappingName: nil, // default, empty value
+				},
+			}
+			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+
+			suite.UsingClusterBy(clusterKey.Name, "Confirming the group does not exist in LogScale before we start")
+			Eventually(func() error {
+				_, err := humioClient.GetGroup(ctx, humioHttpClient, toCreateGroup)
+				return err
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating the group custom resource")
+			Expect(k8sClient.Create(ctx, toCreateGroup)).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "Custom resource for group should be marked with Exists")
+			Eventually(func() string {
+				updatedHumioGroup := humiov1alpha1.HumioGroup{}
+				err = k8sClient.Get(ctx, key, &updatedHumioGroup)
+				if err != nil {
+					return err.Error()
+				}
+				return updatedHumioGroup.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioGroupStateExists))
+
+			suite.UsingClusterBy(clusterKey.Name, "Confirming the group does exist in LogScale after custom resource indicates that it does")
+			var fetchedGroupDetails *humiographql.GroupDetails
+			Eventually(func() error {
+				fetchedGroupDetails, err = humioClient.GetGroup(ctx, humioHttpClient, toCreateGroup)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(fetchedGroupDetails.LookupName).Should(Equal(toCreateGroup.Spec.ExternalMappingName))
+
+			suite.UsingClusterBy(clusterKey.Name, "Set lookup name to custom resource using k8sClient")
+			newExternalMappingName := "some-ad-group"
+			Eventually(func() error {
+				updatedHumioGroup := humiov1alpha1.HumioGroup{}
+				err = k8sClient.Get(ctx, key, &updatedHumioGroup)
+				if err != nil {
+					return err
+				}
+				updatedHumioGroup.Spec.ExternalMappingName = &newExternalMappingName
+				return k8sClient.Update(ctx, &updatedHumioGroup)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "verify it was updated according to humioClient")
+			Eventually(func() (*string, error) {
+				fetchedGroupDetails, err = humioClient.GetGroup(ctx, humioHttpClient, toCreateGroup)
+				if err != nil {
+					return nil, err
+				}
+				Expect(fetchedGroupDetails).ToNot(BeNil())
+				return fetchedGroupDetails.LookupName, err
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(&newExternalMappingName))
+
+			suite.UsingClusterBy(clusterKey.Name, "Remove lookup name to custom resource using k8sClient")
+			Eventually(func() error {
+				updatedHumioGroup := humiov1alpha1.HumioGroup{}
+				err = k8sClient.Get(ctx, key, &updatedHumioGroup)
+				if err != nil {
+					return err
+				}
+				updatedHumioGroup.Spec.ExternalMappingName = nil
+				return k8sClient.Update(ctx, &updatedHumioGroup)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "verify it was updated according to humioClient")
+			Eventually(func() (*string, error) {
+				fetchedGroupDetails, err = humioClient.GetGroup(ctx, humioHttpClient, toCreateGroup)
+				if err != nil {
+					return nil, err
+				}
+				Expect(fetchedGroupDetails).ToNot(BeNil())
+				return fetchedGroupDetails.LookupName, err
+			}, testTimeout, suite.TestInterval).Should(BeNil())
+
+			suite.UsingClusterBy(clusterKey.Name, "Delete custom resource using k8sClient")
+			Expect(k8sClient.Delete(ctx, toCreateGroup)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, toCreateGroup)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "Verify group was removed using humioClient")
+			Eventually(func() string {
+				fetchedGroupDetails, err = humioClient.GetGroup(ctx, humioHttpClient, toCreateGroup)
+				return err.Error()
+			}, testTimeout, suite.TestInterval).Should(BeEquivalentTo(humioapi.GroupNotFound(toCreateGroup.Spec.Name).Error()))
+		})
+	})
+
 	Context("Humio User", Label("envtest", "dummy", "real"), func() {
 		It("HumioUser: Should handle user correctly", func() {
 			ctx := context.Background()
@@ -4029,7 +4134,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			// Verify we validate this for all our CRD's
-			Expect(resources).To(HaveLen(17)) // Bump this as we introduce new CRD's
+			Expect(resources).To(HaveLen(18)) // Bump this as we introduce new CRD's
 
 			for i := range resources {
 				// Get the GVK information
