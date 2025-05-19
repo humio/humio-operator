@@ -37,10 +37,13 @@ rules:
   - humiofilteralerts
   - humiogroups
   - humioingesttokens
+  - humioorganizationpermissionroles
   - humioparsers
   - humiorepositories
   - humioscheduledsearches
+  - humiosystempermissionroles
   - humiousers
+  - humioviewpermissionroles
   - humioviews
   verbs:
   - create
@@ -63,10 +66,13 @@ rules:
   - humiofilteralerts/finalizers
   - humiogroups/finalizers
   - humioingesttokens/finalizers
+  - humioorganizationpermissionroles/finalizers
   - humioparsers/finalizers
   - humiorepositories/finalizers
   - humioscheduledsearches/finalizers
+  - humiosystempermissionroles/finalizers
   - humiousers/finalizers
+  - humioviewpermissionroles/finalizers
   - humioviews/finalizers
   verbs:
   - update
@@ -83,10 +89,13 @@ rules:
   - humiofilteralerts/status
   - humiogroups/status
   - humioingesttokens/status
+  - humioorganizationpermissionroles/status
   - humioparsers/status
   - humiorepositories/status
   - humioscheduledsearches/status
+  - humiosystempermissionroles/status
   - humiousers/status
+  - humioviewpermissionroles/status
   - humioviews/status
   verbs:
   - get

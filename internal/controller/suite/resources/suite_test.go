@@ -249,6 +249,17 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controller.HumioOrganizationPermissionRoleReconciler{
+		Client: k8sManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&controller.HumioParserReconciler{
 		Client: k8sManager.GetClient(),
 		CommonConfig: controller.CommonConfig{
@@ -282,6 +293,17 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = (&controller.HumioSystemPermissionRoleReconciler{
+		Client: k8sManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	err = (&controller.HumioViewReconciler{
 		Client: k8sManager.GetClient(),
 		CommonConfig: controller.CommonConfig{
@@ -294,6 +316,17 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&controller.HumioUserReconciler{
+		Client: k8sManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioViewPermissionRoleReconciler{
 		Client: k8sManager.GetClient(),
 		CommonConfig: controller.CommonConfig{
 			RequeuePeriod: requeuePeriod,
