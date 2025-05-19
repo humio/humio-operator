@@ -286,6 +286,30 @@ helm_install_zookeeper_and_kafka() {
   ${helm_install_command[@]}
 }
 
+wait_for_kafka_ready () {
+    local timeout=300  # 5 minutes
+    local interval=10  # 10 seconds
+    local elapsed=0
+
+    zookeeper_ready=
+    kafka_ready=
+
+    while [ $elapsed -lt $timeout ]; do
+      sleep $interval
+      elapsed=$((elapsed + interval))
+      if kubectl wait --for=condition=ready -l app=cp-zookeeper pod --timeout=30s; then
+        zookeeper_ready="true"
+      fi
+      if kubectl wait --for=condition=ready -l app=cp-kafka pod --timeout=30s; then
+        kafka_ready="true"
+      fi
+      if [ "${zookeeper_ready}" == "true" ] && [ "${kafka_ready}" == "true" ]; then
+        sleep 2
+        break
+      fi
+    done
+}
+
 kubectl_create_dockerhub_secret() {
   if [[ $docker_username != "none" ]] && [[ $docker_password != "none" ]]; then
     $kubectl create secret docker-registry regcred --docker-server="https://index.docker.io/v1/" --docker-username=$docker_username --docker-password=$docker_password
