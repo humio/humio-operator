@@ -425,7 +425,7 @@ func (r *HumioBootstrapTokenReconciler) constructBootstrapPod(ctx context.Contex
 	if bootstrapConfig.imageSource() == nil {
 		image = bootstrapConfig.image()
 	} else {
-		configMap, err := kubernetes.GetConfigMap(ctx, r, bootstrapConfig.imageSource().ConfigMapRef.Name, bootstrapConfig.namespace())
+		configMap, err := kubernetes.GetConfigMap(ctx, r, bootstrapConfig.imageSource().ConfigMapRef.Name, bootstrapConfig.Namespace())
 		if err != nil {
 			return &corev1.Pod{}, r.logErrorAndReturn(err, "failed to get imageFromSource")
 		}
@@ -436,12 +436,13 @@ func (r *HumioBootstrapTokenReconciler) constructBootstrapPod(ctx context.Contex
 
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      bootstrapConfig.podName(),
-			Namespace: bootstrapConfig.namespace(),
+			Name:      bootstrapConfig.PodName(),
+			Namespace: bootstrapConfig.Namespace(),
 		},
 		Spec: corev1.PodSpec{
 			ImagePullSecrets: bootstrapConfig.imagePullSecrets(),
 			Affinity:         bootstrapConfig.affinity(),
+			Tolerations:      bootstrapConfig.tolerations(),
 			Containers: []corev1.Container{
 				{
 					Name:    HumioContainerName,

@@ -159,6 +159,34 @@ func CleanupCluster(ctx context.Context, k8sClient client.Client, hc *humiov1alp
 	}
 }
 
+func CleanupBootstrapToken(ctx context.Context, k8sClient client.Client, hbt *humiov1alpha1.HumioBootstrapToken) {
+	var bootstrapToken humiov1alpha1.HumioBootstrapToken
+	Expect(k8sClient.Get(ctx, types.NamespacedName{Name: hbt.Name, Namespace: hbt.Namespace}, &bootstrapToken)).To(Succeed())
+
+	UsingClusterBy(bootstrapToken.Name, "Deleting the cluster")
+
+	Expect(k8sClient.Delete(ctx, &bootstrapToken)).To(Succeed())
+
+	if bootstrapToken.Status.TokenSecretKeyRef.SecretKeyRef != nil {
+		UsingClusterBy(bootstrapToken.Name, fmt.Sprintf("Deleting the secret %s", bootstrapToken.Status.TokenSecretKeyRef.SecretKeyRef))
+		_ = k8sClient.Delete(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      bootstrapToken.Status.TokenSecretKeyRef.SecretKeyRef.Name,
+				Namespace: bootstrapToken.Namespace,
+			},
+		})
+	}
+	if bootstrapToken.Status.HashedTokenSecretKeyRef.SecretKeyRef != nil {
+		UsingClusterBy(bootstrapToken.Name, fmt.Sprintf("Deleting the secret %s", bootstrapToken.Status.HashedTokenSecretKeyRef.SecretKeyRef))
+		_ = k8sClient.Delete(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      bootstrapToken.Status.HashedTokenSecretKeyRef.SecretKeyRef.Name,
+				Namespace: bootstrapToken.Namespace,
+			},
+		})
+	}
+}
+
 func ConstructBasicNodeSpecForHumioCluster(key types.NamespacedName) humiov1alpha1.HumioNodeSpec {
 	storageClassNameStandard := "standard"
 	userID := int64(65534)
