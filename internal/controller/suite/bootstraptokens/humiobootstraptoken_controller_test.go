@@ -2,6 +2,7 @@ package bootstraptokens
 
 import (
 	"context"
+
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/internal/controller"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -131,20 +132,20 @@ var _ = Describe("HumioBootstrapToken Controller", func() {
 			Expect(bootstrapTokenOneTimePod.Spec.Affinity).ToNot(BeNil())
 			Expect(bootstrapTokenOneTimePod.Spec.Affinity.NodeAffinity).ToNot(BeNil())
 			Expect(bootstrapTokenOneTimePod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution).ToNot(BeNil())
-			clusterNodeAffinity := toCreateHumioCluster.Spec.NodePools[0].HumioNodeSpec.Affinity.NodeAffinity
+			clusterNodeAffinity := toCreateHumioCluster.Spec.NodePools[0].Affinity.NodeAffinity
 			podNodeAffinity := bootstrapTokenOneTimePod.Spec.Affinity.NodeAffinity
 			Expect(podNodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(Equal(
 				clusterNodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms))
 
 			// Verify pod anti-affinity matches
 			Expect(bootstrapTokenOneTimePod.Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
-			clusterPodAntiAffinity := toCreateHumioCluster.Spec.NodePools[0].HumioNodeSpec.Affinity.PodAntiAffinity
+			clusterPodAntiAffinity := toCreateHumioCluster.Spec.NodePools[0].Affinity.PodAntiAffinity
 			podPodAntiAffinity := bootstrapTokenOneTimePod.Spec.Affinity.PodAntiAffinity
 			Expect(podPodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(Equal(
 				clusterPodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution))
 
 			// Verify tolerations match
-			for i, toleration := range toCreateHumioCluster.Spec.NodePools[0].HumioNodeSpec.Tolerations {
+			for i, toleration := range toCreateHumioCluster.Spec.NodePools[0].Tolerations {
 				found := false
 				for _, podToleration := range bootstrapTokenOneTimePod.Spec.Tolerations {
 					if podToleration.Key == toleration.Key &&
