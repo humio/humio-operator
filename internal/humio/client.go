@@ -2384,25 +2384,32 @@ func (h *ClientConfig) DeleteViewPermissionRole(ctx context.Context, client *hum
 	}
 	respListRolesGetRoles := resp.GetRoles()
 	for i := range respListRolesGetRoles {
-		roleDetails := respListRolesGetRoles[i]
-		if roleDetails.GetDisplayName() == role.Spec.Name && len(roleDetails.GetViewPermissions()) > 0 {
-			listGroups := roleDetails.GetGroups()
-			for idx := range listGroups {
-				groupDetails := listGroups[idx]
-				for jdx := range groupDetails.GetRoles() {
-					viewRoleDetails := groupDetails.GetRoles()[jdx]
-					viewRoleDetailsSearchDomain := viewRoleDetails.GetSearchDomain()
-					if viewRoleDetailsSearchDomain == nil {
-						return fmt.Errorf("unable to fetch details when updating role assignment")
-					}
-					if _, unassignErr := humiographql.UnassignViewPermissionRoleFromGroupForView(ctx, client, roleDetails.GetId(), groupDetails.GetId(), viewRoleDetailsSearchDomain.GetId()); unassignErr != nil {
-						return fmt.Errorf("got error unassigning role from group: %w", unassignErr)
-					}
-				}
+		respListRolesRoleDetails := respListRolesGetRoles[i]
+		if respListRolesRoleDetails.GetDisplayName() == role.Spec.Name && len(respListRolesRoleDetails.GetViewPermissions()) > 0 {
+			if err := h.unassignViewPermissionRoleFromAllGroups(ctx, client, respListRolesRoleDetails.RoleDetails); err != nil {
+				return err
 			}
 
-			_, err := humiographql.DeleteRoleByID(ctx, client, roleDetails.GetId())
+			_, err := humiographql.DeleteRoleByID(ctx, client, respListRolesRoleDetails.GetId())
 			return err
+		}
+	}
+	return nil
+}
+
+func (h *ClientConfig) unassignViewPermissionRoleFromAllGroups(ctx context.Context, client *humioapi.Client, roleDetails humiographql.RoleDetails) error {
+	listGroups := roleDetails.GetGroups()
+	for idx := range listGroups {
+		groupDetails := listGroups[idx]
+		for jdx := range groupDetails.GetRoles() {
+			viewRoleDetails := groupDetails.GetRoles()[jdx]
+			viewRoleDetailsSearchDomain := viewRoleDetails.GetSearchDomain()
+			if viewRoleDetailsSearchDomain == nil {
+				return fmt.Errorf("unable to fetch details when updating role assignment")
+			}
+			if _, unassignErr := humiographql.UnassignViewPermissionRoleFromGroupForView(ctx, client, roleDetails.GetId(), groupDetails.GetId(), viewRoleDetailsSearchDomain.GetId()); unassignErr != nil {
+				return fmt.Errorf("got error unassigning role from group: %w", unassignErr)
+			}
 		}
 	}
 	return nil
