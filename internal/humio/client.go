@@ -2002,31 +2002,36 @@ func (h *ClientConfig) UpdateSystemPermissionRole(ctx context.Context, client *h
 				currentGroup := respRole.GetGroups()[idx]
 				currentGroupNames[idx] = currentGroup.GetDisplayName()
 
+				if slices.Contains(expectedGroupNames, currentGroup.GetDisplayName()) {
+					// Nothing to do, group has the role and should have it
+					continue
+				}
+
 				// Unassign role from groups that should not have it
-				if !slices.Contains(expectedGroupNames, currentGroup.GetDisplayName()) {
-					if _, unassignErr := humiographql.UnassignSystemPermissionRoleFromGroup(ctx, client, respGetRoles[i].GetId(), currentGroup.GetId()); unassignErr != nil {
-						return unassignErr
-					}
+				if _, unassignErr := humiographql.UnassignSystemPermissionRoleFromGroup(ctx, client, respGetRoles[i].GetId(), currentGroup.GetId()); unassignErr != nil {
+					return unassignErr
 				}
 			}
 
 			// Assign the role to groups that should have it
 			for _, expectedGroup := range expectedGroupNames {
-				if !slices.Contains(currentGroupNames, expectedGroup) {
-					// Look up group ID
-					currentGroup, getGroupErr := humiographql.GetGroupByDisplayName(ctx, client, expectedGroup)
-					if getGroupErr != nil {
-						return getGroupErr
-					}
-					if currentGroup == nil {
-						return fmt.Errorf("unable to fetch group details for group %q when updating role assignment", expectedGroup)
-					}
-					respCurrentGroup := currentGroup.GetGroupByDisplayName()
+				if slices.Contains(currentGroupNames, expectedGroup) {
+					// Nothing to do, group already has the role
+					continue
+				}
+				// Look up group ID
+				currentGroup, getGroupErr := humiographql.GetGroupByDisplayName(ctx, client, expectedGroup)
+				if getGroupErr != nil {
+					return getGroupErr
+				}
+				if currentGroup == nil {
+					return fmt.Errorf("unable to fetch group details for group %q when updating role assignment", expectedGroup)
+				}
+				respCurrentGroup := currentGroup.GetGroupByDisplayName()
 
-					// Assign
-					if _, assignErr := humiographql.AssignSystemPermissionRoleToGroup(ctx, client, respGetRoles[i].GetId(), respCurrentGroup.GetId()); assignErr != nil {
-						return assignErr
-					}
+				// Assign
+				if _, assignErr := humiographql.AssignSystemPermissionRoleToGroup(ctx, client, respGetRoles[i].GetId(), respCurrentGroup.GetId()); assignErr != nil {
+					return assignErr
 				}
 			}
 
@@ -2184,31 +2189,36 @@ func (h *ClientConfig) UpdateOrganizationPermissionRole(ctx context.Context, cli
 				currentGroup := respRole.GetGroups()[idx]
 				currentGroupNames[idx] = currentGroup.GetDisplayName()
 
+				if slices.Contains(expectedGroupNames, currentGroup.GetDisplayName()) {
+					// Nothing to do, group has the role and should have it
+					continue
+				}
+
 				// Unassign role from groups that should not have it
-				if !slices.Contains(expectedGroupNames, currentGroup.GetDisplayName()) {
-					if _, unassignErr := humiographql.UnassignOrganizationPermissionRoleFromGroup(ctx, client, respGetRoles[i].GetId(), currentGroup.GetId()); unassignErr != nil {
-						return unassignErr
-					}
+				if _, unassignErr := humiographql.UnassignOrganizationPermissionRoleFromGroup(ctx, client, respGetRoles[i].GetId(), currentGroup.GetId()); unassignErr != nil {
+					return unassignErr
 				}
 			}
 
 			// Assign the role to groups that should have it
 			for _, expectedGroup := range expectedGroupNames {
-				if !slices.Contains(currentGroupNames, expectedGroup) {
-					// Look up group ID
-					currentGroup, getGroupErr := humiographql.GetGroupByDisplayName(ctx, client, expectedGroup)
-					if getGroupErr != nil {
-						return getGroupErr
-					}
-					if currentGroup == nil {
-						return fmt.Errorf("unable to fetch group details for group %q when updating role assignment", expectedGroup)
-					}
-					respCurrentGroup := currentGroup.GetGroupByDisplayName()
+				if slices.Contains(currentGroupNames, expectedGroup) {
+					// Nothing to do, group already has the role
+					continue
+				}
+				// Look up group ID
+				currentGroup, getGroupErr := humiographql.GetGroupByDisplayName(ctx, client, expectedGroup)
+				if getGroupErr != nil {
+					return getGroupErr
+				}
+				if currentGroup == nil {
+					return fmt.Errorf("unable to fetch group details for group %q when updating role assignment", expectedGroup)
+				}
+				respCurrentGroup := currentGroup.GetGroupByDisplayName()
 
-					// Assign
-					if _, assignErr := humiographql.AssignOrganizationPermissionRoleToGroup(ctx, client, respGetRoles[i].GetId(), respCurrentGroup.GetId()); assignErr != nil {
-						return assignErr
-					}
+				// Assign
+				if _, assignErr := humiographql.AssignOrganizationPermissionRoleToGroup(ctx, client, respGetRoles[i].GetId(), respCurrentGroup.GetId()); assignErr != nil {
+					return assignErr
 				}
 			}
 
@@ -2325,21 +2335,29 @@ func (h *ClientConfig) UpdateViewPermissionRole(ctx context.Context, client *hum
 						},
 					)
 
-					// Unassign role from groups that should not have it
 					currentRoleAssignment := humiov1alpha1.HumioViewPermissionRoleAssignment{
 						RepoOrViewName: respSearchDomain.GetName(),
 						GroupName:      currentGroupAssignmentInfo.GetDisplayName(),
 					}
-					if !slices.Contains(expectedRoleAssignments, currentRoleAssignment) {
-						if _, unassignErr := humiographql.UnassignViewPermissionRoleFromGroupForView(ctx, client, currentAssignedRole.GetId(), currentGroupAssignmentInfo.GetId(), respSearchDomain.GetId()); unassignErr != nil {
-							return unassignErr
-						}
+					if slices.Contains(expectedRoleAssignments, currentRoleAssignment) {
+						// Nothing to do, group already has the role
+						continue
+					}
+
+					// Unassign
+					if _, unassignErr := humiographql.UnassignViewPermissionRoleFromGroupForView(ctx, client, currentAssignedRole.GetId(), currentGroupAssignmentInfo.GetId(), respSearchDomain.GetId()); unassignErr != nil {
+						return unassignErr
 					}
 				}
 			}
 
 			// Assign the role to the groups that should have it
 			for _, expectedRoleAssignment := range expectedRoleAssignments {
+				if slices.Contains(currentGroupRoleAssignments, expectedRoleAssignment) {
+					// Nothing to do, group has the role and should have it
+					continue
+				}
+
 				// Look up group ID
 				currentGroup, getGroupErr := humiographql.GetGroupByDisplayName(ctx, client, expectedRoleAssignment.GroupName)
 				if getGroupErr != nil {
@@ -2361,10 +2379,8 @@ func (h *ClientConfig) UpdateViewPermissionRole(ctx context.Context, client *hum
 				respCurrentSearchDomain := currentSearchDomain.GetSearchDomain()
 
 				// Assign
-				if !slices.Contains(currentGroupRoleAssignments, expectedRoleAssignment) {
-					if _, assignErr := humiographql.AssignViewPermissionRoleToGroupForView(ctx, client, currentAssignedRole.GetId(), respCurrentGroup.GetId(), respCurrentSearchDomain.GetId()); assignErr != nil {
-						return assignErr
-					}
+				if _, assignErr := humiographql.AssignViewPermissionRoleToGroupForView(ctx, client, currentAssignedRole.GetId(), respCurrentGroup.GetId(), respCurrentSearchDomain.GetId()); assignErr != nil {
+					return assignErr
 				}
 			}
 
