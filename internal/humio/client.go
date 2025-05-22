@@ -2413,24 +2413,26 @@ func equalSlices[T comparable](a, b []T) bool {
 		return false
 	}
 
-	// Create frequency maps for both slices
-	freqA := make(map[T]int)
-	freqB := make(map[T]int)
+	// Use a single map for comparing occurrences of each element in the two slices.
+	freq := make(map[T]int)
 
-	// Count occurrences in slice a
+	// Counts occurrences in slice a (positive)
 	for _, val := range a {
-		freqA[val]++
+		freq[val]++
 	}
 
-	// Count occurrences in slice b
+	// Subtracts occurrences in slice b
 	for _, val := range b {
-		freqB[val]++
+		freq[val]--
+		// If the count goes negative, slices aren't equal, fails fast
+		if freq[val] < 0 {
+			return false
+		}
 	}
 
-	// Compare the frequency maps
-	for key, countA := range freqA {
-		countB, exists := freqB[key]
-		if !exists || countA != countB {
+	// Checks if all frequencies are zero
+	for _, count := range freq {
+		if count != 0 {
 			return false
 		}
 	}
