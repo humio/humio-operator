@@ -4352,7 +4352,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "Creating the system permission role with empty slice")
 			Expect(k8sClient.Create(ctx, toCreateInvalidSystemPermissionRole)).Should(Not(Succeed()))
 		})
-		It("system permission role gets assigned", Label("envtest", "dummy", "real"), func() {
+		It("system permission role gets assigned", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
 				Name:      "humio-system-permission-role-assignment",
@@ -4648,7 +4648,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, toCreateInvalidOrganizationPermissionRole)).Should(Not(Succeed()))
 		})
 
-		It("organization permission role gets assigned", Label("envtest", "dummy", "real"), func() {
+		It("organization permission role gets assigned", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
 				Name:      "humio-organization-permission-role-assignment",
@@ -4943,7 +4943,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "Creating the view permission role with empty slice")
 			Expect(k8sClient.Create(ctx, toCreateInvalidViewPermissionRole)).Should(Not(Succeed()))
 		})
-		It("view permission role gets assigned", Label("envtest", "dummy", "real"), func() {
+		It("view permission role gets assigned", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
 				Name:      "test-view-permission-role-assignment",
