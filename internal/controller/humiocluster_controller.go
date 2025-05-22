@@ -2628,10 +2628,14 @@ func (r *HumioClusterReconciler) ensurePersistentVolumeClaimsExist(ctx context.C
 	if err != nil {
 		return r.logErrorAndReturn(err, "failed to list pvcs")
 	}
-	r.Log.Info(fmt.Sprintf("found %d pvcs", len(foundPersistentVolumeClaims)))
+	filteredPersistentVolumeClaims, err := r.FilterSchedulablePVCs(ctx, foundPersistentVolumeClaims)
+	if err != nil {
+		return r.logErrorAndReturn(err, "failed to filter pvcs")
+	}
+	r.Log.Info(fmt.Sprintf("found %d pvcs", len(filteredPersistentVolumeClaims)))
 
-	if len(foundPersistentVolumeClaims) < hnp.GetNodeCount() {
-		r.Log.Info(fmt.Sprintf("pvc count of %d is less than %d. adding more", len(foundPersistentVolumeClaims), hnp.GetNodeCount()))
+	if len(filteredPersistentVolumeClaims) < hnp.GetNodeCount() {
+		r.Log.Info(fmt.Sprintf("pvc count of %d is less than %d. adding more", len(filteredPersistentVolumeClaims), hnp.GetNodeCount()))
 		pvc := constructPersistentVolumeClaim(hnp)
 		if err := controllerutil.SetControllerReference(hc, pvc, r.Scheme()); err != nil {
 			return r.logErrorAndReturn(err, "could not set controller reference")
@@ -2691,10 +2695,9 @@ func (r *HumioClusterReconciler) pvcList(ctx context.Context, hnp *HumioNodePool
 		if err != nil {
 			return pvcList, err
 		}
-		for _, pvc := range foundPvcList {
-			if pvc.DeletionTimestamp == nil {
-				pvcList = append(pvcList, pvc)
-			}
+		pvcList, err = r.FilterSchedulablePVCs(ctx, foundPvcList)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return pvcList, nil
