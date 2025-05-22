@@ -40,31 +40,37 @@ func NewPodLifecycleState(hnp HumioNodePool) *PodLifeCycleState {
 }
 
 func (p *PodLifeCycleState) ShouldRollingRestart() bool {
+	if p.FoundVersionDifference() {
+		// if we're trying to go to or from a "latest" image, we can't do any version comparison
+		if p.versionDifference.from.IsLatest() || p.versionDifference.to.IsLatest() {
+			return false
+		}
+	}
+
+	// If the configuration difference requires simultaneous restart, we don't need to consider which update
+	// strategy is configured. We do this because certain configuration changes can be important to keep in
+	// sync across all the pods.
+	if p.FoundConfigurationDifference() && p.configurationDifference.requiresSimultaneousRestart {
+		return false
+	}
+
 	if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate {
 		return false
 	}
 	if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyRollingUpdate {
 		return true
 	}
-	if p.FoundVersionDifference() {
-		// if we're trying to go to or from a "latest" image, we can't do any version comparison
-		if p.versionDifference.from.IsLatest() || p.versionDifference.to.IsLatest() {
-			return false
-		}
-		if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyRollingUpdateBestEffort {
-			if p.versionDifference.from.SemVer().Major() == p.versionDifference.to.SemVer().Major() {
-				// allow rolling upgrades and downgrades for patch releases
-				if p.versionDifference.from.SemVer().Minor() == p.versionDifference.to.SemVer().Minor() {
-					return true
-				}
+	if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyRollingUpdateBestEffort {
+		if p.versionDifference.from.SemVer().Major() == p.versionDifference.to.SemVer().Major() {
+			// allow rolling upgrades and downgrades for patch releases
+			if p.versionDifference.from.SemVer().Minor() == p.versionDifference.to.SemVer().Minor() {
+				return true
 			}
 		}
 		return false
 	}
-	if p.configurationDifference != nil {
-		return !p.configurationDifference.requiresSimultaneousRestart
-	}
 
+	// if the user did not specify which update strategy to use, we default to the same behavior as humiov1alpha1.HumioClusterUpdateStrategyReplaceAllOnUpdate
 	return false
 }
 
