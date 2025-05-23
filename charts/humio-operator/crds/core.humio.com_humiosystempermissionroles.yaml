@@ -75,6 +75,15 @@ spec:
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: set
+              roleAssignmentGroupNames:
+                description: |-
+                  RoleAssignmentGroupNames lists the names of LogScale groups that this role is assigned to.
+                  It is optional to specify the list of role assignments. If not specified, the role will not be assigned to any groups.
+                items:
+                  minLength: 1
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
             required:
             - name
             - permissions

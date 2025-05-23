@@ -10,3 +10,6 @@ spec:
   name: example-view-permission-role
   permissions:
     - ReadAccess
+  roleAssignments:
+    - repoOrViewName: humio
+      groupName: example-group

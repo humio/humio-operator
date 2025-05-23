@@ -1,0 +1,75 @@
+mutation AssignViewPermissionRoleToGroupForView(
+    $RoleId: String!
+    $GroupId: String!
+    $ViewId: String!
+) {
+    assignRoleToGroup(input: {
+        roleId: $RoleId
+        groupId: $GroupId
+        viewId: $ViewId
+    }) {
+        __typename
+    }
+}
+
+mutation AssignOrganizationPermissionRoleToGroup(
+    $RoleId: String!
+    $GroupId: String!
+) {
+    assignOrganizationRoleToGroup(input: {
+        roleId: $RoleId
+        groupId: $GroupId
+    }) {
+        __typename
+    }
+}
+
+mutation AssignSystemPermissionRoleToGroup(
+    $RoleId: String!
+    $GroupId: String!
+) {
+    assignSystemRoleToGroup(input: {
+        roleId: $RoleId
+        groupId: $GroupId
+    }) {
+        __typename
+    }
+}
+
+mutation UnassignViewPermissionRoleFromGroupForView(
+    $RoleId: String!
+    $GroupId: String!
+    $ViewId: String!
+) {
+    unassignRoleFromGroup(input: {
+        roleId: $RoleId
+        groupId: $GroupId
+        viewId: $ViewId
+    }) {
+        __typename
+    }
+}
+
+mutation UnassignOrganizationPermissionRoleFromGroup(
+    $RoleId: String!
+    $GroupId: String!
+) {
+    unassignOrganizationRoleFromGroup(input: {
+        roleId: $RoleId
+        groupId: $GroupId
+    }) {
+        __typename
+    }
+}
+
+mutation UnassignSystemPermissionRoleFromGroup(
+    $RoleId: String!
+    $GroupId: String!
+) {
+    unassignSystemRoleFromGroup(input: {
+        roleId: $RoleId
+        groupId: $GroupId
+    }) {
+        __typename
+    }
+}

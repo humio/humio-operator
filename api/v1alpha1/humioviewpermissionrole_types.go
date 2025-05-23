@@ -31,6 +31,18 @@ const (
 	HumioViewPermissionRoleStateConfigError = "ConfigError"
 )
 
+// HumioViewPermissionRoleAssignment specifies a view or repo and a group to assign it to.
+type HumioViewPermissionRoleAssignment struct {
+	// RepoOrViewName specifies the name of the view or repo to assign the view permission role.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Required
+	RepoOrViewName string `json:"repoOrViewName"`
+	// GroupName specifies the name of the group to assign the view permission role to.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Required
+	GroupName string `json:"groupName"`
+}
+
 // HumioViewPermissionRoleSpec defines the desired state of HumioViewPermissionRole.
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioViewPermissionRoleSpec struct {
@@ -53,8 +65,10 @@ type HumioViewPermissionRoleSpec struct {
 	// +kubebuilder:validation:items:MinLength=1
 	// +listType=set
 	Permissions []string `json:"permissions"`
-	// TODO: Add support for assigning the role to groups. These assignments do not just take a group name, but also a view for where this is assigned, so will need to adjust the field below to reflect that.
-	// Groups *string `json:"groups,omitempty"`
+	// RoleAssignments lists the names of LogScale groups that this role is assigned to and for which views/repositories.
+	// It is optional to specify the list of role assignments. If not specified, the role will not be assigned to any groups.
+	// +kubebuilder:validation:Optional
+	RoleAssignments []HumioViewPermissionRoleAssignment `json:"roleAssignments,omitempty"`
 }
 
 // HumioViewPermissionRoleStatus defines the observed state of HumioViewPermissionRole.

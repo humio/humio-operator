@@ -1534,12 +1534,21 @@ func (h *MockClientConfig) AddSystemPermissionRole(ctx context.Context, client *
 		systemPermissions[idx] = humiographql.SystemPermission(role.Spec.Permissions[idx])
 	}
 
+	groups := make([]humiographql.RoleDetailsGroupsGroup, len(role.Spec.RoleAssignmentGroupNames))
+	for idx := range role.Spec.RoleAssignmentGroupNames {
+		groups[idx] = humiographql.RoleDetailsGroupsGroup{
+			Id:          kubernetes.RandomString(),
+			DisplayName: role.Spec.RoleAssignmentGroupNames[idx],
+		}
+	}
+
 	h.apiClient.Role[key] = humiographql.RoleDetails{
 		Id:                      kubernetes.RandomString(),
 		DisplayName:             role.Spec.Name,
 		ViewPermissions:         []humiographql.Permission{},
 		OrganizationPermissions: nil,
 		SystemPermissions:       systemPermissions,
+		Groups:                  groups,
 	}
 	return nil
 }
@@ -1585,12 +1594,21 @@ func (h *MockClientConfig) UpdateSystemPermissionRole(ctx context.Context, clien
 		systemPermissions[idx] = humiographql.SystemPermission(role.Spec.Permissions[idx])
 	}
 
+	groups := make([]humiographql.RoleDetailsGroupsGroup, len(role.Spec.RoleAssignmentGroupNames))
+	for idx := range role.Spec.RoleAssignmentGroupNames {
+		groups[idx] = humiographql.RoleDetailsGroupsGroup{
+			Id:          kubernetes.RandomString(),
+			DisplayName: role.Spec.RoleAssignmentGroupNames[idx],
+		}
+	}
+
 	h.apiClient.Role[key] = humiographql.RoleDetails{
 		Id:                      currentRole.GetId(),
 		DisplayName:             role.Spec.Name,
 		ViewPermissions:         []humiographql.Permission{},
 		OrganizationPermissions: nil,
 		SystemPermissions:       systemPermissions,
+		Groups:                  groups,
 	}
 	return nil
 }
@@ -1632,12 +1650,21 @@ func (h *MockClientConfig) AddOrganizationPermissionRole(ctx context.Context, cl
 		oraganizationPermissions[idx] = humiographql.OrganizationPermission(role.Spec.Permissions[idx])
 	}
 
+	groups := make([]humiographql.RoleDetailsGroupsGroup, len(role.Spec.RoleAssignmentGroupNames))
+	for idx := range role.Spec.RoleAssignmentGroupNames {
+		groups[idx] = humiographql.RoleDetailsGroupsGroup{
+			Id:          kubernetes.RandomString(),
+			DisplayName: role.Spec.RoleAssignmentGroupNames[idx],
+		}
+	}
+
 	h.apiClient.Role[key] = humiographql.RoleDetails{
 		Id:                      kubernetes.RandomString(),
 		DisplayName:             role.Spec.Name,
 		ViewPermissions:         []humiographql.Permission{},
 		OrganizationPermissions: oraganizationPermissions,
 		SystemPermissions:       nil,
+		Groups:                  groups,
 	}
 	return nil
 }
@@ -1683,12 +1710,21 @@ func (h *MockClientConfig) UpdateOrganizationPermissionRole(ctx context.Context,
 		oraganizationPermissions[idx] = humiographql.OrganizationPermission(role.Spec.Permissions[idx])
 	}
 
+	groups := make([]humiographql.RoleDetailsGroupsGroup, len(role.Spec.RoleAssignmentGroupNames))
+	for idx := range role.Spec.RoleAssignmentGroupNames {
+		groups[idx] = humiographql.RoleDetailsGroupsGroup{
+			Id:          kubernetes.RandomString(),
+			DisplayName: role.Spec.RoleAssignmentGroupNames[idx],
+		}
+	}
+
 	h.apiClient.Role[key] = humiographql.RoleDetails{
 		Id:                      currentRole.GetId(),
 		DisplayName:             role.Spec.Name,
 		ViewPermissions:         []humiographql.Permission{},
 		OrganizationPermissions: oraganizationPermissions,
 		SystemPermissions:       nil,
+		Groups:                  groups,
 	}
 	return nil
 }
@@ -1781,12 +1817,31 @@ func (h *MockClientConfig) UpdateViewPermissionRole(ctx context.Context, client 
 		viewPermissions[idx] = humiographql.Permission(role.Spec.Permissions[idx])
 	}
 
+	groups := make([]humiographql.RoleDetailsGroupsGroup, len(role.Spec.RoleAssignments))
+	for idx := range role.Spec.RoleAssignments {
+		groups[idx] = humiographql.RoleDetailsGroupsGroup{
+			Id:          kubernetes.RandomString(),
+			DisplayName: role.Spec.RoleAssignments[idx].GroupName,
+			Roles: []humiographql.RoleDetailsGroupsGroupRolesSearchDomainRole{ // We can probably get away with just supporting a single role assignment per group in the mock client
+				{
+					Role: humiographql.RoleDetailsGroupsGroupRolesSearchDomainRoleRole{},
+					SearchDomain: &humiographql.RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainView{
+						Typename: helpers.StringPtr("View"),
+						Id:       kubernetes.RandomString(),
+						Name:     role.Spec.RoleAssignments[idx].RepoOrViewName,
+					},
+				},
+			},
+		}
+	}
+
 	h.apiClient.Role[key] = humiographql.RoleDetails{
 		Id:                      currentRole.GetId(),
 		DisplayName:             role.Spec.Name,
 		ViewPermissions:         viewPermissions,
 		OrganizationPermissions: nil,
 		SystemPermissions:       nil,
+		Groups:                  groups,
 	}
 	return nil
 }

@@ -126,6 +126,8 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 			if err := r.HumioClient.DeleteScheduledSearch(ctx, client, hss); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete scheduled search returned error")
 			}
+			// If no error was detected, we need to requeue so that we can remove the finalizer
+			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, nil
 	}

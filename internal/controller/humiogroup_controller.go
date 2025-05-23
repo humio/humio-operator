@@ -94,6 +94,8 @@ func (r *HumioGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			if err := r.HumioClient.DeleteGroup(ctx, humioHttpClient, hg); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete group returned error")
 			}
+			// If no error was detected, we need to requeue so that we can remove the finalizer
+			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, nil
 	}

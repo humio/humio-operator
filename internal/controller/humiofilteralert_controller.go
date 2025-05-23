@@ -126,6 +126,8 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 			if err := r.HumioClient.DeleteFilterAlert(ctx, client, hfa); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete filter alert returned error")
 			}
+			// If no error was detected, we need to requeue so that we can remove the finalizer
+			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, nil
 	}

@@ -117,6 +117,8 @@ func (r *HumioFeatureFlagReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			if err := r.HumioClient.DisableFeatureFlag(ctx, humioHttpClient, featureFlag); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "disable feature flag returned error")
 			}
+			// If no error was detected, we need to requeue so that we can remove the finalizer
+			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, nil
 	}

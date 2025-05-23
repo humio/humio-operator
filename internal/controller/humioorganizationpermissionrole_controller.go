@@ -115,6 +115,8 @@ func (r *HumioOrganizationPermissionRoleReconciler) Reconcile(ctx context.Contex
 			if err := r.finalize(ctx, humioHttpClient, hp); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
+			// If no error was detected, we need to requeue so that we can remove the finalizer
+			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, nil
 	}
@@ -187,7 +189,6 @@ func (r *HumioOrganizationPermissionRoleReconciler) finalize(ctx context.Context
 		}
 		return err
 	}
-
 	return r.HumioClient.DeleteOrganizationPermissionRole(ctx, client, hp)
 }
 
@@ -235,6 +236,17 @@ func organizationPermissionRoleAlreadyAsExpected(fromKubernetesCustomResource *h
 	sort.Strings(fromKubernetesCustomResource.Spec.Permissions)
 	if diff := cmp.Diff(organizationPermissionsToStrings, fromKubernetesCustomResource.Spec.Permissions); diff != "" {
 		keyValues["permissions"] = diff
+	}
+
+	groupsFromGraphQL := fromGraphQL.GetGroups()
+	groupsToStrings := make([]string, len(groupsFromGraphQL))
+	for idx := range groupsFromGraphQL {
+		groupsToStrings[idx] = groupsFromGraphQL[idx].GetDisplayName()
+	}
+	sort.Strings(groupsToStrings)
+	sort.Strings(fromKubernetesCustomResource.Spec.RoleAssignmentGroupNames)
+	if diff := cmp.Diff(groupsToStrings, fromKubernetesCustomResource.Spec.RoleAssignmentGroupNames); diff != "" {
+		keyValues["roleAssignmentGroupNames"] = diff
 	}
 
 	return len(keyValues) == 0, keyValues

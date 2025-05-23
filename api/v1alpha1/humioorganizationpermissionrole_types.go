@@ -53,8 +53,12 @@ type HumioOrganizationPermissionRoleSpec struct {
 	// +kubebuilder:validation:items:MinLength=1
 	// +listType=set
 	Permissions []string `json:"permissions"`
-	// TODO: Add support for assigning the role to groups
-	// Groups *string `json:"groups,omitempty"`
+	// RoleAssignmentGroupNames lists the names of LogScale groups that this role is assigned to.
+	// It is optional to specify the list of role assignments. If not specified, the role will not be assigned to any groups.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:items:MinLength=1
+	// +listType=set
+	RoleAssignmentGroupNames []string `json:"roleAssignmentGroupNames,omitempty"`
 }
 
 // HumioOrganizationPermissionRoleStatus defines the observed state of HumioOrganizationPermissionRole.

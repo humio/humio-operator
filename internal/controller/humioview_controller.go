@@ -111,6 +111,8 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			if err := r.HumioClient.DeleteView(ctx, humioHttpClient, hv); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete view returned error")
 			}
+			// If no error was detected, we need to requeue so that we can remove the finalizer
+			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, nil
 	}

@@ -127,6 +127,8 @@ func (r *HumioAggregateAlertReconciler) reconcileHumioAggregateAlert(ctx context
 			if err := r.HumioClient.DeleteAggregateAlert(ctx, client, haa); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Delete aggregate alert returned error")
 			}
+			// If no error was detected, we need to requeue so that we can remove the finalizer
+			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, nil
 	}

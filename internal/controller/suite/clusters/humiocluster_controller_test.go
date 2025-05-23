@@ -3734,7 +3734,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 		})
 
-		It("Should correctly handle custom paths with ingress enabled", Label("envtest", "dummy", "real"), func() {
+		It("Should correctly handle custom paths with ingress enabled", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-custom-path-ing-enabled",
 				Namespace: testProcessNamespace,
