@@ -10,5 +10,5 @@ spec:
   name: example-organization-permission-role
   permissions:
     - CreateRepository
-  groupNames:
+  roleAssignmentGroupNames:
     - example-group

@@ -10,5 +10,5 @@ spec:
   name: example-system-permission-role
   permissions:
     - ReadHealthCheck
-  groupNames:
+  roleAssignmentGroupNames:
     - example-group
