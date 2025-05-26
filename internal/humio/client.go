@@ -2020,12 +2020,10 @@ func (h *ClientConfig) getCurrentSystemPermissionGroupNamesAndUnassignRoleFromUn
 	}
 
 	currentGroupNames := []string{}
-	for idx := range respRole.GetGroups() {
-		currentGroup := respRole.GetGroups()[idx]
-
+	for _, currentGroup := range respRole.GetGroups() {
 		if slices.Contains(expectedGroupNames, currentGroup.GetDisplayName()) {
 			// Nothing to do, group has the role and should have it
-			currentGroupNames[idx] = currentGroup.GetDisplayName()
+			currentGroupNames = append(currentGroupNames, currentGroup.GetDisplayName())
 			continue
 		}
 
@@ -2227,12 +2225,10 @@ func (h *ClientConfig) getCurrentOrganizationPermissionGroupNamesAndUnassignRole
 	}
 
 	currentGroupNames := []string{}
-	for idx := range respRole.GetGroups() {
-		currentGroup := respRole.GetGroups()[idx]
-
+	for _, currentGroup := range respRole.GetGroups() {
 		if slices.Contains(expectedGroupNames, currentGroup.GetDisplayName()) {
 			// Nothing to do, group has the role and should have it
-			currentGroupNames[idx] = currentGroup.GetDisplayName()
+			currentGroupNames = append(currentGroupNames, currentGroup.GetDisplayName())
 			continue
 		}
 

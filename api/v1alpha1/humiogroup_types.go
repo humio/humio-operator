@@ -26,12 +26,12 @@ type HumioGroupSpec struct {
 	// This conflicts with ManagedClusterName.
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the display name of the HumioGroup
-	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MinLength=2
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// ExternalMappingName is the mapping name from the external provider that will assign the user to this HumioGroup
-	// +kubebuilder:validation:MinLength=2
+	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Optional
 	ExternalMappingName *string `json:"externalMappingName,omitempty"`
 }
