@@ -58,7 +58,7 @@ spec:
               externalMappingName:
                 description: ExternalMappingName is the mapping name from the external
                   provider that will assign the user to this HumioGroup
-                minLength: 2
+                minLength: 1
                 type: string
               managedClusterName:
                 description: |-
@@ -68,7 +68,7 @@ spec:
                 type: string
               name:
                 description: Name is the display name of the HumioGroup
-                minLength: 1
+                minLength: 2
                 type: string
                 x-kubernetes-validations:
                 - message: Value is immutable
