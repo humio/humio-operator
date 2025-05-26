@@ -4,6 +4,23 @@ fragment RoleDetails on Role {
     viewPermissions
     organizationPermissions
     systemPermissions
+
+    groups {
+        id
+        displayName
+
+        # Field name is slightly misleading here. This is because the "roles" field is used to fetch view permission roles for a group.
+        roles {
+            role {
+                id
+                displayName
+            }
+            searchDomain {
+                id
+                name
+            }
+        }
+    }
 }
 
 query ListRoles {

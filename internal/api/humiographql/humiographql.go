@@ -1564,6 +1564,28 @@ func (v *AlertDetails) __premarshalJSON() (*__premarshalAlertDetails, error) {
 	return &retval, nil
 }
 
+// AssignOrganizationPermissionRoleToGroupAssignOrganizationRoleToGroupAssignOrganizationRoleToGroupMutation includes the requested fields of the GraphQL type AssignOrganizationRoleToGroupMutation.
+type AssignOrganizationPermissionRoleToGroupAssignOrganizationRoleToGroupAssignOrganizationRoleToGroupMutation struct {
+	Typename *string `json:"__typename"`
+}
+
+// GetTypename returns AssignOrganizationPermissionRoleToGroupAssignOrganizationRoleToGroupAssignOrganizationRoleToGroupMutation.Typename, and is useful for accessing the field via an interface.
+func (v *AssignOrganizationPermissionRoleToGroupAssignOrganizationRoleToGroupAssignOrganizationRoleToGroupMutation) GetTypename() *string {
+	return v.Typename
+}
+
+// AssignOrganizationPermissionRoleToGroupResponse is returned by AssignOrganizationPermissionRoleToGroup on success.
+type AssignOrganizationPermissionRoleToGroupResponse struct {
+	// Assigns an organization role to a group.
+	// Stability: Long-term
+	AssignOrganizationRoleToGroup AssignOrganizationPermissionRoleToGroupAssignOrganizationRoleToGroupAssignOrganizationRoleToGroupMutation `json:"assignOrganizationRoleToGroup"`
+}
+
+// GetAssignOrganizationRoleToGroup returns AssignOrganizationPermissionRoleToGroupResponse.AssignOrganizationRoleToGroup, and is useful for accessing the field via an interface.
+func (v *AssignOrganizationPermissionRoleToGroupResponse) GetAssignOrganizationRoleToGroup() AssignOrganizationPermissionRoleToGroupAssignOrganizationRoleToGroupAssignOrganizationRoleToGroupMutation {
+	return v.AssignOrganizationRoleToGroup
+}
+
 // AssignParserToIngestTokenAssignParserToIngestTokenV2IngestToken includes the requested fields of the GraphQL type IngestToken.
 // The GraphQL type's documentation follows.
 //
@@ -1587,6 +1609,50 @@ type AssignParserToIngestTokenResponse struct {
 // GetAssignParserToIngestTokenV2 returns AssignParserToIngestTokenResponse.AssignParserToIngestTokenV2, and is useful for accessing the field via an interface.
 func (v *AssignParserToIngestTokenResponse) GetAssignParserToIngestTokenV2() AssignParserToIngestTokenAssignParserToIngestTokenV2IngestToken {
 	return v.AssignParserToIngestTokenV2
+}
+
+// AssignSystemPermissionRoleToGroupAssignSystemRoleToGroupAssignSystemRoleToGroupMutation includes the requested fields of the GraphQL type AssignSystemRoleToGroupMutation.
+type AssignSystemPermissionRoleToGroupAssignSystemRoleToGroupAssignSystemRoleToGroupMutation struct {
+	Typename *string `json:"__typename"`
+}
+
+// GetTypename returns AssignSystemPermissionRoleToGroupAssignSystemRoleToGroupAssignSystemRoleToGroupMutation.Typename, and is useful for accessing the field via an interface.
+func (v *AssignSystemPermissionRoleToGroupAssignSystemRoleToGroupAssignSystemRoleToGroupMutation) GetTypename() *string {
+	return v.Typename
+}
+
+// AssignSystemPermissionRoleToGroupResponse is returned by AssignSystemPermissionRoleToGroup on success.
+type AssignSystemPermissionRoleToGroupResponse struct {
+	// Assigns a system role to a group.
+	// Stability: Long-term
+	AssignSystemRoleToGroup AssignSystemPermissionRoleToGroupAssignSystemRoleToGroupAssignSystemRoleToGroupMutation `json:"assignSystemRoleToGroup"`
+}
+
+// GetAssignSystemRoleToGroup returns AssignSystemPermissionRoleToGroupResponse.AssignSystemRoleToGroup, and is useful for accessing the field via an interface.
+func (v *AssignSystemPermissionRoleToGroupResponse) GetAssignSystemRoleToGroup() AssignSystemPermissionRoleToGroupAssignSystemRoleToGroupAssignSystemRoleToGroupMutation {
+	return v.AssignSystemRoleToGroup
+}
+
+// AssignViewPermissionRoleToGroupForViewAssignRoleToGroupAssignRoleToGroupMutation includes the requested fields of the GraphQL type AssignRoleToGroupMutation.
+type AssignViewPermissionRoleToGroupForViewAssignRoleToGroupAssignRoleToGroupMutation struct {
+	Typename *string `json:"__typename"`
+}
+
+// GetTypename returns AssignViewPermissionRoleToGroupForViewAssignRoleToGroupAssignRoleToGroupMutation.Typename, and is useful for accessing the field via an interface.
+func (v *AssignViewPermissionRoleToGroupForViewAssignRoleToGroupAssignRoleToGroupMutation) GetTypename() *string {
+	return v.Typename
+}
+
+// AssignViewPermissionRoleToGroupForViewResponse is returned by AssignViewPermissionRoleToGroupForView on success.
+type AssignViewPermissionRoleToGroupForViewResponse struct {
+	// Assigns a role to a group for a given view. If called with overrideExistingAssignmentsForView=false, this mutation can assign multiple roles for the same view. Calling with overrideExistingAssignmentsForView=false is thus only available if the MultipleViewRoleBindings feature is enabled.
+	// Stability: Long-term
+	AssignRoleToGroup AssignViewPermissionRoleToGroupForViewAssignRoleToGroupAssignRoleToGroupMutation `json:"assignRoleToGroup"`
+}
+
+// GetAssignRoleToGroup returns AssignViewPermissionRoleToGroupForViewResponse.AssignRoleToGroup, and is useful for accessing the field via an interface.
+func (v *AssignViewPermissionRoleToGroupForViewResponse) GetAssignRoleToGroup() AssignViewPermissionRoleToGroupForViewAssignRoleToGroupAssignRoleToGroupMutation {
+	return v.AssignRoleToGroup
 }
 
 // CreateAggregateAlertCreateAggregateAlert includes the requested fields of the GraphQL type AggregateAlert.
@@ -2706,6 +2772,11 @@ func (v *CreateRoleCreateRoleAddRoleMutationRole) GetSystemPermissions() []Syste
 	return v.RoleDetails.SystemPermissions
 }
 
+// GetGroups returns CreateRoleCreateRoleAddRoleMutationRole.Groups, and is useful for accessing the field via an interface.
+func (v *CreateRoleCreateRoleAddRoleMutationRole) GetGroups() []RoleDetailsGroupsGroup {
+	return v.RoleDetails.Groups
+}
+
 func (v *CreateRoleCreateRoleAddRoleMutationRole) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -2741,6 +2812,8 @@ type __premarshalCreateRoleCreateRoleAddRoleMutationRole struct {
 	OrganizationPermissions []OrganizationPermission `json:"organizationPermissions"`
 
 	SystemPermissions []SystemPermission `json:"systemPermissions"`
+
+	Groups []RoleDetailsGroupsGroup `json:"groups"`
 }
 
 func (v *CreateRoleCreateRoleAddRoleMutationRole) MarshalJSON() ([]byte, error) {
@@ -2759,6 +2832,7 @@ func (v *CreateRoleCreateRoleAddRoleMutationRole) __premarshalJSON() (*__premars
 	retval.ViewPermissions = v.RoleDetails.ViewPermissions
 	retval.OrganizationPermissions = v.RoleDetails.OrganizationPermissions
 	retval.SystemPermissions = v.RoleDetails.SystemPermissions
+	retval.Groups = v.RoleDetails.Groups
 	return &retval, nil
 }
 
@@ -10146,6 +10220,9 @@ func (v *ListRolesRolesRole) GetSystemPermissions() []SystemPermission {
 	return v.RoleDetails.SystemPermissions
 }
 
+// GetGroups returns ListRolesRolesRole.Groups, and is useful for accessing the field via an interface.
+func (v *ListRolesRolesRole) GetGroups() []RoleDetailsGroupsGroup { return v.RoleDetails.Groups }
+
 func (v *ListRolesRolesRole) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -10181,6 +10258,8 @@ type __premarshalListRolesRolesRole struct {
 	OrganizationPermissions []OrganizationPermission `json:"organizationPermissions"`
 
 	SystemPermissions []SystemPermission `json:"systemPermissions"`
+
+	Groups []RoleDetailsGroupsGroup `json:"groups"`
 }
 
 func (v *ListRolesRolesRole) MarshalJSON() ([]byte, error) {
@@ -10199,6 +10278,7 @@ func (v *ListRolesRolesRole) __premarshalJSON() (*__premarshalListRolesRolesRole
 	retval.ViewPermissions = v.RoleDetails.ViewPermissions
 	retval.OrganizationPermissions = v.RoleDetails.OrganizationPermissions
 	retval.SystemPermissions = v.RoleDetails.SystemPermissions
+	retval.Groups = v.RoleDetails.Groups
 	return &retval, nil
 }
 
@@ -11513,6 +11593,8 @@ type RoleDetails struct {
 	OrganizationPermissions []OrganizationPermission `json:"organizationPermissions"`
 	// Stability: Long-term
 	SystemPermissions []SystemPermission `json:"systemPermissions"`
+	// Stability: Long-term
+	Groups []RoleDetailsGroupsGroup `json:"groups"`
 }
 
 // GetId returns RoleDetails.Id, and is useful for accessing the field via an interface.
@@ -11531,6 +11613,272 @@ func (v *RoleDetails) GetOrganizationPermissions() []OrganizationPermission {
 
 // GetSystemPermissions returns RoleDetails.SystemPermissions, and is useful for accessing the field via an interface.
 func (v *RoleDetails) GetSystemPermissions() []SystemPermission { return v.SystemPermissions }
+
+// GetGroups returns RoleDetails.Groups, and is useful for accessing the field via an interface.
+func (v *RoleDetails) GetGroups() []RoleDetailsGroupsGroup { return v.Groups }
+
+// RoleDetailsGroupsGroup includes the requested fields of the GraphQL type Group.
+// The GraphQL type's documentation follows.
+//
+// A group.
+type RoleDetailsGroupsGroup struct {
+	// Stability: Long-term
+	Id string `json:"id"`
+	// Stability: Long-term
+	DisplayName string `json:"displayName"`
+	// Stability: Long-term
+	Roles []RoleDetailsGroupsGroupRolesSearchDomainRole `json:"roles"`
+}
+
+// GetId returns RoleDetailsGroupsGroup.Id, and is useful for accessing the field via an interface.
+func (v *RoleDetailsGroupsGroup) GetId() string { return v.Id }
+
+// GetDisplayName returns RoleDetailsGroupsGroup.DisplayName, and is useful for accessing the field via an interface.
+func (v *RoleDetailsGroupsGroup) GetDisplayName() string { return v.DisplayName }
+
+// GetRoles returns RoleDetailsGroupsGroup.Roles, and is useful for accessing the field via an interface.
+func (v *RoleDetailsGroupsGroup) GetRoles() []RoleDetailsGroupsGroupRolesSearchDomainRole {
+	return v.Roles
+}
+
+// RoleDetailsGroupsGroupRolesSearchDomainRole includes the requested fields of the GraphQL type SearchDomainRole.
+// The GraphQL type's documentation follows.
+//
+// The role assigned in a searchDomain.
+type RoleDetailsGroupsGroupRolesSearchDomainRole struct {
+	// Stability: Long-term
+	Role RoleDetailsGroupsGroupRolesSearchDomainRoleRole `json:"role"`
+	// Stability: Long-term
+	SearchDomain RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain `json:"-"`
+}
+
+// GetRole returns RoleDetailsGroupsGroupRolesSearchDomainRole.Role, and is useful for accessing the field via an interface.
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRole) GetRole() RoleDetailsGroupsGroupRolesSearchDomainRoleRole {
+	return v.Role
+}
+
+// GetSearchDomain returns RoleDetailsGroupsGroupRolesSearchDomainRole.SearchDomain, and is useful for accessing the field via an interface.
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRole) GetSearchDomain() RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain {
+	return v.SearchDomain
+}
+
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRole) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RoleDetailsGroupsGroupRolesSearchDomainRole
+		SearchDomain json.RawMessage `json:"searchDomain"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RoleDetailsGroupsGroupRolesSearchDomainRole = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.SearchDomain
+		src := firstPass.SearchDomain
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalRoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal RoleDetailsGroupsGroupRolesSearchDomainRole.SearchDomain: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalRoleDetailsGroupsGroupRolesSearchDomainRole struct {
+	Role RoleDetailsGroupsGroupRolesSearchDomainRoleRole `json:"role"`
+
+	SearchDomain json.RawMessage `json:"searchDomain"`
+}
+
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRole) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRole) __premarshalJSON() (*__premarshalRoleDetailsGroupsGroupRolesSearchDomainRole, error) {
+	var retval __premarshalRoleDetailsGroupsGroupRolesSearchDomainRole
+
+	retval.Role = v.Role
+	{
+
+		dst := &retval.SearchDomain
+		src := v.SearchDomain
+		var err error
+		*dst, err = __marshalRoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal RoleDetailsGroupsGroupRolesSearchDomainRole.SearchDomain: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// RoleDetailsGroupsGroupRolesSearchDomainRoleRole includes the requested fields of the GraphQL type Role.
+type RoleDetailsGroupsGroupRolesSearchDomainRoleRole struct {
+	// Stability: Long-term
+	Id string `json:"id"`
+	// Stability: Long-term
+	DisplayName string `json:"displayName"`
+}
+
+// GetId returns RoleDetailsGroupsGroupRolesSearchDomainRoleRole.Id, and is useful for accessing the field via an interface.
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRoleRole) GetId() string { return v.Id }
+
+// GetDisplayName returns RoleDetailsGroupsGroupRolesSearchDomainRoleRole.DisplayName, and is useful for accessing the field via an interface.
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRoleRole) GetDisplayName() string {
+	return v.DisplayName
+}
+
+// RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain includes the requested fields of the GraphQL interface SearchDomain.
+//
+// RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain is implemented by the following types:
+// RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainRepository
+// RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainView
+// The GraphQL type's documentation follows.
+//
+// Common interface for Repositories and Views.
+type RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain interface {
+	implementsGraphQLInterfaceRoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	// GetId returns the interface-field "id" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetId() string
+	// GetName returns the interface-field "name" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetName() string
+}
+
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainRepository) implementsGraphQLInterfaceRoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain() {
+}
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainView) implementsGraphQLInterfaceRoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain() {
+}
+
+func __unmarshalRoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain(b []byte, v *RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Repository":
+		*v = new(RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainRepository)
+		return json.Unmarshal(b, *v)
+	case "View":
+		*v = new(RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainView)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing SearchDomain.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalRoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain(v *RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainView:
+		typename = "View"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainView
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomain: "%T"`, v)
+	}
+}
+
+// RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainRepository struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	Id string `json:"id"`
+	// Common interface for Repositories and Views.
+	Name string `json:"name"`
+}
+
+// GetTypename returns RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainRepository.Typename, and is useful for accessing the field via an interface.
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainRepository) GetTypename() *string {
+	return v.Typename
+}
+
+// GetId returns RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainRepository.Id, and is useful for accessing the field via an interface.
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainRepository) GetId() string {
+	return v.Id
+}
+
+// GetName returns RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainRepository.Name, and is useful for accessing the field via an interface.
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainRepository) GetName() string {
+	return v.Name
+}
+
+// RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainView includes the requested fields of the GraphQL type View.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a view, pulling data from one or several repositories.
+type RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainView struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	Id string `json:"id"`
+	// Common interface for Repositories and Views.
+	Name string `json:"name"`
+}
+
+// GetTypename returns RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainView.Typename, and is useful for accessing the field via an interface.
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainView) GetTypename() *string {
+	return v.Typename
+}
+
+// GetId returns RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainView.Id, and is useful for accessing the field via an interface.
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainView) GetId() string { return v.Id }
+
+// GetName returns RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainView.Name, and is useful for accessing the field via an interface.
+func (v *RoleDetailsGroupsGroupRolesSearchDomainRoleSearchDomainView) GetName() string { return v.Name }
 
 // RotateTokenByIDResponse is returned by RotateTokenByID on success.
 type RotateTokenByIDResponse struct {
@@ -12846,6 +13194,28 @@ var AllTriggerMode = []TriggerMode{
 	TriggerModeImmediatemode,
 }
 
+// UnassignOrganizationPermissionRoleFromGroupResponse is returned by UnassignOrganizationPermissionRoleFromGroup on success.
+type UnassignOrganizationPermissionRoleFromGroupResponse struct {
+	// Removes the organization role assigned to the group.
+	// Stability: Long-term
+	UnassignOrganizationRoleFromGroup UnassignOrganizationPermissionRoleFromGroupUnassignOrganizationRoleFromGroup `json:"unassignOrganizationRoleFromGroup"`
+}
+
+// GetUnassignOrganizationRoleFromGroup returns UnassignOrganizationPermissionRoleFromGroupResponse.UnassignOrganizationRoleFromGroup, and is useful for accessing the field via an interface.
+func (v *UnassignOrganizationPermissionRoleFromGroupResponse) GetUnassignOrganizationRoleFromGroup() UnassignOrganizationPermissionRoleFromGroupUnassignOrganizationRoleFromGroup {
+	return v.UnassignOrganizationRoleFromGroup
+}
+
+// UnassignOrganizationPermissionRoleFromGroupUnassignOrganizationRoleFromGroup includes the requested fields of the GraphQL type UnassignOrganizationRoleFromGroup.
+type UnassignOrganizationPermissionRoleFromGroupUnassignOrganizationRoleFromGroup struct {
+	Typename *string `json:"__typename"`
+}
+
+// GetTypename returns UnassignOrganizationPermissionRoleFromGroupUnassignOrganizationRoleFromGroup.Typename, and is useful for accessing the field via an interface.
+func (v *UnassignOrganizationPermissionRoleFromGroupUnassignOrganizationRoleFromGroup) GetTypename() *string {
+	return v.Typename
+}
+
 // UnassignParserToIngestTokenResponse is returned by UnassignParserToIngestToken on success.
 type UnassignParserToIngestTokenResponse struct {
 	// Un-associates a token with its currently assigned parser.
@@ -12865,6 +13235,50 @@ type UnassignParserToIngestTokenUnassignIngestTokenUnassignIngestTokenMutation s
 
 // GetTypename returns UnassignParserToIngestTokenUnassignIngestTokenUnassignIngestTokenMutation.Typename, and is useful for accessing the field via an interface.
 func (v *UnassignParserToIngestTokenUnassignIngestTokenUnassignIngestTokenMutation) GetTypename() *string {
+	return v.Typename
+}
+
+// UnassignSystemPermissionRoleFromGroupResponse is returned by UnassignSystemPermissionRoleFromGroup on success.
+type UnassignSystemPermissionRoleFromGroupResponse struct {
+	// Removes the system role assigned to the group.
+	// Stability: Long-term
+	UnassignSystemRoleFromGroup UnassignSystemPermissionRoleFromGroupUnassignSystemRoleFromGroup `json:"unassignSystemRoleFromGroup"`
+}
+
+// GetUnassignSystemRoleFromGroup returns UnassignSystemPermissionRoleFromGroupResponse.UnassignSystemRoleFromGroup, and is useful for accessing the field via an interface.
+func (v *UnassignSystemPermissionRoleFromGroupResponse) GetUnassignSystemRoleFromGroup() UnassignSystemPermissionRoleFromGroupUnassignSystemRoleFromGroup {
+	return v.UnassignSystemRoleFromGroup
+}
+
+// UnassignSystemPermissionRoleFromGroupUnassignSystemRoleFromGroup includes the requested fields of the GraphQL type UnassignSystemRoleFromGroup.
+type UnassignSystemPermissionRoleFromGroupUnassignSystemRoleFromGroup struct {
+	Typename *string `json:"__typename"`
+}
+
+// GetTypename returns UnassignSystemPermissionRoleFromGroupUnassignSystemRoleFromGroup.Typename, and is useful for accessing the field via an interface.
+func (v *UnassignSystemPermissionRoleFromGroupUnassignSystemRoleFromGroup) GetTypename() *string {
+	return v.Typename
+}
+
+// UnassignViewPermissionRoleFromGroupForViewResponse is returned by UnassignViewPermissionRoleFromGroupForView on success.
+type UnassignViewPermissionRoleFromGroupForViewResponse struct {
+	// Removes the role assigned to the group for a given view.
+	// Stability: Long-term
+	UnassignRoleFromGroup UnassignViewPermissionRoleFromGroupForViewUnassignRoleFromGroup `json:"unassignRoleFromGroup"`
+}
+
+// GetUnassignRoleFromGroup returns UnassignViewPermissionRoleFromGroupForViewResponse.UnassignRoleFromGroup, and is useful for accessing the field via an interface.
+func (v *UnassignViewPermissionRoleFromGroupForViewResponse) GetUnassignRoleFromGroup() UnassignViewPermissionRoleFromGroupForViewUnassignRoleFromGroup {
+	return v.UnassignRoleFromGroup
+}
+
+// UnassignViewPermissionRoleFromGroupForViewUnassignRoleFromGroup includes the requested fields of the GraphQL type UnassignRoleFromGroup.
+type UnassignViewPermissionRoleFromGroupForViewUnassignRoleFromGroup struct {
+	Typename *string `json:"__typename"`
+}
+
+// GetTypename returns UnassignViewPermissionRoleFromGroupForViewUnassignRoleFromGroup.Typename, and is useful for accessing the field via an interface.
+func (v *UnassignViewPermissionRoleFromGroupForViewUnassignRoleFromGroup) GetTypename() *string {
 	return v.Typename
 }
 
@@ -13882,6 +14296,11 @@ func (v *UpdateRoleUpdateRoleUpdateRoleMutationRole) GetSystemPermissions() []Sy
 	return v.RoleDetails.SystemPermissions
 }
 
+// GetGroups returns UpdateRoleUpdateRoleUpdateRoleMutationRole.Groups, and is useful for accessing the field via an interface.
+func (v *UpdateRoleUpdateRoleUpdateRoleMutationRole) GetGroups() []RoleDetailsGroupsGroup {
+	return v.RoleDetails.Groups
+}
+
 func (v *UpdateRoleUpdateRoleUpdateRoleMutationRole) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -13917,6 +14336,8 @@ type __premarshalUpdateRoleUpdateRoleUpdateRoleMutationRole struct {
 	OrganizationPermissions []OrganizationPermission `json:"organizationPermissions"`
 
 	SystemPermissions []SystemPermission `json:"systemPermissions"`
+
+	Groups []RoleDetailsGroupsGroup `json:"groups"`
 }
 
 func (v *UpdateRoleUpdateRoleUpdateRoleMutationRole) MarshalJSON() ([]byte, error) {
@@ -13935,6 +14356,7 @@ func (v *UpdateRoleUpdateRoleUpdateRoleMutationRole) __premarshalJSON() (*__prem
 	retval.ViewPermissions = v.RoleDetails.ViewPermissions
 	retval.OrganizationPermissions = v.RoleDetails.OrganizationPermissions
 	retval.SystemPermissions = v.RoleDetails.SystemPermissions
+	retval.Groups = v.RoleDetails.Groups
 	return &retval, nil
 }
 
@@ -14476,6 +14898,18 @@ func (v *__AddUserInput) GetUsername() string { return v.Username }
 // GetIsRoot returns __AddUserInput.IsRoot, and is useful for accessing the field via an interface.
 func (v *__AddUserInput) GetIsRoot() *bool { return v.IsRoot }
 
+// __AssignOrganizationPermissionRoleToGroupInput is used internally by genqlient
+type __AssignOrganizationPermissionRoleToGroupInput struct {
+	RoleId  string `json:"RoleId"`
+	GroupId string `json:"GroupId"`
+}
+
+// GetRoleId returns __AssignOrganizationPermissionRoleToGroupInput.RoleId, and is useful for accessing the field via an interface.
+func (v *__AssignOrganizationPermissionRoleToGroupInput) GetRoleId() string { return v.RoleId }
+
+// GetGroupId returns __AssignOrganizationPermissionRoleToGroupInput.GroupId, and is useful for accessing the field via an interface.
+func (v *__AssignOrganizationPermissionRoleToGroupInput) GetGroupId() string { return v.GroupId }
+
 // __AssignParserToIngestTokenInput is used internally by genqlient
 type __AssignParserToIngestTokenInput struct {
 	RepositoryName  string `json:"RepositoryName"`
@@ -14491,6 +14925,34 @@ func (v *__AssignParserToIngestTokenInput) GetIngestTokenName() string { return 
 
 // GetParserName returns __AssignParserToIngestTokenInput.ParserName, and is useful for accessing the field via an interface.
 func (v *__AssignParserToIngestTokenInput) GetParserName() string { return v.ParserName }
+
+// __AssignSystemPermissionRoleToGroupInput is used internally by genqlient
+type __AssignSystemPermissionRoleToGroupInput struct {
+	RoleId  string `json:"RoleId"`
+	GroupId string `json:"GroupId"`
+}
+
+// GetRoleId returns __AssignSystemPermissionRoleToGroupInput.RoleId, and is useful for accessing the field via an interface.
+func (v *__AssignSystemPermissionRoleToGroupInput) GetRoleId() string { return v.RoleId }
+
+// GetGroupId returns __AssignSystemPermissionRoleToGroupInput.GroupId, and is useful for accessing the field via an interface.
+func (v *__AssignSystemPermissionRoleToGroupInput) GetGroupId() string { return v.GroupId }
+
+// __AssignViewPermissionRoleToGroupForViewInput is used internally by genqlient
+type __AssignViewPermissionRoleToGroupForViewInput struct {
+	RoleId  string `json:"RoleId"`
+	GroupId string `json:"GroupId"`
+	ViewId  string `json:"ViewId"`
+}
+
+// GetRoleId returns __AssignViewPermissionRoleToGroupForViewInput.RoleId, and is useful for accessing the field via an interface.
+func (v *__AssignViewPermissionRoleToGroupForViewInput) GetRoleId() string { return v.RoleId }
+
+// GetGroupId returns __AssignViewPermissionRoleToGroupForViewInput.GroupId, and is useful for accessing the field via an interface.
+func (v *__AssignViewPermissionRoleToGroupForViewInput) GetGroupId() string { return v.GroupId }
+
+// GetViewId returns __AssignViewPermissionRoleToGroupForViewInput.ViewId, and is useful for accessing the field via an interface.
+func (v *__AssignViewPermissionRoleToGroupForViewInput) GetViewId() string { return v.ViewId }
 
 // __CreateAggregateAlertInput is used internally by genqlient
 type __CreateAggregateAlertInput struct {
@@ -15378,6 +15840,18 @@ func (v *__SetIsBeingEvictedInput) GetVhost() int { return v.Vhost }
 // GetIsBeingEvicted returns __SetIsBeingEvictedInput.IsBeingEvicted, and is useful for accessing the field via an interface.
 func (v *__SetIsBeingEvictedInput) GetIsBeingEvicted() bool { return v.IsBeingEvicted }
 
+// __UnassignOrganizationPermissionRoleFromGroupInput is used internally by genqlient
+type __UnassignOrganizationPermissionRoleFromGroupInput struct {
+	RoleId  string `json:"RoleId"`
+	GroupId string `json:"GroupId"`
+}
+
+// GetRoleId returns __UnassignOrganizationPermissionRoleFromGroupInput.RoleId, and is useful for accessing the field via an interface.
+func (v *__UnassignOrganizationPermissionRoleFromGroupInput) GetRoleId() string { return v.RoleId }
+
+// GetGroupId returns __UnassignOrganizationPermissionRoleFromGroupInput.GroupId, and is useful for accessing the field via an interface.
+func (v *__UnassignOrganizationPermissionRoleFromGroupInput) GetGroupId() string { return v.GroupId }
+
 // __UnassignParserToIngestTokenInput is used internally by genqlient
 type __UnassignParserToIngestTokenInput struct {
 	RepositoryName  string `json:"RepositoryName"`
@@ -15389,6 +15863,34 @@ func (v *__UnassignParserToIngestTokenInput) GetRepositoryName() string { return
 
 // GetIngestTokenName returns __UnassignParserToIngestTokenInput.IngestTokenName, and is useful for accessing the field via an interface.
 func (v *__UnassignParserToIngestTokenInput) GetIngestTokenName() string { return v.IngestTokenName }
+
+// __UnassignSystemPermissionRoleFromGroupInput is used internally by genqlient
+type __UnassignSystemPermissionRoleFromGroupInput struct {
+	RoleId  string `json:"RoleId"`
+	GroupId string `json:"GroupId"`
+}
+
+// GetRoleId returns __UnassignSystemPermissionRoleFromGroupInput.RoleId, and is useful for accessing the field via an interface.
+func (v *__UnassignSystemPermissionRoleFromGroupInput) GetRoleId() string { return v.RoleId }
+
+// GetGroupId returns __UnassignSystemPermissionRoleFromGroupInput.GroupId, and is useful for accessing the field via an interface.
+func (v *__UnassignSystemPermissionRoleFromGroupInput) GetGroupId() string { return v.GroupId }
+
+// __UnassignViewPermissionRoleFromGroupForViewInput is used internally by genqlient
+type __UnassignViewPermissionRoleFromGroupForViewInput struct {
+	RoleId  string `json:"RoleId"`
+	GroupId string `json:"GroupId"`
+	ViewId  string `json:"ViewId"`
+}
+
+// GetRoleId returns __UnassignViewPermissionRoleFromGroupForViewInput.RoleId, and is useful for accessing the field via an interface.
+func (v *__UnassignViewPermissionRoleFromGroupForViewInput) GetRoleId() string { return v.RoleId }
+
+// GetGroupId returns __UnassignViewPermissionRoleFromGroupForViewInput.GroupId, and is useful for accessing the field via an interface.
+func (v *__UnassignViewPermissionRoleFromGroupForViewInput) GetGroupId() string { return v.GroupId }
+
+// GetViewId returns __UnassignViewPermissionRoleFromGroupForViewInput.ViewId, and is useful for accessing the field via an interface.
+func (v *__UnassignViewPermissionRoleFromGroupForViewInput) GetViewId() string { return v.ViewId }
 
 // __UnregisterClusterNodeInput is used internally by genqlient
 type __UnregisterClusterNodeInput struct {
@@ -16101,6 +16603,42 @@ func AddUser(
 	return data_, err_
 }
 
+// The mutation executed by AssignOrganizationPermissionRoleToGroup.
+const AssignOrganizationPermissionRoleToGroup_Operation = `
+mutation AssignOrganizationPermissionRoleToGroup ($RoleId: String!, $GroupId: String!) {
+	assignOrganizationRoleToGroup(input: {roleId:$RoleId,groupId:$GroupId}) {
+		__typename
+	}
+}
+`
+
+func AssignOrganizationPermissionRoleToGroup(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	RoleId string,
+	GroupId string,
+) (data_ *AssignOrganizationPermissionRoleToGroupResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AssignOrganizationPermissionRoleToGroup",
+		Query:  AssignOrganizationPermissionRoleToGroup_Operation,
+		Variables: &__AssignOrganizationPermissionRoleToGroupInput{
+			RoleId:  RoleId,
+			GroupId: GroupId,
+		},
+	}
+
+	data_ = &AssignOrganizationPermissionRoleToGroupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by AssignParserToIngestToken.
 const AssignParserToIngestToken_Operation = `
 mutation AssignParserToIngestToken ($RepositoryName: String!, $IngestTokenName: String!, $ParserName: String!) {
@@ -16128,6 +16666,80 @@ func AssignParserToIngestToken(
 	}
 
 	data_ = &AssignParserToIngestTokenResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AssignSystemPermissionRoleToGroup.
+const AssignSystemPermissionRoleToGroup_Operation = `
+mutation AssignSystemPermissionRoleToGroup ($RoleId: String!, $GroupId: String!) {
+	assignSystemRoleToGroup(input: {roleId:$RoleId,groupId:$GroupId}) {
+		__typename
+	}
+}
+`
+
+func AssignSystemPermissionRoleToGroup(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	RoleId string,
+	GroupId string,
+) (data_ *AssignSystemPermissionRoleToGroupResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AssignSystemPermissionRoleToGroup",
+		Query:  AssignSystemPermissionRoleToGroup_Operation,
+		Variables: &__AssignSystemPermissionRoleToGroupInput{
+			RoleId:  RoleId,
+			GroupId: GroupId,
+		},
+	}
+
+	data_ = &AssignSystemPermissionRoleToGroupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AssignViewPermissionRoleToGroupForView.
+const AssignViewPermissionRoleToGroupForView_Operation = `
+mutation AssignViewPermissionRoleToGroupForView ($RoleId: String!, $GroupId: String!, $ViewId: String!) {
+	assignRoleToGroup(input: {roleId:$RoleId,groupId:$GroupId,viewId:$ViewId}) {
+		__typename
+	}
+}
+`
+
+func AssignViewPermissionRoleToGroupForView(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	RoleId string,
+	GroupId string,
+	ViewId string,
+) (data_ *AssignViewPermissionRoleToGroupForViewResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AssignViewPermissionRoleToGroupForView",
+		Query:  AssignViewPermissionRoleToGroupForView_Operation,
+		Variables: &__AssignViewPermissionRoleToGroupForViewInput{
+			RoleId:  RoleId,
+			GroupId: GroupId,
+			ViewId:  ViewId,
+		},
+	}
+
+	data_ = &AssignViewPermissionRoleToGroupForViewResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -16773,6 +17385,21 @@ fragment RoleDetails on Role {
 	viewPermissions
 	organizationPermissions
 	systemPermissions
+	groups {
+		id
+		displayName
+		roles {
+			role {
+				id
+				displayName
+			}
+			searchDomain {
+				__typename
+				id
+				name
+			}
+		}
+	}
 }
 `
 
@@ -18680,6 +19307,21 @@ fragment RoleDetails on Role {
 	viewPermissions
 	organizationPermissions
 	systemPermissions
+	groups {
+		id
+		displayName
+		roles {
+			role {
+				id
+				displayName
+			}
+			searchDomain {
+				__typename
+				id
+				name
+			}
+		}
+	}
 }
 `
 
@@ -19018,6 +19660,42 @@ func SetIsBeingEvicted(
 	return data_, err_
 }
 
+// The mutation executed by UnassignOrganizationPermissionRoleFromGroup.
+const UnassignOrganizationPermissionRoleFromGroup_Operation = `
+mutation UnassignOrganizationPermissionRoleFromGroup ($RoleId: String!, $GroupId: String!) {
+	unassignOrganizationRoleFromGroup(input: {roleId:$RoleId,groupId:$GroupId}) {
+		__typename
+	}
+}
+`
+
+func UnassignOrganizationPermissionRoleFromGroup(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	RoleId string,
+	GroupId string,
+) (data_ *UnassignOrganizationPermissionRoleFromGroupResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UnassignOrganizationPermissionRoleFromGroup",
+		Query:  UnassignOrganizationPermissionRoleFromGroup_Operation,
+		Variables: &__UnassignOrganizationPermissionRoleFromGroupInput{
+			RoleId:  RoleId,
+			GroupId: GroupId,
+		},
+	}
+
+	data_ = &UnassignOrganizationPermissionRoleFromGroupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by UnassignParserToIngestToken.
 const UnassignParserToIngestToken_Operation = `
 mutation UnassignParserToIngestToken ($RepositoryName: String!, $IngestTokenName: String!) {
@@ -19043,6 +19721,80 @@ func UnassignParserToIngestToken(
 	}
 
 	data_ = &UnassignParserToIngestTokenResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UnassignSystemPermissionRoleFromGroup.
+const UnassignSystemPermissionRoleFromGroup_Operation = `
+mutation UnassignSystemPermissionRoleFromGroup ($RoleId: String!, $GroupId: String!) {
+	unassignSystemRoleFromGroup(input: {roleId:$RoleId,groupId:$GroupId}) {
+		__typename
+	}
+}
+`
+
+func UnassignSystemPermissionRoleFromGroup(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	RoleId string,
+	GroupId string,
+) (data_ *UnassignSystemPermissionRoleFromGroupResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UnassignSystemPermissionRoleFromGroup",
+		Query:  UnassignSystemPermissionRoleFromGroup_Operation,
+		Variables: &__UnassignSystemPermissionRoleFromGroupInput{
+			RoleId:  RoleId,
+			GroupId: GroupId,
+		},
+	}
+
+	data_ = &UnassignSystemPermissionRoleFromGroupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UnassignViewPermissionRoleFromGroupForView.
+const UnassignViewPermissionRoleFromGroupForView_Operation = `
+mutation UnassignViewPermissionRoleFromGroupForView ($RoleId: String!, $GroupId: String!, $ViewId: String!) {
+	unassignRoleFromGroup(input: {roleId:$RoleId,groupId:$GroupId,viewId:$ViewId}) {
+		__typename
+	}
+}
+`
+
+func UnassignViewPermissionRoleFromGroupForView(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	RoleId string,
+	GroupId string,
+	ViewId string,
+) (data_ *UnassignViewPermissionRoleFromGroupForViewResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UnassignViewPermissionRoleFromGroupForView",
+		Query:  UnassignViewPermissionRoleFromGroupForView_Operation,
+		Variables: &__UnassignViewPermissionRoleFromGroupForViewInput{
+			RoleId:  RoleId,
+			GroupId: GroupId,
+			ViewId:  ViewId,
+		},
+	}
+
+	data_ = &UnassignViewPermissionRoleFromGroupForViewResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -19680,6 +20432,21 @@ fragment RoleDetails on Role {
 	viewPermissions
 	organizationPermissions
 	systemPermissions
+	groups {
+		id
+		displayName
+		roles {
+			role {
+				id
+				displayName
+			}
+			searchDomain {
+				__typename
+				id
+				name
+			}
+		}
+	}
 }
 `
 

@@ -115,6 +115,8 @@ func (r *HumioViewPermissionRoleReconciler) Reconcile(ctx context.Context, req c
 			if err := r.finalize(ctx, humioHttpClient, hp); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
+			// If no error was detected, we need to requeue so that we can remove the finalizer
+			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, nil
 	}
@@ -187,7 +189,6 @@ func (r *HumioViewPermissionRoleReconciler) finalize(ctx context.Context, client
 		}
 		return err
 	}
-
 	return r.HumioClient.DeleteViewPermissionRole(ctx, client, hp)
 }
 
@@ -235,6 +236,36 @@ func viewPermissionRoleAlreadyAsExpected(fromKubernetesCustomResource *humiov1al
 	sort.Strings(fromKubernetesCustomResource.Spec.Permissions)
 	if diff := cmp.Diff(viewPermissionsToStrings, fromKubernetesCustomResource.Spec.Permissions); diff != "" {
 		keyValues["permissions"] = diff
+	}
+
+	roleAssignmentsFromGraphQL := []humiov1alpha1.HumioViewPermissionRoleAssignment{}
+	for _, group := range fromGraphQL.GetGroups() {
+		for _, role := range group.GetRoles() {
+			respSearchDomain := role.GetSearchDomain()
+			roleAssignmentsFromGraphQL = append(roleAssignmentsFromGraphQL, humiov1alpha1.HumioViewPermissionRoleAssignment{
+				GroupName:      group.GetDisplayName(),
+				RepoOrViewName: respSearchDomain.GetName(),
+			})
+		}
+	}
+	sort.Slice(roleAssignmentsFromGraphQL, func(i, j int) bool {
+		// Primary sort by RepoOrViewName
+		if roleAssignmentsFromGraphQL[i].RepoOrViewName != roleAssignmentsFromGraphQL[j].RepoOrViewName {
+			return roleAssignmentsFromGraphQL[i].RepoOrViewName < roleAssignmentsFromGraphQL[j].RepoOrViewName
+		}
+		// Secondary sort by GroupName if RepoOrViewName is the same
+		return roleAssignmentsFromGraphQL[i].GroupName < roleAssignmentsFromGraphQL[j].GroupName
+	})
+	sort.Slice(fromKubernetesCustomResource.Spec.RoleAssignments, func(i, j int) bool {
+		// Primary sort by RepoOrViewName
+		if fromKubernetesCustomResource.Spec.RoleAssignments[i].RepoOrViewName != fromKubernetesCustomResource.Spec.RoleAssignments[j].RepoOrViewName {
+			return fromKubernetesCustomResource.Spec.RoleAssignments[i].RepoOrViewName < fromKubernetesCustomResource.Spec.RoleAssignments[j].RepoOrViewName
+		}
+		// Secondary sort by GroupName if RepoOrViewName is the same
+		return fromKubernetesCustomResource.Spec.RoleAssignments[i].GroupName < fromKubernetesCustomResource.Spec.RoleAssignments[j].GroupName
+	})
+	if diff := cmp.Diff(roleAssignmentsFromGraphQL, fromKubernetesCustomResource.Spec.RoleAssignments); diff != "" {
+		keyValues["roleAssignments"] = diff
 	}
 
 	return len(keyValues) == 0, keyValues
