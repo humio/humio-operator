@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: 'humio-operator'
     app.kubernetes.io/instance: 'humio-operator'
     app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.29.0'
+    helm.sh/chart: 'humio-operator-0.29.1'
 spec:
   group: core.humio.com
   names:
