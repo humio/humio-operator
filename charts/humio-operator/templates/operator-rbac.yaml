@@ -25,6 +25,7 @@ rules:
   - services/finalizers
   - endpoints
   - persistentvolumeclaims
+  - persistentvolumes
   - events
   - configmaps
   - secrets
