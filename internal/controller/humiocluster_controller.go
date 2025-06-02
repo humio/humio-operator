@@ -83,6 +83,7 @@ const (
 // +kubebuilder:rbac:groups=core,resources=services,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=services/finalizers,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=endpoints,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=core,resources=persistentvolumes,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=create;delete;get;list;patch;update;watch
