@@ -3823,7 +3823,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
-			suite.CreateLicenseSecret(ctx, key, k8sClient, toCreate)
+			suite.CreateLicenseSecretIfNeeded(ctx, key, k8sClient, toCreate, true)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			suite.UsingClusterBy(key.Name, "should indicate cluster configuration error")
@@ -3859,7 +3859,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
-			suite.CreateLicenseSecret(ctx, key, k8sClient, toCreate)
+			suite.CreateLicenseSecretIfNeeded(ctx, key, k8sClient, toCreate, true)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			suite.UsingClusterBy(key.Name, "should indicate cluster configuration error")
@@ -3894,7 +3894,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
-			suite.CreateLicenseSecret(ctx, key, k8sClient, toCreate)
+			suite.CreateLicenseSecretIfNeeded(ctx, key, k8sClient, toCreate, true)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			suite.UsingClusterBy(key.Name, "should indicate cluster configuration error")
@@ -3928,7 +3928,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, toCreate)).Should(Succeed())
 			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
-			suite.CreateLicenseSecret(ctx, key, k8sClient, toCreate)
+			suite.CreateLicenseSecretIfNeeded(ctx, key, k8sClient, toCreate, true)
 
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			suite.UsingClusterBy(key.Name, "should indicate cluster configuration error")
