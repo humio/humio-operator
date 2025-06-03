@@ -5101,7 +5101,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-
 	// Common constants and setup for PDF Render Service tests
 	const (
 		shortTimeout  = time.Second * 10

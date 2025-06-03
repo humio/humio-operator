@@ -88,7 +88,6 @@ const (
 // +kubebuilder:rbac:groups=core,resources=services,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=services/finalizers,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=endpoints,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=core,resources=persistentvolumes,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=create;delete;get;list;patch;update;watch
@@ -1807,7 +1806,7 @@ func (r *HumioClusterReconciler) ensureLicenseIsValid(ctx context.Context, hc *h
 	// Retrieve the secret key selector (or its default) from the HumioCluster spec
 	licenseSecretKeySelector := licenseSecretKeyRefOrDefault(hc)
 	if licenseSecretKeySelector == nil {
-		return errors.New("no license secret key selector provided")
+		return fmt.Errorf("no license secret key selector provided")
 	}
 
 	// Attempt to retrieve the secret with the requested name from the cluster namespace

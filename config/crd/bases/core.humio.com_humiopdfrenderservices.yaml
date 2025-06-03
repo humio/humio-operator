@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: 'humio-operator'
     app.kubernetes.io/instance: 'humio-operator'
     app.kubernetes.io/managed-by: 'Helm'
-    helm.sh/chart: 'humio-operator-0.28.2'
+    helm.sh/chart: 'humio-operator-0.29.1'
 spec:
   group: core.humio.com
   names:
@@ -3912,6 +3912,12 @@ spec:
                 items:
                   type: string
                 type: array
+              observedGeneration:
+                description: |-
+                  ObservedGeneration is the most recent generation observed for this HumioPdfRenderService. It corresponds to the
+                  resource's generation, which is updated on mutation by the API Server.
+                format: int64
+                type: integer
               readyReplicas:
                 description: ReadyReplicas is the number of ready replicas.
                 format: int32
