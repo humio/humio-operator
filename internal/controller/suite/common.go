@@ -1015,6 +1015,40 @@ func EnsurePdfRenderDeploymentReady(ctx context.Context, k8sClient client.Client
 	}, DefaultTestTimeout, TestInterval).Should(BeNumerically(">", 0))
 }
 
+// CleanupPdfRenderServiceResources cleans up all resources related to a PDF render service
+func CleanupPdfRenderServiceResources(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
+	// Delete HumioPdfRenderService if it exists
+	pdfCR := &humiov1alpha1.HumioPdfRenderService{}
+	if err := k8sClient.Get(ctx, key, pdfCR); err == nil {
+		UsingClusterBy(key.Name, fmt.Sprintf("Deleting HumioPdfRenderService %s", key.String()))
+		_ = k8sClient.Delete(ctx, pdfCR)
+
+		// Wait for deletion
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, key, &humiov1alpha1.HumioPdfRenderService{})
+			return k8serrors.IsNotFound(err)
+		}, DefaultTestTimeout, TestInterval).Should(BeTrue())
+	}
+
+	// Clean up any orphaned deployment
+	deploymentKey := types.NamespacedName{
+		Name:      key.Name + "-pdf-render-service",
+		Namespace: key.Namespace,
+	}
+	deployment := &appsv1.Deployment{}
+	if err := k8sClient.Get(ctx, deploymentKey, deployment); err == nil {
+		UsingClusterBy(key.Name, fmt.Sprintf("Deleting orphaned deployment %s", deploymentKey.String()))
+		_ = k8sClient.Delete(ctx, deployment)
+	}
+
+	// Clean up any orphaned service
+	service := &corev1.Service{}
+	if err := k8sClient.Get(ctx, deploymentKey, service); err == nil {
+		UsingClusterBy(key.Name, fmt.Sprintf("Deleting orphaned service %s", deploymentKey.String()))
+		_ = k8sClient.Delete(ctx, service)
+	}
+}
+
 // CleanupPdfRenderServiceCR safely deletes a HumioPdfRenderService CR and waits for its deletion
 func CleanupPdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfCR *humiov1alpha1.HumioPdfRenderService) {
 	if pdfCR == nil {

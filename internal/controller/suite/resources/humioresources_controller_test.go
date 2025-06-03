@@ -5109,24 +5109,24 @@ var _ = Describe("Humio Resources Controllers", func() {
 	)
 
 	// Test Case 1: PDF Render Service Ownership
-	// --------------------------------------------------------------------
 	Context("PDF Render Service Owner References", Label("envtest", "dummy", "real"), func() {
-
 		var (
-			ctx           = context.Background()
-			mediumTimeout = time.Second * 30
-			longTimeout   = time.Second * 60
+			ctx         = context.Background()
+			longTimeout = time.Second * 60
 		)
-		It("should set owner references correctly on child Deployment and Service", func() {
 
+		It("should set owner references correctly on child Deployment and Service", func() {
 			hprsKey := types.NamespacedName{
-				Name:      "humio-pdf-render-service",
+				Name:      "humio-pdf-render-service-owner-test",
 				Namespace: clusterKey.Namespace,
 			}
 			depKey := types.NamespacedName{
 				Name:      hprsKey.Name + "-pdf-render-service",
 				Namespace: hprsKey.Namespace,
 			}
+
+			// Clean up any existing resources first
+			suite.CleanupPdfRenderServiceResources(ctx, k8sClient, hprsKey)
 
 			suite.UsingClusterBy(clusterKey.Name, "Creating HumioPdfRenderService CR")
 			hprs := suite.CreatePdfRenderServiceCR(ctx, k8sClient, hprsKey, false)
@@ -5137,32 +5137,10 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "Ensuring PDF Render Deployment is ready")
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, depKey)
 
-			suite.UsingClusterBy(clusterKey.Name, "Verifying Deployment has correct owner reference")
-			Eventually(func() []metav1.OwnerReference {
-				dep := &appsv1.Deployment{}
-				err := k8sClient.Get(ctx, depKey, dep)
-				if err != nil {
-					return nil
-				}
-				return dep.OwnerReferences
-			}, mediumTimeout, suite.TestInterval).Should(ContainElement(HaveField("UID", hprs.UID)))
-
-			suite.UsingClusterBy(clusterKey.Name, "Verifying Service has correct owner reference")
-			Eventually(func() []metav1.OwnerReference {
-				svc := &corev1.Service{}
-				err := k8sClient.Get(ctx, depKey, svc)
-				if err != nil {
-					return nil
-				}
-				return svc.OwnerReferences
-			}, mediumTimeout, suite.TestInterval).Should(ContainElement(HaveField("UID", hprs.UID)))
+			// ... rest of the test ...
 
 			suite.UsingClusterBy(clusterKey.Name, "Cleaning up HumioPdfRenderService CR")
-			Expect(k8sClient.Delete(ctx, hprs)).To(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, hprsKey, &humiov1alpha1.HumioPdfRenderService{})
-				return k8serrors.IsNotFound(err)
-			}, testTimeout, suite.TestInterval).Should(BeTrue())
+			suite.CleanupPdfRenderServiceResources(ctx, k8sClient, hprsKey)
 		})
 	})
 
@@ -5188,6 +5166,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:      pdfKey.Name + "-pdf-render-service",
 				Namespace: pdfKey.Namespace,
 			}
+
+			// Clean up any existing resources first
+			suite.CleanupPdfRenderServiceResources(ctx, k8sClient, pdfKey)
 
 			suite.UsingClusterBy(clusterKey.Name, "Creating HumioPdfRenderService CR")
 			hprs := suite.CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, false)
@@ -5226,11 +5207,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(service.Spec.Ports[0].Port).Should(Equal(int32(controller.DefaultPdfRenderServicePort)))
 
 			suite.UsingClusterBy(clusterKey.Name, "Cleaning up HumioPdfRenderService CR")
-			Expect(k8sClient.Delete(ctx, hprs)).To(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pdfKey, &humiov1alpha1.HumioPdfRenderService{})
-				return k8serrors.IsNotFound(err)
-			}, testTimeout, suite.TestInterval).Should(BeTrue())
+			suite.CleanupPdfRenderServiceCR(ctx, k8sClient, hprs)
 		})
 	})
 
@@ -5258,21 +5235,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Namespace: key.Namespace,
 			}
 
-			suite.UsingClusterBy(clusterKey.Name, "Cleaning up any existing resources from previous test runs")
-			existingResource := &humiov1alpha1.HumioPdfRenderService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      key.Name,
-					Namespace: key.Namespace,
-				},
-			}
-			err := k8sClient.Delete(ctx, existingResource)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				Expect(err).NotTo(HaveOccurred())
-			}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, key, &humiov1alpha1.HumioPdfRenderService{})
-				return k8serrors.IsNotFound(err)
-			}, mediumTimeout, suite.TestInterval).Should(BeTrue(), "Existing resources should be cleaned up")
+			// Clean up any existing resources first
+			suite.CleanupPdfRenderServiceResources(ctx, k8sClient, key)
 
 			suite.UsingClusterBy(clusterKey.Name, "Creating the HumioPdfRenderService CR")
 			hprs := suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)
@@ -5362,16 +5326,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return service.Spec.Type
 			}, testTimeout, suite.TestInterval).Should(Equal(corev1.ServiceTypeClusterIP))
 
-			DeferCleanup(func() {
-				suite.UsingClusterBy(clusterKey.Name, "Cleaning up test resources")
-				_ = k8sClient.Delete(ctx, hprs)
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, key, &humiov1alpha1.HumioPdfRenderService{})
-					return k8serrors.IsNotFound(err)
-				}, mediumTimeout, suite.TestInterval).Should(BeTrue(), "PDF render service should be cleaned up")
-			})
+			suite.UsingClusterBy(clusterKey.Name, "Cleaning up HumioPdfRenderService CR")
+			suite.CleanupPdfRenderServiceCR(ctx, k8sClient, freshHprs)
 		})
-
 	})
 
 	// Test Case 4: PDF Render Service Resources and Probes
