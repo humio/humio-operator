@@ -1,5 +1,12 @@
 on: pull_request
 name: e2e-dummy
+
+# Automatically cancel workflow executions in the same concurrency group.
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs#example-using-concurrency-and-the-default-behavior
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   e2e-dummy:
     name: ${{ matrix.kind-k8s-version }}
