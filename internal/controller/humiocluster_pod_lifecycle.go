@@ -61,10 +61,12 @@ func (p *PodLifeCycleState) ShouldRollingRestart() bool {
 		return true
 	}
 	if p.nodePool.GetUpdateStrategy().Type == humiov1alpha1.HumioClusterUpdateStrategyRollingUpdateBestEffort {
-		if p.versionDifference.from.SemVer().Major() == p.versionDifference.to.SemVer().Major() {
-			// allow rolling upgrades and downgrades for patch releases
-			if p.versionDifference.from.SemVer().Minor() == p.versionDifference.to.SemVer().Minor() {
-				return true
+		if p.FoundVersionDifference() {
+			if p.versionDifference.from.SemVer().Major() == p.versionDifference.to.SemVer().Major() {
+				// allow rolling upgrades and downgrades for patch releases
+				if p.versionDifference.from.SemVer().Minor() == p.versionDifference.to.SemVer().Minor() {
+					return true
+				}
 			}
 		}
 		return false
