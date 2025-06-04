@@ -125,6 +125,9 @@ rules:
   - humioviewpermissionroles
   - humioviewpermissionroles/finalizers
   - humioviewpermissionroles/status
+  - humiopdfrenderservices
+  - humiopdfrenderservices/finalizers
+  - humiopdfrenderservices/status
   verbs:
   - create
   - delete
