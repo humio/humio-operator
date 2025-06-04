@@ -692,7 +692,8 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	// Test Case 6: PDF Render Service Upgrade
+	// ...existing imports...
+
 	Context("PDF Render Service Upgrade", Label("envtest", "dummy", "real"), func() {
 		const (
 			initialTestPdfImage  = "humio/humio-pdf-export:test-v1"
@@ -702,8 +703,10 @@ var _ = Describe("HumioCluster Controller", func() {
 			standardTimeout = 30 * time.Second
 			quickInterval   = 250 * time.Millisecond
 		)
+
 		It("Should update the PDF render service deployment when its image is changed and HumioCluster remains stable", func() {
 			ctx := context.Background()
+
 			clusterKey := types.NamespacedName{
 				Name:      "humiocluster-pdf-upgrade",
 				Namespace: testProcessNamespace,
@@ -717,212 +720,179 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: pdfKey.Namespace,
 			}
 
-			// 1. Create HumioCluster first, without PdfRenderServiceRef
+			/* ------------------------------------------------------------------
+			1. Create HumioCluster (no PdfRenderServiceRef yet)
+			------------------------------------------------------------------ */
 			By("Creating and bootstrapping HumioCluster initially without PdfRenderServiceRef")
-			// CreateAndBootstrapCluster will then create a secret with this referenced name.
 			hc := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
-			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, hc, true, // The 'true' here is autoCreateLicense in CreateAndBootstrapCluster
-				humiov1alpha1.HumioClusterStateRunning, standardTimeout)
-			defer suite.CleanupCluster(ctx, k8sClient, hc) // hc is defined, so defer can be here
+			suite.CreateAndBootstrapCluster(
+				ctx, k8sClient, testHumioClient, hc,
+				true, /* autoCreateLicense */
+				humiov1alpha1.HumioClusterStateRunning,
+				standardTimeout,
+			)
+			defer suite.CleanupCluster(ctx, k8sClient, hc)
 
-			// Ensure the cluster is running
 			Eventually(func(g Gomega) string {
 				var cluster humiov1alpha1.HumioCluster
-				err := k8sClient.Get(ctx, clusterKey, &cluster)
-				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(k8sClient.Get(ctx, clusterKey, &cluster)).To(Succeed())
 				return cluster.Status.State
 			}, standardTimeout, quickInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 
-			// 2. Create HumioPdfRenderService with initial image
+			/* ------------------------------------------------------------------
+			2. Create HumioPdfRenderService with the v1 image
+			------------------------------------------------------------------ */
 			By("Creating HumioPdfRenderService with initial image: " + initialTestPdfImage)
-			pdfToCreate := &humiov1alpha1.HumioPdfRenderService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      pdfKey.Name,
-					Namespace: pdfKey.Namespace,
-				},
+			Expect(k8sClient.Create(ctx, &humiov1alpha1.HumioPdfRenderService{
+				ObjectMeta: metav1.ObjectMeta{Name: pdfKey.Name, Namespace: pdfKey.Namespace},
 				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
 					Image:    initialTestPdfImage,
-					Replicas: 1, // Explicitly set replicas
+					Replicas: 1,
 				},
-			}
-			Expect(k8sClient.Create(ctx, pdfToCreate)).To(Succeed(), "Failed to create HumioPdfRenderService with initial image")
+			})).To(Succeed())
 
 			pdfCR := &humiov1alpha1.HumioPdfRenderService{}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, pdfKey, pdfCR)
-			}, standardTimeout, quickInterval).Should(Succeed(), "Failed to get created HumioPdfRenderService for pdfCR")
+			Eventually(func() error { return k8sClient.Get(ctx, pdfKey, pdfCR) },
+				standardTimeout, quickInterval).Should(Succeed())
 
-			// 3. Wait for controller to process HPRS and deployment to be ready
 			By("Waiting for initial HumioPdfRenderService to be processed and deployment to be ready")
 			suite.WaitForObservedGeneration(ctx, k8sClient, pdfCR, standardTimeout, quickInterval)
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
 
-			// 4. Verify initial image in HPRS deployment
 			By("Verifying PDF service deployment uses initial image: " + initialTestPdfImage)
 			Eventually(func(g Gomega) string {
-				var deployment appsv1.Deployment
-				err := k8sClient.Get(ctx, deploymentKey, &deployment)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
-				return deployment.Spec.Template.Spec.Containers[0].Image
+				var dep appsv1.Deployment
+				g.Expect(k8sClient.Get(ctx, deploymentKey, &dep)).To(Succeed())
+				return dep.Spec.Template.Spec.Containers[0].Image
 			}, standardTimeout, quickInterval).Should(Equal(initialTestPdfImage))
 
-			// 5. Update HumioCluster to reference the PDF service
+			/* ------------------------------------------------------------------
+			3. Patch HumioCluster to reference the PDF render service
+			------------------------------------------------------------------ */
 			By("Updating HumioCluster to reference the PDF service")
 			Eventually(func(g Gomega) error {
-				currentHc := &humiov1alpha1.HumioCluster{}
-				g.Expect(k8sClient.Get(ctx, clusterKey, currentHc)).To(Succeed())
-				currentHc.Spec.PdfRenderServiceRef = &humiov1alpha1.HumioPdfRenderServiceReference{
-					Name:      pdfKey.Name,
-					Namespace: pdfKey.Namespace,
+				var cur humiov1alpha1.HumioCluster
+				g.Expect(k8sClient.Get(ctx, clusterKey, &cur)).To(Succeed())
+				cur.Spec.PdfRenderServiceRef = &humiov1alpha1.HumioPdfRenderServiceReference{
+					Name: pdfKey.Name, Namespace: pdfKey.Namespace,
 				}
-				return k8sClient.Update(ctx, currentHc)
-			}, standardTimeout, quickInterval).Should(Succeed(), "Failed to update HumioCluster with PdfRenderServiceRef")
+				return k8sClient.Update(ctx, &cur)
+			}, standardTimeout, quickInterval).Should(Succeed())
 
-			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfCR)
+			// ensure the CR still exists
+			Eventually(func() error { return k8sClient.Get(ctx, pdfKey, pdfCR) },
+				standardTimeout, quickInterval).Should(Succeed())
 
-			// Add this check to ensure the PDF service still exists
-			By("Ensuring the referenced HumioPdfRenderService still exists after updating the cluster")
-			Eventually(func() error {
-				return k8sClient.Get(ctx, pdfKey, pdfCR)
-			}, standardTimeout, quickInterval).Should(Succeed(), "HumioPdfRenderService was deleted unexpectedly")
+			By("Waiting for HumioCluster to reconcile PdfRenderServiceRef and return to Running")
+			Eventually(func() string {
+				var cl humiov1alpha1.HumioCluster
+				_ = k8sClient.Get(ctx, clusterKey, &cl)
+				return cl.Status.State
+			}, standardTimeout*2, quickInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
 
-			// Wait for HumioCluster to reconcile PdfRenderServiceRef. It may enter Restarting then go back to Running.
-			By("Waiting for HumioCluster to reconcile PdfRenderServiceRef and return to Running state")
-			Eventually(func(g Gomega) string {
-				var cluster humiov1alpha1.HumioCluster
-				err := k8sClient.Get(ctx, clusterKey, &cluster)
-				g.Expect(err).NotTo(HaveOccurred(), "Failed to get HumioCluster while waiting for it to return to Running")
-				// Log current state for debugging if it's not Running yet
-				if cluster.Status.State != humiov1alpha1.HumioClusterStateRunning {
-					GinkgoLogr.Info("HumioCluster current state while waiting for Running after PdfRenderServiceRef update", "state", cluster.Status.State)
-				}
-				return cluster.Status.State
-			}, standardTimeout*2, quickInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning), "HumioCluster did not return to Running state after PdfRenderServiceRef update")
-
-			// Then, wait for HumioPdfRenderService to become Running.
-			// This might have been affected by TLS sync from HumioCluster.
-			By("Waiting for HumioPdfRenderService to become Running after HumioCluster reconciliation")
-			Eventually(func(g Gomega) string {
+			By("Waiting for HumioPdfRenderService to become Running after HC reconciliation")
+			Eventually(func() string {
 				var hprs humiov1alpha1.HumioPdfRenderService
-				err := k8sClient.Get(ctx, pdfKey, &hprs)
-				g.Expect(err).NotTo(HaveOccurred(), "Failed to get HumioPdfRenderService while waiting for it to become Running")
-				if hprs.Status.State != humiov1alpha1.HumioPdfRenderServiceStateRunning {
-					GinkgoLogr.Info("HumioPdfRenderService current state while waiting for Running", "state", hprs.Status.State, "readyReplicas", hprs.Status.ReadyReplicas)
-				}
+				_ = k8sClient.Get(ctx, pdfKey, &hprs)
 				return hprs.Status.State
-			}, standardTimeout*2, quickInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning), "HumioPdfRenderService did not become Running after HC reference and reconciliation")
+			}, standardTimeout*2, quickInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
 
-			// 6. Update HumioPdfRenderService to use the new image
+			/* ------------------------------------------------------------------
+			4. Bump the image in the HPRS to v2
+			------------------------------------------------------------------ */
 			By("Updating HumioPdfRenderService image to: " + upgradedTestPdfImage)
 			Eventually(func() error {
-				currentPdfCR := &humiov1alpha1.HumioPdfRenderService{}
-				if err := k8sClient.Get(ctx, pdfKey, currentPdfCR); err != nil {
+				var cur humiov1alpha1.HumioPdfRenderService
+				if err := k8sClient.Get(ctx, pdfKey, &cur); err != nil {
 					return err
 				}
-				currentPdfCR.Spec.Image = upgradedTestPdfImage
-				return k8sClient.Update(ctx, currentPdfCR)
-			}, standardTimeout, quickInterval).Should(Succeed(), "Failed to update HumioPdfRenderService image")
+				cur.Spec.Image = upgradedTestPdfImage
+				return k8sClient.Update(ctx, &cur)
+			}, standardTimeout, quickInterval).Should(Succeed())
 
-			// 6. Wait for controller to process the update and deployment to be ready
-			By("Waiting for updated HumioPdfRenderService to be processed and deployment to be ready")
+			By("Waiting for updated HumioPdfRenderService generation to be observed")
 			updatedPdfCR := &humiov1alpha1.HumioPdfRenderService{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, pdfKey, updatedPdfCR)
-			}, standardTimeout, quickInterval).Should(Succeed(), "Failed to get updated HumioPdfRenderService")
+			}, standardTimeout, quickInterval).Should(Succeed())
 			suite.WaitForObservedGeneration(ctx, k8sClient, updatedPdfCR, standardTimeout, quickInterval)
 
-			By("Manually updating PDF service deployment status to simulate kube-controller-manager for envtest")
+			/* ------------------------------------------------------------------
+			5. Simulate kube-controller-manager – mark deployment rolled out
+			------------------------------------------------------------------ */
+			By("Synchronising PDF service deployment status (envtest lacks deployment controller)")
 			Eventually(func() error {
-				pdfDeployment := &appsv1.Deployment{}
-				if err := k8sClient.Get(ctx, deploymentKey, pdfDeployment); err != nil {
+				dep := &appsv1.Deployment{}
+				if err := k8sClient.Get(ctx, deploymentKey, dep); err != nil {
 					return err
 				}
-				pdfDeployment.Status.ObservedGeneration = pdfDeployment.Generation
-				if pdfDeployment.Spec.Replicas != nil {
-					pdfDeployment.Status.Replicas = *pdfDeployment.Spec.Replicas
-					pdfDeployment.Status.UpdatedReplicas = *pdfDeployment.Spec.Replicas
-					pdfDeployment.Status.ReadyReplicas = *pdfDeployment.Spec.Replicas
-					pdfDeployment.Status.AvailableReplicas = *pdfDeployment.Spec.Replicas
-				} else {
-					pdfDeployment.Status.Replicas = 1
-					pdfDeployment.Status.UpdatedReplicas = 1
-					pdfDeployment.Status.ReadyReplicas = 1
-					pdfDeployment.Status.AvailableReplicas = 1
+				replicas := int32(1)
+				if dep.Spec.Replicas != nil {
+					replicas = *dep.Spec.Replicas
 				}
-				return k8sClient.Status().Update(ctx, pdfDeployment)
+				dep.Status = appsv1.DeploymentStatus{
+					ObservedGeneration: dep.Generation,
+					Replicas:           replicas,
+					UpdatedReplicas:    replicas,
+					ReadyReplicas:      replicas,
+					AvailableReplicas:  replicas,
+				}
+				return k8sClient.Status().Update(ctx, dep)
 			}, standardTimeout, quickInterval).Should(Succeed())
 
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
 
-			// After updating the PDF service deployment, we need to mark the HumioCluster pods as ready
-			// to simulate the real-world behavior where pods would eventually become ready
+			By("Waiting for HumioPdfRenderService to report Running after image upgrade")
+			Eventually(func() string {
+				var hprs humiov1alpha1.HumioPdfRenderService
+				_ = k8sClient.Get(ctx, pdfKey, &hprs)
+				return hprs.Status.State
+			}, standardTimeout*2, quickInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
+
+			/* ------------------------------------------------------------------
+			6. Mark HumioCluster pods ready again (envtest helper)
+			------------------------------------------------------------------ */
 			By("Marking HumioCluster pods as ready after PDF service update")
 			Eventually(func() error {
 				var cluster humiov1alpha1.HumioCluster
 				if err := k8sClient.Get(ctx, clusterKey, &cluster); err != nil {
 					return err
 				}
-
-				// Get the HumioCluster pods
-				clusterPods, err := kubernetes.ListPods(ctx, k8sClient, cluster.Namespace,
-					controller.NewHumioNodeManagerFromHumioCluster(&cluster).GetPodLabels())
+				pods, err := kubernetes.ListPods(
+					ctx, k8sClient, cluster.Namespace,
+					controller.NewHumioNodeManagerFromHumioCluster(&cluster).GetPodLabels(),
+				)
 				if err != nil {
 					return err
 				}
+				return suite.MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, pods, cluster.Name)
+			}, standardTimeout, quickInterval).Should(Succeed())
 
-				// Mark the pods as ready
-				return suite.MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, cluster.Name)
-			}, standardTimeout, quickInterval).Should(Succeed(), "Failed to mark HumioCluster pods as ready")
-
-			// 7. Verify new image in deployment
+			/* ------------------------------------------------------------------
+			7. Assertions – image upgraded & cluster stable
+			------------------------------------------------------------------ */
 			By("Verifying PDF service deployment uses upgraded image: " + upgradedTestPdfImage)
-			Eventually(func(g Gomega) string {
-				var deployment appsv1.Deployment
-				err := k8sClient.Get(ctx, deploymentKey, &deployment)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
-				return deployment.Spec.Template.Spec.Containers[0].Image
+			Eventually(func() string {
+				var dep appsv1.Deployment
+				_ = k8sClient.Get(ctx, deploymentKey, &dep)
+				return dep.Spec.Template.Spec.Containers[0].Image
 			}, standardTimeout, quickInterval).Should(Equal(upgradedTestPdfImage))
 
-			// Make sure all pods are properly marked as ready to help transition from Restarting to Running state
-			By("Ensuring all HumioCluster pods are properly marked as ready")
-			Eventually(func() error {
-				var cluster humiov1alpha1.HumioCluster
-				if err := k8sClient.Get(ctx, clusterKey, &cluster); err != nil {
-					return err
-				}
-
-				// Get the HumioCluster pods
-				clusterPods, err := kubernetes.ListPods(ctx, k8sClient, cluster.Namespace,
-					controller.NewHumioNodeManagerFromHumioCluster(&cluster).GetPodLabels())
-				if err != nil {
-					return err
-				}
-
-				// Mark the pods as ready
-				return suite.MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, clusterPods, cluster.Name)
-			}, standardTimeout, quickInterval).Should(Succeed(), "Failed to mark HumioCluster pods as ready")
-
-			// 8. Final check: HumioCluster should be Running or Restarting
 			By("Verifying HumioCluster is in Running state")
-			Eventually(func(g Gomega) bool {
-				var cluster humiov1alpha1.HumioCluster
-				err := k8sClient.Get(ctx, clusterKey, &cluster)
-				g.Expect(err).NotTo(HaveOccurred())
-				state := cluster.Status.State
-				return state == humiov1alpha1.HumioClusterStateRunning
-			}, standardTimeout*2, quickInterval).Should(BeTrue(), "Expected cluster state to be Running")
+			Eventually(func() bool {
+				var cl humiov1alpha1.HumioCluster
+				_ = k8sClient.Get(ctx, clusterKey, &cl)
+				return cl.Status.State == humiov1alpha1.HumioClusterStateRunning
+			}, standardTimeout*2, quickInterval).Should(BeTrue(), "cluster did not reach Running")
 
-			// 9. Check HumioPdfRenderService status is Running
 			By("Verifying HumioPdfRenderService is in Running state after upgrade")
-			Eventually(func(g Gomega) string {
+			Eventually(func() string {
 				var hprs humiov1alpha1.HumioPdfRenderService
-				err := k8sClient.Get(ctx, pdfKey, &hprs)
-				g.Expect(err).NotTo(HaveOccurred())
+				_ = k8sClient.Get(ctx, pdfKey, &hprs)
 				return hprs.Status.State
 			}, standardTimeout, quickInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
 		})
+
 	})
 
 	// Test Case 7: Reference removal

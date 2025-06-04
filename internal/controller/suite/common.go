@@ -1088,3 +1088,13 @@ func CleanupPdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdf
 	}, DefaultTestTimeout, TestInterval).Should(BeTrue(),
 		"HumioPdfRenderService %s/%s should be deleted", serviceNamespace, serviceName)
 }
+
+func CleanupClusterIfExists(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
+	var hc humiov1alpha1.HumioCluster
+	err := k8sClient.Get(ctx, key, &hc)
+	if k8serrors.IsNotFound(err) {
+		return // nothing to clean
+	}
+	Expect(err).NotTo(HaveOccurred())
+	CleanupCluster(ctx, k8sClient, &hc)
+}
