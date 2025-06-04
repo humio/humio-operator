@@ -136,9 +136,13 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// Update status
 	_ = r.updateStatus(ctx, hprs, targetState, nil)
 
-	// Requeue while configuring
+	// Requeue while configuring or in error state
 	if targetState == humiov1alpha1.HumioPdfRenderServiceStateConfiguring {
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+	if targetState == humiov1alpha1.HumioPdfRenderServiceStateConfigError {
+		// Reduce requeue frequency for error state to avoid conflicts
+		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 	}
 
 	// If we just created/updated the Deployment we requeue quickly so the

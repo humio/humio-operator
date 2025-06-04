@@ -1089,6 +1089,41 @@ func CleanupPdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdf
 		"HumioPdfRenderService %s/%s should be deleted", serviceNamespace, serviceName)
 }
 
+// CreatePdfRenderServiceAndWait is a convenience wrapper that
+// 1. Creates a HumioPdfRenderService CR (optionally overriding Image & TLS)
+// 2. Waits until the controller has observed the new generation
+// 3. Waits for the child Deployment to become “Ready”
+// The returned CR is suitable for defer-cleanup.
+func CreatePdfRenderServiceAndWait(
+	ctx context.Context,
+	k8sClient client.Client,
+	pdfKey types.NamespacedName,
+	image string,
+	tlsEnabled bool,
+) *humiov1alpha1.HumioPdfRenderService {
+
+	// Step 1 – create the CR
+	pdfCR := CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, tlsEnabled)
+
+	// Optional image override
+	if image != "" && pdfCR.Spec.Image != image {
+		pdfCR.Spec.Image = image
+		Expect(k8sClient.Update(ctx, pdfCR)).To(Succeed())
+	}
+
+	// Step 2 – wait for the controller to reconcile the change
+	WaitForObservedGeneration(ctx, k8sClient, pdfCR, DefaultTestTimeout, TestInterval)
+
+	// Step 3 – make sure the Deployment is rolled out & Ready
+	deploymentKey := types.NamespacedName{
+		Name:      pdfKey.Name + "-pdf-render-service",
+		Namespace: pdfKey.Namespace,
+	}
+	EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
+
+	return pdfCR
+}
+
 func CleanupClusterIfExists(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
 	var hc humiov1alpha1.HumioCluster
 	err := k8sClient.Get(ctx, key, &hc)
