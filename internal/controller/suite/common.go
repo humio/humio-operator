@@ -947,7 +947,7 @@ func CreatePdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfK
 		},
 	}
 	if tlsEnabled {
-		pdfCR.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{
+		pdfCR.Spec.TLS = &humiov1alpha1.HumioPDFRenderServiceTLSSpec{
 			Enabled: helpers.BoolPtr(true),
 		}
 	}
@@ -1117,6 +1117,12 @@ func CleanupPdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdf
 // 2. Waits until the controller has observed the new generation
 // 3. Waits for the child Deployment to become “Ready”
 // The returned CR is suitable for defer-cleanup.
+// CreatePdfRenderServiceAndWait is a convenience wrapper that
+// 1. Creates a HumioPdfRenderService CR (optionally overriding Image & TLS)
+// 2. Creates TLS certificate if TLS is enabled
+// 3. Waits until the controller has observed the new generation
+// 4. Waits for the child Deployment to become "Ready"
+// The returned CR is suitable for defer-cleanup.
 func CreatePdfRenderServiceAndWait(
 	ctx context.Context,
 	k8sClient client.Client,
@@ -1125,7 +1131,32 @@ func CreatePdfRenderServiceAndWait(
 	tlsEnabled bool,
 ) *humiov1alpha1.HumioPdfRenderService {
 
-	// Step 1 – create the CR
+	// Step 1 – If TLS is enabled, create the certificate secret first
+	if tlsEnabled && helpers.UseCertManager() {
+		// Create TLS certificate secret for PDF render service
+		tlsSecretName := fmt.Sprintf("%s-pdf-render-service-tls", pdfKey.Name)
+
+		// Generate CA certificate
+		caCert, err := controller.GenerateCACertificate()
+		Expect(err).ToNot(HaveOccurred(), "Failed to generate CA certificate for PDF render service")
+
+		tlsSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      tlsSecretName,
+				Namespace: pdfKey.Namespace,
+			},
+			Type: corev1.SecretTypeTLS,
+			Data: map[string][]byte{
+				corev1.TLSCertKey:       caCert.Certificate,
+				corev1.TLSPrivateKeyKey: caCert.Key,
+			},
+		}
+
+		UsingClusterBy(pdfKey.Name, fmt.Sprintf("Creating TLS certificate secret %s for PDF render service", tlsSecretName))
+		Expect(k8sClient.Create(ctx, tlsSecret)).To(Succeed())
+	}
+
+	// Step 2 – create the CR
 	pdfCR := CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, tlsEnabled)
 
 	// Optional image override
@@ -1134,15 +1165,31 @@ func CreatePdfRenderServiceAndWait(
 		Expect(k8sClient.Update(ctx, pdfCR)).To(Succeed())
 	}
 
-	// Step 2 – wait for the controller to reconcile the change
+	// Step 3 – wait for the controller to reconcile the change
 	WaitForObservedGeneration(ctx, k8sClient, pdfCR, DefaultTestTimeout, TestInterval)
 
-	// Step 3 – make sure the Deployment is rolled out & Ready
+	// Step 4 – make sure the Deployment is rolled out & Ready
 	deploymentKey := types.NamespacedName{
 		Name:      pdfKey.Name + "-pdf-render-service",
 		Namespace: pdfKey.Namespace,
 	}
 	EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
+
+	// Step 5 – In envtest environments, manually set the PDF service status to Running
+	// since the PDF render service controller doesn't run to update the status automatically
+	if helpers.UseEnvtest() {
+		UsingClusterBy(pdfKey.Name, "Setting PDF render service status to Running for envtest")
+		Eventually(func() error {
+			var updated humiov1alpha1.HumioPdfRenderService
+			if err := k8sClient.Get(ctx, pdfKey, &updated); err != nil {
+				return err
+			}
+			updated.Status.State = humiov1alpha1.HumioPdfRenderServiceStateRunning
+			updated.Status.ReadyReplicas = 1
+			updated.Status.ObservedGeneration = updated.Generation
+			return k8sClient.Status().Update(ctx, &updated)
+		}, DefaultTestTimeout, TestInterval).Should(Succeed())
+	}
 
 	return pdfCR
 }
