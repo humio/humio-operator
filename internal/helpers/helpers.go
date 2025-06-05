@@ -77,6 +77,30 @@ func TLSEnabled(hc *humiov1alpha1.HumioCluster) bool {
 	return UseCertManager() && *hc.Spec.TLS.Enabled
 }
 
+// TLSEnabledForHPRS returns true if TLS is enabled for the PDF Render Service
+func TLSEnabledForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
+	if hprs.Spec.TLS == nil {
+		return false
+	}
+	if hprs.Spec.TLS.Enabled == nil {
+		return false
+	}
+	return *hprs.Spec.TLS.Enabled
+}
+
+// GetCASecretNameForHPRS returns the CA secret name for PDF Render Service
+func GetCASecretNameForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) string {
+	if hprs.Spec.TLS != nil && hprs.Spec.TLS.CASecretName != "" {
+		return hprs.Spec.TLS.CASecretName
+	}
+	return hprs.Name + "-ca-keypair"
+}
+
+// UseExistingCAForHPRS returns true if PDF Render Service uses existing CA
+func UseExistingCAForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
+	return hprs.Spec.TLS != nil && hprs.Spec.TLS.CASecretName != ""
+}
+
 // AsSHA256 does a sha 256 hash on an object and returns the result
 func AsSHA256(o interface{}) string {
 	h := sha256.New()

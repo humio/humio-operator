@@ -101,7 +101,7 @@ type CACert struct {
 	Key         []byte
 }
 
-func generateCACertificate() (CACert, error) {
+func GenerateCACertificate() (CACert, error) {
 	ca := &x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().Unix()),
 		Subject: pkix.Name{

@@ -233,8 +233,8 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if result, err := r.ensureHumioClusterBootstrapToken(ctx, hc); result != emptyResult || err != nil {
 			if err != nil {
 				_, _ = r.updateStatus(ctx, r.Status(), hc, statusOptions().
-					withState(hc.Status.State).  // Use in-memory state set by sub-function (e.g., reconcileWithExternalPdfService or reconcileWithoutPdfService)
-					withMessage(pdfErr.Error()). // Use the error from sub-function as the message
+					withState(hc.Status.State). // Use in-memory state set by sub-function (e.g., reconcileWithExternalPdfService or reconcileWithoutPdfService)
+					withMessage(err.Error()).   // Use the error from sub-function as the message
 					withObservedGeneration(hc.GetGeneration()))
 			}
 			return result, err
@@ -307,7 +307,7 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// create various k8s objects, e.g. Issuer, Certificate, ConfigMap, Ingress, Service, ServiceAccount, ClusterRole, ClusterRoleBinding
 	for _, fun := range []ctxHumioClusterFunc{
-		r.ensureValidCAIssuer,
+		r.EnsureValidCAIssuer,
 		r.ensureHumioClusterCACertBundle,
 		r.ensureHumioClusterKeystoreSecret,
 		r.ensureNoIngressesIfIngressNotEnabled, // TODO: cleanupUnusedResources seems like a better place for this
@@ -698,7 +698,7 @@ func (r *HumioClusterReconciler) syncPdfRenderServiceConfig(ctx context.Context,
 	}
 
 	if desiredHprs.Spec.TLS == nil {
-		desiredHprs.Spec.TLS = &humiov1alpha1.HumioClusterTLSSpec{}
+		desiredHprs.Spec.TLS = &humiov1alpha1.HumioPDFRenderServiceTLSSpec{}
 	}
 	desiredHprs.Spec.TLS.Enabled = helpers.BoolPtr(tlsEnabled)
 
@@ -1396,7 +1396,7 @@ func (r *HumioClusterReconciler) ensureInitContainerPermissions(ctx context.Cont
 }
 
 // Ensure the CA Issuer is valid/ready
-func (r *HumioClusterReconciler) ensureValidCAIssuer(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
+func (r *HumioClusterReconciler) EnsureValidCAIssuer(ctx context.Context, hc *humiov1alpha1.HumioCluster) error {
 	if !helpers.TLSEnabled(hc) {
 		return nil
 	}
@@ -1458,7 +1458,7 @@ func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *hu
 	}
 
 	r.Log.Info("generating new CA certificate")
-	ca, err := generateCACertificate()
+	ca, err := GenerateCACertificate()
 	if err != nil {
 		return r.logErrorAndReturn(err, "could not generate new CA certificate")
 	}
@@ -3316,12 +3316,19 @@ func (r *HumioClusterReconciler) verifyHumioClusterConfigurationIsValid(ctx cont
 		isHprsReady := helpers.HprsIsReady(pdfService)
 
 		if pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateConfigError || !isHprsReady {
-			errMsg := fmt.Sprintf("referenced HumioPdfRenderService %s is not ready or in ConfigError (state: %s, readyReplicas: %d)",
-				pdfServiceKey.String(), pdfService.Status.State, pdfService.Status.ReadyReplicas)
+			var errMsg string
+			if pdfService.Status.State == humiov1alpha1.HumioPdfRenderServiceStateConfigError && pdfService.Status.Message != "" {
+				errMsg = fmt.Sprintf("referenced HumioPdfRenderService %s is in ConfigError: %s",
+					pdfServiceKey.String(), pdfService.Status.Message)
+			} else {
+				errMsg = fmt.Sprintf("referenced HumioPdfRenderService %s is not ready or in ConfigError (state: %s, readyReplicas: %d)",
+					pdfServiceKey.String(), pdfService.Status.State, pdfService.Status.ReadyReplicas)
+			}
 			r.Log.Info("Referenced HumioPdfRenderService not ready or in ConfigError during validation.",
 				"HumioPdfRenderService", pdfServiceKey.String(),
 				"pdfServiceState", pdfService.Status.State,
-				"pdfServiceReadyReplicas", pdfService.Status.ReadyReplicas)
+				"pdfServiceReadyReplicas", pdfService.Status.ReadyReplicas,
+				"pdfServiceMessage", pdfService.Status.Message)
 			hc.Status.State = humiov1alpha1.HumioClusterStateConfigError
 			hc.Status.Message = errMsg
 			_, updateErr := r.updateStatus(ctx, r.Status(), hc, statusOptions().
