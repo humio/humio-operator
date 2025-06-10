@@ -28,6 +28,8 @@ Resource Types:
 
 - [HumioIngestToken](#humioingesttoken)
 
+- [HumioMultiClusterSearchView](#humiomulticlustersearchview)
+
 - [HumioOrganizationPermissionRole](#humioorganizationpermissionrole)
 
 - [HumioParser](#humioparser)
@@ -37186,6 +37188,348 @@ HumioIngestTokenStatus defines the observed state of HumioIngestToken.
         <td>string</td>
         <td>
           State reflects the current state of the HumioIngestToken<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioMultiClusterSearchView
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioMultiClusterSearchView is the Schema for the humiomulticlustersearchviews API.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioMultiClusterSearchView</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiomulticlustersearchviewspec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioMultiClusterSearchViewSpec defines the desired state of HumioMultiClusterSearchView.<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiomulticlustersearchviewstatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioMultiClusterSearchViewStatus defines the observed state of HumioMultiClusterSearchView.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioMultiClusterSearchView.spec
+<sup><sup>[↩ Parent](#humiomulticlustersearchview)</sup></sup>
+
+
+
+HumioMultiClusterSearchViewSpec defines the desired state of HumioMultiClusterSearchView.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humiomulticlustersearchviewspecconnectionsindex">connections</a></b></td>
+        <td>[]object</td>
+        <td>
+          Connections contains the connections to the Humio repositories which is accessible in this view<br/>
+          <br/>
+            <i>Validations</i>:<li>self.filter(c, c.type == 'Local').size() <= 1: Only one connection can have type 'Local'</li><li>size(self.map(c, c.clusterIdentity)) == size(self): All connections must have unique clusterIdentity values</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the view inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>automaticSearch</b></td>
+        <td>boolean</td>
+        <td>
+          AutomaticSearch is used to specify the start search automatically on loading the search page option.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>description</b></td>
+        <td>string</td>
+        <td>
+          Description contains the description that will be set on the view<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+This conflicts with ManagedClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+resources should be created.
+This conflicts with ExternalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioMultiClusterSearchView.spec.connections[index]
+<sup><sup>[↩ Parent](#humiomulticlustersearchviewspec)</sup></sup>
+
+
+
+HumioMultiClusterSearchViewConnection represents a connection to a specific repository with an optional filter
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>clusterIdentity</b></td>
+        <td>string</td>
+        <td>
+          ClusterIdentity is a required field that gets used as an identifier for the connection.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>enum</td>
+        <td>
+          Type specifies the type of connection.
+If Type=Local, the connection will be to a local repository or view and requires the viewOrRepoName field to be set.
+If Type=Remote, the connection will be to a remote repository or view and requires the fields remoteUrl and remoteSecretName to be set.<br/>
+          <br/>
+            <i>Enum</i>: Local, Remote<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humiomulticlustersearchviewspecconnectionsindexapitokensource">apiTokenSource</a></b></td>
+        <td>object</td>
+        <td>
+          APITokenSource specifies where to fetch the LogScale API token to use for the remote connection.
+Only used when Type=Remote.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>filter</b></td>
+        <td>string</td>
+        <td>
+          Filter contains the prefix filter that will be applied to the connection.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#humiomulticlustersearchviewspecconnectionsindextagsindex">tags</a></b></td>
+        <td>[]object</td>
+        <td>
+          Tags contains the key-value pair tags that will be applied to the connection.<br/>
+          <br/>
+            <i>Validations</i>:<li>size(self.map(c, c.key)) == size(self): All tags must have unique keys</li>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>url</b></td>
+        <td>string</td>
+        <td>
+          Url contains the URL to use for the remote connection.
+Only used when Type=Remote.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>viewOrRepoName</b></td>
+        <td>string</td>
+        <td>
+          ViewOrRepoName contains the name of the repository or view for the local connection.
+Only used when Type=Local.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioMultiClusterSearchView.spec.connections[index].apiTokenSource
+<sup><sup>[↩ Parent](#humiomulticlustersearchviewspecconnectionsindex)</sup></sup>
+
+
+
+APITokenSource specifies where to fetch the LogScale API token to use for the remote connection.
+Only used when Type=Remote.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#humiomulticlustersearchviewspecconnectionsindexapitokensourcesecretkeyref">secretKeyRef</a></b></td>
+        <td>object</td>
+        <td>
+          SecretKeyRef specifies which key of a secret in the namespace of the HumioMultiClusterSearchView that holds the LogScale API token<br/>
+          <br/>
+            <i>Validations</i>:<li>self != null && has(self.name) && self.name != "" && has(self.key) && self.key != "": SecretKeyRef must have both name and key fields set</li>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioMultiClusterSearchView.spec.connections[index].apiTokenSource.secretKeyRef
+<sup><sup>[↩ Parent](#humiomulticlustersearchviewspecconnectionsindexapitokensource)</sup></sup>
+
+
+
+SecretKeyRef specifies which key of a secret in the namespace of the HumioMultiClusterSearchView that holds the LogScale API token
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioMultiClusterSearchView.spec.connections[index].tags[index]
+<sup><sup>[↩ Parent](#humiomulticlustersearchviewspecconnectionsindex)</sup></sup>
+
+
+
+HumioMultiClusterSearchViewConnectionTag represents a tag that will be applied to a connection.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key specifies the key of the tag<br/>
+          <br/>
+            <i>Validations</i>:<li>self != 'clusteridentity': The key 'clusteridentity' is reserved and cannot be used</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          Value specifies the value of the tag<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### HumioMultiClusterSearchView.status
+<sup><sup>[↩ Parent](#humiomulticlustersearchview)</sup></sup>
+
+
+
+HumioMultiClusterSearchViewStatus defines the observed state of HumioMultiClusterSearchView.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State reflects the current state of the HumioMultiClusterSearchView<br/>
         </td>
         <td>false</td>
       </tr></tbody>
