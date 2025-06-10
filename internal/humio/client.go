@@ -44,6 +44,7 @@ type Client interface {
 	ParsersClient
 	RepositoriesClient
 	ViewsClient
+	MultiClusterSearchViewsClient
 	GroupsClient
 	LicenseClient
 	ActionsClient
@@ -96,6 +97,13 @@ type ViewsClient interface {
 	GetView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) (*humiographql.GetSearchDomainSearchDomainView, error)
 	UpdateView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) error
 	DeleteView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) error
+}
+
+type MultiClusterSearchViewsClient interface {
+	AddMultiClusterSearchView(context.Context, *humioapi.Client, *humiov1alpha1.HumioMultiClusterSearchView, []ConnectionDetailsIncludingAPIToken) error
+	GetMultiClusterSearchView(context.Context, *humioapi.Client, *humiov1alpha1.HumioMultiClusterSearchView) (*humiographql.GetMultiClusterSearchViewSearchDomainView, error)
+	UpdateMultiClusterSearchView(context.Context, *humioapi.Client, *humiov1alpha1.HumioMultiClusterSearchView, []ConnectionDetailsIncludingAPIToken) error
+	DeleteMultiClusterSearchView(context.Context, *humioapi.Client, *humiov1alpha1.HumioMultiClusterSearchView) error
 }
 
 type GroupsClient interface {
@@ -186,6 +194,11 @@ type ViewPermissionRolesClient interface {
 	GetViewPermissionRole(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewPermissionRole) (*humiographql.RoleDetails, error)
 	UpdateViewPermissionRole(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewPermissionRole) error
 	DeleteViewPermissionRole(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewPermissionRole) error
+}
+
+type ConnectionDetailsIncludingAPIToken struct {
+	humiov1alpha1.HumioMultiClusterSearchViewConnection
+	APIToken string
 }
 
 // ClientConfig stores our Humio api client
@@ -720,6 +733,9 @@ func (h *ClientConfig) GetView(ctx context.Context, client *humioapi.Client, hv 
 	searchDomain := resp.GetSearchDomain()
 	switch v := searchDomain.(type) {
 	case *humiographql.GetSearchDomainSearchDomainView:
+		if v.GetIsFederated() {
+			return nil, fmt.Errorf("view %q is a multi cluster search view", v.GetName())
+		}
 		return v, nil
 	default:
 		return nil, humioapi.ViewNotFound(hv.Spec.Name)
@@ -830,6 +846,408 @@ func validateSearchDomain(ctx context.Context, client *humioapi.Client, searchDo
 	}
 
 	return humioapi.SearchDomainNotFound(searchDomainName)
+}
+
+func (h *ClientConfig) GetMultiClusterSearchView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView) (*humiographql.GetMultiClusterSearchViewSearchDomainView, error) {
+	resp, err := humiographql.GetMultiClusterSearchView(
+		ctx,
+		client,
+		hv.Spec.Name,
+	)
+	if err != nil {
+		return nil, humioapi.ViewNotFound(hv.Spec.Name)
+	}
+
+	searchDomain := resp.GetSearchDomain()
+	switch v := searchDomain.(type) {
+	case *humiographql.GetMultiClusterSearchViewSearchDomainView:
+		if v.GetIsFederated() {
+			return v, nil
+		}
+		return nil, fmt.Errorf("view %q is not a multi cluster search view", v.GetName())
+	default:
+		return nil, humioapi.ViewNotFound(hv.Spec.Name)
+	}
+}
+
+func (h *ClientConfig) AddMultiClusterSearchView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, connectionDetails []ConnectionDetailsIncludingAPIToken) error {
+	// create empty view
+	if _, err := humiographql.CreateMultiClusterSearchView(
+		ctx,
+		client,
+		hv.Spec.Name,
+		&hv.Spec.Description,
+	); err != nil {
+		return err
+	}
+
+	// set desired automatic search behavior
+	if _, err := humiographql.SetAutomaticSearching(
+		ctx,
+		client,
+		hv.Spec.Name,
+		helpers.BoolTrue(hv.Spec.AutomaticSearch),
+	); err != nil {
+		return err
+	}
+
+	// add connections
+	for _, connection := range connectionDetails {
+		if connection.Type == humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeLocal {
+			tags := make([]humiographql.ClusterConnectionInputTag, len(connection.Tags)+1)
+			tags[0] = humiographql.ClusterConnectionInputTag{
+				Key:   "clusteridentity",
+				Value: connection.ClusterIdentity,
+			}
+			for tagIdx, tag := range connection.Tags {
+				tags[tagIdx+1] = humiographql.ClusterConnectionInputTag(tag)
+			}
+
+			_, createErr := humiographql.CreateLocalMultiClusterSearchViewConnection(
+				ctx,
+				client,
+				hv.Spec.Name,
+				connection.ViewOrRepoName,
+				tags,
+				&connection.Filter,
+			)
+			if createErr != nil {
+				return createErr
+			}
+		}
+
+		if connection.Type == humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeRemote {
+			tags := make([]humiographql.ClusterConnectionInputTag, len(connection.Tags)+2)
+			tags[0] = humiographql.ClusterConnectionInputTag{
+				Key:   "clusteridentity",
+				Value: connection.ClusterIdentity,
+			}
+			tags[1] = humiographql.ClusterConnectionInputTag{
+				Key:   "clusteridentityhash",
+				Value: helpers.AsSHA256(fmt.Sprintf("%s|%s", connection.Url, connection.APIToken)),
+			}
+			for tagIdx, tag := range connection.Tags {
+				tags[tagIdx+2] = humiographql.ClusterConnectionInputTag(tag)
+			}
+
+			_, createErr := humiographql.CreateRemoteMultiClusterSearchViewConnection(
+				ctx,
+				client,
+				hv.Spec.Name,
+				connection.Url,
+				connection.APIToken,
+				tags,
+				&connection.Filter,
+			)
+			if createErr != nil {
+				return createErr
+			}
+		}
+	}
+
+	return nil
+}
+
+func (h *ClientConfig) UpdateMultiClusterSearchView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, connectionDetails []ConnectionDetailsIncludingAPIToken) error {
+	curView, err := h.GetMultiClusterSearchView(ctx, client, hv)
+	if err != nil {
+		return err
+	}
+
+	if err := h.updateViewDescription(ctx, client, hv, curView); err != nil {
+		return err
+	}
+
+	if err := h.updateAutomaticSearch(ctx, client, hv, curView); err != nil {
+		return err
+	}
+
+	if err := h.syncClusterConnections(ctx, client, hv, curView, connectionDetails); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *ClientConfig) updateViewDescription(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, curView *humiographql.GetMultiClusterSearchViewSearchDomainView) error {
+	if cmp.Diff(curView.Description, &hv.Spec.Description) != "" {
+		_, err := humiographql.UpdateDescriptionForSearchDomain(
+			ctx,
+			client,
+			hv.Spec.Name,
+			hv.Spec.Description,
+		)
+		return err
+	}
+	return nil
+}
+
+func (h *ClientConfig) updateAutomaticSearch(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, curView *humiographql.GetMultiClusterSearchViewSearchDomainView) error {
+	if curView.AutomaticSearch != helpers.BoolTrue(hv.Spec.AutomaticSearch) {
+		_, err := humiographql.SetAutomaticSearching(
+			ctx,
+			client,
+			hv.Spec.Name,
+			helpers.BoolTrue(hv.Spec.AutomaticSearch),
+		)
+		return err
+	}
+	return nil
+}
+
+func (h *ClientConfig) syncClusterConnections(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, curView *humiographql.GetMultiClusterSearchViewSearchDomainView, connectionDetails []ConnectionDetailsIncludingAPIToken) error {
+	expectedClusterIdentityNames := h.extractExpectedClusterIdentities(connectionDetails)
+	currentClusterIdentityNames, err := h.extractCurrentClusterIdentities(curView)
+	if err != nil {
+		return err
+	}
+
+	if err := h.addMissingConnections(ctx, client, hv, connectionDetails, currentClusterIdentityNames); err != nil {
+		return err
+	}
+
+	if err := h.removeUnexpectedConnections(ctx, client, hv, curView, expectedClusterIdentityNames); err != nil {
+		return err
+	}
+
+	if err := h.updateExistingConnections(ctx, client, hv, curView, connectionDetails); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *ClientConfig) extractExpectedClusterIdentities(connectionDetails []ConnectionDetailsIncludingAPIToken) []string {
+	expectedClusterIdentityNames := make([]string, len(connectionDetails))
+	for idx, expectedConnection := range connectionDetails {
+		expectedClusterIdentityNames[idx] = expectedConnection.ClusterIdentity
+	}
+	return expectedClusterIdentityNames
+}
+
+func (h *ClientConfig) extractCurrentClusterIdentities(curView *humiographql.GetMultiClusterSearchViewSearchDomainView) ([]string, error) {
+	currentClusterIdentityNames := make([]string, len(curView.GetClusterConnections()))
+	for idx, currentConnection := range curView.GetClusterConnections() {
+		switch v := currentConnection.(type) {
+		case *humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection:
+			currentClusterIdentityNames[idx] = v.GetClusterId()
+		case *humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection:
+			currentClusterIdentityNames[idx] = v.GetClusterId()
+		default:
+			return nil, fmt.Errorf("unknown cluster connection type: %T", v)
+		}
+	}
+	return currentClusterIdentityNames, nil
+}
+
+func (h *ClientConfig) addMissingConnections(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, connectionDetails []ConnectionDetailsIncludingAPIToken, currentClusterIdentityNames []string) error {
+	for _, expectedConnection := range connectionDetails {
+		if !slices.Contains(currentClusterIdentityNames, expectedConnection.ClusterIdentity) {
+			if err := h.createConnection(ctx, client, hv, expectedConnection); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (h *ClientConfig) createConnection(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, expectedConnection ConnectionDetailsIncludingAPIToken) error {
+	switch expectedConnection.Type {
+	case humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeLocal:
+		return h.createLocalConnection(ctx, client, hv, expectedConnection)
+	case humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeRemote:
+		return h.createRemoteConnection(ctx, client, hv, expectedConnection)
+	default:
+		return fmt.Errorf("unknown connection type: %v", expectedConnection.Type)
+	}
+}
+
+func (h *ClientConfig) createLocalConnection(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, expectedConnection ConnectionDetailsIncludingAPIToken) error {
+	tags := h.buildLocalConnectionTags(expectedConnection)
+	_, err := humiographql.CreateLocalMultiClusterSearchViewConnection(
+		ctx,
+		client,
+		hv.Spec.Name,
+		expectedConnection.ViewOrRepoName,
+		tags,
+		&expectedConnection.Filter,
+	)
+	return err
+}
+
+func (h *ClientConfig) createRemoteConnection(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, expectedConnection ConnectionDetailsIncludingAPIToken) error {
+	tags := h.buildRemoteConnectionTags(expectedConnection)
+	_, err := humiographql.CreateRemoteMultiClusterSearchViewConnection(
+		ctx,
+		client,
+		hv.Spec.Name,
+		expectedConnection.Url,
+		expectedConnection.APIToken,
+		tags,
+		&expectedConnection.Filter,
+	)
+	return err
+}
+
+func (h *ClientConfig) buildLocalConnectionTags(expectedConnection ConnectionDetailsIncludingAPIToken) []humiographql.ClusterConnectionInputTag {
+	tags := make([]humiographql.ClusterConnectionInputTag, len(expectedConnection.Tags)+1)
+	tags[0] = humiographql.ClusterConnectionInputTag{
+		Key:   "clusteridentity",
+		Value: expectedConnection.ClusterIdentity,
+	}
+	for tagIdx, tag := range expectedConnection.Tags {
+		tags[tagIdx+1] = humiographql.ClusterConnectionInputTag(tag)
+	}
+	return tags
+}
+
+func (h *ClientConfig) buildRemoteConnectionTags(expectedConnection ConnectionDetailsIncludingAPIToken) []humiographql.ClusterConnectionInputTag {
+	tags := make([]humiographql.ClusterConnectionInputTag, len(expectedConnection.Tags)+2)
+	tags[0] = humiographql.ClusterConnectionInputTag{
+		Key:   "clusteridentityhash",
+		Value: helpers.AsSHA256(fmt.Sprintf("%s|%s", expectedConnection.Url, expectedConnection.APIToken)),
+	}
+	tags[1] = humiographql.ClusterConnectionInputTag{
+		Key:   "clusteridentity",
+		Value: expectedConnection.ClusterIdentity,
+	}
+	for tagIdx, tag := range expectedConnection.Tags {
+		tags[tagIdx+2] = humiographql.ClusterConnectionInputTag(tag)
+	}
+	return tags
+}
+
+func (h *ClientConfig) removeUnexpectedConnections(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, curView *humiographql.GetMultiClusterSearchViewSearchDomainView, expectedClusterIdentityNames []string) error {
+	for _, currentConnection := range curView.GetClusterConnections() {
+		if !slices.Contains(expectedClusterIdentityNames, currentConnection.GetClusterId()) {
+			if err := h.deleteConnection(ctx, client, hv, currentConnection); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (h *ClientConfig) deleteConnection(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, currentConnection humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection) error {
+	switch currentConnection.(type) {
+	case *humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection,
+		*humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection:
+		_, err := humiographql.DeleteMultiClusterSearchViewConnection(
+			ctx,
+			client,
+			hv.Spec.Name,
+			currentConnection.GetId(),
+		)
+		return err
+	default:
+		return fmt.Errorf("unknown cluster connection type: %T", currentConnection)
+	}
+}
+
+func (h *ClientConfig) updateExistingConnections(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, curView *humiographql.GetMultiClusterSearchViewSearchDomainView, connectionDetails []ConnectionDetailsIncludingAPIToken) error {
+	for _, currentConnection := range curView.GetClusterConnections() {
+		expectedConnection := h.findExpectedConnection(currentConnection.GetClusterId(), connectionDetails)
+		if expectedConnection == nil {
+			continue
+		}
+
+		if err := h.updateConnectionIfNeeded(ctx, client, hv, currentConnection, *expectedConnection); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *ClientConfig) findExpectedConnection(clusterId string, connectionDetails []ConnectionDetailsIncludingAPIToken) *ConnectionDetailsIncludingAPIToken {
+	for _, expectedConnection := range connectionDetails {
+		if expectedConnection.ClusterIdentity == clusterId {
+			return &expectedConnection
+		}
+	}
+	return nil
+}
+
+func (h *ClientConfig) updateConnectionIfNeeded(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, currentConnection humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection, expectedConnection ConnectionDetailsIncludingAPIToken) error {
+	currentConnectionTags := h.extractCurrentConnectionTags(currentConnection)
+
+	if h.connectionNeedsUpdate(currentConnection, currentConnectionTags, expectedConnection) {
+		return h.updateConnection(ctx, client, hv, currentConnection, expectedConnection)
+	}
+	return nil
+}
+
+func (h *ClientConfig) extractCurrentConnectionTags(currentConnection humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection) []humiov1alpha1.HumioMultiClusterSearchViewConnectionTag {
+	currentConnectionTags := make([]humiov1alpha1.HumioMultiClusterSearchViewConnectionTag, len(currentConnection.GetTags()))
+	for idx, currentConnectionTag := range currentConnection.GetTags() {
+		currentConnectionTags[idx] = humiov1alpha1.HumioMultiClusterSearchViewConnectionTag{
+			Key:   currentConnectionTag.GetKey(),
+			Value: currentConnectionTag.GetValue(),
+		}
+	}
+	return currentConnectionTags
+}
+
+func (h *ClientConfig) connectionNeedsUpdate(currentConnection humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection, currentConnectionTags []humiov1alpha1.HumioMultiClusterSearchViewConnectionTag, expectedConnection ConnectionDetailsIncludingAPIToken) bool {
+	return !cmp.Equal(currentConnectionTags, expectedConnection.Tags) ||
+		currentConnection.GetQueryPrefix() != expectedConnection.Filter
+}
+
+func (h *ClientConfig) updateConnection(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, currentConnection humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection, expectedConnection ConnectionDetailsIncludingAPIToken) error {
+	switch v := currentConnection.(type) {
+	case *humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection:
+		return h.updateLocalConnection(ctx, client, hv, v, expectedConnection)
+	case *humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection:
+		return h.updateRemoteConnection(ctx, client, hv, v, expectedConnection)
+	default:
+		return fmt.Errorf("unknown cluster connection type: %T", v)
+	}
+}
+
+func (h *ClientConfig) updateLocalConnection(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, currentConnection *humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection, expectedConnection ConnectionDetailsIncludingAPIToken) error {
+	tags := h.buildLocalConnectionTags(expectedConnection)
+	_, err := humiographql.UpdateLocalMultiClusterSearchViewConnection(
+		ctx,
+		client,
+		hv.Spec.Name,
+		currentConnection.GetId(),
+		&expectedConnection.ViewOrRepoName,
+		tags,
+		&expectedConnection.Filter,
+	)
+	return err
+}
+
+func (h *ClientConfig) updateRemoteConnection(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, currentConnection *humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection, expectedConnection ConnectionDetailsIncludingAPIToken) error {
+	tags := h.buildRemoteConnectionTags(expectedConnection)
+	_, err := humiographql.UpdateRemoteMultiClusterSearchViewConnection(
+		ctx,
+		client,
+		hv.Spec.Name,
+		currentConnection.GetId(),
+		&expectedConnection.Url,
+		&expectedConnection.APIToken,
+		tags,
+		&expectedConnection.Filter,
+	)
+	return err
+}
+
+func (h *ClientConfig) DeleteMultiClusterSearchView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView) error {
+	_, err := h.GetMultiClusterSearchView(ctx, client, hv)
+	if err != nil {
+		if errors.As(err, &humioapi.EntityNotFound{}) {
+			return nil
+		}
+		return err
+	}
+
+	_, err = humiographql.DeleteSearchDomain(
+		ctx,
+		client,
+		hv.Spec.Name,
+		"Deleted by humio-operator",
+	)
+	return err
 }
 
 func (h *ClientConfig) AddGroup(ctx context.Context, client *humioapi.Client, hg *humiov1alpha1.HumioGroup) error {

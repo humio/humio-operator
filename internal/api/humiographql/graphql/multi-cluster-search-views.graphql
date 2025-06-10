@@ -1,0 +1,127 @@
+mutation CreateMultiClusterSearchView(
+    $ViewName: String!
+    $Description: String
+) {
+    createView(
+        name: $ViewName
+        description: $Description
+        isFederated: true
+    ) {
+        __typename
+    }
+}
+
+mutation CreateLocalMultiClusterSearchViewConnection(
+    $MultiClusterViewName: String!
+    $TargetViewName: String!
+    $Tags: [ClusterConnectionInputTag!]
+    $QueryPrefix: String
+) {
+    createLocalClusterConnection(input: {
+        multiClusterViewName: $MultiClusterViewName
+        targetViewName: $TargetViewName
+        tags: $Tags
+        queryPrefix: $QueryPrefix
+    }) {
+        __typename
+    }
+}
+
+mutation CreateRemoteMultiClusterSearchViewConnection(
+    $MultiClusterViewName: String!
+    $PublicUrl: String!
+    $Token: String!
+    $Tags: [ClusterConnectionInputTag!]
+    $QueryPrefix: String
+) {
+    createRemoteClusterConnection(input: {
+        multiClusterViewName: $MultiClusterViewName
+        publicUrl: $PublicUrl
+        token: $Token
+        tags: $Tags
+        queryPrefix: $QueryPrefix
+    }) {
+        __typename
+    }
+}
+
+mutation DeleteMultiClusterSearchViewConnection(
+    $MultiClusterViewName: String!
+    $ConnectionId: String!
+) {
+    deleteClusterConnection(input: {
+        multiClusterViewName: $MultiClusterViewName
+        connectionId: $ConnectionId
+    })
+}
+
+mutation UpdateLocalMultiClusterSearchViewConnection(
+    $MultiClusterViewName: String!
+    $ConnectionId: String!
+    $TargetViewName: String
+    $Tags: [ClusterConnectionInputTag!]
+    $QueryPrefix: String
+) {
+    updateLocalClusterConnection(input: {
+        multiClusterViewName: $MultiClusterViewName
+        connectionId: $ConnectionId
+        targetViewName: $TargetViewName
+        tags: $Tags
+        queryPrefix: $QueryPrefix
+    }) {
+        __typename
+    }
+}
+
+mutation UpdateRemoteMultiClusterSearchViewConnection(
+    $MultiClusterViewName: String!
+    $ConnectionId: String!
+    $PublicUrl: String
+    $Token: String
+    $Tags: [ClusterConnectionInputTag!]
+    $QueryPrefix: String
+) {
+    updateRemoteClusterConnection(input: {
+        multiClusterViewName: $MultiClusterViewName
+        connectionId: $ConnectionId
+        publicUrl: $PublicUrl
+        token: $Token
+        tags: $Tags
+        queryPrefix: $QueryPrefix
+    }) {
+        __typename
+    }
+}
+
+query GetMultiClusterSearchView(
+    $SearchDomainName: String!
+) {
+    searchDomain(
+        name: $SearchDomainName
+    ) {
+        id
+        name
+        description
+        automaticSearch
+        ... on View {
+            isFederated
+            clusterConnections {
+                __typename
+                clusterId
+                id
+                queryPrefix
+                tags {
+                    key
+                    value
+                }
+
+                ... on LocalClusterConnection {
+                    targetViewName
+                }
+                ... on RemoteClusterConnection {
+                    publicUrl
+                }
+            }
+        }
+    }
+}
