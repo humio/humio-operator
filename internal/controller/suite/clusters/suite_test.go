@@ -21,10 +21,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sort"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -135,11 +133,9 @@ var _ = BeforeSuite(func() {
 	err = humiov1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	watchNamespace, _ := helpers.GetWatchNamespace()
-	defaultNamespaces := map[string]cache.Config{}
-
-	for _, namespace := range strings.Split(watchNamespace, ",") {
-		defaultNamespaces[namespace] = cache.Config{}
+	cacheOptions, err := helpers.GetCacheOptionsWithWatchNamespace()
+	if err != nil {
+		ctrl.Log.Info("unable to get WatchNamespace: the manager will watch and manage resources in all namespaces")
 	}
 
 	// +kubebuilder:scaffold:scheme
@@ -148,7 +144,7 @@ var _ = BeforeSuite(func() {
 		Scheme:  scheme.Scheme,
 		Metrics: metricsserver.Options{BindAddress: "0"},
 		Logger:  log,
-		Cache:   cache.Options{DefaultNamespaces: defaultNamespaces},
+		Cache:   cacheOptions,
 	})
 	Expect(err).NotTo(HaveOccurred())
 
