@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"strings"
 	"time"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -196,6 +198,16 @@ func main() {
 		})
 	}
 
+	watchNamespace, err := helpers.GetWatchNamespace()
+	if err != nil {
+		ctrl.Log.Info("unable to get WatchNamespace: the manager will watch and manage resources in all namespaces")
+	}
+
+	defaultNamespaces := map[string]cache.Config{}
+	for _, namespace := range strings.Split(watchNamespace, ",") {
+		defaultNamespaces[namespace] = cache.Config{}
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
@@ -204,6 +216,7 @@ func main() {
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "d7845218.humio.com",
 		Logger:                 log,
+		Cache:                  cache.Options{DefaultNamespaces: defaultNamespaces},
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
