@@ -40,12 +40,13 @@ run_test_suite() {
         local to_values_patch=$(echo $scenario | jq -r '.to.values_patch')
         local expect_restarts=$(echo $scenario | jq -r '.expect_restarts')
         local description=$(echo $scenario | jq -r '.description')
+        local namespace=$(echo $scenario | jq -r '.namespace')
 
         echo "Running test: $name"
         echo "Description: $description"
 
         # Run test
-        if test_upgrade "$from_version" "$to_version" "$expect_restarts" "$from_cluster" "$to_cluster" "$from_values" "$to_values" "$from_cluster_patch" "$to_cluster_patch" "$from_values_patch" "$to_values_patch"; then
+        if test_upgrade "$from_version" "$to_version" "$expect_restarts" "$from_cluster" "$to_cluster" "$from_values" "$to_values" "$from_cluster_patch" "$to_cluster_patch" "$from_values_patch" "$to_values_patch" "$namespace"; then
             echo "✅ Test passed: $name"
         else
             echo "❌ Test failed: $name"
@@ -56,7 +57,6 @@ run_test_suite() {
 
 cleanup_helm_cluster() {
   cleanup_upgrade
-  cleanup_humiocluster
   cleanup_tmp_helm_test_case_dir
 }
 
@@ -72,6 +72,7 @@ test_upgrade() {
     local to_cluster_patch=$9
     local from_values_patch=${10}
     local to_values_patch=${11}
+    local namespace=${12}
 
     mkdir -p $tmp_helm_test_case_dir
 
@@ -107,7 +108,6 @@ test_upgrade() {
 
     echo "Testing upgrade from version: $from_version, to version: $to_version, from cluster: $from_cluster, to cluster: $to_cluster, from cluster patch: $from_cluster_patch, to cluster patch: $to_cluster_patch, from values: $from_values, to values: $to_values, expect restarts: $expect_restarts"
 
-    kubectl create secret generic test-cluster-license --from-literal=data="${humio_e2e_license}"
 
     # Install initial version
     helm repo update
@@ -118,17 +118,25 @@ test_upgrade() {
       ./tmp/kind load docker-image controller:latest
     fi
 
-    if [ "${from_version}" == "present" ]; then
-      helm install --values $from_values --set operator.image.repository=controller --set operator.image.tag=latest humio-operator ./charts/humio-operator
+    if [ "$namespace" != "null" ]; then
+      kubectl create namespace $namespace
     else
-      helm install --values $from_values humio-operator humio-operator/humio-operator --version $from_version
+      namespace=default
+    fi
+
+    kubectl --namespace $namespace create secret generic test-cluster-license --from-literal=data="${humio_e2e_license}"
+
+    if [ "${from_version}" == "present" ]; then
+      helm install -n $namespace --values $from_values --set operator.image.repository=controller --set operator.image.tag=latest humio-operator ./charts/humio-operator
+    else
+      helm install -n $namespace --values $from_values humio-operator humio-operator/humio-operator --version $from_version
     fi
 
     # Deploy test cluster
     kubectl apply -f $from_cluster
 
     # Wait for initial stability
-    wait_for_cluster_ready
+    wait_for_cluster_ready $namespace
 
     # Capture initial pod states
     local initial_pods=$(capture_pod_states)
@@ -144,7 +152,7 @@ test_upgrade() {
     kubectl apply -f $to_cluster
 
     # Wait for operator upgrade
-    kubectl wait --for=condition=available deployment/humio-operator --timeout=2m
+    kubectl --namespace $namespace wait --for=condition=available deployment/humio-operator --timeout=2m
 
     # Monitor pod changes
     verify_pod_restart_behavior "$initial_pods" "$expect_restarts"
@@ -154,18 +162,13 @@ cleanup_upgrade() {
   helm delete humio-operator || true
 }
 
-cleanup_humiocluster() {
-  kubectl delete secret test-cluster-license || true
-  kubectl delete humiocluster test-cluster || true
-}
-
 cleanup_tmp_helm_test_case_dir() {
   rm -rf $tmp_helm_test_case_dir
 }
 
 capture_pod_states() {
     # Capture pod details including UID and restart count
-    kubectl get pods -l app.kubernetes.io/instance=test-cluster,app.kubernetes.io/managed-by=humio-operator -o json | jq -r '.items[] | "\(.metadata.uid) \(.status.containerStatuses[0].restartCount)"'
+    kubectl --namespace $namespace get pods -l app.kubernetes.io/instance=test-cluster,app.kubernetes.io/managed-by=humio-operator -o json | jq -r '.items[] | "\(.metadata.uid) \(.status.containerStatuses[0].restartCount)"'
 }
 
 verify_pod_restart_behavior() {
@@ -223,19 +226,20 @@ wait_for_cluster_ready() {
     local timeout=300  # 5 minutes
     local interval=10  # 10 seconds
     local elapsed=0
+    local namespace=$1
 
     while [ $elapsed -lt $timeout ]; do
       sleep $interval
       elapsed=$((elapsed + interval))
 
-      if kubectl wait --for=condition=ready -l app.kubernetes.io/instance=test-cluster pod --timeout=30s; then
+      if kubectl --namespace $namespace wait --for=condition=ready -l app.kubernetes.io/instance=test-cluster pod --timeout=30s; then
         sleep 10
         break
       fi
 
-      kubectl get pods -l app.kubernetes.io/instance=test-cluster
-      kubectl describe pods -l app.kubernetes.io/instance=test-cluster
-      kubectl logs -l app.kubernetes.io/instance=test-cluster | tail -100
+      kubectl --namespace $namespace get pods -l app.kubernetes.io/instance=test-cluster
+      kubectl --namespace $namespace describe pods -l app.kubernetes.io/instance=test-cluster
+      kubectl --namespace $namespace logs -l app.kubernetes.io/instance=test-cluster | tail -100
     done
 }
 
