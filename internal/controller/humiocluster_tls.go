@@ -38,7 +38,9 @@ import (
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -94,6 +96,63 @@ func validCAIssuer(ctx context.Context, k8sclient client.Client, namespace, issu
 	}
 
 	return false, nil
+}
+
+// GenericCAIssuerConfig holds the configuration needed to create a CA Issuer for any resource
+type GenericCAIssuerConfig struct {
+	Namespace    string
+	Name         string
+	Labels       map[string]string
+	CASecretName string
+}
+
+// EnsureValidCAIssuerGeneric is a generic helper that can be used by any controller to ensure a valid CA Issuer exists
+// This function follows the exact same pattern as HumioCluster's EnsureValidCAIssuer but is generic enough to be reused
+func EnsureValidCAIssuerGeneric(ctx context.Context, client client.Client, owner metav1.Object, scheme *runtime.Scheme, config GenericCAIssuerConfig, log logr.Logger) error {
+	log.Info("checking for an existing valid CA Issuer")
+	validIssuer, err := validCAIssuer(ctx, client, config.Namespace, config.Name)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("could not validate CA Issuer: %w", err)
+	}
+	if validIssuer {
+		log.Info("found valid CA Issuer")
+		return nil
+	}
+
+	var existingCAIssuer cmapi.Issuer
+	if err = client.Get(ctx, types.NamespacedName{
+		Namespace: config.Namespace,
+		Name:      config.Name,
+	}, &existingCAIssuer); err != nil {
+		if k8serrors.IsNotFound(err) {
+			caIssuer := cmapi.Issuer{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: config.Namespace,
+					Name:      config.Name,
+					Labels:    config.Labels,
+				},
+				Spec: cmapi.IssuerSpec{
+					IssuerConfig: cmapi.IssuerConfig{
+						CA: &cmapi.CAIssuer{
+							SecretName: config.CASecretName,
+						},
+					},
+				},
+			}
+			if err := controllerutil.SetControllerReference(owner, &caIssuer, scheme); err != nil {
+				return fmt.Errorf("could not set controller reference: %w", err)
+			}
+			// should only create it if it doesn't exist
+			log.Info(fmt.Sprintf("creating CA Issuer: %s", caIssuer.Name))
+			if err = client.Create(ctx, &caIssuer); err != nil {
+				return fmt.Errorf("could not create CA Issuer: %w", err)
+			}
+			return nil
+		}
+		return fmt.Errorf("could not get CA Issuer: %w", err)
+	}
+
+	return nil
 }
 
 type CACert struct {

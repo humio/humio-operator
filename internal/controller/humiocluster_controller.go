@@ -1401,37 +1401,14 @@ func (r *HumioClusterReconciler) EnsureValidCAIssuer(ctx context.Context, hc *hu
 		return nil
 	}
 
-	r.Log.Info("checking for an existing valid CA Issuer")
-	validCAIssuer, err := validCAIssuer(ctx, r, hc.Namespace, hc.Name)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return r.logErrorAndReturn(err, "could not validate CA Issuer")
-	}
-	if validCAIssuer {
-		r.Log.Info("found valid CA Issuer")
-		return nil
+	config := GenericCAIssuerConfig{
+		Namespace:    hc.Namespace,
+		Name:         hc.Name,
+		Labels:       kubernetes.LabelsForHumio(hc.Name),
+		CASecretName: getCASecretName(hc),
 	}
 
-	var existingCAIssuer cmapi.Issuer
-	if err = r.Get(ctx, types.NamespacedName{
-		Namespace: hc.Namespace,
-		Name:      hc.Name,
-	}, &existingCAIssuer); err != nil {
-		if k8serrors.IsNotFound(err) {
-			caIssuer := constructCAIssuer(hc)
-			if err := controllerutil.SetControllerReference(hc, &caIssuer, r.Scheme()); err != nil {
-				return r.logErrorAndReturn(err, "could not set controller reference")
-			}
-			// should only create it if it doesn't exist
-			r.Log.Info(fmt.Sprintf("creating CA Issuer: %s", caIssuer.Name))
-			if err = r.Create(ctx, &caIssuer); err != nil {
-				return r.logErrorAndReturn(err, "could not create CA Issuer")
-			}
-			return nil
-		}
-		return r.logErrorAndReturn(err, "ccould not get CA Issuer")
-	}
-
-	return nil
+	return EnsureValidCAIssuerGeneric(ctx, r.Client, hc, r.Scheme(), config, r.Log)
 }
 
 // Ensure we have a valid CA certificate to configure intra-cluster communication.
