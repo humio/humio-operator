@@ -15,3 +15,15 @@ test_scenarios:
       values_patch: "hack/helm-test/test-cases/test-values-update-no-restart-update-patch.yaml"
     expect_restarts: false
     description: "Should not trigger restart"
+  - name: "watch_namespace"
+    namespace: "logscale-watch-namespace"
+    from:
+      version: "present"
+      values_patch: "hack/helm-test/test-cases/test-values-watch-namespace.yaml"
+      cluster_patch: "hack/helm-test/test-cases/test-cluster-watch-namespace.yaml"
+    to:
+      version: "present"
+      values_patch: "hack/helm-test/test-cases/test-values-update-watch-namespace.yaml"
+      cluster_patch: "hack/helm-test/test-cases/test-cluster-watch-namespace.yaml"
+    expect_restarts: false
+    description: "Should not trigger restart"
