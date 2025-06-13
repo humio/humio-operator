@@ -25,11 +25,9 @@ operator:
       cpu: 250m
       memory: 200Mi
   podAnnotations: {}
-
   nodeSelector: {}
-
   tolerations: []
-
+  watchNamespaces: []
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:

@@ -24,6 +24,8 @@ import (
 	"sort"
 	"strings"
 
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+
 	uberzap "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -241,4 +243,26 @@ func GetWatchNamespace() (string, error) {
 		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
 	}
 	return ns, nil
+}
+
+func GetCacheOptionsWithWatchNamespace() (cache.Options, error) {
+	cacheOptions := cache.Options{}
+
+	watchNamespace, err := GetWatchNamespace()
+	if err != nil {
+		return cacheOptions, err
+	}
+
+	defaultNamespaces := map[string]cache.Config{}
+	if watchNamespace != "" {
+		for _, namespace := range strings.Split(watchNamespace, ",") {
+			if namespace != "" {
+				defaultNamespaces[namespace] = cache.Config{}
+			}
+		}
+	}
+	if len(defaultNamespaces) > 0 {
+		cacheOptions.DefaultNamespaces = defaultNamespaces
+	}
+	return cacheOptions, nil
 }
