@@ -21,8 +21,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -133,12 +135,20 @@ var _ = BeforeSuite(func() {
 	err = humiov1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
+	watchNamespace, _ := helpers.GetWatchNamespace()
+	defaultNamespaces := map[string]cache.Config{}
+
+	for _, namespace := range strings.Split(watchNamespace, ",") {
+		defaultNamespaces[namespace] = cache.Config{}
+	}
+
 	// +kubebuilder:scaffold:scheme
 
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:  scheme.Scheme,
 		Metrics: metricsserver.Options{BindAddress: "0"},
 		Logger:  log,
+		Cache:   cache.Options{DefaultNamespaces: defaultNamespaces},
 	})
 	Expect(err).NotTo(HaveOccurred())
 
