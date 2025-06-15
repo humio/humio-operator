@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"slices"
 	"strings"
@@ -324,6 +325,16 @@ var _ = Describe("HumioCluster Controller", func() {
 			quickInterval   = 250 * time.Millisecond
 		)
 
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
+
 		It("should use the specified PDF Render Service image when set", func() {
 			ctx := context.Background()
 			clusterKey := types.NamespacedName{
@@ -369,6 +380,16 @@ var _ = Describe("HumioCluster Controller", func() {
 
 	// Non-TLS PDF Service
 	Context("PDF Render Service with non-TLS configuration", Label("envtest", "dummy", "real"), func() {
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
+
 		It("should reach Running state when PdfRenderServiceRef points to an existing non‑TLS service", func() {
 			ctx := context.Background()
 			clusterKey := types.NamespacedName{
@@ -414,6 +435,16 @@ var _ = Describe("HumioCluster Controller", func() {
 			standardTimeout = 30 * time.Second
 			quickInterval   = 250 * time.Millisecond
 		)
+
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
 
 		It("should report ConfigError when TLS is enabled but certificate is missing", func() {
 			ctx := context.Background()
@@ -593,6 +624,16 @@ var _ = Describe("HumioCluster Controller", func() {
 	// })
 
 	Context("PDF Render Service with TLS configuration", func() {
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
+
 		When("TLS is enabled with valid certificate", func() {
 			It("should create cluster with TLS-enabled PDF render service", func() {
 				// Skip this test if cert-manager is not available
@@ -699,6 +740,17 @@ var _ = Describe("HumioCluster Controller", func() {
 			quickInterval             = 250 * time.Millisecond
 			testPdfRenderServiceImage = versions.DefaultPDFRenderServiceImage()
 		)
+
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
+
 		It("Should remove cluster-specific service when PdfRenderServiceRef is added", func() {
 			ctx := context.Background()
 
@@ -845,6 +897,16 @@ var _ = Describe("HumioCluster Controller", func() {
 
 	// PDF Render Service Upgrade Test
 	Context("PDF Render Service Upgrade", Label("envtest", "dummy", "real"), func() {
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
+
 		const (
 			initialTestPdfImage  = "humio/humio-pdf-export:test-v1"
 			upgradedTestPdfImage = "humio/humio-pdf-export:test-v2"
@@ -1024,6 +1086,16 @@ var _ = Describe("HumioCluster Controller", func() {
 
 	// Reference removal
 	Context("PDF Render Service reference removal", Label("envtest", "dummy", "real"), func() {
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
+
 		var (
 			standardTimeout = 30 * time.Second
 			extendedTimeout = 60 * time.Second
@@ -1105,6 +1177,16 @@ var _ = Describe("HumioCluster Controller", func() {
 
 	// Reference deletion handling
 	Context("PDF Render Service reference deletion", Label("envtest", "dummy", "real"), func() {
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
+
 		var (
 			standardTimeout = 30 * time.Second
 			extendedTimeout = 60 * time.Second

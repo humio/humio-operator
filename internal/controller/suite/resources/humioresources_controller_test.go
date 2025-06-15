@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -5284,6 +5285,16 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 	// Test Case 1: PDF Render Service Ownership
 	Context("PDF Render Service Owner References", Label("envtest", "dummy", "real"), func() {
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
+
 		var (
 			ctx         = context.Background()
 			longTimeout = time.Second * 60
@@ -5345,6 +5356,16 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 	// Test Case 2: PDF Render Service Creation
 	Context("PDF Render Service Creation", Label("envtest", "dummy", "real"), func() {
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
+
 		var (
 			ctx = context.Background()
 		)
@@ -5412,6 +5433,16 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 	// Test Case 3: PDF Render Service Update
 	Context("PDF Render Service Update", Label("envtest", "dummy", "real"), func() {
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
+
 		var (
 			ctx = context.Background()
 		)
@@ -5532,6 +5563,16 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 	// Test Case 4: PDF Render Service Resources and Probes
 	Context("PDF Render Service Resources and Probes", Label("envtest", "dummy", "real"), func() {
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
+
 		It("should correctly set up resources and probes when specified", func() {
 			ctx := context.Background()
 
@@ -5622,6 +5663,16 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 	// Test Case 5: PDF Render Service Environment Variables
 	Context("PDF Render Service Environment Variables", Label("envtest", "dummy", "real"), func() {
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
+
 		It("should correctly configure environment variables (create and update)", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -5704,6 +5755,16 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 	// Test Case 6: PDF Render Service Custom Image via HumioCluster
 	Context("PDF Render Service Custom Image via HumioCluster", Label("envtest", "dummy", "real"), func() {
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
+
 		It("Should correctly handle custom PDF render service image configuration via HumioCluster", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{Name: "humio-pdf-custom-image", Namespace: clusterKey.Namespace}
@@ -5808,6 +5869,16 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 	// Test Case 7: PDF Render Service Finalizer
 	Context("PDF Render Service Finalizer", Label("envtest", "dummy", "real"), func() {
+		BeforeEach(func() {
+			// Enable PDF Render Service feature for this test context
+			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+		})
+
+		AfterEach(func() {
+			// Clean up environment variable
+			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+		})
+
 		It("should add a finalizer and clean up resources on deletion", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{Name: "humio-pdf", Namespace: clusterKey.Namespace}
