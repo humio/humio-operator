@@ -21,8 +21,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -5339,6 +5339,35 @@ var _ = Describe("Humio Resources Controllers", func() {
 			// Clean up any existing resources first
 			suite.CleanupPdfRenderServiceResources(ctx, k8sClient, pdfKey)
 
+			// Create a HumioCluster with ENABLE_SCHEDULED_REPORT=true first
+			enablerClusterKey := types.NamespacedName{
+				Name:      "enabler-cluster-for-pdf",
+				Namespace: clusterKey.Namespace,
+			}
+			enablerHumioCluster := suite.ConstructBasicSingleNodeHumioCluster(enablerClusterKey, true)
+			enablerHumioCluster.Spec.CommonEnvironmentVariables = append(
+				enablerHumioCluster.Spec.CommonEnvironmentVariables,
+				corev1.EnvVar{
+					Name:  "ENABLE_SCHEDULED_REPORT",
+					Value: "true",
+				},
+			)
+
+			// Create license secret for the enabler cluster
+			suite.CreateLicenseSecret(ctx, enablerClusterKey, k8sClient, enablerHumioCluster)
+
+			Expect(k8sClient.Create(ctx, enablerHumioCluster)).To(Succeed())
+			defer suite.CleanupCluster(ctx, k8sClient, enablerHumioCluster)
+
+			// Wait for the enabler cluster to be ready
+			Eventually(func() string {
+				var cluster humiov1alpha1.HumioCluster
+				if err := k8sClient.Get(ctx, enablerClusterKey, &cluster); err != nil {
+					return ""
+				}
+				return cluster.Status.State
+			}, testTimeout*2, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
+
 			suite.UsingClusterBy(clusterKey.Name, "Creating HumioPdfRenderService CR")
 			hprs := suite.CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, false)
 			Expect(hprs).NotTo(BeNil())
@@ -5349,13 +5378,22 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "Ensuring PDF Render Deployment is ready")
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
 
+			suite.UsingClusterBy(clusterKey.Name, "Verifying PDF service reaches Running state")
+			Eventually(func() string {
+				var updatedHprs humiov1alpha1.HumioPdfRenderService
+				if err := k8sClient.Get(ctx, pdfKey, &updatedHprs); err != nil {
+					return ""
+				}
+				return updatedHprs.Status.State
+			}, testTimeout*2, suite.TestInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
+
 			suite.UsingClusterBy(clusterKey.Name, "Verifying Deployment exists with correct properties")
 			deployment := &appsv1.Deployment{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, deploymentKey, deployment)
 			}, testTimeout*2, suite.TestInterval).Should(Succeed())
 			Expect(deployment.Namespace).Should(Equal(pdfKey.Namespace))
-			expectedName := fmt.Sprintf("%s-pdf-render-service", pdfKey.Name)
+			expectedName := helpers.PdfRenderServiceChildName(pdfKey.Name)
 			Expect(deployment.Name).Should(Equal(expectedName))
 
 			suite.UsingClusterBy(clusterKey.Name, "Verifying Service exists with correct properties")
@@ -5380,18 +5418,62 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	// Test Case 3: PDF Render Service Update
+	// Test Case 3: PDF Render Service Disabled When No Cluster Enables It
+	Context("PDF Render Service Disabled When Not Enabled", Label("envtest", "dummy", "real"), func() {
+		It("should not reconcile when no HumioCluster has ENABLE_SCHEDULED_REPORT=true", func() {
+			ctx := context.Background()
+			pdfKey := types.NamespacedName{
+				Name:      "humio-pdf-render-service-disabled",
+				Namespace: clusterKey.Namespace,
+			}
+
+			// Clean up any existing resources first
+			suite.CleanupPdfRenderServiceResources(ctx, k8sClient, pdfKey)
+
+			// Ensure no HumioCluster in the namespace has ENABLE_SCHEDULED_REPORT=true
+			// by creating a cluster without this environment variable
+			disabledClusterKey := types.NamespacedName{
+				Name:      "disabled-cluster-for-pdf",
+				Namespace: clusterKey.Namespace,
+			}
+			disabledHumioCluster := suite.ConstructBasicSingleNodeHumioCluster(disabledClusterKey, true)
+			// Explicitly do NOT set ENABLE_SCHEDULED_REPORT
+			Expect(k8sClient.Create(ctx, disabledHumioCluster)).To(Succeed())
+			defer suite.CleanupCluster(ctx, k8sClient, disabledHumioCluster)
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating HumioPdfRenderService CR - should be skipped")
+			hprs := &humiov1alpha1.HumioPdfRenderService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      pdfKey.Name,
+					Namespace: pdfKey.Namespace,
+				},
+				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
+					Image:    versions.DefaultPDFRenderServiceImage(),
+					Replicas: 1,
+					Port:     controller.DefaultPdfRenderServicePort,
+				},
+			}
+			Expect(k8sClient.Create(ctx, hprs)).Should(Succeed())
+
+			// The PDF service should remain in an early state or not progress
+			// since no HumioCluster enables scheduled reports
+			suite.UsingClusterBy(clusterKey.Name, "Verifying PDF service does not progress without enabler cluster")
+			Consistently(func() string {
+				var updatedHprs humiov1alpha1.HumioPdfRenderService
+				if err := k8sClient.Get(ctx, pdfKey, &updatedHprs); err != nil {
+					return "NotFound"
+				}
+				// Should remain in a non-Running state since feature is disabled
+				return updatedHprs.Status.State
+			}, mediumTimeout, suite.TestInterval).ShouldNot(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
+
+			// Clean up
+			Expect(k8sClient.Delete(ctx, hprs)).To(Succeed())
+		})
+	})
+
+	// Test Case 4: PDF Render Service Update
 	Context("PDF Render Service Update", Label("envtest", "dummy", "real"), func() {
-		BeforeEach(func() {
-			// Enable PDF Render Service feature for this test context
-			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
-		})
-
-		AfterEach(func() {
-			// Clean up environment variable
-			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
-		})
-
 		var (
 			ctx = context.Background()
 		)
@@ -5404,17 +5486,30 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:      name,
 				Namespace: clusterKey.Namespace,
 			}
+<<<<<<< HEAD
 			toCreateIPFilter := &humiov1alpha1.HumioIPFilter{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      key.Name,
 					Namespace: key.Namespace,
 				},
 				Spec: spec,
+=======
+
+			deploymentKey := types.NamespacedName{
+				Name:      helpers.PdfRenderServiceChildName(key.Name),
+				Namespace: key.Namespace,
+			}
+
+			serviceKey := types.NamespacedName{
+				Name:      helpers.PdfRenderServiceChildName(key.Name),
+				Namespace: key.Namespace,
+>>>>>>> Removed HumioPDFRenderService dependency on HumioCluster. Added TLS support for PDF Render Service
 			}
 
 			// test CRD validation by k8s
 			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Validating CRD")
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 			// test invalid name
 			testCasesName := []struct {
@@ -5430,6 +5525,25 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Error: "Invalid value",
 				},
 =======
+=======
+			// Create a HumioCluster to enable PDF service
+			enablerClusterKey := types.NamespacedName{
+				Name:      "enabler-cluster-update",
+				Namespace: clusterKey.Namespace,
+			}
+			enablerCluster := suite.ConstructBasicSingleNodeHumioCluster(enablerClusterKey, true)
+			enablerCluster.Spec.CommonEnvironmentVariables = append(
+				enablerCluster.Spec.CommonEnvironmentVariables,
+				corev1.EnvVar{
+					Name:  "ENABLE_SCHEDULED_REPORT",
+					Value: "true",
+				},
+			)
+			suite.CreateLicenseSecret(ctx, enablerClusterKey, k8sClient, enablerCluster)
+			Expect(k8sClient.Create(ctx, enablerCluster)).To(Succeed())
+			defer suite.CleanupCluster(ctx, k8sClient, enablerCluster)
+
+>>>>>>> Removed HumioPDFRenderService dependency on HumioCluster. Added TLS support for PDF Render Service
 			suite.UsingClusterBy(clusterKey.Name, "Creating the HumioPdfRenderService CR")
 			hprs := suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)
 			Expect(hprs).NotTo(BeNil())
@@ -5525,16 +5639,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 	// Test Case 4: PDF Render Service Resources and Probes
 	Context("PDF Render Service Resources and Probes", Label("envtest", "dummy", "real"), func() {
-		BeforeEach(func() {
-			// Enable PDF Render Service feature for this test context
-			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
-		})
-
-		AfterEach(func() {
-			// Clean up environment variable
-			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
-		})
-
 		It("should correctly set up resources and probes when specified", func() {
 			ctx := context.Background()
 
@@ -5543,14 +5647,21 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Namespace: clusterKey.Namespace,
 >>>>>>> Decoupled HumioCluster and HumioPdfRenderService
 			}
+<<<<<<< HEAD
 			for _, tc := range testCasesName {
 				toCreateIPFilter.Spec.Name = tc.Name
 				Expect(k8sClient.Create(ctx, toCreateIPFilter)).Should(MatchError(ContainSubstring(tc.Error)))
+=======
+			deploymentKey := types.NamespacedName{
+				Name:      helpers.PdfRenderServiceChildName(key.Name),
+				Namespace: key.Namespace,
+>>>>>>> Removed HumioPDFRenderService dependency on HumioCluster. Added TLS support for PDF Render Service
 			}
 
 			// reset name
 			toCreateIPFilter.Spec.Name = name
 
+<<<<<<< HEAD
 			// test invalid IP rules
 			testCasesRule := []struct {
 				Rule  humiov1alpha1.FirewallRule
@@ -5560,6 +5671,41 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Rule: humiov1alpha1.FirewallRule{
 						Action:  "allow",
 						Address: "",
+=======
+			// Create a HumioCluster to enable PDF service
+			enablerClusterKey := types.NamespacedName{
+				Name:      "enabler-cluster-resources",
+				Namespace: clusterKey.Namespace,
+			}
+			enablerCluster := suite.ConstructBasicSingleNodeHumioCluster(enablerClusterKey, true)
+			enablerCluster.Spec.CommonEnvironmentVariables = append(
+				enablerCluster.Spec.CommonEnvironmentVariables,
+				corev1.EnvVar{
+					Name:  "ENABLE_SCHEDULED_REPORT",
+					Value: "true",
+				},
+			)
+			suite.CreateLicenseSecret(ctx, enablerClusterKey, k8sClient, enablerCluster)
+			Expect(k8sClient.Create(ctx, enablerCluster)).To(Succeed())
+			defer suite.CleanupCluster(ctx, k8sClient, enablerCluster)
+
+			// Create the HumioPdfRenderService with resources & probes
+			hprs := &humiov1alpha1.HumioPdfRenderService{
+				ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace},
+				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
+					Image:    versions.DefaultPDFRenderServiceImage(),
+					Replicas: 1,
+					Port:     5123,
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("500m"),
+							corev1.ResourceMemory: resource.MustParse("512Mi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("128Mi"),
+						},
+>>>>>>> Removed HumioPDFRenderService dependency on HumioCluster. Added TLS support for PDF Render Service
 					},
 					Error: "address: Invalid value",
 				},
@@ -5620,16 +5766,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 	// Test Case 5: PDF Render Service Environment Variables
 	Context("PDF Render Service Environment Variables", Label("envtest", "dummy", "real"), func() {
-		BeforeEach(func() {
-			// Enable PDF Render Service feature for this test context
-			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
-		})
-
-		AfterEach(func() {
-			// Clean up environment variable
-			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
-		})
-
 		It("should correctly configure environment variables (create and update)", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -5637,12 +5773,29 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Namespace: clusterKey.Namespace,
 			}
 			deploymentKey := types.NamespacedName{
-				Name:      key.Name + "-pdf-render-service",
+				Name:      helpers.PdfRenderServiceChildName(key.Name),
 				Namespace: key.Namespace,
 			}
 
 			// Ensure a clean slate
 			suite.CleanupPdfRenderServiceResources(ctx, k8sClient, key)
+
+			// Create a HumioCluster to enable PDF service
+			enablerClusterKey := types.NamespacedName{
+				Name:      "enabler-cluster-envvars",
+				Namespace: clusterKey.Namespace,
+			}
+			enablerCluster := suite.ConstructBasicSingleNodeHumioCluster(enablerClusterKey, true)
+			enablerCluster.Spec.CommonEnvironmentVariables = append(
+				enablerCluster.Spec.CommonEnvironmentVariables,
+				corev1.EnvVar{
+					Name:  "ENABLE_SCHEDULED_REPORT",
+					Value: "true",
+				},
+			)
+			suite.CreateLicenseSecret(ctx, enablerClusterKey, k8sClient, enablerCluster)
+			Expect(k8sClient.Create(ctx, enablerCluster)).To(Succeed())
+			defer suite.CleanupCluster(ctx, k8sClient, enablerCluster)
 
 			// Create the CR with custom env vars
 			hprs := &humiov1alpha1.HumioPdfRenderService{
@@ -5709,32 +5862,31 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	// Test Case 6: PDF Render Service Custom Image via HumioCluster
-	Context("PDF Render Service Custom Image via HumioCluster", Label("envtest", "dummy", "real"), func() {
-		BeforeEach(func() {
-			// Enable PDF Render Service feature for this test context
-			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
-		})
-
-		AfterEach(func() {
-			// Clean up environment variable
-			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
-		})
-
-		It("Should correctly handle custom PDF render service image configuration via HumioCluster", func() {
+	// Test Case 6: PDF Render Service with HumioCluster Environment Variable Integration
+	Context("PDF Render Service with HumioCluster Environment Variable Integration", Label("envtest", "dummy", "real"), func() {
+		It("Should demonstrate HumioCluster interaction with PDF service via DEFAULT_PDF_RENDER_SERVICE_URL", func() {
 			ctx := context.Background()
-			key := types.NamespacedName{Name: "humio-pdf-custom-image", Namespace: clusterKey.Namespace}
+			clusterKey := types.NamespacedName{Name: "humio-pdf-trigger-cluster", Namespace: clusterKey.Namespace}
+			pdfKey := types.NamespacedName{Name: "auto-deployed-pdf-service", Namespace: clusterKey.Namespace}
 
 			// Start from a clean slate
-			suite.CleanupClusterIfExists(ctx, k8sClient, key)
+			suite.CleanupClusterIfExists(ctx, k8sClient, clusterKey)
 
 			customPdfImage := "custom/pdf-render-service:1.0.0"
+<<<<<<< HEAD
 			humioCluster := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 			suite.CreateLicenseSecret(ctx, key, k8sClient, humioCluster)
 >>>>>>> Decoupled HumioCluster and HumioPdfRenderService
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Creating the IPFilter successfully")
 			Expect(k8sClient.Create(ctx, toCreateIPFilter)).Should(Succeed())
+=======
+			humioCluster := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
+			suite.CreateLicenseSecret(ctx, clusterKey, k8sClient, humioCluster)
+
+			// Create the independent PDF render service
+			depKey := types.NamespacedName{Name: helpers.PdfRenderServiceChildName(pdfKey.Name), Namespace: pdfKey.Namespace}
+>>>>>>> Removed HumioPDFRenderService dependency on HumioCluster. Added TLS support for PDF Render Service
 
 			fetchedIPFilter := &humiov1alpha1.HumioIPFilter{}
 			Eventually(func() string {
@@ -5753,15 +5905,79 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(initialIPFilter).ToNot(BeNil())
 			Expect(initialIPFilter.GetId()).ToNot(BeEmpty())
 
+<<<<<<< HEAD
 			// set ID to CR status ID generated from Humio
 			initialIPFilter.Id = fetchedIPFilter.Status.ID
 			expectedInitialIPFilter := &humiographql.IPFilterDetails{
 				Id:       fetchedIPFilter.Status.ID,
 				Name:     toCreateIPFilter.Spec.Name,
 				IpFilter: helpers.FirewallRulesToString(toCreateIPFilter.Spec.IPFilter, "\n"),
+=======
+			// refresh the local copy so subsequent helpers have the right
+			// generation / resourceVersion
+			Expect(k8sClient.Get(ctx, pdfKey, pdfCR)).To(Succeed())
+
+			suite.WaitForObservedGeneration(ctx, k8sClient, pdfCR, longTimeout, suite.TestInterval)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, depKey)
+
+			Eventually(func() string { // assert custom image
+				d := appsv1.Deployment{}
+				_ = k8sClient.Get(ctx, depKey, &d)
+				if len(d.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
+				return d.Spec.Template.Spec.Containers[0].Image
+			}, testTimeout, suite.TestInterval).Should(Equal(customPdfImage))
+
+			// Create HumioCluster with ENABLE_SCHEDULED_REPORT and DEFAULT_PDF_RENDER_SERVICE_URL for API interaction
+			humioCluster.Spec.CommonEnvironmentVariables = append(
+				humioCluster.Spec.CommonEnvironmentVariables,
+				corev1.EnvVar{
+					Name:  "ENABLE_SCHEDULED_REPORT",
+					Value: "true",
+				},
+				corev1.EnvVar{
+					Name: "DEFAULT_PDF_RENDER_SERVICE_URL",
+					Value: fmt.Sprintf("http://%s-pdf-render-service.%s:%d",
+						pdfKey.Name, pdfKey.Namespace, controller.DefaultPdfRenderServicePort),
+				},
+			)
+			Expect(k8sClient.Create(ctx, humioCluster)).To(Succeed())
+			defer suite.CleanupCluster(ctx, k8sClient, humioCluster)
+
+			Eventually(func() string {
+				hc := humiov1alpha1.HumioCluster{}
+				_ = k8sClient.Get(ctx, clusterKey, &hc)
+				return hc.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioClusterStateRunning))
+
+			//  Update image, then reset to default
+			for _, img := range []string{"updated/pdf-render-service:2.0.0", versions.DefaultPDFRenderServiceImage()} {
+				Eventually(func() error {
+					cr := humiov1alpha1.HumioPdfRenderService{}
+					if err := k8sClient.Get(ctx, pdfKey, &cr); err != nil {
+						return err
+					}
+					cr.Spec.Image = img
+					return k8sClient.Update(ctx, &cr)
+				}, testTimeout, suite.TestInterval).Should(Succeed())
+
+				suite.WaitForObservedGeneration(ctx, k8sClient, pdfCR, longTimeout, suite.TestInterval)
+				suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, depKey)
+
+				Eventually(func() string {
+					d := appsv1.Deployment{}
+					_ = k8sClient.Get(ctx, depKey, &d)
+					if len(d.Spec.Template.Spec.Containers) == 0 {
+						return ""
+					}
+					return d.Spec.Template.Spec.Containers[0].Image
+				}, testTimeout, suite.TestInterval).Should(Equal(img))
+>>>>>>> Removed HumioPDFRenderService dependency on HumioCluster. Added TLS support for PDF Render Service
 			}
 			Expect(*initialIPFilter).To(Equal(*expectedInitialIPFilter))
 
+<<<<<<< HEAD
 			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Updating the IPFilter successfully")
 			filter := []humiov1alpha1.FirewallRule{{Action: "allow", Address: "192.168.1.0/24"}}
 			Eventually(func() error {
@@ -5770,6 +5986,18 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}
 				fetchedIPFilter.Spec.IPFilter = filter
 				return k8sClient.Update(ctx, fetchedIPFilter)
+=======
+			// Disable ENABLE_SCHEDULED_REPORT then remove CR
+			Eventually(func() error {
+				hc := humiov1alpha1.HumioCluster{}
+				if err := k8sClient.Get(ctx, clusterKey, &hc); err != nil {
+					return err
+				}
+				hc.Spec.CommonEnvironmentVariables = slices.DeleteFunc(hc.Spec.CommonEnvironmentVariables, func(ev corev1.EnvVar) bool {
+					return ev.Name == "ENABLE_SCHEDULED_REPORT" || ev.Name == "DEFAULT_PDF_RENDER_SERVICE_URL"
+				})
+				return k8sClient.Update(ctx, &hc)
+>>>>>>> Removed HumioPDFRenderService dependency on HumioCluster. Added TLS support for PDF Render Service
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			expectedUpdatedIPFilter := &humiographql.IPFilterDetails{
@@ -5802,24 +6030,31 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 	// Test Case 7: PDF Render Service Finalizer
 	Context("PDF Render Service Finalizer", Label("envtest", "dummy", "real"), func() {
-		BeforeEach(func() {
-			// Enable PDF Render Service feature for this test context
-			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
-		})
-
-		AfterEach(func() {
-			// Clean up environment variable
-			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
-		})
-
 		It("should add a finalizer and clean up resources on deletion", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{Name: "humio-pdf", Namespace: clusterKey.Namespace}
-			depKey := types.NamespacedName{Name: key.Name + "-pdf-render-service", Namespace: key.Namespace}
+			depKey := types.NamespacedName{Name: helpers.PdfRenderServiceChildName(key.Name), Namespace: key.Namespace}
 			svcKey := depKey
 
 			// 1. Clean slate
 			suite.CleanupPdfRenderServiceResources(ctx, k8sClient, key)
+
+			// Create a HumioCluster to enable PDF service
+			enablerClusterKey := types.NamespacedName{
+				Name:      "enabler-cluster-finalizer",
+				Namespace: clusterKey.Namespace,
+			}
+			enablerCluster := suite.ConstructBasicSingleNodeHumioCluster(enablerClusterKey, true)
+			enablerCluster.Spec.CommonEnvironmentVariables = append(
+				enablerCluster.Spec.CommonEnvironmentVariables,
+				corev1.EnvVar{
+					Name:  "ENABLE_SCHEDULED_REPORT",
+					Value: "true",
+				},
+			)
+			suite.CreateLicenseSecret(ctx, enablerClusterKey, k8sClient, enablerCluster)
+			Expect(k8sClient.Create(ctx, enablerCluster)).To(Succeed())
+			defer suite.CleanupCluster(ctx, k8sClient, enablerCluster)
 
 			// 2. Create CR & wait for ready
 			hprs := suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)

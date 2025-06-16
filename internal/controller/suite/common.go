@@ -99,7 +99,12 @@ func MarkPodAsRunningIfUsingEnvtest(ctx context.Context, k8sClient client.Client
 
 func CleanupCluster(ctx context.Context, k8sClient client.Client, hc *humiov1alpha1.HumioCluster) {
 	var cluster humiov1alpha1.HumioCluster
-	Expect(k8sClient.Get(ctx, types.NamespacedName{Name: hc.Name, Namespace: hc.Namespace}, &cluster)).To(Succeed())
+	err := k8sClient.Get(ctx, types.NamespacedName{Name: hc.Name, Namespace: hc.Namespace}, &cluster)
+	if k8serrors.IsNotFound(err) {
+		// Cluster is already deleted, nothing to clean up
+		return
+	}
+	Expect(err).To(Succeed())
 	UsingClusterBy(cluster.Name, "Cleaning up any user-defined service account we've created")
 	if cluster.Spec.HumioServiceAccountName != "" {
 		serviceAccount, err := kubernetes.GetServiceAccount(ctx, k8sClient, cluster.Spec.HumioServiceAccountName, cluster.Namespace)
@@ -969,10 +974,10 @@ func CreatePdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfK
 // EnsurePdfRenderDeploymentReady waits for a PDF render service deployment to be ready
 // Accepts either the CR name (adds suffix) or the full deployment name
 func EnsurePdfRenderDeploymentReady(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
-	// Always use the correct deployment name format with suffix
+	// Always use the correct deployment name format with suffix and truncation
 	deploymentKey := key
 	if !strings.HasSuffix(key.Name, "-pdf-render-service") {
-		deploymentKey.Name = key.Name + "-pdf-render-service"
+		deploymentKey.Name = helpers.PdfRenderServiceChildName(key.Name)
 	}
 
 	UsingClusterBy(key.Name, fmt.Sprintf("Ensuring PDF render deployment %s in namespace %s is ready",
@@ -1055,7 +1060,7 @@ func CleanupPdfRenderServiceResources(ctx context.Context, k8sClient client.Clie
 
 	// Clean up any orphaned deployment
 	deploymentKey := types.NamespacedName{
-		Name:      key.Name + "-pdf-render-service",
+		Name:      helpers.PdfRenderServiceChildName(key.Name),
 		Namespace: key.Namespace,
 	}
 	deployment := &appsv1.Deployment{}
@@ -1134,7 +1139,7 @@ func CreatePdfRenderServiceAndWait(
 	// Step 1 – If TLS is enabled, create the certificate secret first
 	if tlsEnabled && helpers.UseCertManager() {
 		// Create TLS certificate secret for PDF render service
-		tlsSecretName := fmt.Sprintf("%s-pdf-render-service-tls", pdfKey.Name)
+		tlsSecretName := helpers.PdfRenderServiceTlsSecretName(pdfKey.Name)
 
 		// Generate CA certificate
 		caCert, err := controller.GenerateCACertificate()
@@ -1170,7 +1175,7 @@ func CreatePdfRenderServiceAndWait(
 
 	// Step 4 – make sure the Deployment is rolled out & Ready
 	deploymentKey := types.NamespacedName{
-		Name:      pdfKey.Name + "-pdf-render-service",
+		Name:      helpers.PdfRenderServiceChildName(pdfKey.Name),
 		Namespace: pdfKey.Namespace,
 	}
 	EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
