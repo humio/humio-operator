@@ -78,14 +78,15 @@ func TLSEnabled(hc *humiov1alpha1.HumioCluster) bool {
 }
 
 // TLSEnabledForHPRS returns true if TLS is enabled for the PDF Render Service
+// This follows the same logic as TLSEnabled for HumioCluster to ensure consistency
 func TLSEnabledForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
 	if hprs.Spec.TLS == nil {
-		return false
+		return UseCertManager()
 	}
 	if hprs.Spec.TLS.Enabled == nil {
-		return false
+		return UseCertManager()
 	}
-	return *hprs.Spec.TLS.Enabled
+	return UseCertManager() && *hprs.Spec.TLS.Enabled
 }
 
 // GetCASecretNameForHPRS returns the CA secret name for PDF Render Service
@@ -294,4 +295,52 @@ func GetCacheOptionsWithWatchNamespace() (cache.Options, error) {
 	}
 
 	return cacheOptions, nil
+// PdfRenderServiceChildName generates the child resource name for a HumioPdfRenderService.
+// This uses the same logic as the controller to ensure consistency between controller and tests.
+func PdfRenderServiceChildName(pdfServiceName string) string {
+	const childSuffix = "-pdf-render-service"
+	// Kubernetes resource names cannot exceed 63 characters
+	// We need to leave room for Kubernetes-generated suffixes (e.g., ReplicaSet suffixes)
+	// So we limit child resource names to 50 characters to be safe
+	const maxLength = 50
+	baseName := pdfServiceName
+
+	// If the base name already ends with the suffix, use it as-is but truncate if too long
+	if strings.HasSuffix(baseName, childSuffix) {
+		// If it's already within the limit, return it
+		if len(baseName) <= maxLength {
+			return baseName
+		}
+		// If it exceeds the limit, truncate from the middle/end but preserve the beginning and suffix
+		// Keep the suffix and truncate the middle part
+		suffixLength := len(childSuffix)
+		prefixLength := maxLength - suffixLength
+		if prefixLength > 0 {
+			// Keep the first part of the name and add the suffix
+			return baseName[:prefixLength] + childSuffix
+		} else {
+			// If suffix is too long, use just the suffix (shouldn't happen with current suffix)
+			return childSuffix[1:] // Remove leading dash
+		}
+	}
+
+	// If adding the suffix would exceed the limit, truncate the base name
+	if len(baseName)+len(childSuffix) > maxLength {
+		// Reserve space for the suffix
+		maxBaseLength := maxLength - len(childSuffix)
+		if maxBaseLength > 0 {
+			baseName = baseName[:maxBaseLength]
+		} else {
+			// If suffix is too long, use just the suffix (shouldn't happen with current suffix)
+			return childSuffix[1:] // Remove leading dash
+		}
+	}
+
+	return baseName + childSuffix
+}
+
+// PdfRenderServiceTlsSecretName generates the TLS secret name for a HumioPdfRenderService.
+// This uses the same logic as the controller to ensure consistency between controller and tests.
+func PdfRenderServiceTlsSecretName(pdfServiceName string) string {
+	return PdfRenderServiceChildName(pdfServiceName) + "-tls"
 }
