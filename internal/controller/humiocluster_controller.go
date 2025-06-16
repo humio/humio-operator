@@ -991,7 +991,7 @@ func (r *HumioClusterReconciler) ensureValidCASecret(ctx context.Context, hc *hu
 	}
 
 	r.Log.Info("generating new CA certificate")
-	ca, err := generateCACertificate()
+	ca, err := GenerateCACertificate()
 	if err != nil {
 		return r.logErrorAndReturn(err, "could not generate new CA certificate")
 	}

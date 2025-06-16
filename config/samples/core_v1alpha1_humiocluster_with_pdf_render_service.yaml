@@ -10,15 +10,14 @@ metadata:
 spec:
   extraKafkaConfigs: "security.protocol=PLAINTEXT"
   enablePdfRenderService: true
-  pdfRenderServiceRef:
-    name: "example-pdf-render-service"
-    namespace: "default"
   tls:
     enabled: false
   #image: "humio/humio-core:1.171.1"
   nodeCount: 1
   targetReplicationFactor: 1
   environmentVariables:
+    - name: "DEFAULT_PDF_RENDER_SERVICE_URL"
+      value: "http://example-pdf-render-service.default.svc.cluster.local:5132"
     - name: "HUMIO_OPTS"
       value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false"
     - name: "ZOOKEEPER_URL"
