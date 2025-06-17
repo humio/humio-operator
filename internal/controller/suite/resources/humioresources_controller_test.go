@@ -34,6 +34,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -6037,6 +6038,366 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, longTimeout, suite.TestInterval).Should(BeTrue())
 			Eventually(func() bool {
 				return k8serrors.IsNotFound(k8sClient.Get(ctx, svcKey, &corev1.Service{}))
+			}, longTimeout, suite.TestInterval).Should(BeTrue())
+		})
+	})
+
+	// PDF Render Service HPA Tests
+	Context("PDF Render Service HPA (Horizontal Pod Autoscaling)", Label("envtest", "dummy", "real"), func() {
+		It("should create HPA when autoscaling is enabled", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-pdf-render-service-hpa-test",
+				Namespace: clusterKey.Namespace,
+			}
+			depKey := types.NamespacedName{
+				Name:      helpers.PdfRenderServiceChildName(key.Name),
+				Namespace: key.Namespace,
+			}
+			hpaKey := types.NamespacedName{
+				Name:      helpers.PdfRenderServiceHpaName(key.Name),
+				Namespace: key.Namespace,
+			}
+
+			// Clean up any existing resources first
+			suite.CleanupPdfRenderServiceResources(ctx, k8sClient, key)
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating HumioPdfRenderService with autoscaling enabled")
+			hprs := suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)
+
+			// Use retry logic to handle potential conflicts when enabling autoscaling
+			Eventually(func() error {
+				var updatedHprs humiov1alpha1.HumioPdfRenderService
+				err := k8sClient.Get(ctx, key, &updatedHprs)
+				if err != nil {
+					return err
+				}
+				updatedHprs.Spec.Autoscaling = &humiov1alpha1.HumioPdfRenderServiceAutoscalingSpec{
+					Enabled:                        true,
+					MinReplicas:                    helpers.Int32Ptr(2),
+					MaxReplicas:                    10,
+					TargetCPUUtilizationPercentage: helpers.Int32Ptr(70),
+				}
+				return k8sClient.Update(ctx, &updatedHprs)
+			}, shortTimeout, suite.TestInterval).Should(Succeed())
+			defer suite.CleanupPdfRenderServiceResources(ctx, k8sClient, key)
+
+			suite.UsingClusterBy(clusterKey.Name, "Waiting for observedGeneration to catch up")
+			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
+
+			suite.UsingClusterBy(clusterKey.Name, "Ensuring Deployment is ready before HPA")
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, depKey)
+
+			suite.UsingClusterBy(clusterKey.Name, "Verifying HPA is created")
+			Eventually(func() error {
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				return k8sClient.Get(ctx, hpaKey, hpa)
+			}, longTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "Verifying HPA configuration is correct")
+			Eventually(func() bool {
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				err := k8sClient.Get(ctx, hpaKey, hpa)
+				if err != nil {
+					return false
+				}
+
+				// Check basic HPA configuration
+				if hpa.Spec.MinReplicas == nil || *hpa.Spec.MinReplicas != 2 {
+					return false
+				}
+				if hpa.Spec.MaxReplicas != 10 {
+					return false
+				}
+				if hpa.Spec.ScaleTargetRef.Name != helpers.PdfRenderServiceChildName(key.Name) {
+					return false
+				}
+				if hpa.Spec.ScaleTargetRef.Kind != "Deployment" {
+					return false
+				}
+
+				// Check metrics - should have CPU metric
+				foundCPUMetric := false
+				for _, metric := range hpa.Spec.Metrics {
+					if metric.Type == autoscalingv2.ResourceMetricSourceType &&
+						metric.Resource != nil &&
+						metric.Resource.Name == corev1.ResourceCPU &&
+						metric.Resource.Target.Type == autoscalingv2.UtilizationMetricType &&
+						metric.Resource.Target.AverageUtilization != nil &&
+						*metric.Resource.Target.AverageUtilization == 70 {
+						foundCPUMetric = true
+						break
+					}
+				}
+				return foundCPUMetric
+			}, longTimeout, suite.TestInterval).Should(BeTrue())
+
+			suite.UsingClusterBy(clusterKey.Name, "Verifying HPA has correct owner reference")
+			Eventually(func() []metav1.OwnerReference {
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				err := k8sClient.Get(ctx, hpaKey, hpa)
+				if err != nil {
+					return nil
+				}
+				return hpa.OwnerReferences
+			}, mediumTimeout, suite.TestInterval).Should(ContainElement(HaveField("UID", hprs.UID)))
+		})
+
+		It("should not create HPA when autoscaling is disabled", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-pdf-render-service-no-hpa",
+				Namespace: clusterKey.Namespace,
+			}
+			hpaKey := types.NamespacedName{
+				Name:      helpers.PdfRenderServiceHpaName(key.Name),
+				Namespace: key.Namespace,
+			}
+
+			// Clean up any existing resources first
+			suite.CleanupPdfRenderServiceResources(ctx, k8sClient, key)
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating HumioPdfRenderService without autoscaling")
+			hprs := suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)
+
+			// Get a fresh copy before modifying to avoid 409 conflicts
+			// Use retry logic to handle potential conflicts when disabling autoscaling
+			Eventually(func() error {
+				var updatedHprs humiov1alpha1.HumioPdfRenderService
+				err := k8sClient.Get(ctx, key, &updatedHprs)
+				if err != nil {
+					return err
+				}
+				// Explicitly set autoscaling to disabled (should be default)
+				// Set maxReplicas to satisfy CRD validation even when disabled
+				updatedHprs.Spec.Autoscaling = &humiov1alpha1.HumioPdfRenderServiceAutoscalingSpec{
+					Enabled:     false,
+					MaxReplicas: 1,
+				}
+				return k8sClient.Update(ctx, &updatedHprs)
+			}, shortTimeout, suite.TestInterval).Should(Succeed())
+			defer suite.CleanupPdfRenderServiceResources(ctx, k8sClient, key)
+
+			suite.UsingClusterBy(clusterKey.Name, "Waiting for observedGeneration to catch up")
+			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
+
+			suite.UsingClusterBy(clusterKey.Name, "Verifying HPA is not created")
+			Consistently(func() bool {
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				err := k8sClient.Get(ctx, hpaKey, hpa)
+				return k8serrors.IsNotFound(err)
+			}, mediumTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("should support both CPU and memory metrics", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-pdf-render-service-multi-metrics",
+				Namespace: clusterKey.Namespace,
+			}
+			depKey := types.NamespacedName{
+				Name:      helpers.PdfRenderServiceChildName(key.Name),
+				Namespace: key.Namespace,
+			}
+			hpaKey := types.NamespacedName{
+				Name:      helpers.PdfRenderServiceHpaName(key.Name),
+				Namespace: key.Namespace,
+			}
+
+			// Clean up any existing resources first
+			suite.CleanupPdfRenderServiceResources(ctx, k8sClient, key)
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating HumioPdfRenderService with CPU and memory metrics")
+			hprs := suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)
+
+			// Use retry logic to handle potential conflicts when enabling autoscaling with CPU and memory metrics
+			Eventually(func() error {
+				var updatedHprs humiov1alpha1.HumioPdfRenderService
+				err := k8sClient.Get(ctx, key, &updatedHprs)
+				if err != nil {
+					return err
+				}
+				updatedHprs.Spec.Autoscaling = &humiov1alpha1.HumioPdfRenderServiceAutoscalingSpec{
+					Enabled:                           true,
+					MinReplicas:                       helpers.Int32Ptr(1),
+					MaxReplicas:                       5,
+					TargetCPUUtilizationPercentage:    helpers.Int32Ptr(80),
+					TargetMemoryUtilizationPercentage: helpers.Int32Ptr(70),
+				}
+				return k8sClient.Update(ctx, &updatedHprs)
+			}, shortTimeout, suite.TestInterval).Should(Succeed())
+			defer suite.CleanupPdfRenderServiceResources(ctx, k8sClient, key)
+
+			suite.UsingClusterBy(clusterKey.Name, "Waiting for observedGeneration to catch up")
+			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
+
+			suite.UsingClusterBy(clusterKey.Name, "Ensuring Deployment is ready before HPA")
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, depKey)
+
+			suite.UsingClusterBy(clusterKey.Name, "Verifying HPA has both CPU and memory metrics")
+			Eventually(func() bool {
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				err := k8sClient.Get(ctx, hpaKey, hpa)
+				if err != nil {
+					return false
+				}
+
+				foundCPUMetric := false
+				foundMemoryMetric := false
+
+				for _, metric := range hpa.Spec.Metrics {
+					if metric.Type == autoscalingv2.ResourceMetricSourceType && metric.Resource != nil {
+						if metric.Resource.Name == corev1.ResourceCPU &&
+							metric.Resource.Target.Type == autoscalingv2.UtilizationMetricType &&
+							metric.Resource.Target.AverageUtilization != nil &&
+							*metric.Resource.Target.AverageUtilization == 80 {
+							foundCPUMetric = true
+						}
+						if metric.Resource.Name == corev1.ResourceMemory &&
+							metric.Resource.Target.Type == autoscalingv2.UtilizationMetricType &&
+							metric.Resource.Target.AverageUtilization != nil &&
+							*metric.Resource.Target.AverageUtilization == 70 {
+							foundMemoryMetric = true
+						}
+					}
+				}
+				return foundCPUMetric && foundMemoryMetric
+			}, longTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("should delete HPA when autoscaling is disabled after being enabled", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-pdf-render-service-toggle-hpa",
+				Namespace: clusterKey.Namespace,
+			}
+			depKey := types.NamespacedName{
+				Name:      helpers.PdfRenderServiceChildName(key.Name),
+				Namespace: key.Namespace,
+			}
+			hpaKey := types.NamespacedName{
+				Name:      helpers.PdfRenderServiceHpaName(key.Name),
+				Namespace: key.Namespace,
+			}
+
+			// Clean up any existing resources first
+			suite.CleanupPdfRenderServiceResources(ctx, k8sClient, key)
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating HumioPdfRenderService with autoscaling enabled")
+			hprs := suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)
+
+			// Use retry logic to handle potential conflicts when enabling autoscaling
+			Eventually(func() error {
+				var updatedHprs humiov1alpha1.HumioPdfRenderService
+				err := k8sClient.Get(ctx, key, &updatedHprs)
+				if err != nil {
+					return err
+				}
+				updatedHprs.Spec.Autoscaling = &humiov1alpha1.HumioPdfRenderServiceAutoscalingSpec{
+					Enabled:                        true,
+					MinReplicas:                    helpers.Int32Ptr(1),
+					MaxReplicas:                    3,
+					TargetCPUUtilizationPercentage: helpers.Int32Ptr(75),
+				}
+				return k8sClient.Update(ctx, &updatedHprs)
+			}, shortTimeout, suite.TestInterval).Should(Succeed())
+			defer suite.CleanupPdfRenderServiceResources(ctx, k8sClient, key)
+
+			suite.UsingClusterBy(clusterKey.Name, "Waiting for observedGeneration to catch up")
+			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
+
+			suite.UsingClusterBy(clusterKey.Name, "Ensuring Deployment is ready before HPA")
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, depKey)
+
+			suite.UsingClusterBy(clusterKey.Name, "Verifying HPA is created initially")
+			Eventually(func() error {
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				return k8sClient.Get(ctx, hpaKey, hpa)
+			}, longTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "Disabling autoscaling")
+			Eventually(func() error {
+				var updatedHprs humiov1alpha1.HumioPdfRenderService
+				err := k8sClient.Get(ctx, key, &updatedHprs)
+				if err != nil {
+					return err
+				}
+				updatedHprs.Spec.Autoscaling.Enabled = false
+				return k8sClient.Update(ctx, &updatedHprs)
+			}, shortTimeout, suite.TestInterval).Should(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "Verifying HPA is deleted after disabling autoscaling")
+			Eventually(func() bool {
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				err := k8sClient.Get(ctx, hpaKey, hpa)
+				return k8serrors.IsNotFound(err)
+			}, longTimeout, suite.TestInterval).Should(BeTrue())
+		})
+
+		It("should use default CPU metric when no metrics are specified", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humio-pdf-render-service-default-metrics",
+				Namespace: clusterKey.Namespace,
+			}
+			depKey := types.NamespacedName{
+				Name:      helpers.PdfRenderServiceChildName(key.Name),
+				Namespace: key.Namespace,
+			}
+			hpaKey := types.NamespacedName{
+				Name:      helpers.PdfRenderServiceHpaName(key.Name),
+				Namespace: key.Namespace,
+			}
+
+			// Clean up any existing resources first
+			suite.CleanupPdfRenderServiceResources(ctx, k8sClient, key)
+
+			suite.UsingClusterBy(clusterKey.Name, "Creating HumioPdfRenderService with autoscaling but no metrics specified")
+			hprs := suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)
+
+			// Use retry logic to handle potential conflicts when enabling autoscaling with default metrics
+			Eventually(func() error {
+				var updatedHprs humiov1alpha1.HumioPdfRenderService
+				err := k8sClient.Get(ctx, key, &updatedHprs)
+				if err != nil {
+					return err
+				}
+				updatedHprs.Spec.Autoscaling = &humiov1alpha1.HumioPdfRenderServiceAutoscalingSpec{
+					Enabled:     true,
+					MinReplicas: helpers.Int32Ptr(1),
+					MaxReplicas: 4,
+					// No metrics specified - should default to 80% CPU
+				}
+				return k8sClient.Update(ctx, &updatedHprs)
+			}, shortTimeout, suite.TestInterval).Should(Succeed())
+			defer suite.CleanupPdfRenderServiceResources(ctx, k8sClient, key)
+
+			suite.UsingClusterBy(clusterKey.Name, "Waiting for observedGeneration to catch up")
+			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
+
+			suite.UsingClusterBy(clusterKey.Name, "Ensuring Deployment is ready before HPA")
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, depKey)
+
+			suite.UsingClusterBy(clusterKey.Name, "Verifying HPA uses default 80% CPU metric")
+			Eventually(func() bool {
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				err := k8sClient.Get(ctx, hpaKey, hpa)
+				if err != nil {
+					return false
+				}
+
+				// Should have exactly one metric (default CPU)
+				if len(hpa.Spec.Metrics) != 1 {
+					return false
+				}
+
+				metric := hpa.Spec.Metrics[0]
+				return metric.Type == autoscalingv2.ResourceMetricSourceType &&
+					metric.Resource != nil &&
+					metric.Resource.Name == corev1.ResourceCPU &&
+					metric.Resource.Target.Type == autoscalingv2.UtilizationMetricType &&
+					metric.Resource.Target.AverageUtilization != nil &&
+					*metric.Resource.Target.AverageUtilization == 80
 			}, longTimeout, suite.TestInterval).Should(BeTrue())
 		})
 	})

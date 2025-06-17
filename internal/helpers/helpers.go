@@ -86,7 +86,7 @@ func TLSEnabledForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
 	if hprs.Spec.TLS.Enabled == nil {
 		return UseCertManager()
 	}
-	return UseCertManager() && *hprs.Spec.TLS.Enabled
+	return *hprs.Spec.TLS.Enabled
 }
 
 // GetCASecretNameForHPRS returns the CA secret name for PDF Render Service
@@ -343,4 +343,15 @@ func PdfRenderServiceChildName(pdfServiceName string) string {
 // This uses the same logic as the controller to ensure consistency between controller and tests.
 func PdfRenderServiceTlsSecretName(pdfServiceName string) string {
 	return PdfRenderServiceChildName(pdfServiceName) + "-tls"
+}
+
+// PdfRenderServiceHpaName generates the HPA name for a HumioPdfRenderService.
+// This uses the same logic as the controller to ensure consistency between controller and tests.
+func PdfRenderServiceHpaName(pdfServiceName string) string {
+	return PdfRenderServiceChildName(pdfServiceName) + "-hpa"
+}
+
+// HpaEnabledForHPRS returns true if HPA is enabled for the HumioPdfRenderService.
+func HpaEnabledForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
+	return hprs.Spec.Autoscaling != nil && hprs.Spec.Autoscaling.Enabled
 }

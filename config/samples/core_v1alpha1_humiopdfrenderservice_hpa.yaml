@@ -1,0 +1,108 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioPdfRenderService
+metadata:
+  name: pdf-render-service-with-hpa
+  namespace: logging
+spec:
+  # Basic PDF Render Service configuration
+  image: humio/pdf-render-service:latest
+  replicas: 2  # Initial replica count, will be managed by HPA once autoscaling is enabled
+  port: 5123
+  serviceType: ClusterIP
+  
+  # Resource requests - important for HPA to work properly
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # HPA Configuration
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 10
+    # Simple CPU-based scaling
+    targetCPUUtilizationPercentage: 80
+    # Optional: Memory-based scaling
+    targetMemoryUtilizationPercentage: 70
+    
+    # Optional: Advanced scaling behavior
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 60
+        policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      scaleDown:
+        stabilizationWindowSeconds: 300
+        policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+    
+    # Optional: Custom metrics (advanced usage)
+    # metrics:
+    # - type: Resource
+    #   resource:
+    #     name: cpu
+    #     target:
+    #       type: Utilization
+    #       averageUtilization: 80
+    # - type: Resource
+    #   resource:
+    #     name: memory
+    #     target:
+    #       type: Utilization
+    #       averageUtilization: 70
+  
+  # Environment variables for the PDF service
+  environmentVariables:
+    - name: LOG_LEVEL
+      value: "info"
+    - name: MAX_CONNECTIONS
+      value: "100"
+    - name: CLEANUP_INTERVAL
+      value: "600"
+
+---
+# Example of a simple HPA configuration
+apiVersion: core.humio.com/v1alpha1
+kind: HumioPdfRenderService
+metadata:
+  name: pdf-render-service-simple-hpa
+  namespace: logging
+spec:
+  image: humio/pdf-render-service:latest
+  replicas: 1
+  
+  # Simple HPA with defaults
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    # When no metrics are specified, defaults to 80% CPU utilization
+  
+  # Must specify resource requests for HPA to work
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+---
+# Example without HPA (traditional static scaling)
+apiVersion: core.humio.com/v1alpha1
+kind: HumioPdfRenderService
+metadata:
+  name: pdf-render-service-static
+  namespace: logging
+spec:
+  image: humio/pdf-render-service:latest
+  replicas: 3
+  # No autoscaling block means static scaling
