@@ -77,31 +77,6 @@ func TLSEnabled(hc *humiov1alpha1.HumioCluster) bool {
 	return UseCertManager() && *hc.Spec.TLS.Enabled
 }
 
-// TLSEnabledForHPRS returns true if TLS is enabled for the PDF Render Service
-// This follows the same logic as TLSEnabled for HumioCluster to ensure consistency
-func TLSEnabledForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
-	if hprs.Spec.TLS == nil {
-		return UseCertManager()
-	}
-	if hprs.Spec.TLS.Enabled == nil {
-		return UseCertManager()
-	}
-	return UseCertManager() && *hprs.Spec.TLS.Enabled
-}
-
-// GetCASecretNameForHPRS returns the CA secret name for PDF Render Service
-func GetCASecretNameForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) string {
-	if hprs.Spec.TLS != nil && hprs.Spec.TLS.CASecretName != "" {
-		return hprs.Spec.TLS.CASecretName
-	}
-	return hprs.Name + "-ca-keypair"
-}
-
-// UseExistingCAForHPRS returns true if PDF Render Service uses existing CA
-func UseExistingCAForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
-	return hprs.Spec.TLS != nil && hprs.Spec.TLS.CASecretName != ""
-}
-
 // AsSHA256 does a sha 256 hash on an object and returns the result
 func AsSHA256(o interface{}) string {
 	h := sha256.New()
@@ -295,54 +270,6 @@ func GetCacheOptionsWithWatchNamespace() (cache.Options, error) {
 	}
 
 	return cacheOptions, nil
-// PdfRenderServiceChildName generates the child resource name for a HumioPdfRenderService.
-// This uses the same logic as the controller to ensure consistency between controller and tests.
-func PdfRenderServiceChildName(pdfServiceName string) string {
-	const childSuffix = "-pdf-render-service"
-	// Kubernetes resource names cannot exceed 63 characters
-	// We need to leave room for Kubernetes-generated suffixes (e.g., ReplicaSet suffixes)
-	// So we limit child resource names to 50 characters to be safe
-	const maxLength = 50
-	baseName := pdfServiceName
-
-	// If the base name already ends with the suffix, use it as-is but truncate if too long
-	if strings.HasSuffix(baseName, childSuffix) {
-		// If it's already within the limit, return it
-		if len(baseName) <= maxLength {
-			return baseName
-		}
-		// If it exceeds the limit, truncate from the middle/end but preserve the beginning and suffix
-		// Keep the suffix and truncate the middle part
-		suffixLength := len(childSuffix)
-		prefixLength := maxLength - suffixLength
-		if prefixLength > 0 {
-			// Keep the first part of the name and add the suffix
-			return baseName[:prefixLength] + childSuffix
-		} else {
-			// If suffix is too long, use just the suffix (shouldn't happen with current suffix)
-			return childSuffix[1:] // Remove leading dash
-		}
-	}
-
-	// If adding the suffix would exceed the limit, truncate the base name
-	if len(baseName)+len(childSuffix) > maxLength {
-		// Reserve space for the suffix
-		maxBaseLength := maxLength - len(childSuffix)
-		if maxBaseLength > 0 {
-			baseName = baseName[:maxBaseLength]
-		} else {
-			// If suffix is too long, use just the suffix (shouldn't happen with current suffix)
-			return childSuffix[1:] // Remove leading dash
-		}
-	}
-
-	return baseName + childSuffix
-}
-
-// PdfRenderServiceTlsSecretName generates the TLS secret name for a HumioPdfRenderService.
-// This uses the same logic as the controller to ensure consistency between controller and tests.
-func PdfRenderServiceTlsSecretName(pdfServiceName string) string {
-	return PdfRenderServiceChildName(pdfServiceName) + "-tls"
 }
 
 // EmptySliceIfNil returns the slice or an empty slice if it's nil
@@ -351,6 +278,68 @@ func EmptySliceIfNil(slice []string) []string {
 		return []string{}
 	}
 	return slice
+}
+
+// PdfRenderServiceChildName generates the child resource name for a HumioPdfRenderService.
+
+// This uses the CR name to ensure unique names per instance within the namespace.
+// The result is guaranteed to be under 63 characters to meet Kubernetes naming requirements.
+func PdfRenderServiceChildName(pdfServiceName string) string {
+	const maxKubernetesNameLength = 63
+
+	// Use a simple naming pattern: "hprs-<name>"
+	// This is short, clear, and avoids duplication
+	result := fmt.Sprintf("hprs-%s", pdfServiceName)
+
+	// Ensure the result fits within Kubernetes naming limits
+	if len(result) <= maxKubernetesNameLength {
+		return result
+	}
+
+	// Truncate to fit within limits
+	return result[:maxKubernetesNameLength]
+}
+
+// PdfRenderServiceTlsSecretName generates the TLS secret name for a HumioPdfRenderService.
+// This uses the same logic as the controller to ensure consistency between controller and tests.
+func PdfRenderServiceTlsSecretName(pdfServiceName string) string {
+	return PdfRenderServiceChildName(pdfServiceName) + "-tls"
+}
+
+// PdfRenderServiceHpaName generates the HPA name for a HumioPdfRenderService.
+// This uses the same logic as the controller to ensure consistency between controller and tests.
+func PdfRenderServiceHpaName(pdfServiceName string) string {
+	// Use the child name to ensure consistency and avoid duplication
+	childName := PdfRenderServiceChildName(pdfServiceName)
+	return fmt.Sprintf("%s-hpa", childName)
+}
+
+// HpaEnabledForHPRS returns true if HPA should be managed for the
+// HumioPdfRenderService.
+// Three-state logic:
+// - Autoscaling = nil: HPA disabled (no autoscaling configured)
+// - Autoscaling.Enabled = nil: HPA enabled if MaxReplicas > 0 (autoscaling configured, use default behavior)
+// - Autoscaling.Enabled = true: HPA enabled if MaxReplicas > 0 (explicitly enabled)
+// - Autoscaling.Enabled = false: HPA disabled (explicitly disabled)
+func HpaEnabledForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
+	if hprs == nil || hprs.Spec.Autoscaling == nil {
+		return false
+	}
+
+	as := hprs.Spec.Autoscaling
+
+	// If explicitly disabled, return false
+	if as.Enabled != nil && !*as.Enabled {
+		return false
+	}
+
+	// If MaxReplicas is not configured, autoscaling cannot work
+	if as.MaxReplicas <= 0 {
+		return false
+	}
+
+	// If enabled is nil (not specified) or true, and MaxReplicas > 0, enable HPA
+	return as.Enabled == nil || *as.Enabled
 }
 
 // FirewallRulesToString converts a slice of FirewallRule structs to a string format
