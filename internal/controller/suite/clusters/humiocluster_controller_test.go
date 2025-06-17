@@ -50,6 +50,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	humioContainerName       = "humio"
+	pdfRenderServiceURLEnvar = "DEFAULT_PDF_RENDER_SERVICE_URL"
+)
+
 var _ = Describe("HumioCluster Controller", func() {
 
 	BeforeEach(func() {
@@ -351,7 +356,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Value: "true",
 				},
 				corev1.EnvVar{
-					Name: "DEFAULT_PDF_RENDER_SERVICE_URL",
+					Name: pdfRenderServiceURLEnvar,
 					Value: fmt.Sprintf("http://%s-pdf-render-service.%s:%d",
 						pdfKey.Name, pdfKey.Namespace, controller.DefaultPdfRenderServicePort),
 				},
@@ -412,7 +417,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Value: "true",
 				},
 				corev1.EnvVar{
-					Name: "DEFAULT_PDF_RENDER_SERVICE_URL",
+					Name: pdfRenderServiceURLEnvar,
 					Value: fmt.Sprintf("http://%s-pdf-render-service.%s:%d",
 						pdfKey.Name, pdfKey.Namespace, controller.DefaultPdfRenderServicePort),
 				},
@@ -434,13 +439,13 @@ var _ = Describe("HumioCluster Controller", func() {
 					foundURL := false
 					foundEnabled := false
 					for _, container := range pod.Spec.Containers {
-						if container.Name == "humio" {
+						if container.Name == humioContainerName {
 							for _, envVar := range container.Env {
 								if envVar.Name == "ENABLE_SCHEDULED_REPORT" {
 									g.Expect(envVar.Value).To(Equal("true"))
 									foundEnabled = true
 								}
-								if envVar.Name == "DEFAULT_PDF_RENDER_SERVICE_URL" {
+								if envVar.Name == pdfRenderServiceURLEnvar {
 									// For non-TLS PDF service, URL should be http://
 									// Use the same port constant as used in setup
 									expectedURL := fmt.Sprintf("http://%s-pdf-render-service.%s:%d",
@@ -531,12 +536,12 @@ var _ = Describe("HumioCluster Controller", func() {
 
 		BeforeEach(func() {
 			// Enable PDF Render Service feature for this test context
-			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+			Expect(os.Setenv("ENABLE_SCHEDULED_REPORT", "true")).To(Succeed())
 		})
 
 		AfterEach(func() {
 			// Clean up environment variable
-			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+			Expect(os.Unsetenv("ENABLE_SCHEDULED_REPORT")).To(Succeed())
 		})
 
 		When("TLS is enabled for HumioPdfRenderService and cert-manager is active", func() {
@@ -620,7 +625,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				hc.Spec.CommonEnvironmentVariables = append(
 					hc.Spec.CommonEnvironmentVariables,
 					corev1.EnvVar{
-						Name: "DEFAULT_PDF_RENDER_SERVICE_URL",
+						Name: pdfRenderServiceURLEnvar,
 						Value: fmt.Sprintf("http://%s-pdf-render-service.%s:%d",
 							pdfKey.Name, pdfKey.Namespace, controller.DefaultPdfRenderServicePort),
 					},
@@ -638,9 +643,9 @@ var _ = Describe("HumioCluster Controller", func() {
 					for _, pod := range pods {
 						found := false
 						for _, container := range pod.Spec.Containers {
-							if container.Name == "humio" { // Main Humio container
+							if container.Name == humioContainerName { // Main Humio container
 								for _, envVar := range container.Env {
-									if envVar.Name == "DEFAULT_PDF_RENDER_SERVICE_URL" {
+									if envVar.Name == pdfRenderServiceURLEnvar {
 										g.Expect(envVar.Value).To(HavePrefix("https"), "DEFAULT_PDF_RENDER_SERVICE_URL should use https")
 										found = true
 										break
@@ -679,7 +684,7 @@ var _ = Describe("HumioCluster Controller", func() {
 						Value: "true",
 					},
 					corev1.EnvVar{
-						Name: "DEFAULT_PDF_RENDER_SERVICE_URL",
+						Name: pdfRenderServiceURLEnvar,
 						Value: fmt.Sprintf("http://%s-pdf-render-service.%s:%d",
 							pdfKey.Name, pdfKey.Namespace, controller.DefaultPdfRenderServicePort),
 					},
@@ -701,9 +706,9 @@ var _ = Describe("HumioCluster Controller", func() {
 					for _, pod := range pods {
 						found := false
 						for _, container := range pod.Spec.Containers {
-							if container.Name == "humio" { // Main Humio container
+							if container.Name == humioContainerName { // Main Humio container
 								for _, envVar := range container.Env {
-									if envVar.Name == "DEFAULT_PDF_RENDER_SERVICE_URL" {
+									if envVar.Name == pdfRenderServiceURLEnvar {
 										g.Expect(envVar.Value).To(HavePrefix("http://"), "DEFAULT_PDF_RENDER_SERVICE_URL should use http")
 										found = true
 										break
@@ -765,12 +770,12 @@ var _ = Describe("HumioCluster Controller", func() {
 	Context("PDF Render Service Upgrade", Label("envtest", "dummy", "real"), func() {
 		BeforeEach(func() {
 			// Enable PDF Render Service feature for this test context
-			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+			Expect(os.Setenv("ENABLE_SCHEDULED_REPORT", "true")).To(Succeed())
 		})
 
 		AfterEach(func() {
 			// Clean up environment variable
-			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+			Expect(os.Unsetenv("ENABLE_SCHEDULED_REPORT")).To(Succeed())
 		})
 
 		const (
@@ -863,7 +868,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					pdfKey.Name, pdfKey.Namespace, controller.DefaultPdfRenderServicePort)
 				found := false
 				for i, e := range cur.Spec.CommonEnvironmentVariables {
-					if e.Name == "DEFAULT_PDF_RENDER_SERVICE_URL" {
+					if e.Name == pdfRenderServiceURLEnvar {
 						cur.Spec.CommonEnvironmentVariables[i].Value = url
 						found = true
 						break
@@ -872,7 +877,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				if !found {
 					cur.Spec.CommonEnvironmentVariables = append(
 						cur.Spec.CommonEnvironmentVariables,
-						corev1.EnvVar{Name: "DEFAULT_PDF_RENDER_SERVICE_URL", Value: url},
+						corev1.EnvVar{Name: pdfRenderServiceURLEnvar, Value: url},
 					)
 				}
 				return k8sClient.Update(ctx, &cur)
@@ -1016,12 +1021,12 @@ var _ = Describe("HumioCluster Controller", func() {
 	Context("PDF Render Service reference removal", Label("envtest", "dummy", "real"), func() {
 		BeforeEach(func() {
 			// Enable PDF Render Service feature for this test context
-			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+			Expect(os.Setenv("ENABLE_SCHEDULED_REPORT", "true")).To(Succeed())
 		})
 
 		AfterEach(func() {
 			// Clean up environment variable
-			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+			Expect(os.Unsetenv("ENABLE_SCHEDULED_REPORT")).To(Succeed())
 		})
 
 		var (
@@ -1054,7 +1059,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			hc.Spec.CommonEnvironmentVariables = append(
 				hc.Spec.CommonEnvironmentVariables,
 				corev1.EnvVar{
-					Name: "DEFAULT_PDF_RENDER_SERVICE_URL",
+					Name: pdfRenderServiceURLEnvar,
 					Value: fmt.Sprintf("http://%s-pdf-render-service.%s:%d",
 						pdfKey.Name, pdfKey.Namespace, controller.DefaultPdfRenderServicePort),
 				},
@@ -1075,7 +1080,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					cur.Spec.CommonEnvironmentVariables = []corev1.EnvVar{}
 				}
 				for i := range cur.Spec.CommonEnvironmentVariables {
-					if cur.Spec.CommonEnvironmentVariables[i].Name == "DEFAULT_PDF_RENDER_SERVICE_URL" {
+					if cur.Spec.CommonEnvironmentVariables[i].Name == pdfRenderServiceURLEnvar {
 						cur.Spec.CommonEnvironmentVariables = append(cur.Spec.CommonEnvironmentVariables[:i], cur.Spec.CommonEnvironmentVariables[i+1:]...)
 						break
 					}
@@ -1097,14 +1102,16 @@ var _ = Describe("HumioCluster Controller", func() {
 				Expect(k8sClient.Delete(ctx, &p)).To(Succeed())
 			}
 
-			// For env-test we must patch the new pods to Ready
-			Eventually(func() error {
+			// Wait for new pods to be created and mark them as ready
+			By("Waiting for new pods to be created and marking them as ready")
+			Eventually(func() []corev1.Pod {
 				newPods, _ := kubernetes.ListPods(
 					ctx, k8sClient, clusterKey.Namespace,
 					kubernetes.MatchingLabelsForHumio(clusterKey.Name),
 				)
-				return suite.MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, newPods, clusterKey.Name)
-			}, standardTimeout, quickInterval).Should(Succeed())
+				_ = suite.MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, newPods, clusterKey.Name)
+				return newPods
+			}, standardTimeout, quickInterval).Should(HaveLen(1))
 
 			// Verify the cluster ends in Running
 			By("Verifying the cluster eventually returns to Running state")
@@ -1120,12 +1127,12 @@ var _ = Describe("HumioCluster Controller", func() {
 	Context("PDF Render Service reference deletion", Label("envtest", "dummy", "real"), func() {
 		BeforeEach(func() {
 			// Enable PDF Render Service feature for this test context
-			os.Setenv("ENABLE_SCHEDULED_REPORT", "true")
+			Expect(os.Setenv("ENABLE_SCHEDULED_REPORT", "true")).To(Succeed())
 		})
 
 		AfterEach(func() {
 			// Clean up environment variable
-			os.Unsetenv("ENABLE_SCHEDULED_REPORT")
+			Expect(os.Unsetenv("ENABLE_SCHEDULED_REPORT")).To(Succeed())
 		})
 
 		It("Should enter ConfigError state if the referenced HumioPdfRenderService is deleted", func() {
