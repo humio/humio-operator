@@ -15,6 +15,9 @@ operator:
       enabled: false
   rbac:
     create: true
+    createRoles: true
+    createClusterRoles: true
+    createServiceAccount: true
     allowManageRoles: true
     allowManageClusterRoles: true
   resources:
