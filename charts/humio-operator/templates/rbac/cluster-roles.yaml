@@ -1,15 +1,6 @@
 {{- if .Values.operator.rbac.create -}}
 {{- $commonLabels := include "humio.labels" . }}
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: '{{ .Release.Name }}'
-  namespace: '{{ default "default" .Release.Namespace }}'
-  labels:
-    {{- $commonLabels | nindent 4 }}
----
-{{- if eq (len .Values.operator.watchNamespaces) 0 }}
+{{- if .Values.operator.rbac.createClusterRoles -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
