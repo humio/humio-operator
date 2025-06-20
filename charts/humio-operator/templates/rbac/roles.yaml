@@ -1,5 +1,6 @@
 {{- if .Values.operator.rbac.create -}}
 {{- $commonLabels := include "humio.labels" . }}
+{{- if .Values.operator.rbac.createRoles -}}
 {{- range .Values.operator.watchNamespaces }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -189,5 +190,6 @@ roleRef:
   kind: Role
   name: '{{ $.Release.Name }}'
   apiGroup: rbac.authorization.k8s.io
+{{- end }}
 {{- end }}
 {{- end }}
