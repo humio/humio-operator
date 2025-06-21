@@ -81,6 +81,10 @@ type HumioPdfRenderServiceSpec struct {
 	// Image is the Docker image to use for the PDF rendering service.
 	Image string `json:"image"`
 
+	// ImagePullPolicy specifies the image pull policy for the PDF render service.
+	// +optional
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+
 	// Replicas is the number of desired Pod replicas.
 	Replicas int32 `json:"replicas"`
 

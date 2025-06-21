@@ -79,6 +79,8 @@ func TLSEnabled(hc *humiov1alpha1.HumioCluster) bool {
 
 // TLSEnabledForHPRS returns true if TLS is enabled for the PDF Render Service
 // This follows the same logic as TLSEnabled for HumioCluster to ensure consistency
+// When TLS is explicitly configured, it respects the explicit setting.
+// When not configured, it falls back to cert-manager availability.
 func TLSEnabledForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
 	if hprs.Spec.TLS == nil {
 		return UseCertManager()
@@ -86,7 +88,10 @@ func TLSEnabledForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
 	if hprs.Spec.TLS.Enabled == nil {
 		return UseCertManager()
 	}
-	return *hprs.Spec.TLS.Enabled
+	// For PDF Render Service, we respect the explicit setting regardless of cert-manager status
+	// This is different from HumioCluster where both cert-manager AND explicit setting must be true
+	result := *hprs.Spec.TLS.Enabled
+	return result
 }
 
 // GetCASecretNameForHPRS returns the CA secret name for PDF Render Service
@@ -179,7 +184,13 @@ func NewLogger() (*uberzap.Logger, error) {
 
 // UseCertManager returns whether the operator will use cert-manager
 func UseCertManager() bool {
-	return !UseEnvtest() && os.Getenv("USE_CERTMANAGER") == TrueStr
+	// In envtest environments, cert-manager is not functional even if configured
+	if UseEnvtest() {
+		return false
+	}
+
+	// Only use cert-manager if explicitly enabled via environment variable
+	return os.Getenv("USE_CERTMANAGER") == TrueStr
 }
 
 // GetDefaultHumioCoreImageFromEnvVar returns the user-defined default image for humio-core containers
@@ -296,47 +307,53 @@ func GetCacheOptionsWithWatchNamespace() (cache.Options, error) {
 
 	return cacheOptions, nil
 // PdfRenderServiceChildName generates the child resource name for a HumioPdfRenderService.
-// This uses the same logic as the controller to ensure consistency between controller and tests.
+
+// This uses the CR name to ensure unique names per instance within the namespace.
+// The result is guaranteed to be under 63 characters to meet Kubernetes naming requirements.
 func PdfRenderServiceChildName(pdfServiceName string) string {
-	const childSuffix = "-pdf-render-service"
-	// Kubernetes resource names cannot exceed 63 characters
-	// We need to leave room for Kubernetes-generated suffixes (e.g., ReplicaSet suffixes)
-	// So we limit child resource names to 50 characters to be safe
-	const maxLength = 50
-	baseName := pdfServiceName
+	const prefix = "humio-pdf-render-service-"
+	const maxKubernetesNameLength = 63
 
-	// If the base name already ends with the suffix, use it as-is but truncate if too long
-	if strings.HasSuffix(baseName, childSuffix) {
-		// If it's already within the limit, return it
-		if len(baseName) <= maxLength {
-			return baseName
+	// If the name already starts with our expected prefix, use it as-is but ensure it's within limits
+	if strings.HasPrefix(pdfServiceName, prefix) {
+		if len(pdfServiceName) <= maxKubernetesNameLength {
+			return pdfServiceName
 		}
-		// If it exceeds the limit, truncate from the middle/end but preserve the beginning and suffix
-		// Keep the suffix and truncate the middle part
-		suffixLength := len(childSuffix)
-		prefixLength := maxLength - suffixLength
-		if prefixLength > 0 {
-			// Keep the first part of the name and add the suffix
-			return baseName[:prefixLength] + childSuffix
-		} else {
-			// If suffix is too long, use just the suffix (shouldn't happen with current suffix)
-			return childSuffix[1:] // Remove leading dash
-		}
+		// Truncate to fit within Kubernetes limits while preserving uniqueness
+		return pdfServiceName[:maxKubernetesNameLength]
 	}
 
-	// If adding the suffix would exceed the limit, truncate the base name
-	if len(baseName)+len(childSuffix) > maxLength {
-		// Reserve space for the suffix
-		maxBaseLength := maxLength - len(childSuffix)
-		if maxBaseLength > 0 {
-			baseName = baseName[:maxBaseLength]
-		} else {
-			// If suffix is too long, use just the suffix (shouldn't happen with current suffix)
-			return childSuffix[1:] // Remove leading dash
+	// For names that don't have the prefix, we need to be more careful to avoid duplication
+	// Check if the name would create a duplication pattern when prefixed
+	if strings.Contains(pdfServiceName, "humio-pdf-render-service") {
+		// If the name already contains our prefix pattern, just ensure it's within limits
+		if len(pdfServiceName) <= maxKubernetesNameLength {
+			return pdfServiceName
 		}
+		return pdfServiceName[:maxKubernetesNameLength]
 	}
 
-	return baseName + childSuffix
+	// Add prefix to names that don't have it
+	result := fmt.Sprintf("%s%s", prefix, pdfServiceName)
+
+	// Ensure the final result fits within Kubernetes naming limits
+	if len(result) <= maxKubernetesNameLength {
+		return result
+	}
+
+	// Truncate the original name to make room for the prefix
+	maxOriginalNameLength := maxKubernetesNameLength - len(prefix)
+	if maxOriginalNameLength > 0 {
+		truncatedName := pdfServiceName[:maxOriginalNameLength]
+		return fmt.Sprintf("%s%s", prefix, truncatedName)
+	}
+
+	// Fallback: use just the prefix truncated to fit (should not happen in practice)
+	prefixLen := len(prefix)
+	if prefixLen > maxKubernetesNameLength {
+		prefixLen = maxKubernetesNameLength
+	}
+	return prefix[:prefixLen]
 }
 
 // PdfRenderServiceTlsSecretName generates the TLS secret name for a HumioPdfRenderService.
@@ -348,7 +365,7 @@ func PdfRenderServiceTlsSecretName(pdfServiceName string) string {
 // PdfRenderServiceHpaName generates the HPA name for a HumioPdfRenderService.
 // This uses the same logic as the controller to ensure consistency between controller and tests.
 func PdfRenderServiceHpaName(pdfServiceName string) string {
-	return PdfRenderServiceChildName(pdfServiceName) + "-hpa"
+	return fmt.Sprintf("pdf-render-service-hpa-%s", pdfServiceName)
 }
 
 // HpaEnabledForHPRS returns true if HPA is enabled for the HumioPdfRenderService.
