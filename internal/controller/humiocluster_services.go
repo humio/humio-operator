@@ -146,39 +146,11 @@ func servicesMatch(existingService *corev1.Service, service *corev1.Service) (bo
 			service.Spec.PublishNotReadyAddresses)
 	}
 
-	if existingService.Spec.Type != service.Spec.Type {
-		return false, fmt.Errorf("service type does not match: got %s, expected: %s", existingService.Spec.Type, service.Spec.Type)
-	}
-
 	existingSelector := helpers.MapToSortedString(existingService.Spec.Selector)
 	selector := helpers.MapToSortedString(service.Spec.Selector)
 	if existingSelector != selector {
 		return false, fmt.Errorf("service selector does not match: got %s, expected: %s", existingSelector, selector)
 	}
-
-	// Compare service ports
-	if len(existingService.Spec.Ports) != len(service.Spec.Ports) {
-		return false, fmt.Errorf("service ports count does not match: got %d, expected: %d", len(existingService.Spec.Ports), len(service.Spec.Ports))
-	}
-
-	// Create maps for easier comparison
-	existingPorts := make(map[string]corev1.ServicePort)
-	for _, port := range existingService.Spec.Ports {
-		existingPorts[port.Name] = port
-	}
-
-	for _, expectedPort := range service.Spec.Ports {
-		if existingPort, exists := existingPorts[expectedPort.Name]; !exists {
-			return false, fmt.Errorf("service port %s not found in existing service", expectedPort.Name)
-		} else if existingPort.Port != expectedPort.Port {
-			return false, fmt.Errorf("service port %s does not match: got %d, expected: %d", expectedPort.Name, existingPort.Port, expectedPort.Port)
-		} else if existingPort.TargetPort != expectedPort.TargetPort {
-			return false, fmt.Errorf("service target port %s does not match: got %v, expected: %v", expectedPort.Name, existingPort.TargetPort, expectedPort.TargetPort)
-		} else if existingPort.Protocol != expectedPort.Protocol {
-			return false, fmt.Errorf("service port protocol %s does not match: got %s, expected: %s", expectedPort.Name, existingPort.Protocol, expectedPort.Protocol)
-		}
-	}
-
 	return true, nil
 }
 
@@ -187,6 +159,4 @@ func updateService(existingService *corev1.Service, service *corev1.Service) {
 	existingService.Labels = service.Labels
 	existingService.Spec.Selector = service.Spec.Selector
 	existingService.Spec.PublishNotReadyAddresses = service.Spec.PublishNotReadyAddresses
-	existingService.Spec.Ports = service.Spec.Ports
-	existingService.Spec.Type = service.Spec.Type
 }
