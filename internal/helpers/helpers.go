@@ -77,6 +77,36 @@ func TLSEnabled(hc *humiov1alpha1.HumioCluster) bool {
 	return UseCertManager() && *hc.Spec.TLS.Enabled
 }
 
+// TLSEnabledForHPRS returns true if TLS is enabled for the PDF Render Service
+// This follows the same logic as TLSEnabled for HumioCluster to ensure consistency
+// When TLS is explicitly configured, it respects the explicit setting.
+// When not configured, it falls back to cert-manager availability.
+func TLSEnabledForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
+	if hprs.Spec.TLS == nil {
+		return UseCertManager()
+	}
+	if hprs.Spec.TLS.Enabled == nil {
+		return UseCertManager()
+	}
+	// For PDF Render Service, we respect the explicit setting regardless of cert-manager status
+	// This is different from HumioCluster where both cert-manager AND explicit setting must be true
+	result := *hprs.Spec.TLS.Enabled
+	return result
+}
+
+// GetCASecretNameForHPRS returns the CA secret name for PDF Render Service
+func GetCASecretNameForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) string {
+	if hprs.Spec.TLS != nil && hprs.Spec.TLS.CASecretName != "" {
+		return hprs.Spec.TLS.CASecretName
+	}
+	return hprs.Name + "-ca-keypair"
+}
+
+// UseExistingCAForHPRS returns true if PDF Render Service uses existing CA
+func UseExistingCAForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
+	return hprs.Spec.TLS != nil && hprs.Spec.TLS.CASecretName != ""
+}
+
 // AsSHA256 does a sha 256 hash on an object and returns the result
 func AsSHA256(o interface{}) string {
 	h := sha256.New()
@@ -154,7 +184,13 @@ func NewLogger() (*uberzap.Logger, error) {
 
 // UseCertManager returns whether the operator will use cert-manager
 func UseCertManager() bool {
-	return !UseEnvtest() && os.Getenv("USE_CERTMANAGER") == TrueStr
+	// In envtest environments, cert-manager is not functional even if configured
+	if UseEnvtest() {
+		return false
+	}
+
+	// Only use cert-manager if explicitly enabled via environment variable
+	return os.Getenv("USE_CERTMANAGER") == TrueStr
 }
 
 // GetDefaultHumioCoreImageFromEnvVar returns the user-defined default image for humio-core containers
