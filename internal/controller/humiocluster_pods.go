@@ -66,6 +66,18 @@ type bootstrapTokenSecret struct {
 	secretReference *corev1.SecretKeySelector
 }
 
+// SanitizePodOpts provides options for sanitizing pods across different controllers
+type SanitizePodOpts struct {
+	// HumioNodePool is set when sanitizing HumioCluster pods
+	HumioNodePool *HumioNodePool
+
+	// TLSVolumeName is the name of the TLS certificate volume (e.g., "tls" for HPRS)
+	TLSVolumeName string
+
+	// CAVolumeName is the name of the CA certificate volume (e.g., "ca" for HPRS)
+	CAVolumeName string
+}
+
 // ConstructContainerArgs returns the container arguments for the Humio pods. We want to grab a UUID from zookeeper
 // only when using ephemeral disks. If we're using persistent storage, then we rely on Humio to generate the UUID.
 // Note that relying on PVCs may not be good enough here as it's possible to have persistent storage using hostPath.
@@ -532,82 +544,239 @@ func EnvVarHasKey(envVars []corev1.EnvVar, key string) bool {
 	return false
 }
 
-// sanitizePod removes known nondeterministic fields from a pod and returns it.
-// This modifies the input pod object before returning it.
-func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
-	// TODO: For volume mount containing service account secret, set name to empty string
+// // sanitizePod removes known nondeterministic fields from a pod and returns it.
+// // This modifies the input pod object before returning it.
+// func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
+// 	// TODO: For volume mount containing service account secret, set name to empty string
+// 	sanitizedVolumes := make([]corev1.Volume, 0)
+// 	emptyPersistentVolumeClaimSource := corev1.PersistentVolumeClaimVolumeSource{}
+// 	hostname := fmt.Sprintf("%s-core-%s", hnp.GetNodePoolName(), "")
+// 	mode := int32(420)
+
+// 	for idx, container := range pod.Spec.Containers {
+// 		sanitizedEnvVars := make([]corev1.EnvVar, 0)
+// 		if container.Name == HumioContainerName {
+// 			for _, envVar := range container.Env {
+// 				if envVar.Name == "EXTERNAL_URL" {
+// 					sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
+// 						Name:  "EXTERNAL_URL",
+// 						Value: fmt.Sprintf("%s://%s-core-%s.%s.%s:%d", strings.ToLower(string(hnp.GetProbeScheme())), hnp.GetNodePoolName(), "", headlessServiceName(hnp.GetClusterName()), hnp.GetNamespace(), HumioPort),
+// 					})
+// 				} else {
+// 					sanitizedEnvVars = append(sanitizedEnvVars, envVar)
+// 				}
+// 			}
+// 			container.Env = sanitizedEnvVars
+// 		} else {
+// 			sanitizedEnvVars = container.Env
+// 		}
+// 		pod.Spec.Containers[idx].Env = sanitizedEnvVars
+// 	}
+
+// 	for _, volume := range pod.Spec.Volumes {
+// 		if volume.Name == HumioDataVolumeName && reflect.DeepEqual(volume.PersistentVolumeClaim, emptyPersistentVolumeClaimSource) {
+// 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+// 				Name:         HumioDataVolumeName,
+// 				VolumeSource: hnp.GetDataVolumeSource(),
+// 			})
+// 		} else if volume.Name == HumioDataVolumeName && !reflect.DeepEqual(volume.PersistentVolumeClaim, emptyPersistentVolumeClaimSource) {
+// 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+// 				Name:         HumioDataVolumeName,
+// 				VolumeSource: hnp.GetDataVolumePersistentVolumeClaimSpecTemplate(""),
+// 			})
+// 		} else if volume.Name == "tls-cert" {
+// 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+// 				Name: "tls-cert",
+// 				VolumeSource: corev1.VolumeSource{
+// 					Secret: &corev1.SecretVolumeSource{
+// 						SecretName:  hostname,
+// 						DefaultMode: &mode,
+// 					},
+// 				},
+// 			})
+// 		} else if volume.Name == "init-service-account-secret" {
+// 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+// 				Name: "init-service-account-secret",
+// 				VolumeSource: corev1.VolumeSource{
+// 					Secret: &corev1.SecretVolumeSource{
+// 						SecretName:  fmt.Sprintf("%s-init-%s", hnp.GetNodePoolName(), ""),
+// 						DefaultMode: &mode,
+// 					},
+// 				},
+// 			})
+
+// 		} else if strings.HasPrefix("kube-api-access-", volume.Name) {
+// 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+// 				Name:         "kube-api-access-",
+// 				VolumeSource: corev1.VolumeSource{},
+// 			})
+// 		} else {
+// 			sanitizedVolumes = append(sanitizedVolumes, volume)
+// 		}
+// 	}
+// 	pod.Spec.Volumes = sanitizedVolumes
+// 	pod.Spec.Hostname = hostname
+
+// 	// Values we don't set ourselves but which gets default values set.
+// 	// To get a cleaner diff we can set these values to their zero values,
+// 	// or to the values as obtained by our functions returning our own defaults.
+// 	pod.Spec.RestartPolicy = ""
+// 	pod.Spec.DNSPolicy = ""
+// 	pod.Spec.SchedulerName = ""
+// 	pod.Spec.Priority = nil
+// 	pod.Spec.EnableServiceLinks = nil
+// 	pod.Spec.PreemptionPolicy = nil
+// 	pod.Spec.DeprecatedServiceAccount = ""
+// 	pod.Spec.NodeName = ""
+// 	pod.Spec.Tolerations = hnp.GetTolerations()
+// 	pod.Spec.TopologySpreadConstraints = hnp.GetTopologySpreadConstraints()
+
+// 	for i := range pod.Spec.InitContainers {
+// 		pod.Spec.InitContainers[i].ImagePullPolicy = hnp.GetImagePullPolicy()
+// 		pod.Spec.InitContainers[i].TerminationMessagePath = ""
+// 		pod.Spec.InitContainers[i].TerminationMessagePolicy = ""
+// 	}
+// 	for i := range pod.Spec.Containers {
+// 		pod.Spec.Containers[i].ImagePullPolicy = hnp.GetImagePullPolicy()
+// 		pod.Spec.Containers[i].TerminationMessagePath = ""
+// 		pod.Spec.Containers[i].TerminationMessagePolicy = ""
+// 	}
+
+// 	// Sort lists of container environment variables, so we won't get a diff because the order changes.
+// 	for _, container := range pod.Spec.Containers {
+// 		sort.SliceStable(container.Env, func(i, j int) bool {
+// 			return container.Env[i].Name > container.Env[j].Name
+// 		})
+// 	}
+// 	for _, container := range pod.Spec.InitContainers {
+// 		sort.SliceStable(container.Env, func(i, j int) bool {
+// 			return container.Env[i].Name > container.Env[j].Name
+// 		})
+// 	}
+
+// 	return pod
+// }
+
+// SanitizePod removes known nondeterministic fields from a pod and returns it.
+// This is the exported version that can be used by multiple controllers.
+func SanitizePod(pod *corev1.Pod, opts SanitizePodOpts) *corev1.Pod {
+	// Sanitize volumes
 	sanitizedVolumes := make([]corev1.Volume, 0)
-	emptyPersistentVolumeClaimSource := corev1.PersistentVolumeClaimVolumeSource{}
-	hostname := fmt.Sprintf("%s-core-%s", hnp.GetNodePoolName(), "")
 	mode := int32(420)
 
-	for idx, container := range pod.Spec.Containers {
-		sanitizedEnvVars := make([]corev1.EnvVar, 0)
-		if container.Name == HumioContainerName {
-			for _, envVar := range container.Env {
-				if envVar.Name == "EXTERNAL_URL" {
-					sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
-						Name:  "EXTERNAL_URL",
-						Value: fmt.Sprintf("%s://%s-core-%s.%s.%s:%d", strings.ToLower(string(hnp.GetProbeScheme())), hnp.GetNodePoolName(), "", headlessServiceName(hnp.GetClusterName()), hnp.GetNamespace(), HumioPort),
-					})
-				} else {
-					sanitizedEnvVars = append(sanitizedEnvVars, envVar)
-				}
-			}
-			container.Env = sanitizedEnvVars
-		} else {
-			sanitizedEnvVars = container.Env
-		}
-		pod.Spec.Containers[idx].Env = sanitizedEnvVars
-	}
-
 	for _, volume := range pod.Spec.Volumes {
-		if volume.Name == HumioDataVolumeName && reflect.DeepEqual(volume.PersistentVolumeClaim, emptyPersistentVolumeClaimSource) {
-			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
-				Name:         HumioDataVolumeName,
-				VolumeSource: hnp.GetDataVolumeSource(),
-			})
-		} else if volume.Name == HumioDataVolumeName && !reflect.DeepEqual(volume.PersistentVolumeClaim, emptyPersistentVolumeClaimSource) {
-			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
-				Name:         HumioDataVolumeName,
-				VolumeSource: hnp.GetDataVolumePersistentVolumeClaimSpecTemplate(""),
-			})
-		} else if volume.Name == "tls-cert" {
-			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
-				Name: "tls-cert",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName:  hostname,
-						DefaultMode: &mode,
-					},
-				},
-			})
-		} else if volume.Name == "init-service-account-secret" {
-			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
-				Name: "init-service-account-secret",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName:  fmt.Sprintf("%s-init-%s", hnp.GetNodePoolName(), ""),
-						DefaultMode: &mode,
-					},
-				},
-			})
-
-		} else if strings.HasPrefix("kube-api-access-", volume.Name) {
+		switch {
+		// Handle kube-api-access volumes (common to all)
+		case strings.HasPrefix(volume.Name, "kube-api-access-"):
 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
 				Name:         "kube-api-access-",
 				VolumeSource: corev1.VolumeSource{},
 			})
-		} else {
+
+		// HumioCluster-specific volume handling
+		case opts.HumioNodePool != nil:
+			switch volume.Name {
+			case HumioDataVolumeName:
+				emptyPersistentVolumeClaimSource := corev1.PersistentVolumeClaimVolumeSource{}
+				if reflect.DeepEqual(volume.PersistentVolumeClaim, emptyPersistentVolumeClaimSource) {
+					sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+						Name:         HumioDataVolumeName,
+						VolumeSource: opts.HumioNodePool.GetDataVolumeSource(),
+					})
+				} else {
+					sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+						Name:         HumioDataVolumeName,
+						VolumeSource: opts.HumioNodePool.GetDataVolumePersistentVolumeClaimSpecTemplate(""),
+					})
+				}
+			case "tls-cert":
+				hostname := fmt.Sprintf("%s-core-%s", opts.HumioNodePool.GetNodePoolName(), "")
+				sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+					Name: "tls-cert",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  hostname,
+							DefaultMode: &mode,
+						},
+					},
+				})
+			case "init-service-account-secret":
+				sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+					Name: "init-service-account-secret",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  fmt.Sprintf("%s-init-%s", opts.HumioNodePool.GetNodePoolName(), ""),
+							DefaultMode: &mode,
+						},
+					},
+				})
+			default:
+				sanitizedVolumes = append(sanitizedVolumes, volume)
+			}
+
+		// HPRS-specific TLS volume handling
+		case opts.TLSVolumeName != "" && volume.Name == opts.TLSVolumeName:
+			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+				Name: opts.TLSVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  "", // Clear secret name for comparison
+						DefaultMode: &mode,
+					},
+				},
+			})
+
+		// HPRS-specific CA volume handling
+		case opts.CAVolumeName != "" && volume.Name == opts.CAVolumeName:
+			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+				Name: opts.CAVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "", // Clear secret name for comparison
+						Items: []corev1.KeyToPath{
+							{
+								Key:  "ca.crt",
+								Path: "ca.crt",
+							},
+						},
+						DefaultMode: &mode,
+					},
+				},
+			})
+
+		default:
 			sanitizedVolumes = append(sanitizedVolumes, volume)
 		}
 	}
 	pod.Spec.Volumes = sanitizedVolumes
-	pod.Spec.Hostname = hostname
 
-	// Values we don't set ourselves but which gets default values set.
-	// To get a cleaner diff we can set these values to their zero values,
-	// or to the values as obtained by our functions returning our own defaults.
+	// HumioCluster-specific environment variable handling
+	if opts.HumioNodePool != nil {
+		hostname := fmt.Sprintf("%s-core-%s", opts.HumioNodePool.GetNodePoolName(), "")
+		pod.Spec.Hostname = hostname
+
+		for idx, container := range pod.Spec.Containers {
+			sanitizedEnvVars := make([]corev1.EnvVar, 0)
+			if container.Name == HumioContainerName {
+				for _, envVar := range container.Env {
+					if envVar.Name == "EXTERNAL_URL" {
+						sanitizedEnvVars = append(sanitizedEnvVars, corev1.EnvVar{
+							Name:  "EXTERNAL_URL",
+							Value: fmt.Sprintf("%s://%s-core-%s.%s.%s:%d", strings.ToLower(string(opts.HumioNodePool.GetProbeScheme())), opts.HumioNodePool.GetNodePoolName(), "", headlessServiceName(opts.HumioNodePool.GetClusterName()), opts.HumioNodePool.GetNamespace(), HumioPort),
+						})
+					} else {
+						sanitizedEnvVars = append(sanitizedEnvVars, envVar)
+					}
+				}
+				container.Env = sanitizedEnvVars
+			} else {
+				sanitizedEnvVars = container.Env
+			}
+			pod.Spec.Containers[idx].Env = sanitizedEnvVars
+		}
+	}
+
+	// Values we don't set ourselves but which gets default values set
 	pod.Spec.RestartPolicy = ""
 	pod.Spec.DNSPolicy = ""
 	pod.Spec.SchedulerName = ""
@@ -616,33 +785,48 @@ func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
 	pod.Spec.PreemptionPolicy = nil
 	pod.Spec.DeprecatedServiceAccount = ""
 	pod.Spec.NodeName = ""
-	pod.Spec.Tolerations = hnp.GetTolerations()
-	pod.Spec.TopologySpreadConstraints = hnp.GetTopologySpreadConstraints()
 
+	// HumioCluster-specific settings
+	if opts.HumioNodePool != nil {
+		pod.Spec.Tolerations = opts.HumioNodePool.GetTolerations()
+		pod.Spec.TopologySpreadConstraints = opts.HumioNodePool.GetTopologySpreadConstraints()
+	}
+
+	// Container-level sanitization
 	for i := range pod.Spec.InitContainers {
-		pod.Spec.InitContainers[i].ImagePullPolicy = hnp.GetImagePullPolicy()
 		pod.Spec.InitContainers[i].TerminationMessagePath = ""
 		pod.Spec.InitContainers[i].TerminationMessagePolicy = ""
+		if opts.HumioNodePool != nil {
+			pod.Spec.InitContainers[i].ImagePullPolicy = opts.HumioNodePool.GetImagePullPolicy()
+		}
 	}
 	for i := range pod.Spec.Containers {
-		pod.Spec.Containers[i].ImagePullPolicy = hnp.GetImagePullPolicy()
 		pod.Spec.Containers[i].TerminationMessagePath = ""
 		pod.Spec.Containers[i].TerminationMessagePolicy = ""
+		if opts.HumioNodePool != nil {
+			pod.Spec.Containers[i].ImagePullPolicy = opts.HumioNodePool.GetImagePullPolicy()
+		}
 	}
 
-	// Sort lists of container environment variables, so we won't get a diff because the order changes.
-	for _, container := range pod.Spec.Containers {
-		sort.SliceStable(container.Env, func(i, j int) bool {
-			return container.Env[i].Name > container.Env[j].Name
+	// Sort environment variables
+	for i := range pod.Spec.Containers {
+		sort.SliceStable(pod.Spec.Containers[i].Env, func(j, k int) bool {
+			return pod.Spec.Containers[i].Env[j].Name > pod.Spec.Containers[i].Env[k].Name
 		})
 	}
-	for _, container := range pod.Spec.InitContainers {
-		sort.SliceStable(container.Env, func(i, j int) bool {
-			return container.Env[i].Name > container.Env[j].Name
+	for i := range pod.Spec.InitContainers {
+		sort.SliceStable(pod.Spec.InitContainers[i].Env, func(j, k int) bool {
+			return pod.Spec.InitContainers[i].Env[j].Name > pod.Spec.InitContainers[i].Env[k].Name
 		})
 	}
 
 	return pod
+}
+
+// sanitizePod is the original function that now delegates to SanitizePod
+// This maintains backward compatibility for existing HumioCluster code
+func sanitizePod(hnp *HumioNodePool, pod *corev1.Pod) *corev1.Pod {
+	return SanitizePod(pod, SanitizePodOpts{HumioNodePool: hnp})
 }
 
 func (r *HumioClusterReconciler) createPod(ctx context.Context, hc *humiov1alpha1.HumioCluster, hnp *HumioNodePool, attachments *podAttachments, newlyCreatedPods []corev1.Pod) (*corev1.Pod, error) {
