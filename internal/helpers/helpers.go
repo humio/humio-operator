@@ -262,6 +262,13 @@ func GetE2ELicenseFromEnvVar() string {
 	return os.Getenv("HUMIO_E2E_LICENSE")
 }
 
+// UseKindCluster returns true if we're running tests in a kind cluster environment.
+// This is detected by checking for the presence of the HUMIO_E2E_LICENSE environment variable
+// which is consistently set when running the kind-based E2E tests.
+func UseKindCluster() bool {
+	return os.Getenv("HUMIO_E2E_LICENSE") != ""
+}
+
 // PreserveKindCluster returns true if the intention is to not delete kind cluster after test execution.
 // This is to allow reruns of tests to be performed where resources can be reused.
 func PreserveKindCluster() bool {
