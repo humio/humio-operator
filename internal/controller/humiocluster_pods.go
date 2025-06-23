@@ -798,6 +798,8 @@ func SanitizePod(pod *corev1.Pod, opts SanitizePodOpts) *corev1.Pod {
 		pod.Spec.InitContainers[i].TerminationMessagePolicy = ""
 		if opts.HumioNodePool != nil {
 			pod.Spec.InitContainers[i].ImagePullPolicy = opts.HumioNodePool.GetImagePullPolicy()
+		} else if pod.Spec.InitContainers[i].ImagePullPolicy == "" {
+			pod.Spec.InitContainers[i].ImagePullPolicy = corev1.PullIfNotPresent
 		}
 	}
 	for i := range pod.Spec.Containers {
@@ -805,6 +807,8 @@ func SanitizePod(pod *corev1.Pod, opts SanitizePodOpts) *corev1.Pod {
 		pod.Spec.Containers[i].TerminationMessagePolicy = ""
 		if opts.HumioNodePool != nil {
 			pod.Spec.Containers[i].ImagePullPolicy = opts.HumioNodePool.GetImagePullPolicy()
+		} else if pod.Spec.Containers[i].ImagePullPolicy == "" {
+			pod.Spec.Containers[i].ImagePullPolicy = corev1.PullIfNotPresent
 		}
 	}
 

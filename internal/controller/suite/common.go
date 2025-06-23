@@ -18,6 +18,7 @@ import (
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -127,7 +128,7 @@ func MarkPodAsRunningIfUsingEnvtest(ctx context.Context, k8sClient client.Client
 	}
 
 	// Update or create container statuses - preserve existing statuses and update/add the target container
-	var updatedContainerStatuses []corev1.ContainerStatus
+	updatedContainerStatuses := make([]corev1.ContainerStatus, 0, len(pod.Status.ContainerStatuses)+1)
 	containerFound := false
 
 	fmt.Printf("Looking for container name: %s\n", containerName)
@@ -490,7 +491,7 @@ func CreateLicenseSecretIfNeeded(ctx context.Context, clusterKey types.Namespace
 
 	licenseSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
+			Name:      cluster.Spec.License.SecretKeyRef.Name,
 			Namespace: clusterKey.Namespace,
 		},
 		StringData: map[string]string{"license": licenseString},
@@ -1098,13 +1099,13 @@ func CreatePdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfK
 	// ALWAYS set TLS configuration explicitly based on the tlsEnabled parameter
 	// This ensures the CR is created with explicit TLS settings to prevent controller defaults
 	if tlsEnabled {
-		pdfCR.Spec.TLS = &humiov1alpha1.HumioPDFRenderServiceTLSSpec{
+		pdfCR.Spec.TLS = &humiov1alpha1.HumioPdfRenderServiceTLSSpec{
 			Enabled: helpers.BoolPtr(true),
 		}
 	} else {
 		// Explicitly disable TLS to override any defaults
 		// This is critical for tests that don't involve TLS functionality
-		pdfCR.Spec.TLS = &humiov1alpha1.HumioPDFRenderServiceTLSSpec{
+		pdfCR.Spec.TLS = &humiov1alpha1.HumioPdfRenderServiceTLSSpec{
 			Enabled: helpers.BoolPtr(false),
 		}
 	}
@@ -1181,42 +1182,14 @@ func EnsurePdfRenderDeploymentReady(
 		return pl.Items, err
 	}
 
-	//------------------------------------------------------------------#
-	// 3. If envtest, create the replica pods manually
-	if helpers.UseEnvtest() {
-		Eventually(func() error {
-			pods, err := listPods()
-			if err != nil || len(pods) > 0 {
-				return err // already created or error
-			}
-
-			replicas := int32(1)
-			if dep.Spec.Replicas != nil {
-				replicas = *dep.Spec.Replicas
-			}
-			for i := int32(0); i < replicas; i++ {
-				p := &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      fmt.Sprintf("%s-pod-%d", dep.Name, i),
-						Namespace: dep.Namespace,
-						Labels:    dep.Spec.Template.Labels,
-					},
-					Spec: dep.Spec.Template.Spec,
-				}
-				if e := k8sClient.Create(ctx, p); e != nil && !k8serrors.IsAlreadyExists(e) {
-					return e
-				}
-			}
-			return nil
-		}, DefaultTestTimeout, TestInterval).Should(Succeed())
-	}
-
 	exp := int32(1)
 	if dep.Spec.Replicas != nil {
 		exp = *dep.Spec.Replicas
 	}
 
-	//------------------------------------------------------------------#
+	// 3. Ensure pods exist for scaled deployments in envtest
+	_ = EnsurePodsForDeploymentInEnvtest(ctx, k8sClient, deployKey, crName)
+
 	// 4. Wait for the expected number of pods to exist
 	Eventually(func() int {
 		pods, _ := listPods()
@@ -1224,7 +1197,6 @@ func EnsurePdfRenderDeploymentReady(
 		return len(pods)
 	}, DefaultTestTimeout, TestInterval).Should(Equal(int(exp)))
 
-	//------------------------------------------------------------------#
 	// 5. Wait until every pod is Ready (container + pod condition)
 	Eventually(func() int {
 		pods, _ := listPods()
@@ -1285,6 +1257,88 @@ func EnsurePdfRenderDeploymentReady(
 	}, DefaultTestTimeout, TestInterval).Should(Equal(exp))
 }
 
+// EnsurePodsForDeploymentInEnvtest ensures that the correct number of pods exist for a deployment in envtest
+func EnsurePodsForDeploymentInEnvtest(ctx context.Context, k8sClient client.Client, deployKey types.NamespacedName, crName string) error {
+	if !helpers.UseEnvtest() {
+		return nil
+	}
+
+	dep := &appsv1.Deployment{}
+	if err := k8sClient.Get(ctx, deployKey, dep); err != nil {
+		return err
+	}
+
+	// List existing pods for this deployment
+	podList := &corev1.PodList{}
+	matchingLabels := client.MatchingLabels(dep.Spec.Selector.MatchLabels)
+	if err := k8sClient.List(ctx, podList, client.InNamespace(deployKey.Namespace), matchingLabels); err != nil {
+		return err
+	}
+
+	desiredReplicas := int32(1)
+	if dep.Spec.Replicas != nil {
+		desiredReplicas = *dep.Spec.Replicas
+	}
+
+	currentPods := len(podList.Items)
+
+	UsingClusterBy(crName, fmt.Sprintf("EnsurePodsForDeploymentInEnvtest: desired=%d, current=%d", desiredReplicas, currentPods))
+
+	// Create missing pods if needed
+	for i := currentPods; i < int(desiredReplicas); i++ {
+		podName := fmt.Sprintf("%s-%s", dep.Name, kubernetes.RandomString()[0:6])
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: dep.Namespace,
+				Labels:    dep.Spec.Selector.MatchLabels,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       dep.Name,
+						UID:        dep.UID,
+						Controller: &[]bool{true}[0],
+					},
+				},
+			},
+			Spec: dep.Spec.Template.Spec,
+			Status: corev1.PodStatus{
+				Phase: corev1.PodRunning,
+				Conditions: []corev1.PodCondition{
+					{
+						Type:   corev1.PodReady,
+						Status: corev1.ConditionTrue,
+					},
+				},
+			},
+		}
+
+		// Set container statuses as ready
+		for _, container := range pod.Spec.Containers {
+			pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, corev1.ContainerStatus{
+				Name:  container.Name,
+				Ready: true,
+				State: corev1.ContainerState{
+					Running: &corev1.ContainerStateRunning{},
+				},
+			})
+		}
+
+		UsingClusterBy(crName, fmt.Sprintf("Creating pod %s for deployment %s", podName, dep.Name))
+		if err := k8sClient.Create(ctx, pod); err != nil {
+			return err
+		}
+
+		// Update pod status
+		if err := k8sClient.Status().Update(ctx, pod); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // CleanupPdfRenderServiceResources cleans up all resources related to a PDF render service
 func CleanupPdfRenderServiceResources(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
 	// Delete HumioPdfRenderService if it exists
@@ -1316,6 +1370,17 @@ func CleanupPdfRenderServiceResources(ctx context.Context, k8sClient client.Clie
 	if err := k8sClient.Get(ctx, deploymentKey, service); err == nil {
 		UsingClusterBy(key.Name, fmt.Sprintf("Deleting orphaned service %s", deploymentKey.String()))
 		_ = k8sClient.Delete(ctx, service)
+	}
+
+	// Clean up any orphaned HPA
+	hpaKey := types.NamespacedName{
+		Name:      helpers.PdfRenderServiceHpaName(key.Name),
+		Namespace: key.Namespace,
+	}
+	hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+	if err := k8sClient.Get(ctx, hpaKey, hpa); err == nil {
+		UsingClusterBy(key.Name, fmt.Sprintf("Deleting orphaned HPA %s", hpaKey.String()))
+		_ = k8sClient.Delete(ctx, hpa)
 	}
 }
 

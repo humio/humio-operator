@@ -1,3 +1,4 @@
+// ...copyright and package/imports...
 /*
 Copyright 2020 Humio https://humio.com
 
@@ -5,7 +6,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +18,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -69,6 +71,8 @@ const (
 	// HumioPdfRenderServiceScaledDown means the PDF rendering service is scaled down.
 	HumioPdfRenderServiceScaledDown HumioPdfRenderServiceConditionType = "ScaledDown"
 )
+
+// ...existing code...
 
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
 type HumioPdfRenderServiceSpec struct {
@@ -143,9 +147,6 @@ type HumioPdfRenderServiceSpec struct {
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
-	// ImagePullPolicy defines the pull policy for the container image
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
-
 	// ImagePullSecrets is a list of references to secrets for pulling images
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
@@ -154,6 +155,26 @@ type HumioPdfRenderServiceSpec struct {
 
 	// ContainerSecurityContext defines container-level security attributes
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
+
+	// PodSecurityContext defines pod-level security attributes
+	// +optional
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+
+	// Volumes allows specification of custom volumes
+	// +optional
+	Volumes []corev1.Volume `json:"volumes,omitempty"`
+
+	// VolumeMounts allows specification of custom volume mounts
+	// +optional
+	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
+
+	// TLS configuration for the PDF Render Service
+	// +optional
+	TLS *HumioPdfRenderServiceTLSSpec `json:"tls,omitempty"`
+
+	// Autoscaling configuration for the PDF Render Service
+	// +optional
+	Autoscaling *HumioPdfRenderServiceAutoscalingSpec `json:"autoscaling,omitempty"`
 }
 
 // HumioPdfRenderServiceStatus defines the observed state of HumioPdfRenderService
@@ -178,14 +199,17 @@ type HumioPdfRenderServiceStatus struct {
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 	State      string             `json:"state,omitempty"`
+
+	// ObservedGeneration is the most recent generation observed for this resource
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".spec.replicas"
-//+kubebuilder:printcolumn:name="Ready",type="integer",JSONPath=".status.readyReplicas"
-//+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Available\")].status"
-//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".spec.replicas"
+// +kubebuilder:printcolumn:name="Ready",type="integer",JSONPath=".status.readyReplicas"
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Available\")].status"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // HumioPdfRenderService is the Schema for the humiopdfrenderservices API
 type HumioPdfRenderService struct {
@@ -200,7 +224,7 @@ type HumioPdfRenderService struct {
 	Status HumioPdfRenderServiceStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // HumioPdfRenderServiceList contains a list of HumioPdfRenderService
 type HumioPdfRenderServiceList struct {
@@ -211,4 +235,45 @@ type HumioPdfRenderServiceList struct {
 
 func init() {
 	SchemeBuilder.Register(&HumioPdfRenderService{}, &HumioPdfRenderServiceList{})
+}
+
+// SetDefaults sets default values for the HumioPdfRenderService
+func (hprs *HumioPdfRenderService) SetDefaults() {
+	if hprs.Spec.Port == 0 {
+		hprs.Spec.Port = 5123
+	}
+	if hprs.Spec.ServiceType == "" {
+		hprs.Spec.ServiceType = corev1.ServiceTypeClusterIP
+	}
+	if hprs.Spec.ImagePullPolicy == "" {
+		hprs.Spec.ImagePullPolicy = corev1.PullIfNotPresent
+	}
+}
+
+// HumioPdfRenderServiceTLSSpec defines TLS configuration for the PDF Render Service
+type HumioPdfRenderServiceTLSSpec struct {
+	// Enabled toggles TLS on or off
+	Enabled *bool `json:"enabled,omitempty"`
+	// CASecretName is the name of the secret containing the CA certificate
+	CASecretName string `json:"caSecretName,omitempty"`
+	// ExtraHostnames is a list of additional hostnames to include in the certificate
+	ExtraHostnames []string `json:"extraHostnames,omitempty"`
+}
+
+// HumioPdfRenderServiceAutoscalingSpec defines autoscaling configuration for the PDF Render Service
+type HumioPdfRenderServiceAutoscalingSpec struct {
+	// Enabled toggles autoscaling on or off
+	Enabled *bool `json:"enabled,omitempty"`
+	// MinReplicas is the minimum number of replicas
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
+	// MaxReplicas is the maximum number of replicas
+	MaxReplicas int32 `json:"maxReplicas,omitempty"`
+	// TargetCPUUtilizationPercentage is the target average CPU utilization
+	TargetCPUUtilizationPercentage *int32 `json:"targetCPUUtilizationPercentage,omitempty"`
+	// TargetMemoryUtilizationPercentage is the target average memory utilization
+	TargetMemoryUtilizationPercentage *int32 `json:"targetMemoryUtilizationPercentage,omitempty"`
+	// Metrics contains the specifications for scaling metrics
+	Metrics []autoscalingv2.MetricSpec `json:"metrics,omitempty"`
+	// Behavior configures the scaling behavior of the target
+	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }

@@ -529,7 +529,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
 					Image:    versions.DefaultPDFRenderServiceImage(),
 					Replicas: 1,
-					TLS: &humiov1alpha1.HumioPDFRenderServiceTLSSpec{
+					TLS: &humiov1alpha1.HumioPdfRenderServiceTLSSpec{
 						Enabled: helpers.BoolPtr(true),
 					},
 				},
@@ -543,7 +543,18 @@ var _ = Describe("HumioCluster Controller", func() {
 				var pdf humiov1alpha1.HumioPdfRenderService
 				g.Expect(k8sClient.Get(ctx, pdfKey, &pdf)).To(Succeed())
 				g.Expect(pdf.Status.State).To(Equal(humiov1alpha1.HumioPdfRenderServiceStateConfigError))
-				g.Expect(pdf.Status.Message).To(ContainSubstring(fmt.Sprintf("Secret \"%s\" not found", expectedSecretName)))
+
+				// Check for TLS certificate error in conditions
+				found := false
+				for _, condition := range pdf.Status.Conditions {
+					if condition.Type == string(humiov1alpha1.HumioPdfRenderServiceDegraded) &&
+						condition.Status == metav1.ConditionTrue &&
+						strings.Contains(condition.Message, fmt.Sprintf("Secret \"%s\" not found", expectedSecretName)) {
+						found = true
+						break
+					}
+				}
+				g.Expect(found).To(BeTrue(), "Expected to find degraded condition with TLS secret error message")
 			}, standardTimeout, quickInterval).Should(Succeed())
 
 			By("Cleaning up the misconfigured PDF service")
@@ -557,7 +568,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	// TLS Configuration Success Test
-	FContext("PDF Render Service with TLS configuration", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service with TLS configuration", Label("envtest", "dummy", "real"), func() {
 		const (
 			standardTimeout = 60 * time.Second // Increased for cert-manager provisioning
 			quickInterval   = 250 * time.Millisecond
@@ -3131,6 +3142,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				return internalSvc.Spec.Selector
 			}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue("humio.com/feature", "OperatorInternal"))
 		})
+
 	})
 
 	Context("Humio Cluster Container Arguments", Label("envtest", "dummy", "real"), func() {
