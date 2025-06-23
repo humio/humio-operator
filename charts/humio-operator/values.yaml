@@ -48,4 +48,13 @@ operator:
 certmanager: true
 defaultHumioCoreImage: ""
 defaultHumioHelperImage: ""
+defaultHumioHelperImageManaged: ""
 defaultPdfRenderServiceImage: ""
+
+# PDF Render Service configuration
+pdfRenderService:
+  enabled: false
+  name: "pdf-render-service"
+  image:
+    repository: "humio/pdf-render-service"
+    tag: "latest"

@@ -262,6 +262,13 @@ func GetE2ELicenseFromEnvVar() string {
 	return os.Getenv("HUMIO_E2E_LICENSE")
 }
 
+// UseKindCluster returns true if we're running tests in a kind cluster environment.
+// This is detected by checking for the presence of the HUMIO_E2E_LICENSE environment variable
+// which is consistently set when running the kind-based E2E tests.
+func UseKindCluster() bool {
+	return os.Getenv("HUMIO_E2E_LICENSE") != ""
+}
+
 // PreserveKindCluster returns true if the intention is to not delete kind cluster after test execution.
 // This is to allow reruns of tests to be performed where resources can be reused.
 func PreserveKindCluster() bool {
@@ -368,7 +375,30 @@ func PdfRenderServiceHpaName(pdfServiceName string) string {
 	return fmt.Sprintf("pdf-render-service-hpa-%s", pdfServiceName)
 }
 
-// HpaEnabledForHPRS returns true if HPA is enabled for the HumioPdfRenderService.
+// HpaEnabledForHPRS returns true if HPA should be managed for the
+// HumioPdfRenderService.
+// Three-state logic:
+// - Autoscaling = nil: HPA disabled (no autoscaling configured)
+// - Autoscaling.Enabled = nil: HPA enabled if MaxReplicas > 0 (autoscaling configured, use default behavior)
+// - Autoscaling.Enabled = true: HPA enabled if MaxReplicas > 0 (explicitly enabled)
+// - Autoscaling.Enabled = false: HPA disabled (explicitly disabled)
 func HpaEnabledForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
-	return hprs.Spec.Autoscaling != nil && hprs.Spec.Autoscaling.Enabled
+	if hprs == nil || hprs.Spec.Autoscaling == nil {
+		return false
+	}
+
+	as := hprs.Spec.Autoscaling
+
+	// If explicitly disabled, return false
+	if as.Enabled != nil && !*as.Enabled {
+		return false
+	}
+
+	// If MaxReplicas is not configured, autoscaling cannot work
+	if as.MaxReplicas <= 0 {
+		return false
+	}
+
+	// If enabled is nil (not specified) or true, and MaxReplicas > 0, enable HPA
+	return as.Enabled == nil || *as.Enabled
 }
