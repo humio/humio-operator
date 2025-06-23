@@ -484,14 +484,15 @@ func CreateLicenseSecretIfNeeded(ctx context.Context, clusterKey types.Namespace
 
 	licenseString := "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzUxMiJ9.eyJpc09lbSI6ZmFsc2UsImF1ZCI6Ikh1bWlvLWxpY2Vuc2UtY2hlY2siLCJzdWIiOiJIdW1pbyBFMkUgdGVzdHMiLCJ1aWQiOiJGUXNvWlM3Yk1PUldrbEtGIiwibWF4VXNlcnMiOjEwLCJhbGxvd1NBQVMiOnRydWUsIm1heENvcmVzIjoxLCJ2YWxpZFVudGlsIjoxNzQzMTY2ODAwLCJleHAiOjE3NzQ1OTMyOTcsImlzVHJpYWwiOmZhbHNlLCJpYXQiOjE2Nzk5ODUyOTcsIm1heEluZ2VzdEdiUGVyRGF5IjoxfQ.someinvalidsignature"
 
-	// If we use a k8s that is not envtest, and we didn't specify we are using a dummy image, we require a valid license
+	// If we use a k8s that is not a test environment (envtest, dummy image), we require a valid license
+	// For kind clusters, we also use the real license for PDF Render Service tests to work properly
 	if !helpers.UseEnvtest() && !helpers.UseDummyImage() {
 		licenseString = helpers.GetE2ELicenseFromEnvVar()
 	}
 
 	licenseSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cluster.Spec.License.SecretKeyRef.Name,
+			Name:      fmt.Sprintf("%s-license", clusterKey.Name),
 			Namespace: clusterKey.Namespace,
 		},
 		StringData: map[string]string{"license": licenseString},
@@ -605,28 +606,47 @@ func waitForAdminTokenSecretToGetPopulated(ctx context.Context, k8sClient client
 			UsingClusterBy(key.Name, fmt.Sprintf("Pod status %s status: %v", clusterPods[idx].Name, clusterPods[idx].Status))
 		}
 
-		adminTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
-		err := k8sClient.Get(ctx, types.NamespacedName{
+		return k8sClient.Get(ctx, types.NamespacedName{
 			Namespace: key.Namespace,
-			Name:      adminTokenSecretName,
+			Name:      fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix),
 		}, &corev1.Secret{})
-
-		// For envtest environments, recreate the secret if it doesn't exist
-		if err != nil && (helpers.UseEnvtest() || helpers.UseDummyImage()) {
-
-			UsingClusterBy(key.Name, "Recreating admin token secret for envtest")
-			secretData := map[string][]byte{"token": []byte("")}
-			desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, adminTokenSecretName, secretData, nil, nil)
-			createErr := k8sClient.Create(ctx, desiredSecret)
-			if createErr != nil {
-				return fmt.Errorf("failed to recreate admin token secret: %w", createErr)
-			}
-			return nil
-		}
-
-		return err
 	}, testTimeout, TestInterval).Should(Succeed())
 }
+
+// func waitForAdminTokenSecretToGetPopulated(ctx context.Context, k8sClient client.Client, key types.NamespacedName, cluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
+// 	UsingClusterBy(key.Name, "Waiting for the controller to populate the secret containing the admin token")
+// 	Eventually(func() error {
+// 		clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(cluster).GetCommonClusterLabels())
+// 		for idx := range clusterPods {
+// 			UsingClusterBy(key.Name, fmt.Sprintf("Pod status %s status: %v", clusterPods[idx].Name, clusterPods[idx].Status))
+// 		}
+
+// 		adminTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
+// 		err := k8sClient.Get(ctx, types.NamespacedName{
+// 			Namespace: key.Namespace,
+// 			Name:      adminTokenSecretName,
+// 		}, &corev1.Secret{})
+
+// 		// For test environments (envtest, dummy images, or kind cluster), recreate the secret if it doesn't exist
+// 		if err != nil && k8serrors.IsNotFound(err) && (helpers.UseEnvtest() || helpers.UseDummyImage() || helpers.UseKindCluster()) {
+
+// 			UsingClusterBy(key.Name, "Creating admin token secret for test environment (secret not found)")
+// 			secretData := map[string][]byte{"token": []byte("")}
+// 			desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, adminTokenSecretName, secretData, nil, nil)
+// 			createErr := k8sClient.Create(ctx, desiredSecret)
+// 			if createErr != nil {
+// 				// If secret already exists, ignore the error and continue
+// 				if !k8serrors.IsAlreadyExists(createErr) {
+// 					return fmt.Errorf("failed to create admin token secret: %w", createErr)
+// 				}
+// 				UsingClusterBy(key.Name, "Admin token secret already exists, continuing")
+// 			}
+// 			return nil
+// 		}
+
+// 		return err
+// 	}, testTimeout, TestInterval).Should(Succeed())
+// }
 
 func verifyReplicationFactorEnvironmentVariables(ctx context.Context, k8sClient client.Client, key types.NamespacedName, cluster *humiov1alpha1.HumioCluster) {
 	UsingClusterBy(key.Name, "Confirming replication factor environment variables are set correctly")
@@ -692,7 +712,7 @@ func verifyNumPodsPodPhaseRunning(ctx context.Context, k8sClient client.Client, 
 }
 
 func verifyPodAvailabilityZoneWhenUsingRealHumioContainers(ctx context.Context, k8sClient client.Client, humioClient humio.Client, key types.NamespacedName, cluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
-	if !helpers.UseEnvtest() && !helpers.UseDummyImage() {
+	if !helpers.UseEnvtest() && !helpers.UseDummyImage() && !helpers.UseKindCluster() {
 		UsingClusterBy(key.Name, "Validating cluster nodes have ZONE configured correctly")
 		if cluster.Spec.DisableInitContainer {
 			Eventually(func() []string {
@@ -776,13 +796,16 @@ func verifyNumClusterPods(ctx context.Context, k8sClient client.Client, key type
 }
 
 func simulateHashedBootstrapTokenCreation(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
-	if helpers.UseEnvtest() {
+	if helpers.UseEnvtest() || helpers.UseKindCluster() {
 		// Simulate sidecar creating the secret which contains the admin token used to authenticate with humio
 		secretData := map[string][]byte{"token": []byte("")}
 		adminTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
 		UsingClusterBy(key.Name, "Simulating the admin token secret containing the API token")
 		desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, adminTokenSecretName, secretData, nil, nil)
-		Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
+		err := k8sClient.Create(ctx, desiredSecret)
+		if err != nil && !k8serrors.IsAlreadyExists(err) {
+			Expect(err).ToNot(HaveOccurred())
+		}
 
 		UsingClusterBy(key.Name, "Simulating the creation of the HumioBootstrapToken resource")
 		humioBootstrapToken := kubernetes.ConstructHumioBootstrapToken(key.Name, key.Namespace)

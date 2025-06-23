@@ -417,7 +417,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Value: "true",
 				},
 			)
-			Expect(k8sClient.Create(ctx, enablerHumioCluster)).To(Succeed())
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, enablerHumioCluster, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, enablerHumioCluster)
 
 			By("creating an independent HumioPdfRenderService")
@@ -515,7 +515,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Value: "true",
 				},
 			)
-			Expect(k8sClient.Create(ctx, enablerHumioCluster)).To(Succeed())
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, enablerHumioCluster, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, enablerHumioCluster)
 
 			By("Creating a TLS-enabled HumioPdfRenderService without TLS secret")
@@ -604,7 +604,7 @@ var _ = Describe("HumioCluster Controller", func() {
 						Value: "true",
 					},
 				)
-				Expect(k8sClient.Create(ctx, enablerHumioCluster)).To(Succeed())
+				suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, enablerHumioCluster, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 				defer suite.CleanupCluster(ctx, k8sClient, enablerHumioCluster)
 
 				By("Creating TLS-enabled HumioPdfRenderService with proper certificate")
@@ -666,7 +666,7 @@ var _ = Describe("HumioCluster Controller", func() {
 						Value: "true",
 					},
 				)
-				Expect(k8sClient.Create(ctx, enablerHumioCluster)).To(Succeed())
+				suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, enablerHumioCluster, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 				defer suite.CleanupCluster(ctx, k8sClient, enablerHumioCluster)
 
 				By("Creating non-TLS HumioPdfRenderService")
@@ -997,7 +997,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					Value: "true",
 				},
 			)
-			Expect(k8sClient.Create(ctx, enablerHumioCluster)).To(Succeed())
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, enablerHumioCluster, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
 			defer suite.CleanupCluster(ctx, k8sClient, enablerHumioCluster)
 
 			// Create referenced PDF render service and wait for readiness
