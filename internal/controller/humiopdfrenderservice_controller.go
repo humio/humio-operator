@@ -358,17 +358,50 @@ func shouldWatchSecret(hprs *humiov1alpha1.HumioPdfRenderService, secretName str
 func (r *HumioPdfRenderServiceReconciler) ensureFinalizer(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) (ctrl.Result, error) {
 	if hprs.DeletionTimestamp.IsZero() {
 		if controllerutil.AddFinalizer(hprs, hprsFinalizer) {
-			return ctrl.Result{Requeue: true}, r.Update(ctx, hprs)
+			if err := r.Update(ctx, hprs); err != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{Requeue: true}, nil
 		}
 		return ctrl.Result{}, nil
 	}
-	// TODO: Implement deleteChildren in the next step
+	
+	// Handle deletion - delete children first
 	if err := r.deleteChildren(ctx, hprs); err != nil {
-		return ctrl.Result{}, err
+		r.Log.Error(err, "Failed to delete child resources during finalization")
+		return ctrl.Result{RequeueAfter: time.Second * 30}, err
 	}
-	if controllerutil.RemoveFinalizer(hprs, hprsFinalizer) {
-		return ctrl.Result{Requeue: true}, r.Update(ctx, hprs)
+	
+	// Remove finalizer with retry logic to handle resource version conflicts
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Get the latest version of the resource
+		latest := &humiov1alpha1.HumioPdfRenderService{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(hprs), latest); err != nil {
+			if k8serrors.IsNotFound(err) {
+				// Resource was already deleted, nothing to do
+				r.Log.Info("Resource already deleted during finalizer removal")
+				return nil
+			}
+			return err
+		}
+		
+		// Check if finalizer still exists and remove it
+		if controllerutil.RemoveFinalizer(latest, hprsFinalizer) {
+			r.Log.Info("Removing finalizer from resource", "resourceVersion", latest.ResourceVersion)
+			return r.Update(ctx, latest)
+		}
+		// Finalizer was already removed
+		return nil
+	})
+	
+	if err != nil {
+		r.Log.Error(err, "Failed to remove finalizer after retries")
+		return ctrl.Result{RequeueAfter: time.Second * 30}, err
 	}
+	
+	r.Log.Info("Successfully removed finalizer, resource will be deleted")
+	return ctrl.Result{}, nil
+	
 	return ctrl.Result{}, nil
 }
 
