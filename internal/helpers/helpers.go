@@ -324,7 +324,6 @@ func EmptySliceIfNil(slice []string) []string {
 }
 
 // PdfRenderServiceChildName generates the child resource name for a HumioPdfRenderService.
-
 // This uses the CR name to ensure unique names per instance within the namespace.
 // The result is guaranteed to be under 63 characters to meet Kubernetes naming requirements.
 func PdfRenderServiceChildName(pdfServiceName string) string {
