@@ -50,8 +50,8 @@ const (
 	caCertMountPath      = "/etc/ca"
 	caCertVolumeName     = "ca" // For CA cert to talk to Humio Cluster
 
-	// Finalizer applied to HumioPdfRenderService resources
-	hprsFinalizer = "core.humio.com/finalizer"
+	// Following HumioCluster pattern - no finalizers used
+	// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 
 	// Certificate hash annotation for tracking certificate changes
 	HPRSCertificateHashAnnotation = "humio.com/hprs-certificate-hash"
@@ -167,13 +167,10 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
 		return ctrl.Result{}, reconcileErr
 	}
-	// Finalizer
-	if res, err := r.ensureFinalizer(ctx, hprs); err != nil || res.Requeue {
-		return res, err
-	}
+	// Following HumioCluster pattern - no finalizers used
+	// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 
 	// Check if PDF Render Service feature is enabled by any HumioCluster
-	// Only check this after finalizer logic to avoid interfering with deletion
 	pdfFeatureEnabled := r.isPdfRenderServiceEnabled(ctx, hprs.Namespace)
 	if !pdfFeatureEnabled {
 		// If the service has not reached Running yet we still prevent it from
@@ -355,108 +352,13 @@ func shouldWatchSecret(hprs *humiov1alpha1.HumioPdfRenderService, secretName str
 	return false
 }
 
-func (r *HumioPdfRenderServiceReconciler) ensureFinalizer(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) (ctrl.Result, error) {
-	if hprs.DeletionTimestamp.IsZero() {
-		if controllerutil.AddFinalizer(hprs, hprsFinalizer) {
-			if err := r.Update(ctx, hprs); err != nil {
-				return ctrl.Result{}, err
-			}
-			return ctrl.Result{Requeue: true}, nil
-		}
-		return ctrl.Result{}, nil
-	}
+// Following HumioCluster pattern - no finalizers used
+// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
+// Note: Resource cleanup testing is not included as it relies on Kubernetes garbage
+// collection which may not work consistently in test environments.
 
-	// Handle deletion - delete children first
-	if err := r.deleteChildren(ctx, hprs); err != nil {
-		r.Log.Error(err, "Failed to delete child resources during finalization")
-		return ctrl.Result{RequeueAfter: time.Second * 30}, err
-	}
-
-	// Remove finalizer with retry logic to handle resource version conflicts
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		// Get the latest version of the resource
-		latest := &humiov1alpha1.HumioPdfRenderService{}
-		if err := r.Get(ctx, client.ObjectKeyFromObject(hprs), latest); err != nil {
-			if k8serrors.IsNotFound(err) {
-				// Resource was already deleted, nothing to do
-				r.Log.Info("Resource already deleted during finalizer removal")
-				return nil
-			}
-			return err
-		}
-
-		// Check if finalizer still exists and remove it
-		if controllerutil.RemoveFinalizer(latest, hprsFinalizer) {
-			r.Log.Info("Removing finalizer from resource", "resourceVersion", latest.ResourceVersion)
-			return r.Update(ctx, latest)
-		}
-		// Finalizer was already removed
-		return nil
-	})
-
-	if err != nil {
-		r.Log.Error(err, "Failed to remove finalizer after retries")
-		return ctrl.Result{RequeueAfter: time.Second * 30}, err
-	}
-
-	r.Log.Info("Successfully removed finalizer, resource will be deleted")
-	return ctrl.Result{}, nil
-}
-
-func (r *HumioPdfRenderServiceReconciler) deleteChildren(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
-	// bulk delete by label selector
-	r.Log.Info("Bulk-deleting child Deployments and Services")
-
-	selector := client.MatchingLabels{"humio-pdf-render-service": hprs.Name}
-
-	// Delete all Deployments
-	if err := r.DeleteAllOf(
-		ctx,
-		&appsv1.Deployment{},
-		client.InNamespace(hprs.Namespace),
-		selector,
-	); err != nil {
-		r.Log.Error(err, "Failed to bulk delete Deployments")
-		return err
-	}
-
-	// Delete all Services
-	if err := r.DeleteAllOf(
-		ctx,
-		&corev1.Service{},
-		client.InNamespace(hprs.Namespace),
-		selector,
-	); err != nil {
-		r.Log.Error(err, "Failed to bulk delete Services")
-		return err
-	}
-
-	// Delete certificates and issuers if cert-manager is enabled
-	if helpers.UseCertManager() {
-		if err := r.DeleteAllOf(
-			ctx,
-			&cmapi.Certificate{},
-			client.InNamespace(hprs.Namespace),
-			selector,
-		); err != nil {
-			r.Log.Error(err, "Failed to bulk delete Certificates")
-			return err
-		}
-
-		if err := r.DeleteAllOf(
-			ctx,
-			&cmapi.Issuer{},
-			client.InNamespace(hprs.Namespace),
-			selector,
-		); err != nil {
-			r.Log.Error(err, "Failed to bulk delete Issuers")
-			return err
-		}
-	}
-
-	r.Log.Info("Bulk delete completed")
-	return nil
-}
+// Following HumioCluster pattern - no finalizers used
+// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 
 // nolint:gocyclo
 // reconcileDeployment creates or updates the Deployment for the HumioPdfRenderService.
