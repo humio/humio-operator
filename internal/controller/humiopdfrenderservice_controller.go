@@ -365,13 +365,13 @@ func (r *HumioPdfRenderServiceReconciler) ensureFinalizer(ctx context.Context, h
 		}
 		return ctrl.Result{}, nil
 	}
-	
+
 	// Handle deletion - delete children first
 	if err := r.deleteChildren(ctx, hprs); err != nil {
 		r.Log.Error(err, "Failed to delete child resources during finalization")
 		return ctrl.Result{RequeueAfter: time.Second * 30}, err
 	}
-	
+
 	// Remove finalizer with retry logic to handle resource version conflicts
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Get the latest version of the resource
@@ -384,7 +384,7 @@ func (r *HumioPdfRenderServiceReconciler) ensureFinalizer(ctx context.Context, h
 			}
 			return err
 		}
-		
+
 		// Check if finalizer still exists and remove it
 		if controllerutil.RemoveFinalizer(latest, hprsFinalizer) {
 			r.Log.Info("Removing finalizer from resource", "resourceVersion", latest.ResourceVersion)
@@ -393,15 +393,13 @@ func (r *HumioPdfRenderServiceReconciler) ensureFinalizer(ctx context.Context, h
 		// Finalizer was already removed
 		return nil
 	})
-	
+
 	if err != nil {
 		r.Log.Error(err, "Failed to remove finalizer after retries")
 		return ctrl.Result{RequeueAfter: time.Second * 30}, err
 	}
-	
+
 	r.Log.Info("Successfully removed finalizer, resource will be deleted")
-	return ctrl.Result{}, nil
-	
 	return ctrl.Result{}, nil
 }
 
