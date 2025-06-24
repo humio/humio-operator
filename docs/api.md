@@ -46794,7 +46794,8 @@ Status reflects the observed state of HumioPdfRenderService
         <td><b>state</b></td>
         <td>string</td>
         <td>
-          <br/>
+          State represents the overall state of the PDF rendering service.
+Possible values include: "Running", "Configuring", "ConfigError", "ScaledDown", "Error", "Unknown".<br/>
         </td>
         <td>false</td>
       </tr></tbody>

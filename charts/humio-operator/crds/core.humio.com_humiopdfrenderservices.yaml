@@ -4731,6 +4731,9 @@ spec:
                 format: int32
                 type: integer
               state:
+                description: |-
+                  State represents the overall state of the PDF rendering service.
+                  Possible values include: "Running", "Configuring", "ConfigError", "ScaledDown", "Error", "Unknown".
                 type: string
             type: object
         required:
