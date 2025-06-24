@@ -480,8 +480,9 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 	}
 	// +kubebuilder:scaffold:builder
 	if err = (&controller.HumioPdfRenderServiceReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		BaseLogger: log,
 		CommonConfig: controller.CommonConfig{
 			RequeuePeriod: requeuePeriod,
 		},

@@ -348,7 +348,7 @@ func getActionType(action humiographql.ActionDetails) string {
 	case *humiographql.ActionDetailsWebhookAction:
 		return "webhook"
 	default:
-		return "unknown"
+		return unknownStatus
 	}
 }
 

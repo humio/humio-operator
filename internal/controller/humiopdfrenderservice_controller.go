@@ -50,11 +50,14 @@ const (
 	caCertMountPath      = "/etc/ca"
 	caCertVolumeName     = "ca" // For CA cert to talk to Humio Cluster
 
-	// Finalizer applied to HumioPdfRenderService resources
-	hprsFinalizer = "core.humio.com/finalizer"
+	// Following HumioCluster pattern - no finalizers used
+	// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 
 	// Certificate hash annotation for tracking certificate changes
 	HPRSCertificateHashAnnotation = "humio.com/hprs-certificate-hash"
+
+	// Common unknown status value
+	unknownStatus = "unknown"
 )
 
 // +kubebuilder:rbac:groups=core.humio.com,resources=humiopdfrenderservices,verbs=get;list;watch;create;update;patch;delete
@@ -82,58 +85,11 @@ type SanitizePodOpts struct {
 	CAVolumeName  string
 }
 
-// isPdfRenderServiceEnabled checks if the PDF Render Service feature is enabled
-// by checking if any HumioCluster has ENABLE_SCHEDULED_REPORT=true environment variable
-func (r *HumioPdfRenderServiceReconciler) isPdfRenderServiceEnabled(ctx context.Context, namespace string) bool {
-	var humioClusters humiov1alpha1.HumioClusterList
-	if err := r.List(ctx, &humioClusters, client.InNamespace(namespace)); err != nil {
-		r.Log.Error(err, "Failed to list HumioClusters to check ENABLE_SCHEDULED_REPORT", "namespace", namespace)
-		return false
-	}
-
-	r.Log.Info("Found HumioClusters", "count", len(humioClusters.Items), "namespace", namespace)
-
-	if len(humioClusters.Items) == 0 {
-		r.Log.Info("No HumioClusters found in namespace", "namespace", namespace)
-		return false
-	}
-
-	for _, cluster := range humioClusters.Items {
-		r.Log.Info("Checking HumioCluster for ENABLE_SCHEDULED_REPORT",
-			"cluster", cluster.Name, "namespace", cluster.Namespace,
-			"state", cluster.Status.State,
-			"commonEnvVars", len(cluster.Spec.CommonEnvironmentVariables),
-			"envVars", len(cluster.Spec.EnvironmentVariables))
-
-		// Check both CommonEnvironmentVariables and EnvironmentVariables for ENABLE_SCHEDULED_REPORT
-		for _, envVar := range cluster.Spec.CommonEnvironmentVariables {
-			r.Log.Info("Checking CommonEnvironmentVariable", "name", envVar.Name, "value", envVar.Value)
-			if envVar.Name == "ENABLE_SCHEDULED_REPORT" && strings.ToLower(envVar.Value) == "true" {
-				r.Log.Info("Found ENABLE_SCHEDULED_REPORT=true in HumioCluster CommonEnvironmentVariables",
-					"cluster", cluster.Name, "namespace", cluster.Namespace)
-				return true
-			}
-		}
-		for _, envVar := range cluster.Spec.EnvironmentVariables {
-			r.Log.Info("Checking EnvironmentVariable", "name", envVar.Name, "value", envVar.Value)
-			if envVar.Name == "ENABLE_SCHEDULED_REPORT" && strings.ToLower(envVar.Value) == "true" {
-				r.Log.Info("Found ENABLE_SCHEDULED_REPORT=true in HumioCluster EnvironmentVariables",
-					"cluster", cluster.Name, "namespace", cluster.Namespace)
-				return true
-			}
-		}
-	}
-	r.Log.Info("No HumioCluster found with ENABLE_SCHEDULED_REPORT=true", "namespace", namespace)
-	return false
-}
-
+// nolint:gocyclo
 // Reconcile implements the reconciliation logic for HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.BaseLogger.WithValues("hprsName", req.Name, "hprsNamespace", req.Namespace)
 	r.Log = log
-
-	// DEBUG: Add entry log to confirm controller is being called
-	log.Info("HumioPdfRenderService controller Reconcile called", "request", req.String())
 
 	hprs := &humiov1alpha1.HumioPdfRenderService{}
 	if err := r.Get(ctx, req.NamespacedName, hprs); err != nil {
@@ -167,38 +123,30 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
 		return ctrl.Result{}, reconcileErr
 	}
-	// Finalizer
-	if res, err := r.ensureFinalizer(ctx, hprs); err != nil || res.Requeue {
-		return res, err
-	}
+	// Following HumioCluster pattern - no finalizers used
+	// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 
-	// Check if PDF Render Service feature is enabled by any HumioCluster
-	// Only check this after finalizer logic to avoid interfering with deletion
-	pdfFeatureEnabled := r.isPdfRenderServiceEnabled(ctx, hprs.Namespace)
-	if !pdfFeatureEnabled {
-		// If the service has not reached Running yet we still prevent it from
-		// starting.  Once it is Running we keep it alive even when the feature
-		// is disabled – this satisfies the “operates independently” contract.
-		if hprs.Status.State != humiov1alpha1.HumioPdfRenderServiceStateRunning {
-			log.Info("Feature disabled and service not yet running → scale down to 0")
+	// PDF Render Service operates independently from HumioCluster
+	// No need to check for ENABLE_SCHEDULED_REPORT or HumioCluster state
 
-			// Temporarily set replicas to 0, reconcile deployment, then restore.
-			orig := hprs.Spec.Replicas
-			hprs.Spec.Replicas = 0
-			_, _, err := r.reconcileDeployment(ctx, hprs)
-			hprs.Spec.Replicas = orig
-			if err != nil {
-				reconcileErr = err
-				finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
-				return ctrl.Result{}, reconcileErr
-			}
+	// If we're already in Running state and the feature is still enabled,
+	// we can skip most of the reconciliation to reduce load during cluster updates
+	if hprs.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning &&
+		hprs.Status.ObservedGeneration == hprs.Generation {
+		// Just verify our deployment is still healthy
+		deploymentName := helpers.PdfRenderServiceChildName(hprs.Name)
+		deployment := &appsv1.Deployment{}
+		err := r.Get(ctx, types.NamespacedName{
+			Name:      deploymentName,
+			Namespace: hprs.Namespace,
+		}, deployment)
 
-			finalState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
-			return ctrl.Result{RequeueAfter: time.Minute}, nil
+		if err == nil && deployment.Status.ReadyReplicas >= hprs.Spec.Replicas {
+			// Everything is healthy, no need to reconcile further
+			log.Info("PDF Render Service is already running and healthy - skipping full reconciliation")
+			finalState = humiov1alpha1.HumioPdfRenderServiceStateRunning
+			return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
 		}
-
-		// Already running – keep it alive.
-		log.Info("Feature disabled but PDF Render Service is already Running – keeping it active")
 	}
 
 	log.Info("PDF Render Service feature is enabled - proceeding with reconciliation")
@@ -219,9 +167,30 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 				return ctrl.Result{}, reconcileErr
 			}
 		}
+	}
 
+	// Validate TLS configuration regardless of cert-manager usage
+	r.Log.Info("Checking if TLS is enabled for HPRS", "hprsName", hprs.Name, "hprsNamespace", hprs.Namespace,
+		"TLSEnabledForHPRS", helpers.TLSEnabledForHPRS(hprs),
+		"hprs.Spec.TLS", hprs.Spec.TLS,
+		"hprs.Spec.TLS.Enabled", func() string {
+			if hprs.Spec.TLS != nil && hprs.Spec.TLS.Enabled != nil {
+				return fmt.Sprintf("%v", *hprs.Spec.TLS.Enabled)
+			}
+			return "nil"
+		}())
+	if helpers.TLSEnabledForHPRS(hprs) {
 		// Validate spec (TLS etc.) AFTER ensuring certificates are created (if using cert-manager).
+		r.Log.Info("Starting TLS configuration validation", "hprsName", hprs.Name, "hprsNamespace", hprs.Namespace, "tlsEnabled", helpers.TLSEnabledForHPRS(hprs))
 		if err := r.validateTLSConfiguration(ctx, hprs); err != nil {
+			// Check if this is a transient certificate readiness issue with cert-manager
+			// Only treat as Configuring if cert-manager is actively processing the certificate
+			if helpers.UseCertManager() && strings.Contains(err.Error(), "cert-manager is still processing") {
+				r.Log.Info("Certificate not ready yet, will requeue", "hprsName", hprs.Name, "hprsNamespace", hprs.Namespace, "error", err)
+				finalState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+			r.Log.Error(err, "TLS configuration validation failed", "hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
 			reconcileErr = err
 			finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
 			return ctrl.Result{}, reconcileErr
@@ -251,22 +220,70 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// Determine state based on Deployment readiness
-	targetState := humiov1alpha1.HumioPdfRenderServiceStateRunning
-	if dep == nil || dep.Status.ReadyReplicas < hprs.Spec.Replicas || dep.Status.ObservedGeneration < dep.Generation {
-		targetState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
-	}
-	if hprs.Spec.Replicas == 0 {
-		targetState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
-	}
+	// Only update state if we haven't already encountered a ConfigError
+	if finalState != humiov1alpha1.HumioPdfRenderServiceStateConfigError {
+		targetState := humiov1alpha1.HumioPdfRenderServiceStateRunning
+		r.Log.Info("Checking deployment readiness for state determination",
+			"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace,
+			"depIsNil", dep == nil,
+			"readyReplicas", func() int32 {
+				if dep != nil {
+					return dep.Status.ReadyReplicas
+				} else {
+					return -1
+				}
+			}(),
+			"specReplicas", hprs.Spec.Replicas,
+			"depGeneration", func() int64 {
+				if dep != nil {
+					return dep.Generation
+				} else {
+					return -1
+				}
+			}(),
+			"depObservedGeneration", func() int64 {
+				if dep != nil {
+					return dep.Status.ObservedGeneration
+				} else {
+					return -1
+				}
+			}())
+		if dep == nil || dep.Status.ReadyReplicas < hprs.Spec.Replicas || dep.Status.ObservedGeneration < dep.Generation {
+			targetState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
+			r.Log.Info("PDF service will remain in Configuring state",
+				"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace, "reason",
+				func() string {
+					if dep == nil {
+						return "deployment is nil"
+					}
+					if dep.Status.ReadyReplicas < hprs.Spec.Replicas {
+						return fmt.Sprintf("readyReplicas (%d) < specReplicas (%d)", dep.Status.ReadyReplicas, hprs.Spec.Replicas)
+					}
+					if dep.Status.ObservedGeneration < dep.Generation {
+						return fmt.Sprintf("observedGeneration (%d) < generation (%d)", dep.Status.ObservedGeneration, dep.Generation)
+					}
+					return unknownStatus
+				}())
+		} else {
+			r.Log.Info("PDF service will transition to Running state",
+				"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace)
+		}
+		if hprs.Spec.Replicas == 0 {
+			targetState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
+		}
 
-	// Set final state for defer function to handle
-	finalState = targetState
+		// Set final state for defer function to handle
+		finalState = targetState
+	} else {
+		r.Log.Info("Preserving ConfigError state, skipping deployment readiness check",
+			"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace)
+	}
 
 	// Requeue while configuring or in error state.
-	if targetState == humiov1alpha1.HumioPdfRenderServiceStateConfiguring {
+	if finalState == humiov1alpha1.HumioPdfRenderServiceStateConfiguring {
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
-	if targetState == humiov1alpha1.HumioPdfRenderServiceStateConfigError {
+	if finalState == humiov1alpha1.HumioPdfRenderServiceStateConfigError {
 		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 	}
 	// Requeue shortly after Deployment changes.
@@ -283,29 +300,7 @@ func (r *HumioPdfRenderServiceReconciler) SetupWithManager(mgr ctrl.Manager) err
 		For(&humiov1alpha1.HumioPdfRenderService{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
-		Owns(&autoscalingv2.HorizontalPodAutoscaler{}).
-		// Watch HumioClusters to detect when ENABLE_SCHEDULED_REPORT is set
-		Watches(&humiov1alpha1.HumioCluster{}, handler.EnqueueRequestsFromMapFunc(
-			func(ctx context.Context, obj client.Object) []reconcile.Request {
-				// When a HumioCluster changes, requeue all HumioPdfRenderServices
-				// so they can check if they should be enabled/disabled
-				var hprsList humiov1alpha1.HumioPdfRenderServiceList
-				if err := mgr.GetClient().List(ctx, &hprsList, client.InNamespace(obj.GetNamespace())); err != nil {
-					return nil
-				}
-
-				var requests []reconcile.Request
-				for _, hprs := range hprsList.Items {
-					requests = append(requests, reconcile.Request{
-						NamespacedName: types.NamespacedName{
-							Name:      hprs.Name,
-							Namespace: hprs.Namespace,
-						},
-					})
-				}
-				return requests
-			},
-		))
+		Owns(&autoscalingv2.HorizontalPodAutoscaler{})
 
 	// Only set up cert-manager watches if cert-manager is enabled
 	if helpers.UseCertManager() {
@@ -355,84 +350,19 @@ func shouldWatchSecret(hprs *humiov1alpha1.HumioPdfRenderService, secretName str
 	return false
 }
 
-func (r *HumioPdfRenderServiceReconciler) ensureFinalizer(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) (ctrl.Result, error) {
-	if hprs.DeletionTimestamp.IsZero() {
-		if controllerutil.AddFinalizer(hprs, hprsFinalizer) {
-			return ctrl.Result{Requeue: true}, r.Update(ctx, hprs)
-		}
-		return ctrl.Result{}, nil
-	}
-	// TODO: Implement deleteChildren in the next step
-	if err := r.deleteChildren(ctx, hprs); err != nil {
-		return ctrl.Result{}, err
-	}
-	if controllerutil.RemoveFinalizer(hprs, hprsFinalizer) {
-		return ctrl.Result{Requeue: true}, r.Update(ctx, hprs)
-	}
-	return ctrl.Result{}, nil
-}
+// Following HumioCluster pattern - no finalizers used
+// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
+// Note: Resource cleanup testing is not included as it relies on Kubernetes garbage
+// collection which may not work consistently in test environments.
 
-func (r *HumioPdfRenderServiceReconciler) deleteChildren(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
-	// bulk delete by label selector
-	r.Log.Info("Bulk-deleting child Deployments and Services")
-
-	selector := client.MatchingLabels{"humio-pdf-render-service": hprs.Name}
-
-	// Delete all Deployments
-	if err := r.DeleteAllOf(
-		ctx,
-		&appsv1.Deployment{},
-		client.InNamespace(hprs.Namespace),
-		selector,
-	); err != nil {
-		r.Log.Error(err, "Failed to bulk delete Deployments")
-		return err
-	}
-
-	// Delete all Services
-	if err := r.DeleteAllOf(
-		ctx,
-		&corev1.Service{},
-		client.InNamespace(hprs.Namespace),
-		selector,
-	); err != nil {
-		r.Log.Error(err, "Failed to bulk delete Services")
-		return err
-	}
-
-	// Delete certificates and issuers if cert-manager is enabled
-	if helpers.UseCertManager() {
-		if err := r.DeleteAllOf(
-			ctx,
-			&cmapi.Certificate{},
-			client.InNamespace(hprs.Namespace),
-			selector,
-		); err != nil {
-			r.Log.Error(err, "Failed to bulk delete Certificates")
-			return err
-		}
-
-		if err := r.DeleteAllOf(
-			ctx,
-			&cmapi.Issuer{},
-			client.InNamespace(hprs.Namespace),
-			selector,
-		); err != nil {
-			r.Log.Error(err, "Failed to bulk delete Issuers")
-			return err
-		}
-	}
-
-	r.Log.Info("Bulk delete completed")
-	return nil
-}
+// Following HumioCluster pattern - no finalizers used
+// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 
 // nolint:gocyclo
 // reconcileDeployment creates or updates the Deployment for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) (controllerutil.OperationResult, *appsv1.Deployment, error) {
 	log := r.Log.WithValues("function", "reconcileDeployment")
 	desired := r.constructDesiredDeployment(hprs)
-	log.Info("Constructed desired Deployment spec.", "desiredImage", desired.Spec.Template.Spec.Containers[0].Image, "desiredReplicas", *desired.Spec.Replicas)
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -552,11 +482,6 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 			needsUpdate = true
 			log.Info("Pod template spec changed", "currentHash", currentHash, "desiredHash", desiredHash)
 
-			// DEBUG: Add detailed logging to identify the differences
-			currentJSON, _ := json.MarshalIndent(sanitizedCurrentPod.Spec, "", "  ")
-			desiredJSON, _ := json.MarshalIndent(sanitizedDesiredPod.Spec, "", "  ")
-			log.Info("DEBUG: Current sanitized pod spec", "spec", string(currentJSON))
-			log.Info("DEBUG: Desired sanitized pod spec", "spec", string(desiredJSON))
 		}
 
 		// Compare pod template labels
@@ -611,6 +536,8 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 					dep.Status.Replicas = *dep.Spec.Replicas
 					// In envtest, assume pods are ready since we don't have a real deployment controller
 					dep.Status.ReadyReplicas = *dep.Spec.Replicas
+					dep.Status.UpdatedReplicas = *dep.Spec.Replicas
+					dep.Status.AvailableReplicas = *dep.Spec.Replicas
 				}
 
 				statusErr := r.Client.Status().Update(ctx, dep)
@@ -651,6 +578,32 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 		if updateErr == nil {
 			op = controllerutil.OperationResultUpdated
 			log.Info("Deployment successfully updated.", "deploymentName", dep.Name)
+
+			// In envtest, update deployment status to simulate a real deployment controller
+			if helpers.UseEnvtest() {
+				log.Info("Updating deployment status in envtest after update")
+
+				// Update the observedGeneration to match the current generation
+				dep.Status.ObservedGeneration = dep.Generation
+
+				// Also update replicas count to match the spec
+				if dep.Spec.Replicas != nil {
+					dep.Status.Replicas = *dep.Spec.Replicas
+					// In envtest, assume pods are ready since we don't have a real deployment controller
+					dep.Status.ReadyReplicas = *dep.Spec.Replicas
+					dep.Status.UpdatedReplicas = *dep.Spec.Replicas
+					dep.Status.AvailableReplicas = *dep.Spec.Replicas
+				}
+
+				statusErr := r.Client.Status().Update(ctx, dep)
+				if statusErr != nil {
+					log.Error(statusErr, "Failed to update deployment status in envtest after update")
+				} else {
+					log.Info("Successfully updated deployment status in envtest after update",
+						"observedGeneration", dep.Status.ObservedGeneration,
+						"readyReplicas", dep.Status.ReadyReplicas)
+				}
+			}
 		} else {
 			if k8serrors.IsConflict(updateErr) {
 				log.Info("Conflict during Deployment update, will retry.", "deploymentName", dep.Name)
@@ -682,6 +635,34 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 			"generation", dep.Generation,
 			"observedGeneration", dep.Status.ObservedGeneration,
 			"readyReplicas", dep.Status.ReadyReplicas)
+	}
+
+	// In envtest, ensure deployment status is up-to-date even when no spec changes were made
+	if helpers.UseEnvtest() && dep.Status.ObservedGeneration < dep.Generation {
+		log.Info("Updating deployment status in envtest to ensure readiness",
+			"currentObservedGeneration", dep.Status.ObservedGeneration,
+			"currentGeneration", dep.Generation)
+
+		// Update the observedGeneration to match the current generation
+		dep.Status.ObservedGeneration = dep.Generation
+
+		// Also update replicas count to match the spec
+		if dep.Spec.Replicas != nil {
+			dep.Status.Replicas = *dep.Spec.Replicas
+			// In envtest, assume pods are ready since we don't have a real deployment controller
+			dep.Status.ReadyReplicas = *dep.Spec.Replicas
+			dep.Status.UpdatedReplicas = *dep.Spec.Replicas
+			dep.Status.AvailableReplicas = *dep.Spec.Replicas
+		}
+
+		statusErr := r.Client.Status().Update(ctx, dep)
+		if statusErr != nil {
+			log.Error(statusErr, "Failed to update deployment status in envtest")
+		} else {
+			log.Info("Successfully updated deployment status in envtest",
+				"observedGeneration", dep.Status.ObservedGeneration,
+				"readyReplicas", dep.Status.ReadyReplicas)
+		}
 	}
 
 	if op != controllerutil.OperationResultNone {
@@ -811,10 +792,6 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(
 	log := r.Log.WithValues("function", "reconcileService")
 
 	desired := r.constructDesiredService(hprs)
-	log.Info("Constructed desired Service spec.",
-		"serviceName", desired.Name,
-		"desiredType", desired.Spec.Type,
-		"desiredPorts", desired.Spec.Ports)
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -849,7 +826,6 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(
 		return fmt.Errorf("failed to reconcile Service %s: %w", desired.Name, err)
 	}
 
-	log.Info("Service reconciled successfully.", "serviceName", svc.Name)
 	return nil
 }
 
@@ -1219,7 +1195,7 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 		)
 
 		// Add CA file argument if custom CA is specified
-		if hprs.Spec.TLS.CASecretName != "" {
+		if helpers.UseExistingCAForHPRS(hprs) {
 			container.Args = append(container.Args, "--ca-file=/etc/ca/ca.crt")
 		}
 	}
@@ -1342,13 +1318,14 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 	})
 
 	// CA certificate configuration - for communicating with HumioCluster
-	if hprs.Spec.TLS.CASecretName != "" {
+	caSecretName := helpers.GetCASecretNameForHPRS(hprs)
+	if caSecretName != "" {
 		// Add CA certificate volume
 		vols = append(vols, corev1.Volume{
 			Name: caCertVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: hprs.Spec.TLS.CASecretName,
+					SecretName: caSecretName,
 					Items: []corev1.KeyToPath{
 						{
 							Key:  "ca.crt",
@@ -1378,6 +1355,12 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 func (r *HumioPdfRenderServiceReconciler) EnsureValidCAIssuerForHPRS(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
 	if !helpers.TLSEnabledForHPRS(hprs) {
 		return nil
+	}
+
+	// Ensure CA secret exists FIRST before creating the Issuer
+	// This is required because the Issuer references the CA secret
+	if err := r.ensureValidCASecretForHPRS(ctx, hprs); err != nil {
+		return err
 	}
 
 	r.Log.Info("checking for an existing valid CA Issuer")
@@ -1499,49 +1482,73 @@ func (r *HumioPdfRenderServiceReconciler) constructHprsCertificate(hprs *humiov1
 }
 
 // validateTLSConfiguration ensures a valid TLS configuration for the PDF render service.
-// This checks the server certificate first, then the CA certificate, following test expectations.
+// This validates that the server certificate secret exists and contains the required keys.
 func (r *HumioPdfRenderServiceReconciler) validateTLSConfiguration(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
 	// Double-check TLS configuration to ensure we never validate TLS when it's explicitly disabled
 	if hprs.Spec.TLS != nil && hprs.Spec.TLS.Enabled != nil && !*hprs.Spec.TLS.Enabled {
 		// TLS is explicitly disabled - never validate certificates
+		r.Log.Info("TLS is explicitly disabled, skipping validation")
 		return nil
 	}
 
 	if !helpers.TLSEnabledForHPRS(hprs) {
+		r.Log.Info("TLS is not enabled for HPRS, skipping validation")
 		return nil
 	}
 
-	// Step 1: Validate server certificate secret existence and keys FIRST.
+	r.Log.Info("TLS is enabled for HPRS, proceeding with validation")
+
+	// Validate server certificate secret existence and keys
 	// This ensures we fail early with the expected "TLS-certificate" error message if the server cert is missing.
 	serverCertSecretName := fmt.Sprintf("%s-tls", childName(hprs))
+	r.Log.Info("Checking for TLS certificate secret", "secretName", serverCertSecretName, "namespace", hprs.Namespace)
 	var tlsSecret corev1.Secret
 	if err := r.Get(ctx, types.NamespacedName{Name: serverCertSecretName, Namespace: hprs.Namespace}, &tlsSecret); err != nil {
 		if k8serrors.IsNotFound(err) {
-			if helpers.UseCertManager() {
-				// When using cert-manager, the certificate creation might still be in progress
-				// Check if the Certificate resource exists first
-				certificateName := fmt.Sprintf("%s-tls", childName(hprs))
-				var cert cmapi.Certificate
-				if certErr := r.Get(ctx, types.NamespacedName{Name: certificateName, Namespace: hprs.Namespace}, &cert); certErr != nil {
-					if k8serrors.IsNotFound(certErr) {
-						// Certificate resource doesn't exist, this is a real error
-						return fmt.Errorf("TLS is enabled for HPRS %s/%s, but its server TLS-certificate secret %s was not found: %w", hprs.Namespace, hprs.Name, serverCertSecretName, err)
-					}
-					// Other error getting certificate
-					return fmt.Errorf("failed to check Certificate resource %s for HPRS %s/%s: %w", certificateName, hprs.Namespace, hprs.Name, certErr)
-				}
-				// Certificate exists but secret doesn't - cert-manager is still working
-				r.Log.Info("Certificate resource exists but secret is not ready yet, cert-manager is still processing",
-					"certificateName", certificateName, "secretName", serverCertSecretName, "hprsName", hprs.Name)
-				// Return a non-fatal error that will cause requeue
-				return fmt.Errorf("TLS certificate secret %s is not ready yet, cert-manager is still processing the certificate", serverCertSecretName)
-			} else {
-				// When not using cert-manager, this is a configuration error
-				return fmt.Errorf("TLS is enabled for HPRS %s/%s, but its server TLS-certificate secret %s was not found and cert-manager is not enabled: %w", hprs.Namespace, hprs.Name, serverCertSecretName, err)
+			r.Log.Info("TLS certificate secret not found", "secretName", serverCertSecretName, "namespace", hprs.Namespace)
+			if !helpers.UseCertManager() {
+				// When cert-manager is not available, missing certificate secret is a configuration error
+				return fmt.Errorf("TLS is enabled for HPRS %s/%s, but its server TLS-certificate Secret \"%s\" not found", hprs.Namespace, hprs.Name, serverCertSecretName)
 			}
+			// When using cert-manager, the certificate creation might still be in progress
+			// Check if the Certificate resource exists first
+			certificateName := fmt.Sprintf("%s-tls", childName(hprs))
+			var cert cmapi.Certificate
+			if certErr := r.Get(ctx, types.NamespacedName{Name: certificateName, Namespace: hprs.Namespace}, &cert); certErr != nil {
+				if k8serrors.IsNotFound(certErr) {
+					// Certificate resource doesn't exist, this is a real error
+					return fmt.Errorf("TLS is enabled for HPRS %s/%s, but its server TLS-certificate secret %s was not found: %w", hprs.Namespace, hprs.Name, serverCertSecretName, err)
+				}
+				// Other error getting certificate
+				return fmt.Errorf("failed to check Certificate resource %s for HPRS %s/%s: %w", certificateName, hprs.Namespace, hprs.Name, certErr)
+			}
+			// Certificate exists but secret doesn't - check if cert-manager has had enough time
+			certAge := time.Since(cert.CreationTimestamp.Time)
+			r.Log.Info("Certificate resource exists but secret is not ready yet, cert-manager is still processing",
+				"certificateName", certificateName, "secretName", serverCertSecretName, "hprsName", hprs.Name,
+				"certificateAge", certAge.String(), "certificateCreationTime", cert.CreationTimestamp.String())
+
+			// Check if Certificate has been around long enough that we should consider this a failure
+			// Use longer timeout in test environments where cert-manager may be slower
+			timeoutThreshold := 20 * time.Second
+			if helpers.UseEnvtest() || helpers.UseKindCluster() {
+				timeoutThreshold = 60 * time.Second // 60 seconds for test environments
+			}
+
+			if certAge > timeoutThreshold {
+				// Certificate has existed for more than the threshold but secret still doesn't exist
+				// This indicates cert-manager failure, not just processing delay
+				r.Log.Info("Certificate has existed too long without creating secret, treating as configuration error",
+					"certificateAge", certAge.String(), "timeoutThreshold", timeoutThreshold.String())
+				return fmt.Errorf("TLS is enabled for HPRS %s/%s, but its server TLS-certificate Secret \"%s\" not found", hprs.Namespace, hprs.Name, serverCertSecretName)
+			}
+
+			// Return a non-fatal error that will cause requeue
+			return fmt.Errorf("TLS certificate secret %s is not ready yet, cert-manager is still processing the certificate", serverCertSecretName)
 		}
 		return fmt.Errorf("failed to get HPRS server TLS-certificate secret %s for HPRS %s/%s: %w", serverCertSecretName, hprs.Namespace, hprs.Name, err)
 	}
+	r.Log.Info("TLS certificate secret found, validating keys", "secretName", serverCertSecretName)
 	if _, ok := tlsSecret.Data[corev1.TLSCertKey]; !ok {
 		return fmt.Errorf("HPRS server TLS-certificate secret %s for HPRS %s/%s is missing key %s", serverCertSecretName, hprs.Namespace, hprs.Name, corev1.TLSCertKey)
 	}
@@ -1549,11 +1556,7 @@ func (r *HumioPdfRenderServiceReconciler) validateTLSConfiguration(ctx context.C
 		return fmt.Errorf("HPRS server TLS-certificate secret %s for HPRS %s/%s is missing key %s", serverCertSecretName, hprs.Namespace, hprs.Name, corev1.TLSPrivateKeyKey)
 	}
 
-	// Step 2: Only after server certificate is valid, ensure CA secret is valid
-	if err := r.ensureValidCASecretForHPRS(ctx, hprs); err != nil {
-		return err
-	}
-
+	r.Log.Info("TLS validation passed successfully", "secretName", serverCertSecretName)
 	return nil
 }
 
