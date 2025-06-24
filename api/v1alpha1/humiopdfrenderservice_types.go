@@ -72,8 +72,6 @@ const (
 	HumioPdfRenderServiceScaledDown HumioPdfRenderServiceConditionType = "ScaledDown"
 )
 
-// ...existing code...
-
 // HumioPdfRenderServiceSpec defines the desired state of HumioPdfRenderService
 type HumioPdfRenderServiceSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -191,14 +189,16 @@ type HumioPdfRenderServiceStatus struct {
 	// +optional
 	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
 
-	// State represents the overall state of the PDF rendering service.
-
 	// Conditions represents the latest available observations of current state.
 	// +optional
 	// +listType=map
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
-	State      string             `json:"state,omitempty"`
+
+	// State represents the overall state of the PDF rendering service.
+	// Possible values include: "Running", "Configuring", "ConfigError", "ScaledDown", "Error", "Unknown".
+	// +optional
+	State string `json:"state,omitempty"`
 
 	// ObservedGeneration is the most recent generation observed for this resource
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
