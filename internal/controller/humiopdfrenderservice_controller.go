@@ -76,6 +76,12 @@ type HumioPdfRenderServiceReconciler struct {
 	Log        logr.Logger // Added back for helper functions
 }
 
+// SanitizePodOpts contains options for pod sanitization specific to PDF Render Service
+type SanitizePodOpts struct {
+	TLSVolumeName string
+	CAVolumeName  string
+}
+
 // isPdfRenderServiceEnabled checks if the PDF Render Service feature is enabled
 // by checking if any HumioCluster has ENABLE_SCHEDULED_REPORT=true environment variable
 func (r *HumioPdfRenderServiceReconciler) isPdfRenderServiceEnabled(ctx context.Context, namespace string) bool {
@@ -512,14 +518,15 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 		// sanitizedCurrentPod := sanitizePodForPdfRenderService(currentPod.DeepCopy())
 		// sanitizedDesiredPod := sanitizePodForPdfRenderService(desiredPod.DeepCopy())
 
-		sanitizedCurrentPod := SanitizePod(currentPod.DeepCopy(), SanitizePodOpts{
+		// Create sanitization options once to avoid duplication
+		sanitizeOpts := SanitizePodOpts{
 			TLSVolumeName: pdfTLSCertVolumeName,
 			CAVolumeName:  caCertVolumeName,
-		})
-		sanitizedDesiredPod := SanitizePod(desiredPod.DeepCopy(), SanitizePodOpts{
-			TLSVolumeName: pdfTLSCertVolumeName,
-			CAVolumeName:  caCertVolumeName,
-		})
+		}
+
+		// Sanitize both pods with the same options for consistent comparison
+		sanitizedCurrentPod := SanitizePod(currentPod.DeepCopy(), sanitizeOpts)
+		sanitizedDesiredPod := SanitizePod(desiredPod.DeepCopy(), sanitizeOpts)
 
 		// Additional sanitization for probe fields that can cause deployment update loops
 		sanitizePodProbesForHPRS(sanitizedCurrentPod)
@@ -685,108 +692,116 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 	return op, dep, nil
 }
 
-// sanitizePodForPdfRenderService removes known nondeterministic fields from a pod and returns it.
-// This is adapted from the HumioCluster controller's sanitizePod function for PDF Render Service pods.
-// func sanitizePodForPdfRenderService(pod *corev1.Pod) *corev1.Pod {
-// 	// Sanitize volumes to remove non-deterministic fields
-// 	sanitizedVolumes := make([]corev1.Volume, 0)
-// 	mode := int32(420)
+// SanitizePod removes known nondeterministic fields from a pod for consistent comparison.
+// This is specifically designed for PDF Render Service pods, adapted from the HumioCluster controller's sanitizePod function.
+func SanitizePod(pod *corev1.Pod, opts SanitizePodOpts) *corev1.Pod {
+	if pod == nil {
+		return nil
+	}
 
-// 	for _, volume := range pod.Spec.Volumes {
-// 		if volume.Name == pdfTLSCertVolumeName {
-// 			// Normalize TLS certificate volume
-// 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
-// 				Name: pdfTLSCertVolumeName,
-// 				VolumeSource: corev1.VolumeSource{
-// 					Secret: &corev1.SecretVolumeSource{
-// 						SecretName:  "", // Clear secret name for comparison
-// 						DefaultMode: &mode,
-// 					},
-// 				},
-// 			})
-// 		} else if volume.Name == caCertVolumeName {
-// 			// Normalize CA certificate volume
-// 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
-// 				Name: caCertVolumeName,
-// 				VolumeSource: corev1.VolumeSource{
-// 					Secret: &corev1.SecretVolumeSource{
-// 						SecretName: "", // Clear secret name for comparison
-// 						Items: []corev1.KeyToPath{
-// 							{
-// 								Key:  "ca.crt",
-// 								Path: "ca.crt",
-// 							},
-// 						},
-// 						DefaultMode: &mode,
-// 					},
-// 				},
-// 			})
-// 		} else if strings.HasPrefix(volume.Name, "kube-api-access-") {
-// 			// Normalize service account token volumes (auto-injected by k8s)
-// 			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
-// 				Name:         "kube-api-access-",
-// 				VolumeSource: corev1.VolumeSource{},
-// 			})
-// 		} else {
-// 			// Keep other volumes as-is
-// 			sanitizedVolumes = append(sanitizedVolumes, volume)
-// 		}
-// 	}
-// 	pod.Spec.Volumes = sanitizedVolumes
+	// Sanitize volumes to remove non-deterministic fields
+	sanitizedVolumes := make([]corev1.Volume, 0, len(pod.Spec.Volumes))
+	mode := int32(420)
 
-// 	// Values we don't set ourselves but which gets default values set.
-// 	// To get a cleaner diff we can set these values to their zero values.
-// 	pod.Spec.RestartPolicy = ""
-// 	pod.Spec.DNSPolicy = ""
-// 	pod.Spec.SchedulerName = ""
-// 	pod.Spec.Priority = nil
-// 	pod.Spec.EnableServiceLinks = nil
-// 	pod.Spec.PreemptionPolicy = nil
-// 	pod.Spec.DeprecatedServiceAccount = ""
-// 	pod.Spec.NodeName = ""
+	for _, volume := range pod.Spec.Volumes {
+		switch volume.Name {
+		case opts.TLSVolumeName:
+			// Normalize TLS certificate volume
+			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+				Name: opts.TLSVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  "", // Clear secret name for comparison
+						DefaultMode: &mode,
+					},
+				},
+			})
+		case opts.CAVolumeName:
+			// Normalize CA certificate volume
+			sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+				Name: opts.CAVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "", // Clear secret name for comparison
+						Items: []corev1.KeyToPath{
+							{
+								Key:  "ca.crt",
+								Path: "ca.crt",
+							},
+						},
+						DefaultMode: &mode,
+					},
+				},
+			})
+		default:
+			if strings.HasPrefix(volume.Name, "kube-api-access-") {
+				// Normalize service account token volumes (auto-injected by k8s)
+				sanitizedVolumes = append(sanitizedVolumes, corev1.Volume{
+					Name:         "kube-api-access-",
+					VolumeSource: corev1.VolumeSource{},
+				})
+			} else {
+				// Keep other volumes as-is
+				sanitizedVolumes = append(sanitizedVolumes, volume)
+			}
+		}
+	}
+	pod.Spec.Volumes = sanitizedVolumes
 
-// 	for i := range pod.Spec.InitContainers {
-// 		pod.Spec.InitContainers[i].TerminationMessagePath = ""
-// 		pod.Spec.InitContainers[i].TerminationMessagePolicy = ""
-// 		// Normalize ImagePullPolicy - let Kubernetes set the default based on image tag
-// 		if pod.Spec.InitContainers[i].ImagePullPolicy == "" {
-// 			imageParts := strings.Split(pod.Spec.InitContainers[i].Image, ":")
-// 			if len(imageParts) == 1 || imageParts[len(imageParts)-1] == "latest" {
-// 				pod.Spec.InitContainers[i].ImagePullPolicy = corev1.PullAlways
-// 			} else {
-// 				pod.Spec.InitContainers[i].ImagePullPolicy = corev1.PullIfNotPresent
-// 			}
-// 		}
-// 	}
+	// Values we don't set ourselves but which get default values set.
+	// To get a cleaner diff we can set these values to their zero values.
+	pod.Spec.RestartPolicy = ""
+	pod.Spec.DNSPolicy = ""
+	pod.Spec.SchedulerName = ""
+	pod.Spec.Priority = nil
+	pod.Spec.EnableServiceLinks = nil
+	pod.Spec.PreemptionPolicy = nil
+	pod.Spec.DeprecatedServiceAccount = ""
+	pod.Spec.NodeName = ""
 
-// 	for i := range pod.Spec.Containers {
-// 		pod.Spec.Containers[i].TerminationMessagePath = ""
-// 		pod.Spec.Containers[i].TerminationMessagePolicy = ""
-// 		// Normalize ImagePullPolicy - let Kubernetes set the default based on image tag
-// 		if pod.Spec.Containers[i].ImagePullPolicy == "" {
-// 			imageParts := strings.Split(pod.Spec.Containers[i].Image, ":")
-// 			if len(imageParts) == 1 || imageParts[len(imageParts)-1] == "latest" {
-// 				pod.Spec.Containers[i].ImagePullPolicy = corev1.PullAlways
-// 			} else {
-// 				pod.Spec.Containers[i].ImagePullPolicy = corev1.PullIfNotPresent
-// 			}
-// 		}
-// 	}
+	// Normalize container fields for both init and regular containers
+	for i := range pod.Spec.InitContainers {
+		pod.Spec.InitContainers[i].TerminationMessagePath = ""
+		pod.Spec.InitContainers[i].TerminationMessagePolicy = ""
+		// Normalize ImagePullPolicy - let Kubernetes set the default based on image tag
+		if pod.Spec.InitContainers[i].ImagePullPolicy == "" {
+			imageParts := strings.Split(pod.Spec.InitContainers[i].Image, ":")
+			if len(imageParts) == 1 || imageParts[len(imageParts)-1] == "latest" {
+				pod.Spec.InitContainers[i].ImagePullPolicy = corev1.PullAlways
+			} else {
+				pod.Spec.InitContainers[i].ImagePullPolicy = corev1.PullIfNotPresent
+			}
+		}
+	}
 
-// 	// Sort lists of container environment variables, so we won't get a diff because the order changes.
-// 	for i := range pod.Spec.Containers {
-// 		sort.SliceStable(pod.Spec.Containers[i].Env, func(j, k int) bool {
-// 			return pod.Spec.Containers[i].Env[j].Name > pod.Spec.Containers[i].Env[k].Name
-// 		})
-// 	}
-// 	for i := range pod.Spec.InitContainers {
-// 		sort.SliceStable(pod.Spec.InitContainers[i].Env, func(j, k int) bool {
-// 			return pod.Spec.InitContainers[i].Env[j].Name > pod.Spec.InitContainers[i].Env[k].Name
-// 		})
-// 	}
+	for i := range pod.Spec.Containers {
+		pod.Spec.Containers[i].TerminationMessagePath = ""
+		pod.Spec.Containers[i].TerminationMessagePolicy = ""
+		// Normalize ImagePullPolicy - let Kubernetes set the default based on image tag
+		if pod.Spec.Containers[i].ImagePullPolicy == "" {
+			imageParts := strings.Split(pod.Spec.Containers[i].Image, ":")
+			if len(imageParts) == 1 || imageParts[len(imageParts)-1] == "latest" {
+				pod.Spec.Containers[i].ImagePullPolicy = corev1.PullAlways
+			} else {
+				pod.Spec.Containers[i].ImagePullPolicy = corev1.PullIfNotPresent
+			}
+		}
+	}
 
-// 	return pod
-// }
+	// Sort lists of container environment variables, so we won't get a diff because the order changes.
+	for i := range pod.Spec.Containers {
+		sort.SliceStable(pod.Spec.Containers[i].Env, func(j, k int) bool {
+			return pod.Spec.Containers[i].Env[j].Name > pod.Spec.Containers[i].Env[k].Name
+		})
+	}
+	for i := range pod.Spec.InitContainers {
+		sort.SliceStable(pod.Spec.InitContainers[i].Env, func(j, k int) bool {
+			return pod.Spec.InitContainers[i].Env[j].Name > pod.Spec.InitContainers[i].Env[k].Name
+		})
+	}
+
+	return pod
+}
 
 // reconcileService creates or updates the Service for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) reconcileService(
