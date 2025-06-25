@@ -55,6 +55,9 @@ const (
 
 	// Certificate hash annotation for tracking certificate changes
 	HPRSCertificateHashAnnotation = "humio.com/hprs-certificate-hash"
+
+	// Common unknown status value
+	unknownStatus = "unknown"
 )
 
 // +kubebuilder:rbac:groups=core.humio.com,resources=humiopdfrenderservices,verbs=get;list;watch;create;update;patch;delete
@@ -127,6 +130,7 @@ func (r *HumioPdfRenderServiceReconciler) isPdfRenderServiceEnabled(ctx context.
 	return false
 }
 
+// nolint:gocyclo
 // Reconcile implements the reconciliation logic for HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.BaseLogger.WithValues("hprsName", req.Name, "hprsNamespace", req.Namespace)
@@ -218,7 +222,16 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		}
 
 		// Validate spec (TLS etc.) AFTER ensuring certificates are created (if using cert-manager).
+		r.Log.Info("Starting TLS configuration validation", "hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
 		if err := r.validateTLSConfiguration(ctx, hprs); err != nil {
+			// Check if this is a transient certificate readiness issue with cert-manager
+			// Only treat as Configuring if cert-manager is actively processing the certificate
+			if helpers.UseCertManager() && strings.Contains(err.Error(), "cert-manager is still processing") {
+				r.Log.Info("Certificate not ready yet, will requeue", "hprsName", hprs.Name, "hprsNamespace", hprs.Namespace, "error", err)
+				finalState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+			r.Log.Error(err, "TLS configuration validation failed", "hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
 			reconcileErr = err
 			finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
 			return ctrl.Result{}, reconcileErr
@@ -249,8 +262,50 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 
 	// Determine state based on Deployment readiness
 	targetState := humiov1alpha1.HumioPdfRenderServiceStateRunning
+	r.Log.Info("Checking deployment readiness for state determination",
+		"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace,
+		"depIsNil", dep == nil,
+		"readyReplicas", func() int32 {
+			if dep != nil {
+				return dep.Status.ReadyReplicas
+			} else {
+				return -1
+			}
+		}(),
+		"specReplicas", hprs.Spec.Replicas,
+		"depGeneration", func() int64 {
+			if dep != nil {
+				return dep.Generation
+			} else {
+				return -1
+			}
+		}(),
+		"depObservedGeneration", func() int64 {
+			if dep != nil {
+				return dep.Status.ObservedGeneration
+			} else {
+				return -1
+			}
+		}())
 	if dep == nil || dep.Status.ReadyReplicas < hprs.Spec.Replicas || dep.Status.ObservedGeneration < dep.Generation {
 		targetState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
+		r.Log.Info("PDF service will remain in Configuring state",
+			"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace, "reason",
+			func() string {
+				if dep == nil {
+					return "deployment is nil"
+				}
+				if dep.Status.ReadyReplicas < hprs.Spec.Replicas {
+					return fmt.Sprintf("readyReplicas (%d) < specReplicas (%d)", dep.Status.ReadyReplicas, hprs.Spec.Replicas)
+				}
+				if dep.Status.ObservedGeneration < dep.Generation {
+					return fmt.Sprintf("observedGeneration (%d) < generation (%d)", dep.Status.ObservedGeneration, dep.Generation)
+				}
+				return unknownStatus
+			}())
+	} else {
+		r.Log.Info("PDF service will transition to Running state",
+			"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
 	}
 	if hprs.Spec.Replicas == 0 {
 		targetState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
@@ -1450,28 +1505,39 @@ func (r *HumioPdfRenderServiceReconciler) validateTLSConfiguration(ctx context.C
 	var tlsSecret corev1.Secret
 	if err := r.Get(ctx, types.NamespacedName{Name: serverCertSecretName, Namespace: hprs.Namespace}, &tlsSecret); err != nil {
 		if k8serrors.IsNotFound(err) {
-			if helpers.UseCertManager() {
-				// When using cert-manager, the certificate creation might still be in progress
-				// Check if the Certificate resource exists first
-				certificateName := fmt.Sprintf("%s-tls", childName(hprs))
-				var cert cmapi.Certificate
-				if certErr := r.Get(ctx, types.NamespacedName{Name: certificateName, Namespace: hprs.Namespace}, &cert); certErr != nil {
-					if k8serrors.IsNotFound(certErr) {
-						// Certificate resource doesn't exist, this is a real error
-						return fmt.Errorf("TLS is enabled for HPRS %s/%s, but its server TLS-certificate secret %s was not found: %w", hprs.Namespace, hprs.Name, serverCertSecretName, err)
-					}
-					// Other error getting certificate
-					return fmt.Errorf("failed to check Certificate resource %s for HPRS %s/%s: %w", certificateName, hprs.Namespace, hprs.Name, certErr)
-				}
-				// Certificate exists but secret doesn't - cert-manager is still working
-				r.Log.Info("Certificate resource exists but secret is not ready yet, cert-manager is still processing",
-					"certificateName", certificateName, "secretName", serverCertSecretName, "hprsName", hprs.Name)
-				// Return a non-fatal error that will cause requeue
-				return fmt.Errorf("TLS certificate secret %s is not ready yet, cert-manager is still processing the certificate", serverCertSecretName)
-			} else {
-				// When not using cert-manager, this is a configuration error
-				return fmt.Errorf("TLS is enabled for HPRS %s/%s, but its server TLS-certificate secret %s was not found and cert-manager is not enabled: %w", hprs.Namespace, hprs.Name, serverCertSecretName, err)
+			if !helpers.UseCertManager() {
+				// When cert-manager is not available, missing certificate secret is a configuration error
+				return fmt.Errorf("TLS is enabled for HPRS %s/%s, but its server TLS-certificate Secret \"%s\" not found", hprs.Namespace, hprs.Name, serverCertSecretName)
 			}
+			// When using cert-manager, the certificate creation might still be in progress
+			// Check if the Certificate resource exists first
+			certificateName := fmt.Sprintf("%s-tls", childName(hprs))
+			var cert cmapi.Certificate
+			if certErr := r.Get(ctx, types.NamespacedName{Name: certificateName, Namespace: hprs.Namespace}, &cert); certErr != nil {
+				if k8serrors.IsNotFound(certErr) {
+					// Certificate resource doesn't exist, this is a real error
+					return fmt.Errorf("TLS is enabled for HPRS %s/%s, but its server TLS-certificate secret %s was not found: %w", hprs.Namespace, hprs.Name, serverCertSecretName, err)
+				}
+				// Other error getting certificate
+				return fmt.Errorf("failed to check Certificate resource %s for HPRS %s/%s: %w", certificateName, hprs.Namespace, hprs.Name, certErr)
+			}
+			// Certificate exists but secret doesn't - check if cert-manager has had enough time
+			certAge := time.Since(cert.CreationTimestamp.Time)
+			r.Log.Info("Certificate resource exists but secret is not ready yet, cert-manager is still processing",
+				"certificateName", certificateName, "secretName", serverCertSecretName, "hprsName", hprs.Name,
+				"certificateAge", certAge.String(), "certificateCreationTime", cert.CreationTimestamp.String())
+
+			// Check if Certificate has been around long enough that we should consider this a failure
+			if certAge > 20*time.Second {
+				// Certificate has existed for more than 20 seconds but secret still doesn't exist
+				// This indicates cert-manager failure, not just processing delay
+				r.Log.Info("Certificate has existed too long without creating secret, treating as configuration error",
+					"certificateAge", certAge.String(), "timeoutThreshold", "20s")
+				return fmt.Errorf("TLS is enabled for HPRS %s/%s, but its server TLS-certificate Secret \"%s\" not found", hprs.Namespace, hprs.Name, serverCertSecretName)
+			}
+
+			// Return a non-fatal error that will cause requeue
+			return fmt.Errorf("TLS certificate secret %s is not ready yet, cert-manager is still processing the certificate", serverCertSecretName)
 		}
 		return fmt.Errorf("failed to get HPRS server TLS-certificate secret %s for HPRS %s/%s: %w", serverCertSecretName, hprs.Namespace, hprs.Name, err)
 	}
