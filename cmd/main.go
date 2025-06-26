@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -225,6 +226,16 @@ func main() {
 	if err != nil {
 		ctrl.Log.Error(err, "unable to start manager")
 		os.Exit(1)
+	}
+
+	watchedNamespaces := []string{}
+	for namespace := range cacheOptions.DefaultNamespaces {
+		watchedNamespaces = append(watchedNamespaces, namespace)
+	}
+	if len(watchedNamespaces) > 0 {
+		log.Info("Watching specific namespaces", "namespaces", strings.Join(watchedNamespaces, ", "))
+	} else {
+		log.Info("Watching all namespaces")
 	}
 
 	if helpers.UseCertManager() {

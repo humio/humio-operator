@@ -253,16 +253,21 @@ func GetCacheOptionsWithWatchNamespace() (cache.Options, error) {
 		return cacheOptions, err
 	}
 
-	defaultNamespaces := map[string]cache.Config{}
-	if watchNamespace != "" {
-		for _, namespace := range strings.Split(watchNamespace, ",") {
-			if namespace != "" {
-				defaultNamespaces[namespace] = cache.Config{}
-			}
+	if watchNamespace == "" {
+		return cacheOptions, nil
+	}
+
+	defaultNamespaces := make(map[string]cache.Config)
+	namespaces := strings.Split(watchNamespace, ",")
+	for _, namespace := range namespaces {
+		if namespace = strings.TrimSpace(namespace); namespace != "" {
+			defaultNamespaces[namespace] = cache.Config{}
 		}
 	}
+
 	if len(defaultNamespaces) > 0 {
 		cacheOptions.DefaultNamespaces = defaultNamespaces
 	}
+
 	return cacheOptions, nil
 }
