@@ -5826,7 +5826,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	)
 
 	// Test Case 1: PDF Render Service Triggered by HumioCluster
-	FContext("PDF Render Service Triggered by HumioCluster ENABLE_SCHEDULED_REPORT", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Triggered by HumioCluster ENABLE_SCHEDULED_REPORT", Label("envtest", "dummy", "real"), func() {
 		It("should be enabled when at least one HumioCluster has ENABLE_SCHEDULED_REPORT=true", func() {
 			ctx := context.Background()
 			hprsKey := types.NamespacedName{
@@ -5907,7 +5907,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// Test Case 2: PDF Render Service Creation when enabled
-	FContext("PDF Render Service Creation When Enabled", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Creation When Enabled", Label("envtest", "dummy", "real"), func() {
 
 		It("should create Deployment and Service when HumioCluster enables scheduled reports", func() {
 			ctx := context.Background()
@@ -5999,7 +5999,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// Test Case 3: PDF Render Service Disabled When No Cluster Enables It
-	FContext("PDF Render Service Disabled When Not Enabled", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Disabled When Not Enabled", Label("envtest", "dummy", "real"), func() {
 		It("should not reconcile when no HumioCluster has ENABLE_SCHEDULED_REPORT=true", func() {
 			ctx := context.Background()
 			pdfKey := types.NamespacedName{

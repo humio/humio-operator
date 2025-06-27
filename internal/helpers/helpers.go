@@ -313,6 +313,8 @@ func GetCacheOptionsWithWatchNamespace() (cache.Options, error) {
 	}
 
 	return cacheOptions, nil
+}
+
 // PdfRenderServiceChildName generates the child resource name for a HumioPdfRenderService.
 
 // This uses the CR name to ensure unique names per instance within the namespace.

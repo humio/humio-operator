@@ -96,7 +96,7 @@ test_upgrade() {
     if [ "$from_cluster" == "null" ]; then
       from_cluster=$base_logscale_cluster_file
     fi
-    if [ "$from_cluster" == "null" ]; then
+    if [ "$to_cluster" == "null" ]; then
       to_cluster=$base_logscale_cluster_file
     fi
     if [ "$from_values" == "null" ]; then
@@ -124,22 +124,34 @@ test_upgrade() {
       namespace=default
     fi
 
-    kubectl --namespace $namespace create secret generic test-cluster-license --from-literal=data="${humio_e2e_license}"
+    # Only create secret if it doesn't exist
+    if ! kubectl get secret test-cluster-license -n $namespace >/dev/null 2>&1; then
+      kubectl --namespace $namespace create secret generic test-cluster-license --from-literal=data="${humio_e2e_license}"
+    fi
 
-    if [ "${from_version}" == "present" ]; then
-      helm install -n $namespace --values $from_values --set operator.image.repository=controller --set operator.image.tag=latest humio-operator ./charts/humio-operator
+    # Check if helm release exists, upgrade if it does, install if it doesn't
+    if helm list -n $namespace | grep -q "^humio-operator"; then
+      if [ "${from_version}" == "present" ]; then
+        helm upgrade -n $namespace --values $from_values --set operator.image.repository=controller --set operator.image.tag=latest humio-operator ./charts/humio-operator
+      else
+        helm upgrade -n $namespace --values $from_values humio-operator humio-operator/humio-operator --version $from_version
+      fi
     else
-      helm install -n $namespace --values $from_values humio-operator humio-operator/humio-operator --version $from_version
+      if [ "${from_version}" == "present" ]; then
+        helm install -n $namespace --values $from_values --set operator.image.repository=controller --set operator.image.tag=latest humio-operator ./charts/humio-operator
+      else
+        helm install -n $namespace --values $from_values humio-operator humio-operator/humio-operator --version $from_version
+      fi
     fi
 
     # Deploy test cluster
     kubectl apply -f $from_cluster
 
-    # Wait for initial stability
-    wait_for_cluster_ready $namespace
+    # Wait for initial stability (only HumioCluster for now)
+    wait_for_cluster_ready_humiocluster_only $namespace
 
-    # Capture initial pod states
-    local initial_pods=$(capture_pod_states)
+    # Capture initial pod states (HumioCluster only since PDF service doesn't exist yet)
+    local initial_pods=$(capture_humiocluster_pod_states)
 
     # Perform upgrade
     if [ "${to_version}" == "present" ]; then
@@ -154,21 +166,48 @@ test_upgrade() {
     # Wait for operator upgrade
     kubectl --namespace $namespace wait --for=condition=available deployment/humio-operator --timeout=2m
 
-    # Monitor pod changes
+    # Apply any missing CRDs that are needed for the current operator version
+    echo "Applying updated CRDs from current operator version..."
+    kubectl apply -f charts/humio-operator/crds/ || true
+
+    # Deploy PDF Render Service if CRD is available and operator has permissions
+    if kubectl get crd humiopdfrenderservices.core.humio.com >/dev/null 2>&1; then
+        echo "PDF Render Service CRD found, deploying PDF service..."
+        kubectl apply -f hack/helm-test/test-cases/pdf-render-service-patch.yaml
+        # Note: PDF service deployment may not work due to RBAC permissions in test environment
+        wait_for_cluster_ready_humiocluster_only $namespace
+    else
+        echo "PDF Render Service CRD not available, skipping PDF service deployment"
+        wait_for_cluster_ready_humiocluster_only $namespace
+    fi
+
+    # Monitor pod changes for restart behavior
     verify_pod_restart_behavior "$initial_pods" "$expect_restarts"
 }
 
 cleanup_upgrade() {
   helm delete humio-operator || true
+  # Only try to delete PDF service if it exists
+  if kubectl get humiopdfrenderservice test-pdf-service >/dev/null 2>&1; then
+    kubectl delete -f hack/helm-test/test-cases/pdf-render-service-patch.yaml || true
+  fi
 }
 
 cleanup_tmp_helm_test_case_dir() {
   rm -rf $tmp_helm_test_case_dir
 }
 
-capture_pod_states() {
-    # Capture pod details including UID and restart count
+capture_humiocluster_pod_states() {
+    # Capture pod details including UID and restart count for HumioCluster pods only
     kubectl --namespace $namespace get pods -l app.kubernetes.io/instance=test-cluster,app.kubernetes.io/managed-by=humio-operator -o json | jq -r '.items[] | "\(.metadata.uid) \(.status.containerStatuses[0].restartCount)"'
+}
+
+capture_pod_states() {
+    # Capture pod details including UID and restart count for both Humio cluster and PDF render service
+    (
+        kubectl --namespace $namespace get pods -l app.kubernetes.io/instance=test-cluster,app.kubernetes.io/managed-by=humio-operator -o json | jq -r '.items[] | "\(.metadata.uid) \(.status.containerStatuses[0].restartCount)"'
+        kubectl --namespace $namespace get pods -l app=humio-pdf-render-service -o json | jq -r '.items[] | "\(.metadata.uid) \(.status.containerStatuses[0].restartCount)"'
+    )
 }
 
 verify_pod_restart_behavior() {
@@ -179,12 +218,17 @@ verify_pod_restart_behavior() {
     local elapsed=0
 
     echo "Monitoring pod changes for ${timeout}s..."
+    echo "Initial pods (HumioCluster only):"
+    echo "$initial_pods"
 
     while [ $elapsed -lt $timeout ]; do
         sleep $interval
         elapsed=$((elapsed + interval))
 
         local current_pods=$(capture_pod_states)
+        
+        echo "Current pods (both HumioCluster and PDF service):"
+        echo "$current_pods"
 
         if [ "$expect_restarts" = "true" ]; then
             if pod_restarts_occurred "$initial_pods" "$current_pods"; then
@@ -214,12 +258,64 @@ pod_restarts_occurred() {
     local initial_pods=$1
     local current_pods=$2
 
-    # Compare UIDs and restart counts
-    local changes=$(diff <(echo "$initial_pods") <(echo "$current_pods") || true)
-    if [ ! -z "$changes" ]; then
-        return 0  # Changes detected
+    # Extract UIDs from initial pods to track only those pods we started with
+    local initial_uids=$(echo "$initial_pods" | awk '{print $1}' | sort)
+    
+    # For each initial pod UID, check if it still exists and if restart count changed
+    local restarts_detected=false
+    
+    while IFS= read -r initial_uid; do
+        if [ ! -z "$initial_uid" ]; then
+            # Find this UID in current pods
+            local initial_line=$(echo "$initial_pods" | grep "^$initial_uid ")
+            local current_line=$(echo "$current_pods" | grep "^$initial_uid " || echo "")
+            
+            if [ -z "$current_line" ]; then
+                # Pod UID no longer exists - this indicates a restart (new pod with new UID)
+                echo "Pod restart detected: UID $initial_uid no longer exists (pod was recreated)"
+                restarts_detected=true
+            else
+                # Pod UID still exists, compare restart counts
+                local initial_restart_count=$(echo "$initial_line" | awk '{print $2}')
+                local current_restart_count=$(echo "$current_line" | awk '{print $2}')
+                
+                if [ "$current_restart_count" -gt "$initial_restart_count" ]; then
+                    echo "Pod restart detected: UID $initial_uid restart count increased from $initial_restart_count to $current_restart_count"
+                    restarts_detected=true
+                fi
+            fi
+        fi
+    done <<< "$initial_uids"
+    
+    if [ "$restarts_detected" = true ]; then
+        return 0  # Restarts detected
     fi
-    return 1  # No changes
+    return 1  # No restarts
+}
+
+wait_for_cluster_ready_humiocluster_only() {
+    local timeout=300  # 5 minutes
+    local interval=10  # 10 seconds
+    local elapsed=0
+    local namespace=$1
+
+    echo "Waiting for HumioCluster pods to be ready..."
+
+    while [ $elapsed -lt $timeout ]; do
+      sleep $interval
+      elapsed=$((elapsed + interval))
+
+      if kubectl --namespace $namespace wait --for=condition=ready -l app.kubernetes.io/instance=test-cluster pod --timeout=30s; then
+        echo "✅ HumioCluster pods are ready"
+        sleep 10
+        break
+      fi
+
+      echo "Waiting for HumioCluster pods to be ready..."
+      kubectl --namespace $namespace get pods -l app.kubernetes.io/instance=test-cluster
+      kubectl --namespace $namespace describe pods -l app.kubernetes.io/instance=test-cluster
+      kubectl --namespace $namespace logs -l app.kubernetes.io/instance=test-cluster | tail -50
+    done
 }
 
 wait_for_cluster_ready() {
@@ -228,18 +324,45 @@ wait_for_cluster_ready() {
     local elapsed=0
     local namespace=$1
 
+    echo "Waiting for HumioCluster and PDF Render Service pods to be ready..."
+
     while [ $elapsed -lt $timeout ]; do
       sleep $interval
       elapsed=$((elapsed + interval))
 
+      # Check if HumioCluster pods are ready
+      local humio_ready=false
       if kubectl --namespace $namespace wait --for=condition=ready -l app.kubernetes.io/instance=test-cluster pod --timeout=30s; then
+        humio_ready=true
+      fi
+
+      # Check if PDF Render Service pods are ready
+      local pdf_ready=false
+      if kubectl --namespace $namespace wait --for=condition=ready -l app=humio-pdf-render-service pod --timeout=30s; then
+        pdf_ready=true
+      fi
+
+      # If both services are ready, we can proceed
+      if [ "$humio_ready" = true ] && [ "$pdf_ready" = true ]; then
+        echo "✅ Both HumioCluster and PDF Render Service pods are ready"
         sleep 10
         break
       fi
 
+      echo "Waiting for pods to be ready..."
       kubectl --namespace $namespace get pods -l app.kubernetes.io/instance=test-cluster
-      kubectl --namespace $namespace describe pods -l app.kubernetes.io/instance=test-cluster
-      kubectl --namespace $namespace logs -l app.kubernetes.io/instance=test-cluster | tail -100
+      kubectl --namespace $namespace get pods -l app=humio-pdf-render-service
+      
+      # Show pod details if they're not ready
+      if [ "$humio_ready" != true ]; then
+        kubectl --namespace $namespace describe pods -l app.kubernetes.io/instance=test-cluster
+        kubectl --namespace $namespace logs -l app.kubernetes.io/instance=test-cluster | tail -100
+      fi
+      
+      if [ "$pdf_ready" != true ]; then
+        kubectl --namespace $namespace describe pods -l app=humio-pdf-render-service
+        kubectl --namespace $namespace logs -l app=humio-pdf-render-service | tail -100
+      fi
     done
 }
 

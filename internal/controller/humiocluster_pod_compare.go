@@ -102,6 +102,32 @@ func (pc *PodComparison) processHumioContainerImages() {
 			HumioVersionFromString(pc.currentHumioContainer.Image),
 			HumioVersionFromString(pc.desiredHumioContainer.Image),
 		)
+		return
+	}
+
+	// Check init containers for image changes (e.g., helper image changes)
+	currentInitContainers := make(map[string]string)
+	desiredInitContainers := make(map[string]string)
+
+	for _, container := range pc.currentPod.Spec.InitContainers {
+		currentInitContainers[container.Name] = container.Image
+	}
+
+	for _, container := range pc.desiredPod.Spec.InitContainers {
+		desiredInitContainers[container.Name] = container.Image
+	}
+
+	for containerName, desiredImage := range desiredInitContainers {
+		if currentImage, exists := currentInitContainers[containerName]; exists {
+			if currentImage != desiredImage {
+				pc.setDoesNotMatch(PodMismatchVersion, PodMismatchSeverityCritical)
+				pc.setVersionMismatch(
+					HumioVersionFromString(currentImage),
+					HumioVersionFromString(desiredImage),
+				)
+				return
+			}
+		}
 	}
 }
 

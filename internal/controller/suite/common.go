@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	humiov1alpha1 "github.com/humio/humio-operator/api/v1alpha1"
 	"github.com/humio/humio-operator/internal/controller"
 	"github.com/humio/humio-operator/internal/controller/versions"
@@ -1871,8 +1873,8 @@ func CreatePdfRenderServiceAndWait(
 
 	UsingClusterBy(pdfKey.Name, fmt.Sprintf("Creating PDF render service with TLS=%t", tlsEnabled))
 
-	// Step 1 – If TLS is enabled, create the certificate secret first
-	if tlsEnabled {
+	// Step 1 – If TLS is enabled and cert-manager is NOT in use, create the certificate secret manually
+	if tlsEnabled && !helpers.UseCertManager() {
 		// Create TLS certificate secret for PDF render service
 		tlsSecretName := helpers.PdfRenderServiceTlsSecretName(pdfKey.Name)
 
@@ -1898,6 +1900,50 @@ func CreatePdfRenderServiceAndWait(
 
 	// Step 2 – create the CR
 	pdfCR := CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, tlsEnabled)
+
+	// Step 3 - If TLS is enabled and cert-manager is in use, wait for the certificate to be ready
+	if tlsEnabled && helpers.UseCertManager() {
+		certificateName := fmt.Sprintf("%s-tls", helpers.PdfRenderServiceChildName(pdfKey.Name))
+		UsingClusterBy(pdfKey.Name, fmt.Sprintf("Waiting for cert-manager to create certificate %s", certificateName))
+
+		// Use longer timeout for certificate creation in test environments where cert-manager can be slow
+		certTimeout := DefaultTestTimeout
+		if helpers.UseEnvtest() || helpers.UseKindCluster() {
+			certTimeout = DefaultTestTimeout * 3 // 90 seconds for test environments
+		}
+
+		Eventually(func(g Gomega) {
+			var cert cmapi.Certificate
+			g.Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      certificateName,
+				Namespace: pdfKey.Namespace,
+			}, &cert)).To(Succeed(), "Certificate should be created by the controller")
+
+			// Check if certificate is ready
+			for _, condition := range cert.Status.Conditions {
+				if condition.Type == cmapi.CertificateConditionReady {
+					g.Expect(condition.Status).To(Equal(cmmeta.ConditionTrue),
+						"Certificate should be ready, but got status: %s, reason: %s, message: %s",
+						condition.Status, condition.Reason, condition.Message)
+				}
+			}
+		}, certTimeout, TestInterval).Should(Succeed())
+
+		// Also wait for the secret to be created by cert-manager
+		tlsSecretName := helpers.PdfRenderServiceTlsSecretName(pdfKey.Name)
+		UsingClusterBy(pdfKey.Name, fmt.Sprintf("Waiting for cert-manager to create TLS secret %s", tlsSecretName))
+
+		Eventually(func(g Gomega) {
+			var secret corev1.Secret
+			g.Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      tlsSecretName,
+				Namespace: pdfKey.Namespace,
+			}, &secret)).To(Succeed(), "TLS secret should be created by cert-manager")
+
+			g.Expect(secret.Data).To(HaveKey(corev1.TLSCertKey), "Secret should contain TLS certificate")
+			g.Expect(secret.Data).To(HaveKey(corev1.TLSPrivateKeyKey), "Secret should contain TLS private key")
+		}, certTimeout, TestInterval).Should(Succeed())
+	}
 
 	// Optional image override
 	if image != "" && pdfCR.Spec.Image != image {
