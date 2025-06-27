@@ -240,9 +240,21 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 				return ctrl.Result{}, reconcileErr
 			}
 		}
+	}
 
+	// Validate TLS configuration regardless of cert-manager usage
+	r.Log.Info("Checking if TLS is enabled for HPRS", "hprsName", hprs.Name, "hprsNamespace", hprs.Namespace,
+		"TLSEnabledForHPRS", helpers.TLSEnabledForHPRS(hprs),
+		"hprs.Spec.TLS", hprs.Spec.TLS,
+		"hprs.Spec.TLS.Enabled", func() string {
+			if hprs.Spec.TLS != nil && hprs.Spec.TLS.Enabled != nil {
+				return fmt.Sprintf("%v", *hprs.Spec.TLS.Enabled)
+			}
+			return "nil"
+		}())
+	if helpers.TLSEnabledForHPRS(hprs) {
 		// Validate spec (TLS etc.) AFTER ensuring certificates are created (if using cert-manager).
-		r.Log.Info("Starting TLS configuration validation", "hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
+		r.Log.Info("Starting TLS configuration validation", "hprsName", hprs.Name, "hprsNamespace", hprs.Namespace, "tlsEnabled", helpers.TLSEnabledForHPRS(hprs))
 		if err := r.validateTLSConfiguration(ctx, hprs); err != nil {
 			// Check if this is a transient certificate readiness issue with cert-manager
 			// Only treat as Configuring if cert-manager is actively processing the certificate
@@ -281,64 +293,70 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// Determine state based on Deployment readiness
-	targetState := humiov1alpha1.HumioPdfRenderServiceStateRunning
-	r.Log.Info("Checking deployment readiness for state determination",
-		"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace,
-		"depIsNil", dep == nil,
-		"readyReplicas", func() int32 {
-			if dep != nil {
-				return dep.Status.ReadyReplicas
-			} else {
-				return -1
-			}
-		}(),
-		"specReplicas", hprs.Spec.Replicas,
-		"depGeneration", func() int64 {
-			if dep != nil {
-				return dep.Generation
-			} else {
-				return -1
-			}
-		}(),
-		"depObservedGeneration", func() int64 {
-			if dep != nil {
-				return dep.Status.ObservedGeneration
-			} else {
-				return -1
-			}
-		}())
-	if dep == nil || dep.Status.ReadyReplicas < hprs.Spec.Replicas || dep.Status.ObservedGeneration < dep.Generation {
-		targetState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
-		r.Log.Info("PDF service will remain in Configuring state",
-			"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace, "reason",
-			func() string {
-				if dep == nil {
-					return "deployment is nil"
+	// Only update state if we haven't already encountered a ConfigError
+	if finalState != humiov1alpha1.HumioPdfRenderServiceStateConfigError {
+		targetState := humiov1alpha1.HumioPdfRenderServiceStateRunning
+		r.Log.Info("Checking deployment readiness for state determination",
+			"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace,
+			"depIsNil", dep == nil,
+			"readyReplicas", func() int32 {
+				if dep != nil {
+					return dep.Status.ReadyReplicas
+				} else {
+					return -1
 				}
-				if dep.Status.ReadyReplicas < hprs.Spec.Replicas {
-					return fmt.Sprintf("readyReplicas (%d) < specReplicas (%d)", dep.Status.ReadyReplicas, hprs.Spec.Replicas)
+			}(),
+			"specReplicas", hprs.Spec.Replicas,
+			"depGeneration", func() int64 {
+				if dep != nil {
+					return dep.Generation
+				} else {
+					return -1
 				}
-				if dep.Status.ObservedGeneration < dep.Generation {
-					return fmt.Sprintf("observedGeneration (%d) < generation (%d)", dep.Status.ObservedGeneration, dep.Generation)
+			}(),
+			"depObservedGeneration", func() int64 {
+				if dep != nil {
+					return dep.Status.ObservedGeneration
+				} else {
+					return -1
 				}
-				return unknownStatus
 			}())
-	} else {
-		r.Log.Info("PDF service will transition to Running state",
-			"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
-	}
-	if hprs.Spec.Replicas == 0 {
-		targetState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
-	}
+		if dep == nil || dep.Status.ReadyReplicas < hprs.Spec.Replicas || dep.Status.ObservedGeneration < dep.Generation {
+			targetState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
+			r.Log.Info("PDF service will remain in Configuring state",
+				"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace, "reason",
+				func() string {
+					if dep == nil {
+						return "deployment is nil"
+					}
+					if dep.Status.ReadyReplicas < hprs.Spec.Replicas {
+						return fmt.Sprintf("readyReplicas (%d) < specReplicas (%d)", dep.Status.ReadyReplicas, hprs.Spec.Replicas)
+					}
+					if dep.Status.ObservedGeneration < dep.Generation {
+						return fmt.Sprintf("observedGeneration (%d) < generation (%d)", dep.Status.ObservedGeneration, dep.Generation)
+					}
+					return unknownStatus
+				}())
+		} else {
+			r.Log.Info("PDF service will transition to Running state",
+				"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace)
+		}
+		if hprs.Spec.Replicas == 0 {
+			targetState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
+		}
 
-	// Set final state for defer function to handle
-	finalState = targetState
+		// Set final state for defer function to handle
+		finalState = targetState
+	} else {
+		r.Log.Info("Preserving ConfigError state, skipping deployment readiness check",
+			"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace)
+	}
 
 	// Requeue while configuring or in error state.
-	if targetState == humiov1alpha1.HumioPdfRenderServiceStateConfiguring {
+	if finalState == humiov1alpha1.HumioPdfRenderServiceStateConfiguring {
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
-	if targetState == humiov1alpha1.HumioPdfRenderServiceStateConfigError {
+	if finalState == humiov1alpha1.HumioPdfRenderServiceStateConfigError {
 		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 	}
 	// Requeue shortly after Deployment changes.
@@ -1589,19 +1607,25 @@ func (r *HumioPdfRenderServiceReconciler) validateTLSConfiguration(ctx context.C
 	// Double-check TLS configuration to ensure we never validate TLS when it's explicitly disabled
 	if hprs.Spec.TLS != nil && hprs.Spec.TLS.Enabled != nil && !*hprs.Spec.TLS.Enabled {
 		// TLS is explicitly disabled - never validate certificates
+		r.Log.Info("TLS is explicitly disabled, skipping validation")
 		return nil
 	}
 
 	if !helpers.TLSEnabledForHPRS(hprs) {
+		r.Log.Info("TLS is not enabled for HPRS, skipping validation")
 		return nil
 	}
+
+	r.Log.Info("TLS is enabled for HPRS, proceeding with validation")
 
 	// Validate server certificate secret existence and keys
 	// This ensures we fail early with the expected "TLS-certificate" error message if the server cert is missing.
 	serverCertSecretName := fmt.Sprintf("%s-tls", childName(hprs))
+	r.Log.Info("Checking for TLS certificate secret", "secretName", serverCertSecretName, "namespace", hprs.Namespace)
 	var tlsSecret corev1.Secret
 	if err := r.Get(ctx, types.NamespacedName{Name: serverCertSecretName, Namespace: hprs.Namespace}, &tlsSecret); err != nil {
 		if k8serrors.IsNotFound(err) {
+			r.Log.Info("TLS certificate secret not found", "secretName", serverCertSecretName, "namespace", hprs.Namespace)
 			if !helpers.UseCertManager() {
 				// When cert-manager is not available, missing certificate secret is a configuration error
 				return fmt.Errorf("TLS is enabled for HPRS %s/%s, but its server TLS-certificate Secret \"%s\" not found", hprs.Namespace, hprs.Name, serverCertSecretName)
@@ -1644,6 +1668,7 @@ func (r *HumioPdfRenderServiceReconciler) validateTLSConfiguration(ctx context.C
 		}
 		return fmt.Errorf("failed to get HPRS server TLS-certificate secret %s for HPRS %s/%s: %w", serverCertSecretName, hprs.Namespace, hprs.Name, err)
 	}
+	r.Log.Info("TLS certificate secret found, validating keys", "secretName", serverCertSecretName)
 	if _, ok := tlsSecret.Data[corev1.TLSCertKey]; !ok {
 		return fmt.Errorf("HPRS server TLS-certificate secret %s for HPRS %s/%s is missing key %s", serverCertSecretName, hprs.Namespace, hprs.Name, corev1.TLSCertKey)
 	}
@@ -1651,6 +1676,7 @@ func (r *HumioPdfRenderServiceReconciler) validateTLSConfiguration(ctx context.C
 		return fmt.Errorf("HPRS server TLS-certificate secret %s for HPRS %s/%s is missing key %s", serverCertSecretName, hprs.Namespace, hprs.Name, corev1.TLSPrivateKeyKey)
 	}
 
+	r.Log.Info("TLS validation passed successfully", "secretName", serverCertSecretName)
 	return nil
 }
 
