@@ -94,39 +94,23 @@ func (r *HumioPdfRenderServiceReconciler) isPdfRenderServiceEnabled(ctx context.
 		return false
 	}
 
-	r.Log.Info("Found HumioClusters", "count", len(humioClusters.Items), "namespace", namespace)
-
 	if len(humioClusters.Items) == 0 {
-		r.Log.Info("No HumioClusters found in namespace", "namespace", namespace)
 		return false
 	}
 
 	for _, cluster := range humioClusters.Items {
-		r.Log.Info("Checking HumioCluster for ENABLE_SCHEDULED_REPORT",
-			"cluster", cluster.Name, "namespace", cluster.Namespace,
-			"state", cluster.Status.State,
-			"commonEnvVars", len(cluster.Spec.CommonEnvironmentVariables),
-			"envVars", len(cluster.Spec.EnvironmentVariables))
-
 		// Check both CommonEnvironmentVariables and EnvironmentVariables for ENABLE_SCHEDULED_REPORT
 		for _, envVar := range cluster.Spec.CommonEnvironmentVariables {
-			r.Log.Info("Checking CommonEnvironmentVariable", "name", envVar.Name, "value", envVar.Value)
 			if envVar.Name == "ENABLE_SCHEDULED_REPORT" && strings.ToLower(envVar.Value) == "true" {
-				r.Log.Info("Found ENABLE_SCHEDULED_REPORT=true in HumioCluster CommonEnvironmentVariables",
-					"cluster", cluster.Name, "namespace", cluster.Namespace)
 				return true
 			}
 		}
 		for _, envVar := range cluster.Spec.EnvironmentVariables {
-			r.Log.Info("Checking EnvironmentVariable", "name", envVar.Name, "value", envVar.Value)
 			if envVar.Name == "ENABLE_SCHEDULED_REPORT" && strings.ToLower(envVar.Value) == "true" {
-				r.Log.Info("Found ENABLE_SCHEDULED_REPORT=true in HumioCluster EnvironmentVariables",
-					"cluster", cluster.Name, "namespace", cluster.Namespace)
 				return true
 			}
 		}
 	}
-	r.Log.Info("No HumioCluster found with ENABLE_SCHEDULED_REPORT=true", "namespace", namespace)
 	return false
 }
 
@@ -136,8 +120,6 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	log := r.BaseLogger.WithValues("hprsName", req.Name, "hprsNamespace", req.Namespace)
 	r.Log = log
 
-	// DEBUG: Add entry log to confirm controller is being called
-	log.Info("HumioPdfRenderService controller Reconcile called", "request", req.String())
 
 	hprs := &humiov1alpha1.HumioPdfRenderService{}
 	if err := r.Get(ctx, req.NamespacedName, hprs); err != nil {
@@ -473,7 +455,6 @@ func shouldWatchSecret(hprs *humiov1alpha1.HumioPdfRenderService, secretName str
 func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) (controllerutil.OperationResult, *appsv1.Deployment, error) {
 	log := r.Log.WithValues("function", "reconcileDeployment")
 	desired := r.constructDesiredDeployment(hprs)
-	log.Info("Constructed desired Deployment spec.", "desiredImage", desired.Spec.Template.Spec.Containers[0].Image, "desiredReplicas", *desired.Spec.Replicas)
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -593,11 +574,6 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 			needsUpdate = true
 			log.Info("Pod template spec changed", "currentHash", currentHash, "desiredHash", desiredHash)
 
-			// DEBUG: Add detailed logging to identify the differences
-			currentJSON, _ := json.MarshalIndent(sanitizedCurrentPod.Spec, "", "  ")
-			desiredJSON, _ := json.MarshalIndent(sanitizedDesiredPod.Spec, "", "  ")
-			log.Info("DEBUG: Current sanitized pod spec", "spec", string(currentJSON))
-			log.Info("DEBUG: Desired sanitized pod spec", "spec", string(desiredJSON))
 		}
 
 		// Compare pod template labels
@@ -908,10 +884,6 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(
 	log := r.Log.WithValues("function", "reconcileService")
 
 	desired := r.constructDesiredService(hprs)
-	log.Info("Constructed desired Service spec.",
-		"serviceName", desired.Name,
-		"desiredType", desired.Spec.Type,
-		"desiredPorts", desired.Spec.Ports)
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -946,7 +918,6 @@ func (r *HumioPdfRenderServiceReconciler) reconcileService(
 		return fmt.Errorf("failed to reconcile Service %s: %w", desired.Name, err)
 	}
 
-	log.Info("Service reconciled successfully.", "serviceName", svc.Name)
 	return nil
 }
 
@@ -1316,7 +1287,7 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 		)
 
 		// Add CA file argument if custom CA is specified
-		if hprs.Spec.TLS.CASecretName != "" {
+		if helpers.UseExistingCAForHPRS(hprs) {
 			container.Args = append(container.Args, "--ca-file=/etc/ca/ca.crt")
 		}
 	}
@@ -1439,13 +1410,14 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 	})
 
 	// CA certificate configuration - for communicating with HumioCluster
-	if hprs.Spec.TLS.CASecretName != "" {
+	caSecretName := helpers.GetCASecretNameForHPRS(hprs)
+	if caSecretName != "" {
 		// Add CA certificate volume
 		vols = append(vols, corev1.Volume{
 			Name: caCertVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: hprs.Spec.TLS.CASecretName,
+					SecretName: caSecretName,
 					Items: []corev1.KeyToPath{
 						{
 							Key:  "ca.crt",

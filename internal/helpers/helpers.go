@@ -320,49 +320,19 @@ func GetCacheOptionsWithWatchNamespace() (cache.Options, error) {
 // This uses the CR name to ensure unique names per instance within the namespace.
 // The result is guaranteed to be under 63 characters to meet Kubernetes naming requirements.
 func PdfRenderServiceChildName(pdfServiceName string) string {
-	const prefix = "humio-pdf-render-service-"
 	const maxKubernetesNameLength = 63
 
-	// If the name already starts with our expected prefix, use it as-is but ensure it's within limits
-	if strings.HasPrefix(pdfServiceName, prefix) {
-		if len(pdfServiceName) <= maxKubernetesNameLength {
-			return pdfServiceName
-		}
-		// Truncate to fit within Kubernetes limits while preserving uniqueness
-		return pdfServiceName[:maxKubernetesNameLength]
-	}
+	// Use a simple naming pattern: "hprs-<name>"
+	// This is short, clear, and avoids duplication
+	result := fmt.Sprintf("hprs-%s", pdfServiceName)
 
-	// For names that don't have the prefix, we need to be more careful to avoid duplication
-	// Check if the name would create a duplication pattern when prefixed
-	if strings.Contains(pdfServiceName, "humio-pdf-render-service") {
-		// If the name already contains our prefix pattern, just ensure it's within limits
-		if len(pdfServiceName) <= maxKubernetesNameLength {
-			return pdfServiceName
-		}
-		return pdfServiceName[:maxKubernetesNameLength]
-	}
-
-	// Add prefix to names that don't have it
-	result := fmt.Sprintf("%s%s", prefix, pdfServiceName)
-
-	// Ensure the final result fits within Kubernetes naming limits
+	// Ensure the result fits within Kubernetes naming limits
 	if len(result) <= maxKubernetesNameLength {
 		return result
 	}
 
-	// Truncate the original name to make room for the prefix
-	maxOriginalNameLength := maxKubernetesNameLength - len(prefix)
-	if maxOriginalNameLength > 0 {
-		truncatedName := pdfServiceName[:maxOriginalNameLength]
-		return fmt.Sprintf("%s%s", prefix, truncatedName)
-	}
-
-	// Fallback: use just the prefix truncated to fit (should not happen in practice)
-	prefixLen := len(prefix)
-	if prefixLen > maxKubernetesNameLength {
-		prefixLen = maxKubernetesNameLength
-	}
-	return prefix[:prefixLen]
+	// Truncate to fit within limits
+	return result[:maxKubernetesNameLength]
 }
 
 // PdfRenderServiceTlsSecretName generates the TLS secret name for a HumioPdfRenderService.
@@ -374,7 +344,9 @@ func PdfRenderServiceTlsSecretName(pdfServiceName string) string {
 // PdfRenderServiceHpaName generates the HPA name for a HumioPdfRenderService.
 // This uses the same logic as the controller to ensure consistency between controller and tests.
 func PdfRenderServiceHpaName(pdfServiceName string) string {
-	return fmt.Sprintf("pdf-render-service-hpa-%s", pdfServiceName)
+	// Use the child name to ensure consistency and avoid duplication
+	childName := PdfRenderServiceChildName(pdfServiceName)
+	return fmt.Sprintf("%s-hpa", childName)
 }
 
 // HpaEnabledForHPRS returns true if HPA should be managed for the

@@ -4220,7 +4220,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Expect(k8sClient.Create(ctx, enablerCluster)).Should(Succeed())
 				defer suite.CleanupCluster(ctx, k8sClient, enablerCluster)
 
-				// Create PDF render service
+				// Create PDF render service with TLS disabled
 				pdfService := &humiov1alpha1.HumioPdfRenderService{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      key.Name,
@@ -4229,8 +4229,10 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
 						Image:    versions.DefaultPDFRenderServiceImage(),
 						Replicas: 2,
-
-						Port: controller.DefaultPdfRenderServicePort,
+						Port:     controller.DefaultPdfRenderServicePort,
+						TLS: &humiov1alpha1.HumioPdfRenderServiceTLSSpec{
+							Enabled: helpers.BoolPtr(false),
+						},
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU:    resource.MustParse("1"),
@@ -4289,7 +4291,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 					Namespace: clusterKey.Namespace,
 				}
 
-				// Create PDF service without an enabler cluster
+				// Create PDF service without an enabler cluster (with TLS disabled)
 				pdfService := &humiov1alpha1.HumioPdfRenderService{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      key.Name,
@@ -4299,6 +4301,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 						Image:    versions.DefaultPDFRenderServiceImage(),
 						Replicas: 2,
 						Port:     controller.DefaultPdfRenderServicePort,
+						TLS: &humiov1alpha1.HumioPdfRenderServiceTLSSpec{
+							Enabled: helpers.BoolPtr(false),
+						},
 					},
 				}
 
@@ -4735,12 +4740,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			})
 		})
 
-		// Test Case 7: Following HumioCluster pattern - no finalizers used
-		// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
-		// Note: Resource cleanup testing is not included as it relies on Kubernetes garbage
-		// collection which may not work consistently in test environments.
-
-		// Test Case 8: Integration with HumioCluster URL
+		// Test Case 7: Integration with HumioCluster URL
 		Context("HumioCluster Integration via DEFAULT_PDF_RENDER_SERVICE_URL", Label("envtest", "dummy", "real"), func() {
 			It("should set DEFAULT_PDF_RENDER_SERVICE_URL on HumioCluster pods", func() {
 				ctx := context.Background()
@@ -4801,7 +4801,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			})
 		})
 
-		// Test Case 9: Status Conditions
+		// Test Case 8: Status Conditions
 		Context("Status Conditions", Label("envtest", "dummy", "real"), func() {
 			It("should properly set status conditions", func() {
 				ctx := context.Background()
@@ -4849,7 +4849,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			})
 		})
 
-		// Test Case 10: Multiple PDF Services
+		// Test Case 9: Multiple PDF Services
 		Context("Multiple PDF Services", Label("envtest", "dummy", "real"), func() {
 			It("should support multiple PDF render services in same namespace", func() {
 				ctx := context.Background()
@@ -5865,7 +5865,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
 
 			suite.UsingClusterBy(clusterKey.Name, "Ensuring PDF Render Deployment is ready")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, depKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, hprsKey)
 
 			suite.UsingClusterBy(clusterKey.Name, "Verifying PDF service reaches Running state independently")
 			Eventually(func() string {
@@ -5956,7 +5956,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, testTimeout*2, suite.TestInterval)
 
 			suite.UsingClusterBy(clusterKey.Name, "Ensuring PDF Render Deployment is ready")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
 
 			suite.UsingClusterBy(clusterKey.Name, "Verifying PDF service reaches Running state")
 			Eventually(func() string {
@@ -6135,7 +6135,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout*2, suite.TestInterval).Should(BeNumerically(">", 0), "PDF service deployment should scale up when enabler cluster is detected")
 
 			suite.UsingClusterBy(clusterKey.Name, "Ensuring the PDF render deployment is ready")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
 			suite.UsingClusterBy(clusterKey.Name, "Verifying the HumioPdfRenderService is in Running state")
 			Eventually(func() string {
@@ -6232,7 +6232,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Equal(corev1.ServiceTypeClusterIP))
 
 			suite.UsingClusterBy(clusterKey.Name, "Ensuring the PDF render deployment is ready after update")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
 			suite.UsingClusterBy(clusterKey.Name, "Cleaning up HumioPdfRenderService CR")
 			suite.CleanupPdfRenderServiceCR(ctx, k8sClient, freshHprs)
@@ -6349,7 +6349,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return *deployment.Spec.Replicas
 			}, testTimeout*2, suite.TestInterval).Should(BeNumerically(">", 0), "PDF service deployment should scale up when enabler cluster is detected")
 
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
 			// Assert resources & probes
 			dep := &appsv1.Deployment{}
@@ -6447,7 +6447,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Create(ctx, hprs)).To(Succeed())
 
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, testTimeout*2, suite.TestInterval)
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
 			// 3. Verify initial env vars
 			dep := &appsv1.Deployment{}
@@ -6477,7 +6477,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, testTimeout*2, suite.TestInterval)
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
 			// 5. Verify updated env vars
 			Eventually(func() []corev1.EnvVar {
@@ -6556,7 +6556,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Get(ctx, pdfKey, pdfCR)).To(Succeed())
 
 			suite.WaitForObservedGeneration(ctx, k8sClient, pdfCR, longTimeout, suite.TestInterval)
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, depKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
 
 			Eventually(func() string { // assert custom image
 				d := appsv1.Deployment{}
@@ -6579,7 +6579,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}, testTimeout, suite.TestInterval).Should(Succeed())
 
 				suite.WaitForObservedGeneration(ctx, k8sClient, pdfCR, longTimeout, suite.TestInterval)
-				suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, depKey)
+				suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
 
 				Eventually(func() string {
 					d := appsv1.Deployment{}
@@ -6629,10 +6629,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			key := types.NamespacedName{
 				Name:      "humio-pdf-render-service-hpa-test",
 				Namespace: clusterKey.Namespace,
-			}
-			depKey := types.NamespacedName{
-				Name:      helpers.PdfRenderServiceChildName(key.Name),
-				Namespace: key.Namespace,
 			}
 			hpaKey := types.NamespacedName{
 				Name:      helpers.PdfRenderServiceHpaName(key.Name),
@@ -6688,7 +6684,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
 
 			suite.UsingClusterBy(clusterKey.Name, "Ensuring Deployment is ready before HPA")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, depKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
 			suite.UsingClusterBy(clusterKey.Name, "Verifying HPA is created")
 			Eventually(func() error {
@@ -6821,10 +6817,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Name:      "humio-pdf-render-service-multi-metrics",
 				Namespace: clusterKey.Namespace,
 			}
-			depKey := types.NamespacedName{
-				Name:      helpers.PdfRenderServiceChildName(key.Name),
-				Namespace: key.Namespace,
-			}
 			hpaKey := types.NamespacedName{
 				Name:      helpers.PdfRenderServiceHpaName(key.Name),
 				Namespace: key.Namespace,
@@ -6876,7 +6868,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
 
 			suite.UsingClusterBy(clusterKey.Name, "Ensuring Deployment is ready before HPA")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, depKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
 			suite.UsingClusterBy(clusterKey.Name, "Verifying HPA has both CPU and memory metrics")
 			Eventually(func() bool {
@@ -6917,10 +6909,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			key := types.NamespacedName{
 				Name:      "humio-pdf-render-service-toggle-hpa",
 				Namespace: clusterKey.Namespace,
-			}
-			depKey := types.NamespacedName{
-				Name:      helpers.PdfRenderServiceChildName(key.Name),
-				Namespace: key.Namespace,
 			}
 			hpaKey := types.NamespacedName{
 				Name:      helpers.PdfRenderServiceHpaName(key.Name),
@@ -6972,7 +6960,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
 
 			suite.UsingClusterBy(clusterKey.Name, "Ensuring Deployment is ready before HPA")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, depKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
 			suite.UsingClusterBy(clusterKey.Name, "Verifying HPA is created initially")
 			Eventually(func() error {
@@ -7007,10 +6995,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 			key := types.NamespacedName{
 				Name:      "humio-pdf-render-service-default-metrics",
 				Namespace: clusterKey.Namespace,
-			}
-			depKey := types.NamespacedName{
-				Name:      helpers.PdfRenderServiceChildName(key.Name),
-				Namespace: key.Namespace,
 			}
 			hpaKey := types.NamespacedName{
 				Name:      helpers.PdfRenderServiceHpaName(key.Name),
@@ -7072,7 +7056,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
 
 			suite.UsingClusterBy(enablerClusterKey.Name, "Ensuring Deployment is ready before HPA")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, depKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
 			suite.UsingClusterBy(enablerClusterKey.Name, "Verifying HPA uses default 80% CPU metric")
 			Eventually(func() bool {
@@ -7148,7 +7132,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			By("waiting for deployment to be ready")
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, testTimeout, suite.TestInterval)
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
 			deployment := &appsv1.Deployment{}
 			Eventually(func() error {

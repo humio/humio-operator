@@ -1207,11 +1207,8 @@ func CreatePdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfK
 func resolveDeploymentKey(key types.NamespacedName) (types.NamespacedName, string) {
 	deployKey := key
 	crName := key.Name
-	if !strings.HasPrefix(key.Name, "humio-pdf-render-service-") {
-		deployKey.Name = helpers.PdfRenderServiceChildName(key.Name)
-	} else {
-		crName = strings.TrimPrefix(key.Name, "humio-pdf-render-service-")
-	}
+	// Always use the helper to generate the deployment name
+	deployKey.Name = helpers.PdfRenderServiceChildName(key.Name)
 	return deployKey, crName
 }
 
@@ -1464,6 +1461,7 @@ func EnsurePdfRenderDeploymentReady(
 	deployKey, crName := resolveDeploymentKey(key)
 
 	UsingClusterBy(crName, "DEBUG: EnsurePdfRenderDeploymentReady function called")
+	UsingClusterBy(crName, fmt.Sprintf("DEBUG: Looking for deployment with key: %+v", deployKey))
 	UsingClusterBy(crName, fmt.Sprintf("DEBUG: Environment check - UseEnvtest()=%t, UseKindCluster()=%t, UseDummyImage()=%t",
 		helpers.UseEnvtest(), helpers.UseKindCluster(), helpers.UseDummyImage()))
 	UsingClusterBy(crName, fmt.Sprintf("DEBUG: Environment variables - TEST_USING_ENVTEST=%s, HUMIO_E2E_LICENSE=%s",
@@ -1475,7 +1473,11 @@ func EnsurePdfRenderDeploymentReady(
 	// Wait until the Deployment object exists
 	var dep appsv1.Deployment
 	Eventually(func() bool {
-		return k8sClient.Get(ctx, deployKey, &dep) == nil
+		err := k8sClient.Get(ctx, deployKey, &dep)
+		if err != nil {
+			UsingClusterBy(crName, fmt.Sprintf("Deployment not found yet: %v", err))
+		}
+		return err == nil
 	}, DefaultTestTimeout*2, TestInterval).Should(BeTrue())
 
 	// Helper to list only pods that belong to this Deployment
@@ -1960,11 +1962,8 @@ func CreatePdfRenderServiceAndWait(
 	WaitForObservedGeneration(ctx, k8sClient, pdfCR, timeout, TestInterval)
 
 	// Step 4 – make sure the Deployment is rolled out & Ready
-	deploymentKey := types.NamespacedName{
-		Name:      helpers.PdfRenderServiceChildName(pdfKey.Name),
-		Namespace: pdfKey.Namespace,
-	}
-	EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
+	// Pass the CR key, not the deployment key - EnsurePdfRenderDeploymentReady will resolve it
+	EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
 
 	// Step 5 – In test environments, trigger another reconciliation to update status after deployment is ready
 	if helpers.UseEnvtest() || helpers.UseKindCluster() {

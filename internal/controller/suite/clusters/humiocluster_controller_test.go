@@ -487,7 +487,6 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-
 	// TLS Configuration Success Test
 	Context("PDF Render Service with TLS configuration", Label("envtest", "dummy", "real"), func() {
 		const (
@@ -750,11 +749,15 @@ var _ = Describe("HumioCluster Controller", func() {
 			suite.WaitForObservedGeneration(ctx, k8sClient, pdfCR, standardTimeout, quickInterval)
 
 			// Wait for the Deployment to be created and ready
+			// Pass the CR key, not deployment key - EnsurePdfRenderDeploymentReady will resolve it
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
+
+			// Create deployment key for verification steps
 			deploymentKey := types.NamespacedName{
 				Name:      helpers.PdfRenderServiceChildName(pdfKey.Name),
 				Namespace: pdfKey.Namespace,
 			}
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
+
 			// Manually mark the CR as Running so the HumioCluster validation will accept it
 			By("Marking HumioPdfRenderService state=Running")
 			Eventually(func() error {
@@ -829,7 +832,8 @@ var _ = Describe("HumioCluster Controller", func() {
 			}, standardTimeout, quickInterval).Should(Succeed())
 
 			// Wait for the new Deployment rollout to complete
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
+			// Pass the CR key, not deployment key - EnsurePdfRenderDeploymentReady will resolve it
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
 
 			// Manually set status Running after rollout (envtest has no controller to do it)
 			By("Marking HumioPdfRenderService state=Running after upgrade")
@@ -1066,14 +1070,16 @@ var _ = Describe("HumioCluster Controller", func() {
 				return cluster.Status.State
 			}, standardTimeout, quickInterval).Should(Equal(humiov1alpha1.HumioClusterStateRestarting))
 
-			// Wait until the reconcile loop has processed the change
-			suite.WaitForReconcileToSync(ctx, clusterKey, k8sClient, &humiov1alpha1.HumioCluster{}, standardTimeout)
+			// Wait for the cluster to stabilize
+			By("Waiting for cluster to stabilize after entering Restarting state")
+			time.Sleep(2 * time.Second) // Give reconciliation some time to process
 
-			// Handle the rolling restart process properly
+			// Handle the rolling restart process for single-node cluster
 			By("Handling the rolling restart process after environment variable removal")
 			var updatedHumioCluster humiov1alpha1.HumioCluster
 			Expect(k8sClient.Get(ctx, clusterKey, &updatedHumioCluster)).To(Succeed())
-			ensurePodsRollingRestart(ctx, controller.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2, 1)
+			// For a single-node cluster, all pods restart at once (1 pod, revision 2)
+			ensurePodsSimultaneousRestart(ctx, controller.NewHumioNodeManagerFromHumioCluster(&updatedHumioCluster), 2)
 
 			// Verify the cluster ends in Running
 			By("Verifying the cluster eventually returns to Running state")
