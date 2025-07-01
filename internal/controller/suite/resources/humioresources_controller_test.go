@@ -4191,8 +4191,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	// PDF Render Service Tests - Complete Refactored Suite
-	Context("HumioPdfRenderService", Label("envtest", "dummy", "real"), func() {
+	// PDF Render Service Tests
+	FContext("HumioPdfRenderService", Label("envtest", "dummy", "real"), func() {
 		const (
 			shortTimeout  = time.Second * 10
 			mediumTimeout = time.Second * 30
@@ -4283,7 +4283,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// Test Case 2: Feature Flag Integration
-		Context("Feature Flag Integration with HumioCluster", Label("envtest", "dummy", "real"), func() {
+		FContext("Feature Flag Integration with HumioCluster", Label("envtest", "dummy", "real"), func() {
 			It("should scale down when no cluster has ENABLE_SCHEDULED_REPORT=true", func() {
 				ctx := context.Background()
 				key := types.NamespacedName{
@@ -4404,7 +4404,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// Test Case 3: TLS Configuration
-		Context("TLS Configuration", Label("envtest", "dummy", "real"), func() {
+		FContext("TLS Configuration", Label("envtest", "dummy", "real"), func() {
 			It("should configure TLS when enabled", func() {
 				ctx := context.Background()
 				key := types.NamespacedName{
@@ -4515,7 +4515,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// Test Case 4: Update Operations
-		Context("Update Operations", Label("envtest", "dummy", "real"), func() {
+		FContext("Update Operations", Label("envtest", "dummy", "real"), func() {
 			It("should update deployment when spec changes", func() {
 				ctx := context.Background()
 				key := types.NamespacedName{
@@ -4605,7 +4605,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// Test Case 5: HPA Integration
-		Context("HPA Integration", Label("envtest", "dummy", "real"), func() {
+		FContext("HPA Integration", Label("envtest", "dummy", "real"), func() {
 			It("should create HPA when autoscaling is enabled", func() {
 				ctx := context.Background()
 				key := types.NamespacedName{
@@ -4667,7 +4667,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// Test Case 6: Resource Management
-		Context("Resource Management", Label("envtest", "dummy", "real"), func() {
+		FContext("Resource Management", Label("envtest", "dummy", "real"), func() {
 			It("should apply resource requests and limits", func() {
 				ctx := context.Background()
 				key := types.NamespacedName{
@@ -4741,7 +4741,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// Test Case 7: Integration with HumioCluster URL
-		Context("HumioCluster Integration via DEFAULT_PDF_RENDER_SERVICE_URL", Label("envtest", "dummy", "real"), func() {
+		FContext("HumioCluster Integration via DEFAULT_PDF_RENDER_SERVICE_URL", Label("envtest", "dummy", "real"), func() {
 			It("should set DEFAULT_PDF_RENDER_SERVICE_URL on HumioCluster pods", func() {
 				ctx := context.Background()
 				pdfKey := types.NamespacedName{
@@ -4802,7 +4802,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// Test Case 8: Status Conditions
-		Context("Status Conditions", Label("envtest", "dummy", "real"), func() {
+		FContext("Status Conditions", Label("envtest", "dummy", "real"), func() {
 			It("should properly set status conditions", func() {
 				ctx := context.Background()
 				key := types.NamespacedName{
@@ -4850,7 +4850,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// Test Case 9: Multiple PDF Services
-		Context("Multiple PDF Services", Label("envtest", "dummy", "real"), func() {
+		FContext("Multiple PDF Services", Label("envtest", "dummy", "real"), func() {
 			It("should support multiple PDF render services in same namespace", func() {
 				ctx := context.Background()
 

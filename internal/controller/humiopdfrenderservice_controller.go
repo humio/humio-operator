@@ -85,41 +85,11 @@ type SanitizePodOpts struct {
 	CAVolumeName  string
 }
 
-// isPdfRenderServiceEnabled checks if the PDF Render Service feature is enabled
-// by checking if any HumioCluster has ENABLE_SCHEDULED_REPORT=true environment variable
-func (r *HumioPdfRenderServiceReconciler) isPdfRenderServiceEnabled(ctx context.Context, namespace string) bool {
-	var humioClusters humiov1alpha1.HumioClusterList
-	if err := r.List(ctx, &humioClusters, client.InNamespace(namespace)); err != nil {
-		r.Log.Error(err, "Failed to list HumioClusters to check ENABLE_SCHEDULED_REPORT", "namespace", namespace)
-		return false
-	}
-
-	if len(humioClusters.Items) == 0 {
-		return false
-	}
-
-	for _, cluster := range humioClusters.Items {
-		// Check both CommonEnvironmentVariables and EnvironmentVariables for ENABLE_SCHEDULED_REPORT
-		for _, envVar := range cluster.Spec.CommonEnvironmentVariables {
-			if envVar.Name == "ENABLE_SCHEDULED_REPORT" && strings.ToLower(envVar.Value) == "true" {
-				return true
-			}
-		}
-		for _, envVar := range cluster.Spec.EnvironmentVariables {
-			if envVar.Name == "ENABLE_SCHEDULED_REPORT" && strings.ToLower(envVar.Value) == "true" {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // nolint:gocyclo
 // Reconcile implements the reconciliation logic for HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.BaseLogger.WithValues("hprsName", req.Name, "hprsNamespace", req.Namespace)
 	r.Log = log
-
 
 	hprs := &humiov1alpha1.HumioPdfRenderService{}
 	if err := r.Get(ctx, req.NamespacedName, hprs); err != nil {
@@ -156,33 +126,8 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// Following HumioCluster pattern - no finalizers used
 	// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 
-	// Check if PDF Render Service feature is enabled by any HumioCluster
-	pdfFeatureEnabled := r.isPdfRenderServiceEnabled(ctx, hprs.Namespace)
-	if !pdfFeatureEnabled {
-		// If the service has not reached Running yet we still prevent it from
-		// starting.  Once it is Running we keep it alive even when the feature
-		// is disabled – this satisfies the “operates independently” contract.
-		if hprs.Status.State != humiov1alpha1.HumioPdfRenderServiceStateRunning {
-			log.Info("Feature disabled and service not yet running → scale down to 0")
-
-			// Temporarily set replicas to 0, reconcile deployment, then restore.
-			orig := hprs.Spec.Replicas
-			hprs.Spec.Replicas = 0
-			_, _, err := r.reconcileDeployment(ctx, hprs)
-			hprs.Spec.Replicas = orig
-			if err != nil {
-				reconcileErr = err
-				finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
-				return ctrl.Result{}, reconcileErr
-			}
-
-			finalState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
-			return ctrl.Result{RequeueAfter: time.Minute}, nil
-		}
-
-		// Already running – keep it alive.
-		log.Info("Feature disabled but PDF Render Service is already Running – keeping it active")
-	}
+	// PDF Render Service operates independently from HumioCluster
+	// No need to check for ENABLE_SCHEDULED_REPORT or HumioCluster state
 
 	// If we're already in Running state and the feature is still enabled,
 	// we can skip most of the reconciliation to reduce load during cluster updates
@@ -355,44 +300,7 @@ func (r *HumioPdfRenderServiceReconciler) SetupWithManager(mgr ctrl.Manager) err
 		For(&humiov1alpha1.HumioPdfRenderService{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
-		Owns(&autoscalingv2.HorizontalPodAutoscaler{}).
-		// Watch HumioClusters to detect when ENABLE_SCHEDULED_REPORT is set
-		Watches(&humiov1alpha1.HumioCluster{}, handler.EnqueueRequestsFromMapFunc(
-			func(ctx context.Context, obj client.Object) []reconcile.Request {
-				cluster, ok := obj.(*humiov1alpha1.HumioCluster)
-				if !ok {
-					return nil
-				}
-
-				// Skip reconciliation if the cluster is in a transitional state
-				// This prevents excessive reconciliations during cluster updates/restarts
-				if cluster.Status.State == humiov1alpha1.HumioClusterStateRestarting ||
-					cluster.Status.State == humiov1alpha1.HumioClusterStateUpgrading ||
-					cluster.Status.State == humiov1alpha1.HumioClusterStatePending {
-					// Return empty to avoid triggering PDF render service reconciliation
-					// during cluster state transitions
-					return nil
-				}
-
-				// When a HumioCluster changes, requeue all HumioPdfRenderServices
-				// so they can check if they should be enabled/disabled
-				var hprsList humiov1alpha1.HumioPdfRenderServiceList
-				if err := mgr.GetClient().List(ctx, &hprsList, client.InNamespace(obj.GetNamespace())); err != nil {
-					return nil
-				}
-
-				var requests []reconcile.Request
-				for _, hprs := range hprsList.Items {
-					requests = append(requests, reconcile.Request{
-						NamespacedName: types.NamespacedName{
-							Name:      hprs.Name,
-							Namespace: hprs.Namespace,
-						},
-					})
-				}
-				return requests
-			},
-		))
+		Owns(&autoscalingv2.HorizontalPodAutoscaler{})
 
 	// Only set up cert-manager watches if cert-manager is enabled
 	if helpers.UseCertManager() {
