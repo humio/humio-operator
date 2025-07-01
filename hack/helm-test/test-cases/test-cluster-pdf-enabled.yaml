@@ -1,0 +1,6 @@
+spec:
+  environmentVariables:
+    - name: "ENABLE_SCHEDULED_REPORT"
+      value: "true"
+    - name: "DEFAULT_PDF_RENDER_SERVICE_URL"
+      value: "http://test-pdf-service:5123"
