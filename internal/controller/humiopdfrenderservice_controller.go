@@ -126,8 +126,10 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// Following HumioCluster pattern - no finalizers used
 	// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 
-	// PDF Render Service operates independently from HumioCluster
-	// No need to check for ENABLE_SCHEDULED_REPORT or HumioCluster state
+	// PDF Render Service CRD can be created independently from HumioCluster
+	// However, the deployment will only scale up when at least one HumioCluster
+	// has ENABLE_SCHEDULED_REPORT=true. When no such cluster exists, the service
+	// scales down to 0 replicas to conserve resources.
 
 	// If we're already in Running state and the feature is still enabled,
 	// we can skip most of the reconciliation to reduce load during cluster updates
@@ -354,9 +356,6 @@ func shouldWatchSecret(hprs *humiov1alpha1.HumioPdfRenderService, secretName str
 // Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 // Note: Resource cleanup testing is not included as it relies on Kubernetes garbage
 // collection which may not work consistently in test environments.
-
-// Following HumioCluster pattern - no finalizers used
-// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 
 // nolint:gocyclo
 // reconcileDeployment creates or updates the Deployment for the HumioPdfRenderService.
