@@ -325,7 +325,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	// These tests verify that HumioCluster properly integrates with independent PDF services
 	// via DEFAULT_PDF_RENDER_SERVICE_URL environment variable when ENABLE_SCHEDULED_REPORT=true.
 	// The PDF service operates independently and HumioCluster interacts with it via API endpoint.
-	FContext("HumioCluster with PDF Render Service integration", Label("envtest", "dummy", "real"), func() {
+	Context("HumioCluster with PDF Render Service integration", Label("envtest", "dummy", "real"), func() {
 		It("should configure PDF service API endpoint URL when ENABLE_SCHEDULED_REPORT is set", func() {
 			ctx := context.Background()
 			testId := kubernetes.RandomString()
@@ -391,7 +391,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	// Independent PDF Service Test
-	FContext("PDF Render Service operates independently", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service operates independently", Label("envtest", "dummy", "real"), func() {
 		It("should operate independently of specific HumioCluster instances", func() {
 			ctx := context.Background()
 			testId := kubernetes.RandomString()
@@ -488,7 +488,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	// TLS Configuration Success Test
-	FContext("PDF Render Service with TLS configuration", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service with TLS configuration", Label("envtest", "dummy", "real"), func() {
 		const (
 			standardTimeout = 60 * time.Second // Increased for cert-manager provisioning
 			quickInterval   = 250 * time.Millisecond
@@ -651,7 +651,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	// No PDF Reference Test
-	FContext("HumioCluster without PDF Reference", Label("envtest", "dummy", "real"), func() {
+	Context("HumioCluster without PDF Reference", Label("envtest", "dummy", "real"), func() {
 		It("Should reconcile successfully when PDF Render Service URL is not configured", func() {
 			ctx := context.Background()
 			// Generate a unique name for this test run
@@ -681,7 +681,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	// PDF Render Service Upgrade Test
-	FContext("PDF Render Service Upgrade", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Upgrade", Label("envtest", "dummy", "real"), func() {
 		const (
 			initialTestPdfImage  = "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e"
 			upgradedTestPdfImage = "humio/pdf-render-service:0.1.1--build-103--sha-76833d8fdc641dad51798fb2a4705e2d273393b7"
@@ -982,7 +982,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	// Reference removal
-	FContext("PDF Render Service reference removal", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service reference removal", Label("envtest", "dummy", "real"), func() {
 		var (
 			standardTimeout = 30 * time.Second
 			extendedTimeout = 60 * time.Second

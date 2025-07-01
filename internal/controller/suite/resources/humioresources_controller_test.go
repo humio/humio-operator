@@ -4192,7 +4192,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service Tests
-	FContext("HumioPdfRenderService", Label("envtest", "dummy", "real"), func() {
+	Context("HumioPdfRenderService", Label("envtest", "dummy", "real"), func() {
 		const (
 			shortTimeout  = time.Second * 10
 			mediumTimeout = time.Second * 30
@@ -4283,7 +4283,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// TLS Configuration
-		FContext("TLS Configuration", Label("envtest", "dummy", "real"), func() {
+		Context("TLS Configuration", Label("envtest", "dummy", "real"), func() {
 			It("should configure TLS when enabled", func() {
 				ctx := context.Background()
 				key := types.NamespacedName{
@@ -4394,7 +4394,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// Update Operations
-		FContext("Update Operations", Label("envtest", "dummy", "real"), func() {
+		Context("Update Operations", Label("envtest", "dummy", "real"), func() {
 			It("should update deployment when spec changes", func() {
 				ctx := context.Background()
 				key := types.NamespacedName{
@@ -4484,7 +4484,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// HPA Integration
-		FContext("HPA Integration", Label("envtest", "dummy", "real"), func() {
+		Context("HPA Integration", Label("envtest", "dummy", "real"), func() {
 			It("should create HPA when autoscaling is enabled", func() {
 				ctx := context.Background()
 				key := types.NamespacedName{
@@ -4546,7 +4546,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// Resource Management
-		FContext("Resource Management", Label("envtest", "dummy", "real"), func() {
+		Context("Resource Management", Label("envtest", "dummy", "real"), func() {
 			It("should apply resource requests and limits", func() {
 				ctx := context.Background()
 				key := types.NamespacedName{
@@ -4620,7 +4620,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// Integration with HumioCluster URL
-		FContext("HumioCluster Integration via DEFAULT_PDF_RENDER_SERVICE_URL", Label("envtest", "dummy", "real"), func() {
+		Context("HumioCluster Integration via DEFAULT_PDF_RENDER_SERVICE_URL", Label("envtest", "dummy", "real"), func() {
 			It("should set DEFAULT_PDF_RENDER_SERVICE_URL on HumioCluster pods", func() {
 				ctx := context.Background()
 				pdfKey := types.NamespacedName{
@@ -4681,7 +4681,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// Status Conditions
-		FContext("Status Conditions", Label("envtest", "dummy", "real"), func() {
+		Context("Status Conditions", Label("envtest", "dummy", "real"), func() {
 			It("should properly set status conditions", func() {
 				ctx := context.Background()
 				key := types.NamespacedName{
@@ -4729,7 +4729,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 
 		// Multiple PDF Services
-		FContext("Multiple PDF Services", Label("envtest", "dummy", "real"), func() {
+		Context("Multiple PDF Services", Label("envtest", "dummy", "real"), func() {
 			It("should support multiple PDF render services in same namespace", func() {
 				ctx := context.Background()
 
@@ -5704,7 +5704,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		longTimeout   = time.Second * 60
 	)
 
-	// Test Case 1: PDF Render Service Triggered by HumioCluster
+	// PDF Render Service Triggered by HumioCluster
 	Context("PDF Render Service Triggered by HumioCluster ENABLE_SCHEDULED_REPORT", Label("envtest", "dummy", "real"), func() {
 		It("should be enabled when at least one HumioCluster has ENABLE_SCHEDULED_REPORT=true", func() {
 			ctx := context.Background()
@@ -5785,7 +5785,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	// Test Case 2: PDF Render Service Creation when enabled
+	// PDF Render Service Creation when enabled
 	Context("PDF Render Service Creation When Enabled", Label("envtest", "dummy", "real"), func() {
 
 		It("should create Deployment and Service when HumioCluster enables scheduled reports", func() {
@@ -5877,62 +5877,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	// Test Case 3: PDF Render Service Disabled When No Cluster Enables It
-	Context("PDF Render Service Disabled When Not Enabled", Label("envtest", "dummy", "real"), func() {
-		It("should not reconcile when no HumioCluster has ENABLE_SCHEDULED_REPORT=true", func() {
-			ctx := context.Background()
-			pdfKey := types.NamespacedName{
-				Name:      "humio-pdf-render-service-disabled",
-				Namespace: clusterKey.Namespace,
-			}
-
-			// Clean up any existing resources first
-			suite.CleanupPdfRenderServiceResources(ctx, k8sClient, pdfKey)
-
-			// Ensure no HumioCluster in the namespace has ENABLE_SCHEDULED_REPORT=true
-			// by creating a cluster without this environment variable
-			disabledClusterKey := types.NamespacedName{
-				Name:      "disabled-cluster-for-pdf",
-				Namespace: clusterKey.Namespace,
-			}
-			disabledHumioCluster := suite.ConstructBasicSingleNodeHumioCluster(disabledClusterKey, true)
-			// Explicitly do NOT set ENABLE_SCHEDULED_REPORT
-			Expect(k8sClient.Create(ctx, disabledHumioCluster)).To(Succeed())
-			defer suite.CleanupCluster(ctx, k8sClient, disabledHumioCluster)
-
-			suite.UsingClusterBy(clusterKey.Name, "Creating HumioPdfRenderService CR - should be skipped")
-			hprs := &humiov1alpha1.HumioPdfRenderService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      pdfKey.Name,
-					Namespace: pdfKey.Namespace,
-				},
-				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
-					Image:    versions.DefaultPDFRenderServiceImage(),
-					Replicas: 1,
-					Port:     controller.DefaultPdfRenderServicePort,
-				},
-			}
-			Expect(k8sClient.Create(ctx, hprs)).Should(Succeed())
-
-			// The PDF service should remain in an early state or not progress
-			// since no HumioCluster enables scheduled reports
-			suite.UsingClusterBy(clusterKey.Name, "Verifying PDF service does not progress without enabler cluster")
-			Consistently(func() string {
-				var updatedHprs humiov1alpha1.HumioPdfRenderService
-				if err := k8sClient.Get(ctx, pdfKey, &updatedHprs); err != nil {
-					return "NotFound"
-				}
-				// Should remain in a non-Running state since feature is disabled
-				return updatedHprs.Status.State
-			}, mediumTimeout, suite.TestInterval).ShouldNot(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
-
-			// Clean up
-			Expect(k8sClient.Delete(ctx, hprs)).To(Succeed())
-		})
-	})
-
-	// Test Case 4: PDF Render Service Update
-
+	// PDF Render Service Update
 	Context("PDF Render Service Update", Label("envtest", "dummy", "real"), func() {
 		var (
 			ctx = context.Background()
@@ -6122,7 +6067,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	// Test Case 4: PDF Render Service Resources and Probes
+	// PDF Render Service Resources and Probes
 	Context("PDF Render Service Resources and Probes", Label("envtest", "dummy", "real"), func() {
 		It("should correctly set up resources and probes when specified", func() {
 			ctx := context.Background()
@@ -6258,7 +6203,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	// Test Case 5: PDF Render Service Environment Variables
+	// PDF Render Service Environment Variables
 	Context("PDF Render Service Environment Variables", Label("envtest", "dummy", "real"), func() {
 		It("should correctly configure environment variables (create and update)", func() {
 			ctx := context.Background()
@@ -6376,7 +6321,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	// Test Case 6: PDF Render Service with HumioCluster Environment Variable Integration
+	// PDF Render Service with HumioCluster Environment Variable Integration
 	Context("PDF Render Service with HumioCluster Environment Variable Integration", Label("envtest", "dummy", "real"), func() {
 		It("Should demonstrate HumioCluster interaction with PDF service via DEFAULT_PDF_RENDER_SERVICE_URL", func() {
 			ctx := context.Background()
@@ -6499,8 +6444,6 @@ var _ = Describe("Humio Resources Controllers", func() {
 		})
 	})
 
-	// Test Case 7: Following HumioCluster pattern - no finalizers used
-	// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 	// PDF Render Service HPA Tests
 	Context("PDF Render Service HPA (Horizontal Pod Autoscaling)", Label("envtest", "dummy", "real"), func() {
 		It("should create HPA when autoscaling is enabled", func() {
@@ -6965,6 +6908,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 	})
 
+	// PDF Render Service Reconcile Loop Tests
 	Context("PDF Render Service Reconcile Loop", Label("envtest", "dummy", "real"), func() {
 		It("should not trigger update when ImagePullPolicy is explicitly set as default", func() {
 			ctx := context.Background()

@@ -224,7 +224,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	if finalState != humiov1alpha1.HumioPdfRenderServiceStateConfigError {
 		targetState := humiov1alpha1.HumioPdfRenderServiceStateRunning
 		r.Log.Info("Checking deployment readiness for state determination",
-			"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace,
+			"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace,
 			"depIsNil", dep == nil,
 			"readyReplicas", func() int32 {
 				if dep != nil {
@@ -251,7 +251,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		if dep == nil || dep.Status.ReadyReplicas < hprs.Spec.Replicas || dep.Status.ObservedGeneration < dep.Generation {
 			targetState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
 			r.Log.Info("PDF service will remain in Configuring state",
-				"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace, "reason",
+				"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace, "reason",
 				func() string {
 					if dep == nil {
 						return "deployment is nil"
@@ -266,7 +266,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 				}())
 		} else {
 			r.Log.Info("PDF service will transition to Running state",
-				"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace)
+				"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
 		}
 		if hprs.Spec.Replicas == 0 {
 			targetState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
@@ -276,7 +276,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		finalState = targetState
 	} else {
 		r.Log.Info("Preserving ConfigError state, skipping deployment readiness check",
-			"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace)
+			"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
 	}
 
 	// Requeue while configuring or in error state.
