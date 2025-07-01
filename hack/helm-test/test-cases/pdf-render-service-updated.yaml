@@ -1,0 +1,15 @@
+---
+apiVersion: core.humio.com/v1alpha1
+kind: HumioPdfRenderService
+metadata:
+  name: test-pdf-service
+spec:
+  image: "humio/pdf-render-service:0.1.1--build-103--sha-76833d8fdc641dad51798fb2a4705e2d273393b7"  # Updated version
+  replicas: 2  # Updated replicas
+  resources:
+    limits:
+      cpu: "2"  # Updated resources
+      memory: 2Gi
+    requests:
+      cpu: "1" 
+      memory: 1Gi

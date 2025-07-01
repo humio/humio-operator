@@ -126,8 +126,10 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// Following HumioCluster pattern - no finalizers used
 	// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 
-	// PDF Render Service operates independently from HumioCluster
-	// No need to check for ENABLE_SCHEDULED_REPORT or HumioCluster state
+	// PDF Render Service CRD can be created independently from HumioCluster
+	// However, the deployment will only scale up when at least one HumioCluster
+	// has ENABLE_SCHEDULED_REPORT=true. When no such cluster exists, the service
+	// scales down to 0 replicas to conserve resources.
 
 	// If we're already in Running state and the feature is still enabled,
 	// we can skip most of the reconciliation to reduce load during cluster updates
@@ -224,7 +226,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	if finalState != humiov1alpha1.HumioPdfRenderServiceStateConfigError {
 		targetState := humiov1alpha1.HumioPdfRenderServiceStateRunning
 		r.Log.Info("Checking deployment readiness for state determination",
-			"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace,
+			"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace,
 			"depIsNil", dep == nil,
 			"readyReplicas", func() int32 {
 				if dep != nil {
@@ -251,7 +253,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		if dep == nil || dep.Status.ReadyReplicas < hprs.Spec.Replicas || dep.Status.ObservedGeneration < dep.Generation {
 			targetState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
 			r.Log.Info("PDF service will remain in Configuring state",
-				"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace, "reason",
+				"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace, "reason",
 				func() string {
 					if dep == nil {
 						return "deployment is nil"
@@ -266,7 +268,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 				}())
 		} else {
 			r.Log.Info("PDF service will transition to Running state",
-				"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace)
+				"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
 		}
 		if hprs.Spec.Replicas == 0 {
 			targetState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
@@ -276,7 +278,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		finalState = targetState
 	} else {
 		r.Log.Info("Preserving ConfigError state, skipping deployment readiness check",
-			"hprsName", hprs.ObjectMeta.Name, "hprsNamespace", hprs.ObjectMeta.Namespace)
+			"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
 	}
 
 	// Requeue while configuring or in error state.
@@ -354,9 +356,6 @@ func shouldWatchSecret(hprs *humiov1alpha1.HumioPdfRenderService, secretName str
 // Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 // Note: Resource cleanup testing is not included as it relies on Kubernetes garbage
 // collection which may not work consistently in test environments.
-
-// Following HumioCluster pattern - no finalizers used
-// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 
 // nolint:gocyclo
 // reconcileDeployment creates or updates the Deployment for the HumioPdfRenderService.
