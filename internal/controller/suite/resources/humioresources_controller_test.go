@@ -4460,7 +4460,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
 				// Update image
-				newImage := "updated/pdf-render:v2"
+				newImage := "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e"
 				Eventually(func() error {
 					updated := &humiov1alpha1.HumioPdfRenderService{}
 					if err := k8sClient.Get(ctx, key, updated); err != nil {
@@ -5746,7 +5746,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	)
 
 	// PDF Render Service Triggered by HumioCluster
-	FContext("PDF Render Service Triggered by HumioCluster ENABLE_SCHEDULED_REPORT", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Triggered by HumioCluster ENABLE_SCHEDULED_REPORT", Label("envtest", "dummy", "real"), func() {
 		It("should be enabled when at least one HumioCluster has ENABLE_SCHEDULED_REPORT=true", func() {
 			ctx := context.Background()
 			hprsKey := types.NamespacedName{
@@ -5827,7 +5827,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service Creation when enabled
-	FContext("PDF Render Service Creation When Enabled", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Creation When Enabled", Label("envtest", "dummy", "real"), func() {
 
 		It("should create Deployment and Service when HumioCluster enables scheduled reports", func() {
 			ctx := context.Background()
@@ -5919,7 +5919,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service Update
-	FContext("PDF Render Service Update", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Update", Label("envtest", "dummy", "real"), func() {
 		var (
 			ctx = context.Background()
 		)
@@ -6064,20 +6064,123 @@ var _ = Describe("Humio Resources Controllers", func() {
 				return *deployment.Spec.Replicas
 			}, testTimeout, suite.TestInterval).Should(Equal(updatedReplicas))
 
-			// In envtest, manually ensure the correct number of pods exist for the updated deployment
-			suite.UsingClusterBy(clusterKey.Name, "Ensuring pods exist for updated deployment in envtest")
-			if helpers.UseEnvtest() {
-				Expect(suite.EnsurePodsForDeploymentInEnvtest(ctx, k8sClient, deploymentKey, clusterKey.Name)).To(Succeed())
+			// Handle pod lifecycle for both envtest and Kind
+			suite.UsingClusterBy(clusterKey.Name, "Managing pod lifecycle for deployment update")
+			if helpers.UseEnvtest() || helpers.UseKindCluster() {
+				// First wait for deployment to have the desired replica count in spec
+				Eventually(func() int32 {
+					if err := k8sClient.Get(ctx, deploymentKey, deployment); err != nil || deployment.Spec.Replicas == nil {
+						return 0
+					}
+					return *deployment.Spec.Replicas
+				}, testTimeout, suite.TestInterval).Should(Equal(updatedReplicas))
+
+				if helpers.UseEnvtest() {
+					// For envtest, ensure pods match the deployment
+					Expect(suite.EnsurePodsForDeploymentInEnvtest(ctx, k8sClient, deploymentKey, clusterKey.Name)).To(Succeed())
+
+					// Give the controller a chance to reconcile after pod updates
+					time.Sleep(2 * suite.TestInterval)
+				} else if helpers.UseKindCluster() {
+					// For Kind, handle rolling update by managing pods manually
+					suite.UsingClusterBy(clusterKey.Name, "Handling rolling update for deployment in Kind")
+
+					// List current pods
+					podList := &corev1.PodList{}
+					matchingLabels := client.MatchingLabels{
+						"app":                      "humio-pdf-render-service",
+						"humio-pdf-render-service": key.Name,
+					}
+					Expect(k8sClient.List(ctx, podList, client.InNamespace(key.Namespace), matchingLabels)).To(Succeed())
+
+					// Count active pods
+					activePods := []corev1.Pod{}
+					for _, pod := range podList.Items {
+						if pod.DeletionTimestamp == nil {
+							activePods = append(activePods, pod)
+						}
+					}
+
+					// If we need to scale up, create new pods first
+					if int32(len(activePods)) < updatedReplicas {
+						suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Scaling up from %d to %d replicas", len(activePods), updatedReplicas))
+						// Just wait for the deployment controller to create the new pods
+						Eventually(func() int {
+							podList := &corev1.PodList{}
+							_ = k8sClient.List(ctx, podList, client.InNamespace(key.Namespace), matchingLabels)
+							activeCount := 0
+							for _, pod := range podList.Items {
+								if pod.DeletionTimestamp == nil {
+									activeCount++
+								}
+							}
+							return activeCount
+						}, testTimeout, suite.TestInterval).Should(BeNumerically(">=", int(updatedReplicas)))
+					}
+
+					// If we need to scale down, delete extra pods
+					if int32(len(activePods)) > updatedReplicas {
+						suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Scaling down from %d to %d replicas", len(activePods), updatedReplicas))
+						podsToDelete := int32(len(activePods)) - updatedReplicas
+						for i := int32(0); i < podsToDelete; i++ {
+							pod := activePods[i]
+							suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Deleting extra pod %s", pod.Name))
+							_ = k8sClient.Delete(ctx, &pod)
+						}
+					}
+
+					// Wait for pods to be ready
+					// The EnsurePdfRenderDeploymentReady function handles pod readiness for Kind clusters
+					suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
+				}
 			}
 
-			// Wait for the deployment status to reflect the updated replica count
-			suite.UsingClusterBy(clusterKey.Name, "Waiting for deployment status to update")
-			Eventually(func() int32 {
+			// Wait for the deployment to stabilize with the correct replica count
+			suite.UsingClusterBy(clusterKey.Name, "Waiting for deployment to stabilize")
+			Eventually(func() bool {
 				if err := k8sClient.Get(ctx, deploymentKey, deployment); err != nil {
-					return 0
+					suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Failed to get deployment: %v", err))
+					return false
 				}
-				return deployment.Status.Replicas
-			}, testTimeout, suite.TestInterval).Should(Equal(updatedReplicas))
+
+				// Check spec replicas
+				if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != updatedReplicas {
+					suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Spec replicas mismatch: got %v, want %d", deployment.Spec.Replicas, updatedReplicas))
+					return false
+				}
+
+				// Check status replicas
+				if deployment.Status.Replicas != updatedReplicas {
+					suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Status replicas mismatch: got %d, want %d", deployment.Status.Replicas, updatedReplicas))
+					return false
+				}
+
+				// Check updated replicas
+				if deployment.Status.UpdatedReplicas != updatedReplicas {
+					suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Updated replicas mismatch: got %d, want %d", deployment.Status.UpdatedReplicas, updatedReplicas))
+					return false
+				}
+
+				// Check ready replicas
+				if deployment.Status.ReadyReplicas != updatedReplicas {
+					suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Ready replicas mismatch: got %d, want %d", deployment.Status.ReadyReplicas, updatedReplicas))
+					return false
+				}
+
+				// Check available replicas
+				if deployment.Status.AvailableReplicas != updatedReplicas {
+					suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Available replicas mismatch: got %d, want %d", deployment.Status.AvailableReplicas, updatedReplicas))
+					return false
+				}
+
+				// Check generation matches
+				if deployment.Status.ObservedGeneration != deployment.Generation {
+					suite.UsingClusterBy(clusterKey.Name, fmt.Sprintf("Generation mismatch: observed %d, current %d", deployment.Status.ObservedGeneration, deployment.Generation))
+					return false
+				}
+
+				return true
+			}, testTimeout*2, suite.TestInterval).Should(BeTrue())
 
 			suite.UsingClusterBy(clusterKey.Name, "Verifying the Service is updated with the new port")
 			service := &corev1.Service{}
@@ -6109,7 +6212,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service Resources and Probes
-	FContext("PDF Render Service Resources and Probes", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Resources and Probes", Label("envtest", "dummy", "real"), func() {
 		It("should correctly set up resources and probes when specified", func() {
 			ctx := context.Background()
 
@@ -6245,7 +6348,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service Environment Variables
-	FContext("PDF Render Service Environment Variables", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Environment Variables", Label("envtest", "dummy", "real"), func() {
 		It("should correctly configure environment variables (create and update)", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -6363,7 +6466,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service with HumioCluster Environment Variable Integration
-	FContext("PDF Render Service with HumioCluster Environment Variable Integration", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service with HumioCluster Environment Variable Integration", Label("envtest", "dummy", "real"), func() {
 		It("Should demonstrate HumioCluster interaction with PDF service via DEFAULT_PDF_RENDER_SERVICE_URL", func() {
 			ctx := context.Background()
 			clusterKey := types.NamespacedName{Name: "humio-pdf-trigger-cluster", Namespace: clusterKey.Namespace}
@@ -6375,7 +6478,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				suite.CleanupCluster(ctx, k8sClient, tempCluster)
 			}
 
-			customPdfImage := "custom/pdf-render-service:1.0.0"
+			customPdfImage := "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e0"
 			humioCluster := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, true)
 
 			// Create the independent PDF render service
@@ -6486,7 +6589,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service HPA Tests
-	FContext("PDF Render Service HPA (Horizontal Pod Autoscaling)", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service HPA (Horizontal Pod Autoscaling)", Label("envtest", "dummy", "real"), func() {
 		It("should create HPA when autoscaling is enabled", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -6950,7 +7053,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service Reconcile Loop Tests
-	FContext("PDF Render Service Reconcile Loop", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Reconcile Loop", Label("envtest", "dummy", "real"), func() {
 		It("should not trigger update when ImagePullPolicy is explicitly set as default", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
