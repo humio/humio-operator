@@ -410,6 +410,12 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 		// Check if we need to update by comparing only the fields we care about
 		needsUpdate := false
 
+		// Compare image
+		if dep.Spec.Template.Spec.Containers[0].Image != desired.Spec.Template.Spec.Containers[0].Image {
+			needsUpdate = true
+			log.Info("Image changed", "current", dep.Spec.Template.Spec.Containers[0].Image, "desired", desired.Spec.Template.Spec.Containers[0].Image)
+		}
+
 		// Compare replicas (only if not using HPA)
 		if !helpers.HpaEnabledForHPRS(hprs) && !reflect.DeepEqual(dep.Spec.Replicas, desired.Spec.Replicas) {
 			needsUpdate = true
@@ -847,16 +853,20 @@ func (r *HumioPdfRenderServiceReconciler) reconcileHPA(
 	// If autoscaling is not enabled, ensure HPA is deleted
 	if !helpers.HpaEnabledForHPRS(hprs) {
 		log.Info("Autoscaling is disabled, ensuring HPA is deleted", "hpaName", hpaName)
-		err := r.Delete(ctx, hpa)
-		if err != nil && !k8serrors.IsNotFound(err) {
+		if err := r.Get(ctx, types.NamespacedName{Name: hpaName, Namespace: hprs.Namespace}, hpa); err != nil {
+			if k8serrors.IsNotFound(err) {
+				log.Info("HPA already deleted or does not exist", "hpaName", hpaName)
+				return nil
+			}
+			log.Error(err, "failed to get HPA for deletion", "hpaName", hpaName)
+			return fmt.Errorf("failed to get HPA %s for deletion: %w", hpaName, err)
+		}
+
+		if err := r.Delete(ctx, hpa); err != nil {
 			log.Error(err, "failed to delete HPA", "hpaName", hpaName)
 			return fmt.Errorf("failed to delete HPA %s: %w", hpaName, err)
 		}
-		if k8serrors.IsNotFound(err) {
-			log.Info("HPA already deleted or does not exist", "hpaName", hpaName)
-		} else {
-			log.Info("HPA deleted successfully", "hpaName", hpaName)
-		}
+		log.Info("HPA deleted successfully", "hpaName", hpaName)
 		return nil
 	}
 
