@@ -831,9 +831,9 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Status().Update(ctx, &deployment)
 			}, standardTimeout, quickInterval).Should(Succeed())
 
-			// For Kind clusters, manually handle pod lifecycle during rollout
-			if helpers.UseKindCluster() {
-				By("Handling rolling update for deployment in Kind")
+			// For both Kind clusters and envtest, manually handle pod lifecycle during rollout
+			if helpers.UseKindCluster() || helpers.UseEnvtest() {
+				By("Handling rolling update for deployment")
 
 				// Get deployment to access selector labels
 				var deployment appsv1.Deployment
@@ -852,9 +852,24 @@ var _ = Describe("HumioCluster Controller", func() {
 				// Get current pods before rollout
 				oldPods, _ := listPods()
 
-				// In Kind, we need to help the deployment controller create new pods
-				// The deployment controller should create a new pod with the updated image
-				By("Waiting for deployment controller to create new pod with updated image")
+				// In envtest, we need to create the new pod ourselves since there's no deployment controller
+				if helpers.UseEnvtest() && len(oldPods) > 0 {
+					By("Creating new pod with updated image for envtest")
+					// Use the first old pod as a template
+					newPod := oldPods[0].DeepCopy()
+					newPod.ResourceVersion = ""
+					newPod.UID = ""
+					newPod.Name = fmt.Sprintf("%s-%s", deployment.Name, kubernetes.RandomString())
+					newPod.Status = corev1.PodStatus{}
+					// Update the image in the new pod
+					if len(newPod.Spec.Containers) > 0 {
+						newPod.Spec.Containers[0].Image = upgradedTestPdfImage
+					}
+					Expect(k8sClient.Create(ctx, newPod)).To(Succeed())
+				}
+
+				// Wait for new pod with updated image
+				By("Waiting for new pod with updated image")
 				Eventually(func() bool {
 					pods, err := listPods()
 					if err != nil {
@@ -864,7 +879,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					for _, pod := range pods {
 						if pod.DeletionTimestamp == nil && len(pod.Spec.Containers) > 0 &&
 							pod.Spec.Containers[0].Image == upgradedTestPdfImage {
-							// Mark the new pod as ready immediately in Kind
+							// Mark the new pod as ready
 							pod.Status.Phase = corev1.PodRunning
 							pod.Status.Conditions = []corev1.PodCondition{
 								{
