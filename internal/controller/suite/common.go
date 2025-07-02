@@ -82,173 +82,49 @@ func MarkPodsAsRunningIfUsingEnvtest(ctx context.Context, client client.Client, 
 }
 
 func MarkPodAsRunningIfUsingEnvtest(ctx context.Context, k8sClient client.Client, pod corev1.Pod, clusterName string) error {
-	envtestVar := os.Getenv("TEST_USING_ENVTEST")
-	UsingClusterBy(clusterName, fmt.Sprintf("DEBUG: TEST_USING_ENVTEST=%s, UseEnvtest()=%t", envtestVar, helpers.UseEnvtest()))
-
 	if !helpers.UseEnvtest() {
-		UsingClusterBy(clusterName, fmt.Sprintf("DEBUG: Not using envtest, skipping pod %s", pod.Name))
 		return nil
 	}
 
-	UsingClusterBy(clusterName, fmt.Sprintf("DEBUG: MarkPodAsRunningIfUsingEnvtest called for pod %s", pod.Name))
-
-	// Since this is a helper used in tests, we can inspect the pod spec to determine which container to mark as ready
-	var containerName string
-	var containerToMarkReady corev1.Container
+	// Determine which container to mark as ready based on pod spec
+	containerName := controller.HumioContainerName // default to "humio"
+	isPdfRenderService := false
 	for _, container := range pod.Spec.Containers {
-		if container.Name == "humio" {
-			containerToMarkReady = container
-			break
-		}
 		if container.Name == "humio-pdf-render-service" {
-			containerToMarkReady = container
+			containerName = "humio-pdf-render-service"
+			isPdfRenderService = true
 			break
 		}
 	}
-	if containerToMarkReady.Name == "" {
-		// fallback to humio
-		containerName = "humio"
-	} else {
-		containerName = containerToMarkReady.Name
-	}
-	UsingClusterBy(clusterName, fmt.Sprintf("Simulating Humio container %s starts up and is marked Ready (pod phase %s)", containerName, pod.Status.Phase))
 
-	fmt.Printf("BEFORE UPDATE - Pod %s containers: %+v\n", pod.Name, pod.Status.ContainerStatuses)
-
+	UsingClusterBy(clusterName, fmt.Sprintf("Simulating %s container starts up and is marked Ready", containerName))
 	pod.Status.PodIP = "192.168.0.1"
 	pod.Status.Conditions = []corev1.PodCondition{
 		{
-			Type:               corev1.PodReady,
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.Now(),
-		},
-		{
-			Type:               corev1.ContainersReady,
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.Now(),
-		},
-		{
-			Type:               corev1.PodScheduled,
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.Now(),
-		},
-		{
-			Type:               corev1.PodInitialized,
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.Now(),
-		},
-	}
-	pod.Status.InitContainerStatuses = []corev1.ContainerStatus{
-		{
-			Name:  controller.InitContainerName,
-			Ready: true,
+			Type:   corev1.PodReady,
+			Status: corev1.ConditionTrue,
 		},
 	}
 
-	// Update or create container statuses - preserve existing statuses and update/add the target container
-	updatedContainerStatuses := make([]corev1.ContainerStatus, 0, len(pod.Status.ContainerStatuses)+1)
-	containerFound := false
-
-	fmt.Printf("Looking for container name: %s\n", containerName)
-
-	// Update existing container statuses
-	for _, existingStatus := range pod.Status.ContainerStatuses {
-		fmt.Printf("Processing existing container: %s (Ready=%t)\n", existingStatus.Name, existingStatus.Ready)
-		if existingStatus.Name == containerName {
-			// Update the target container to be ready
-			existingStatus.Ready = true
-			existingStatus.Started = &[]bool{true}[0]
-			existingStatus.State = corev1.ContainerState{
-				Running: &corev1.ContainerStateRunning{
-					StartedAt: metav1.Now(),
-				},
-			}
-			containerFound = true
-			fmt.Printf("Updated container %s to Ready=true\n", existingStatus.Name)
-		}
-		updatedContainerStatuses = append(updatedContainerStatuses, existingStatus)
-	}
-
-	// If the container wasn't found in existing statuses, add it
-	if !containerFound {
-		fmt.Printf("Container %s not found, adding new status\n", containerName)
-		updatedContainerStatuses = append(updatedContainerStatuses, corev1.ContainerStatus{
-			Name:    containerName,
-			Ready:   true,
-			Started: &[]bool{true}[0],
-			State: corev1.ContainerState{
-				Running: &corev1.ContainerStateRunning{
-					StartedAt: metav1.Now(),
-				},
+	// Only set init container status for Humio pods (not PDF render service)
+	if !isPdfRenderService {
+		pod.Status.InitContainerStatuses = []corev1.ContainerStatus{
+			{
+				Name:  controller.InitContainerName,
+				Ready: true,
 			},
-		})
+		}
 	}
 
-	pod.Status.ContainerStatuses = updatedContainerStatuses
-	pod.Status.Phase = corev1.PodRunning
-
-	fmt.Printf("AFTER UPDATE - Pod %s containers: %+v\n", pod.Name, pod.Status.ContainerStatuses)
-
-	// Fetch the latest pod from the cluster and update its status
-	var latestPod corev1.Pod
-	podKey := types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}
-	err := k8sClient.Get(ctx, podKey, &latestPod)
-	if err != nil {
-		fmt.Printf("ERROR getting latest pod %s: %v\n", pod.Name, err)
-		return err
-	}
-
-	// Apply our status changes to the latest pod
-	latestPod.Status.PodIP = "192.168.0.1"
-	latestPod.Status.Conditions = []corev1.PodCondition{
+	// Set container statuses
+	pod.Status.ContainerStatuses = []corev1.ContainerStatus{
 		{
-			Type:               corev1.PodReady,
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.Now(),
-		},
-		{
-			Type:               corev1.ContainersReady,
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.Now(),
-		},
-		{
-			Type:               corev1.PodScheduled,
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.Now(),
-		},
-		{
-			Type:               corev1.PodInitialized,
-			Status:             corev1.ConditionTrue,
-			LastTransitionTime: metav1.Now(),
-		},
-	}
-	latestPod.Status.InitContainerStatuses = []corev1.ContainerStatus{
-		{
-			Name:  controller.InitContainerName,
+			Name:  containerName,
 			Ready: true,
 		},
 	}
-	latestPod.Status.ContainerStatuses = updatedContainerStatuses
-	latestPod.Status.Phase = corev1.PodRunning
-
-	err = k8sClient.Status().Update(ctx, &latestPod)
-	if err != nil {
-		fmt.Printf("ERROR updating pod status: %v\n", err)
-	} else {
-		fmt.Printf("Successfully updated pod %s status\n", pod.Name)
-
-		// Verify the update by re-fetching the pod
-		var verifyPod corev1.Pod
-		verifyErr := k8sClient.Get(ctx, podKey, &verifyPod)
-		if verifyErr == nil {
-			fmt.Printf("VERIFICATION: Pod %s phase=%s, containers=%+v\n",
-				verifyPod.Name, verifyPod.Status.Phase, verifyPod.Status.ContainerStatuses)
-		} else {
-			fmt.Printf("VERIFICATION ERROR: Could not re-fetch pod %s: %v\n", pod.Name, verifyErr)
-		}
-	}
-	return err
-
+	pod.Status.Phase = corev1.PodRunning
+	return k8sClient.Status().Update(ctx, &pod)
 }
 
 func CleanupCluster(ctx context.Context, k8sClient client.Client, hc *humiov1alpha1.HumioCluster) {
@@ -653,41 +529,6 @@ func waitForAdminTokenSecretToGetPopulated(ctx context.Context, k8sClient client
 	}, testTimeout, TestInterval).Should(Succeed())
 }
 
-// func waitForAdminTokenSecretToGetPopulated(ctx context.Context, k8sClient client.Client, key types.NamespacedName, cluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
-// 	UsingClusterBy(key.Name, "Waiting for the controller to populate the secret containing the admin token")
-// 	Eventually(func() error {
-// 		clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(cluster).GetCommonClusterLabels())
-// 		for idx := range clusterPods {
-// 			UsingClusterBy(key.Name, fmt.Sprintf("Pod status %s status: %v", clusterPods[idx].Name, clusterPods[idx].Status))
-// 		}
-
-// 		adminTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
-// 		err := k8sClient.Get(ctx, types.NamespacedName{
-// 			Namespace: key.Namespace,
-// 			Name:      adminTokenSecretName,
-// 		}, &corev1.Secret{})
-
-// 		// For test environments (envtest, dummy images, or kind cluster), recreate the secret if it doesn't exist
-// 		if err != nil && k8serrors.IsNotFound(err) && (helpers.UseEnvtest() || helpers.UseDummyImage() || helpers.UseKindCluster()) {
-
-// 			UsingClusterBy(key.Name, "Creating admin token secret for test environment (secret not found)")
-// 			secretData := map[string][]byte{"token": []byte("")}
-// 			desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, adminTokenSecretName, secretData, nil, nil)
-// 			createErr := k8sClient.Create(ctx, desiredSecret)
-// 			if createErr != nil {
-// 				// If secret already exists, ignore the error and continue
-// 				if !k8serrors.IsAlreadyExists(createErr) {
-// 					return fmt.Errorf("failed to create admin token secret: %w", createErr)
-// 				}
-// 				UsingClusterBy(key.Name, "Admin token secret already exists, continuing")
-// 			}
-// 			return nil
-// 		}
-
-// 		return err
-// 	}, testTimeout, TestInterval).Should(Succeed())
-// }
-
 func verifyReplicationFactorEnvironmentVariables(ctx context.Context, k8sClient client.Client, key types.NamespacedName, cluster *humiov1alpha1.HumioCluster) {
 	UsingClusterBy(key.Name, "Confirming replication factor environment variables are set correctly")
 	clusterPods, err := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(cluster).GetCommonClusterLabels())
@@ -876,7 +717,10 @@ func simulateHashedBootstrapTokenCreation(ctx context.Context, k8sClient client.
 	secretData := map[string][]byte{"hashedToken": []byte("P2HS9.20.r+ZbMqd0pHF65h3yQiOt8n1xNytv/4ePWKIj3cElP7gt8YD+gOtdGGvJYmG229kyFWLs6wXx9lfSDiRGGu/xuQ"), "secret": []byte("cYsrKi6IeyOJVzVIdmVK3M6RGl4y9GpgduYKXk4qWvvj")}
 	bootstrapTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix)
 	desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, bootstrapTokenSecretName, secretData, nil, nil)
-	Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
+	err := k8sClient.Create(ctx, desiredSecret)
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		Expect(err).ToNot(HaveOccurred())
+	}
 }
 
 func verifyNumPodsContainerStatusReady(ctx context.Context, k8sClient client.Client, key types.NamespacedName, cluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {

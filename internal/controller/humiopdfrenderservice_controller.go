@@ -131,8 +131,9 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// has ENABLE_SCHEDULED_REPORT=true. When no such cluster exists, the service
 	// scales down to 0 replicas to conserve resources.
 
-	// If we're already in Running state and the feature is still enabled,
+	// If we're already in Running state and the observedGeneration matches the current generation,
 	// we can skip most of the reconciliation to reduce load during cluster updates
+	// However, we need to ensure the deployment actually reflects the current spec
 	if hprs.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning &&
 		hprs.Status.ObservedGeneration == hprs.Generation {
 		// Just verify our deployment is still healthy
@@ -144,10 +145,32 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		}, deployment)
 
 		if err == nil && deployment.Status.ReadyReplicas >= hprs.Spec.Replicas {
-			// Everything is healthy, no need to reconcile further
-			log.Info("PDF Render Service is already running and healthy - skipping full reconciliation")
-			finalState = humiov1alpha1.HumioPdfRenderServiceStateRunning
-			return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
+			// Check if the deployment pod spec matches what we expect
+			// This ensures we don't skip reconciliation when the spec has changed
+			// but the status hasn't been updated yet
+			desired := r.constructDesiredDeployment(hprs)
+
+			// Quick check: compare the pod spec hash annotation
+			currentHash := deployment.Spec.Template.Annotations[HPRSPodSpecHashAnnotation]
+			desiredHash := desired.Spec.Template.Annotations[HPRSPodSpecHashAnnotation]
+
+			// Also check if HPA state matches desired state
+			hpaName := helpers.PdfRenderServiceHpaName(hprs.Name)
+			hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+			hpaErr := r.Get(ctx, types.NamespacedName{Name: hpaName, Namespace: hprs.Namespace}, hpa)
+			hpaExists := hpaErr == nil
+			hpaDesired := helpers.HpaEnabledForHPRS(hprs)
+
+			// Skip reconciliation only if both deployment and HPA states match desired state
+			if currentHash == desiredHash && currentHash != "" && hpaExists == hpaDesired {
+				// Everything is healthy and up-to-date, no need to reconcile further
+				log.Info("PDF Render Service is already running and healthy - skipping full reconciliation",
+					"currentHash", currentHash, "desiredHash", desiredHash, "hpaExists", hpaExists, "hpaDesired", hpaDesired)
+				finalState = humiov1alpha1.HumioPdfRenderServiceStateRunning
+				return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
+			}
+			log.Info("State mismatch detected, proceeding with reconciliation",
+				"currentHash", currentHash, "desiredHash", desiredHash, "hpaExists", hpaExists, "hpaDesired", hpaDesired)
 		}
 	}
 
