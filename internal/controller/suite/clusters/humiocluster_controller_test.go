@@ -897,7 +897,7 @@ var _ = Describe("HumioCluster Controller", func() {
 						return false
 					}
 					// Find and mark pod with new image as ready
-					for i, pod := range pods {
+					for _, pod := range pods {
 						if pod.DeletionTimestamp == nil && len(pod.Spec.Containers) > 0 &&
 							pod.Spec.Containers[0].Image == upgradedTestPdfImage {
 							// Check if already ready
