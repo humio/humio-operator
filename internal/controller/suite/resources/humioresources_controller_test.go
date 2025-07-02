@@ -5705,7 +5705,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	)
 
 	// PDF Render Service Triggered by HumioCluster
-	Context("PDF Render Service Triggered by HumioCluster ENABLE_SCHEDULED_REPORT", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service Triggered by HumioCluster ENABLE_SCHEDULED_REPORT", Label("envtest", "dummy", "real"), func() {
 		It("should be enabled when at least one HumioCluster has ENABLE_SCHEDULED_REPORT=true", func() {
 			ctx := context.Background()
 			hprsKey := types.NamespacedName{
@@ -5786,7 +5786,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service Creation when enabled
-	Context("PDF Render Service Creation When Enabled", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service Creation When Enabled", Label("envtest", "dummy", "real"), func() {
 
 		It("should create Deployment and Service when HumioCluster enables scheduled reports", func() {
 			ctx := context.Background()
@@ -5878,7 +5878,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service Update
-	Context("PDF Render Service Update", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service Update", Label("envtest", "dummy", "real"), func() {
 		var (
 			ctx = context.Background()
 		)
@@ -6068,7 +6068,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service Resources and Probes
-	Context("PDF Render Service Resources and Probes", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service Resources and Probes", Label("envtest", "dummy", "real"), func() {
 		It("should correctly set up resources and probes when specified", func() {
 			ctx := context.Background()
 
@@ -6204,7 +6204,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service Environment Variables
-	Context("PDF Render Service Environment Variables", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service Environment Variables", Label("envtest", "dummy", "real"), func() {
 		It("should correctly configure environment variables (create and update)", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -6322,7 +6322,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service with HumioCluster Environment Variable Integration
-	Context("PDF Render Service with HumioCluster Environment Variable Integration", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service with HumioCluster Environment Variable Integration", Label("envtest", "dummy", "real"), func() {
 		It("Should demonstrate HumioCluster interaction with PDF service via DEFAULT_PDF_RENDER_SERVICE_URL", func() {
 			ctx := context.Background()
 			clusterKey := types.NamespacedName{Name: "humio-pdf-trigger-cluster", Namespace: clusterKey.Namespace}
@@ -6445,7 +6445,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service HPA Tests
-	Context("PDF Render Service HPA (Horizontal Pod Autoscaling)", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service HPA (Horizontal Pod Autoscaling)", Label("envtest", "dummy", "real"), func() {
 		It("should create HPA when autoscaling is enabled", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -6909,7 +6909,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 	})
 
 	// PDF Render Service Reconcile Loop Tests
-	Context("PDF Render Service Reconcile Loop", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service Reconcile Loop", Label("envtest", "dummy", "real"), func() {
 		It("should not trigger update when ImagePullPolicy is explicitly set as default", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
