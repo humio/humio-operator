@@ -868,20 +868,59 @@ var _ = Describe("HumioCluster Controller", func() {
 					Expect(k8sClient.Create(ctx, newPod)).To(Succeed())
 				}
 
-				// Wait for new pod with updated image
-				By("Waiting for new pod with updated image")
+				// In Kind, we need to wait for the deployment controller to create new pods
+				// and then help them become ready quickly
+				if helpers.UseKindCluster() {
+					By("Waiting for deployment controller to create new pod with updated image in Kind")
+					// First, ensure deployment controller creates new pods
+					Eventually(func() bool {
+						pods, err := listPods()
+						if err != nil {
+							return false
+						}
+						// Check if we have any pod with the new image
+						for _, pod := range pods {
+							if pod.DeletionTimestamp == nil && len(pod.Spec.Containers) > 0 &&
+								pod.Spec.Containers[0].Image == upgradedTestPdfImage {
+								return true
+							}
+						}
+						return false
+					}, standardTimeout*2, quickInterval).Should(BeTrue(), "Deployment controller should create pod with new image")
+				}
+
+				// Now mark the new pod as ready
+				By("Marking new pod with updated image as ready")
 				Eventually(func() bool {
 					pods, err := listPods()
 					if err != nil {
 						return false
 					}
-					// Check if we have a pod with new image that's not terminating
-					for _, pod := range pods {
+					// Find and mark pod with new image as ready
+					for i, pod := range pods {
 						if pod.DeletionTimestamp == nil && len(pod.Spec.Containers) > 0 &&
 							pod.Spec.Containers[0].Image == upgradedTestPdfImage {
-							// Mark the new pod as ready
-							pod.Status.Phase = corev1.PodRunning
-							pod.Status.Conditions = []corev1.PodCondition{
+							// Check if already ready
+							isReady := false
+							for _, cond := range pod.Status.Conditions {
+								if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+									isReady = true
+									break
+								}
+							}
+							if isReady {
+								return true
+							}
+
+							// Update the pod reference to ensure we have the latest version
+							var currentPod corev1.Pod
+							if err := k8sClient.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, &currentPod); err != nil {
+								continue
+							}
+
+							// Mark the pod as ready
+							currentPod.Status.Phase = corev1.PodRunning
+							currentPod.Status.Conditions = []corev1.PodCondition{
 								{
 									Type:               corev1.PodReady,
 									Status:             corev1.ConditionTrue,
@@ -894,19 +933,19 @@ var _ = Describe("HumioCluster Controller", func() {
 								},
 							}
 							// Mark containers as ready
-							for j := range pod.Status.ContainerStatuses {
-								pod.Status.ContainerStatuses[j].Ready = true
-								pod.Status.ContainerStatuses[j].Started = &[]bool{true}[0]
-								pod.Status.ContainerStatuses[j].State = corev1.ContainerState{
+							for j := range currentPod.Status.ContainerStatuses {
+								currentPod.Status.ContainerStatuses[j].Ready = true
+								currentPod.Status.ContainerStatuses[j].Started = &[]bool{true}[0]
+								currentPod.Status.ContainerStatuses[j].State = corev1.ContainerState{
 									Running: &corev1.ContainerStateRunning{
 										StartedAt: metav1.Now(),
 									},
 								}
 							}
 							// If no container statuses exist, create them
-							if len(pod.Status.ContainerStatuses) == 0 {
-								for _, container := range pod.Spec.Containers {
-									pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, corev1.ContainerStatus{
+							if len(currentPod.Status.ContainerStatuses) == 0 {
+								for _, container := range currentPod.Spec.Containers {
+									currentPod.Status.ContainerStatuses = append(currentPod.Status.ContainerStatuses, corev1.ContainerStatus{
 										Name:    container.Name,
 										Ready:   true,
 										Started: &[]bool{true}[0],
@@ -918,7 +957,10 @@ var _ = Describe("HumioCluster Controller", func() {
 									})
 								}
 							}
-							_ = k8sClient.Status().Update(ctx, &pod)
+							if err := k8sClient.Status().Update(ctx, &currentPod); err != nil {
+								By(fmt.Sprintf("Failed to update pod status: %v", err))
+								return false
+							}
 							return true
 						}
 					}
@@ -1027,6 +1069,42 @@ var _ = Describe("HumioCluster Controller", func() {
 
 					return pod.DeletionTimestamp == nil
 				}, standardTimeout, quickInterval).Should(BeTrue(), "Should have exactly one ready pod with new image after rolling update")
+
+				// Update deployment status to reflect the completed rollout
+				By("Updating deployment status to reflect completed rollout")
+				Eventually(func() error {
+					var dep appsv1.Deployment
+					if err := k8sClient.Get(ctx, deploymentKey, &dep); err != nil {
+						return err
+					}
+					
+					// Update deployment status to show rollout is complete
+					dep.Status.Replicas = 1
+					dep.Status.UpdatedReplicas = 1
+					dep.Status.ReadyReplicas = 1
+					dep.Status.AvailableReplicas = 1
+					dep.Status.ObservedGeneration = dep.Generation
+					dep.Status.Conditions = []appsv1.DeploymentCondition{
+						{
+							Type:               appsv1.DeploymentProgressing,
+							Status:             corev1.ConditionTrue,
+							Reason:             "NewReplicaSetAvailable",
+							Message:            "ReplicaSet has successfully progressed.",
+							LastUpdateTime:     metav1.Now(),
+							LastTransitionTime: metav1.Now(),
+						},
+						{
+							Type:               appsv1.DeploymentAvailable,
+							Status:             corev1.ConditionTrue,
+							Reason:             "MinimumReplicasAvailable",
+							Message:            "Deployment has minimum availability.",
+							LastUpdateTime:     metav1.Now(),
+							LastTransitionTime: metav1.Now(),
+						},
+					}
+					
+					return k8sClient.Status().Update(ctx, &dep)
+				}, standardTimeout, quickInterval).Should(Succeed())
 			}
 
 			// Wait for the new Deployment rollout to complete
