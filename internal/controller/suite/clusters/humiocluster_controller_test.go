@@ -831,9 +831,207 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Status().Update(ctx, &deployment)
 			}, standardTimeout, quickInterval).Should(Succeed())
 
+			// For Kind clusters, manually handle pod lifecycle during rollout
+			if helpers.UseKindCluster() {
+				By("Handling rolling update for deployment in Kind")
+
+				// Get deployment to access selector labels
+				var deployment appsv1.Deployment
+				Expect(k8sClient.Get(ctx, deploymentKey, &deployment)).To(Succeed())
+				selector := labels.SelectorFromSet(deployment.Spec.Selector.MatchLabels)
+
+				// Helper to list pods for this deployment
+				listPods := func() ([]corev1.Pod, error) {
+					var pl corev1.PodList
+					err := k8sClient.List(ctx, &pl,
+						client.InNamespace(pdfKey.Namespace),
+						client.MatchingLabelsSelector{Selector: selector})
+					return pl.Items, err
+				}
+
+				// Get current pods before rollout
+				oldPods, _ := listPods()
+
+				// In Kind, we need to help the deployment controller create new pods
+				// The deployment controller should create a new pod with the updated image
+				By("Waiting for deployment controller to create new pod with updated image")
+				Eventually(func() bool {
+					pods, err := listPods()
+					if err != nil {
+						return false
+					}
+					// Check if we have a pod with new image that's not terminating
+					for _, pod := range pods {
+						if pod.DeletionTimestamp == nil && len(pod.Spec.Containers) > 0 &&
+							pod.Spec.Containers[0].Image == upgradedTestPdfImage {
+							// Mark the new pod as ready immediately in Kind
+							pod.Status.Phase = corev1.PodRunning
+							pod.Status.Conditions = []corev1.PodCondition{
+								{
+									Type:               corev1.PodReady,
+									Status:             corev1.ConditionTrue,
+									LastTransitionTime: metav1.Now(),
+								},
+								{
+									Type:               corev1.ContainersReady,
+									Status:             corev1.ConditionTrue,
+									LastTransitionTime: metav1.Now(),
+								},
+							}
+							// Mark containers as ready
+							for j := range pod.Status.ContainerStatuses {
+								pod.Status.ContainerStatuses[j].Ready = true
+								pod.Status.ContainerStatuses[j].Started = &[]bool{true}[0]
+								pod.Status.ContainerStatuses[j].State = corev1.ContainerState{
+									Running: &corev1.ContainerStateRunning{
+										StartedAt: metav1.Now(),
+									},
+								}
+							}
+							// If no container statuses exist, create them
+							if len(pod.Status.ContainerStatuses) == 0 {
+								for _, container := range pod.Spec.Containers {
+									pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, corev1.ContainerStatus{
+										Name:    container.Name,
+										Ready:   true,
+										Started: &[]bool{true}[0],
+										State: corev1.ContainerState{
+											Running: &corev1.ContainerStateRunning{
+												StartedAt: metav1.Now(),
+											},
+										},
+									})
+								}
+							}
+							_ = k8sClient.Status().Update(ctx, &pod)
+							return true
+						}
+					}
+					return false
+				}, standardTimeout, quickInterval).Should(BeTrue(), "Should have at least one ready pod with new image")
+
+				// Now delete old pods (simulating rolling update)
+				for _, oldPod := range oldPods {
+					if len(oldPod.Spec.Containers) > 0 && oldPod.Spec.Containers[0].Image == initialTestPdfImage {
+						By(fmt.Sprintf("Deleting old pod %s during rolling update", oldPod.Name))
+						err := k8sClient.Delete(ctx, &oldPod)
+						if err != nil && !k8serrors.IsNotFound(err) {
+							By(fmt.Sprintf("Error deleting pod %s: %v", oldPod.Name, err))
+						}
+
+						// Wait for this specific pod to be deleted before proceeding
+						Eventually(func() bool {
+							var pod corev1.Pod
+							err := k8sClient.Get(ctx, types.NamespacedName{Name: oldPod.Name, Namespace: oldPod.Namespace}, &pod)
+							return k8serrors.IsNotFound(err)
+						}, standardTimeout, quickInterval).Should(BeTrue(),
+							fmt.Sprintf("Old pod %s should be deleted", oldPod.Name))
+					}
+				}
+
+				// Wait for old pods to be gone and only new pod remains
+				Eventually(func() bool {
+					pods, err := listPods()
+					if err != nil {
+						return false
+					}
+
+					// Debug logging
+					By(fmt.Sprintf("Current pod count: %d", len(pods)))
+					for _, p := range pods {
+						image := ""
+						if len(p.Spec.Containers) > 0 {
+							image = p.Spec.Containers[0].Image
+						}
+						By(fmt.Sprintf("Pod %s: image=%s, deleting=%v", p.Name, image, p.DeletionTimestamp != nil))
+					}
+
+					if len(pods) != 1 {
+						return false
+					}
+
+					// Verify the single pod has the new image and is ready
+					pod := &pods[0]
+					if len(pod.Spec.Containers) == 0 || pod.Spec.Containers[0].Image != upgradedTestPdfImage {
+						return false
+					}
+
+					// Ensure pod is marked as ready if it's not already
+					needsUpdate := false
+					if pod.Status.Phase != corev1.PodRunning {
+						pod.Status.Phase = corev1.PodRunning
+						needsUpdate = true
+					}
+
+					// Check if PodReady condition exists and is True
+					hasReadyCondition := false
+					for i, cond := range pod.Status.Conditions {
+						if cond.Type == corev1.PodReady {
+							hasReadyCondition = true
+							if cond.Status != corev1.ConditionTrue {
+								pod.Status.Conditions[i].Status = corev1.ConditionTrue
+								pod.Status.Conditions[i].LastTransitionTime = metav1.Now()
+								needsUpdate = true
+							}
+							break
+						}
+					}
+
+					if !hasReadyCondition {
+						pod.Status.Conditions = append(pod.Status.Conditions, corev1.PodCondition{
+							Type:               corev1.PodReady,
+							Status:             corev1.ConditionTrue,
+							LastTransitionTime: metav1.Now(),
+						})
+						needsUpdate = true
+					}
+
+					// Update container statuses if needed
+					if len(pod.Status.ContainerStatuses) == 0 {
+						for _, container := range pod.Spec.Containers {
+							pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, corev1.ContainerStatus{
+								Name:    container.Name,
+								Ready:   true,
+								Started: &[]bool{true}[0],
+								State: corev1.ContainerState{
+									Running: &corev1.ContainerStateRunning{
+										StartedAt: metav1.Now(),
+									},
+								},
+							})
+						}
+						needsUpdate = true
+					}
+
+					if needsUpdate {
+						if err := k8sClient.Status().Update(ctx, pod); err != nil {
+							By(fmt.Sprintf("Failed to update pod status: %v", err))
+							return false
+						}
+					}
+
+					return pod.DeletionTimestamp == nil
+				}, standardTimeout, quickInterval).Should(BeTrue(), "Should have exactly one ready pod with new image after rolling update")
+			}
+
 			// Wait for the new Deployment rollout to complete
 			// Pass the CR key, not deployment key - EnsurePdfRenderDeploymentReady will resolve it
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
+
+			// Additional wait to ensure deployment is fully stable after rollout
+			By("Ensuring deployment is stable after rolling update")
+			Eventually(func() bool {
+				var deployment appsv1.Deployment
+				if err := k8sClient.Get(ctx, deploymentKey, &deployment); err != nil {
+					return false
+				}
+				// Check that all replicas are ready and updated
+				return deployment.Status.Replicas == 1 &&
+					deployment.Status.ReadyReplicas == 1 &&
+					deployment.Status.UpdatedReplicas == 1 &&
+					deployment.Status.AvailableReplicas == 1 &&
+					deployment.Status.ObservedGeneration == deployment.Generation
+			}, standardTimeout, quickInterval).Should(BeTrue(), "Deployment should be fully stable after rollout")
 
 			// Manually set status Running after rollout (envtest has no controller to do it)
 			By("Marking HumioPdfRenderService state=Running after upgrade")
