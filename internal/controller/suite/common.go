@@ -1715,12 +1715,37 @@ func EnsurePodsForDeploymentInEnvtest(ctx context.Context, k8sClient client.Clie
 		desiredReplicas = *dep.Spec.Replicas
 	}
 
-	currentPods := len(podList.Items)
+	// Count only active (non-terminating) pods
+	activePods := 0
+	for _, pod := range podList.Items {
+		if pod.DeletionTimestamp == nil {
+			activePods++
+		}
+	}
 
-	UsingClusterBy(crName, fmt.Sprintf("EnsurePodsForDeploymentInEnvtest: desired=%d, current=%d", desiredReplicas, currentPods))
+	UsingClusterBy(crName, fmt.Sprintf("EnsurePodsForDeploymentInEnvtest: desired=%d, current=%d, active=%d", desiredReplicas, len(podList.Items), activePods))
+
+	// Delete extra pods if we have too many
+	if activePods > int(desiredReplicas) {
+		UsingClusterBy(crName, fmt.Sprintf("Found %d active pods but only need %d, deleting extras", activePods, desiredReplicas))
+		podsToDelete := activePods - int(desiredReplicas)
+		deleted := 0
+		for _, pod := range podList.Items {
+			if deleted >= podsToDelete {
+				break
+			}
+			if pod.DeletionTimestamp == nil {
+				UsingClusterBy(crName, fmt.Sprintf("Deleting extra pod %s", pod.Name))
+				if err := k8sClient.Delete(ctx, &pod); err != nil && !k8serrors.IsNotFound(err) {
+					UsingClusterBy(crName, fmt.Sprintf("Failed to delete pod %s: %v", pod.Name, err))
+				}
+				deleted++
+			}
+		}
+	}
 
 	// Create missing pods if needed
-	for i := currentPods; i < int(desiredReplicas); i++ {
+	for i := activePods; i < int(desiredReplicas); i++ {
 		podName := fmt.Sprintf("%s-%s", dep.Name, kubernetes.RandomString()[0:6])
 		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1769,6 +1794,19 @@ func EnsurePodsForDeploymentInEnvtest(ctx context.Context, k8sClient client.Clie
 		if err := k8sClient.Status().Update(ctx, pod); err != nil {
 			return err
 		}
+	}
+
+	// Update deployment status to reflect the correct number of replicas
+	dep.Status.Replicas = desiredReplicas
+	dep.Status.UpdatedReplicas = desiredReplicas
+	dep.Status.ReadyReplicas = desiredReplicas
+	dep.Status.AvailableReplicas = desiredReplicas
+	dep.Status.ObservedGeneration = dep.Generation
+
+	UsingClusterBy(crName, fmt.Sprintf("Updating deployment status: replicas=%d", desiredReplicas))
+	if err := k8sClient.Status().Update(ctx, dep); err != nil {
+		UsingClusterBy(crName, fmt.Sprintf("Failed to update deployment status: %v", err))
+		return err
 	}
 
 	return nil
