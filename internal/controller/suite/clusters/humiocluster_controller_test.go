@@ -758,6 +758,7 @@ var _ = Describe("HumioCluster Controller", func() {
 				Namespace: pdfKey.Namespace,
 			}
 
+			
 			// Manually mark the CR as Running so the HumioCluster validation will accept it
 			By("Marking HumioPdfRenderService state=Running")
 			Eventually(func() error {
@@ -766,7 +767,6 @@ var _ = Describe("HumioCluster Controller", func() {
 					return err
 				}
 				pdf.Status.State = humiov1alpha1.HumioPdfRenderServiceStateRunning
-				pdf.Status.ReadyReplicas = 1
 				return k8sClient.Status().Update(ctx, &pdf)
 			}, standardTimeout, quickInterval).Should(Succeed())
 
@@ -779,13 +779,8 @@ var _ = Describe("HumioCluster Controller", func() {
 				return deployment.Spec.Template.Spec.Containers[0].Image
 			}, standardTimeout, quickInterval).Should(Equal(initialTestPdfImage))
 
-			// Wait for reconciliation to pick up the reference (cluster already has the env vars)
-			var cluster humiov1alpha1.HumioCluster
-			Expect(k8sClient.Get(ctx, clusterKey, &cluster)).To(Succeed())
-			suite.WaitForReconcileToSync(ctx, clusterKey, k8sClient, &cluster, standardTimeout*2)
-
-			// Skip pod readiness checks in Kind - focus on PDF render service updates
-			// The test is about PDF render service image updates, not cluster readiness
+			// Wait for reconciliation to pick up the reference
+			suite.WaitForReconcileToSync(ctx, clusterKey, k8sClient, hc, standardTimeout*2)
 
 			// Upgrade the PDF render service image
 			By("Updating HumioPdfRenderService image to: " + upgradedTestPdfImage)
@@ -798,136 +793,28 @@ var _ = Describe("HumioCluster Controller", func() {
 				return k8sClient.Update(ctx, &pdf)
 			}, standardTimeout, quickInterval).Should(Succeed())
 
-			// Wait until controller observes the new generation
-			updatedPdfCR := &humiov1alpha1.HumioPdfRenderService{}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, pdfKey, updatedPdfCR)
-			}, standardTimeout, quickInterval).Should(Succeed())
-			suite.WaitForObservedGeneration(ctx, k8sClient, updatedPdfCR, standardTimeout, quickInterval)
-
-			// Wait for the Deployment to actually have the new image in its spec (controller processed the change)
+			// Wait for the controller to update the deployment
 			By("Waiting for PDF service deployment to reflect new image: " + upgradedTestPdfImage)
+			suite.WaitForObservedGeneration(ctx, k8sClient, pdfCR, standardTimeout, quickInterval)
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
+
+			// Final verification
+			By("Verifying PDF service deployment uses upgraded image: " + upgradedTestPdfImage)
 			Eventually(func(g Gomega) string {
 				deployment := &appsv1.Deployment{}
 				g.Expect(k8sClient.Get(ctx, deploymentKey, deployment)).To(Succeed())
 				g.Expect(deployment.Spec.Template.Spec.Containers).NotTo(BeEmpty())
 				return deployment.Spec.Template.Spec.Containers[0].Image
-			}, standardTimeout*2, quickInterval).Should(Equal(upgradedTestPdfImage))
-			// Manually update deployment status after image change
-			By("Updating deployment status after image upgrade")
-			Eventually(func() error {
-				var deployment appsv1.Deployment
-				if err := k8sClient.Get(ctx, deploymentKey, &deployment); err != nil {
-					return err
+			}, standardTimeout, quickInterval).Should(Equal(upgradedTestPdfImage))
+
+			By("Verifying HumioPdfRenderService is in Running state after upgrade")
+			Eventually(func() string {
+				var pdf humiov1alpha1.HumioPdfRenderService
+				if err := k8sClient.Get(ctx, pdfKey, &pdf); err != nil {
+					return ""
 				}
-
-				// Ensure the deployment reflects the new image in status
-				deployment.Status.Replicas = 1
-				deployment.Status.ReadyReplicas = 1
-				deployment.Status.UpdatedReplicas = 1
-				deployment.Status.AvailableReplicas = 1
-				deployment.Status.ObservedGeneration = deployment.Generation
-
-				return k8sClient.Status().Update(ctx, &deployment)
-			}, standardTimeout, quickInterval).Should(Succeed())
-
-			// For both Kind clusters and envtest, manually handle pod lifecycle during rollout
-			if helpers.UseKindCluster() || helpers.UseEnvtest() {
-				By("Handling rolling update for deployment")
-
-				// Get deployment to access selector labels
-				var deployment appsv1.Deployment
-				Expect(k8sClient.Get(ctx, deploymentKey, &deployment)).To(Succeed())
-				selector := labels.SelectorFromSet(deployment.Spec.Selector.MatchLabels)
-
-				// Helper to list pods for this deployment
-				listPods := func() ([]corev1.Pod, error) {
-					var pl corev1.PodList
-					err := k8sClient.List(ctx, &pl,
-						client.InNamespace(pdfKey.Namespace),
-						client.MatchingLabelsSelector{Selector: selector})
-					return pl.Items, err
-				}
-
-				// Get current pods before rollout
-				oldPods, _ := listPods()
-
-				// In envtest, we need to create the new pod ourselves since there's no deployment controller
-				if helpers.UseEnvtest() && len(oldPods) > 0 {
-					By("Creating new pod with updated image for envtest")
-					// Use the first old pod as a template
-					newPod := oldPods[0].DeepCopy()
-					newPod.ResourceVersion = ""
-					newPod.UID = ""
-					newPod.Name = fmt.Sprintf("%s-%s", deployment.Name, kubernetes.RandomString())
-					newPod.Status = corev1.PodStatus{}
-					// Update the image in the new pod
-					if len(newPod.Spec.Containers) > 0 {
-						newPod.Spec.Containers[0].Image = upgradedTestPdfImage
-					}
-					Expect(k8sClient.Create(ctx, newPod)).To(Succeed())
-				}
-
-				// In Kind, we need to wait for the deployment controller to create new pods
-				// and then help them become ready quickly
-				if helpers.UseKindCluster() {
-					By("Waiting for deployment controller to create new pod with updated image in Kind")
-					// First, ensure deployment controller creates new pods
-					Eventually(func() bool {
-						pods, err := listPods()
-						if err != nil {
-							return false
-						}
-						// Check if we have any pod with the new image
-						for _, pod := range pods {
-							if pod.DeletionTimestamp == nil && len(pod.Spec.Containers) > 0 &&
-								pod.Spec.Containers[0].Image == upgradedTestPdfImage {
-								return true
-							}
-						}
-						return false
-					}, standardTimeout*2, quickInterval).Should(BeTrue(), "Deployment controller should create pod with new image")
-				}
-
-				// Now mark the new pod as ready
-				By("Marking new pod with updated image as ready")
-				Eventually(func() bool {
-					pods, err := listPods()
-					if err != nil {
-						return false
-					}
-					// Find and mark pod with new image as ready
-					for i, pod := range pods {
-						if pod.DeletionTimestamp == nil && len(pod.Spec.Containers) > 0 &&
-							pod.Spec.Containers[0].Image == upgradedTestPdfImage {
-							// Check if already ready
-							isReady := false
-							for _, cond := range pod.Status.Conditions {
-								if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
-									isReady = true
-									break
-								}
-							}
-							if isReady {
-								return true
-							}
-
-							// Update the pod reference to ensure we have the latest version
-							var currentPod corev1.Pod
-							if err := k8sClient.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, &currentPod); err != nil {
-								continue
-							}
-
-							// Mark the pod as ready
-							currentPod.Status.Phase = corev1.PodRunning
-							currentPod.Status.Conditions = []corev1.PodCondition{
-								{
-									Type:               corev1.PodReady,
-									Status:             corev1.ConditionTrue,
-									LastTransitionTime: metav1.Now(),
-								},
-								{
-									Type:               corev1.ContainersReady,
+				return pdf.Status.State
+			}, standardTimeout, quickInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
 									Status:             corev1.ConditionTrue,
 									LastTransitionTime: metav1.Now(),
 								},
@@ -1077,7 +964,7 @@ var _ = Describe("HumioCluster Controller", func() {
 					if err := k8sClient.Get(ctx, deploymentKey, &dep); err != nil {
 						return err
 					}
-					
+
 					// Update deployment status to show rollout is complete
 					dep.Status.Replicas = 1
 					dep.Status.UpdatedReplicas = 1
@@ -1102,7 +989,7 @@ var _ = Describe("HumioCluster Controller", func() {
 							LastTransitionTime: metav1.Now(),
 						},
 					}
-					
+
 					return k8sClient.Status().Update(ctx, &dep)
 				}, standardTimeout, quickInterval).Should(Succeed())
 			}
