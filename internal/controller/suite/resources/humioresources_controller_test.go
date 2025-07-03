@@ -6884,6 +6884,17 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "Waiting for observedGeneration to catch up")
 			suite.WaitForObservedGeneration(ctx, k8sClient, hprs, longTimeout, suite.TestInterval)
 
+			suite.UsingClusterBy(clusterKey.Name, "Waiting for PDF render service to process autoscaling update")
+			Eventually(func() (bool, error) {
+				var updatedHprs humiov1alpha1.HumioPdfRenderService
+				if err := k8sClient.Get(ctx, key, &updatedHprs); err != nil {
+					return false, err
+				}
+				// Wait for the status to be updated after the autoscaling change
+				return updatedHprs.Status.ObservedGeneration == updatedHprs.Generation &&
+					updatedHprs.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning, nil
+			}, longTimeout, suite.TestInterval).Should(BeTrue())
+
 			suite.UsingClusterBy(clusterKey.Name, "Ensuring Deployment is ready before HPA")
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key)
 
