@@ -238,7 +238,9 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// Reconcile HPA if autoscaling is enabled
+	log.Info("Reconciling HPA", "autoscalingEnabled", helpers.HpaEnabledForHPRS(hprs))
 	if err := r.reconcileHPA(ctx, hprs, dep); err != nil {
+		log.Error(err, "Failed to reconcile HPA")
 		reconcileErr = err
 		finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
 		return ctrl.Result{}, reconcileErr
@@ -864,6 +866,10 @@ func (r *HumioPdfRenderServiceReconciler) reconcileHPA(
 	deployment *appsv1.Deployment,
 ) error {
 	log := r.Log.WithValues("function", "reconcileHPA")
+	log.Info("Starting HPA reconciliation",
+		"hprsName", hprs.Name,
+		"namespace", hprs.Namespace,
+		"autoscalingSpec", hprs.Spec.Autoscaling)
 
 	hpaName := helpers.PdfRenderServiceHpaName(hprs.Name)
 	hpa := &autoscalingv2.HorizontalPodAutoscaler{
