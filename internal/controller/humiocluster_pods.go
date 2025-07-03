@@ -116,7 +116,7 @@ func ConstructPod(hnp *HumioNodePool, humioNodeName string, attachments *podAtta
 func constructBasePod(hnp *HumioNodePool, humioNodeName string, attachments *podAttachments) (*corev1.Pod, error) {
 	var pod corev1.Pod
 	mode := int32(420)
-	productVersion := unknownStatus
+	productVersion := "unknown"
 	imageSplit := strings.SplitN(hnp.GetImage(), ":", 2)
 	if len(imageSplit) == 2 {
 		productVersion = imageSplit[1]

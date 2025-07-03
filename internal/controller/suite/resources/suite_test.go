@@ -348,17 +348,6 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&controller.HumioPdfRenderServiceReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
-		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
-		},
-		BaseLogger: log,
-		Namespace:  clusterKey.Namespace,
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
 	ctx, cancel = context.WithCancel(context.TODO())
 
 	go func() {
