@@ -55,13 +55,11 @@ func ConstructService(hnp *HumioNodePool) *corev1.Service {
 					Name:       HumioPortName,
 					Port:       hnp.GetHumioServicePort(),
 					TargetPort: intstr.IntOrString{IntVal: HumioPort},
-					Protocol:   corev1.ProtocolTCP,
 				},
 				{
 					Name:       ElasticPortName,
 					Port:       hnp.GetHumioESServicePort(),
 					TargetPort: intstr.IntOrString{IntVal: ElasticPort},
-					Protocol:   corev1.ProtocolTCP,
 				},
 			},
 		},
@@ -83,16 +81,12 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			PublishNotReadyAddresses: true,
 			Ports: []corev1.ServicePort{
 				{
-					Name:       HumioPortName,
-					Port:       HumioPort,
-					TargetPort: intstr.FromInt(int(HumioPort)),
-					Protocol:   corev1.ProtocolTCP,
+					Name: HumioPortName,
+					Port: HumioPort,
 				},
 				{
-					Name:       ElasticPortName,
-					Port:       ElasticPort,
-					TargetPort: intstr.FromInt(int(ElasticPort)),
-					Protocol:   corev1.ProtocolTCP,
+					Name: ElasticPortName,
+					Port: ElasticPort,
 				},
 			},
 		},
@@ -113,16 +107,12 @@ func constructInternalService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			}),
 			Ports: []corev1.ServicePort{
 				{
-					Name:       HumioPortName,
-					Port:       HumioPort,
-					TargetPort: intstr.FromInt(int(HumioPort)),
-					Protocol:   corev1.ProtocolTCP,
+					Name: HumioPortName,
+					Port: HumioPort,
 				},
 				{
-					Name:       ElasticPortName,
-					Port:       ElasticPort,
-					TargetPort: intstr.FromInt(int(ElasticPort)),
-					Protocol:   corev1.ProtocolTCP,
+					Name: ElasticPortName,
+					Port: ElasticPort,
 				},
 			},
 		},
@@ -161,28 +151,6 @@ func servicesMatch(existingService *corev1.Service, service *corev1.Service) (bo
 	if existingSelector != selector {
 		return false, fmt.Errorf("service selector does not match: got %s, expected: %s", existingSelector, selector)
 	}
-
-	if existingService.Spec.Type != service.Spec.Type {
-		return false, fmt.Errorf("service type does not match: got %s, expected: %s", existingService.Spec.Type, service.Spec.Type)
-	}
-
-	if len(existingService.Spec.Ports) != len(service.Spec.Ports) {
-		return false, fmt.Errorf("service port count does not match: got %d, expected: %d", len(existingService.Spec.Ports), len(service.Spec.Ports))
-	}
-
-	for i, expectedPort := range service.Spec.Ports {
-		existingPort := existingService.Spec.Ports[i]
-		if existingPort.Name != expectedPort.Name ||
-			existingPort.Port != expectedPort.Port ||
-			existingPort.TargetPort != expectedPort.TargetPort ||
-			existingPort.Protocol != expectedPort.Protocol {
-			return false, fmt.Errorf("service port %s does not match: got {name:%s port:%d targetPort:%s protocol:%s}, expected: {name:%s port:%d targetPort:%s protocol:%s}",
-				expectedPort.Name,
-				existingPort.Name, existingPort.Port, existingPort.TargetPort.String(), existingPort.Protocol,
-				expectedPort.Name, expectedPort.Port, expectedPort.TargetPort.String(), expectedPort.Protocol)
-		}
-	}
-
 	return true, nil
 }
 
@@ -191,6 +159,4 @@ func updateService(existingService *corev1.Service, service *corev1.Service) {
 	existingService.Labels = service.Labels
 	existingService.Spec.Selector = service.Spec.Selector
 	existingService.Spec.PublishNotReadyAddresses = service.Spec.PublishNotReadyAddresses
-	existingService.Spec.Type = service.Spec.Type
-	existingService.Spec.Ports = service.Spec.Ports
 }

@@ -5,7 +5,7 @@ metadata:
   namespace: logging
 spec:
   # Required fields
-  image: humio/pdf-render-service:0.0.60--build-101--sha-fe87a59c82fd957ec460190a3f726948d586c1ea
+  image: humio/pdf-render-service:0.1.1--build-103--sha-76833d8fdc641dad51798fb2a4705e2d273393b7
   replicas: 2
   # Port configuration
   port: 5123

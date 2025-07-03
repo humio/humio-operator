@@ -677,16 +677,13 @@ func verifyNumClusterPods(ctx context.Context, k8sClient client.Client, key type
 }
 
 func simulateHashedBootstrapTokenCreation(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
-	if helpers.UseEnvtest() || helpers.UseKindCluster() {
+	if helpers.UseEnvtest() {
 		// Simulate sidecar creating the secret which contains the admin token used to authenticate with humio
 		secretData := map[string][]byte{"token": []byte("")}
 		adminTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.ServiceTokenSecretNameSuffix)
 		UsingClusterBy(key.Name, "Simulating the admin token secret containing the API token")
 		desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, adminTokenSecretName, secretData, nil, nil)
-		err := k8sClient.Create(ctx, desiredSecret)
-		if err != nil && !k8serrors.IsAlreadyExists(err) {
-			Expect(err).ToNot(HaveOccurred())
-		}
+		Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
 
 		UsingClusterBy(key.Name, "Simulating the creation of the HumioBootstrapToken resource")
 		humioBootstrapToken := kubernetes.ConstructHumioBootstrapToken(key.Name, key.Namespace)
@@ -717,10 +714,7 @@ func simulateHashedBootstrapTokenCreation(ctx context.Context, k8sClient client.
 	secretData := map[string][]byte{"hashedToken": []byte("P2HS9.20.r+ZbMqd0pHF65h3yQiOt8n1xNytv/4ePWKIj3cElP7gt8YD+gOtdGGvJYmG229kyFWLs6wXx9lfSDiRGGu/xuQ"), "secret": []byte("cYsrKi6IeyOJVzVIdmVK3M6RGl4y9GpgduYKXk4qWvvj")}
 	bootstrapTokenSecretName := fmt.Sprintf("%s-%s", key.Name, kubernetes.BootstrapTokenSecretNameSuffix)
 	desiredSecret := kubernetes.ConstructSecret(key.Name, key.Namespace, bootstrapTokenSecretName, secretData, nil, nil)
-	err := k8sClient.Create(ctx, desiredSecret)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		Expect(err).ToNot(HaveOccurred())
-	}
+	Expect(k8sClient.Create(ctx, desiredSecret)).To(Succeed())
 }
 
 func verifyNumPodsContainerStatusReady(ctx context.Context, k8sClient client.Client, key types.NamespacedName, cluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
@@ -869,7 +863,6 @@ func SimulateHumioBootstrapTokenCreatingSecretAndUpdatingStatus(ctx context.Cont
 		}
 		for _, nodePool := range cluster.Spec.NodePools {
 			if nodePool.HumioNodeSpec.Image != "" {
-
 				bootstrapImage = nodePool.HumioNodeSpec.Image
 				break
 			}
@@ -1051,8 +1044,17 @@ func CreatePdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfK
 func resolveDeploymentKey(key types.NamespacedName) (types.NamespacedName, string) {
 	deployKey := key
 	crName := key.Name
-	// Always use the helper to generate the deployment name
-	deployKey.Name = helpers.PdfRenderServiceChildName(key.Name)
+
+	// If the key name already has the "hprs-" prefix, it's a deployment name
+	if strings.HasPrefix(key.Name, "hprs-") {
+		// Extract the CR name by removing the prefix
+		crName = strings.TrimPrefix(key.Name, "hprs-")
+		// Keep the deployment key as-is
+	} else {
+		// This is a CR name, generate the deployment name
+		deployKey.Name = "hprs-" + key.Name
+	}
+
 	return deployKey, crName
 }
 
@@ -1656,90 +1658,6 @@ func EnsurePodsForDeploymentInEnvtest(ctx context.Context, k8sClient client.Clie
 	return nil
 }
 
-// CleanupPdfRenderServiceResources cleans up all resources related to a PDF render service
-func CleanupPdfRenderServiceResources(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
-	// Delete HumioPdfRenderService if it exists
-	pdfCR := &humiov1alpha1.HumioPdfRenderService{}
-	if err := k8sClient.Get(ctx, key, pdfCR); err == nil {
-		UsingClusterBy(key.Name, fmt.Sprintf("Deleting HumioPdfRenderService %s", key.String()))
-		_ = k8sClient.Delete(ctx, pdfCR)
-
-		// Wait for deletion
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, key, &humiov1alpha1.HumioPdfRenderService{})
-			return k8serrors.IsNotFound(err)
-		}, DefaultTestTimeout, TestInterval).Should(BeTrue())
-	}
-
-	// Clean up any orphaned deployment
-	deploymentKey := types.NamespacedName{
-		Name:      helpers.PdfRenderServiceChildName(key.Name),
-		Namespace: key.Namespace,
-	}
-	deployment := &appsv1.Deployment{}
-	if err := k8sClient.Get(ctx, deploymentKey, deployment); err == nil {
-		UsingClusterBy(key.Name, fmt.Sprintf("Deleting orphaned deployment %s", deploymentKey.String()))
-		_ = k8sClient.Delete(ctx, deployment)
-	}
-
-	// Clean up any orphaned service
-	service := &corev1.Service{}
-	if err := k8sClient.Get(ctx, deploymentKey, service); err == nil {
-		UsingClusterBy(key.Name, fmt.Sprintf("Deleting orphaned service %s", deploymentKey.String()))
-		_ = k8sClient.Delete(ctx, service)
-	}
-
-	// Clean up any orphaned HPA
-	hpaKey := types.NamespacedName{
-		Name:      helpers.PdfRenderServiceHpaName(key.Name),
-		Namespace: key.Namespace,
-	}
-	hpa := &autoscalingv2.HorizontalPodAutoscaler{}
-	if err := k8sClient.Get(ctx, hpaKey, hpa); err == nil {
-		UsingClusterBy(key.Name, fmt.Sprintf("Deleting orphaned HPA %s", hpaKey.String()))
-		_ = k8sClient.Delete(ctx, hpa)
-	}
-}
-
-// CleanupPdfRenderServiceCR safely deletes a HumioPdfRenderService CR and waits for its deletion
-func CleanupPdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfCR *humiov1alpha1.HumioPdfRenderService) {
-	if pdfCR == nil {
-		return
-	}
-
-	serviceName := pdfCR.Name
-	serviceNamespace := pdfCR.Namespace
-	key := types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}
-
-	UsingClusterBy(serviceName, fmt.Sprintf("Cleaning up HumioPdfRenderService %s", key.String()))
-
-	// Get the latest version of the resource
-	latestPdfCR := &humiov1alpha1.HumioPdfRenderService{}
-	err := k8sClient.Get(ctx, key, latestPdfCR)
-
-	// If not found, it's already deleted
-	if k8serrors.IsNotFound(err) {
-		return
-	}
-
-	// If other error, report it but continue
-	if err != nil {
-		UsingClusterBy(serviceName, fmt.Sprintf("Error getting HumioPdfRenderService for cleanup: %v", err))
-		return
-	}
-
-	// Only attempt deletion if not already being deleted
-	if latestPdfCR.GetDeletionTimestamp() == nil {
-		Expect(k8sClient.Delete(ctx, latestPdfCR)).To(Succeed())
-	}
-
-	// Wait for deletion with appropriate timeout
-	Eventually(func() bool {
-		err := k8sClient.Get(ctx, key, latestPdfCR)
-		return k8serrors.IsNotFound(err)
-	}, DefaultTestTimeout, TestInterval).Should(BeTrue(),
-		"HumioPdfRenderService %s/%s should be deleted", serviceNamespace, serviceName)
-}
 
 // CreatePdfRenderServiceAndWait is a convenience wrapper that
 // 1. Creates a HumioPdfRenderService CR (optionally overriding Image & TLS)
@@ -1831,8 +1749,14 @@ func CreatePdfRenderServiceAndWait(
 
 	// Optional image override
 	if image != "" && pdfCR.Spec.Image != image {
-		pdfCR.Spec.Image = image
-		Expect(k8sClient.Update(ctx, pdfCR)).To(Succeed())
+		Eventually(func() error {
+			var currentPdf humiov1alpha1.HumioPdfRenderService
+			if err := k8sClient.Get(ctx, pdfKey, &currentPdf); err != nil {
+				return err
+			}
+			currentPdf.Spec.Image = image
+			return k8sClient.Update(ctx, &currentPdf)
+		}, DefaultTestTimeout, TestInterval).Should(Succeed())
 	}
 
 	// Step 3 – wait for the controller to reconcile the change

@@ -294,23 +294,6 @@ func (r *HumioClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// wait for pods to start up
 	for _, pool := range humioNodePools.Filter(NodePoolFilterHasNode) {
-		// Check Humio health before waiting for pods. If Humio is not healthy, we should not wait for pods to become ready.
-		// This is to avoid getting stuck in a loop where pods will never become ready due to an underlying issue with Humio.
-		cluster, err := helpers.NewCluster(ctx, r, hc.Name, "", hc.Namespace, helpers.UseCertManager(), true, false)
-		if err != nil {
-			if strings.Contains(err.Error(), "could not get humio admin secret") {
-				r.Log.Info("could not create humio client, perhaps we are bootstrapping? skipping health check")
-			} else {
-				return reconcile.Result{}, r.logErrorAndReturn(err, "could not create humio client, unable to check health")
-			}
-		} else {
-			humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)
-			if _, err := r.HumioClient.Status(ctx, humioHttpClient); err != nil {
-				// Humio is not healthy, so we should not wait for pods to become ready
-				return reconcile.Result{RequeueAfter: time.Second * 5}, r.logErrorAndReturn(err, "could not get humio status")
-			}
-		}
-
 		if podsReady, err := r.nodePoolPodsReady(ctx, hc, pool); !podsReady || err != nil {
 			msg := waitingOnPodsMessage
 			if err != nil {
