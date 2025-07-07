@@ -57,25 +57,16 @@ func UsingClusterBy(cluster, text string, callbacks ...func()) {
 }
 
 func MarkPodsAsRunningIfUsingEnvtest(ctx context.Context, client client.Client, pods []corev1.Pod, clusterName string) error {
-	envtestVar := os.Getenv("TEST_USING_ENVTEST")
-	useEnvtest := helpers.UseEnvtest()
-	UsingClusterBy(clusterName, fmt.Sprintf("DEBUG: MarkPodsAsRunningIfUsingEnvtest - TEST_USING_ENVTEST=%s, UseEnvtest()=%t", envtestVar, useEnvtest))
-
-	if !useEnvtest {
-		UsingClusterBy(clusterName, "DEBUG: Not using envtest in MarkPodsAsRunningIfUsingEnvtest, returning early")
+	if !helpers.UseEnvtest() {
 		return nil
 	}
 
 	UsingClusterBy(clusterName, "Simulating Humio container starts up and is marked Ready")
 	for _, pod := range pods {
-
-		UsingClusterBy(clusterName, fmt.Sprintf("DEBUG: About to mark pod %s as running", pod.Name))
 		err := MarkPodAsRunningIfUsingEnvtest(ctx, client, pod, clusterName)
 		if err != nil {
-			UsingClusterBy(clusterName, fmt.Sprintf("DEBUG: Error marking pod %s as running: %v", pod.Name, err))
 			return err
 		}
-		UsingClusterBy(clusterName, fmt.Sprintf("DEBUG: Successfully marked pod %s as running", pod.Name))
 	}
 	return nil
 }
@@ -1346,11 +1337,12 @@ func EnsurePdfRenderDeploymentReady(
 	if helpers.UseEnvtest() {
 		UsingClusterBy(crName, "DEBUG: Taking envtest code path")
 		handleEnvtestDeployment(ctx, k8sClient, deployKey, exp, crName)
-	} else if helpers.UseKindCluster() {
+	} else if helpers.UseKindCluster() || helpers.UseDummyImage() {
+		UsingClusterBy(crName, "DEBUG: Taking Kind/dummy image code path")
 		handleKindDeployment(ctx, k8sClient, deployKey, listPods, exp, crName)
 	}
 
-	// Mark pods as running if using envtest
+	// Mark pods as running if using envtest or dummy images
 	pods, _ := listPods()
 	_ = MarkPodsAsRunningIfUsingEnvtest(ctx, k8sClient, pods, crName)
 
