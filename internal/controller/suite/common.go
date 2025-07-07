@@ -20,7 +20,6 @@ import (
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1658,6 +1657,45 @@ func EnsurePodsForDeploymentInEnvtest(ctx context.Context, k8sClient client.Clie
 	return nil
 }
 
+// CleanupPdfRenderServiceCR safely deletes a HumioPdfRenderService CR and waits for its deletion
+func CleanupPdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfCR *humiov1alpha1.HumioPdfRenderService) {
+	if pdfCR == nil {
+		return
+	}
+
+	serviceName := pdfCR.Name
+	serviceNamespace := pdfCR.Namespace
+	key := types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}
+
+	UsingClusterBy(serviceName, fmt.Sprintf("Cleaning up HumioPdfRenderService %s", key.String()))
+
+	// Get the latest version of the resource
+	latestPdfCR := &humiov1alpha1.HumioPdfRenderService{}
+	err := k8sClient.Get(ctx, key, latestPdfCR)
+
+	// If not found, it's already deleted
+	if k8serrors.IsNotFound(err) {
+		return
+	}
+
+	// If other error, report it but continue
+	if err != nil {
+		UsingClusterBy(serviceName, fmt.Sprintf("Error getting HumioPdfRenderService for cleanup: %v", err))
+		return
+	}
+
+	// Only attempt deletion if not already being deleted
+	if latestPdfCR.GetDeletionTimestamp() == nil {
+		Expect(k8sClient.Delete(ctx, latestPdfCR)).To(Succeed())
+	}
+
+	// Wait for deletion with appropriate timeout
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, key, latestPdfCR)
+		return k8serrors.IsNotFound(err)
+	}, DefaultTestTimeout, TestInterval).Should(BeTrue(),
+		"HumioPdfRenderService %s/%s should be deleted", serviceNamespace, serviceName)
+}
 
 // CreatePdfRenderServiceAndWait is a convenience wrapper that
 // 1. Creates a HumioPdfRenderService CR (optionally overriding Image & TLS)

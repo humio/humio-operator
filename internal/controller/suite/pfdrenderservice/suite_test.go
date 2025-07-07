@@ -24,25 +24,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/humio/humio-operator/internal/controller"
-	"github.com/humio/humio-operator/internal/controller/suite"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
+	"github.com/humio/humio-operator/internal/controller"
+	"github.com/humio/humio-operator/internal/controller/suite"
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	uberzap "go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -282,44 +282,4 @@ func CleanupPdfRenderServiceResources(ctx context.Context, k8sClient client.Clie
 		suite.UsingClusterBy(key.Name, fmt.Sprintf("Deleting orphaned HPA %s", hpaKey.String()))
 		_ = k8sClient.Delete(ctx, hpa)
 	}
-}
-
-// CleanupPdfRenderServiceCR safely deletes a HumioPdfRenderService CR and waits for its deletion
-func CleanupPdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdfCR *humiov1alpha1.HumioPdfRenderService) {
-	if pdfCR == nil {
-		return
-	}
-
-	serviceName := pdfCR.Name
-	serviceNamespace := pdfCR.Namespace
-	key := types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}
-
-	suite.UsingClusterBy(serviceName, fmt.Sprintf("Cleaning up HumioPdfRenderService %s", key.String()))
-
-	// Get the latest version of the resource
-	latestPdfCR := &humiov1alpha1.HumioPdfRenderService{}
-	err := k8sClient.Get(ctx, key, latestPdfCR)
-
-	// If not found, it's already deleted
-	if k8serrors.IsNotFound(err) {
-		return
-	}
-
-	// If other error, report it but continue
-	if err != nil {
-		suite.UsingClusterBy(serviceName, fmt.Sprintf("Error getting HumioPdfRenderService for cleanup: %v", err))
-		return
-	}
-
-	// Only attempt deletion if not already being deleted
-	if latestPdfCR.GetDeletionTimestamp() == nil {
-		Expect(k8sClient.Delete(ctx, latestPdfCR)).To(Succeed())
-	}
-
-	// Wait for deletion with appropriate timeout
-	Eventually(func() bool {
-		err := k8sClient.Get(ctx, key, latestPdfCR)
-		return k8serrors.IsNotFound(err)
-	}, suite.DefaultTestTimeout, suite.TestInterval).Should(BeTrue(),
-		"HumioPdfRenderService %s/%s should be deleted", serviceNamespace, serviceName)
 }
