@@ -33,12 +33,8 @@ import (
 	"github.com/humio/humio-operator/internal/humio"
 	"github.com/humio/humio-operator/internal/kubernetes"
 	uberzap "go.uber.org/zap"
-	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -238,48 +234,3 @@ var _ = ReportAfterEach(func(specReport ginkgotypes.SpecReport) {
 	u, _ := json.Marshal(specReport)
 	fmt.Println(string(u))
 })
-
-// CleanupPdfRenderServiceResources cleans up all resources related to a PDF render service
-func CleanupPdfRenderServiceResources(ctx context.Context, k8sClient client.Client, key types.NamespacedName) {
-	// Delete HumioPdfRenderService if it exists
-	pdfCR := &humiov1alpha1.HumioPdfRenderService{}
-	if err := k8sClient.Get(ctx, key, pdfCR); err == nil {
-		suite.UsingClusterBy(key.Name, fmt.Sprintf("Deleting HumioPdfRenderService %s", key.String()))
-		_ = k8sClient.Delete(ctx, pdfCR)
-
-		// Wait for deletion
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, key, &humiov1alpha1.HumioPdfRenderService{})
-			return k8serrors.IsNotFound(err)
-		}, suite.DefaultTestTimeout, suite.TestInterval).Should(BeTrue())
-	}
-
-	// Clean up any orphaned deployment
-	deploymentKey := types.NamespacedName{
-		Name:      helpers.PdfRenderServiceChildName(key.Name),
-		Namespace: key.Namespace,
-	}
-	deployment := &appsv1.Deployment{}
-	if err := k8sClient.Get(ctx, deploymentKey, deployment); err == nil {
-		suite.UsingClusterBy(key.Name, fmt.Sprintf("Deleting orphaned deployment %s", deploymentKey.String()))
-		_ = k8sClient.Delete(ctx, deployment)
-	}
-
-	// Clean up any orphaned service
-	service := &corev1.Service{}
-	if err := k8sClient.Get(ctx, deploymentKey, service); err == nil {
-		suite.UsingClusterBy(key.Name, fmt.Sprintf("Deleting orphaned service %s", deploymentKey.String()))
-		_ = k8sClient.Delete(ctx, service)
-	}
-
-	// Clean up any orphaned HPA
-	hpaKey := types.NamespacedName{
-		Name:      helpers.PdfRenderServiceHpaName(key.Name),
-		Namespace: key.Namespace,
-	}
-	hpa := &autoscalingv2.HorizontalPodAutoscaler{}
-	if err := k8sClient.Get(ctx, hpaKey, hpa); err == nil {
-		suite.UsingClusterBy(key.Name, fmt.Sprintf("Deleting orphaned HPA %s", hpaKey.String()))
-		_ = k8sClient.Delete(ctx, hpa)
-	}
-}
