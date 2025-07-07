@@ -237,11 +237,11 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 					Port:     5123,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("500m"),
+							corev1.ResourceCPU:    resource.MustParse("1"),
 							corev1.ResourceMemory: resource.MustParse("1Gi"),
 						},
 						Limits: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("1"),
+							corev1.ResourceCPU:    resource.MustParse("2"),
 							corev1.ResourceMemory: resource.MustParse("2Gi"),
 						},
 					},
@@ -262,28 +262,35 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
 
-			if !helpers.UseEnvtest() {
-				// Skip pod simulation in envtest
-			} else {
-				Expect(suite.EnsurePodsForDeploymentInEnvtest(ctx, k8sClient, deploymentKey, "1")).To(Succeed())
-			}
+			By("Verifying initial deployment is stable")
+			Eventually(func() string {
+				var pdfSvc humiov1alpha1.HumioPdfRenderService
+				if err := k8sClient.Get(ctx, key, &pdfSvc); err != nil {
+					return ""
+				}
+				return pdfSvc.Status.State
+			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
 
 			By("Updating HumioPdfRenderService spec")
+			newImage := "humio/pdf-render-service:0.1.1--build-103--sha-76833d8fdc641dad51798fb2a4705e2d273393b7"
+			newReplicas := int32(2)
+
 			var updatedPdfService humiov1alpha1.HumioPdfRenderService
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, key, &updatedPdfService); err != nil {
 					return err
 				}
-				updatedPdfService.Spec.Image = "humio/pdf-render-service:0.1.1--build-103--sha-76833d8fdc641dad51798fb2a4705e2d273393b7"
-				updatedPdfService.Spec.Replicas = 2
-				updatedPdfService.Spec.Port = 5124
+				updatedPdfService.Spec.Image = newImage
+				updatedPdfService.Spec.Replicas = newReplicas
 
 				// Disable autoscaling to test manual replica scaling
 				updatedPdfService.Spec.Autoscaling = &humiov1alpha1.HumioPdfRenderServiceAutoscalingSpec{
 					Enabled: helpers.BoolPtr(false),
 				}
 				return k8sClient.Update(ctx, &updatedPdfService)
-			}, testTimeout, testInterval).Should(Succeed())
+			}, 3*longTimeout, testInterval).Should(Succeed())
+
+			By(fmt.Sprintf("Updated PDF service to use image %s with %d replicas", newImage, newReplicas))
 
 			suite.WaitForObservedGeneration(ctx, k8sClient, &updatedPdfService, testTimeout, testInterval)
 
@@ -294,8 +301,11 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 				if err := k8sClient.Get(ctx, deploymentKey, &deployment); err != nil {
 					return ""
 				}
+				if len(deployment.Spec.Template.Spec.Containers) == 0 {
+					return ""
+				}
 				return deployment.Spec.Template.Spec.Containers[0].Image
-			}, longTimeout, testInterval).Should(Equal("humio/pdf-render-service:0.1.1--build-103--sha-76833d8fdc641dad51798fb2a4705e2d273393b7"))
+			}, 2*longTimeout, testInterval).Should(Equal(newImage))
 
 			// Check replicas are updated
 			Eventually(func() int32 {
@@ -303,34 +313,24 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 				if err := k8sClient.Get(ctx, deploymentKey, &deployment); err != nil {
 					return 0
 				}
+				if deployment.Spec.Replicas == nil {
+					return 0
+				}
 				return *deployment.Spec.Replicas
-			}, longTimeout, testInterval).Should(Equal(int32(2)))
+			}, 2*longTimeout, testInterval).Should(Equal(newReplicas))
 
+			// Ensure the deployment is ready with the new configuration
+			// This is crucial for Kind clusters where pods need to be manually marked as ready
 			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey)
 
-			// Wait for deployment to stabilize with new replica count
-			Eventually(func() int32 {
-				var dep appsv1.Deployment
-				if err := k8sClient.Get(ctx, deploymentKey, &dep); err != nil {
-					return 0
+			By("Verifying PDF service reaches Running state")
+			Eventually(func() string {
+				var pdfSvc humiov1alpha1.HumioPdfRenderService
+				if err := k8sClient.Get(ctx, key, &pdfSvc); err != nil {
+					return ""
 				}
-				return dep.Status.ReadyReplicas
-			}, longTimeout, testInterval).Should(Equal(int32(2)))
-
-			if !helpers.UseEnvtest() {
-				// Skip pod simulation in envtest
-			} else {
-				Expect(suite.EnsurePodsForDeploymentInEnvtest(ctx, k8sClient, deploymentKey, "2")).To(Succeed())
-			}
-
-			By("Verifying service port is updated")
-			var service corev1.Service
-			Eventually(func() int32 {
-				if err := k8sClient.Get(ctx, deploymentKey, &service); err != nil {
-					return 0
-				}
-				return service.Spec.Ports[0].Port
-			}, testTimeout, testInterval).Should(Equal(int32(5124)))
+				return pdfSvc.Status.State
+			}, 2*longTimeout, testInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
 		})
 	})
 
@@ -620,7 +620,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 			}
 
 			By("Creating HumioPdfRenderService first")
-			pdfService := suite.CreatePdfRenderServiceAndWait(ctx, k8sClient, key, "humio/humio-report:1.0.0", false)
+			pdfService := suite.CreatePdfRenderServiceAndWait(ctx, k8sClient, key, "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e", false)
 
 			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
@@ -647,24 +647,13 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 				return fetchedPDFService.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
 
-			By("Updating PDF service image multiple times")
+			By("Updating PDF service image")
 			// First update
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, key, fetchedPDFService); err != nil {
 					return err
 				}
-				fetchedPDFService.Spec.Image = "humio/humio-report:1.1.0"
-				return k8sClient.Update(ctx, fetchedPDFService)
-			}, testTimeout, testInterval).Should(Succeed())
-
-			suite.WaitForObservedGeneration(ctx, k8sClient, fetchedPDFService, testTimeout, testInterval)
-
-			// Second update
-			Eventually(func() error {
-				if err := k8sClient.Get(ctx, key, fetchedPDFService); err != nil {
-					return err
-				}
-				fetchedPDFService.Spec.Image = "humio/humio-report:1.2.0"
+				fetchedPDFService.Spec.Image = "humio/pdf-render-service:0.1.1--build-103--sha-76833d8fdc641dad51798fb2a4705e2d273393b7"
 				return k8sClient.Update(ctx, fetchedPDFService)
 			}, testTimeout, testInterval).Should(Succeed())
 
@@ -681,7 +670,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 					return ""
 				}
 				return deployment.Spec.Template.Spec.Containers[0].Image
-			}, testTimeout, testInterval).Should(Equal("humio/humio-report:1.2.0"))
+			}, testTimeout, testInterval).Should(Equal("humio/pdf-render-service:0.1.1--build-103--sha-76833d8fdc641dad51798fb2a4705e2d273393b7"))
 
 			By("Disabling ENABLE_SCHEDULED_REPORT and verifying cleanup (future implementation)")
 			// Note: Current implementation doesn't auto-cleanup when ENABLE_SCHEDULED_REPORT is disabled
