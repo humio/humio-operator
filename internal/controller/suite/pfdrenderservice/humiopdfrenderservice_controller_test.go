@@ -48,15 +48,15 @@ const (
 
 var _ = Describe("HumioPDFRenderService Controller", func() {
 	BeforeEach(func() {
-		key := types.NamespacedName{Namespace: testProcessNamespace}
-		CleanupPdfRenderServiceResources(context.Background(), k8sClient, key)
+		// Each test should handle its own cleanup using defer statements
+		// to avoid interfering with other tests running in parallel
 	})
 
 	AfterEach(func() {
 		// Add any teardown steps that needs to be executed after each test
 	})
 
-	FContext("PDF Render Service with HumioCluster Integration", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service with HumioCluster Integration", Label("envtest", "dummy", "real"), func() {
 		It("should run independently and integrate with HumioCluster via environment variables", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -67,7 +67,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 			By("Creating HumioPdfRenderService first (demonstrates independent deployment)")
 			pdfService := suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)
 
-			defer CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
+			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
 			By("Verifying PDF service reaches Running state independently")
 			// PDF service should reach Running state without requiring HumioCluster
@@ -132,7 +132,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	FContext("PDF Render Service Independent Deployment", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Independent Deployment", Label("envtest", "dummy", "real"), func() {
 		It("should deploy PDF Render Service independently via helm chart (not triggered by HumioCluster)", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -143,7 +143,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 			By("Creating HumioPdfRenderService independently (via helm chart deployment)")
 			pdfService := suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)
 
-			defer CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
+			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
 			By("Verifying PDF service deploys independently without requiring HumioCluster")
 			// The PDF service should be able to start and reach Running state
@@ -204,7 +204,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	FContext("PDF Render Service Update", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Update", Label("envtest", "dummy", "real"), func() {
 		It("should update the Deployment when the HumioPdfRenderService is updated", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -252,7 +252,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, pdfService)).Should(Succeed())
 
-			defer CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
+			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
 			By("Waiting for deployment to be ready")
 			deploymentKey := types.NamespacedName{
@@ -363,7 +363,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, pdfCR)).To(Succeed())
-			defer CleanupPdfRenderServiceCR(ctx, k8sClient, pdfCR)
+			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfCR)
 
 			By("Waiting for PDF service to reach Running state")
 			Eventually(func() string {
@@ -414,7 +414,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	FContext("PDF Render Service Resources and Probes", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Resources and Probes", Label("envtest", "dummy", "real"), func() {
 		It("should configure resources and probes correctly", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -483,7 +483,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 
 			Expect(k8sClient.Create(ctx, pdfService)).Should(Succeed())
 
-			defer CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
+			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
 			By("Verifying deployment has correct resources and probes")
 			deploymentKey := types.NamespacedName{
@@ -516,7 +516,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	FContext("PDF Render Service Environment Variables", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Environment Variables", Label("envtest", "dummy", "real"), func() {
 		It("should configure environment variables correctly", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -575,7 +575,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 				HaveKeyWithValue("LOG_LEVEL", "debug"),
 			))
 
-			defer CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
+			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
 			By("Updating environment variables")
 			Eventually(func() error {
@@ -611,7 +611,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	FContext("PDF Render Service with HumioCluster Environment Variable Integration", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service with HumioCluster Environment Variable Integration", Label("envtest", "dummy", "real"), func() {
 		It("Should demonstrate HumioCluster interaction with PDF service via DEFAULT_PDF_RENDER_SERVICE_URL", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -622,7 +622,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 			By("Creating HumioPdfRenderService first")
 			pdfService := suite.CreatePdfRenderServiceAndWait(ctx, k8sClient, key, "humio/humio-report:1.0.0", false)
 
-			defer CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
+			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
 			By("Creating HumioCluster with scheduled reports and PDF service URL")
 			clusterKey := types.NamespacedName{
@@ -689,7 +689,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	FContext("PDF Render Service HPA (Horizontal Pod Autoscaling)", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service HPA (Horizontal Pod Autoscaling)", Label("envtest", "dummy", "real"), func() {
 		It("should create HPA when autoscaling is enabled", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -755,7 +755,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 
 			Expect(k8sClient.Create(ctx, pdfService)).Should(Succeed())
 
-			defer CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
+			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
 			By("Verifying HPA is created")
 			hpaKey := types.NamespacedName{
@@ -824,7 +824,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 
 			Expect(k8sClient.Create(ctx, pdfService)).Should(Succeed())
 
-			defer CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
+			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
 			By("Verifying HPA is not created")
 			hpaKey := types.NamespacedName{
@@ -926,7 +926,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 
 			Expect(k8sClient.Create(ctx, pdfService)).Should(Succeed())
 
-			defer CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
+			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
 			By("Verifying HPA has both metrics")
 			hpaKey := types.NamespacedName{
@@ -1000,7 +1000,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 
 			Expect(k8sClient.Create(ctx, pdfService)).Should(Succeed())
 
-			defer CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
+			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
 			By("Verifying HPA is created")
 			hpaKey := types.NamespacedName{
@@ -1098,7 +1098,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 
 			Expect(k8sClient.Create(ctx, pdfService)).Should(Succeed())
 
-			defer CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
+			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
 			By("Verifying HPA uses default CPU metric")
 			hpaKey := types.NamespacedName{
@@ -1116,7 +1116,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	FContext("PDF Render Service Reconcile Loop", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service Reconcile Loop", Label("envtest", "dummy", "real"), func() {
 		It("should not trigger unnecessary updates for ImagePullPolicy", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -1141,7 +1141,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 			pdfService := suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)
 			// Not setting ImagePullPolicy - should default appropriately
 
-			defer CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
+			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
 			By("Waiting for initial deployment")
 			deploymentKey := types.NamespacedName{
