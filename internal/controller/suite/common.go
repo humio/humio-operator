@@ -1096,6 +1096,11 @@ func EnsurePdfRenderDeploymentReady(
 	// Use the same pattern as HumioCluster - just wait for pods and mark them ready
 	UsingClusterBy(crName, fmt.Sprintf("Waiting for %d PDF render service pods (using HumioCluster pattern)", exp))
 
+	// Ensure pods exist in envtest environment
+	if helpers.UseEnvtest() {
+		_ = EnsurePodsForDeploymentInEnvtest(ctx, k8sClient, deployKey, crName)
+	}
+
 	// Wait for correct number of pods and mark them as running
 	Eventually(func() []corev1.Pod {
 		pods, _ := listPods()

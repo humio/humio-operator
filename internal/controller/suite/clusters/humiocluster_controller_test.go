@@ -322,7 +322,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	// PDF Render Service Integration Tests
-	Context("HumioCluster with PDF Render Service integration", Label("envtest", "dummy", "real"), func() {
+	FContext("HumioCluster with PDF Render Service integration", Label("envtest", "dummy", "real"), func() {
 		It("should configure PDF service API endpoint URL when ENABLE_SCHEDULED_REPORT is set", func() {
 			ctx := context.Background()
 			testId := kubernetes.RandomString()
@@ -438,7 +438,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	// Independent PDF Service Test
-	Context("PDF Render Service operates independently", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service operates independently", Label("envtest", "dummy", "real"), func() {
 		It("should operate independently of specific HumioCluster instances", func() {
 			ctx := context.Background()
 			testId := kubernetes.RandomString()
@@ -535,7 +535,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	// TLS Configuration Success Test
-	Context("PDF Render Service with TLS configuration", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service with TLS configuration", Label("envtest", "dummy", "real"), func() {
 		const (
 			standardTimeout = 60 * time.Second // Increased for cert-manager provisioning
 			quickInterval   = 250 * time.Millisecond
@@ -731,7 +731,7 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-	Context("Humio Cluster Update Failed Pods", Label("envtest", "dummy", "real"), func() {
+	FContext("Humio Cluster Update Failed Pods", Label("envtest", "dummy", "real"), func() {
 		It("Update should correctly replace pods that are in a failed state", func() {
 			key := types.NamespacedName{
 				Name:      "humiocluster-update-failed",

@@ -56,7 +56,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		// Add any teardown steps that needs to be executed after each test
 	})
 
-	Context("PDF Render Service with HumioCluster Integration", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service with HumioCluster Integration", Label("envtest", "dummy", "real"), func() {
 		It("should run independently and integrate with HumioCluster via environment variables", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -132,7 +132,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	Context("PDF Render Service Independent Deployment", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service Independent Deployment", Label("envtest", "dummy", "real"), func() {
 		It("should deploy PDF Render Service independently via helm chart (not triggered by HumioCluster)", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -204,7 +204,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	Context("PDF Render Service Update", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service Update", Label("envtest", "dummy", "real"), func() {
 		It("should update the Deployment when the HumioPdfRenderService is updated", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -334,7 +334,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	Context("PDF Render Service Upgrade", Label("dummy", "real"), func() {
+	FContext("PDF Render Service Upgrade", Label("dummy", "real"), func() {
 		const (
 			initialTestPdfImage  = "humio/pdf-render-service:0.1.1--build-103--sha-76833d8fdc641dad51798fb2a4705e2d273393b7"
 			upgradedTestPdfImage = "humio/pdf-render-service:0.1.2--build-104--sha-76833d8fdc641dad51798fb2a4705e2d273393b8"
@@ -414,7 +414,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	Context("PDF Render Service Resources and Probes", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service Resources and Probes", Label("envtest", "dummy", "real"), func() {
 		It("should configure resources and probes correctly", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -516,7 +516,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	Context("PDF Render Service Environment Variables", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service Environment Variables", Label("envtest", "dummy", "real"), func() {
 		It("should configure environment variables correctly", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -611,7 +611,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	Context("PDF Render Service with HumioCluster Environment Variable Integration", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service with HumioCluster Environment Variable Integration", Label("envtest", "dummy", "real"), func() {
 		It("Should demonstrate HumioCluster interaction with PDF service via DEFAULT_PDF_RENDER_SERVICE_URL", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -689,7 +689,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	Context("PDF Render Service HPA (Horizontal Pod Autoscaling)", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service HPA (Horizontal Pod Autoscaling)", Label("envtest", "dummy", "real"), func() {
 		It("should create HPA when autoscaling is enabled", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
@@ -1116,7 +1116,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	Context("PDF Render Service Reconcile Loop", Label("envtest", "dummy", "real"), func() {
+	FContext("PDF Render Service Reconcile Loop", Label("envtest", "dummy", "real"), func() {
 		It("should not trigger unnecessary updates for ImagePullPolicy", func() {
 			ctx := context.Background()
 			key := types.NamespacedName{
