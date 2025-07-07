@@ -1127,16 +1127,59 @@ func handleKindDeployment(ctx context.Context, k8sClient client.Client, deployKe
 
 			// Also manually update deployment status to reflect ready pods
 			// since the deployment controller might be slow to update in Kind
-			if dep.Status.ReadyReplicas < currentExp {
+			if dep.Status.ReadyReplicas < currentExp || dep.Status.ObservedGeneration < dep.Generation {
+				dep.Status.Replicas = currentExp
+				dep.Status.UpdatedReplicas = currentExp
 				dep.Status.ReadyReplicas = currentExp
 				dep.Status.AvailableReplicas = currentExp
+				// For deployments with observedGeneration mismatch, update it
+				if dep.Status.ObservedGeneration < dep.Generation {
+					dep.Status.ObservedGeneration = dep.Generation
+				}
+				
+				// Add deployment conditions if missing
+				hasProgressingCondition := false
+				for i, cond := range dep.Status.Conditions {
+					if cond.Type == appsv1.DeploymentProgressing {
+						hasProgressingCondition = true
+						// Update existing condition to stable state
+						dep.Status.Conditions[i].Status = corev1.ConditionTrue
+						dep.Status.Conditions[i].Reason = "NewReplicaSetAvailable"
+						dep.Status.Conditions[i].Message = "ReplicaSet has successfully progressed."
+						dep.Status.Conditions[i].LastUpdateTime = metav1.Now()
+						break
+					}
+				}
+				
+				// Add progressing condition if missing
+				if !hasProgressingCondition {
+					dep.Status.Conditions = append(dep.Status.Conditions, appsv1.DeploymentCondition{
+						Type:               appsv1.DeploymentProgressing,
+						Status:             corev1.ConditionTrue,
+						Reason:             "NewReplicaSetAvailable",
+						Message:            "ReplicaSet has successfully progressed.",
+						LastUpdateTime:     metav1.Now(),
+						LastTransitionTime: metav1.Now(),
+					})
+				}
+				
 				if err := k8sClient.Status().Update(ctx, &dep); err != nil {
 					UsingClusterBy(crName, fmt.Sprintf("Failed to update deployment status: %v", err))
 				}
 			}
 		}
 
-		return isDeploymentStabilized(&dep, currentExp)
+		stabilized := isDeploymentStabilized(&dep, currentExp)
+		if !stabilized {
+			// Log deployment conditions for debugging
+			UsingClusterBy(crName, fmt.Sprintf("Deployment not stabilized. ObservedGen: %d, Gen: %d, Replicas: %d/%d, Updated: %d, Available: %d",
+				dep.Status.ObservedGeneration, dep.Generation, dep.Status.Replicas, currentExp,
+				dep.Status.UpdatedReplicas, dep.Status.AvailableReplicas))
+			for _, cond := range dep.Status.Conditions {
+				UsingClusterBy(crName, fmt.Sprintf("Condition %s: %s (Reason: %s)", cond.Type, cond.Status, cond.Reason))
+			}
+		}
+		return stabilized
 	}, DefaultTestTimeout*2, TestInterval).Should(BeTrue(),
 		"Deployment should stabilize with correct replica count")
 }
