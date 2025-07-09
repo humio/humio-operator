@@ -44,6 +44,7 @@ const (
 
 const TestInterval = time.Second * 1
 const DefaultTestTimeout = time.Second * 30 // Standard timeout used throughout the tests
+const HumioPdfRenderServiceContainerName = "humio-pdf-render-service"
 
 func UsingClusterBy(cluster, text string, callbacks ...func()) {
 	timestamp := time.Now().Format(time.RFC3339Nano)
@@ -72,24 +73,25 @@ func MarkPodsAsRunningIfUsingEnvtest(ctx context.Context, client client.Client, 
 }
 
 func MarkPodAsRunningIfUsingEnvtest(ctx context.Context, k8sClient client.Client, pod corev1.Pod, clusterName string) error {
-	// For PDF render service pods in Kind clusters, we need to mark them as ready
-	// because the application doesn't support TLS yet
+	// Determine if this is a PDF render service pod
 	isPdfRenderService := false
 	for _, container := range pod.Spec.Containers {
-		if container.Name == "humio-pdf-render-service" {
+		if container.Name == HumioPdfRenderServiceContainerName {
 			isPdfRenderService = true
 			break
 		}
 	}
 
-	if !helpers.UseEnvtest() && (!helpers.UseKindCluster() || !isPdfRenderService) {
+	// Only mark pods as ready in envtest environments
+	// Exception: PDF render service pods also need to be marked as ready in Kind clusters for testing
+	if !helpers.UseEnvtest() && (!isPdfRenderService || !helpers.UseKindCluster()) {
 		return nil
 	}
 
-	// Determine which container to mark as ready based on pod spec
+	// Determine container name based on whether this is a PDF render service
 	containerName := controller.HumioContainerName // default to "humio"
 	if isPdfRenderService {
-		containerName = "humio-pdf-render-service"
+		containerName = HumioPdfRenderServiceContainerName
 	}
 
 	UsingClusterBy(clusterName, fmt.Sprintf("Simulating %s container starts up and is marked Ready", containerName))
@@ -1058,16 +1060,11 @@ func EnsurePdfRenderDeploymentReady(
 	ctx context.Context,
 	k8sClient client.Client,
 	key types.NamespacedName,
+	testTimeout time.Duration,
 ) {
 	// Resolve deployment key and CR name
 	deployKey, crName := resolveDeploymentKey(key)
 
-	UsingClusterBy(crName, "DEBUG: EnsurePdfRenderDeploymentReady function called")
-	UsingClusterBy(crName, fmt.Sprintf("DEBUG: Looking for deployment with key: %+v", deployKey))
-	UsingClusterBy(crName, fmt.Sprintf("DEBUG: Environment check - UseEnvtest()=%t, UseKindCluster()=%t, UseDummyImage()=%t",
-		helpers.UseEnvtest(), helpers.UseKindCluster(), helpers.UseDummyImage()))
-	UsingClusterBy(crName, fmt.Sprintf("DEBUG: Environment variables - TEST_USING_ENVTEST=%s, HUMIO_E2E_LICENSE=%s",
-		os.Getenv("TEST_USING_ENVTEST"), os.Getenv("HUMIO_E2E_LICENSE")))
 	UsingClusterBy(crName,
 		fmt.Sprintf("Waiting for Deployment %s/%s to be ready",
 			deployKey.Namespace, deployKey.Name))
@@ -1100,6 +1097,9 @@ func EnsurePdfRenderDeploymentReady(
 
 	// Handle pod readiness differently for different environments
 	UsingClusterBy(crName, fmt.Sprintf("Waiting for %d PDF render service pods", exp))
+
+	UsingClusterBy(crName, fmt.Sprintf("Using deployment timeout: %v (env: envtest=%t, kindCluster=%t, dummyImage=%t)",
+		testTimeout, helpers.UseEnvtest(), helpers.UseKindCluster(), helpers.UseDummyImage()))
 
 	if helpers.UseEnvtest() {
 		// In envtest, we need to simulate pod creation and readiness
@@ -1153,7 +1153,7 @@ func EnsurePdfRenderDeploymentReady(
 				}
 			}
 			return activePods
-		}, 2*DefaultTestTimeout, TestInterval).Should(HaveLen(int(exp)))
+		}, testTimeout, TestInterval).Should(HaveLen(int(exp)))
 	} else {
 		// In Kind clusters, deployment controller should work normally
 		// Just wait for pods to be created and become ready naturally
@@ -1176,16 +1176,8 @@ func EnsurePdfRenderDeploymentReady(
 				}
 			}
 
-			// In Kind clusters, let the deployment controller create pods naturally for PDF render service
-			// PDF render service uses real images, so the deployment controller should work properly
-			// We should never manually create pods for PDF render service in Kind clusters
-
-			// During rolling updates, having more pods than expected is normal
-			// Let the deployment controller handle pod lifecycle naturally
-			// Don't manually delete pods as this interferes with rolling updates
-
 			return len(activePods)
-		}, 2*DefaultTestTimeout, TestInterval).Should(BeNumerically(">=", int(exp)))
+		}, testTimeout, TestInterval).Should(BeNumerically(">=", int(exp)))
 
 		// Wait for pods to become ready naturally
 		Eventually(func() int {
@@ -1201,12 +1193,12 @@ func EnsurePdfRenderDeploymentReady(
 			pods, _ := listPods()
 			UsingClusterBy(crName, fmt.Sprintf("Found %d pods for deployment", len(pods)))
 
-			// For PDF render service pods in Kind clusters, mark them as ready
-			// because the application doesn't support TLS yet
+			// For PDF render service pods in Kind clusters, mark them as ready since they use real images
+			// but may not pass readiness probes in test environments
 			for _, pod := range pods {
 				if pod.DeletionTimestamp == nil {
 					for _, container := range pod.Spec.Containers {
-						if container.Name == "humio-pdf-render-service" {
+						if container.Name == HumioPdfRenderServiceContainerName {
 							UsingClusterBy(crName, fmt.Sprintf("Marking PDF render service pod %s as ready in Kind cluster", pod.Name))
 							_ = MarkPodAsRunningIfUsingEnvtest(ctx, k8sClient, pod, crName)
 							break
@@ -1232,7 +1224,7 @@ func EnsurePdfRenderDeploymentReady(
 			}
 			UsingClusterBy(crName, fmt.Sprintf("Ready pods: %d/%d (expecting %d)", readyCount, len(pods), exp))
 			return readyCount
-		}, 2*DefaultTestTimeout, TestInterval).Should(Equal(int(exp)))
+		}, testTimeout, TestInterval).Should(Equal(int(exp)))
 	}
 
 	// Wait for deployment to report ready (controller will update based on pod status)
@@ -1242,7 +1234,7 @@ func EnsurePdfRenderDeploymentReady(
 			return false
 		}
 		return dep.Status.ReadyReplicas >= exp
-	}, 2*DefaultTestTimeout, TestInterval).Should(BeTrue())
+	}, testTimeout, TestInterval).Should(BeTrue())
 
 	UsingClusterBy(crName, fmt.Sprintf("Deployment %s/%s is ready with %d replicas",
 		deployKey.Namespace, deployKey.Name, exp))
@@ -1288,23 +1280,20 @@ func CleanupPdfRenderServiceCR(ctx context.Context, k8sClient client.Client, pdf
 		"HumioPdfRenderService %s/%s should be deleted", serviceNamespace, serviceName)
 }
 
-// CreatePdfRenderServiceAndWait is a convenience wrapper that
-// 1. Creates a HumioPdfRenderService CR (optionally overriding Image & TLS)
-// 2. Creates TLS certificate if TLS is enabled
-// 3. Waits until the controller has observed the new generation
-// 4. Waits for the child Deployment to become "Ready"
-// The returned CR is suitable for defer-cleanup.
+// CreatePdfRenderServiceAndWait creates a HumioPdfRenderService CR, handles TLS setup if enabled, and waits for the deployment to be ready.
+// Uses the provided testTimeout following the HumioCluster pattern for environment-specific timing (30s/180s/900s).
 func CreatePdfRenderServiceAndWait(
 	ctx context.Context,
 	k8sClient client.Client,
 	pdfKey types.NamespacedName,
 	image string,
 	tlsEnabled bool,
+	testTimeout time.Duration,
 ) *humiov1alpha1.HumioPdfRenderService {
 
 	UsingClusterBy(pdfKey.Name, fmt.Sprintf("Creating PDF render service with TLS=%t", tlsEnabled))
 
-	// Step 1 – If TLS is enabled and cert-manager is NOT in use, create the certificate secret manually
+	// If TLS is enabled and cert-manager is NOT in use, create the certificate secret manually
 	if tlsEnabled && !helpers.UseCertManager() {
 		// Create TLS certificate secret for PDF render service
 		tlsSecretName := helpers.PdfRenderServiceTlsSecretName(pdfKey.Name)
@@ -1329,10 +1318,10 @@ func CreatePdfRenderServiceAndWait(
 		Expect(k8sClient.Create(ctx, tlsSecret)).To(Succeed())
 	}
 
-	// Step 2 – create the CR
+	// Create the CR
 	pdfCR := CreatePdfRenderServiceCR(ctx, k8sClient, pdfKey, tlsEnabled)
 
-	// Step 3 - If TLS is enabled and cert-manager is in use, wait for the certificate to be ready
+	// If TLS is enabled and cert-manager is in use, wait for the certificate to be ready
 	if tlsEnabled && helpers.UseCertManager() {
 		certificateName := fmt.Sprintf("%s-tls", helpers.PdfRenderServiceChildName(pdfKey.Name))
 		UsingClusterBy(pdfKey.Name, fmt.Sprintf("Waiting for cert-manager to create certificate %s", certificateName))
@@ -1388,19 +1377,14 @@ func CreatePdfRenderServiceAndWait(
 		}, DefaultTestTimeout, TestInterval).Should(Succeed())
 	}
 
-	// Step 3 – wait for the controller to reconcile the change
-	// TLS-enabled services need more time for certificate setup and reconciliation
-	timeout := DefaultTestTimeout
-	if tlsEnabled {
-		timeout = DefaultTestTimeout * 3 // 90 seconds for TLS setup
-	}
-	WaitForObservedGeneration(ctx, k8sClient, pdfCR, timeout, TestInterval)
+	// Wait for the controller to reconcile the change
+	WaitForObservedGeneration(ctx, k8sClient, pdfCR, testTimeout, TestInterval)
 
-	// Step 4 – make sure the Deployment is rolled out & Ready
+	// Make sure the Deployment is rolled out & Ready
 	// Pass the CR key, not the deployment key - EnsurePdfRenderDeploymentReady will resolve it
-	EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey)
+	EnsurePdfRenderDeploymentReady(ctx, k8sClient, pdfKey, testTimeout)
 
-	// Step 5 – In test environments, trigger another reconciliation to update status after deployment is ready
+	// In test environments, trigger another reconciliation to update status after deployment is ready
 	if helpers.UseEnvtest() || helpers.UseKindCluster() {
 		// Add annotation to trigger reconciliation after deployment status update
 		UsingClusterBy(pdfKey.Name, "Triggering reconciliation after deployment readiness")
@@ -1414,7 +1398,7 @@ func CreatePdfRenderServiceAndWait(
 			}
 			currentPdf.Annotations["humio.com/trigger-reconcile"] = fmt.Sprintf("%d", time.Now().Unix())
 			return k8sClient.Update(ctx, &currentPdf)
-		}, DefaultTestTimeout, TestInterval).Should(Succeed())
+		}, testTimeout, TestInterval).Should(Succeed())
 
 		// Wait a bit for the controller to pick up the change and reconcile
 		Eventually(func() bool {
@@ -1424,7 +1408,7 @@ func CreatePdfRenderServiceAndWait(
 			}
 			UsingClusterBy(pdfKey.Name, fmt.Sprintf("PDF service status check: %s", updatedPdf.Status.State))
 			return updatedPdf.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning
-		}, DefaultTestTimeout, TestInterval).Should(BeTrue(), "PDF service should reach Running state after deployment readiness")
+		}, testTimeout, TestInterval).Should(BeTrue(), "PDF service should reach Running state after deployment readiness")
 	}
 
 	return pdfCR
