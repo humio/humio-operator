@@ -322,7 +322,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	// PDF Render Service Integration Tests
-	FContext("HumioCluster with PDF Render Service integration", Label("envtest", "dummy", "real"), func() {
+	Context("HumioCluster with PDF Render Service integration", Label("envtest", "dummy", "real"), func() {
 		It("should configure PDF service API endpoint URL when ENABLE_SCHEDULED_REPORT is set", func() {
 			ctx := context.Background()
 			testId := kubernetes.RandomString()
@@ -357,7 +357,7 @@ var _ = Describe("HumioCluster Controller", func() {
 			// Create an independent PDF Render Service (now that enabler cluster exists)
 			By("Creating an independent HumioPdfRenderService")
 			customImg := versions.DefaultPDFRenderServiceImage()
-			pdfCR := suite.CreatePdfRenderServiceAndWait(ctx, k8sClient, pdfKey, customImg, false)
+			pdfCR := suite.CreatePdfRenderServiceAndWait(ctx, k8sClient, pdfKey, customImg, false, testTimeout)
 			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfCR)
 
 			By("Verifying the PDF Render Service Deployment uses the specified image")
@@ -438,7 +438,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	// Independent PDF Service Test
-	FContext("PDF Render Service operates independently", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service operates independently", Label("envtest", "dummy", "real"), func() {
 		It("should operate independently of specific HumioCluster instances", func() {
 			ctx := context.Background()
 			testId := kubernetes.RandomString()
@@ -469,7 +469,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 			By("creating an independent HumioPdfRenderService")
 			pdfCR := suite.CreatePdfRenderServiceAndWait(ctx, k8sClient, pdfKey,
-				versions.DefaultPDFRenderServiceImage(), false)
+				versions.DefaultPDFRenderServiceImage(), false, testTimeout)
 			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfCR)
 
 			By("bootstrapping HumioCluster that can interact with the service via API endpoint")
@@ -535,7 +535,7 @@ var _ = Describe("HumioCluster Controller", func() {
 	})
 
 	// TLS Configuration Success Test
-	FContext("PDF Render Service with TLS configuration", Label("envtest", "dummy", "real"), func() {
+	Context("PDF Render Service with TLS configuration", Label("envtest", "dummy", "real"), func() {
 		const (
 			standardTimeout = 60 * time.Second // Increased for cert-manager provisioning
 			quickInterval   = 250 * time.Millisecond
@@ -581,7 +581,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 				By("Creating TLS-enabled HumioPdfRenderService")
 				pdfCR := suite.CreatePdfRenderServiceAndWait(ctx, k8sClient, pdfKey,
-					versions.DefaultPDFRenderServiceImage(), true) // true - enable TLS
+					versions.DefaultPDFRenderServiceImage(), true, testTimeout) // true - enable TLS
 				defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfCR)
 
 				By("Verifying PDF deployment exists and uses HTTP probes")
@@ -680,7 +680,7 @@ var _ = Describe("HumioCluster Controller", func() {
 
 				By("Creating non-TLS HumioPdfRenderService")
 				pdfCR := suite.CreatePdfRenderServiceAndWait(ctx, k8sClient, pdfKey,
-					versions.DefaultPDFRenderServiceImage(), false) // false for no TLS
+					versions.DefaultPDFRenderServiceImage(), false, testTimeout) // false for no TLS
 				defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfCR)
 
 				By("Verifying PDF deployment uses HTTP")
