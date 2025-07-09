@@ -563,9 +563,10 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 			log.Info("No changes detected in Deployment. Skipping update.", "deploymentName", dep.Name)
 			op = controllerutil.OperationResultNone
 
-			// In envtest environments and Kind clusters, manually update the deployment status if observedGeneration is behind
-			// This is needed because the deployment controller doesn't run properly in test environments
-			if (helpers.UseEnvtest() || helpers.UseKindCluster()) && dep.Status.ObservedGeneration < dep.Generation {
+			// In envtest environments, manually update the deployment status if observedGeneration is behind
+			// This is needed because the deployment controller doesn't run properly in envtest
+			// Kind clusters have working deployment controllers, so we let them handle status naturally
+			if helpers.UseEnvtest() && dep.Status.ObservedGeneration < dep.Generation {
 				log.Info("Updating deployment status in envtest since observedGeneration is behind",
 					"currentObservedGeneration", dep.Status.ObservedGeneration,
 					"currentGeneration", dep.Generation)
@@ -621,9 +622,10 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 			op = controllerutil.OperationResultUpdated
 			log.Info("Deployment successfully updated.", "deploymentName", dep.Name)
 
-			// In test environments, update deployment status to simulate a real deployment controller
-			if helpers.UseEnvtest() || helpers.UseKindCluster() {
-				log.Info("Updating deployment status in test environment after update")
+			// In envtest, update deployment status to simulate a real deployment controller
+			// Kind clusters have working deployment controllers, so we let them handle status naturally
+			if helpers.UseEnvtest() {
+				log.Info("Updating deployment status in envtest after update")
 
 				// Update the observedGeneration to match the current generation
 				dep.Status.ObservedGeneration = dep.Generation
@@ -639,9 +641,9 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 
 				statusErr := r.Client.Status().Update(ctx, dep)
 				if statusErr != nil {
-					log.Error(statusErr, "Failed to update deployment status in test environment after update")
+					log.Error(statusErr, "Failed to update deployment status in envtest after update")
 				} else {
-					log.Info("Successfully updated deployment status in test environment after update",
+					log.Info("Successfully updated deployment status in envtest after update",
 						"observedGeneration", dep.Status.ObservedGeneration,
 						"readyReplicas", dep.Status.ReadyReplicas)
 				}
@@ -679,10 +681,11 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 			"readyReplicas", dep.Status.ReadyReplicas)
 	}
 
-	// In envtest or Kind clusters with dummy images, ensure deployment status is up-to-date
-	// This is needed because the deployment controller may not work properly in test environments
+	// In envtest, ensure deployment status is up-to-date
+	// This is needed because envtest doesn't have a real deployment controller
+	// Kind clusters have working deployment controllers, so we let them handle status naturally
 	needsStatusUpdate := false
-	if helpers.UseEnvtest() || helpers.UseKindCluster() {
+	if helpers.UseEnvtest() {
 		// Check if observedGeneration is behind
 		if dep.Status.ObservedGeneration < dep.Generation {
 			needsStatusUpdate = true
@@ -694,7 +697,7 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 	}
 
 	if needsStatusUpdate {
-		log.Info("Updating deployment status in test environment to ensure readiness",
+		log.Info("Updating deployment status in envtest to ensure readiness",
 			"currentObservedGeneration", dep.Status.ObservedGeneration,
 			"currentGeneration", dep.Generation,
 			"currentReadyReplicas", dep.Status.ReadyReplicas,
@@ -722,9 +725,9 @@ func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Contex
 
 		statusErr := r.Client.Status().Update(ctx, dep)
 		if statusErr != nil {
-			log.Error(statusErr, "Failed to update deployment status in test environment")
+			log.Error(statusErr, "Failed to update deployment status in envtest")
 		} else {
-			log.Info("Successfully updated deployment status in test environment",
+			log.Info("Successfully updated deployment status in envtest",
 				"observedGeneration", dep.Status.ObservedGeneration,
 				"readyReplicas", dep.Status.ReadyReplicas)
 		}

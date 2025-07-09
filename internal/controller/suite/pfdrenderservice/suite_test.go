@@ -126,12 +126,18 @@ var _ = BeforeSuite(func() {
 	err = humiov1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
+	cacheOptions, err := helpers.GetCacheOptionsWithWatchNamespace()
+	if err != nil {
+		ctrl.Log.Info("unable to get WatchNamespace: the manager will watch and manage resources in all namespaces")
+	}
+
 	// +kubebuilder:scaffold:scheme
 
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:  scheme.Scheme,
 		Metrics: metricsserver.Options{BindAddress: "0"},
 		Logger:  log,
+		Cache:   cacheOptions,
 	})
 	Expect(err).NotTo(HaveOccurred())
 
