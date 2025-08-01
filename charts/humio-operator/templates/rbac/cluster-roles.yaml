@@ -117,6 +117,9 @@ rules:
   - humioviewpermissionroles
   - humioviewpermissionroles/finalizers
   - humioviewpermissionroles/status
+  - humiomulticlustersearchview
+  - humiomulticlustersearchview/finalizers
+  - humiomulticlustersearchview/status
   verbs:
   - create
   - delete

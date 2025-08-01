@@ -1655,6 +1655,17 @@ func (v *AssignViewPermissionRoleToGroupForViewResponse) GetAssignRoleToGroup() 
 	return v.AssignRoleToGroup
 }
 
+type ClusterConnectionInputTag struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+// GetKey returns ClusterConnectionInputTag.Key, and is useful for accessing the field via an interface.
+func (v *ClusterConnectionInputTag) GetKey() string { return v.Key }
+
+// GetValue returns ClusterConnectionInputTag.Value, and is useful for accessing the field via an interface.
+func (v *ClusterConnectionInputTag) GetValue() string { return v.Value }
+
 // CreateAggregateAlertCreateAggregateAlert includes the requested fields of the GraphQL type AggregateAlert.
 // The GraphQL type's documentation follows.
 //
@@ -2304,6 +2315,54 @@ func (v *CreateHumioRepoActionResponse) GetCreateHumioRepoAction() CreateHumioRe
 	return v.CreateHumioRepoAction
 }
 
+// CreateLocalMultiClusterSearchViewConnectionCreateLocalClusterConnection includes the requested fields of the GraphQL type LocalClusterConnection.
+// The GraphQL type's documentation follows.
+//
+// A local cluster connection.
+type CreateLocalMultiClusterSearchViewConnectionCreateLocalClusterConnection struct {
+	Typename *string `json:"__typename"`
+}
+
+// GetTypename returns CreateLocalMultiClusterSearchViewConnectionCreateLocalClusterConnection.Typename, and is useful for accessing the field via an interface.
+func (v *CreateLocalMultiClusterSearchViewConnectionCreateLocalClusterConnection) GetTypename() *string {
+	return v.Typename
+}
+
+// CreateLocalMultiClusterSearchViewConnectionResponse is returned by CreateLocalMultiClusterSearchViewConnection on success.
+type CreateLocalMultiClusterSearchViewConnectionResponse struct {
+	// Create a cluster connection to a local view.
+	// Stability: Short-term
+	CreateLocalClusterConnection CreateLocalMultiClusterSearchViewConnectionCreateLocalClusterConnection `json:"createLocalClusterConnection"`
+}
+
+// GetCreateLocalClusterConnection returns CreateLocalMultiClusterSearchViewConnectionResponse.CreateLocalClusterConnection, and is useful for accessing the field via an interface.
+func (v *CreateLocalMultiClusterSearchViewConnectionResponse) GetCreateLocalClusterConnection() CreateLocalMultiClusterSearchViewConnectionCreateLocalClusterConnection {
+	return v.CreateLocalClusterConnection
+}
+
+// CreateMultiClusterSearchViewCreateView includes the requested fields of the GraphQL type View.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a view, pulling data from one or several repositories.
+type CreateMultiClusterSearchViewCreateView struct {
+	Typename *string `json:"__typename"`
+}
+
+// GetTypename returns CreateMultiClusterSearchViewCreateView.Typename, and is useful for accessing the field via an interface.
+func (v *CreateMultiClusterSearchViewCreateView) GetTypename() *string { return v.Typename }
+
+// CreateMultiClusterSearchViewResponse is returned by CreateMultiClusterSearchView on success.
+type CreateMultiClusterSearchViewResponse struct {
+	// Create a new view.
+	// Stability: Long-term
+	CreateView CreateMultiClusterSearchViewCreateView `json:"createView"`
+}
+
+// GetCreateView returns CreateMultiClusterSearchViewResponse.CreateView, and is useful for accessing the field via an interface.
+func (v *CreateMultiClusterSearchViewResponse) GetCreateView() CreateMultiClusterSearchViewCreateView {
+	return v.CreateView
+}
+
 // CreateOpsGenieActionCreateOpsGenieAction includes the requested fields of the GraphQL type OpsGenieAction.
 // The GraphQL type's documentation follows.
 //
@@ -2443,6 +2502,31 @@ type CreateParserOrUpdateResponse struct {
 // GetCreateParserV2 returns CreateParserOrUpdateResponse.CreateParserV2, and is useful for accessing the field via an interface.
 func (v *CreateParserOrUpdateResponse) GetCreateParserV2() CreateParserOrUpdateCreateParserV2Parser {
 	return v.CreateParserV2
+}
+
+// CreateRemoteMultiClusterSearchViewConnectionCreateRemoteClusterConnection includes the requested fields of the GraphQL type RemoteClusterConnection.
+// The GraphQL type's documentation follows.
+//
+// A remote cluster connection.
+type CreateRemoteMultiClusterSearchViewConnectionCreateRemoteClusterConnection struct {
+	Typename *string `json:"__typename"`
+}
+
+// GetTypename returns CreateRemoteMultiClusterSearchViewConnectionCreateRemoteClusterConnection.Typename, and is useful for accessing the field via an interface.
+func (v *CreateRemoteMultiClusterSearchViewConnectionCreateRemoteClusterConnection) GetTypename() *string {
+	return v.Typename
+}
+
+// CreateRemoteMultiClusterSearchViewConnectionResponse is returned by CreateRemoteMultiClusterSearchViewConnection on success.
+type CreateRemoteMultiClusterSearchViewConnectionResponse struct {
+	// Create a cluster connection to a remote view.
+	// Stability: Short-term
+	CreateRemoteClusterConnection CreateRemoteMultiClusterSearchViewConnectionCreateRemoteClusterConnection `json:"createRemoteClusterConnection"`
+}
+
+// GetCreateRemoteClusterConnection returns CreateRemoteMultiClusterSearchViewConnectionResponse.CreateRemoteClusterConnection, and is useful for accessing the field via an interface.
+func (v *CreateRemoteMultiClusterSearchViewConnectionResponse) GetCreateRemoteClusterConnection() CreateRemoteMultiClusterSearchViewConnectionCreateRemoteClusterConnection {
+	return v.CreateRemoteClusterConnection
 }
 
 // CreateRepositoryCreateRepositoryCreateRepositoryMutation includes the requested fields of the GraphQL type CreateRepositoryMutation.
@@ -3286,6 +3370,18 @@ type DeleteGroupResponse struct {
 // GetRemoveGroup returns DeleteGroupResponse.RemoveGroup, and is useful for accessing the field via an interface.
 func (v *DeleteGroupResponse) GetRemoveGroup() DeleteGroupRemoveGroupRemoveGroupMutation {
 	return v.RemoveGroup
+}
+
+// DeleteMultiClusterSearchViewConnectionResponse is returned by DeleteMultiClusterSearchViewConnection on success.
+type DeleteMultiClusterSearchViewConnectionResponse struct {
+	// Delete a cluster connection from a view.
+	// Stability: Short-term
+	DeleteClusterConnection bool `json:"deleteClusterConnection"`
+}
+
+// GetDeleteClusterConnection returns DeleteMultiClusterSearchViewConnectionResponse.DeleteClusterConnection, and is useful for accessing the field via an interface.
+func (v *DeleteMultiClusterSearchViewConnectionResponse) GetDeleteClusterConnection() bool {
+	return v.DeleteClusterConnection
 }
 
 // DeleteParserByIDDeleteParserBooleanResultType includes the requested fields of the GraphQL type BooleanResultType.
@@ -6432,6 +6528,572 @@ func (v *GetLicenseResponse) __premarshalJSON() (*__premarshalGetLicenseResponse
 	return &retval, nil
 }
 
+// GetMultiClusterSearchViewResponse is returned by GetMultiClusterSearchView on success.
+type GetMultiClusterSearchViewResponse struct {
+	// Stability: Long-term
+	SearchDomain GetMultiClusterSearchViewSearchDomain `json:"-"`
+}
+
+// GetSearchDomain returns GetMultiClusterSearchViewResponse.SearchDomain, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewResponse) GetSearchDomain() GetMultiClusterSearchViewSearchDomain {
+	return v.SearchDomain
+}
+
+func (v *GetMultiClusterSearchViewResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetMultiClusterSearchViewResponse
+		SearchDomain json.RawMessage `json:"searchDomain"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetMultiClusterSearchViewResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.SearchDomain
+		src := firstPass.SearchDomain
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalGetMultiClusterSearchViewSearchDomain(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal GetMultiClusterSearchViewResponse.SearchDomain: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalGetMultiClusterSearchViewResponse struct {
+	SearchDomain json.RawMessage `json:"searchDomain"`
+}
+
+func (v *GetMultiClusterSearchViewResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetMultiClusterSearchViewResponse) __premarshalJSON() (*__premarshalGetMultiClusterSearchViewResponse, error) {
+	var retval __premarshalGetMultiClusterSearchViewResponse
+
+	{
+
+		dst := &retval.SearchDomain
+		src := v.SearchDomain
+		var err error
+		*dst, err = __marshalGetMultiClusterSearchViewSearchDomain(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal GetMultiClusterSearchViewResponse.SearchDomain: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// GetMultiClusterSearchViewSearchDomain includes the requested fields of the GraphQL interface SearchDomain.
+//
+// GetMultiClusterSearchViewSearchDomain is implemented by the following types:
+// GetMultiClusterSearchViewSearchDomainRepository
+// GetMultiClusterSearchViewSearchDomainView
+// The GraphQL type's documentation follows.
+//
+// Common interface for Repositories and Views.
+type GetMultiClusterSearchViewSearchDomain interface {
+	implementsGraphQLInterfaceGetMultiClusterSearchViewSearchDomain()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	// GetId returns the interface-field "id" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetId() string
+	// GetName returns the interface-field "name" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetName() string
+	// GetDescription returns the interface-field "description" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetDescription() *string
+	// GetAutomaticSearch returns the interface-field "automaticSearch" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetAutomaticSearch() bool
+}
+
+func (v *GetMultiClusterSearchViewSearchDomainRepository) implementsGraphQLInterfaceGetMultiClusterSearchViewSearchDomain() {
+}
+func (v *GetMultiClusterSearchViewSearchDomainView) implementsGraphQLInterfaceGetMultiClusterSearchViewSearchDomain() {
+}
+
+func __unmarshalGetMultiClusterSearchViewSearchDomain(b []byte, v *GetMultiClusterSearchViewSearchDomain) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Repository":
+		*v = new(GetMultiClusterSearchViewSearchDomainRepository)
+		return json.Unmarshal(b, *v)
+	case "View":
+		*v = new(GetMultiClusterSearchViewSearchDomainView)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing SearchDomain.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for GetMultiClusterSearchViewSearchDomain: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalGetMultiClusterSearchViewSearchDomain(v *GetMultiClusterSearchViewSearchDomain) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *GetMultiClusterSearchViewSearchDomainRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetMultiClusterSearchViewSearchDomainRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetMultiClusterSearchViewSearchDomainView:
+		typename = "View"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalGetMultiClusterSearchViewSearchDomainView
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for GetMultiClusterSearchViewSearchDomain: "%T"`, v)
+	}
+}
+
+// GetMultiClusterSearchViewSearchDomainRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type GetMultiClusterSearchViewSearchDomainRepository struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	Id string `json:"id"`
+	// Common interface for Repositories and Views.
+	Name string `json:"name"`
+	// Common interface for Repositories and Views.
+	Description *string `json:"description"`
+	// Common interface for Repositories and Views.
+	AutomaticSearch bool `json:"automaticSearch"`
+}
+
+// GetTypename returns GetMultiClusterSearchViewSearchDomainRepository.Typename, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainRepository) GetTypename() *string { return v.Typename }
+
+// GetId returns GetMultiClusterSearchViewSearchDomainRepository.Id, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainRepository) GetId() string { return v.Id }
+
+// GetName returns GetMultiClusterSearchViewSearchDomainRepository.Name, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainRepository) GetName() string { return v.Name }
+
+// GetDescription returns GetMultiClusterSearchViewSearchDomainRepository.Description, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainRepository) GetDescription() *string {
+	return v.Description
+}
+
+// GetAutomaticSearch returns GetMultiClusterSearchViewSearchDomainRepository.AutomaticSearch, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainRepository) GetAutomaticSearch() bool {
+	return v.AutomaticSearch
+}
+
+// GetMultiClusterSearchViewSearchDomainView includes the requested fields of the GraphQL type View.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a view, pulling data from one or several repositories.
+type GetMultiClusterSearchViewSearchDomainView struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	Id string `json:"id"`
+	// Common interface for Repositories and Views.
+	Name string `json:"name"`
+	// Common interface for Repositories and Views.
+	Description *string `json:"description"`
+	// Common interface for Repositories and Views.
+	AutomaticSearch bool `json:"automaticSearch"`
+	// True if the view is federated, false otherwise.
+	// Stability: Preview
+	IsFederated bool `json:"isFederated"`
+	// Cluster connections.
+	// Stability: Short-term
+	ClusterConnections []GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection `json:"-"`
+}
+
+// GetTypename returns GetMultiClusterSearchViewSearchDomainView.Typename, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainView) GetTypename() *string { return v.Typename }
+
+// GetId returns GetMultiClusterSearchViewSearchDomainView.Id, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainView) GetId() string { return v.Id }
+
+// GetName returns GetMultiClusterSearchViewSearchDomainView.Name, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainView) GetName() string { return v.Name }
+
+// GetDescription returns GetMultiClusterSearchViewSearchDomainView.Description, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainView) GetDescription() *string { return v.Description }
+
+// GetAutomaticSearch returns GetMultiClusterSearchViewSearchDomainView.AutomaticSearch, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainView) GetAutomaticSearch() bool {
+	return v.AutomaticSearch
+}
+
+// GetIsFederated returns GetMultiClusterSearchViewSearchDomainView.IsFederated, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainView) GetIsFederated() bool { return v.IsFederated }
+
+// GetClusterConnections returns GetMultiClusterSearchViewSearchDomainView.ClusterConnections, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainView) GetClusterConnections() []GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection {
+	return v.ClusterConnections
+}
+
+func (v *GetMultiClusterSearchViewSearchDomainView) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetMultiClusterSearchViewSearchDomainView
+		ClusterConnections []json.RawMessage `json:"clusterConnections"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetMultiClusterSearchViewSearchDomainView = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.ClusterConnections
+		src := firstPass.ClusterConnections
+		*dst = make(
+			[]GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			if len(src) != 0 && string(src) != "null" {
+				err = __unmarshalGetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection(
+					src, dst)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal GetMultiClusterSearchViewSearchDomainView.ClusterConnections: %w", err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalGetMultiClusterSearchViewSearchDomainView struct {
+	Typename *string `json:"__typename"`
+
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	AutomaticSearch bool `json:"automaticSearch"`
+
+	IsFederated bool `json:"isFederated"`
+
+	ClusterConnections []json.RawMessage `json:"clusterConnections"`
+}
+
+func (v *GetMultiClusterSearchViewSearchDomainView) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetMultiClusterSearchViewSearchDomainView) __premarshalJSON() (*__premarshalGetMultiClusterSearchViewSearchDomainView, error) {
+	var retval __premarshalGetMultiClusterSearchViewSearchDomainView
+
+	retval.Typename = v.Typename
+	retval.Id = v.Id
+	retval.Name = v.Name
+	retval.Description = v.Description
+	retval.AutomaticSearch = v.AutomaticSearch
+	retval.IsFederated = v.IsFederated
+	{
+
+		dst := &retval.ClusterConnections
+		src := v.ClusterConnections
+		*dst = make(
+			[]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			var err error
+			*dst, err = __marshalGetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection(
+				&src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal GetMultiClusterSearchViewSearchDomainView.ClusterConnections: %w", err)
+			}
+		}
+	}
+	return &retval, nil
+}
+
+// GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection includes the requested fields of the GraphQL interface ClusterConnection.
+//
+// GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection is implemented by the following types:
+// GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection
+// GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection
+// The GraphQL type's documentation follows.
+//
+// A cluster connection.
+type GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection interface {
+	implementsGraphQLInterfaceGetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	// GetClusterId returns the interface-field "clusterId" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// A cluster connection.
+	GetClusterId() string
+	// GetId returns the interface-field "id" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// A cluster connection.
+	GetId() string
+	// GetQueryPrefix returns the interface-field "queryPrefix" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// A cluster connection.
+	GetQueryPrefix() string
+	// GetTags returns the interface-field "tags" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// A cluster connection.
+	GetTags() []GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag
+}
+
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection) implementsGraphQLInterfaceGetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection() {
+}
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection) implementsGraphQLInterfaceGetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection() {
+}
+
+func __unmarshalGetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection(b []byte, v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "LocalClusterConnection":
+		*v = new(GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection)
+		return json.Unmarshal(b, *v)
+	case "RemoteClusterConnection":
+		*v = new(GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing ClusterConnection.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalGetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection(v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection:
+		typename = "LocalClusterConnection"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection:
+		typename = "RemoteClusterConnection"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection: "%T"`, v)
+	}
+}
+
+// GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag includes the requested fields of the GraphQL type ClusterConnectionTag.
+// The GraphQL type's documentation follows.
+//
+// Tag for identifiying the cluster connection
+type GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag struct {
+	// Cluster Connection tag key
+	// Stability: Short-term
+	Key string `json:"key"`
+	// Value for the cluster connection tag
+	// Stability: Short-term
+	Value string `json:"value"`
+}
+
+// GetKey returns GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag.Key, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag) GetKey() string {
+	return v.Key
+}
+
+// GetValue returns GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag.Value, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag) GetValue() string {
+	return v.Value
+}
+
+// GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection includes the requested fields of the GraphQL type LocalClusterConnection.
+// The GraphQL type's documentation follows.
+//
+// A local cluster connection.
+type GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection struct {
+	Typename *string `json:"__typename"`
+	// A cluster connection.
+	ClusterId string `json:"clusterId"`
+	// A cluster connection.
+	Id string `json:"id"`
+	// A cluster connection.
+	QueryPrefix string `json:"queryPrefix"`
+	// A cluster connection.
+	Tags []GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag `json:"tags"`
+	// Name of the local view to connect with
+	// Stability: Short-term
+	TargetViewName string `json:"targetViewName"`
+}
+
+// GetTypename returns GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection.Typename, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection) GetTypename() *string {
+	return v.Typename
+}
+
+// GetClusterId returns GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection.ClusterId, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection) GetClusterId() string {
+	return v.ClusterId
+}
+
+// GetId returns GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection.Id, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection) GetId() string {
+	return v.Id
+}
+
+// GetQueryPrefix returns GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection.QueryPrefix, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection) GetQueryPrefix() string {
+	return v.QueryPrefix
+}
+
+// GetTags returns GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection.Tags, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection) GetTags() []GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag {
+	return v.Tags
+}
+
+// GetTargetViewName returns GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection.TargetViewName, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection) GetTargetViewName() string {
+	return v.TargetViewName
+}
+
+// GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection includes the requested fields of the GraphQL type RemoteClusterConnection.
+// The GraphQL type's documentation follows.
+//
+// A remote cluster connection.
+type GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection struct {
+	Typename *string `json:"__typename"`
+	// A cluster connection.
+	ClusterId string `json:"clusterId"`
+	// A cluster connection.
+	Id string `json:"id"`
+	// A cluster connection.
+	QueryPrefix string `json:"queryPrefix"`
+	// A cluster connection.
+	Tags []GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag `json:"tags"`
+	// Public URL of the remote cluster to connect with
+	// Stability: Short-term
+	PublicUrl string `json:"publicUrl"`
+}
+
+// GetTypename returns GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection.Typename, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection) GetTypename() *string {
+	return v.Typename
+}
+
+// GetClusterId returns GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection.ClusterId, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection) GetClusterId() string {
+	return v.ClusterId
+}
+
+// GetId returns GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection.Id, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection) GetId() string {
+	return v.Id
+}
+
+// GetQueryPrefix returns GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection.QueryPrefix, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection) GetQueryPrefix() string {
+	return v.QueryPrefix
+}
+
+// GetTags returns GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection.Tags, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection) GetTags() []GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag {
+	return v.Tags
+}
+
+// GetPublicUrl returns GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection.PublicUrl, and is useful for accessing the field via an interface.
+func (v *GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection) GetPublicUrl() string {
+	return v.PublicUrl
+}
+
 // GetParserByIDRepository includes the requested fields of the GraphQL type Repository.
 // The GraphQL type's documentation follows.
 //
@@ -7117,6 +7779,8 @@ func (v *GetSearchDomainResponse) __premarshalJSON() (*__premarshalGetSearchDoma
 // Common interface for Repositories and Views.
 type GetSearchDomainSearchDomain interface {
 	implementsGraphQLInterfaceGetSearchDomainSearchDomain()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
 	// GetId returns the interface-field "id" from its implementation.
 	// The GraphQL interface field's documentation follows.
 	//
@@ -7137,8 +7801,6 @@ type GetSearchDomainSearchDomain interface {
 	//
 	// Common interface for Repositories and Views.
 	GetAutomaticSearch() bool
-	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
-	GetTypename() *string
 }
 
 func (v *GetSearchDomainSearchDomainRepository) implementsGraphQLInterfaceGetSearchDomainSearchDomain() {
@@ -7207,6 +7869,7 @@ func __marshalGetSearchDomainSearchDomain(v *GetSearchDomainSearchDomain) ([]byt
 //
 // A repository stores ingested data, configures parsers and data retention policies.
 type GetSearchDomainSearchDomainRepository struct {
+	Typename *string `json:"__typename"`
 	// Common interface for Repositories and Views.
 	Id string `json:"id"`
 	// Common interface for Repositories and Views.
@@ -7214,9 +7877,11 @@ type GetSearchDomainSearchDomainRepository struct {
 	// Common interface for Repositories and Views.
 	Description *string `json:"description"`
 	// Common interface for Repositories and Views.
-	AutomaticSearch bool    `json:"automaticSearch"`
-	Typename        *string `json:"__typename"`
+	AutomaticSearch bool `json:"automaticSearch"`
 }
+
+// GetTypename returns GetSearchDomainSearchDomainRepository.Typename, and is useful for accessing the field via an interface.
+func (v *GetSearchDomainSearchDomainRepository) GetTypename() *string { return v.Typename }
 
 // GetId returns GetSearchDomainSearchDomainRepository.Id, and is useful for accessing the field via an interface.
 func (v *GetSearchDomainSearchDomainRepository) GetId() string { return v.Id }
@@ -7230,14 +7895,12 @@ func (v *GetSearchDomainSearchDomainRepository) GetDescription() *string { retur
 // GetAutomaticSearch returns GetSearchDomainSearchDomainRepository.AutomaticSearch, and is useful for accessing the field via an interface.
 func (v *GetSearchDomainSearchDomainRepository) GetAutomaticSearch() bool { return v.AutomaticSearch }
 
-// GetTypename returns GetSearchDomainSearchDomainRepository.Typename, and is useful for accessing the field via an interface.
-func (v *GetSearchDomainSearchDomainRepository) GetTypename() *string { return v.Typename }
-
 // GetSearchDomainSearchDomainView includes the requested fields of the GraphQL type View.
 // The GraphQL type's documentation follows.
 //
 // Represents information about a view, pulling data from one or several repositories.
 type GetSearchDomainSearchDomainView struct {
+	Typename *string `json:"__typename"`
 	// Common interface for Repositories and Views.
 	Id string `json:"id"`
 	// Common interface for Repositories and Views.
@@ -7246,10 +7909,15 @@ type GetSearchDomainSearchDomainView struct {
 	Description *string `json:"description"`
 	// Common interface for Repositories and Views.
 	AutomaticSearch bool `json:"automaticSearch"`
+	// True if the view is federated, false otherwise.
+	// Stability: Preview
+	IsFederated bool `json:"isFederated"`
 	// Stability: Long-term
 	Connections []GetSearchDomainSearchDomainViewConnectionsViewConnection `json:"connections"`
-	Typename    *string                                                    `json:"__typename"`
 }
+
+// GetTypename returns GetSearchDomainSearchDomainView.Typename, and is useful for accessing the field via an interface.
+func (v *GetSearchDomainSearchDomainView) GetTypename() *string { return v.Typename }
 
 // GetId returns GetSearchDomainSearchDomainView.Id, and is useful for accessing the field via an interface.
 func (v *GetSearchDomainSearchDomainView) GetId() string { return v.Id }
@@ -7263,13 +7931,13 @@ func (v *GetSearchDomainSearchDomainView) GetDescription() *string { return v.De
 // GetAutomaticSearch returns GetSearchDomainSearchDomainView.AutomaticSearch, and is useful for accessing the field via an interface.
 func (v *GetSearchDomainSearchDomainView) GetAutomaticSearch() bool { return v.AutomaticSearch }
 
+// GetIsFederated returns GetSearchDomainSearchDomainView.IsFederated, and is useful for accessing the field via an interface.
+func (v *GetSearchDomainSearchDomainView) GetIsFederated() bool { return v.IsFederated }
+
 // GetConnections returns GetSearchDomainSearchDomainView.Connections, and is useful for accessing the field via an interface.
 func (v *GetSearchDomainSearchDomainView) GetConnections() []GetSearchDomainSearchDomainViewConnectionsViewConnection {
 	return v.Connections
 }
-
-// GetTypename returns GetSearchDomainSearchDomainView.Typename, and is useful for accessing the field via an interface.
-func (v *GetSearchDomainSearchDomainView) GetTypename() *string { return v.Typename }
 
 // GetSearchDomainSearchDomainViewConnectionsViewConnection includes the requested fields of the GraphQL type ViewConnection.
 // The GraphQL type's documentation follows.
@@ -14200,6 +14868,31 @@ type UpdateLicenseKeyUpdateLicenseKeyTrialLicense struct {
 // GetTypename returns UpdateLicenseKeyUpdateLicenseKeyTrialLicense.Typename, and is useful for accessing the field via an interface.
 func (v *UpdateLicenseKeyUpdateLicenseKeyTrialLicense) GetTypename() *string { return v.Typename }
 
+// UpdateLocalMultiClusterSearchViewConnectionResponse is returned by UpdateLocalMultiClusterSearchViewConnection on success.
+type UpdateLocalMultiClusterSearchViewConnectionResponse struct {
+	// Update a cluster connection to a local view.
+	// Stability: Short-term
+	UpdateLocalClusterConnection UpdateLocalMultiClusterSearchViewConnectionUpdateLocalClusterConnection `json:"updateLocalClusterConnection"`
+}
+
+// GetUpdateLocalClusterConnection returns UpdateLocalMultiClusterSearchViewConnectionResponse.UpdateLocalClusterConnection, and is useful for accessing the field via an interface.
+func (v *UpdateLocalMultiClusterSearchViewConnectionResponse) GetUpdateLocalClusterConnection() UpdateLocalMultiClusterSearchViewConnectionUpdateLocalClusterConnection {
+	return v.UpdateLocalClusterConnection
+}
+
+// UpdateLocalMultiClusterSearchViewConnectionUpdateLocalClusterConnection includes the requested fields of the GraphQL type LocalClusterConnection.
+// The GraphQL type's documentation follows.
+//
+// A local cluster connection.
+type UpdateLocalMultiClusterSearchViewConnectionUpdateLocalClusterConnection struct {
+	Typename *string `json:"__typename"`
+}
+
+// GetTypename returns UpdateLocalMultiClusterSearchViewConnectionUpdateLocalClusterConnection.Typename, and is useful for accessing the field via an interface.
+func (v *UpdateLocalMultiClusterSearchViewConnectionUpdateLocalClusterConnection) GetTypename() *string {
+	return v.Typename
+}
+
 // UpdateOpsGenieActionResponse is returned by UpdateOpsGenieAction on success.
 type UpdateOpsGenieActionResponse struct {
 	// Update an OpsGenie action.
@@ -14245,6 +14938,31 @@ type UpdatePagerDutyActionUpdatePagerDutyAction struct {
 
 // GetTypename returns UpdatePagerDutyActionUpdatePagerDutyAction.Typename, and is useful for accessing the field via an interface.
 func (v *UpdatePagerDutyActionUpdatePagerDutyAction) GetTypename() *string { return v.Typename }
+
+// UpdateRemoteMultiClusterSearchViewConnectionResponse is returned by UpdateRemoteMultiClusterSearchViewConnection on success.
+type UpdateRemoteMultiClusterSearchViewConnectionResponse struct {
+	// Update a cluster connection to a remote view.
+	// Stability: Short-term
+	UpdateRemoteClusterConnection UpdateRemoteMultiClusterSearchViewConnectionUpdateRemoteClusterConnection `json:"updateRemoteClusterConnection"`
+}
+
+// GetUpdateRemoteClusterConnection returns UpdateRemoteMultiClusterSearchViewConnectionResponse.UpdateRemoteClusterConnection, and is useful for accessing the field via an interface.
+func (v *UpdateRemoteMultiClusterSearchViewConnectionResponse) GetUpdateRemoteClusterConnection() UpdateRemoteMultiClusterSearchViewConnectionUpdateRemoteClusterConnection {
+	return v.UpdateRemoteClusterConnection
+}
+
+// UpdateRemoteMultiClusterSearchViewConnectionUpdateRemoteClusterConnection includes the requested fields of the GraphQL type RemoteClusterConnection.
+// The GraphQL type's documentation follows.
+//
+// A remote cluster connection.
+type UpdateRemoteMultiClusterSearchViewConnectionUpdateRemoteClusterConnection struct {
+	Typename *string `json:"__typename"`
+}
+
+// GetTypename returns UpdateRemoteMultiClusterSearchViewConnectionUpdateRemoteClusterConnection.Typename, and is useful for accessing the field via an interface.
+func (v *UpdateRemoteMultiClusterSearchViewConnectionUpdateRemoteClusterConnection) GetTypename() *string {
+	return v.Typename
+}
 
 // UpdateRoleResponse is returned by UpdateRole on success.
 type UpdateRoleResponse struct {
@@ -15166,6 +15884,46 @@ func (v *__CreateHumioRepoActionInput) GetActionName() string { return v.ActionN
 // GetIngestToken returns __CreateHumioRepoActionInput.IngestToken, and is useful for accessing the field via an interface.
 func (v *__CreateHumioRepoActionInput) GetIngestToken() string { return v.IngestToken }
 
+// __CreateLocalMultiClusterSearchViewConnectionInput is used internally by genqlient
+type __CreateLocalMultiClusterSearchViewConnectionInput struct {
+	MultiClusterViewName string                      `json:"MultiClusterViewName"`
+	TargetViewName       string                      `json:"TargetViewName"`
+	Tags                 []ClusterConnectionInputTag `json:"Tags"`
+	QueryPrefix          *string                     `json:"QueryPrefix"`
+}
+
+// GetMultiClusterViewName returns __CreateLocalMultiClusterSearchViewConnectionInput.MultiClusterViewName, and is useful for accessing the field via an interface.
+func (v *__CreateLocalMultiClusterSearchViewConnectionInput) GetMultiClusterViewName() string {
+	return v.MultiClusterViewName
+}
+
+// GetTargetViewName returns __CreateLocalMultiClusterSearchViewConnectionInput.TargetViewName, and is useful for accessing the field via an interface.
+func (v *__CreateLocalMultiClusterSearchViewConnectionInput) GetTargetViewName() string {
+	return v.TargetViewName
+}
+
+// GetTags returns __CreateLocalMultiClusterSearchViewConnectionInput.Tags, and is useful for accessing the field via an interface.
+func (v *__CreateLocalMultiClusterSearchViewConnectionInput) GetTags() []ClusterConnectionInputTag {
+	return v.Tags
+}
+
+// GetQueryPrefix returns __CreateLocalMultiClusterSearchViewConnectionInput.QueryPrefix, and is useful for accessing the field via an interface.
+func (v *__CreateLocalMultiClusterSearchViewConnectionInput) GetQueryPrefix() *string {
+	return v.QueryPrefix
+}
+
+// __CreateMultiClusterSearchViewInput is used internally by genqlient
+type __CreateMultiClusterSearchViewInput struct {
+	ViewName    string  `json:"ViewName"`
+	Description *string `json:"Description"`
+}
+
+// GetViewName returns __CreateMultiClusterSearchViewInput.ViewName, and is useful for accessing the field via an interface.
+func (v *__CreateMultiClusterSearchViewInput) GetViewName() string { return v.ViewName }
+
+// GetDescription returns __CreateMultiClusterSearchViewInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateMultiClusterSearchViewInput) GetDescription() *string { return v.Description }
+
 // __CreateOpsGenieActionInput is used internally by genqlient
 type __CreateOpsGenieActionInput struct {
 	SearchDomainName string `json:"SearchDomainName"`
@@ -15248,6 +16006,38 @@ func (v *__CreateParserOrUpdateInput) GetFieldsToBeRemovedBeforeParsing() []stri
 // GetAllowOverridingExistingParser returns __CreateParserOrUpdateInput.AllowOverridingExistingParser, and is useful for accessing the field via an interface.
 func (v *__CreateParserOrUpdateInput) GetAllowOverridingExistingParser() bool {
 	return v.AllowOverridingExistingParser
+}
+
+// __CreateRemoteMultiClusterSearchViewConnectionInput is used internally by genqlient
+type __CreateRemoteMultiClusterSearchViewConnectionInput struct {
+	MultiClusterViewName string                      `json:"MultiClusterViewName"`
+	PublicUrl            string                      `json:"PublicUrl"`
+	Token                string                      `json:"Token"`
+	Tags                 []ClusterConnectionInputTag `json:"Tags"`
+	QueryPrefix          *string                     `json:"QueryPrefix"`
+}
+
+// GetMultiClusterViewName returns __CreateRemoteMultiClusterSearchViewConnectionInput.MultiClusterViewName, and is useful for accessing the field via an interface.
+func (v *__CreateRemoteMultiClusterSearchViewConnectionInput) GetMultiClusterViewName() string {
+	return v.MultiClusterViewName
+}
+
+// GetPublicUrl returns __CreateRemoteMultiClusterSearchViewConnectionInput.PublicUrl, and is useful for accessing the field via an interface.
+func (v *__CreateRemoteMultiClusterSearchViewConnectionInput) GetPublicUrl() string {
+	return v.PublicUrl
+}
+
+// GetToken returns __CreateRemoteMultiClusterSearchViewConnectionInput.Token, and is useful for accessing the field via an interface.
+func (v *__CreateRemoteMultiClusterSearchViewConnectionInput) GetToken() string { return v.Token }
+
+// GetTags returns __CreateRemoteMultiClusterSearchViewConnectionInput.Tags, and is useful for accessing the field via an interface.
+func (v *__CreateRemoteMultiClusterSearchViewConnectionInput) GetTags() []ClusterConnectionInputTag {
+	return v.Tags
+}
+
+// GetQueryPrefix returns __CreateRemoteMultiClusterSearchViewConnectionInput.QueryPrefix, and is useful for accessing the field via an interface.
+func (v *__CreateRemoteMultiClusterSearchViewConnectionInput) GetQueryPrefix() *string {
+	return v.QueryPrefix
 }
 
 // __CreateRepositoryInput is used internally by genqlient
@@ -15548,6 +16338,22 @@ type __DeleteGroupInput struct {
 // GetGroupId returns __DeleteGroupInput.GroupId, and is useful for accessing the field via an interface.
 func (v *__DeleteGroupInput) GetGroupId() string { return v.GroupId }
 
+// __DeleteMultiClusterSearchViewConnectionInput is used internally by genqlient
+type __DeleteMultiClusterSearchViewConnectionInput struct {
+	MultiClusterViewName string `json:"MultiClusterViewName"`
+	ConnectionId         string `json:"ConnectionId"`
+}
+
+// GetMultiClusterViewName returns __DeleteMultiClusterSearchViewConnectionInput.MultiClusterViewName, and is useful for accessing the field via an interface.
+func (v *__DeleteMultiClusterSearchViewConnectionInput) GetMultiClusterViewName() string {
+	return v.MultiClusterViewName
+}
+
+// GetConnectionId returns __DeleteMultiClusterSearchViewConnectionInput.ConnectionId, and is useful for accessing the field via an interface.
+func (v *__DeleteMultiClusterSearchViewConnectionInput) GetConnectionId() string {
+	return v.ConnectionId
+}
+
 // __DeleteParserByIDInput is used internally by genqlient
 type __DeleteParserByIDInput struct {
 	RepositoryName string `json:"RepositoryName"`
@@ -15667,6 +16473,14 @@ type __GetGroupByDisplayNameInput struct {
 
 // GetDisplayName returns __GetGroupByDisplayNameInput.DisplayName, and is useful for accessing the field via an interface.
 func (v *__GetGroupByDisplayNameInput) GetDisplayName() string { return v.DisplayName }
+
+// __GetMultiClusterSearchViewInput is used internally by genqlient
+type __GetMultiClusterSearchViewInput struct {
+	SearchDomainName string `json:"SearchDomainName"`
+}
+
+// GetSearchDomainName returns __GetMultiClusterSearchViewInput.SearchDomainName, and is useful for accessing the field via an interface.
+func (v *__GetMultiClusterSearchViewInput) GetSearchDomainName() string { return v.SearchDomainName }
 
 // __GetParserByIDInput is used internally by genqlient
 type __GetParserByIDInput struct {
@@ -16174,6 +16988,40 @@ type __UpdateLicenseKeyInput struct {
 // GetLicenseKey returns __UpdateLicenseKeyInput.LicenseKey, and is useful for accessing the field via an interface.
 func (v *__UpdateLicenseKeyInput) GetLicenseKey() string { return v.LicenseKey }
 
+// __UpdateLocalMultiClusterSearchViewConnectionInput is used internally by genqlient
+type __UpdateLocalMultiClusterSearchViewConnectionInput struct {
+	MultiClusterViewName string                      `json:"MultiClusterViewName"`
+	ConnectionId         string                      `json:"ConnectionId"`
+	TargetViewName       *string                     `json:"TargetViewName"`
+	Tags                 []ClusterConnectionInputTag `json:"Tags"`
+	QueryPrefix          *string                     `json:"QueryPrefix"`
+}
+
+// GetMultiClusterViewName returns __UpdateLocalMultiClusterSearchViewConnectionInput.MultiClusterViewName, and is useful for accessing the field via an interface.
+func (v *__UpdateLocalMultiClusterSearchViewConnectionInput) GetMultiClusterViewName() string {
+	return v.MultiClusterViewName
+}
+
+// GetConnectionId returns __UpdateLocalMultiClusterSearchViewConnectionInput.ConnectionId, and is useful for accessing the field via an interface.
+func (v *__UpdateLocalMultiClusterSearchViewConnectionInput) GetConnectionId() string {
+	return v.ConnectionId
+}
+
+// GetTargetViewName returns __UpdateLocalMultiClusterSearchViewConnectionInput.TargetViewName, and is useful for accessing the field via an interface.
+func (v *__UpdateLocalMultiClusterSearchViewConnectionInput) GetTargetViewName() *string {
+	return v.TargetViewName
+}
+
+// GetTags returns __UpdateLocalMultiClusterSearchViewConnectionInput.Tags, and is useful for accessing the field via an interface.
+func (v *__UpdateLocalMultiClusterSearchViewConnectionInput) GetTags() []ClusterConnectionInputTag {
+	return v.Tags
+}
+
+// GetQueryPrefix returns __UpdateLocalMultiClusterSearchViewConnectionInput.QueryPrefix, and is useful for accessing the field via an interface.
+func (v *__UpdateLocalMultiClusterSearchViewConnectionInput) GetQueryPrefix() *string {
+	return v.QueryPrefix
+}
+
 // __UpdateOpsGenieActionInput is used internally by genqlient
 type __UpdateOpsGenieActionInput struct {
 	SearchDomainName string `json:"SearchDomainName"`
@@ -16229,6 +17077,44 @@ func (v *__UpdatePagerDutyActionInput) GetRoutingKey() string { return v.Routing
 
 // GetUseProxy returns __UpdatePagerDutyActionInput.UseProxy, and is useful for accessing the field via an interface.
 func (v *__UpdatePagerDutyActionInput) GetUseProxy() bool { return v.UseProxy }
+
+// __UpdateRemoteMultiClusterSearchViewConnectionInput is used internally by genqlient
+type __UpdateRemoteMultiClusterSearchViewConnectionInput struct {
+	MultiClusterViewName string                      `json:"MultiClusterViewName"`
+	ConnectionId         string                      `json:"ConnectionId"`
+	PublicUrl            *string                     `json:"PublicUrl"`
+	Token                *string                     `json:"Token"`
+	Tags                 []ClusterConnectionInputTag `json:"Tags"`
+	QueryPrefix          *string                     `json:"QueryPrefix"`
+}
+
+// GetMultiClusterViewName returns __UpdateRemoteMultiClusterSearchViewConnectionInput.MultiClusterViewName, and is useful for accessing the field via an interface.
+func (v *__UpdateRemoteMultiClusterSearchViewConnectionInput) GetMultiClusterViewName() string {
+	return v.MultiClusterViewName
+}
+
+// GetConnectionId returns __UpdateRemoteMultiClusterSearchViewConnectionInput.ConnectionId, and is useful for accessing the field via an interface.
+func (v *__UpdateRemoteMultiClusterSearchViewConnectionInput) GetConnectionId() string {
+	return v.ConnectionId
+}
+
+// GetPublicUrl returns __UpdateRemoteMultiClusterSearchViewConnectionInput.PublicUrl, and is useful for accessing the field via an interface.
+func (v *__UpdateRemoteMultiClusterSearchViewConnectionInput) GetPublicUrl() *string {
+	return v.PublicUrl
+}
+
+// GetToken returns __UpdateRemoteMultiClusterSearchViewConnectionInput.Token, and is useful for accessing the field via an interface.
+func (v *__UpdateRemoteMultiClusterSearchViewConnectionInput) GetToken() *string { return v.Token }
+
+// GetTags returns __UpdateRemoteMultiClusterSearchViewConnectionInput.Tags, and is useful for accessing the field via an interface.
+func (v *__UpdateRemoteMultiClusterSearchViewConnectionInput) GetTags() []ClusterConnectionInputTag {
+	return v.Tags
+}
+
+// GetQueryPrefix returns __UpdateRemoteMultiClusterSearchViewConnectionInput.QueryPrefix, and is useful for accessing the field via an interface.
+func (v *__UpdateRemoteMultiClusterSearchViewConnectionInput) GetQueryPrefix() *string {
+	return v.QueryPrefix
+}
 
 // __UpdateRoleInput is used internally by genqlient
 type __UpdateRoleInput struct {
@@ -17116,6 +18002,82 @@ func CreateHumioRepoAction(
 	return data_, err_
 }
 
+// The mutation executed by CreateLocalMultiClusterSearchViewConnection.
+const CreateLocalMultiClusterSearchViewConnection_Operation = `
+mutation CreateLocalMultiClusterSearchViewConnection ($MultiClusterViewName: String!, $TargetViewName: String!, $Tags: [ClusterConnectionInputTag!], $QueryPrefix: String) {
+	createLocalClusterConnection(input: {multiClusterViewName:$MultiClusterViewName,targetViewName:$TargetViewName,tags:$Tags,queryPrefix:$QueryPrefix}) {
+		__typename
+	}
+}
+`
+
+func CreateLocalMultiClusterSearchViewConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	MultiClusterViewName string,
+	TargetViewName string,
+	Tags []ClusterConnectionInputTag,
+	QueryPrefix *string,
+) (data_ *CreateLocalMultiClusterSearchViewConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateLocalMultiClusterSearchViewConnection",
+		Query:  CreateLocalMultiClusterSearchViewConnection_Operation,
+		Variables: &__CreateLocalMultiClusterSearchViewConnectionInput{
+			MultiClusterViewName: MultiClusterViewName,
+			TargetViewName:       TargetViewName,
+			Tags:                 Tags,
+			QueryPrefix:          QueryPrefix,
+		},
+	}
+
+	data_ = &CreateLocalMultiClusterSearchViewConnectionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateMultiClusterSearchView.
+const CreateMultiClusterSearchView_Operation = `
+mutation CreateMultiClusterSearchView ($ViewName: String!, $Description: String) {
+	createView(name: $ViewName, description: $Description, isFederated: true) {
+		__typename
+	}
+}
+`
+
+func CreateMultiClusterSearchView(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ViewName string,
+	Description *string,
+) (data_ *CreateMultiClusterSearchViewResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateMultiClusterSearchView",
+		Query:  CreateMultiClusterSearchView_Operation,
+		Variables: &__CreateMultiClusterSearchViewInput{
+			ViewName:    ViewName,
+			Description: Description,
+		},
+	}
+
+	data_ = &CreateMultiClusterSearchViewResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateOpsGenieAction.
 const CreateOpsGenieAction_Operation = `
 mutation CreateOpsGenieAction ($SearchDomainName: String!, $ActionName: String!, $ApiUrl: String!, $GenieKey: String!, $UseProxy: Boolean!) {
@@ -17249,6 +18211,48 @@ func CreateParserOrUpdate(
 	}
 
 	data_ = &CreateParserOrUpdateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateRemoteMultiClusterSearchViewConnection.
+const CreateRemoteMultiClusterSearchViewConnection_Operation = `
+mutation CreateRemoteMultiClusterSearchViewConnection ($MultiClusterViewName: String!, $PublicUrl: String!, $Token: String!, $Tags: [ClusterConnectionInputTag!], $QueryPrefix: String) {
+	createRemoteClusterConnection(input: {multiClusterViewName:$MultiClusterViewName,publicUrl:$PublicUrl,token:$Token,tags:$Tags,queryPrefix:$QueryPrefix}) {
+		__typename
+	}
+}
+`
+
+func CreateRemoteMultiClusterSearchViewConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	MultiClusterViewName string,
+	PublicUrl string,
+	Token string,
+	Tags []ClusterConnectionInputTag,
+	QueryPrefix *string,
+) (data_ *CreateRemoteMultiClusterSearchViewConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateRemoteMultiClusterSearchViewConnection",
+		Query:  CreateRemoteMultiClusterSearchViewConnection_Operation,
+		Variables: &__CreateRemoteMultiClusterSearchViewConnectionInput{
+			MultiClusterViewName: MultiClusterViewName,
+			PublicUrl:            PublicUrl,
+			Token:                Token,
+			Tags:                 Tags,
+			QueryPrefix:          QueryPrefix,
+		},
+	}
+
+	data_ = &CreateRemoteMultiClusterSearchViewConnectionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -17899,6 +18903,40 @@ func DeleteGroup(
 	}
 
 	data_ = &DeleteGroupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteMultiClusterSearchViewConnection.
+const DeleteMultiClusterSearchViewConnection_Operation = `
+mutation DeleteMultiClusterSearchViewConnection ($MultiClusterViewName: String!, $ConnectionId: String!) {
+	deleteClusterConnection(input: {multiClusterViewName:$MultiClusterViewName,connectionId:$ConnectionId})
+}
+`
+
+func DeleteMultiClusterSearchViewConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	MultiClusterViewName string,
+	ConnectionId string,
+) (data_ *DeleteMultiClusterSearchViewConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteMultiClusterSearchViewConnection",
+		Query:  DeleteMultiClusterSearchViewConnection_Operation,
+		Variables: &__DeleteMultiClusterSearchViewConnectionInput{
+			MultiClusterViewName: MultiClusterViewName,
+			ConnectionId:         ConnectionId,
+		},
+	}
+
+	data_ = &DeleteMultiClusterSearchViewConnectionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -18584,6 +19622,63 @@ func GetLicense(
 	return data_, err_
 }
 
+// The query executed by GetMultiClusterSearchView.
+const GetMultiClusterSearchView_Operation = `
+query GetMultiClusterSearchView ($SearchDomainName: String!) {
+	searchDomain(name: $SearchDomainName) {
+		__typename
+		id
+		name
+		description
+		automaticSearch
+		... on View {
+			isFederated
+			clusterConnections {
+				__typename
+				clusterId
+				id
+				queryPrefix
+				tags {
+					key
+					value
+				}
+				... on LocalClusterConnection {
+					targetViewName
+				}
+				... on RemoteClusterConnection {
+					publicUrl
+				}
+			}
+		}
+	}
+}
+`
+
+func GetMultiClusterSearchView(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	SearchDomainName string,
+) (data_ *GetMultiClusterSearchViewResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetMultiClusterSearchView",
+		Query:  GetMultiClusterSearchView_Operation,
+		Variables: &__GetMultiClusterSearchViewInput{
+			SearchDomainName: SearchDomainName,
+		},
+	}
+
+	data_ = &GetMultiClusterSearchViewResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetParserByID.
 const GetParserByID_Operation = `
 query GetParserByID ($RepositoryName: String!, $ParserID: String!) {
@@ -18756,11 +19851,13 @@ func GetScheduledSearchByID(
 const GetSearchDomain_Operation = `
 query GetSearchDomain ($SearchDomainName: String!) {
 	searchDomain(name: $SearchDomainName) {
+		__typename
 		id
 		name
 		description
 		automaticSearch
 		... on View {
+			isFederated
 			connections {
 				repository {
 					name
@@ -18768,7 +19865,6 @@ query GetSearchDomain ($SearchDomainName: String!) {
 				filter
 			}
 		}
-		__typename
 	}
 }
 `
@@ -20329,6 +21425,48 @@ func UpdateLicenseKey(
 	return data_, err_
 }
 
+// The mutation executed by UpdateLocalMultiClusterSearchViewConnection.
+const UpdateLocalMultiClusterSearchViewConnection_Operation = `
+mutation UpdateLocalMultiClusterSearchViewConnection ($MultiClusterViewName: String!, $ConnectionId: String!, $TargetViewName: String, $Tags: [ClusterConnectionInputTag!], $QueryPrefix: String) {
+	updateLocalClusterConnection(input: {multiClusterViewName:$MultiClusterViewName,connectionId:$ConnectionId,targetViewName:$TargetViewName,tags:$Tags,queryPrefix:$QueryPrefix}) {
+		__typename
+	}
+}
+`
+
+func UpdateLocalMultiClusterSearchViewConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	MultiClusterViewName string,
+	ConnectionId string,
+	TargetViewName *string,
+	Tags []ClusterConnectionInputTag,
+	QueryPrefix *string,
+) (data_ *UpdateLocalMultiClusterSearchViewConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateLocalMultiClusterSearchViewConnection",
+		Query:  UpdateLocalMultiClusterSearchViewConnection_Operation,
+		Variables: &__UpdateLocalMultiClusterSearchViewConnectionInput{
+			MultiClusterViewName: MultiClusterViewName,
+			ConnectionId:         ConnectionId,
+			TargetViewName:       TargetViewName,
+			Tags:                 Tags,
+			QueryPrefix:          QueryPrefix,
+		},
+	}
+
+	data_ = &UpdateLocalMultiClusterSearchViewConnectionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by UpdateOpsGenieAction.
 const UpdateOpsGenieAction_Operation = `
 mutation UpdateOpsGenieAction ($SearchDomainName: String!, $ActionID: String!, $ActionName: String!, $ApiUrl: String!, $GenieKey: String!, $UseProxy: Boolean!) {
@@ -20406,6 +21544,50 @@ func UpdatePagerDutyAction(
 	}
 
 	data_ = &UpdatePagerDutyActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateRemoteMultiClusterSearchViewConnection.
+const UpdateRemoteMultiClusterSearchViewConnection_Operation = `
+mutation UpdateRemoteMultiClusterSearchViewConnection ($MultiClusterViewName: String!, $ConnectionId: String!, $PublicUrl: String, $Token: String, $Tags: [ClusterConnectionInputTag!], $QueryPrefix: String) {
+	updateRemoteClusterConnection(input: {multiClusterViewName:$MultiClusterViewName,connectionId:$ConnectionId,publicUrl:$PublicUrl,token:$Token,tags:$Tags,queryPrefix:$QueryPrefix}) {
+		__typename
+	}
+}
+`
+
+func UpdateRemoteMultiClusterSearchViewConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	MultiClusterViewName string,
+	ConnectionId string,
+	PublicUrl *string,
+	Token *string,
+	Tags []ClusterConnectionInputTag,
+	QueryPrefix *string,
+) (data_ *UpdateRemoteMultiClusterSearchViewConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateRemoteMultiClusterSearchViewConnection",
+		Query:  UpdateRemoteMultiClusterSearchViewConnection_Operation,
+		Variables: &__UpdateRemoteMultiClusterSearchViewConnectionInput{
+			MultiClusterViewName: MultiClusterViewName,
+			ConnectionId:         ConnectionId,
+			PublicUrl:            PublicUrl,
+			Token:                Token,
+			Tags:                 Tags,
+			QueryPrefix:          QueryPrefix,
+		},
+	}
+
+	data_ = &UpdateRemoteMultiClusterSearchViewConnectionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -10,6 +10,7 @@ operations:
   - graphql/groups.graphql
   - graphql/ingest-tokens.graphql
   - graphql/license.graphql
+  - graphql/multi-cluster-search-views.graphql
   - graphql/parsers.graphql
   - graphql/repositories.graphql
   - graphql/roles.graphql

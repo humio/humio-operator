@@ -45,6 +45,8 @@ query GetSearchDomain(
         description
         automaticSearch
         ... on View {
+            isFederated
+
             connections {
                 repository {
                     name
@@ -52,7 +54,6 @@ query GetSearchDomain(
                 filter
             }
         }
-        __typename
     }
 }
 

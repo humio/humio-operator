@@ -404,7 +404,7 @@ type HumioClusterTLSSpec struct {
 	ExtraHostnames []string `json:"extraHostnames,omitempty"`
 }
 
-// HumioClusterLicenseSpec points to the optional location of the Humio license
+// HumioClusterLicenseSpec points to the location of the Humio license
 type HumioClusterLicenseSpec struct {
 	// SecretKeyRef specifies which key of a secret in the namespace of the HumioCluster that holds the LogScale license key
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`

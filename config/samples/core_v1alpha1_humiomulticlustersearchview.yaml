@@ -1,0 +1,38 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioMultiClusterSearchView
+metadata:
+  name: "humiomulticlustersearchview-sample"
+spec:
+  managedClusterName: "example-humiocluster"
+  name: "some-mcs-view-name"
+  connections:
+    - type: Local
+      clusterIdentity: "spog1"
+      viewOrRepoName: "somerepo"
+      tags:
+        - key: "somekey1"
+          value: "somevalue1"
+    - type: Remote
+      clusterIdentity: "eu1-1"
+      tags:
+        - key: "somekey2"
+          value: "somevalue2"
+      url: "https://example-humiocluster.eu1-1:8080/"
+      apiTokenSource:
+         secretKeyRef:
+         name: "some-k8s-secret-name-eu1"
+         key: "apitokenkey1"
+    - type: Remote
+      clusterIdentity: "eu1-2"
+      url: "https://example-humiocluster.eu1-2:8080/"
+      apiTokenSource:
+        secretKeyRef:
+          name: "some-k8s-secret-name-eu1"
+          key: "apitokenkey2"
+    - type: Remote
+      clusterIdentity: "us1"
+      url: "https://example-humiocluster.us1:8080/"
+      apiTokenSource:
+          secretKeyRef:
+            name: "some-k8s-secret-name-us1"
+            key: "apitokenkey"
