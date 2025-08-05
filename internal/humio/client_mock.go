@@ -47,21 +47,22 @@ type resourceKey struct {
 }
 
 type ClientMock struct {
-	LicenseUID      map[resourceKey]string
-	Repository      map[resourceKey]humiographql.RepositoryDetails
-	View            map[resourceKey]humiographql.GetSearchDomainSearchDomainView
-	Group           map[resourceKey]humiographql.GroupDetails
-	IngestToken     map[resourceKey]humiographql.IngestTokenDetails
-	Parser          map[resourceKey]humiographql.ParserDetails
-	Action          map[resourceKey]humiographql.ActionDetails
-	Alert           map[resourceKey]humiographql.AlertDetails
-	FilterAlert     map[resourceKey]humiographql.FilterAlertDetails
-	FeatureFlag     map[resourceKey]bool
-	AggregateAlert  map[resourceKey]humiographql.AggregateAlertDetails
-	ScheduledSearch map[resourceKey]humiographql.ScheduledSearchDetails
-	User            map[resourceKey]humiographql.UserDetails
-	AdminUserID     map[resourceKey]string
-	Role            map[resourceKey]humiographql.RoleDetails
+	LicenseUID             map[resourceKey]string
+	Repository             map[resourceKey]humiographql.RepositoryDetails
+	View                   map[resourceKey]humiographql.GetSearchDomainSearchDomainView
+	MultiClusterSearchView map[resourceKey]humiographql.GetMultiClusterSearchViewSearchDomainView
+	Group                  map[resourceKey]humiographql.GroupDetails
+	IngestToken            map[resourceKey]humiographql.IngestTokenDetails
+	Parser                 map[resourceKey]humiographql.ParserDetails
+	Action                 map[resourceKey]humiographql.ActionDetails
+	Alert                  map[resourceKey]humiographql.AlertDetails
+	FilterAlert            map[resourceKey]humiographql.FilterAlertDetails
+	FeatureFlag            map[resourceKey]bool
+	AggregateAlert         map[resourceKey]humiographql.AggregateAlertDetails
+	ScheduledSearch        map[resourceKey]humiographql.ScheduledSearchDetails
+	User                   map[resourceKey]humiographql.UserDetails
+	AdminUserID            map[resourceKey]string
+	Role                   map[resourceKey]humiographql.RoleDetails
 }
 
 type MockClientConfig struct {
@@ -71,21 +72,22 @@ type MockClientConfig struct {
 func NewMockClient() *MockClientConfig {
 	mockClientConfig := &MockClientConfig{
 		apiClient: &ClientMock{
-			LicenseUID:      make(map[resourceKey]string),
-			Repository:      make(map[resourceKey]humiographql.RepositoryDetails),
-			View:            make(map[resourceKey]humiographql.GetSearchDomainSearchDomainView),
-			Group:           make(map[resourceKey]humiographql.GroupDetails),
-			IngestToken:     make(map[resourceKey]humiographql.IngestTokenDetails),
-			Parser:          make(map[resourceKey]humiographql.ParserDetails),
-			Action:          make(map[resourceKey]humiographql.ActionDetails),
-			Alert:           make(map[resourceKey]humiographql.AlertDetails),
-			FilterAlert:     make(map[resourceKey]humiographql.FilterAlertDetails),
-			FeatureFlag:     make(map[resourceKey]bool),
-			AggregateAlert:  make(map[resourceKey]humiographql.AggregateAlertDetails),
-			ScheduledSearch: make(map[resourceKey]humiographql.ScheduledSearchDetails),
-			User:            make(map[resourceKey]humiographql.UserDetails),
-			AdminUserID:     make(map[resourceKey]string),
-			Role:            make(map[resourceKey]humiographql.RoleDetails),
+			LicenseUID:             make(map[resourceKey]string),
+			Repository:             make(map[resourceKey]humiographql.RepositoryDetails),
+			View:                   make(map[resourceKey]humiographql.GetSearchDomainSearchDomainView),
+			MultiClusterSearchView: make(map[resourceKey]humiographql.GetMultiClusterSearchViewSearchDomainView),
+			Group:                  make(map[resourceKey]humiographql.GroupDetails),
+			IngestToken:            make(map[resourceKey]humiographql.IngestTokenDetails),
+			Parser:                 make(map[resourceKey]humiographql.ParserDetails),
+			Action:                 make(map[resourceKey]humiographql.ActionDetails),
+			Alert:                  make(map[resourceKey]humiographql.AlertDetails),
+			FilterAlert:            make(map[resourceKey]humiographql.FilterAlertDetails),
+			FeatureFlag:            make(map[resourceKey]bool),
+			AggregateAlert:         make(map[resourceKey]humiographql.AggregateAlertDetails),
+			ScheduledSearch:        make(map[resourceKey]humiographql.ScheduledSearchDetails),
+			User:                   make(map[resourceKey]humiographql.UserDetails),
+			AdminUserID:            make(map[resourceKey]string),
+			Role:                   make(map[resourceKey]humiographql.RoleDetails),
 		},
 	}
 
@@ -102,6 +104,7 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 		}
 	}
 	h.apiClient.View = make(map[resourceKey]humiographql.GetSearchDomainSearchDomainView)
+	h.apiClient.MultiClusterSearchView = make(map[resourceKey]humiographql.GetMultiClusterSearchViewSearchDomainView)
 	h.apiClient.Group = make(map[resourceKey]humiographql.GroupDetails)
 	h.apiClient.Role = make(map[resourceKey]humiographql.RoleDetails)
 	h.apiClient.IngestToken = make(map[resourceKey]humiographql.IngestTokenDetails)
@@ -335,10 +338,6 @@ func (h *MockClientConfig) AddRepository(_ context.Context, _ *humioapi.Client, 
 		resourceName: hr.Spec.Name,
 	}
 
-	if _, found := h.apiClient.Repository[key]; found {
-		return fmt.Errorf("repository already exists with name %s", hr.Spec.Name)
-	}
-
 	var retentionInDays, ingestSizeInGB, storageSizeInGB float64
 	if hr.Spec.Retention.TimeInDays != nil {
 		retentionInDays = float64(*hr.Spec.Retention.TimeInDays)
@@ -463,10 +462,6 @@ func (h *MockClientConfig) AddView(_ context.Context, _ *humioapi.Client, hv *hu
 		resourceName: hv.Spec.Name,
 	}
 
-	if _, found := h.apiClient.Repository[key]; found {
-		return fmt.Errorf("view already exists with name %s", hv.Spec.Name)
-	}
-
 	connections := make([]humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection, 0)
 	for _, connection := range hv.Spec.Connections {
 		connections = append(connections, humiographql.GetSearchDomainSearchDomainViewConnectionsViewConnection{
@@ -478,6 +473,7 @@ func (h *MockClientConfig) AddView(_ context.Context, _ *humioapi.Client, hv *hu
 	}
 
 	value := &humiographql.GetSearchDomainSearchDomainView{
+		IsFederated:     false,
 		Typename:        helpers.StringPtr("View"),
 		Id:              kubernetes.RandomString(),
 		Name:            hv.Spec.Name,
@@ -515,6 +511,7 @@ func (h *MockClientConfig) UpdateView(_ context.Context, _ *humioapi.Client, hv 
 	}
 
 	value := &humiographql.GetSearchDomainSearchDomainView{
+		IsFederated:     currentView.GetIsFederated(),
 		Typename:        helpers.StringPtr("View"),
 		Id:              currentView.GetId(),
 		Name:            hv.Spec.Name,
@@ -538,6 +535,196 @@ func (h *MockClientConfig) DeleteView(_ context.Context, _ *humioapi.Client, hv 
 	}
 
 	delete(h.apiClient.View, key)
+	return nil
+}
+
+func (h *MockClientConfig) AddMultiClusterSearchView(_ context.Context, _ *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, connectionDetails []ConnectionDetailsIncludingAPIToken) error {
+	clusterName := fmt.Sprintf("%s%s", hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName)
+	if h.searchDomainNameExists(clusterName, hv.Spec.Name) {
+		return fmt.Errorf("search domain name already in use")
+	}
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: hv.Spec.Name,
+	}
+
+	connections := make([]humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection, len(connectionDetails))
+	for idx, connection := range connectionDetails {
+		if connection.Type == humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeLocal {
+			tags := make([]humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag, len(connection.Tags)+1)
+			tags[0] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
+				Key:   "clusteridentity",
+				Value: connection.ClusterIdentity,
+			}
+
+			for tagIdx, tag := range connection.Tags {
+				tags[tagIdx+1] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
+					Key:   tag.Key,
+					Value: tag.Value,
+				}
+			}
+
+			connections[idx] = &humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection{
+				Typename:       helpers.StringPtr("LocalClusterConnection"),
+				ClusterId:      connection.ClusterIdentity,
+				Id:             kubernetes.RandomString(),
+				QueryPrefix:    connection.Filter,
+				Tags:           tags,
+				TargetViewName: connection.ViewOrRepoName,
+			}
+		}
+		if connection.Type == humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeRemote {
+			tags := make([]humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag, len(connection.Tags)+1)
+			tags[0] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
+				Key:   "clusteridentity",
+				Value: connection.ClusterIdentity,
+			}
+			tags[1] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
+				Key:   "clusteridentityhash",
+				Value: helpers.AsSHA256(fmt.Sprintf("%s|%s", connection.Url, connection.APIToken)),
+			}
+
+			for tagIdx, tag := range connection.Tags {
+				tags[tagIdx+2] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
+					Key:   tag.Key,
+					Value: tag.Value,
+				}
+			}
+
+			connections[idx] = &humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection{
+				Typename:    helpers.StringPtr("RemoteClusterConnection"),
+				ClusterId:   connection.ClusterIdentity,
+				Id:          kubernetes.RandomString(),
+				QueryPrefix: connection.Filter,
+				Tags:        tags,
+				PublicUrl:   connection.Url,
+			}
+		}
+	}
+
+	value := &humiographql.GetMultiClusterSearchViewSearchDomainView{
+		IsFederated:        true,
+		Typename:           helpers.StringPtr("View"),
+		Id:                 kubernetes.RandomString(),
+		Name:               hv.Spec.Name,
+		Description:        &hv.Spec.Description,
+		AutomaticSearch:    helpers.BoolTrue(hv.Spec.AutomaticSearch),
+		ClusterConnections: connections,
+	}
+
+	h.apiClient.MultiClusterSearchView[key] = *value
+	return nil
+}
+
+func (h *MockClientConfig) GetMultiClusterSearchView(_ context.Context, _ *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView) (*humiographql.GetMultiClusterSearchViewSearchDomainView, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName),
+		resourceName: hv.Spec.Name,
+	}
+	if value, found := h.apiClient.MultiClusterSearchView[key]; found {
+		return &value, nil
+
+	}
+	return nil, fmt.Errorf("could not find view with name %s, err=%w", hv.Spec.Name, humioapi.EntityNotFound{})
+}
+
+func (h *MockClientConfig) UpdateMultiClusterSearchView(_ context.Context, _ *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView, connectionDetails []ConnectionDetailsIncludingAPIToken) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName),
+		resourceName: hv.Spec.Name,
+	}
+
+	currentView, found := h.apiClient.MultiClusterSearchView[key]
+
+	if !found {
+		return fmt.Errorf("view not found with name %s, err=%w", hv.Spec.Name, humioapi.EntityNotFound{})
+	}
+
+	connections := make([]humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnection, len(connectionDetails))
+	for idx, connection := range connectionDetails {
+		if connection.Type == humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeLocal {
+			tags := make([]humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag, len(connection.Tags)+1)
+			tags[0] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
+				Key:   "clusteridentity",
+				Value: connection.ClusterIdentity,
+			}
+
+			for tagIdx, tag := range connection.Tags {
+				tags[tagIdx+1] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
+					Key:   tag.Key,
+					Value: tag.Value,
+				}
+			}
+
+			connections[idx] = &humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsLocalClusterConnection{
+				Typename:       helpers.StringPtr("LocalClusterConnection"),
+				ClusterId:      connection.ClusterIdentity,
+				Id:             kubernetes.RandomString(), // Perhaps we should use the same as before
+				QueryPrefix:    connection.Filter,
+				Tags:           tags,
+				TargetViewName: connection.ViewOrRepoName,
+			}
+		}
+		if connection.Type == humiov1alpha1.HumioMultiClusterSearchViewConnectionTypeRemote {
+			tags := make([]humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag, len(connection.Tags)+2)
+			tags[0] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
+				Key:   "clusteridentity",
+				Value: connection.ClusterIdentity,
+			}
+			tags[1] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
+				Key:   "clusteridentityhash",
+				Value: helpers.AsSHA256(fmt.Sprintf("%s|%s", connection.Url, connection.APIToken)),
+			}
+
+			for tagIdx, tag := range connection.Tags {
+				tags[tagIdx+2] = humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsClusterConnectionTagsClusterConnectionTag{
+					Key:   tag.Key,
+					Value: tag.Value,
+				}
+			}
+
+			connections[idx] = &humiographql.GetMultiClusterSearchViewSearchDomainViewClusterConnectionsRemoteClusterConnection{
+				Typename:    helpers.StringPtr("RemoteClusterConnection"),
+				ClusterId:   connection.ClusterIdentity,
+				Id:          kubernetes.RandomString(),
+				QueryPrefix: connection.Filter,
+				Tags:        tags,
+				PublicUrl:   connection.Url,
+			}
+		}
+	}
+
+	value := &humiographql.GetMultiClusterSearchViewSearchDomainView{
+		IsFederated:        currentView.GetIsFederated(),
+		Typename:           helpers.StringPtr("View"),
+		Id:                 currentView.GetId(),
+		Name:               hv.Spec.Name,
+		Description:        &hv.Spec.Description,
+		AutomaticSearch:    helpers.BoolTrue(hv.Spec.AutomaticSearch),
+		ClusterConnections: connections,
+	}
+
+	h.apiClient.MultiClusterSearchView[key] = *value
+	return nil
+}
+
+func (h *MockClientConfig) DeleteMultiClusterSearchView(_ context.Context, _ *humioapi.Client, hv *humiov1alpha1.HumioMultiClusterSearchView) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	key := resourceKey{
+		clusterName:  fmt.Sprintf("%s%s", hv.Spec.ManagedClusterName, hv.Spec.ExternalClusterName),
+		resourceName: hv.Spec.Name,
+	}
+
+	delete(h.apiClient.MultiClusterSearchView, key)
 	return nil
 }
 
@@ -1385,6 +1572,10 @@ func (h *MockClientConfig) searchDomainNameExists(clusterName, searchDomainName 
 	}
 
 	if _, found := h.apiClient.View[key]; found {
+		return true
+	}
+
+	if _, found := h.apiClient.MultiClusterSearchView[key]; found {
 		return true
 	}
 
