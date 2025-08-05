@@ -478,5 +478,16 @@ func setupControllers(mgr ctrl.Manager, log logr.Logger, requeuePeriod time.Dura
 		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioOrganizationPermissionRole")
 		os.Exit(1)
 	}
+	if err := (&controller.HumioMultiClusterSearchViewReconciler{
+		Client: mgr.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod: requeuePeriod,
+		},
+		HumioClient: humio.NewClient(log, userAgent),
+		BaseLogger:  log,
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create controller", "controller", "HumioMultiClusterSearchView")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 }

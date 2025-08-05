@@ -51,6 +51,8 @@ type HumioScheduledSearchReconciler struct {
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioscheduledsearches/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.humio.com,resources=humioscheduledsearches/finalizers,verbs=update
 
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
 func (r *HumioScheduledSearchReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	if r.Namespace != "" {
 		if r.Namespace != req.Namespace {
