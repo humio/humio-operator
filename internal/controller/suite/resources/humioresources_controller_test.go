@@ -2949,8 +2949,26 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Labels:             []string{"some-label"},
 			}
 
+			// Alert with no Labels field
+			alertSpecNoLabels := humiov1alpha1.HumioAlertSpec{
+				ManagedClusterName: alertSpec.ManagedClusterName,
+				Name:               "example-alert-no-labels",
+				ViewName:           alertSpec.ViewName,
+				Query:              alertSpec.Query,
+				ThrottleTimeMillis: alertSpec.ThrottleTimeMillis,
+				ThrottleField:      alertSpec.ThrottleField,
+				Silenced:           alertSpec.Silenced,
+				Description:        alertSpec.Description,
+				Actions:            alertSpec.Actions,
+			}
+
 			key := types.NamespacedName{
 				Name:      "humio-alert",
+				Namespace: clusterKey.Namespace,
+			}
+
+			keyNoLabels := types.NamespacedName{
+				Name:      "humio-alert-no-labels",
 				Namespace: clusterKey.Namespace,
 			}
 
@@ -2962,22 +2980,43 @@ var _ = Describe("Humio Resources Controllers", func() {
 				Spec: alertSpec,
 			}
 
+			toCreateAlertNoLabels := &humiov1alpha1.HumioAlert{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      keyNoLabels.Name,
+					Namespace: keyNoLabels.Namespace,
+				},
+				Spec: alertSpecNoLabels,
+			}
+
 			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Creating the alert successfully")
 			Expect(k8sClient.Create(ctx, toCreateAlert)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, toCreateAlertNoLabels)).Should(Succeed())
 
 			fetchedAlert := &humiov1alpha1.HumioAlert{}
+			fetchedAlertNoLabels := &humiov1alpha1.HumioAlert{}
+
 			Eventually(func() string {
 				_ = k8sClient.Get(ctx, key, fetchedAlert)
 				return fetchedAlert.Status.State
 			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, keyNoLabels, fetchedAlertNoLabels)
+				return fetchedAlertNoLabels.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioAlertStateExists))
 
-			var alert *humiographql.AlertDetails
+			var alert, alertNoLabels *humiographql.AlertDetails
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+
 			Eventually(func() error {
 				alert, err = humioClient.GetAlert(ctx, humioHttpClient, toCreateAlert)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(alert).ToNot(BeNil())
+			Eventually(func() error {
+				alertNoLabels, err = humioClient.GetAlert(ctx, humioHttpClient, toCreateAlertNoLabels)
+				return err
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(alertNoLabels).ToNot(BeNil())
 
 			originalAlert := humiographql.AlertDetails{
 				Id:                 "",
@@ -3001,6 +3040,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(alert.Description).To(Equal(originalAlert.GetDescription()))
 			Expect(alert.GetActionsV2()).To(BeEquivalentTo(originalAlert.GetActionsV2()))
 			Expect(alert.Labels).To(Equal(originalAlert.GetLabels()))
+			Expect(alertNoLabels.Labels).To(BeEmpty())
 			Expect(alert.ThrottleTimeMillis).To(Equal(originalAlert.GetThrottleTimeMillis()))
 			Expect(alert.ThrottleField).To(Equal(originalAlert.GetThrottleField()))
 			Expect(alert.Enabled).To(Equal(originalAlert.GetEnabled()))
@@ -3070,6 +3110,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioAlert: Successfully deleting it")
 			Expect(k8sClient.Delete(ctx, fetchedAlert)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, fetchedAlertNoLabels)).To(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, key, fetchedAlert)
 				return k8serrors.IsNotFound(err)

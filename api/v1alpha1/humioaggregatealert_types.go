@@ -75,6 +75,7 @@ type HumioAggregateAlertSpec struct {
 	// Actions is the list of Humio Actions by name that will be triggered by this Aggregate alert
 	Actions []string `json:"actions"`
 	// Labels are a set of labels on the aggregate alert
+	// +kubebuilder:validation:Optional
 	Labels []string `json:"labels,omitempty"`
 }
 

@@ -75,6 +75,7 @@ type HumioScheduledSearchSpec struct {
 	// Actions is the list of Humio Actions by name that will be triggered by this scheduled search
 	Actions []string `json:"actions"`
 	// Labels are a set of labels on the scheduled search
+	// +kubebuilder:validation:Optional
 	Labels []string `json:"labels,omitempty"`
 }
 

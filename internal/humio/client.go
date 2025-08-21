@@ -1784,7 +1784,6 @@ func (h *ClientConfig) AddAlert(ctx context.Context, client *humioapi.Client, ha
 	if err != nil {
 		return fmt.Errorf("problem getting view for alert: %w", err)
 	}
-
 	isEnabled := !ha.Spec.Silenced
 	queryOwnershipType := humiographql.QueryOwnershipTypeOrganization
 	_, err = humiographql.CreateAlert(
@@ -1798,7 +1797,7 @@ func (h *ClientConfig) AddAlert(ctx context.Context, client *humioapi.Client, ha
 		int64(ha.Spec.ThrottleTimeMillis),
 		&isEnabled,
 		ha.Spec.Actions,
-		ha.Spec.Labels,
+		helpers.EmptySliceIfNil(ha.Spec.Labels),
 		&queryOwnershipType,
 		ha.Spec.ThrottleField,
 	)
@@ -1829,7 +1828,7 @@ func (h *ClientConfig) UpdateAlert(ctx context.Context, client *humioapi.Client,
 		int64(ha.Spec.ThrottleTimeMillis),
 		!ha.Spec.Silenced,
 		ha.Spec.Actions,
-		ha.Spec.Labels,
+		helpers.EmptySliceIfNil(ha.Spec.Labels),
 		&queryOwnershipType,
 		ha.Spec.ThrottleField,
 	)
@@ -1911,7 +1910,7 @@ func (h *ClientConfig) AddFilterAlert(ctx context.Context, client *humioapi.Clie
 		&hfa.Spec.Description,
 		hfa.Spec.QueryString,
 		hfa.Spec.Actions,
-		hfa.Spec.Labels,
+		helpers.EmptySliceIfNil(hfa.Spec.Labels),
 		hfa.Spec.Enabled,
 		hfa.Spec.ThrottleField,
 		int64(hfa.Spec.ThrottleTimeSeconds),
@@ -1943,7 +1942,7 @@ func (h *ClientConfig) UpdateFilterAlert(ctx context.Context, client *humioapi.C
 		&hfa.Spec.Description,
 		hfa.Spec.QueryString,
 		hfa.Spec.Actions,
-		hfa.Spec.Labels,
+		helpers.EmptySliceIfNil(hfa.Spec.Labels),
 		hfa.Spec.Enabled,
 		hfa.Spec.ThrottleField,
 		int64(hfa.Spec.ThrottleTimeSeconds),
@@ -2037,7 +2036,7 @@ func (h *ClientConfig) AddScheduledSearch(ctx context.Context, client *humioapi.
 		hss.Spec.BackfillLimit,
 		hss.Spec.Enabled,
 		hss.Spec.Actions,
-		hss.Spec.Labels,
+		helpers.EmptySliceIfNil(hss.Spec.Labels),
 		&queryOwnershipType,
 	)
 	return err
@@ -2111,7 +2110,7 @@ func (h *ClientConfig) UpdateScheduledSearch(ctx context.Context, client *humioa
 		hss.Spec.BackfillLimit,
 		hss.Spec.Enabled,
 		hss.Spec.Actions,
-		hss.Spec.Labels,
+		helpers.EmptySliceIfNil(hss.Spec.Labels),
 		&queryOwnershipType,
 	)
 	return err
@@ -2183,7 +2182,7 @@ func (h *ClientConfig) AddAggregateAlert(ctx context.Context, client *humioapi.C
 		haa.Spec.QueryString,
 		int64(haa.Spec.SearchIntervalSeconds),
 		haa.Spec.Actions,
-		haa.Spec.Labels,
+		helpers.EmptySliceIfNil(haa.Spec.Labels),
 		haa.Spec.Enabled,
 		haa.Spec.ThrottleField,
 		int64(haa.Spec.ThrottleTimeSeconds),
@@ -2255,7 +2254,7 @@ func (h *ClientConfig) UpdateAggregateAlert(ctx context.Context, client *humioap
 		haa.Spec.QueryString,
 		int64(haa.Spec.SearchIntervalSeconds),
 		haa.Spec.Actions,
-		haa.Spec.Labels,
+		helpers.EmptySliceIfNil(haa.Spec.Labels),
 		haa.Spec.Enabled,
 		haa.Spec.ThrottleField,
 		int64(haa.Spec.ThrottleTimeSeconds),

@@ -271,3 +271,11 @@ func GetCacheOptionsWithWatchNamespace() (cache.Options, error) {
 
 	return cacheOptions, nil
 }
+
+// EmptySliceIfNil returns the slice or an empty slice if it's nil
+func EmptySliceIfNil(slice []string) []string {
+	if slice == nil {
+		return []string{}
+	}
+	return slice
+}
