@@ -73,6 +73,7 @@ type HumioFilterAlertSpec struct {
 	// Actions is the list of Humio Actions by name that will be triggered by this filter alert
 	Actions []string `json:"actions"`
 	// Labels are a set of labels on the filter alert
+	// +kubebuilder:validation:Optional
 	Labels []string `json:"labels,omitempty"`
 }
 

@@ -237,7 +237,7 @@ func alertAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioAle
 		keyValues["queryString"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetQueryStart(), fromKubernetesCustomResource.Spec.Query.Start); diff != "" {
-		keyValues["queryString"] = diff
+		keyValues["start"] = diff
 	}
 	if diff := cmp.Diff(fromGraphQL.GetEnabled(), !fromKubernetesCustomResource.Spec.Silenced); diff != "" {
 		keyValues["enabled"] = diff
