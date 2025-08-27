@@ -19,6 +19,11 @@ PATH=$bin_dir/goinstall/bin:$bin_dir:/usr/local/go/bin:$PATH
 GOBIN=$bin_dir
 
 start_kind_cluster() {
+  swapoff -a
+  sudo systemctl stop docker
+  sudo mount -t tmpfs -o rw,seclabel,relatime tmpfs /var/lib/docker/containers
+  sudo mount -t tmpfs -o rw,seclabel,relatime tmpfs /var/lib/docker/volumes
+  sudo systemctl start docker
   if $kind get clusters | grep kind ; then
     if ! $kubectl get daemonset -n kube-system kindnet ; then
       echo "Cluster unavailable or not using a kind cluster. Only kind clusters are supported!"

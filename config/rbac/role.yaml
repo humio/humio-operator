@@ -38,6 +38,7 @@ rules:
   - humiofilteralerts
   - humiogroups
   - humioingesttokens
+  - humioipfilters
   - humiomulticlustersearchviews
   - humioorganizationpermissionroles
   - humioparsers
@@ -68,6 +69,7 @@ rules:
   - humiofilteralerts/finalizers
   - humiogroups/finalizers
   - humioingesttokens/finalizers
+  - humioipfilters/finalizers
   - humiomulticlustersearchviews/finalizers
   - humioorganizationpermissionroles/finalizers
   - humioparsers/finalizers
@@ -92,6 +94,7 @@ rules:
   - humiofilteralerts/status
   - humiogroups/status
   - humioingesttokens/status
+  - humioipfilters/status
   - humiomulticlustersearchviews/status
   - humioorganizationpermissionroles/status
   - humioparsers/status

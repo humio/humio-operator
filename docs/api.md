@@ -28,6 +28,8 @@ Resource Types:
 
 - [HumioIngestToken](#humioingesttoken)
 
+- [HumioIPFilter](#humioipfilter)
+
 - [HumioMultiClusterSearchView](#humiomulticlustersearchview)
 
 - [HumioOrganizationPermissionRole](#humioorganizationpermissionrole)
@@ -37188,6 +37190,148 @@ HumioIngestTokenStatus defines the observed state of HumioIngestToken.
         <td>string</td>
         <td>
           State reflects the current state of the HumioIngestToken<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+## HumioIPFilter
+<sup><sup>[↩ Parent](#corehumiocomv1alpha1 )</sup></sup>
+
+
+
+
+
+
+HumioIPFilter is the Schema for the humioipfilters API
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+      <td><b>apiVersion</b></td>
+      <td>string</td>
+      <td>core.humio.com/v1alpha1</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b>kind</b></td>
+      <td>string</td>
+      <td>HumioIPFilter</td>
+      <td>true</td>
+      </tr>
+      <tr>
+      <td><b><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#objectmeta-v1-meta">metadata</a></b></td>
+      <td>object</td>
+      <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
+      <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioipfilterspec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          HumioIPFilterSpec defines the desired state of HumioIPFilter<br/>
+          <br/>
+            <i>Validations</i>:<li>(has(self.managedClusterName) && self.managedClusterName != "") != (has(self.externalClusterName) && self.externalClusterName != ""): Must specify exactly one of managedClusterName or externalClusterName</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#humioipfilterstatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          HumioIPFilterStatus defines the observed state of HumioIPFilter.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioIPFilter.spec
+<sup><sup>[↩ Parent](#humioipfilter)</sup></sup>
+
+
+
+HumioIPFilterSpec defines the desired state of HumioIPFilter
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>ipFilter</b></td>
+        <td>[]string</td>
+        <td>
+          IPFilter defines the IP filter to use<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the IP filter inside Humio<br/>
+          <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>externalClusterName</b></td>
+        <td>string</td>
+        <td>
+          ExternalClusterName refers to an object of type HumioExternalCluster where the Humio resources should be created.
+This conflicts with ManagedClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>managedClusterName</b></td>
+        <td>string</td>
+        <td>
+          ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
+resources should be created.
+This conflicts with ExternalClusterName.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### HumioIPFilter.status
+<sup><sup>[↩ Parent](#humioipfilter)</sup></sup>
+
+
+
+HumioIPFilterStatus defines the observed state of HumioIPFilter.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>id</b></td>
+        <td>string</td>
+        <td>
+          ID stores the Humio generated ID for the filter<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>state</b></td>
+        <td>string</td>
+        <td>
+          State reflects the current state of the HumioIPFilter<br/>
         </td>
         <td>false</td>
       </tr></tbody>

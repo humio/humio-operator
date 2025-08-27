@@ -5,7 +5,8 @@ set -x
 echo "detected OSTYPE = $OSTYPE"
 
 export RELEASE_VERSION=$(cat VERSION)
-
+sudo swapoff -a
+sudo mount -t tmpfs -o rw,seclabel,relatime tmpfs /var/lib/docker/containers
 rm -rf charts/humio-operator/crds
 mkdir -p charts/humio-operator/crds
 for c in $(find config/crd/bases/ -iname '*.yaml' | sort); do

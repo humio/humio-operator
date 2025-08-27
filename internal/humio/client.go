@@ -57,6 +57,7 @@ type Client interface {
 	OrganizationPermissionRolesClient
 	SystemPermissionRolesClient
 	ViewPermissionRolesClient
+	IPFilterClient
 }
 
 type ClusterClient interface {
@@ -194,6 +195,13 @@ type ViewPermissionRolesClient interface {
 	GetViewPermissionRole(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewPermissionRole) (*humiographql.RoleDetails, error)
 	UpdateViewPermissionRole(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewPermissionRole) error
 	DeleteViewPermissionRole(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewPermissionRole) error
+}
+
+type IPFilterClient interface {
+	AddIPFilter(context.Context, *humioapi.Client, *humiov1alpha1.HumioIPFilter) (*humiographql.IPFilterDetails, error)
+	GetIPFilter(context.Context, *humioapi.Client, *humiov1alpha1.HumioIPFilter) (*humiographql.IPFilterDetails, error)
+	UpdateIPFilter(context.Context, *humioapi.Client, *humiov1alpha1.HumioIPFilter) error
+	DeleteIPFilter(context.Context, *humioapi.Client, *humiov1alpha1.HumioIPFilter) error
 }
 
 type ConnectionDetailsIncludingAPIToken struct {
@@ -2866,6 +2874,56 @@ func (h *ClientConfig) DeleteViewPermissionRole(ctx context.Context, client *hum
 		}
 	}
 	return nil
+}
+
+func (h *ClientConfig) AddIPFilter(ctx context.Context, client *humioapi.Client, ipFilter *humiov1alpha1.HumioIPFilter) (*humiographql.IPFilterDetails, error) {
+	// ipFilter.Spec.IPFilter is a list of strings so we need to convert to string for graphql
+	filter := helpers.SliceToString(ipFilter.Spec.IPFilter, "\n")
+	ipFilterResp, err := humiographql.CreateIPFilter(
+		ctx,
+		client,
+		ipFilter.Spec.Name,
+		filter,
+	)
+	if err != nil {
+		return nil, err
+	}
+	value := ipFilterResp.GetCreateIPFilter().IPFilterDetails
+	return &value, err
+}
+
+func (h *ClientConfig) GetIPFilter(ctx context.Context, client *humioapi.Client, ipFilter *humiov1alpha1.HumioIPFilter) (*humiographql.IPFilterDetails, error) {
+	ipFiltersResp, err := humiographql.GetIPFilters(ctx, client)
+	if err != nil {
+		return nil, err
+	}
+	for _, filter := range ipFiltersResp.GetIpFilters() {
+		if filter.GetId() == ipFilter.Status.ID {
+			return &filter.IPFilterDetails, nil
+		}
+	}
+	return nil, humioapi.IPFilterNotFound(ipFilter.Spec.Name)
+}
+
+func (h *ClientConfig) UpdateIPFilter(ctx context.Context, client *humioapi.Client, ipFilter *humiov1alpha1.HumioIPFilter) error {
+	filter := helpers.SliceToString(ipFilter.Spec.IPFilter, "\n")
+	_, err := humiographql.UpdateIPFilter(
+		ctx,
+		client,
+		ipFilter.Status.ID,
+		&ipFilter.Spec.Name,
+		&filter,
+	)
+	return err
+}
+
+func (h *ClientConfig) DeleteIPFilter(ctx context.Context, client *humioapi.Client, ipFilter *humiov1alpha1.HumioIPFilter) error {
+	_, err := humiographql.DeleteIPFilter(
+		ctx,
+		client,
+		ipFilter.Status.ID,
+	)
+	return err
 }
 
 func (h *ClientConfig) unassignViewPermissionRoleFromAllGroups(ctx context.Context, client *humioapi.Client, roleDetails humiographql.RoleDetails) error {
