@@ -1,0 +1,51 @@
+fragment IPFilterDetails on IPFilter {
+    id
+    name
+    ipFilter
+}
+
+query GetIPFilters {
+    ipFilters {
+        ...IPFilterDetails
+    }
+}
+
+mutation CreateIPFilter(
+    $Name: String!
+    $Filter: String!
+) {
+    createIPFilter(
+        input: {
+            name: $Name
+            ipFilter: $Filter
+        }
+    ) {
+        ...IPFilterDetails
+    }
+}
+
+mutation UpdateIPFilter(
+    $Id: String!
+    $Name: String
+    $Filter: String
+) {
+    updateIPFilter(
+        input: {
+            id: $Id
+            name: $Name
+            ipFilter: $Filter
+        }
+    ) {
+        ...IPFilterDetails
+    }
+}
+
+mutation DeleteIPFilter(
+    $Id: String!
+) {
+    deleteIPFilter(
+        input: {
+            id: $Id
+        }
+    )
+}

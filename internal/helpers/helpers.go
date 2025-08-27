@@ -279,3 +279,8 @@ func EmptySliceIfNil(slice []string) []string {
 	}
 	return slice
 }
+
+// SliceToString joins a slice elements by separator to return a string
+func SliceToString(slice []string, separator string) string {
+	return strings.Join(slice, separator)
+}

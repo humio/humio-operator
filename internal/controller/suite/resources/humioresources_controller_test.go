@@ -4175,7 +4175,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			// Verify we validate this for all our CRD's
-			Expect(resources).To(HaveLen(19)) // Bump this as we introduce new CRD's
+			Expect(resources).To(HaveLen(20)) // Bump this as we introduce new CRD's
 
 			for i := range resources {
 				// Get the GVK information
@@ -5134,6 +5134,100 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(k8sClient.Delete(ctx, toCreateViewPermissionRole)).Should(Succeed())
 			Expect(k8sClient.Delete(ctx, toCreateGroup)).Should(Succeed())
 			Expect(k8sClient.Delete(ctx, toCreateRepository)).Should(Succeed())
+		})
+	})
+
+	Context("Humio IPFilter", Label("envtest", "dummy", "real"), func() {
+		It("HumioIPFilter: Should handle ipFilter correctly", func() {
+			ctx := context.Background()
+			spec := humiov1alpha1.HumioIPFilterSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               "example-ipfilter",
+				IPFilter:           []string{"allow 127.0.0.1", "allow 10.0.0.0/8"},
+			}
+
+			key := types.NamespacedName{
+				Name:      "example-ipfilter",
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateIPFilter := &humiov1alpha1.HumioIPFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: spec,
+			}
+			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Confirming the IPFilter does not exist in LogScale before we start")
+			Eventually(func() error {
+				_, err := humioClient.GetIPFilter(ctx, humioHttpClient, toCreateIPFilter)
+				return err
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Creating the IPFilter successfully")
+			Expect(k8sClient.Create(ctx, toCreateIPFilter)).Should(Succeed())
+
+			fetchedIPFilter := &humiov1alpha1.HumioIPFilter{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedIPFilter)
+				return fetchedIPFilter.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIPFilterStateExists))
+
+			var initialIPFilter *humiographql.IPFilterDetails
+			Eventually(func() error {
+				initialIPFilter, err = humioClient.GetIPFilter(ctx, humioHttpClient, toCreateIPFilter)
+				if err != nil {
+					return err
+				}
+				return nil
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(initialIPFilter).ToNot(BeNil())
+			Expect(initialIPFilter.GetId()).ToNot(BeEmpty())
+
+			// set ID to CR status ID generated from Humio
+			initialIPFilter.Id = fetchedIPFilter.Status.ID
+			expectedInitialIPFilter := &humiographql.IPFilterDetails{
+				Id:       fetchedIPFilter.Status.ID,
+				Name:     toCreateIPFilter.Spec.Name,
+				IpFilter: helpers.SliceToString(toCreateIPFilter.Spec.IPFilter, "\n"),
+			}
+			Expect(*initialIPFilter).To(Equal(*expectedInitialIPFilter))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Updating the IPFilter successfully")
+			filter := []string{"allow 192.168.1.0/24"}
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, key, fetchedIPFilter); err != nil {
+					return err
+				}
+				fetchedIPFilter.Spec.IPFilter = filter
+				return k8sClient.Update(ctx, fetchedIPFilter)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			expectedUpdatedIPFilter := &humiographql.IPFilterDetails{
+				Id:       fetchedIPFilter.Status.ID,
+				Name:     fetchedIPFilter.Spec.Name,
+				IpFilter: helpers.SliceToString(filter, "\n"),
+			}
+			Eventually(func() *humiographql.IPFilterDetails {
+				updatedIPFilter, err := humioClient.GetIPFilter(ctx, humioHttpClient, fetchedIPFilter)
+				if err != nil {
+					return nil
+				}
+				return updatedIPFilter
+			}, testTimeout, suite.TestInterval).Should(Equal(expectedUpdatedIPFilter))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, fetchedIPFilter)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, fetchedIPFilter)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+			Eventually(func() error {
+				_, err := humioClient.GetIPFilter(ctx, humioHttpClient, fetchedIPFilter)
+				return err
+			}, testTimeout, suite.TestInterval).Should(MatchError(humioapi.IPFilterNotFound(fetchedIPFilter.Spec.Name)))
 		})
 	})
 })
