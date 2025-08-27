@@ -120,6 +120,9 @@ rules:
   - humiomulticlustersearchview
   - humiomulticlustersearchview/finalizers
   - humiomulticlustersearchview/status
+  - humioipfilters
+  - humioipfilters/finalizers
+  - humioipfilters/status
   verbs:
   - create
   - delete

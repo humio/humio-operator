@@ -86,3 +86,5 @@ testbin/
 .envrc
 tmp/**
 humio-operator.iml
+cmd/__debug_*
+.mirrord/
