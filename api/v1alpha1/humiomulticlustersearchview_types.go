@@ -91,7 +91,7 @@ type HumioMultiClusterSearchViewConnection struct {
 	// If Type=Remote, the connection will be to a remote repository or view and requires the fields remoteUrl and remoteSecretName to be set.
 	// +kubebuilder:validation:Enum=Local;Remote
 	// +kubebuilder:validation:Required
-	// +TODO: Enable this when we drop support for k8s 1.28 (k8s 1.29 introduced changes to how CEL rule costs are calculated, which means versions prior to this estimated a value higher than the allowed budget): +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	Type string `json:"type"`
 
 	// ViewOrRepoName contains the name of the repository or view for the local connection.
