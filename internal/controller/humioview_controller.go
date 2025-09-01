@@ -95,7 +95,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if isMarkedForDeletion {
 		r.Log.Info("View marked to be deleted")
 		if helpers.ContainsElement(hv.GetFinalizers(), humioFinalizer) {
-			_, err := r.HumioClient.GetView(ctx, humioHttpClient, hv)
+			_, err := r.HumioClient.GetView(ctx, humioHttpClient, hv, false)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
 				hv.SetFinalizers(helpers.RemoveElement(hv.GetFinalizers(), humioFinalizer))
 				err := r.Update(ctx, hv)
@@ -131,7 +131,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return reconcile.Result{Requeue: true}, nil
 	}
 	defer func(ctx context.Context, hv *humiov1alpha1.HumioView) {
-		_, err := r.HumioClient.GetView(ctx, humioHttpClient, hv)
+		_, err := r.HumioClient.GetView(ctx, humioHttpClient, hv, false)
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			_ = r.setState(ctx, humiov1alpha1.HumioViewStateNotFound, hv)
 			return
@@ -144,7 +144,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}(ctx, hv)
 
 	r.Log.Info("get current view")
-	curView, err := r.HumioClient.GetView(ctx, humioHttpClient, hv)
+	curView, err := r.HumioClient.GetView(ctx, humioHttpClient, hv, false)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			r.Log.Info("View doesn't exist. Now adding view")

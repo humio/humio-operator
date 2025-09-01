@@ -1,0 +1,68 @@
+fragment TokenDetails on Token {
+    id
+    name
+    expireAt
+    ipFilterV2 {
+        id
+    }
+    ... on ViewPermissionsToken {
+        views {
+            id
+            name
+        }
+        permissions
+    }
+}
+
+query GetViewToken(
+    $Id: String!
+) {
+    token(
+        tokenId: $Id
+    ) {
+        ...TokenDetails
+    }
+}
+
+mutation CreateViewToken(
+    $Name: String!
+    $IPFilterId: String
+    $ExpiresAt: Long
+    $ViewIds: [String!]!
+    $ViewPermissions: [Permission!]!
+) {
+    createViewPermissionsTokenV2(
+        input: {
+            name: $Name
+            expireAt: $ExpiresAt
+            ipFilterId: $IPFilterId
+            viewIds: $ViewIds
+            viewPermissions: $ViewPermissions
+        }
+    ) {
+        token
+    }
+}
+
+mutation UpdateViewToken(
+    $Id: String!
+    $ViewPermissions: [Permission!]!
+) {
+    updateViewPermissionsTokenPermissions
+    (
+        input: {
+            id: $Id
+            permissions: $ViewPermissions
+        }
+    )
+}
+
+mutation DeleteToken(
+    $Id: String!
+) {
+    deleteToken(
+        input: {
+            id: $Id
+        }
+    )
+}

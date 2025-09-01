@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/humio/humio-operator/internal/api/humiographql"
 	"github.com/humio/humio-operator/internal/helpers"
 	"github.com/humio/humio-operator/internal/kubernetes"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -64,6 +66,7 @@ type ClientMock struct {
 	AdminUserID            map[resourceKey]string
 	Role                   map[resourceKey]humiographql.RoleDetails
 	IPFilter               map[resourceKey]humiographql.IPFilterDetails
+	ViewToken              map[resourceKey]humiographql.TokenDetailsViewPermissionsToken
 }
 
 type MockClientConfig struct {
@@ -90,6 +93,7 @@ func NewMockClient() *MockClientConfig {
 			AdminUserID:            make(map[resourceKey]string),
 			Role:                   make(map[resourceKey]humiographql.RoleDetails),
 			IPFilter:               make(map[resourceKey]humiographql.IPFilterDetails),
+			ViewToken:              make(map[resourceKey]humiographql.TokenDetailsViewPermissionsToken),
 		},
 	}
 
@@ -120,6 +124,7 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 	h.apiClient.User = make(map[resourceKey]humiographql.UserDetails)
 	h.apiClient.AdminUserID = make(map[resourceKey]string)
 	h.apiClient.IPFilter = make(map[resourceKey]humiographql.IPFilterDetails)
+	h.apiClient.ViewToken = make(map[resourceKey]humiographql.TokenDetailsViewPermissionsToken)
 }
 
 func (h *MockClientConfig) Status(_ context.Context, _ *humioapi.Client) (*humioapi.StatusResponse, error) {
@@ -436,7 +441,7 @@ func (h *MockClientConfig) DeleteRepository(_ context.Context, _ *humioapi.Clien
 	return nil
 }
 
-func (h *MockClientConfig) GetView(_ context.Context, _ *humioapi.Client, hv *humiov1alpha1.HumioView) (*humiographql.GetSearchDomainSearchDomainView, error) {
+func (h *MockClientConfig) GetView(_ context.Context, _ *humioapi.Client, hv *humiov1alpha1.HumioView, includeFederated bool) (*humiographql.GetSearchDomainSearchDomainView, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -2070,10 +2075,11 @@ func (h *MockClientConfig) AddIPFilter(ctx context.Context, client *humioapi.Cli
 	value := &humiographql.IPFilterDetails{
 		Id:       kubernetes.RandomString(),
 		Name:     ipFilter.Spec.Name,
-		IpFilter: helpers.SliceToString(ipFilter.Spec.IPFilter, "\n"),
+		IpFilter: helpers.FirewallRulesToString(ipFilter.Spec.IPFilter, "\n"),
 	}
 
 	h.apiClient.IPFilter[key] = *value
+
 	return value, nil
 }
 
@@ -2114,7 +2120,7 @@ func (h *MockClientConfig) UpdateIPFilter(ctx context.Context, _ *humioapi.Clien
 	value := &humiographql.IPFilterDetails{
 		Id:       currentValue.GetId(),
 		Name:     ipFilter.Spec.Name,
-		IpFilter: helpers.SliceToString(ipFilter.Spec.IPFilter, "\n"),
+		IpFilter: helpers.FirewallRulesToString(ipFilter.Spec.IPFilter, "\n"),
 	}
 	h.apiClient.IPFilter[key] = *value
 	return nil
@@ -2131,5 +2137,91 @@ func (h *MockClientConfig) DeleteIPFilter(ctx context.Context, _ *humioapi.Clien
 		resourceName: ipFilter.Spec.Name,
 	}
 	delete(h.apiClient.IPFilter, key)
+	return nil
+}
+
+func (h *MockClientConfig) CreateViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken, ipFilter string, views []string, permissions []humiographql.Permission) (*humiographql.TokenDetailsViewPermissionsToken, string, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", viewToken.Spec.ManagedClusterName, viewToken.Spec.ExternalClusterName)
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: viewToken.Spec.Name,
+	}
+	if _, found := h.apiClient.ViewToken[key]; found {
+		return nil, "", fmt.Errorf("IPFilter already exists with name %s", viewToken.Spec.Name)
+	}
+
+	value := fmt.Sprintf("%s~%s", kubernetes.RandomString(), kubernetes.RandomString())
+	parts := strings.Split(value, "~")
+	expireAt := metav1.NewTime(helpers.GetCurrentTime()).Unix()
+	response := &humiographql.TokenDetailsViewPermissionsToken{
+		Id:          parts[0],
+		Name:        viewToken.Spec.Name,
+		Permissions: viewToken.Spec.Permissions,
+		ExpireAt:    &expireAt,
+	}
+	h.apiClient.ViewToken[key] = *response
+	return response, value, nil
+}
+
+func (h *MockClientConfig) GetViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken) (*humiographql.TokenDetailsViewPermissionsToken, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", viewToken.Spec.ManagedClusterName, viewToken.Spec.ExternalClusterName)
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: viewToken.Spec.Name,
+	}
+
+	if value, found := h.apiClient.ViewToken[key]; found {
+		return &value, nil
+	}
+
+	return nil, humioapi.ViewTokenNotFound(viewToken.Spec.Name)
+}
+
+func (h *MockClientConfig) UpdateViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", viewToken.Spec.ManagedClusterName, viewToken.Spec.ExternalClusterName)
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: viewToken.Spec.Name,
+	}
+	currentValue, found := h.apiClient.ViewToken[key]
+	if !found {
+		return humioapi.ViewTokenNotFound(viewToken.Spec.Name)
+	}
+
+	expireAt := metav1.NewTime(helpers.GetCurrentTime()).Unix()
+	value := &humiographql.TokenDetailsViewPermissionsToken{
+		Id:          currentValue.Id,
+		Name:        viewToken.Spec.Name,
+		Permissions: viewToken.Spec.Permissions,
+		ExpireAt:    &expireAt,
+	}
+	h.apiClient.ViewToken[key] = *value
+
+	return nil
+}
+
+func (h *MockClientConfig) DeleteViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", viewToken.Spec.ManagedClusterName, viewToken.Spec.ExternalClusterName)
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: viewToken.Spec.Name,
+	}
+	delete(h.apiClient.ViewToken, key)
 	return nil
 }

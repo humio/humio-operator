@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	humioapi "github.com/humio/humio-operator/internal/api"
 	"github.com/humio/humio-operator/internal/api/humiographql"
@@ -519,7 +520,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioView: Creating the view successfully in Humio")
 			var initialView *humiographql.GetSearchDomainSearchDomainView
 			Eventually(func() error {
-				initialView, err = humioClient.GetView(ctx, humioHttpClient, viewToCreate)
+				initialView, err = humioClient.GetView(ctx, humioHttpClient, viewToCreate, false)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(initialView).ToNot(BeNil())
@@ -534,7 +535,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			Eventually(func() humiographql.GetSearchDomainSearchDomainView {
-				initialView, err := humioClient.GetView(ctx, humioHttpClient, fetchedView)
+				initialView, err := humioClient.GetView(ctx, humioHttpClient, fetchedView, false)
 				if err != nil {
 					return humiographql.GetSearchDomainSearchDomainView{}
 				}
@@ -567,7 +568,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			suite.UsingClusterBy(clusterKey.Name, "HumioView: Updating the view successfully in Humio")
 			var updatedView *humiographql.GetSearchDomainSearchDomainView
 			Eventually(func() error {
-				updatedView, err = humioClient.GetView(ctx, humioHttpClient, fetchedView)
+				updatedView, err = humioClient.GetView(ctx, humioHttpClient, fetchedView, false)
 				return err
 			}, testTimeout, suite.TestInterval).Should(Succeed())
 			Expect(updatedView).ToNot(BeNil())
@@ -581,7 +582,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 				AutomaticSearch: *fetchedView.Spec.AutomaticSearch,
 			}
 			Eventually(func() humiographql.GetSearchDomainSearchDomainView {
-				updatedView, err := humioClient.GetView(ctx, humioHttpClient, fetchedView)
+				updatedView, err := humioClient.GetView(ctx, humioHttpClient, fetchedView, false)
 				if err != nil {
 					return humiographql.GetSearchDomainSearchDomainView{}
 				}
@@ -4175,7 +4176,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}
 
 			// Verify we validate this for all our CRD's
-			Expect(resources).To(HaveLen(20)) // Bump this as we introduce new CRD's
+			Expect(resources).To(HaveLen(21)) // Bump this as we introduce new CRD's
 
 			for i := range resources {
 				// Get the GVK information
@@ -5139,18 +5140,23 @@ var _ = Describe("Humio Resources Controllers", func() {
 
 	Context("Humio IPFilter", Label("envtest", "dummy", "real"), func() {
 		It("HumioIPFilter: Should handle ipFilter correctly", func() {
+			// some defaults
+			name := "example-ipfilter"
+			ipRules := []humiov1alpha1.FirewallRule{
+				{Action: "allow", IP: "127.0.0.1"},
+				{Action: "allow", IP: "10.0.0.0/8"},
+			}
+
 			ctx := context.Background()
 			spec := humiov1alpha1.HumioIPFilterSpec{
 				ManagedClusterName: clusterKey.Name,
-				Name:               "example-ipfilter",
-				IPFilter:           []string{"allow 127.0.0.1", "allow 10.0.0.0/8"},
+				Name:               name,
+				IPFilter:           ipRules,
 			}
-
 			key := types.NamespacedName{
-				Name:      "example-ipfilter",
+				Name:      name,
 				Namespace: clusterKey.Namespace,
 			}
-
 			toCreateIPFilter := &humiov1alpha1.HumioIPFilter{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      key.Name,
@@ -5158,6 +5164,74 @@ var _ = Describe("Humio Resources Controllers", func() {
 				},
 				Spec: spec,
 			}
+
+			// test CRD validation by k8s
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Validating CRD")
+
+			// test invalid name
+			testCasesName := []struct {
+				Name  string
+				Error string
+			}{
+				{
+					Name:  strings.Repeat("A", 255),
+					Error: "spec.name: Too long: may not be more than 253 bytes",
+				},
+				{
+					Name:  "",
+					Error: "spec.name in body should be at least 1 chars long",
+				},
+			}
+			for _, tc := range testCasesName {
+				toCreateIPFilter.Spec.Name = tc.Name
+				Expect(k8sClient.Create(ctx, toCreateIPFilter)).Should(MatchError(ContainSubstring(tc.Error)))
+			}
+
+			// reset name
+			toCreateIPFilter.Spec.Name = name
+
+			// test invalid IP rules
+			testCasesRule := []struct {
+				Rule  humiov1alpha1.FirewallRule
+				Error string
+			}{
+				{
+					Rule: humiov1alpha1.FirewallRule{
+						Action: "allow",
+						IP:     "",
+					},
+					Error: "ip: Invalid value",
+				},
+				{
+					Rule: humiov1alpha1.FirewallRule{
+						Action: "allow",
+						IP:     "0.0.0",
+					},
+					Error: "ip: Invalid value",
+				},
+				{
+					Rule: humiov1alpha1.FirewallRule{
+						Action: "reject",
+						IP:     "0.0.0.0/0",
+					},
+					Error: "action: Unsupported value",
+				},
+				{
+					Rule: humiov1alpha1.FirewallRule{
+						Action: "",
+						IP:     "127.0.0.1",
+					},
+					Error: "action: Unsupported value",
+				},
+			}
+			for _, tc := range testCasesRule {
+				toCreateIPFilter.Spec.IPFilter = []humiov1alpha1.FirewallRule{tc.Rule}
+				Expect(k8sClient.Create(ctx, toCreateIPFilter)).Should(MatchError(ContainSubstring(tc.Error)))
+			}
+			// reset IPFilter
+			toCreateIPFilter.Spec.IPFilter = ipRules
+			// end test CRD validation
+
 			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Confirming the IPFilter does not exist in LogScale before we start")
@@ -5191,12 +5265,12 @@ var _ = Describe("Humio Resources Controllers", func() {
 			expectedInitialIPFilter := &humiographql.IPFilterDetails{
 				Id:       fetchedIPFilter.Status.ID,
 				Name:     toCreateIPFilter.Spec.Name,
-				IpFilter: helpers.SliceToString(toCreateIPFilter.Spec.IPFilter, "\n"),
+				IpFilter: helpers.FirewallRulesToString(toCreateIPFilter.Spec.IPFilter, "\n"),
 			}
 			Expect(*initialIPFilter).To(Equal(*expectedInitialIPFilter))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Updating the IPFilter successfully")
-			filter := []string{"allow 192.168.1.0/24"}
+			filter := []humiov1alpha1.FirewallRule{{Action: "allow", IP: "192.168.1.0/24"}}
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, key, fetchedIPFilter); err != nil {
 					return err
@@ -5208,7 +5282,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			expectedUpdatedIPFilter := &humiographql.IPFilterDetails{
 				Id:       fetchedIPFilter.Status.ID,
 				Name:     fetchedIPFilter.Spec.Name,
-				IpFilter: helpers.SliceToString(filter, "\n"),
+				IpFilter: helpers.FirewallRulesToString(filter, "\n"),
 			}
 			Eventually(func() *humiographql.IPFilterDetails {
 				updatedIPFilter, err := humioClient.GetIPFilter(ctx, humioHttpClient, fetchedIPFilter)
@@ -5228,6 +5302,405 @@ var _ = Describe("Humio Resources Controllers", func() {
 				_, err := humioClient.GetIPFilter(ctx, humioHttpClient, fetchedIPFilter)
 				return err
 			}, testTimeout, suite.TestInterval).Should(MatchError(humioapi.IPFilterNotFound(fetchedIPFilter.Spec.Name)))
+		})
+	})
+
+	Context("Humio ViewToken", Label("envtest", "dummy", "real"), func() {
+		It("HumioViewToken: Should handle ViewToken correctly", func() {
+			ctx := context.Background()
+			filterName := "example-ipfilter"
+			viewName := "test-view-for-viewtoken"
+			viewTokenName := "example-viewtoken"
+			viewTokenSecretName := "example-viewtoken-secret"
+			permissionNames := []string{"ReadAccess", "ChangeFiles"}
+			expireAt := metav1.NewTime(helpers.GetCurrentTime())
+
+			// create dependencies first
+			// IPFilter
+			filterSpec := humiov1alpha1.HumioIPFilterSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               filterName,
+				IPFilter: []humiov1alpha1.FirewallRule{
+					{Action: "allow", IP: "127.0.0.1"},
+					{Action: "allow", IP: "10.0.0.0/8"},
+				},
+			}
+
+			key := types.NamespacedName{
+				Name:      filterName,
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateIPFilter := &humiov1alpha1.HumioIPFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      key.Name,
+					Namespace: key.Namespace,
+				},
+				Spec: filterSpec,
+			}
+			humioHttpClient := humioClient.GetHumioHttpClient(sharedCluster.Config(), reconcile.Request{NamespacedName: clusterKey})
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Confirming the IPFilter does not exist in LogScale before we start")
+			Eventually(func() error {
+				_, err := humioClient.GetIPFilter(ctx, humioHttpClient, toCreateIPFilter)
+				return err
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Creating the IPFilter successfully")
+			Expect(k8sClient.Create(ctx, toCreateIPFilter)).Should(Succeed())
+
+			fetchedIPFilter := &humiov1alpha1.HumioIPFilter{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, key, fetchedIPFilter)
+				return fetchedIPFilter.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioIPFilterStateExists))
+
+			var initialIPFilter *humiographql.IPFilterDetails
+			Eventually(func() error {
+				initialIPFilter, err = humioClient.GetIPFilter(ctx, humioHttpClient, toCreateIPFilter)
+				if err != nil {
+					return err
+				}
+				return nil
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(initialIPFilter).ToNot(BeNil())
+			Expect(initialIPFilter.GetId()).ToNot(BeEmpty())
+
+			// View
+			viewSpec := humiov1alpha1.HumioViewSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               viewName,
+				Connections: []humiov1alpha1.HumioViewConnection{
+					{
+						RepositoryName: testRepo.Spec.Name,
+					},
+				},
+			}
+			viewKey := types.NamespacedName{
+				Name:      viewName,
+				Namespace: clusterKey.Namespace,
+			}
+			toCreateView := &humiov1alpha1.HumioView{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      viewKey.Name,
+					Namespace: viewKey.Namespace,
+				},
+				Spec: viewSpec,
+			}
+			Expect(k8sClient.Create(ctx, toCreateView)).Should(Succeed())
+			// Wait for View to be ready
+			fetchedView := &humiov1alpha1.HumioView{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, viewKey, fetchedView)
+				return fetchedView.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewStateExists))
+
+			// ViewToken tests
+			viewTokenSpec := humiov1alpha1.HumioViewTokenSpec{
+				ManagedClusterName: clusterKey.Name,
+				Name:               viewTokenName,
+				ViewNames:          []string{viewSpec.Name},
+				IPFilterName:       filterSpec.Name,
+				Permissions:        permissionNames,
+				TokenSecretName:    viewTokenSecretName,
+				ExpiresAt:          &expireAt,
+			}
+
+			keyViewToken := types.NamespacedName{
+				Name:      viewTokenName,
+				Namespace: clusterKey.Namespace,
+			}
+
+			toCreateViewToken := &humiov1alpha1.HumioViewToken{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      keyViewToken.Name,
+					Namespace: keyViewToken.Namespace,
+				},
+				Spec: viewTokenSpec,
+			}
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioViewToken: Confirming the ViewToken does not exist in LogScale before we start")
+			Eventually(func() error {
+				_, err := humioClient.GetViewToken(ctx, humioHttpClient, toCreateViewToken)
+				return err
+			}, testTimeout, suite.TestInterval).ShouldNot(Succeed())
+
+			// test CRD validation
+			suite.UsingClusterBy(clusterKey.Name, "HumioViewToken: testing CRD validation")
+			// test Name
+			testCasesName := []struct {
+				Name  string
+				Error string
+			}{
+				{
+					Name:  strings.Repeat("A", 255),
+					Error: "spec.name: Too long: may not be more than 253 bytes",
+				},
+				{
+					Name:  "",
+					Error: "spec.name in body should be at least 1 chars long",
+				},
+			}
+			for _, tc := range testCasesName {
+				toCreateViewToken.Spec.Name = tc.Name
+				Expect(k8sClient.Create(ctx, toCreateViewToken)).Should(MatchError(ContainSubstring(tc.Error)))
+			}
+			// reset name
+			toCreateViewToken.Spec.Name = viewTokenName
+			// test ViewNames
+			testCasesViewNames := []struct {
+				Name  []string
+				Error string
+			}{
+				{
+					Name:  []string{strings.Repeat("A", 255)},
+					Error: "viewNames: each item must be 1-253 characters long",
+				},
+				{
+					Name:  []string{""},
+					Error: "viewNames: each item must be 1-253 characters long",
+				},
+				{
+					Name:  strings.Split(strings.Repeat("validName,", 100)+"validName", ","),
+					Error: "spec.viewNames: Too many",
+				},
+				{
+					Name:  nil,
+					Error: "spec.viewNames: Required value",
+				},
+			}
+			for _, tc := range testCasesViewNames {
+				toCreateViewToken.Spec.ViewNames = tc.Name
+				Expect(k8sClient.Create(ctx, toCreateViewToken)).Should(MatchError(ContainSubstring(tc.Error)))
+			}
+			// reset viewNames
+			toCreateViewToken.Spec.ViewNames = []string{viewName}
+
+			// test IPFilterName
+			testCasesFilter := []struct {
+				Name  string
+				Error string
+			}{
+				{
+					Name:  strings.Repeat("A", 255),
+					Error: "spec.ipFilterName: Too long: may not be more than 253 bytes",
+				},
+			}
+			for _, tc := range testCasesFilter {
+				toCreateViewToken.Spec.IPFilterName = tc.Name
+				Expect(k8sClient.Create(ctx, toCreateViewToken)).Should(MatchError(ContainSubstring(tc.Error)))
+			}
+			// reset IPFilterName
+			toCreateViewToken.Spec.IPFilterName = filterName
+
+			// test Permissions
+			testCasesPermissions := []struct {
+				Name  []string
+				Error string
+			}{
+				{
+					Name:  []string{strings.Repeat("A", 255)},
+					Error: "permissions: each item must be 1-253 characters long",
+				},
+				{
+					Name:  []string{""},
+					Error: "permissions: each item must be 1-253 characters long",
+				},
+				{
+					Name:  strings.Split(strings.Repeat("validName,", 100)+"validName", ","),
+					Error: "spec.permissions: Too many",
+				},
+				{
+					Name:  nil,
+					Error: "spec.permissions: Required value",
+				},
+			}
+			for _, tc := range testCasesPermissions {
+				toCreateViewToken.Spec.Permissions = tc.Name
+				Expect(k8sClient.Create(ctx, toCreateViewToken)).Should(MatchError(ContainSubstring(tc.Error)))
+			}
+			// reset Permissions
+			toCreateViewToken.Spec.Permissions = permissionNames
+
+			// Test ExpiresAt field validation
+			testCasesExpiresAt := []struct {
+				ExpiresAt *metav1.Time
+				Error     string
+			}{
+				{
+					ExpiresAt: &metav1.Time{Time: time.Date(2099, 12, 31, 23, 59, 59, 0, time.UTC)},
+					Error:     "",
+				},
+			}
+			for _, tc := range testCasesExpiresAt {
+				toCreateViewToken.Spec.ExpiresAt = tc.ExpiresAt
+				Expect(k8sClient.Create(ctx, toCreateViewToken)).Should(Succeed())
+				Expect(k8sClient.Delete(ctx, toCreateViewToken)).Should(Succeed())
+			}
+			// Reset ExpiresAt to original value
+			toCreateViewToken.Spec.ExpiresAt = &expireAt
+
+			// test TokenSecretName
+			testCasesTokenSecretName := []struct {
+				Name  string
+				Error string
+			}{
+				{
+					Name:  strings.Repeat("A", 255),
+					Error: "spec.tokenSecretName: Too long: may not be more than 253 bytes",
+				},
+				{
+					Name:  "",
+					Error: "spec.tokenSecretName in body should be at least 1 chars long",
+				},
+				{
+					Name:  "a.&a",
+					Error: "spec.tokenSecretName in body should match",
+				},
+			}
+			for _, tc := range testCasesTokenSecretName {
+				toCreateViewToken.Spec.TokenSecretName = tc.Name
+				Expect(k8sClient.Create(ctx, toCreateViewToken)).Should(MatchError(ContainSubstring(tc.Error)))
+			}
+			// reset TokenSecretName
+			toCreateViewToken.Spec.TokenSecretName = viewTokenSecretName
+
+			// test TokenSecretLabels
+			testCasesTokenSecretLabels := []struct {
+				Name  map[string]string
+				Error string
+			}{
+				{
+					Name:  map[string]string{strings.Repeat("A", 255): ""},
+					Error: "tokenSecretLabels keys must be 1-63 characters",
+				},
+				{
+					Name:  map[string]string{"test": strings.Repeat("A", 255)},
+					Error: "tokenSecretLabels values must be 1-63 characters",
+				},
+				{
+					Name: func() map[string]string {
+						m := make(map[string]string)
+						for i := range 64 {
+							m[fmt.Sprintf("validName%d", i)] = "validValue"
+						}
+						return m
+					}(),
+					Error: "tokenSecretLabels cannot exceed 63 labels",
+				},
+			}
+			for _, tc := range testCasesTokenSecretLabels {
+				toCreateViewToken.Spec.TokenSecretLabels = tc.Name
+				Expect(k8sClient.Create(ctx, toCreateViewToken)).Should(MatchError(ContainSubstring(tc.Error)))
+			}
+			// reset TokenSecretLabels
+			toCreateViewToken.Spec.TokenSecretLabels = nil
+
+			// test TokenSecretAnnotations
+			testCasesTokenSecretAnnotations := []struct {
+				Name  map[string]string
+				Error string
+			}{
+				{
+					Name:  map[string]string{strings.Repeat("A", 255): ""},
+					Error: "tokenSecretAnnotations keys must be 1-63 characters",
+				},
+				{
+					Name:  map[string]string{"test": strings.Repeat("A", 255)},
+					Error: "tokenSecretAnnotations values must be 1-63 characters",
+				},
+				{
+					Name: func() map[string]string {
+						m := make(map[string]string)
+						// Create entries to go above 256KB
+						for i := range 1024 {
+							m[fmt.Sprintf("%d", i)] = strings.Repeat("A", 255)
+						}
+						return m
+					}(),
+					Error: "tokenSecretAnnotations total size cannot exceed 256KB",
+				},
+			}
+			for _, tc := range testCasesTokenSecretAnnotations {
+				toCreateViewToken.Spec.TokenSecretAnnotations = tc.Name
+				Expect(k8sClient.Create(ctx, toCreateViewToken)).Should(MatchError(ContainSubstring(tc.Error)))
+			}
+			// reset TokenSecretAnnotations
+			toCreateViewToken.Spec.TokenSecretAnnotations = nil
+
+			// TODO need to figure out why this is needed before the next create
+			toCreateViewToken.ResourceVersion = ""
+			// end test CRD validation
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioViewToken: Creating the ViewToken successfully")
+			Expect(k8sClient.Create(ctx, toCreateViewToken)).Should(Succeed())
+
+			k8sViewToken := &humiov1alpha1.HumioViewToken{}
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, keyViewToken, k8sViewToken)
+				return k8sViewToken.Status.State
+			}, testTimeout, suite.TestInterval).Should(Equal(humiov1alpha1.HumioViewTokenExists))
+
+			var initialViewToken *humiographql.TokenDetailsViewPermissionsToken
+			Eventually(func() error {
+				initialViewToken, err = humioClient.GetViewToken(ctx, humioHttpClient, toCreateViewToken)
+				if err != nil {
+					return err
+				}
+				return nil
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(initialViewToken).ToNot(BeNil())
+			Expect(initialViewToken.GetId()).ToNot(BeEmpty())
+			Expect(k8sViewToken.Status.ID).To(Equal(initialViewToken.GetId()))
+			Expect(k8sViewToken.Spec.ExpiresAt).To(Equal(viewTokenSpec.ExpiresAt))
+			Expect(k8sViewToken.Spec.ExpiresAt.Unix()).To(Equal(*initialViewToken.ExpireAt))
+
+			// Check that the secret was created
+			secretKey := types.NamespacedName{
+				Name:      viewTokenSpec.TokenSecretName,
+				Namespace: clusterKey.Namespace,
+			}
+			secret := &corev1.Secret{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, secretKey, secret)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+			Expect(secret.Data).To(HaveKey("token"))
+			Expect(len(secret.Data["token"])).To(BeNumerically(">", 0))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioViewToken: Updating the ViewToken permissions successfully")
+			updatedPermissions := []string{"ReadAccess"}
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, keyViewToken, k8sViewToken); err != nil {
+					return err
+				}
+				k8sViewToken.Spec.Permissions = updatedPermissions
+				return k8sClient.Update(ctx, k8sViewToken)
+			}, testTimeout, suite.TestInterval).Should(Succeed())
+
+			Eventually(func() []string {
+				updatedViewToken, err := humioClient.GetViewToken(ctx, humioHttpClient, k8sViewToken)
+				if err != nil {
+					return nil
+				}
+				return updatedViewToken.Permissions
+			}, testTimeout, suite.TestInterval).Should(Equal(updatedPermissions))
+
+			suite.UsingClusterBy(clusterKey.Name, "HumioViewToken: Successfully deleting it")
+			Expect(k8sClient.Delete(ctx, k8sViewToken)).To(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, keyViewToken, k8sViewToken)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
+			Eventually(func() error {
+				_, err := humioClient.GetViewToken(ctx, humioHttpClient, k8sViewToken)
+				return err
+			}, testTimeout, suite.TestInterval).Should(MatchError(ContainSubstring("not found")))
+
+			// Check that the secret was also deleted
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, secretKey, secret)
+				return k8serrors.IsNotFound(err)
+			}, testTimeout, suite.TestInterval).Should(BeTrue())
 		})
 	})
 })

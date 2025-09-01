@@ -61,20 +61,32 @@ spec:
                 minLength: 1
                 type: string
               ipFilter:
-                description: IPFilter defines the IP filter to use
+                description: IPFilter defines the IP filter rule to use
                 items:
-                  type: string
+                  properties:
+                    action:
+                      enum:
+                      - allow
+                      - deny
+                      type: string
+                    ip:
+                      pattern: ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(/(3[0-2]|[12]?[0-9]))?$
+                      type: string
+                  required:
+                  - action
+                  - ip
+                  type: object
                 type: array
               managedClusterName:
                 description: |-
-                  ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
-                  resources should be created.
+                  ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio resources should be created.
                   This conflicts with ExternalClusterName.
                 minLength: 1
                 type: string
               name:
                 description: Name is the name of the IP filter inside Humio
-                minLength: 3
+                maxLength: 253
+                minLength: 1
                 type: string
                 x-kubernetes-validations:
                 - message: Value is immutable

@@ -3294,6 +3294,33 @@ type CreateViewResponse struct {
 // GetCreateView returns CreateViewResponse.CreateView, and is useful for accessing the field via an interface.
 func (v *CreateViewResponse) GetCreateView() CreateViewCreateView { return v.CreateView }
 
+// CreateViewTokenCreateViewPermissionsTokenV2CreateViewPermissionsTokenV2Output includes the requested fields of the GraphQL type CreateViewPermissionsTokenV2Output.
+// The GraphQL type's documentation follows.
+//
+// The view permissions token and its associated metadata.
+type CreateViewTokenCreateViewPermissionsTokenV2CreateViewPermissionsTokenV2Output struct {
+	// The view permissions token.
+	// Stability: Long-term
+	Token string `json:"token"`
+}
+
+// GetToken returns CreateViewTokenCreateViewPermissionsTokenV2CreateViewPermissionsTokenV2Output.Token, and is useful for accessing the field via an interface.
+func (v *CreateViewTokenCreateViewPermissionsTokenV2CreateViewPermissionsTokenV2Output) GetToken() string {
+	return v.Token
+}
+
+// CreateViewTokenResponse is returned by CreateViewToken on success.
+type CreateViewTokenResponse struct {
+	// Creates a view permissions token with the specified permissions on the views specified in the 'viewIds' field.
+	// Stability: Long-term
+	CreateViewPermissionsTokenV2 CreateViewTokenCreateViewPermissionsTokenV2CreateViewPermissionsTokenV2Output `json:"createViewPermissionsTokenV2"`
+}
+
+// GetCreateViewPermissionsTokenV2 returns CreateViewTokenResponse.CreateViewPermissionsTokenV2, and is useful for accessing the field via an interface.
+func (v *CreateViewTokenResponse) GetCreateViewPermissionsTokenV2() CreateViewTokenCreateViewPermissionsTokenV2CreateViewPermissionsTokenV2Output {
+	return v.CreateViewPermissionsTokenV2
+}
+
 // CreateWebhookActionCreateWebhookAction includes the requested fields of the GraphQL type WebhookAction.
 // The GraphQL type's documentation follows.
 //
@@ -3547,6 +3574,16 @@ type DeleteSearchDomainResponse struct {
 func (v *DeleteSearchDomainResponse) GetDeleteSearchDomain() DeleteSearchDomainDeleteSearchDomainBooleanResultType {
 	return v.DeleteSearchDomain
 }
+
+// DeleteTokenResponse is returned by DeleteToken on success.
+type DeleteTokenResponse struct {
+	// Delete a token
+	// Stability: Long-term
+	DeleteToken bool `json:"deleteToken"`
+}
+
+// GetDeleteToken returns DeleteTokenResponse.DeleteToken, and is useful for accessing the field via an interface.
+func (v *DeleteTokenResponse) GetDeleteToken() bool { return v.DeleteToken }
 
 // DisableGlobalFeatureFlagResponse is returned by DisableGlobalFeatureFlag on success.
 type DisableGlobalFeatureFlagResponse struct {
@@ -8238,6 +8275,582 @@ func (v *GetUsersByUsernameUsersUser) __premarshalJSON() (*__premarshalGetUsersB
 	retval.Id = v.UserDetails.Id
 	retval.Username = v.UserDetails.Username
 	retval.IsRoot = v.UserDetails.IsRoot
+	return &retval, nil
+}
+
+// GetViewTokenResponse is returned by GetViewToken on success.
+type GetViewTokenResponse struct {
+	// Get a specific token by ID
+	// Stability: Long-term
+	Token GetViewTokenToken `json:"-"`
+}
+
+// GetToken returns GetViewTokenResponse.Token, and is useful for accessing the field via an interface.
+func (v *GetViewTokenResponse) GetToken() GetViewTokenToken { return v.Token }
+
+func (v *GetViewTokenResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetViewTokenResponse
+		Token json.RawMessage `json:"token"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetViewTokenResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Token
+		src := firstPass.Token
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalGetViewTokenToken(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal GetViewTokenResponse.Token: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalGetViewTokenResponse struct {
+	Token json.RawMessage `json:"token"`
+}
+
+func (v *GetViewTokenResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetViewTokenResponse) __premarshalJSON() (*__premarshalGetViewTokenResponse, error) {
+	var retval __premarshalGetViewTokenResponse
+
+	{
+
+		dst := &retval.Token
+		src := v.Token
+		var err error
+		*dst, err = __marshalGetViewTokenToken(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal GetViewTokenResponse.Token: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// GetViewTokenToken includes the requested fields of the GraphQL interface Token.
+//
+// GetViewTokenToken is implemented by the following types:
+// GetViewTokenTokenOrganizationPermissionsToken
+// GetViewTokenTokenPersonalUserToken
+// GetViewTokenTokenSystemPermissionsToken
+// GetViewTokenTokenViewPermissionsToken
+// The GraphQL type's documentation follows.
+//
+// A token.
+type GetViewTokenToken interface {
+	implementsGraphQLInterfaceGetViewTokenToken()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	TokenDetails
+}
+
+func (v *GetViewTokenTokenOrganizationPermissionsToken) implementsGraphQLInterfaceGetViewTokenToken() {
+}
+func (v *GetViewTokenTokenPersonalUserToken) implementsGraphQLInterfaceGetViewTokenToken()      {}
+func (v *GetViewTokenTokenSystemPermissionsToken) implementsGraphQLInterfaceGetViewTokenToken() {}
+func (v *GetViewTokenTokenViewPermissionsToken) implementsGraphQLInterfaceGetViewTokenToken()   {}
+
+func __unmarshalGetViewTokenToken(b []byte, v *GetViewTokenToken) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "OrganizationPermissionsToken":
+		*v = new(GetViewTokenTokenOrganizationPermissionsToken)
+		return json.Unmarshal(b, *v)
+	case "PersonalUserToken":
+		*v = new(GetViewTokenTokenPersonalUserToken)
+		return json.Unmarshal(b, *v)
+	case "SystemPermissionsToken":
+		*v = new(GetViewTokenTokenSystemPermissionsToken)
+		return json.Unmarshal(b, *v)
+	case "ViewPermissionsToken":
+		*v = new(GetViewTokenTokenViewPermissionsToken)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing Token.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for GetViewTokenToken: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalGetViewTokenToken(v *GetViewTokenToken) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *GetViewTokenTokenOrganizationPermissionsToken:
+		typename = "OrganizationPermissionsToken"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalGetViewTokenTokenOrganizationPermissionsToken
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case *GetViewTokenTokenPersonalUserToken:
+		typename = "PersonalUserToken"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalGetViewTokenTokenPersonalUserToken
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case *GetViewTokenTokenSystemPermissionsToken:
+		typename = "SystemPermissionsToken"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalGetViewTokenTokenSystemPermissionsToken
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case *GetViewTokenTokenViewPermissionsToken:
+		typename = "ViewPermissionsToken"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalGetViewTokenTokenViewPermissionsToken
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for GetViewTokenToken: "%T"`, v)
+	}
+}
+
+// GetViewTokenTokenOrganizationPermissionsToken includes the requested fields of the GraphQL type OrganizationPermissionsToken.
+// The GraphQL type's documentation follows.
+//
+// Organization permissions token. The token allows the caller to work with organization-level permissions.
+type GetViewTokenTokenOrganizationPermissionsToken struct {
+	Typename                                 *string `json:"__typename"`
+	TokenDetailsOrganizationPermissionsToken `json:"-"`
+}
+
+// GetTypename returns GetViewTokenTokenOrganizationPermissionsToken.Typename, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenOrganizationPermissionsToken) GetTypename() *string { return v.Typename }
+
+// GetId returns GetViewTokenTokenOrganizationPermissionsToken.Id, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenOrganizationPermissionsToken) GetId() string {
+	return v.TokenDetailsOrganizationPermissionsToken.Id
+}
+
+// GetName returns GetViewTokenTokenOrganizationPermissionsToken.Name, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenOrganizationPermissionsToken) GetName() string {
+	return v.TokenDetailsOrganizationPermissionsToken.Name
+}
+
+// GetExpireAt returns GetViewTokenTokenOrganizationPermissionsToken.ExpireAt, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenOrganizationPermissionsToken) GetExpireAt() *int64 {
+	return v.TokenDetailsOrganizationPermissionsToken.ExpireAt
+}
+
+// GetIpFilterV2 returns GetViewTokenTokenOrganizationPermissionsToken.IpFilterV2, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenOrganizationPermissionsToken) GetIpFilterV2() *TokenDetailsIpFilterV2IPFilter {
+	return v.TokenDetailsOrganizationPermissionsToken.IpFilterV2
+}
+
+func (v *GetViewTokenTokenOrganizationPermissionsToken) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetViewTokenTokenOrganizationPermissionsToken
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetViewTokenTokenOrganizationPermissionsToken = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TokenDetailsOrganizationPermissionsToken)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetViewTokenTokenOrganizationPermissionsToken struct {
+	Typename *string `json:"__typename"`
+
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	ExpireAt *int64 `json:"expireAt"`
+
+	IpFilterV2 *TokenDetailsIpFilterV2IPFilter `json:"ipFilterV2"`
+}
+
+func (v *GetViewTokenTokenOrganizationPermissionsToken) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetViewTokenTokenOrganizationPermissionsToken) __premarshalJSON() (*__premarshalGetViewTokenTokenOrganizationPermissionsToken, error) {
+	var retval __premarshalGetViewTokenTokenOrganizationPermissionsToken
+
+	retval.Typename = v.Typename
+	retval.Id = v.TokenDetailsOrganizationPermissionsToken.Id
+	retval.Name = v.TokenDetailsOrganizationPermissionsToken.Name
+	retval.ExpireAt = v.TokenDetailsOrganizationPermissionsToken.ExpireAt
+	retval.IpFilterV2 = v.TokenDetailsOrganizationPermissionsToken.IpFilterV2
+	return &retval, nil
+}
+
+// GetViewTokenTokenPersonalUserToken includes the requested fields of the GraphQL type PersonalUserToken.
+// The GraphQL type's documentation follows.
+//
+// Personal token for a user. The token will inherit the same permissions as the user.
+type GetViewTokenTokenPersonalUserToken struct {
+	Typename                      *string `json:"__typename"`
+	TokenDetailsPersonalUserToken `json:"-"`
+}
+
+// GetTypename returns GetViewTokenTokenPersonalUserToken.Typename, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenPersonalUserToken) GetTypename() *string { return v.Typename }
+
+// GetId returns GetViewTokenTokenPersonalUserToken.Id, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenPersonalUserToken) GetId() string {
+	return v.TokenDetailsPersonalUserToken.Id
+}
+
+// GetName returns GetViewTokenTokenPersonalUserToken.Name, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenPersonalUserToken) GetName() string {
+	return v.TokenDetailsPersonalUserToken.Name
+}
+
+// GetExpireAt returns GetViewTokenTokenPersonalUserToken.ExpireAt, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenPersonalUserToken) GetExpireAt() *int64 {
+	return v.TokenDetailsPersonalUserToken.ExpireAt
+}
+
+// GetIpFilterV2 returns GetViewTokenTokenPersonalUserToken.IpFilterV2, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenPersonalUserToken) GetIpFilterV2() *TokenDetailsIpFilterV2IPFilter {
+	return v.TokenDetailsPersonalUserToken.IpFilterV2
+}
+
+func (v *GetViewTokenTokenPersonalUserToken) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetViewTokenTokenPersonalUserToken
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetViewTokenTokenPersonalUserToken = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TokenDetailsPersonalUserToken)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetViewTokenTokenPersonalUserToken struct {
+	Typename *string `json:"__typename"`
+
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	ExpireAt *int64 `json:"expireAt"`
+
+	IpFilterV2 *TokenDetailsIpFilterV2IPFilter `json:"ipFilterV2"`
+}
+
+func (v *GetViewTokenTokenPersonalUserToken) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetViewTokenTokenPersonalUserToken) __premarshalJSON() (*__premarshalGetViewTokenTokenPersonalUserToken, error) {
+	var retval __premarshalGetViewTokenTokenPersonalUserToken
+
+	retval.Typename = v.Typename
+	retval.Id = v.TokenDetailsPersonalUserToken.Id
+	retval.Name = v.TokenDetailsPersonalUserToken.Name
+	retval.ExpireAt = v.TokenDetailsPersonalUserToken.ExpireAt
+	retval.IpFilterV2 = v.TokenDetailsPersonalUserToken.IpFilterV2
+	return &retval, nil
+}
+
+// GetViewTokenTokenSystemPermissionsToken includes the requested fields of the GraphQL type SystemPermissionsToken.
+// The GraphQL type's documentation follows.
+//
+// System permissions token. The token allows the caller to work with system-level permissions.
+type GetViewTokenTokenSystemPermissionsToken struct {
+	Typename                           *string `json:"__typename"`
+	TokenDetailsSystemPermissionsToken `json:"-"`
+}
+
+// GetTypename returns GetViewTokenTokenSystemPermissionsToken.Typename, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenSystemPermissionsToken) GetTypename() *string { return v.Typename }
+
+// GetId returns GetViewTokenTokenSystemPermissionsToken.Id, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenSystemPermissionsToken) GetId() string {
+	return v.TokenDetailsSystemPermissionsToken.Id
+}
+
+// GetName returns GetViewTokenTokenSystemPermissionsToken.Name, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenSystemPermissionsToken) GetName() string {
+	return v.TokenDetailsSystemPermissionsToken.Name
+}
+
+// GetExpireAt returns GetViewTokenTokenSystemPermissionsToken.ExpireAt, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenSystemPermissionsToken) GetExpireAt() *int64 {
+	return v.TokenDetailsSystemPermissionsToken.ExpireAt
+}
+
+// GetIpFilterV2 returns GetViewTokenTokenSystemPermissionsToken.IpFilterV2, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenSystemPermissionsToken) GetIpFilterV2() *TokenDetailsIpFilterV2IPFilter {
+	return v.TokenDetailsSystemPermissionsToken.IpFilterV2
+}
+
+func (v *GetViewTokenTokenSystemPermissionsToken) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetViewTokenTokenSystemPermissionsToken
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetViewTokenTokenSystemPermissionsToken = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TokenDetailsSystemPermissionsToken)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetViewTokenTokenSystemPermissionsToken struct {
+	Typename *string `json:"__typename"`
+
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	ExpireAt *int64 `json:"expireAt"`
+
+	IpFilterV2 *TokenDetailsIpFilterV2IPFilter `json:"ipFilterV2"`
+}
+
+func (v *GetViewTokenTokenSystemPermissionsToken) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetViewTokenTokenSystemPermissionsToken) __premarshalJSON() (*__premarshalGetViewTokenTokenSystemPermissionsToken, error) {
+	var retval __premarshalGetViewTokenTokenSystemPermissionsToken
+
+	retval.Typename = v.Typename
+	retval.Id = v.TokenDetailsSystemPermissionsToken.Id
+	retval.Name = v.TokenDetailsSystemPermissionsToken.Name
+	retval.ExpireAt = v.TokenDetailsSystemPermissionsToken.ExpireAt
+	retval.IpFilterV2 = v.TokenDetailsSystemPermissionsToken.IpFilterV2
+	return &retval, nil
+}
+
+// GetViewTokenTokenViewPermissionsToken includes the requested fields of the GraphQL type ViewPermissionsToken.
+// The GraphQL type's documentation follows.
+//
+// View permissions token. The token allows the caller to work with the same set of view-level permissions across multiple views.
+type GetViewTokenTokenViewPermissionsToken struct {
+	Typename                         *string `json:"__typename"`
+	TokenDetailsViewPermissionsToken `json:"-"`
+}
+
+// GetTypename returns GetViewTokenTokenViewPermissionsToken.Typename, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenViewPermissionsToken) GetTypename() *string { return v.Typename }
+
+// GetId returns GetViewTokenTokenViewPermissionsToken.Id, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenViewPermissionsToken) GetId() string {
+	return v.TokenDetailsViewPermissionsToken.Id
+}
+
+// GetName returns GetViewTokenTokenViewPermissionsToken.Name, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenViewPermissionsToken) GetName() string {
+	return v.TokenDetailsViewPermissionsToken.Name
+}
+
+// GetExpireAt returns GetViewTokenTokenViewPermissionsToken.ExpireAt, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenViewPermissionsToken) GetExpireAt() *int64 {
+	return v.TokenDetailsViewPermissionsToken.ExpireAt
+}
+
+// GetIpFilterV2 returns GetViewTokenTokenViewPermissionsToken.IpFilterV2, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenViewPermissionsToken) GetIpFilterV2() *TokenDetailsIpFilterV2IPFilter {
+	return v.TokenDetailsViewPermissionsToken.IpFilterV2
+}
+
+// GetViews returns GetViewTokenTokenViewPermissionsToken.Views, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenViewPermissionsToken) GetViews() []TokenDetailsViewsSearchDomain {
+	return v.TokenDetailsViewPermissionsToken.Views
+}
+
+// GetPermissions returns GetViewTokenTokenViewPermissionsToken.Permissions, and is useful for accessing the field via an interface.
+func (v *GetViewTokenTokenViewPermissionsToken) GetPermissions() []string {
+	return v.TokenDetailsViewPermissionsToken.Permissions
+}
+
+func (v *GetViewTokenTokenViewPermissionsToken) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetViewTokenTokenViewPermissionsToken
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetViewTokenTokenViewPermissionsToken = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TokenDetailsViewPermissionsToken)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetViewTokenTokenViewPermissionsToken struct {
+	Typename *string `json:"__typename"`
+
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	ExpireAt *int64 `json:"expireAt"`
+
+	IpFilterV2 *TokenDetailsIpFilterV2IPFilter `json:"ipFilterV2"`
+
+	Views []json.RawMessage `json:"views"`
+
+	Permissions []string `json:"permissions"`
+}
+
+func (v *GetViewTokenTokenViewPermissionsToken) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetViewTokenTokenViewPermissionsToken) __premarshalJSON() (*__premarshalGetViewTokenTokenViewPermissionsToken, error) {
+	var retval __premarshalGetViewTokenTokenViewPermissionsToken
+
+	retval.Typename = v.Typename
+	retval.Id = v.TokenDetailsViewPermissionsToken.Id
+	retval.Name = v.TokenDetailsViewPermissionsToken.Name
+	retval.ExpireAt = v.TokenDetailsViewPermissionsToken.ExpireAt
+	retval.IpFilterV2 = v.TokenDetailsViewPermissionsToken.IpFilterV2
+	{
+
+		dst := &retval.Views
+		src := v.TokenDetailsViewPermissionsToken.Views
+		*dst = make(
+			[]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			var err error
+			*dst, err = __marshalTokenDetailsViewsSearchDomain(
+				&src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal GetViewTokenTokenViewPermissionsToken.TokenDetailsViewPermissionsToken.Views: %w", err)
+			}
+		}
+	}
+	retval.Permissions = v.TokenDetailsViewPermissionsToken.Permissions
 	return &retval, nil
 }
 
@@ -14038,6 +14651,485 @@ var AllSystemPermission = []SystemPermission{
 	SystemPermissionManageorganizationlinks,
 }
 
+// TokenDetails includes the GraphQL fields of Token requested by the fragment TokenDetails.
+// The GraphQL type's documentation follows.
+//
+// A token.
+//
+// TokenDetails is implemented by the following types:
+// TokenDetailsOrganizationPermissionsToken
+// TokenDetailsPersonalUserToken
+// TokenDetailsSystemPermissionsToken
+// TokenDetailsViewPermissionsToken
+type TokenDetails interface {
+	implementsGraphQLInterfaceTokenDetails()
+	// GetId returns the interface-field "id" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// A token.
+	GetId() string
+	// GetName returns the interface-field "name" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// A token.
+	GetName() string
+	// GetExpireAt returns the interface-field "expireAt" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// A token.
+	GetExpireAt() *int64
+	// GetIpFilterV2 returns the interface-field "ipFilterV2" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// A token.
+	GetIpFilterV2() *TokenDetailsIpFilterV2IPFilter
+}
+
+func (v *TokenDetailsOrganizationPermissionsToken) implementsGraphQLInterfaceTokenDetails() {}
+func (v *TokenDetailsPersonalUserToken) implementsGraphQLInterfaceTokenDetails()            {}
+func (v *TokenDetailsSystemPermissionsToken) implementsGraphQLInterfaceTokenDetails()       {}
+func (v *TokenDetailsViewPermissionsToken) implementsGraphQLInterfaceTokenDetails()         {}
+
+func __unmarshalTokenDetails(b []byte, v *TokenDetails) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "OrganizationPermissionsToken":
+		*v = new(TokenDetailsOrganizationPermissionsToken)
+		return json.Unmarshal(b, *v)
+	case "PersonalUserToken":
+		*v = new(TokenDetailsPersonalUserToken)
+		return json.Unmarshal(b, *v)
+	case "SystemPermissionsToken":
+		*v = new(TokenDetailsSystemPermissionsToken)
+		return json.Unmarshal(b, *v)
+	case "ViewPermissionsToken":
+		*v = new(TokenDetailsViewPermissionsToken)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing Token.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for TokenDetails: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalTokenDetails(v *TokenDetails) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *TokenDetailsOrganizationPermissionsToken:
+		typename = "OrganizationPermissionsToken"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*TokenDetailsOrganizationPermissionsToken
+		}{typename, v}
+		return json.Marshal(result)
+	case *TokenDetailsPersonalUserToken:
+		typename = "PersonalUserToken"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*TokenDetailsPersonalUserToken
+		}{typename, v}
+		return json.Marshal(result)
+	case *TokenDetailsSystemPermissionsToken:
+		typename = "SystemPermissionsToken"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*TokenDetailsSystemPermissionsToken
+		}{typename, v}
+		return json.Marshal(result)
+	case *TokenDetailsViewPermissionsToken:
+		typename = "ViewPermissionsToken"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalTokenDetailsViewPermissionsToken
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for TokenDetails: "%T"`, v)
+	}
+}
+
+// TokenDetailsIpFilterV2IPFilter includes the requested fields of the GraphQL type IPFilter.
+// The GraphQL type's documentation follows.
+//
+// An IP Filter
+type TokenDetailsIpFilterV2IPFilter struct {
+	// The unique id for the ip filter
+	// Stability: Long-term
+	Id string `json:"id"`
+}
+
+// GetId returns TokenDetailsIpFilterV2IPFilter.Id, and is useful for accessing the field via an interface.
+func (v *TokenDetailsIpFilterV2IPFilter) GetId() string { return v.Id }
+
+// TokenDetails includes the GraphQL fields of OrganizationPermissionsToken requested by the fragment TokenDetails.
+// The GraphQL type's documentation follows.
+//
+// A token.
+type TokenDetailsOrganizationPermissionsToken struct {
+	// A token.
+	Id string `json:"id"`
+	// A token.
+	Name string `json:"name"`
+	// A token.
+	ExpireAt *int64 `json:"expireAt"`
+	// A token.
+	IpFilterV2 *TokenDetailsIpFilterV2IPFilter `json:"ipFilterV2"`
+}
+
+// GetId returns TokenDetailsOrganizationPermissionsToken.Id, and is useful for accessing the field via an interface.
+func (v *TokenDetailsOrganizationPermissionsToken) GetId() string { return v.Id }
+
+// GetName returns TokenDetailsOrganizationPermissionsToken.Name, and is useful for accessing the field via an interface.
+func (v *TokenDetailsOrganizationPermissionsToken) GetName() string { return v.Name }
+
+// GetExpireAt returns TokenDetailsOrganizationPermissionsToken.ExpireAt, and is useful for accessing the field via an interface.
+func (v *TokenDetailsOrganizationPermissionsToken) GetExpireAt() *int64 { return v.ExpireAt }
+
+// GetIpFilterV2 returns TokenDetailsOrganizationPermissionsToken.IpFilterV2, and is useful for accessing the field via an interface.
+func (v *TokenDetailsOrganizationPermissionsToken) GetIpFilterV2() *TokenDetailsIpFilterV2IPFilter {
+	return v.IpFilterV2
+}
+
+// TokenDetails includes the GraphQL fields of PersonalUserToken requested by the fragment TokenDetails.
+// The GraphQL type's documentation follows.
+//
+// A token.
+type TokenDetailsPersonalUserToken struct {
+	// A token.
+	Id string `json:"id"`
+	// A token.
+	Name string `json:"name"`
+	// A token.
+	ExpireAt *int64 `json:"expireAt"`
+	// A token.
+	IpFilterV2 *TokenDetailsIpFilterV2IPFilter `json:"ipFilterV2"`
+}
+
+// GetId returns TokenDetailsPersonalUserToken.Id, and is useful for accessing the field via an interface.
+func (v *TokenDetailsPersonalUserToken) GetId() string { return v.Id }
+
+// GetName returns TokenDetailsPersonalUserToken.Name, and is useful for accessing the field via an interface.
+func (v *TokenDetailsPersonalUserToken) GetName() string { return v.Name }
+
+// GetExpireAt returns TokenDetailsPersonalUserToken.ExpireAt, and is useful for accessing the field via an interface.
+func (v *TokenDetailsPersonalUserToken) GetExpireAt() *int64 { return v.ExpireAt }
+
+// GetIpFilterV2 returns TokenDetailsPersonalUserToken.IpFilterV2, and is useful for accessing the field via an interface.
+func (v *TokenDetailsPersonalUserToken) GetIpFilterV2() *TokenDetailsIpFilterV2IPFilter {
+	return v.IpFilterV2
+}
+
+// TokenDetails includes the GraphQL fields of SystemPermissionsToken requested by the fragment TokenDetails.
+// The GraphQL type's documentation follows.
+//
+// A token.
+type TokenDetailsSystemPermissionsToken struct {
+	// A token.
+	Id string `json:"id"`
+	// A token.
+	Name string `json:"name"`
+	// A token.
+	ExpireAt *int64 `json:"expireAt"`
+	// A token.
+	IpFilterV2 *TokenDetailsIpFilterV2IPFilter `json:"ipFilterV2"`
+}
+
+// GetId returns TokenDetailsSystemPermissionsToken.Id, and is useful for accessing the field via an interface.
+func (v *TokenDetailsSystemPermissionsToken) GetId() string { return v.Id }
+
+// GetName returns TokenDetailsSystemPermissionsToken.Name, and is useful for accessing the field via an interface.
+func (v *TokenDetailsSystemPermissionsToken) GetName() string { return v.Name }
+
+// GetExpireAt returns TokenDetailsSystemPermissionsToken.ExpireAt, and is useful for accessing the field via an interface.
+func (v *TokenDetailsSystemPermissionsToken) GetExpireAt() *int64 { return v.ExpireAt }
+
+// GetIpFilterV2 returns TokenDetailsSystemPermissionsToken.IpFilterV2, and is useful for accessing the field via an interface.
+func (v *TokenDetailsSystemPermissionsToken) GetIpFilterV2() *TokenDetailsIpFilterV2IPFilter {
+	return v.IpFilterV2
+}
+
+// TokenDetails includes the GraphQL fields of ViewPermissionsToken requested by the fragment TokenDetails.
+// The GraphQL type's documentation follows.
+//
+// A token.
+type TokenDetailsViewPermissionsToken struct {
+	// A token.
+	Id string `json:"id"`
+	// A token.
+	Name string `json:"name"`
+	// A token.
+	ExpireAt *int64 `json:"expireAt"`
+	// A token.
+	IpFilterV2 *TokenDetailsIpFilterV2IPFilter `json:"ipFilterV2"`
+	// The set of views on the token. Will only list the views the user has access to.
+	// Stability: Long-term
+	Views []TokenDetailsViewsSearchDomain `json:"-"`
+	// The set of permissions on the token
+	// Stability: Long-term
+	Permissions []string `json:"permissions"`
+}
+
+// GetId returns TokenDetailsViewPermissionsToken.Id, and is useful for accessing the field via an interface.
+func (v *TokenDetailsViewPermissionsToken) GetId() string { return v.Id }
+
+// GetName returns TokenDetailsViewPermissionsToken.Name, and is useful for accessing the field via an interface.
+func (v *TokenDetailsViewPermissionsToken) GetName() string { return v.Name }
+
+// GetExpireAt returns TokenDetailsViewPermissionsToken.ExpireAt, and is useful for accessing the field via an interface.
+func (v *TokenDetailsViewPermissionsToken) GetExpireAt() *int64 { return v.ExpireAt }
+
+// GetIpFilterV2 returns TokenDetailsViewPermissionsToken.IpFilterV2, and is useful for accessing the field via an interface.
+func (v *TokenDetailsViewPermissionsToken) GetIpFilterV2() *TokenDetailsIpFilterV2IPFilter {
+	return v.IpFilterV2
+}
+
+// GetViews returns TokenDetailsViewPermissionsToken.Views, and is useful for accessing the field via an interface.
+func (v *TokenDetailsViewPermissionsToken) GetViews() []TokenDetailsViewsSearchDomain { return v.Views }
+
+// GetPermissions returns TokenDetailsViewPermissionsToken.Permissions, and is useful for accessing the field via an interface.
+func (v *TokenDetailsViewPermissionsToken) GetPermissions() []string { return v.Permissions }
+
+func (v *TokenDetailsViewPermissionsToken) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TokenDetailsViewPermissionsToken
+		Views []json.RawMessage `json:"views"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TokenDetailsViewPermissionsToken = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Views
+		src := firstPass.Views
+		*dst = make(
+			[]TokenDetailsViewsSearchDomain,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			if len(src) != 0 && string(src) != "null" {
+				err = __unmarshalTokenDetailsViewsSearchDomain(
+					src, dst)
+				if err != nil {
+					return fmt.Errorf(
+						"unable to unmarshal TokenDetailsViewPermissionsToken.Views: %w", err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalTokenDetailsViewPermissionsToken struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	ExpireAt *int64 `json:"expireAt"`
+
+	IpFilterV2 *TokenDetailsIpFilterV2IPFilter `json:"ipFilterV2"`
+
+	Views []json.RawMessage `json:"views"`
+
+	Permissions []string `json:"permissions"`
+}
+
+func (v *TokenDetailsViewPermissionsToken) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TokenDetailsViewPermissionsToken) __premarshalJSON() (*__premarshalTokenDetailsViewPermissionsToken, error) {
+	var retval __premarshalTokenDetailsViewPermissionsToken
+
+	retval.Id = v.Id
+	retval.Name = v.Name
+	retval.ExpireAt = v.ExpireAt
+	retval.IpFilterV2 = v.IpFilterV2
+	{
+
+		dst := &retval.Views
+		src := v.Views
+		*dst = make(
+			[]json.RawMessage,
+			len(src))
+		for i, src := range src {
+			dst := &(*dst)[i]
+			var err error
+			*dst, err = __marshalTokenDetailsViewsSearchDomain(
+				&src)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"unable to marshal TokenDetailsViewPermissionsToken.Views: %w", err)
+			}
+		}
+	}
+	retval.Permissions = v.Permissions
+	return &retval, nil
+}
+
+// TokenDetailsViewsRepository includes the requested fields of the GraphQL type Repository.
+// The GraphQL type's documentation follows.
+//
+// A repository stores ingested data, configures parsers and data retention policies.
+type TokenDetailsViewsRepository struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	Id string `json:"id"`
+	// Common interface for Repositories and Views.
+	Name string `json:"name"`
+}
+
+// GetTypename returns TokenDetailsViewsRepository.Typename, and is useful for accessing the field via an interface.
+func (v *TokenDetailsViewsRepository) GetTypename() *string { return v.Typename }
+
+// GetId returns TokenDetailsViewsRepository.Id, and is useful for accessing the field via an interface.
+func (v *TokenDetailsViewsRepository) GetId() string { return v.Id }
+
+// GetName returns TokenDetailsViewsRepository.Name, and is useful for accessing the field via an interface.
+func (v *TokenDetailsViewsRepository) GetName() string { return v.Name }
+
+// TokenDetailsViewsSearchDomain includes the requested fields of the GraphQL interface SearchDomain.
+//
+// TokenDetailsViewsSearchDomain is implemented by the following types:
+// TokenDetailsViewsRepository
+// TokenDetailsViewsView
+// The GraphQL type's documentation follows.
+//
+// Common interface for Repositories and Views.
+type TokenDetailsViewsSearchDomain interface {
+	implementsGraphQLInterfaceTokenDetailsViewsSearchDomain()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() *string
+	// GetId returns the interface-field "id" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetId() string
+	// GetName returns the interface-field "name" from its implementation.
+	// The GraphQL interface field's documentation follows.
+	//
+	// Common interface for Repositories and Views.
+	GetName() string
+}
+
+func (v *TokenDetailsViewsRepository) implementsGraphQLInterfaceTokenDetailsViewsSearchDomain() {}
+func (v *TokenDetailsViewsView) implementsGraphQLInterfaceTokenDetailsViewsSearchDomain()       {}
+
+func __unmarshalTokenDetailsViewsSearchDomain(b []byte, v *TokenDetailsViewsSearchDomain) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "Repository":
+		*v = new(TokenDetailsViewsRepository)
+		return json.Unmarshal(b, *v)
+	case "View":
+		*v = new(TokenDetailsViewsView)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing SearchDomain.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for TokenDetailsViewsSearchDomain: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalTokenDetailsViewsSearchDomain(v *TokenDetailsViewsSearchDomain) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *TokenDetailsViewsRepository:
+		typename = "Repository"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*TokenDetailsViewsRepository
+		}{typename, v}
+		return json.Marshal(result)
+	case *TokenDetailsViewsView:
+		typename = "View"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*TokenDetailsViewsView
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for TokenDetailsViewsSearchDomain: "%T"`, v)
+	}
+}
+
+// TokenDetailsViewsView includes the requested fields of the GraphQL type View.
+// The GraphQL type's documentation follows.
+//
+// Represents information about a view, pulling data from one or several repositories.
+type TokenDetailsViewsView struct {
+	Typename *string `json:"__typename"`
+	// Common interface for Repositories and Views.
+	Id string `json:"id"`
+	// Common interface for Repositories and Views.
+	Name string `json:"name"`
+}
+
+// GetTypename returns TokenDetailsViewsView.Typename, and is useful for accessing the field via an interface.
+func (v *TokenDetailsViewsView) GetTypename() *string { return v.Typename }
+
+// GetId returns TokenDetailsViewsView.Id, and is useful for accessing the field via an interface.
+func (v *TokenDetailsViewsView) GetId() string { return v.Id }
+
+// GetName returns TokenDetailsViewsView.Name, and is useful for accessing the field via an interface.
+func (v *TokenDetailsViewsView) GetName() string { return v.Name }
+
 // Trigger mode for an aggregate alert.
 type TriggerMode string
 
@@ -15794,6 +16886,18 @@ type UpdateViewConnectionsUpdateView struct {
 // GetName returns UpdateViewConnectionsUpdateView.Name, and is useful for accessing the field via an interface.
 func (v *UpdateViewConnectionsUpdateView) GetName() string { return v.Name }
 
+// UpdateViewTokenResponse is returned by UpdateViewToken on success.
+type UpdateViewTokenResponse struct {
+	// Update the permissions of a view permission token.
+	// Stability: Long-term
+	UpdateViewPermissionsTokenPermissions string `json:"updateViewPermissionsTokenPermissions"`
+}
+
+// GetUpdateViewPermissionsTokenPermissions returns UpdateViewTokenResponse.UpdateViewPermissionsTokenPermissions, and is useful for accessing the field via an interface.
+func (v *UpdateViewTokenResponse) GetUpdateViewPermissionsTokenPermissions() string {
+	return v.UpdateViewPermissionsTokenPermissions
+}
+
 // UpdateWebhookActionResponse is returned by UpdateWebhookAction on success.
 type UpdateWebhookActionResponse struct {
 	// Update a webhook action.
@@ -16528,6 +17632,30 @@ func (v *__CreateViewInput) GetDescription() *string { return v.Description }
 // GetConnections returns __CreateViewInput.Connections, and is useful for accessing the field via an interface.
 func (v *__CreateViewInput) GetConnections() []ViewConnectionInput { return v.Connections }
 
+// __CreateViewTokenInput is used internally by genqlient
+type __CreateViewTokenInput struct {
+	Name            string       `json:"Name"`
+	IPFilterId      *string      `json:"IPFilterId"`
+	ExpiresAt       *int64       `json:"ExpiresAt"`
+	ViewIds         []string     `json:"ViewIds"`
+	ViewPermissions []Permission `json:"ViewPermissions"`
+}
+
+// GetName returns __CreateViewTokenInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateViewTokenInput) GetName() string { return v.Name }
+
+// GetIPFilterId returns __CreateViewTokenInput.IPFilterId, and is useful for accessing the field via an interface.
+func (v *__CreateViewTokenInput) GetIPFilterId() *string { return v.IPFilterId }
+
+// GetExpiresAt returns __CreateViewTokenInput.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *__CreateViewTokenInput) GetExpiresAt() *int64 { return v.ExpiresAt }
+
+// GetViewIds returns __CreateViewTokenInput.ViewIds, and is useful for accessing the field via an interface.
+func (v *__CreateViewTokenInput) GetViewIds() []string { return v.ViewIds }
+
+// GetViewPermissions returns __CreateViewTokenInput.ViewPermissions, and is useful for accessing the field via an interface.
+func (v *__CreateViewTokenInput) GetViewPermissions() []Permission { return v.ViewPermissions }
+
 // __CreateWebhookActionInput is used internally by genqlient
 type __CreateWebhookActionInput struct {
 	SearchDomainName string                 `json:"SearchDomainName"`
@@ -16688,6 +17816,14 @@ func (v *__DeleteSearchDomainInput) GetSearchDomainName() string { return v.Sear
 // GetDeleteMessage returns __DeleteSearchDomainInput.DeleteMessage, and is useful for accessing the field via an interface.
 func (v *__DeleteSearchDomainInput) GetDeleteMessage() string { return v.DeleteMessage }
 
+// __DeleteTokenInput is used internally by genqlient
+type __DeleteTokenInput struct {
+	Id string `json:"Id"`
+}
+
+// GetId returns __DeleteTokenInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteTokenInput) GetId() string { return v.Id }
+
 // __DisableGlobalFeatureFlagInput is used internally by genqlient
 type __DisableGlobalFeatureFlagInput struct {
 	FeatureFlagName FeatureFlag `json:"FeatureFlagName"`
@@ -16819,6 +17955,14 @@ type __GetUsersByUsernameInput struct {
 
 // GetUsername returns __GetUsersByUsernameInput.Username, and is useful for accessing the field via an interface.
 func (v *__GetUsersByUsernameInput) GetUsername() string { return v.Username }
+
+// __GetViewTokenInput is used internally by genqlient
+type __GetViewTokenInput struct {
+	Id string `json:"Id"`
+}
+
+// GetId returns __GetViewTokenInput.Id, and is useful for accessing the field via an interface.
+func (v *__GetViewTokenInput) GetId() string { return v.Id }
 
 // __IsFeatureGloballyEnabledInput is used internally by genqlient
 type __IsFeatureGloballyEnabledInput struct {
@@ -17665,6 +18809,18 @@ func (v *__UpdateViewConnectionsInput) GetViewName() string { return v.ViewName 
 
 // GetConnections returns __UpdateViewConnectionsInput.Connections, and is useful for accessing the field via an interface.
 func (v *__UpdateViewConnectionsInput) GetConnections() []ViewConnectionInput { return v.Connections }
+
+// __UpdateViewTokenInput is used internally by genqlient
+type __UpdateViewTokenInput struct {
+	Id              string       `json:"Id"`
+	ViewPermissions []Permission `json:"ViewPermissions"`
+}
+
+// GetId returns __UpdateViewTokenInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateViewTokenInput) GetId() string { return v.Id }
+
+// GetViewPermissions returns __UpdateViewTokenInput.ViewPermissions, and is useful for accessing the field via an interface.
+func (v *__UpdateViewTokenInput) GetViewPermissions() []Permission { return v.ViewPermissions }
 
 // __UpdateWebhookActionInput is used internally by genqlient
 type __UpdateWebhookActionInput struct {
@@ -19036,6 +20192,48 @@ func CreateView(
 	return data_, err_
 }
 
+// The mutation executed by CreateViewToken.
+const CreateViewToken_Operation = `
+mutation CreateViewToken ($Name: String!, $IPFilterId: String, $ExpiresAt: Long, $ViewIds: [String!]!, $ViewPermissions: [Permission!]!) {
+	createViewPermissionsTokenV2(input: {name:$Name,expireAt:$ExpiresAt,ipFilterId:$IPFilterId,viewIds:$ViewIds,viewPermissions:$ViewPermissions}) {
+		token
+	}
+}
+`
+
+func CreateViewToken(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	Name string,
+	IPFilterId *string,
+	ExpiresAt *int64,
+	ViewIds []string,
+	ViewPermissions []Permission,
+) (data_ *CreateViewTokenResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateViewToken",
+		Query:  CreateViewToken_Operation,
+		Variables: &__CreateViewTokenInput{
+			Name:            Name,
+			IPFilterId:      IPFilterId,
+			ExpiresAt:       ExpiresAt,
+			ViewIds:         ViewIds,
+			ViewPermissions: ViewPermissions,
+		},
+	}
+
+	data_ = &CreateViewTokenResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateWebhookAction.
 const CreateWebhookAction_Operation = `
 mutation CreateWebhookAction ($SearchDomainName: String!, $ActionName: String!, $Url: String!, $Method: String!, $Headers: [HttpHeaderEntryInput!]!, $BodyTemplate: String!, $IgnoreSSL: Boolean!, $UseProxy: Boolean!) {
@@ -19456,6 +20654,38 @@ func DeleteSearchDomain(
 	}
 
 	data_ = &DeleteSearchDomainResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteToken.
+const DeleteToken_Operation = `
+mutation DeleteToken ($Id: String!) {
+	deleteToken(input: {id:$Id})
+}
+`
+
+func DeleteToken(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	Id string,
+) (data_ *DeleteTokenResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteToken",
+		Query:  DeleteToken_Operation,
+		Variables: &__DeleteTokenInput{
+			Id: Id,
+		},
+	}
+
+	data_ = &DeleteTokenResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -20366,6 +21596,57 @@ func GetUsersByUsername(
 	}
 
 	data_ = &GetUsersByUsernameResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetViewToken.
+const GetViewToken_Operation = `
+query GetViewToken ($Id: String!) {
+	token(tokenId: $Id) {
+		__typename
+		... TokenDetails
+	}
+}
+fragment TokenDetails on Token {
+	id
+	name
+	expireAt
+	ipFilterV2 {
+		id
+	}
+	... on ViewPermissionsToken {
+		views {
+			__typename
+			id
+			name
+		}
+		permissions
+	}
+}
+`
+
+func GetViewToken(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	Id string,
+) (data_ *GetViewTokenResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetViewToken",
+		Query:  GetViewToken_Operation,
+		Variables: &__GetViewTokenInput{
+			Id: Id,
+		},
+	}
+
+	data_ = &GetViewTokenResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -22523,6 +23804,40 @@ func UpdateViewConnections(
 	}
 
 	data_ = &UpdateViewConnectionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateViewToken.
+const UpdateViewToken_Operation = `
+mutation UpdateViewToken ($Id: String!, $ViewPermissions: [Permission!]!) {
+	updateViewPermissionsTokenPermissions(input: {id:$Id,permissions:$ViewPermissions})
+}
+`
+
+func UpdateViewToken(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	Id string,
+	ViewPermissions []Permission,
+) (data_ *UpdateViewTokenResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateViewToken",
+		Query:  UpdateViewToken_Operation,
+		Variables: &__UpdateViewTokenInput{
+			Id:              Id,
+			ViewPermissions: ViewPermissions,
+		},
+	}
+
+	data_ = &UpdateViewTokenResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

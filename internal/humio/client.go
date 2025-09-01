@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -58,6 +59,7 @@ type Client interface {
 	SystemPermissionRolesClient
 	ViewPermissionRolesClient
 	IPFilterClient
+	ViewTokenClient
 }
 
 type ClusterClient interface {
@@ -95,7 +97,7 @@ type RepositoriesClient interface {
 
 type ViewsClient interface {
 	AddView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) error
-	GetView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) (*humiographql.GetSearchDomainSearchDomainView, error)
+	GetView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView, bool) (*humiographql.GetSearchDomainSearchDomainView, error)
 	UpdateView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) error
 	DeleteView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) error
 }
@@ -202,6 +204,13 @@ type IPFilterClient interface {
 	GetIPFilter(context.Context, *humioapi.Client, *humiov1alpha1.HumioIPFilter) (*humiographql.IPFilterDetails, error)
 	UpdateIPFilter(context.Context, *humioapi.Client, *humiov1alpha1.HumioIPFilter) error
 	DeleteIPFilter(context.Context, *humioapi.Client, *humiov1alpha1.HumioIPFilter) error
+}
+
+type ViewTokenClient interface {
+	CreateViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken, string, []string, []humiographql.Permission) (*humiographql.TokenDetailsViewPermissionsToken, string, error)
+	GetViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken) (*humiographql.TokenDetailsViewPermissionsToken, error)
+	UpdateViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken) error
+	DeleteViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken) error
 }
 
 type ConnectionDetailsIncludingAPIToken struct {
@@ -728,7 +737,7 @@ func (h *ClientConfig) DeleteRepository(ctx context.Context, client *humioapi.Cl
 	return err
 }
 
-func (h *ClientConfig) GetView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioView) (*humiographql.GetSearchDomainSearchDomainView, error) {
+func (h *ClientConfig) GetView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioView, includeFederated bool) (*humiographql.GetSearchDomainSearchDomainView, error) {
 	resp, err := humiographql.GetSearchDomain(
 		ctx,
 		client,
@@ -741,8 +750,10 @@ func (h *ClientConfig) GetView(ctx context.Context, client *humioapi.Client, hv 
 	searchDomain := resp.GetSearchDomain()
 	switch v := searchDomain.(type) {
 	case *humiographql.GetSearchDomainSearchDomainView:
-		if v.GetIsFederated() {
-			return nil, fmt.Errorf("view %q is a multi cluster search view", v.GetName())
+		if !includeFederated {
+			if v.GetIsFederated() {
+				return nil, fmt.Errorf("view %q is a multi cluster search view", v.GetName())
+			}
 		}
 		return v, nil
 	default:
@@ -770,7 +781,7 @@ func (h *ClientConfig) AddView(ctx context.Context, client *humioapi.Client, hv 
 }
 
 func (h *ClientConfig) UpdateView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioView) error {
-	curView, err := h.GetView(ctx, client, hv)
+	curView, err := h.GetView(ctx, client, hv, false)
 	if err != nil {
 		return err
 	}
@@ -823,7 +834,7 @@ func (h *ClientConfig) UpdateView(ctx context.Context, client *humioapi.Client, 
 }
 
 func (h *ClientConfig) DeleteView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioView) error {
-	_, err := h.GetView(ctx, client, hv)
+	_, err := h.GetView(ctx, client, hv, false)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			return nil
@@ -2877,8 +2888,8 @@ func (h *ClientConfig) DeleteViewPermissionRole(ctx context.Context, client *hum
 }
 
 func (h *ClientConfig) AddIPFilter(ctx context.Context, client *humioapi.Client, ipFilter *humiov1alpha1.HumioIPFilter) (*humiographql.IPFilterDetails, error) {
-	// ipFilter.Spec.IPFilter is a list of strings so we need to convert to string for graphql
-	filter := helpers.SliceToString(ipFilter.Spec.IPFilter, "\n")
+	// ipFilter.Spec.IPFilter is a list of FirewallRule structs so we need to convert to string for graphql
+	filter := helpers.FirewallRulesToString(ipFilter.Spec.IPFilter, "\n")
 	ipFilterResp, err := humiographql.CreateIPFilter(
 		ctx,
 		client,
@@ -2893,20 +2904,31 @@ func (h *ClientConfig) AddIPFilter(ctx context.Context, client *humioapi.Client,
 }
 
 func (h *ClientConfig) GetIPFilter(ctx context.Context, client *humioapi.Client, ipFilter *humiov1alpha1.HumioIPFilter) (*humiographql.IPFilterDetails, error) {
+	// there is no graphql method to get a single IPFilter so we fetch all
 	ipFiltersResp, err := humiographql.GetIPFilters(ctx, client)
 	if err != nil {
 		return nil, err
 	}
+
 	for _, filter := range ipFiltersResp.GetIpFilters() {
-		if filter.GetId() == ipFilter.Status.ID {
-			return &filter.IPFilterDetails, nil
+		// if we have a ipFilter.Status.ID set we do the match on that first
+		if ipFilter.Status.ID != "" {
+			if filter.GetId() == ipFilter.Status.ID {
+				return &filter.IPFilterDetails, nil
+			}
+		} else {
+			// name is not unique for ipFilters so we use it as a fallback
+			if filter.GetName() == ipFilter.Spec.Name {
+				return &filter.IPFilterDetails, nil
+			}
 		}
 	}
+	// if not match we return a not found error
 	return nil, humioapi.IPFilterNotFound(ipFilter.Spec.Name)
 }
 
 func (h *ClientConfig) UpdateIPFilter(ctx context.Context, client *humioapi.Client, ipFilter *humiov1alpha1.HumioIPFilter) error {
-	filter := helpers.SliceToString(ipFilter.Spec.IPFilter, "\n")
+	filter := helpers.FirewallRulesToString(ipFilter.Spec.IPFilter, "\n")
 	_, err := humiographql.UpdateIPFilter(
 		ctx,
 		client,
@@ -2922,6 +2944,73 @@ func (h *ClientConfig) DeleteIPFilter(ctx context.Context, client *humioapi.Clie
 		ctx,
 		client,
 		ipFilter.Status.ID,
+	)
+	return err
+}
+
+func (h *ClientConfig) CreateViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken, ipFilterId string, viewIds []string, permissions []humiographql.Permission) (*humiographql.TokenDetailsViewPermissionsToken, string, error) {
+	var expireDatePtr *int64
+	if viewToken.Spec.ExpiresAt != nil {
+		expireDate := viewToken.Spec.ExpiresAt.Time.Unix()
+		expireDatePtr = &expireDate
+	}
+
+	viewTokenCreateResp, err := humiographql.CreateViewToken(
+		ctx,
+		client,
+		viewToken.Spec.Name,
+		&ipFilterId,
+		expireDatePtr,
+		viewIds,
+		permissions,
+	)
+	if err != nil {
+		return nil, "", err
+	}
+	secret := viewTokenCreateResp.CreateViewPermissionsTokenV2.Token
+	tokenParts := strings.Split(secret, "~")
+	viewTokenResp, err := humiographql.GetViewToken(ctx, client, tokenParts[0])
+	if err != nil {
+		return nil, "", err
+	}
+	data := viewTokenResp.Token.(*humiographql.GetViewTokenTokenViewPermissionsToken)
+	token := data.TokenDetailsViewPermissionsToken
+	return &token, secret, nil
+}
+
+func (h *ClientConfig) GetViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken) (*humiographql.TokenDetailsViewPermissionsToken, error) {
+	// we return early if the id is not set on the viewToken, it means it wasn't created / doesn't exists / we plan to delete it
+	if viewToken.Status.ID == "" {
+		return nil, humioapi.ViewTokenNotFound(viewToken.Spec.Name)
+	}
+	viewTokenResp, err := humiographql.GetViewToken(ctx, client, viewToken.Status.ID)
+	if err != nil {
+		return nil, err
+	}
+	data := viewTokenResp.Token.(*humiographql.GetViewTokenTokenViewPermissionsToken)
+	token := data.TokenDetailsViewPermissionsToken
+
+	return &token, nil
+}
+
+func (h *ClientConfig) DeleteViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken) error {
+	_, err := humiographql.DeleteToken(
+		ctx,
+		client,
+		viewToken.Status.ID,
+	)
+	return err
+}
+func (h *ClientConfig) UpdateViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken) error {
+	permissions := make([]humiographql.Permission, len(viewToken.Spec.Permissions))
+	for i, perm := range viewToken.Spec.Permissions {
+		permissions[i] = humiographql.Permission(perm)
+	}
+	_, err := humiographql.UpdateViewToken(
+		ctx,
+		client,
+		viewToken.Status.ID,
+		permissions,
 	)
 	return err
 }

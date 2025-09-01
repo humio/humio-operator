@@ -31,11 +31,17 @@ const (
 	HumioIPFilterStateConfigError = "ConfigError"
 )
 
+type FirewallRule struct {
+	// +kubebuilder:validation:Enum=allow;deny
+	Action string `json:"action"`
+	// +kubebuilder:validation:Pattern=`^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(/(3[0-2]|[12]?[0-9]))?$`
+	IP string `json:"ip"`
+}
+
 // HumioIPFilterSpec defines the desired state of HumioIPFilter
 // +kubebuilder:validation:XValidation:rule="(has(self.managedClusterName) && self.managedClusterName != \"\") != (has(self.externalClusterName) && self.externalClusterName != \"\")",message="Must specify exactly one of managedClusterName or externalClusterName"
 type HumioIPFilterSpec struct {
-	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio
-	// resources should be created.
+	// ManagedClusterName refers to an object of type HumioCluster that is managed by the operator where the Humio resources should be created.
 	// This conflicts with ExternalClusterName.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Optional
@@ -46,14 +52,15 @@ type HumioIPFilterSpec struct {
 	// +kubebuilder:validation:Optional
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
 	// Name is the name of the IP filter inside Humio
-	// +kubebuilder:validation:MinLength=3
+	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
+	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
-	// IPFilter defines the IP filter to use
-	// +kubebuilder:validation:Required
+	// IPFilter defines the IP filter rule to use
 	// +kubebuilder:validation:Items:Pattern=`^(allow|deny) ((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(/(3[0-2]|[12]?[0-9]))?|([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|::1|::|(([0-9a-fA-F]{1,4}:){1,7}:|:((:[0-9a-fA-F]{1,4}){1,7}|:))(/(12[0-8]|1[01][0-9]|[1-9]?[0-9]))?$`
-	IPFilter []string `json:"ipFilter"`
+	// +kubebuilder:validation:Required
+	IPFilter []FirewallRule `json:"ipFilter"`
 }
 
 // HumioIPFilterStatus defines the observed state of HumioIPFilter.
@@ -74,11 +81,11 @@ type HumioIPFilterStatus struct {
 // HumioIPFilter is the Schema for the humioipfilters API
 type HumioIPFilter struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty,omitzero"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +kubebuilder:validation:Required
 	Spec   HumioIPFilterSpec   `json:"spec"`
-	Status HumioIPFilterStatus `json:"status,omitempty,omitzero"`
+	Status HumioIPFilterStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
@@ -283,4 +284,36 @@ func EmptySliceIfNil(slice []string) []string {
 // SliceToString joins a slice elements by separator to return a string
 func SliceToString(slice []string, separator string) string {
 	return strings.Join(slice, separator)
+}
+
+// FirewallRulesToString converts a slice of FirewallRule structs to a string format
+// expected by Humio, joining each rule with the specified separator
+func FirewallRulesToString(rules []humiov1alpha1.FirewallRule, separator string) string {
+	if len(rules) == 0 {
+		return ""
+	}
+
+	ruleStrings := make([]string, len(rules))
+	for i, rule := range rules {
+		ruleStrings[i] = fmt.Sprintf("%s %s", rule.Action, rule.IP)
+	}
+
+	return strings.Join(ruleStrings, separator)
+}
+
+// GetCurrentTime generates current time with day precision
+func GetCurrentTime() time.Time {
+	baseTime := time.Now()
+	// Set specific hour, minute, second while keeping date
+	specificTime := time.Date(
+		baseTime.Year(),
+		baseTime.Month(),
+		baseTime.Day(),
+		0, // hour
+		0, // minute
+		0, // second
+		0, // nanosecond (reset to 0)
+		baseTime.Location(),
+	)
+	return specificTime
 }

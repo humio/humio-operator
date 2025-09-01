@@ -68,17 +68,15 @@ func (r *HumioIPFilterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	err := r.Get(ctx, req.NamespacedName, hi)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			// Return and don't requeue
 			return reconcile.Result{}, nil
 		}
-		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
 
 	// setup humio client configuration
 	cluster, err := helpers.NewCluster(ctx, r, hi.Spec.ManagedClusterName, hi.Spec.ExternalClusterName, hi.Namespace, helpers.UseCertManager(), true, false)
 	if err != nil || cluster == nil || cluster.Config() == nil {
-		setStateErr := r.setState(ctx, humiov1alpha1.HumioIPFilterStateConfigError, "", hi)
+		setStateErr := r.setState(ctx, humiov1alpha1.HumioIPFilterStateConfigError, hi.Status.ID, hi)
 		if setStateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set cluster state")
 		}
@@ -104,7 +102,7 @@ func (r *HumioIPFilterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				return reconcile.Result{Requeue: true}, nil
 			}
 			// first iteration on delete we run the finalize function which includes delete
-			r.Log.Info("IPfilter contains finalizer so run finalizer method")
+			r.Log.Info("IPFilter contains finalizer so run finalizer method")
 			if err := r.finalize(ctx, humioHttpClient, hi); err != nil {
 				return reconcile.Result{}, r.logErrorAndReturn(err, "Finalizer method returned error")
 			}
@@ -121,20 +119,6 @@ func (r *HumioIPFilterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return reconcile.Result{}, err
 		}
 	}
-
-	// final function to set state depending on Humio IPFilter state
-	defer func(ctx context.Context, hi *humiov1alpha1.HumioIPFilter) {
-		ipFilter, err := r.HumioClient.GetIPFilter(ctx, humioHttpClient, hi)
-		if errors.As(err, &humioapi.EntityNotFound{}) {
-			_ = r.setState(ctx, humiov1alpha1.HumioIPFilterStateNotFound, "", hi)
-			return
-		}
-		if err != nil {
-			_ = r.setState(ctx, humiov1alpha1.HumioIPFilterStateUnknown, "", hi)
-			return
-		}
-		_ = r.setState(ctx, humiov1alpha1.HumioIPFilterStateExists, ipFilter.GetId(), hi)
-	}(ctx, hi)
 
 	// Get or create IPFilter
 	r.Log.Info("get current IPFilter")
@@ -165,6 +149,16 @@ func (r *HumioIPFilterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
+	// final state update
+	ipFilter, err := r.HumioClient.GetIPFilter(ctx, humioHttpClient, hi)
+	if errors.As(err, &humioapi.EntityNotFound{}) {
+		_ = r.setState(ctx, humiov1alpha1.HumioIPFilterStateNotFound, hi.Status.ID, hi)
+	} else if err != nil {
+		_ = r.setState(ctx, humiov1alpha1.HumioIPFilterStateUnknown, hi.Status.ID, hi)
+	} else {
+		_ = r.setState(ctx, humiov1alpha1.HumioIPFilterStateExists, ipFilter.GetId(), hi)
+	}
+
 	r.Log.Info("done reconciling, will requeue", "requeuePeriod", r.RequeuePeriod.String())
 	return reconcile.Result{RequeueAfter: r.RequeuePeriod}, nil
 }
@@ -179,7 +173,7 @@ func (r *HumioIPFilterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *HumioIPFilterReconciler) finalize(ctx context.Context, client *humioapi.Client, hi *humiov1alpha1.HumioIPFilter) error {
 	err := r.HumioClient.DeleteIPFilter(ctx, client, hi)
-	return err
+	return r.logErrorAndReturn(err, "error in finalize function call")
 }
 
 func (r *HumioIPFilterReconciler) addFinalizer(ctx context.Context, hi *humiov1alpha1.HumioIPFilter) error {
@@ -209,11 +203,11 @@ func (r *HumioIPFilterReconciler) logErrorAndReturn(err error, msg string) error
 }
 
 // ipFilterAlreadyAsExpected compares fromKubernetesCustomResource and fromGraphQL.
-func ipFilterAlreadyAsExpected(fromKubernetesCustomResource *humiov1alpha1.HumioIPFilter, fromGraphQL *humiographql.IPFilterDetails) (bool, map[string]string) {
+func ipFilterAlreadyAsExpected(fromK8sCR *humiov1alpha1.HumioIPFilter, fromGraphQL *humiographql.IPFilterDetails) (bool, map[string]string) {
 	keyValues := map[string]string{}
 	// we only care about ipFilter field
 	fromGql := fromGraphQL.GetIpFilter()
-	fromK8s := helpers.SliceToString(fromKubernetesCustomResource.Spec.IPFilter, "\n")
+	fromK8s := helpers.FirewallRulesToString(fromK8sCR.Spec.IPFilter, "\n")
 	if diff := cmp.Diff(fromGql, fromK8s); diff != "" {
 		keyValues["ipFilter"] = diff
 	}
