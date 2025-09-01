@@ -150,6 +150,9 @@ spec:
                       - Local
                       - Remote
                       type: string
+                      x-kubernetes-validations:
+                      - message: Value is immutable
+                        rule: self == oldSelf
                     url:
                       description: |-
                         Url contains the URL to use for the remote connection.

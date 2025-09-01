@@ -37349,6 +37349,7 @@ HumioMultiClusterSearchViewConnection represents a connection to a specific repo
 If Type=Local, the connection will be to a local repository or view and requires the viewOrRepoName field to be set.
 If Type=Remote, the connection will be to a remote repository or view and requires the fields remoteUrl and remoteSecretName to be set.<br/>
           <br/>
+            <i>Validations</i>:<li>self == oldSelf: Value is immutable</li>
             <i>Enum</i>: Local, Remote<br/>
         </td>
         <td>true</td>
