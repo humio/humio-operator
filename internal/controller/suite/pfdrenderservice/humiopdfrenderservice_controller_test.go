@@ -1168,7 +1168,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	FContext("TLS Synchronization from HumioCluster", Label("envtest", "dummy", "real"), func() {
+	Context("TLS Synchronization from HumioCluster", Label("envtest", "dummy", "real"), func() {
 		It("should automatically enable TLS when HumioCluster with PDF enabled has TLS enabled", func() {
 			ctx := context.Background()
 			pdfKey := types.NamespacedName{
@@ -1480,7 +1480,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 		})
 	})
 
-	FContext("TLS Certificate and Resource Management", Label("envtest", "dummy", "real"), func() {
+	Context("TLS Certificate and Resource Management", Label("envtest", "dummy", "real"), func() {
 		It("should create CA Issuer and keystore passphrase secret when TLS is enabled", func() {
 			if !helpers.UseCertManager() {
 				Skip("cert-manager is not available")
