@@ -70,6 +70,9 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 
 			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
+			By("Ensuring PDF deployment becomes ready in test environments")
+			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key, testTimeout)
+
 			By("Verifying PDF service reaches Running state independently")
 			// PDF service should reach Running state without requiring HumioCluster
 			// This demonstrates that PDF service deployment is independent of HumioCluster
