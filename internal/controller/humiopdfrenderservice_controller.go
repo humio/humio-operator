@@ -1481,16 +1481,16 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 		},
 		InitialDelaySeconds: 60, PeriodSeconds: 10, TimeoutSeconds: 5, FailureThreshold: 3, SuccessThreshold: 1,
 	}
-	
+
 	// In test environments, use more resilient probe settings following HumioCluster pattern
 	if helpers.UseDummyImage() {
-		defaultLivenessProbe.InitialDelaySeconds = 0  // No delay for dummy images
+		defaultLivenessProbe.InitialDelaySeconds = 0 // No delay for dummy images
 	}
-	
+
 	// In KIND clusters or envtest, use more resilient probe settings
 	if helpers.UseKindCluster() || helpers.UseEnvtest() {
-		defaultLivenessProbe.FailureThreshold = 10     // Match HumioCluster's higher threshold
-		defaultLivenessProbe.PeriodSeconds = 5         // Match HumioCluster's faster probing
+		defaultLivenessProbe.FailureThreshold = 10 // Match HumioCluster's higher threshold
+		defaultLivenessProbe.PeriodSeconds = 5     // Match HumioCluster's faster probing
 	}
 	container.LivenessProbe = hprs.Spec.LivenessProbe
 	if container.LivenessProbe == nil {
@@ -1507,16 +1507,16 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 		},
 		InitialDelaySeconds: 60, PeriodSeconds: 10, TimeoutSeconds: 5, FailureThreshold: 3, SuccessThreshold: 1,
 	}
-	
+
 	// In test environments, use more resilient probe settings following HumioCluster pattern
 	if helpers.UseDummyImage() {
-		defaultReadinessProbe.InitialDelaySeconds = 0  // No delay for dummy images
+		defaultReadinessProbe.InitialDelaySeconds = 0 // No delay for dummy images
 	}
-	
+
 	// In KIND clusters or envtest, use more resilient probe settings
 	if helpers.UseKindCluster() || helpers.UseEnvtest() {
-		defaultReadinessProbe.FailureThreshold = 10     // Match HumioCluster's higher threshold
-		defaultReadinessProbe.PeriodSeconds = 5         // Match HumioCluster's faster probing
+		defaultReadinessProbe.FailureThreshold = 10 // Match HumioCluster's higher threshold
+		defaultReadinessProbe.PeriodSeconds = 5     // Match HumioCluster's faster probing
 	}
 	container.ReadinessProbe = hprs.Spec.ReadinessProbe
 	if container.ReadinessProbe == nil {
