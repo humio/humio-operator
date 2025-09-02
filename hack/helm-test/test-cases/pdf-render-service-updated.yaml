@@ -4,7 +4,7 @@ kind: HumioPdfRenderService
 metadata:
   name: test-pdf-service
 spec:
-  image: "humio/pdf-render-service:0.1.1--build-103--sha-76833d8fdc641dad51798fb2a4705e2d273393b7"  # Updated version
+  image: "humio/pdf-render-service:0.1.2--build-104--sha-9a7598de95bb9775b6f59d874c37a206713bae01"  # Updated version
   replicas: 2  # Updated replicas
   resources:
     limits:

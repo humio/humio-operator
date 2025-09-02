@@ -38,8 +38,11 @@ const (
 	// Service defaults
 	DefaultPdfRenderServicePort = 5123
 
-	// TLS‑related env‑vars (only boolean switch, no certificate content)
-	pdfRenderUseTLSEnvVar = "HUMIO_PDF_RENDER_USE_TLS"
+	// TLS‑related env‑vars for new PDF render service image
+	pdfRenderTLSEnabledEnvVar  = "TLS_ENABLED"
+	pdfRenderTLSCertPathEnvVar = "TLS_CERT_PATH"
+	pdfRenderTLSKeyPathEnvVar  = "TLS_KEY_PATH"
+	pdfRenderTLSCAPathEnvVar   = "TLS_CA_PATH"
 
 	// Hash of the sanitised pod spec – kept in the pod-template just like HumioCluster
 	HPRSPodSpecHashAnnotation = "humio.com/pod-spec-hash"
@@ -63,6 +66,7 @@ const (
 // +kubebuilder:rbac:groups=core.humio.com,resources=humiopdfrenderservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.humio.com,resources=humiopdfrenderservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.humio.com,resources=humiopdfrenderservices/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core.humio.com,resources=humioclusters,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
@@ -83,6 +87,132 @@ type HumioPdfRenderServiceReconciler struct {
 type SanitizePodOpts struct {
 	TLSVolumeName string
 	CAVolumeName  string
+}
+
+// findHumioClustersWithPDFEnabled discovers HumioCluster instances that have PDF rendering enabled
+// in the same namespace as the PDF render service
+func (r *HumioPdfRenderServiceReconciler) findHumioClustersWithPDFEnabled(ctx context.Context, namespace string) ([]humiov1alpha1.HumioCluster, error) {
+	var clusterList humiov1alpha1.HumioClusterList
+	if err := r.List(ctx, &clusterList, client.InNamespace(namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list HumioClusters in namespace %s: %w", namespace, err)
+	}
+
+	var pdfEnabledClusters []humiov1alpha1.HumioCluster
+	for _, cluster := range clusterList.Items {
+		if r.isHumioClusterPDFEnabled(&cluster) {
+			pdfEnabledClusters = append(pdfEnabledClusters, cluster)
+		}
+	}
+
+	return pdfEnabledClusters, nil
+}
+
+// isHumioClusterPDFEnabled checks if a HumioCluster has PDF rendering enabled
+// by looking for ENABLE_SCHEDULED_REPORT=true in environment variables
+func (r *HumioPdfRenderServiceReconciler) isHumioClusterPDFEnabled(hc *humiov1alpha1.HumioCluster) bool {
+	// Check both common environment variables and node-specific environment variables
+	allEnvVars := append([]corev1.EnvVar{}, hc.Spec.CommonEnvironmentVariables...)
+	allEnvVars = append(allEnvVars, hc.Spec.EnvironmentVariables...)
+
+	// Also check node pools
+	for _, nodePool := range hc.Spec.NodePools {
+		allEnvVars = append(allEnvVars, nodePool.EnvironmentVariables...)
+	}
+
+	for _, envVar := range allEnvVars {
+		if envVar.Name == "ENABLE_SCHEDULED_REPORT" && envVar.Value == "true" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// shouldSynchronizeTLSFromCluster determines if TLS should be automatically synchronized from HumioCluster
+// Returns the first cluster that should drive TLS configuration, or nil if no synchronization should occur
+func (r *HumioPdfRenderServiceReconciler) shouldSynchronizeTLSFromCluster(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) (*humiov1alpha1.HumioCluster, error) {
+	// If TLS is explicitly configured on the PDF render service, don't override it
+	if hprs.Spec.TLS != nil && hprs.Spec.TLS.Enabled != nil {
+		r.Log.Info("PDF render service has explicit TLS configuration, skipping auto-sync",
+			"tlsEnabled", *hprs.Spec.TLS.Enabled)
+		return nil, nil
+	}
+
+	// Find HumioCluster instances with PDF rendering enabled
+	pdfEnabledClusters, err := r.findHumioClustersWithPDFEnabled(ctx, hprs.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use the first PDF-enabled cluster with TLS enabled as the source of truth
+	for _, cluster := range pdfEnabledClusters {
+		// Check if TLS is explicitly enabled on the cluster, regardless of cert-manager status
+		// This is important for test environments where cert-manager might not be available
+		tlsExplicitlyEnabled := cluster.Spec.TLS != nil &&
+			cluster.Spec.TLS.Enabled != nil &&
+			*cluster.Spec.TLS.Enabled
+
+		if tlsExplicitlyEnabled || helpers.TLSEnabled(&cluster) {
+			r.Log.Info("Found PDF-enabled HumioCluster with TLS enabled for sync",
+				"clusterName", cluster.Name,
+				"tlsExplicitlyEnabled", tlsExplicitlyEnabled,
+				"helpersTLSEnabled", helpers.TLSEnabled(&cluster))
+			return &cluster, nil
+		}
+	}
+
+	r.Log.Info("Found HumioCluster(s) with PDF rendering enabled but no TLS enabled, no sync needed",
+		"clusterCount", len(pdfEnabledClusters))
+	return nil, nil
+}
+
+// synchronizeTLSFromCluster synchronizes TLS configuration from HumioCluster to PDF render service
+func (r *HumioPdfRenderServiceReconciler) synchronizeTLSFromCluster(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService, sourceCluster *humiov1alpha1.HumioCluster) error {
+	r.Log.Info("Synchronizing TLS configuration from HumioCluster",
+		"sourceCluster", sourceCluster.Name,
+		"targetPDFService", hprs.Name)
+
+	// Initialize TLS spec if it doesn't exist
+	if hprs.Spec.TLS == nil {
+		hprs.Spec.TLS = &humiov1alpha1.HumioPdfRenderServiceTLSSpec{}
+	}
+
+	// Enable TLS to match the cluster
+	// Use the same logic as shouldSynchronizeTLSFromCluster to determine if TLS should be enabled
+	tlsExplicitlyEnabled := sourceCluster.Spec.TLS != nil &&
+		sourceCluster.Spec.TLS.Enabled != nil &&
+		*sourceCluster.Spec.TLS.Enabled
+
+	enabled := tlsExplicitlyEnabled || helpers.TLSEnabled(sourceCluster)
+	hprs.Spec.TLS.Enabled = &enabled
+
+	// Sync CA secret name if the cluster has one configured
+	if sourceCluster.Spec.TLS != nil && sourceCluster.Spec.TLS.CASecretName != "" {
+		hprs.Spec.TLS.CASecretName = sourceCluster.Spec.TLS.CASecretName
+		r.Log.Info("Synchronized CA secret name", "caSecretName", sourceCluster.Spec.TLS.CASecretName)
+	} else {
+		// Use the cluster's default CA secret name (follows HumioCluster naming convention)
+		defaultCASecretName := sourceCluster.Name
+		hprs.Spec.TLS.CASecretName = defaultCASecretName
+		r.Log.Info("Using default cluster CA secret", "caSecretName", defaultCASecretName)
+	}
+
+	// Optionally sync extra hostnames (this could be configurable in the future)
+	if sourceCluster.Spec.TLS != nil && len(sourceCluster.Spec.TLS.ExtraHostnames) > 0 {
+		// Only sync if PDF service doesn't have its own extra hostnames
+		if len(hprs.Spec.TLS.ExtraHostnames) == 0 {
+			hprs.Spec.TLS.ExtraHostnames = append([]string{}, sourceCluster.Spec.TLS.ExtraHostnames...)
+			r.Log.Info("Synchronized extra hostnames", "extraHostnames", sourceCluster.Spec.TLS.ExtraHostnames)
+		}
+	}
+
+	// Update the resource
+	if err := r.Update(ctx, hprs); err != nil {
+		return fmt.Errorf("failed to update PDF render service with synchronized TLS configuration: %w", err)
+	}
+
+	r.Log.Info("Successfully synchronized TLS configuration from HumioCluster")
+	return nil
 }
 
 // nolint:gocyclo
@@ -130,6 +260,23 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// However, the deployment will only scale up when at least one HumioCluster
 	// has ENABLE_SCHEDULED_REPORT=true. When no such cluster exists, the service
 	// scales down to 0 replicas to conserve resources.
+
+	// Auto-synchronize TLS configuration from HumioCluster if not explicitly set
+	if sourceCluster, err := r.shouldSynchronizeTLSFromCluster(ctx, hprs); err != nil {
+		r.Log.Error(err, "Failed to check TLS synchronization requirements")
+		reconcileErr = err
+		finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
+		return ctrl.Result{}, reconcileErr
+	} else if sourceCluster != nil {
+		if err := r.synchronizeTLSFromCluster(ctx, hprs, sourceCluster); err != nil {
+			r.Log.Error(err, "Failed to synchronize TLS configuration from HumioCluster")
+			reconcileErr = err
+			finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
+			return ctrl.Result{}, reconcileErr
+		}
+		// Requeue to process the updated TLS configuration
+		return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+	}
 
 	// If we're already in Running state and the observedGeneration matches the current generation,
 	// we can skip most of the reconciliation to reduce load during cluster updates
@@ -192,6 +339,13 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 				return ctrl.Result{}, reconcileErr
 			}
 
+			// Ensure keystore passphrase secret exists before creating certificates
+			if err := r.ensureKeystorePassphraseSecretForHPRS(ctx, hprs); err != nil {
+				reconcileErr = err
+				finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
+				return ctrl.Result{}, reconcileErr
+			}
+
 			if err := r.ensureHprsServerCertificate(ctx, hprs); err != nil {
 				reconcileErr = err
 				finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
@@ -226,6 +380,14 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 			finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
 			return ctrl.Result{}, reconcileErr
 		}
+	}
+
+	// Cleanup TLS resources if TLS is disabled, following HumioCluster pattern
+	if err := r.cleanupUnusedTLSResourcesForHPRS(ctx, hprs); err != nil {
+		r.Log.Error(err, "Failed to cleanup unused TLS resources")
+		reconcileErr = err
+		finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
+		return ctrl.Result{}, reconcileErr
 	}
 
 	// Reconcile children Deployment
@@ -343,6 +505,24 @@ func (r *HumioPdfRenderServiceReconciler) SetupWithManager(mgr ctrl.Manager) err
 	}
 
 	return builder.
+		// Watch HumioCluster resources for TLS configuration changes
+		Watches(&humiov1alpha1.HumioCluster{}, handler.EnqueueRequestsFromMapFunc(
+			func(ctx context.Context, obj client.Object) []reconcile.Request {
+				cluster := obj.(*humiov1alpha1.HumioCluster)
+				hprsList := &humiov1alpha1.HumioPdfRenderServiceList{}
+				_ = mgr.GetClient().List(ctx, hprsList, client.InNamespace(cluster.Namespace))
+				var reqs []reconcile.Request
+				for _, hprs := range hprsList.Items {
+					// Only requeue PDF render services that don't have explicit TLS configuration
+					// This allows them to sync from the HumioCluster
+					if hprs.Spec.TLS == nil || hprs.Spec.TLS.Enabled == nil {
+						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+							Name: hprs.Name, Namespace: hprs.Namespace}})
+					}
+				}
+				return reqs
+			},
+		)).
 		// Re-queue when a referenced Secret changes (TLS rotation)
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(
 			func(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -1112,6 +1292,13 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(
 		podSecurityContext = &corev1.PodSecurityContext{}
 	}
 
+	// When TLS is enabled, ensure the container can read mounted certificate files
+	// by setting fsGroup to allow non-root users to access secret volumes
+	if helpers.TLSEnabledForHPRS(hprs) && podSecurityContext.FSGroup == nil {
+		fsGroup := int64(65534) // nogroup/nobody group ID
+		podSecurityContext.FSGroup = &fsGroup
+	}
+
 	// Configure rolling update strategy to ensure proper pod transitions
 	maxUnavailable := intstr.FromInt(0) // Don't allow any unavailable pods during update
 	maxSurge := intstr.FromInt(1)       // Allow 1 extra pod during update
@@ -1275,25 +1462,14 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 		container.ImagePullPolicy = corev1.PullIfNotPresent
 	}
 
-	// Add TLS arguments when TLS is enabled
-	if helpers.TLSEnabledForHPRS(hprs) {
-		container.Args = append(container.Args,
-			"--tls-cert=/etc/tls/tls.crt",
-			"--tls-key=/etc/tls/tls.key",
-		)
-
-		// Add CA file argument if custom CA is specified
-		if helpers.UseExistingCAForHPRS(hprs) {
-			container.Args = append(container.Args, "--ca-file=/etc/ca/ca.crt")
-		}
-	}
+	// TLS configuration is now handled via environment variables
+	// TLS_ENABLED, TLS_CERT_PATH, TLS_KEY_PATH, and TLS_CA_PATH are set in tlsVolumesAndMounts()
 
 	// Determine scheme based on TLS configuration
 	scheme := "http"
-	// TODO: Uncomment when PDF render service supports TLS
-	// if helpers.TLSEnabledForHPRS(hprs) {
-	// 	scheme = "https"
-	// }
+	if helpers.TLSEnabledForHPRS(hprs) {
+		scheme = "https"
+	}
 
 	defaultLivenessProbe := &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
@@ -1304,6 +1480,17 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 			},
 		},
 		InitialDelaySeconds: 60, PeriodSeconds: 10, TimeoutSeconds: 5, FailureThreshold: 3, SuccessThreshold: 1,
+	}
+	
+	// In test environments, use more resilient probe settings following HumioCluster pattern
+	if helpers.UseDummyImage() {
+		defaultLivenessProbe.InitialDelaySeconds = 0  // No delay for dummy images
+	}
+	
+	// In KIND clusters or envtest, use more resilient probe settings
+	if helpers.UseKindCluster() || helpers.UseEnvtest() {
+		defaultLivenessProbe.FailureThreshold = 10     // Match HumioCluster's higher threshold
+		defaultLivenessProbe.PeriodSeconds = 5         // Match HumioCluster's faster probing
 	}
 	container.LivenessProbe = hprs.Spec.LivenessProbe
 	if container.LivenessProbe == nil {
@@ -1319,6 +1506,17 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 			},
 		},
 		InitialDelaySeconds: 60, PeriodSeconds: 10, TimeoutSeconds: 5, FailureThreshold: 3, SuccessThreshold: 1,
+	}
+	
+	// In test environments, use more resilient probe settings following HumioCluster pattern
+	if helpers.UseDummyImage() {
+		defaultReadinessProbe.InitialDelaySeconds = 0  // No delay for dummy images
+	}
+	
+	// In KIND clusters or envtest, use more resilient probe settings
+	if helpers.UseKindCluster() || helpers.UseEnvtest() {
+		defaultReadinessProbe.FailureThreshold = 10     // Match HumioCluster's higher threshold
+		defaultReadinessProbe.PeriodSeconds = 5         // Match HumioCluster's faster probing
 	}
 	container.ReadinessProbe = hprs.Spec.ReadinessProbe
 	if container.ReadinessProbe == nil {
@@ -1382,8 +1580,10 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 	// Server certificate configuration
 	serverCertSecretName := fmt.Sprintf("%s-tls", childName(hprs))
 
-	// Add only boolean TLS switch environment variable
-	*env = append(*env, corev1.EnvVar{Name: pdfRenderUseTLSEnvVar, Value: "true"})
+	// Add new TLS environment variables for the PDF render service
+	*env = append(*env, corev1.EnvVar{Name: pdfRenderTLSEnabledEnvVar, Value: "true"})
+	*env = append(*env, corev1.EnvVar{Name: pdfRenderTLSCertPathEnvVar, Value: pdfTLSCertMountPath + "/tls.crt"})
+	*env = append(*env, corev1.EnvVar{Name: pdfRenderTLSKeyPathEnvVar, Value: pdfTLSCertMountPath + "/tls.key"})
 
 	// Add server certificate volume
 	vols = append(vols, corev1.Volume{
@@ -1409,6 +1609,8 @@ func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha
 	// CA certificate configuration - for communicating with HumioCluster
 	caSecretName := helpers.GetCASecretNameForHPRS(hprs)
 	if caSecretName != "" {
+		// Add CA path environment variable
+		*env = append(*env, corev1.EnvVar{Name: pdfRenderTLSCAPathEnvVar, Value: caCertMountPath + "/ca.crt"})
 		// Add CA certificate volume
 		vols = append(vols, corev1.Volume{
 			Name: caCertVolumeName,
@@ -1547,7 +1749,7 @@ func (r *HumioPdfRenderServiceReconciler) constructHprsCertificate(hprs *humiov1
 		dnsNames = append(dnsNames, hprs.Spec.TLS.ExtraHostnames...)
 	}
 
-	return cmapi.Certificate{
+	certificate := cmapi.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        certificateName,
 			Namespace:   hprs.Namespace,
@@ -1566,8 +1768,22 @@ func (r *HumioPdfRenderServiceReconciler) constructHprsCertificate(hprs *humiov1
 				cmapi.UsageKeyEncipherment,
 				cmapi.UsageServerAuth,
 			},
+			// Add keystore configuration following HumioCluster pattern
+			// This is useful if the PDF render service needs Java keystore format
+			Keystores: &cmapi.CertificateKeystores{
+				JKS: &cmapi.JKSKeystore{
+					Create: true,
+					PasswordSecretRef: cmmeta.SecretKeySelector{
+						LocalObjectReference: cmmeta.LocalObjectReference{
+							Name: fmt.Sprintf("%s-keystore-passphrase", childName(hprs)),
+						},
+						Key: "passphrase",
+					},
+				},
+			},
 		},
 	}
+	return certificate
 }
 
 // validateTLSConfiguration ensures a valid TLS configuration for the PDF render service.
@@ -1742,6 +1958,206 @@ func labelsForHumioPdfRenderService(name string) map[string]string {
 // getCASecretNameForHPRS returns the name of the CA secret for the PDF render service
 func getCASecretNameForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) string {
 	return helpers.GetCASecretNameForHPRS(hprs)
+}
+
+// ensureKeystorePassphraseSecretForHPRS ensures the keystore passphrase secret exists, following HumioCluster pattern
+func (r *HumioPdfRenderServiceReconciler) ensureKeystorePassphraseSecretForHPRS(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
+	if !helpers.TLSEnabledForHPRS(hprs) {
+		return nil
+	}
+
+	secretName := fmt.Sprintf("%s-keystore-passphrase", childName(hprs))
+	existingSecret := &corev1.Secret{}
+
+	if err := r.Get(ctx, types.NamespacedName{
+		Namespace: hprs.Namespace,
+		Name:      secretName,
+	}, existingSecret); err != nil {
+		if k8serrors.IsNotFound(err) {
+			randomPass := kubernetes.RandomString()
+			secretData := map[string][]byte{
+				"passphrase": []byte(randomPass),
+			}
+			secret := kubernetes.ConstructSecret(childName(hprs), hprs.Namespace, secretName, secretData, labelsForHumioPdfRenderService(hprs.Name), nil)
+			if err := controllerutil.SetControllerReference(hprs, secret, r.Scheme); err != nil {
+				return fmt.Errorf("could not set controller reference for keystore passphrase secret: %w", err)
+			}
+			r.Log.Info("Creating keystore passphrase secret", "secretName", secretName)
+			if err := r.Create(ctx, secret); err != nil {
+				return fmt.Errorf("could not create keystore passphrase secret: %w", err)
+			}
+		} else {
+			return fmt.Errorf("could not get keystore passphrase secret: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// cleanupUnusedTLSResourcesForHPRS cleans up TLS resources when TLS is disabled, following HumioCluster pattern
+func (r *HumioPdfRenderServiceReconciler) cleanupUnusedTLSResourcesForHPRS(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
+	if helpers.TLSEnabledForHPRS(hprs) {
+		// TLS is enabled, nothing to cleanup
+		return nil
+	}
+
+	// When TLS is disabled, cleanup TLS resources following the HumioCluster cleanup pattern
+	if err := r.cleanupUnusedHPRSCertificates(ctx, hprs); err != nil {
+		return fmt.Errorf("failed to cleanup unused certificates: %w", err)
+	}
+
+	if err := r.cleanupUnusedHPRSTLSSecrets(ctx, hprs); err != nil {
+		return fmt.Errorf("failed to cleanup unused TLS secrets: %w", err)
+	}
+
+	if err := r.cleanupUnusedHPRSCAIssuer(ctx, hprs); err != nil {
+		return fmt.Errorf("failed to cleanup unused CA issuer: %w", err)
+	}
+
+	if err := r.cleanupKeystorePassphraseSecretForHPRS(ctx, hprs); err != nil {
+		return fmt.Errorf("failed to cleanup keystore passphrase secret: %w", err)
+	}
+
+	return nil
+}
+
+// cleanupUnusedHPRSCertificates removes certificates when TLS is disabled
+func (r *HumioPdfRenderServiceReconciler) cleanupUnusedHPRSCertificates(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
+	if !helpers.UseCertManager() {
+		return nil
+	}
+
+	// Find existing certificates for this HPRS
+	labels := labelsForHumioPdfRenderService(hprs.Name)
+	foundCertificateList, err := kubernetes.ListCertificates(ctx, r.Client, hprs.Namespace, labels)
+	if err != nil {
+		return err
+	}
+
+	if len(foundCertificateList) == 0 {
+		return nil
+	}
+
+	for idx, certificate := range foundCertificateList {
+		r.Log.Info("TLS is disabled for HPRS, removing unused certificate",
+			"certificateName", certificate.Name, "hprsName", hprs.Name)
+		if err = r.Delete(ctx, &foundCertificateList[idx]); err != nil {
+			if !k8serrors.IsNotFound(err) {
+				return fmt.Errorf("could not delete certificate %s: %w", certificate.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// cleanupUnusedHPRSTLSSecrets removes TLS secrets when TLS is disabled
+func (r *HumioPdfRenderServiceReconciler) cleanupUnusedHPRSTLSSecrets(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
+	// Find existing TLS secrets for this HPRS
+	labels := labelsForHumioPdfRenderService(hprs.Name)
+	foundSecretList, err := kubernetes.ListSecrets(ctx, r.Client, hprs.Namespace, labels)
+	if err != nil {
+		return err
+	}
+
+	for _, secret := range foundSecretList {
+		if secret.Type != corev1.SecretTypeTLS {
+			continue
+		}
+
+		// Check if this is a certificate secret owned by this HPRS
+		isOwnedByHPRS := false
+		for _, ownerRef := range secret.OwnerReferences {
+			if ownerRef.UID == hprs.UID {
+				isOwnedByHPRS = true
+				break
+			}
+		}
+
+		if isOwnedByHPRS {
+			r.Log.Info("TLS is disabled for HPRS, removing unused TLS secret",
+				"secretName", secret.Name, "hprsName", hprs.Name)
+			if err = r.Delete(ctx, &secret); err != nil {
+				if !k8serrors.IsNotFound(err) {
+					return fmt.Errorf("could not delete TLS secret %s: %w", secret.Name, err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// cleanupUnusedHPRSCAIssuer removes CA Issuer when TLS is disabled
+func (r *HumioPdfRenderServiceReconciler) cleanupUnusedHPRSCAIssuer(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
+	if !helpers.UseCertManager() {
+		return nil
+	}
+
+	issuerName := childName(hprs)
+	existingIssuer := &cmapi.Issuer{}
+	err := r.Get(ctx, types.NamespacedName{
+		Namespace: hprs.Namespace,
+		Name:      issuerName,
+	}, existingIssuer)
+
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("could not get CA Issuer: %w", err)
+	}
+
+	r.Log.Info("TLS is disabled for HPRS, removing unused CA Issuer",
+		"issuerName", issuerName, "hprsName", hprs.Name)
+
+	if err = r.Delete(ctx, existingIssuer); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("could not delete CA Issuer %s: %w", issuerName, err)
+		}
+	}
+
+	return nil
+}
+
+// cleanupKeystorePassphraseSecretForHPRS removes keystore passphrase secret when TLS is disabled
+func (r *HumioPdfRenderServiceReconciler) cleanupKeystorePassphraseSecretForHPRS(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) error {
+	secretName := fmt.Sprintf("%s-keystore-passphrase", childName(hprs))
+	existingSecret := &corev1.Secret{}
+
+	err := r.Get(ctx, types.NamespacedName{
+		Namespace: hprs.Namespace,
+		Name:      secretName,
+	}, existingSecret)
+
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("could not get keystore passphrase secret: %w", err)
+	}
+
+	// Check if this secret is owned by this HPRS
+	isOwnedByHPRS := false
+	for _, ownerRef := range existingSecret.OwnerReferences {
+		if ownerRef.UID == hprs.UID {
+			isOwnedByHPRS = true
+			break
+		}
+	}
+
+	if isOwnedByHPRS {
+		r.Log.Info("TLS is disabled for HPRS, removing keystore passphrase secret",
+			"secretName", secretName, "hprsName", hprs.Name)
+
+		if err = r.Delete(ctx, existingSecret); err != nil {
+			if !k8serrors.IsNotFound(err) {
+				return fmt.Errorf("could not delete keystore passphrase secret %s: %w", secretName, err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (r *HumioPdfRenderServiceReconciler) logErrorAndReturn(err error, msg string) error {
