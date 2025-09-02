@@ -1546,7 +1546,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 			var keystoreSecret corev1.Secret
 			Expect(k8sClient.Get(ctx, keystoreSecretKey, &keystoreSecret)).Should(Succeed())
 			Expect(keystoreSecret.Data).Should(HaveKey("passphrase"))
-			Expect(len(keystoreSecret.Data["passphrase"])).Should(BeNumerically(">", 0))
+			Expect(keystoreSecret.Data["passphrase"]).ShouldNot(BeEmpty())
 
 			By("Verifying server certificate is created with keystore configuration")
 			certKey := types.NamespacedName{
