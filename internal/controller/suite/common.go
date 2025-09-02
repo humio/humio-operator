@@ -46,6 +46,34 @@ const TestInterval = time.Second * 1
 const DefaultTestTimeout = time.Second * 30 // Standard timeout used throughout the tests
 const HumioPdfRenderServiceContainerName = "humio-pdf-render-service"
 
+// isPDFRenderServicePod checks if a pod belongs to a PDF render service deployment
+// by comparing deployment labels or checking for typical PDF render service indicators
+func isPDFRenderServicePod(pod corev1.Pod, deployment appsv1.Deployment) bool {
+	// Check if deployment name contains "hprs-" (PDF render service prefix)
+	if strings.Contains(deployment.Name, "hprs-") {
+		return true
+	}
+	
+	// Check deployment labels for PDF render service component
+	if component, ok := deployment.Labels["humio.com/component"]; ok && component == "pdf-render-service" {
+		return true
+	}
+	
+	// Check pod labels for PDF render service app
+	if app, ok := pod.Labels["app"]; ok && app == "pdf-render-service" {
+		return true
+	}
+	
+	// Check if pod has the expected container name
+	for _, container := range pod.Spec.Containers {
+		if container.Name == HumioPdfRenderServiceContainerName {
+			return true
+		}
+	}
+	
+	return false
+}
+
 func UsingClusterBy(cluster, text string, callbacks ...func()) {
 	timestamp := time.Now().Format(time.RFC3339Nano)
 	_, _ = fmt.Fprintln(GinkgoWriter, "STEP | "+timestamp+" | "+cluster+": "+text)
@@ -1197,12 +1225,11 @@ func EnsurePdfRenderDeploymentReady(
 			// but may not pass readiness probes in test environments
 			for _, pod := range pods {
 				if pod.DeletionTimestamp == nil {
-					for _, container := range pod.Spec.Containers {
-						if container.Name == HumioPdfRenderServiceContainerName {
-							UsingClusterBy(crName, fmt.Sprintf("Marking PDF render service pod %s as ready in Kind cluster", pod.Name))
-							_ = MarkPodAsRunningIfUsingEnvtest(ctx, k8sClient, pod, crName)
-							break
-						}
+					// For PDF render service deployments, mark all matching pods as ready
+					// Check if this is a PDF render service pod by looking at labels
+					if isPDFRenderServicePod(pod, dep) {
+						UsingClusterBy(crName, fmt.Sprintf("Marking PDF render service pod %s as ready in Kind cluster", pod.Name))
+						_ = MarkPodAsRunningIfUsingEnvtest(ctx, k8sClient, pod, crName)
 					}
 				}
 			}
