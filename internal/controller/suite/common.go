@@ -53,24 +53,24 @@ func isPDFRenderServicePod(pod corev1.Pod, deployment appsv1.Deployment) bool {
 	if strings.Contains(deployment.Name, "hprs-") {
 		return true
 	}
-	
+
 	// Check deployment labels for PDF render service component
 	if component, ok := deployment.Labels["humio.com/component"]; ok && component == "pdf-render-service" {
 		return true
 	}
-	
+
 	// Check pod labels for PDF render service app
 	if app, ok := pod.Labels["app"]; ok && app == "pdf-render-service" {
 		return true
 	}
-	
+
 	// Check if pod has the expected container name
 	for _, container := range pod.Spec.Containers {
 		if container.Name == HumioPdfRenderServiceContainerName {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
