@@ -24,7 +24,7 @@ const (
 
 	sidecarWaitForGlobalImageVersion = "alpine:20240329"
 
-	defaultPDFRenderServiceImage = "humio/pdf-render-service:0.0.60--build-102--sha-c8eb95329236ba5fc65659b83af1d84b4703cb1e"
+	defaultPDFRenderServiceImage = "humio/pdf-render-service:0.1.2--build-104--sha-9a7598de95bb9775b6f59d874c37a206713bae01"
 
 	dummyImageSuffix = "-dummy"
 )

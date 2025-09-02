@@ -475,7 +475,7 @@ func (hnp *HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 
 	// Allow overriding PUBLIC_URL. This may be useful when other methods of exposing the cluster are used other than
 	// ingress
-	if !EnvVarHasKey(envDefaults, "PUBLIC_URL") {
+	if !envVarHasKey(envVars, "PUBLIC_URL") {
 		// Only include the path suffix if it's non-root. It likely wouldn't harm anything, but it's unnecessary
 		pathSuffix := ""
 		if hnp.GetPath() != "/" {
@@ -493,6 +493,11 @@ func (hnp *HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 			})
 		}
 	}
+
+	// PDF_RENDER_SERVICE_CALLBACK_BASE_URL is a LogScale environment variable that specifies
+	// the base URL LogScale uses to reach the PDF render service. This is only set if explicitly
+	// provided by the user, as the PDF render service may not exist when the cluster starts.
+	// Users should set this manually when they have a PDF render service deployed.
 
 	if hnp.GetPath() != "/" {
 		envVars = hnp.AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, corev1.EnvVar{
@@ -1118,4 +1123,14 @@ func mergeEnvironmentVariables(src, dest *corev1.Container) {
 			dest.Env = append(dest.Env, newEnv)
 		}
 	}
+}
+
+// envVarHasKey checks if an environment variable with the given name exists in the slice
+func envVarHasKey(envVars []corev1.EnvVar, key string) bool {
+	for _, envVar := range envVars {
+		if envVar.Name == key {
+			return true
+		}
+	}
+	return false
 }
