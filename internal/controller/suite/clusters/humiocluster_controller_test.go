@@ -593,17 +593,6 @@ var _ = Describe("HumioCluster Controller", func() {
 					var deployment appsv1.Deployment
 					g.Expect(k8sClient.Get(ctx, deploymentKey, &deployment)).To(Succeed())
 
-					// In test environments, we need to ensure the deployment is ready
-					if helpers.UseEnvtest() || helpers.UseKindCluster() {
-						// Force deployment to be ready in test environments
-						deployment.Status.Replicas = 1
-						deployment.Status.UpdatedReplicas = 1
-						deployment.Status.ReadyReplicas = 1
-						deployment.Status.AvailableReplicas = 1
-						deployment.Status.ObservedGeneration = deployment.Generation
-						_ = k8sClient.Status().Update(ctx, &deployment)
-					}
-
 					// Verify HTTP probes are used
 					g.Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1), "Should have exactly one container")
 					container := deployment.Spec.Template.Spec.Containers[0]
@@ -618,6 +607,9 @@ var _ = Describe("HumioCluster Controller", func() {
 					g.Expect(container.ReadinessProbe.HTTPGet).ToNot(BeNil(), "Readiness probe should use HTTP")
 					g.Expect(container.ReadinessProbe.TCPSocket).To(BeNil(), "Readiness probe should not use TCP")
 				}, testTimeout, quickInterval).Should(Succeed())
+
+				By("Ensuring PDF deployment becomes ready in test environments")
+				suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, deploymentKey, testTimeout)
 
 				By("Waiting for PDF service to reach Running state")
 				Eventually(func(g Gomega) {
