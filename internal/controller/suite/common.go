@@ -46,34 +46,6 @@ const TestInterval = time.Second * 1
 const DefaultTestTimeout = time.Second * 30 // Standard timeout used throughout the tests
 const HumioPdfRenderServiceContainerName = "humio-pdf-render-service"
 
-// isPDFRenderServicePod checks if a pod belongs to a PDF render service deployment
-// by comparing deployment labels or checking for typical PDF render service indicators
-func isPDFRenderServicePod(pod corev1.Pod, deployment appsv1.Deployment) bool {
-	// Check if deployment name contains "hprs-" (PDF render service prefix)
-	if strings.Contains(deployment.Name, "hprs-") {
-		return true
-	}
-
-	// Check deployment labels for PDF render service component
-	if component, ok := deployment.Labels["humio.com/component"]; ok && component == "pdf-render-service" {
-		return true
-	}
-
-	// Check pod labels for PDF render service app
-	if app, ok := pod.Labels["app"]; ok && app == "pdf-render-service" {
-		return true
-	}
-
-	// Check if pod has the expected container name
-	for _, container := range pod.Spec.Containers {
-		if container.Name == HumioPdfRenderServiceContainerName {
-			return true
-		}
-	}
-
-	return false
-}
-
 func UsingClusterBy(cluster, text string, callbacks ...func()) {
 	timestamp := time.Now().Format(time.RFC3339Nano)
 	_, _ = fmt.Fprintln(GinkgoWriter, "STEP | "+timestamp+" | "+cluster+": "+text)
@@ -111,8 +83,8 @@ func MarkPodAsRunningIfUsingEnvtest(ctx context.Context, k8sClient client.Client
 	}
 
 	// Only mark pods as ready in envtest environments
-	// Exception: PDF render service pods also need to be marked as ready in Kind clusters for testing
-	if !helpers.UseEnvtest() && (!isPdfRenderService || !helpers.UseKindCluster()) {
+	// Kind clusters should use natural Kubernetes readiness behavior for all pods
+	if !helpers.UseEnvtest() {
 		return nil
 	}
 
@@ -1221,18 +1193,8 @@ func EnsurePdfRenderDeploymentReady(
 			pods, _ := listPods()
 			UsingClusterBy(crName, fmt.Sprintf("Found %d pods for deployment", len(pods)))
 
-			// For PDF render service pods in Kind clusters, mark them as ready since they use real images
-			// but may not pass readiness probes in test environments
-			for _, pod := range pods {
-				if pod.DeletionTimestamp == nil {
-					// For PDF render service deployments, mark all matching pods as ready
-					// Check if this is a PDF render service pod by looking at labels
-					if isPDFRenderServicePod(pod, dep) {
-						UsingClusterBy(crName, fmt.Sprintf("Marking PDF render service pod %s as ready in Kind cluster", pod.Name))
-						_ = MarkPodAsRunningIfUsingEnvtest(ctx, k8sClient, pod, crName)
-					}
-				}
-			}
+			// In Kind clusters, let pods become ready naturally through Kubernetes readiness probes
+			// No manual intervention needed - kubelet will handle probe execution
 
 			// Count ready pods
 			pods, _ = listPods()
