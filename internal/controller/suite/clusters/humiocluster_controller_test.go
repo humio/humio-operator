@@ -2804,7 +2804,6 @@ var _ = Describe("HumioCluster Controller", func() {
 				return internalSvc.Spec.Selector
 			}, testTimeout, suite.TestInterval).Should(HaveKeyWithValue("humio.com/feature", "OperatorInternal"))
 		})
-
 	})
 
 	Context("Humio Cluster Container Arguments", Label("envtest", "dummy", "real"), func() {

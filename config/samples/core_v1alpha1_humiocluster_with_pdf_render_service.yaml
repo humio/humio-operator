@@ -9,13 +9,14 @@ metadata:
     app.kubernetes.io/managed-by: 'manual'
 spec:
   extraKafkaConfigs: "security.protocol=PLAINTEXT"
-  enablePdfRenderService: true
   tls:
     enabled: false
   #image: "humio/humio-core:1.171.1"
   nodeCount: 1
   targetReplicationFactor: 1
   environmentVariables:
+    - name: "ENABLE_SCHEDULED_REPORT"
+      value: "true"
     - name: "DEFAULT_PDF_RENDER_SERVICE_URL"
       value: "http://example-pdf-render-service.default.svc.cluster.local:5132"
     - name: "HUMIO_OPTS"
