@@ -74,6 +74,8 @@ spec:
           value: {{ .Values.defaultHumioHelperImageManaged | quote }}
         - name: WATCH_NAMESPACE
           value: {{ .Values.operator.watchNamespaces | join "," | quote }}
+        - name: HUMIO_OPERATOR_DEFAULT_PDF_RENDER_SERVICE_IMAGE
+          value: {{ .Values.defaultPdfRenderServiceImage | quote }}
         livenessProbe:
           httpGet:
             path: /healthz
@@ -95,3 +97,25 @@ spec:
           capabilities:
             drop:
             - ALL
+
+{{- if .Values.pdfRenderService.enabled }}
+---
+apiVersion: core.humio.com/v1alpha1
+kind: HumioPdfRenderService
+metadata:
+  labels:
+    app.kubernetes.io/name: {{ .Values.pdfRenderService.name | default "pdf-render-service" | quote }}
+    app.kubernetes.io/instance: {{ printf "%s-%s" .Release.Name (default "pdf-render-service" .Values.pdfRenderService.name) | quote }}
+    app.kubernetes.io/part-of: humio-operator
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/created-by: humio-operator
+  name: {{ printf "%s-%s" .Release.Name (default "pdf-render-service" .Values.pdfRenderService.name) | quote }}
+spec:
+  enabled: {{ .Values.pdfRenderService.enabled }}
+  image: "{{ .Values.pdfRenderService.image.repository }}:{{ .Values.pdfRenderService.image.tag }}"
+  replicas: 1
+{{- end }}
+
+
+
+
