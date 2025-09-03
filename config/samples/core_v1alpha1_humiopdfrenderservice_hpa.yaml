@@ -13,11 +13,11 @@ spec:
   # Resource requests - important for HPA to work properly
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: "1"
+      memory: "1Gi"
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: "1"
+      memory: "2Gi"
   
   # HPA Configuration
   autoscaling:
@@ -70,6 +70,16 @@ spec:
       value: "100"
     - name: CLEANUP_INTERVAL
       value: "600"
+    # TLS Configuration
+    - name: TLS_ENABLED
+      value: "false"
+    # Uncomment and configure the following if TLS_ENABLED=true
+    # - name: TLS_CERT_PATH
+    #   value: "/path/to/tls.crt"
+    # - name: TLS_KEY_PATH
+    #   value: "/path/to/tls.key"
+    # - name: TLS_CA_PATH
+    #   value: "/path/to/ca.crt"
 
 ---
 # Example of a simple HPA configuration
@@ -92,8 +102,8 @@ spec:
   # Must specify resource requests for HPA to work
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: "1"
+      memory: "1Gi"
 
 ---
 # Example without HPA (traditional static scaling)

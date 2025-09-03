@@ -26,6 +26,16 @@ spec:
       value: "5123"
     - name: SERVICE_VERSION
       value: 0.0.60--build-101--sha-fe87a59c82fd957ec460190a3f726948d586c1ea
+    # TLS Configuration
+    - name: TLS_ENABLED
+      value: "false"
+    # Uncomment and configure the following if TLS_ENABLED=true
+    # - name: TLS_CERT_PATH
+    #   value: "/path/to/tls.crt"
+    # - name: TLS_KEY_PATH
+    #   value: "/path/to/tls.key"
+    # - name: TLS_CA_PATH
+    #   value: "/path/to/ca.crt"
 
   # Resource requirements
   resources:
