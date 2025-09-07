@@ -1179,32 +1179,36 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 
 			By("Creating HumioPdfRenderService with replicas > 0 and no clusters with scheduled reports")
 			pdfService := &humiov1alpha1.HumioPdfRenderService{
-				ObjectMeta: metav1.ObjectMeta{ Name: key.Name, Namespace: key.Namespace },
+				ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace},
 				Spec: humiov1alpha1.HumioPdfRenderServiceSpec{
 					Image:    versions.DefaultPDFRenderServiceImage(),
 					Replicas: 2,
 					Port:     controller.DefaultPdfRenderServicePort,
-					TLS: &humiov1alpha1.HumioPdfRenderServiceTLSSpec{ Enabled: helpers.BoolPtr(false) },
+					TLS:      &humiov1alpha1.HumioPdfRenderServiceTLSSpec{Enabled: helpers.BoolPtr(false)},
 				},
 			}
 			Expect(k8sClient.Create(ctx, pdfService)).Should(Succeed())
 			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
 			By("Waiting for Deployment to be created and auto-scaled down to 0 replicas")
-			deploymentKey := types.NamespacedName{ Name: helpers.PdfRenderServiceChildName(key.Name), Namespace: key.Namespace }
+			deploymentKey := types.NamespacedName{Name: helpers.PdfRenderServiceChildName(key.Name), Namespace: key.Namespace}
 			Eventually(func() (int32, error) {
 				var dep appsv1.Deployment
 				if err := k8sClient.Get(ctx, deploymentKey, &dep); err != nil {
 					return -1, err
 				}
-				if dep.Spec.Replicas == nil { return -1, nil }
+				if dep.Spec.Replicas == nil {
+					return -1, nil
+				}
 				return *dep.Spec.Replicas, nil
 			}, testTimeout, testInterval).Should(Equal(int32(0)))
 
 			By("Verifying HumioPdfRenderService status transitions to ScaledDown")
 			Eventually(func() string {
 				var current humiov1alpha1.HumioPdfRenderService
-				if err := k8sClient.Get(ctx, key, &current); err != nil { return "" }
+				if err := k8sClient.Get(ctx, key, &current); err != nil {
+					return ""
+				}
 				return current.Status.State
 			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateScaledDown))
 		})

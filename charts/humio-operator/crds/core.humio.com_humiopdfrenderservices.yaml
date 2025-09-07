@@ -1107,6 +1107,7 @@ spec:
                   maxReplicas:
                     description: MaxReplicas is the maximum number of replicas
                     format: int32
+                    minimum: 1
                     type: integer
                   metrics:
                     description: Metrics contains the specifications for scaling metrics
@@ -1572,8 +1573,10 @@ spec:
                       type: object
                     type: array
                   minReplicas:
+                    default: 1
                     description: MinReplicas is the minimum number of replicas
                     format: int32
+                    minimum: 1
                     type: integer
                   targetCPUUtilizationPercentage:
                     description: TargetCPUUtilizationPercentage is the target average

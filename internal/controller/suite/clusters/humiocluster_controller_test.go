@@ -4229,53 +4229,53 @@ var _ = Describe("HumioCluster Controller", func() {
 		})
 	})
 
-    // PDF Render Service callback base URL env wiring
-    Context("PDF Render Callback Base URL", Label("envtest", "dummy", "real"), func() {
-        It("should include PDF_RENDER_SERVICE_CALLBACK_BASE_URL in pods when explicitly set", func() {
-            ctx := context.Background()
-            key := types.NamespacedName{
-                Name:      "humiocluster-pdf-callback-set",
-                Namespace: testProcessNamespace,
-            }
+	// PDF Render Service callback base URL env wiring
+	Context("PDF Render Callback Base URL", Label("envtest", "dummy", "real"), func() {
+		It("should include PDF_RENDER_SERVICE_CALLBACK_BASE_URL in pods when explicitly set", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humiocluster-pdf-callback-set",
+				Namespace: testProcessNamespace,
+			}
 
-            toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
-            callback := "https://callback.example.com/base"
-            toCreate.Spec.CommonEnvironmentVariables = append(
-                toCreate.Spec.CommonEnvironmentVariables,
-                corev1.EnvVar{Name: "PDF_RENDER_SERVICE_CALLBACK_BASE_URL", Value: callback},
-            )
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			callback := "https://callback.example.com/base"
+			toCreate.Spec.CommonEnvironmentVariables = append(
+				toCreate.Spec.CommonEnvironmentVariables,
+				corev1.EnvVar{Name: "PDF_RENDER_SERVICE_CALLBACK_BASE_URL", Value: callback},
+			)
 
-            suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
-            defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-            clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-            Expect(clusterPods).NotTo(BeEmpty())
-            for _, pod := range clusterPods {
-                humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controller.HumioContainerName)
-                Expect(controller.EnvVarHasValue(pod.Spec.Containers[humioIdx].Env, "PDF_RENDER_SERVICE_CALLBACK_BASE_URL", callback)).To(BeTrue())
-            }
-        })
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			Expect(clusterPods).NotTo(BeEmpty())
+			for _, pod := range clusterPods {
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controller.HumioContainerName)
+				Expect(controller.EnvVarHasValue(pod.Spec.Containers[humioIdx].Env, "PDF_RENDER_SERVICE_CALLBACK_BASE_URL", callback)).To(BeTrue())
+			}
+		})
 
-        It("should omit PDF_RENDER_SERVICE_CALLBACK_BASE_URL when not provided", func() {
-            ctx := context.Background()
-            key := types.NamespacedName{
-                Name:      "humiocluster-pdf-callback-unset",
-                Namespace: testProcessNamespace,
-            }
+		It("should omit PDF_RENDER_SERVICE_CALLBACK_BASE_URL when not provided", func() {
+			ctx := context.Background()
+			key := types.NamespacedName{
+				Name:      "humiocluster-pdf-callback-unset",
+				Namespace: testProcessNamespace,
+			}
 
-            toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
+			toCreate := suite.ConstructBasicSingleNodeHumioCluster(key, true)
 
-            suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
-            defer suite.CleanupCluster(ctx, k8sClient, toCreate)
+			suite.CreateAndBootstrapCluster(ctx, k8sClient, testHumioClient, toCreate, true, humiov1alpha1.HumioClusterStateRunning, testTimeout)
+			defer suite.CleanupCluster(ctx, k8sClient, toCreate)
 
-            clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
-            Expect(clusterPods).NotTo(BeEmpty())
-            for _, pod := range clusterPods {
-                humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controller.HumioContainerName)
-                Expect(controller.EnvVarHasKey(pod.Spec.Containers[humioIdx].Env, "PDF_RENDER_SERVICE_CALLBACK_BASE_URL")).To(BeFalse())
-            }
-        })
-    })
+			clusterPods, _ := kubernetes.ListPods(ctx, k8sClient, key.Namespace, controller.NewHumioNodeManagerFromHumioCluster(toCreate).GetPodLabels())
+			Expect(clusterPods).NotTo(BeEmpty())
+			for _, pod := range clusterPods {
+				humioIdx, _ := kubernetes.GetContainerIndexByName(pod, controller.HumioContainerName)
+				Expect(controller.EnvVarHasKey(pod.Spec.Containers[humioIdx].Env, "PDF_RENDER_SERVICE_CALLBACK_BASE_URL")).To(BeFalse())
+			}
+		})
+	})
 
 	Context("Humio Cluster Config Errors", Label("envtest", "dummy", "real"), func() {
 		It("Creating cluster with conflicting volume mount name", func() {
