@@ -55,6 +55,8 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
+var cancel context.CancelFunc
+var ctx context.Context
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var k8sManager ctrl.Manager
@@ -155,8 +157,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
-		err = k8sManager.Start(ctrl.SetupSignalHandler())
-		Expect(err).NotTo(HaveOccurred())
+    // Start the manager with an explicit cancelable context to ensure clean shutdown in AfterSuite
+    ctx, cancel = context.WithCancel(context.TODO())
+    err = k8sManager.Start(ctx)
+    Expect(err).NotTo(HaveOccurred())
 	}()
 
 	k8sClient = k8sManager.GetClient()
@@ -194,6 +198,10 @@ var _ = AfterSuite(func() {
 		)
 		Expect(err).ToNot(HaveOccurred())
 	}
+    // Stop the manager before tearing down the envtest control plane to prevent timeouts
+    if cancel != nil {
+        cancel()
+    }
 	By("Tearing down the test environment")
 	_ = testEnv.Stop()
 })
