@@ -70,19 +70,17 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 
 			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
-			By("Ensuring PDF deployment becomes ready in test environments")
-			suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key, testTimeout)
+        By("Ensuring PDF deployment becomes ready in test environments (0 replicas)")
+        suite.EnsurePdfRenderDeploymentReady(ctx, k8sClient, key, testTimeout)
 
-			By("Verifying PDF service reaches Running state independently")
-			// PDF service should reach Running state without requiring HumioCluster
-			// This demonstrates that PDF service deployment is independent of HumioCluster
-			fetchedPDFService := &humiov1alpha1.HumioPdfRenderService{}
-			Eventually(func() string {
-				if err := k8sClient.Get(ctx, key, fetchedPDFService); err != nil {
-					return ""
-				}
-				return fetchedPDFService.Status.State
-			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
+        By("Verifying PDF service is ScaledDown until a HumioCluster enables scheduled reports")
+        fetchedPDFService := &humiov1alpha1.HumioPdfRenderService{}
+        Eventually(func() string {
+            if err := k8sClient.Get(ctx, key, fetchedPDFService); err != nil {
+                return ""
+            }
+            return fetchedPDFService.Status.State
+        }, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateScaledDown))
 
 			By("Creating HumioCluster with ENABLE_SCHEDULED_REPORT=true for API integration")
 			// ENABLE_SCHEDULED_REPORT signals that the HumioCluster can use PDF features
@@ -149,16 +147,14 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 
 			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
-			By("Verifying PDF service deploys independently without requiring HumioCluster")
-			// The PDF service should be able to start and reach Running state
-			// without any HumioCluster being present, demonstrating independent deployment
-			fetchedPDFService := &humiov1alpha1.HumioPdfRenderService{}
-			Eventually(func() string {
-				if err := k8sClient.Get(ctx, key, fetchedPDFService); err != nil {
-					return ""
-				}
-				return fetchedPDFService.Status.State
-			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
+        By("Verifying PDF service deploys independently and is ScaledDown without HumioCluster")
+        fetchedPDFService := &humiov1alpha1.HumioPdfRenderService{}
+        Eventually(func() string {
+            if err := k8sClient.Get(ctx, key, fetchedPDFService); err != nil {
+                return ""
+            }
+            return fetchedPDFService.Status.State
+        }, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateScaledDown))
 
 			By("Creating HumioCluster with ENABLE_SCHEDULED_REPORT=true for API integration")
 			// ENABLE_SCHEDULED_REPORT signals that HumioCluster supports PDF features,
@@ -177,13 +173,13 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 			Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
 			defer suite.CleanupCluster(ctx, k8sClient, cluster)
 
-			By("Verifying PDF render service is already Running (independent deployment)")
-			Eventually(func() string {
-				if err := k8sClient.Get(ctx, key, fetchedPDFService); err != nil {
-					return ""
-				}
-				return fetchedPDFService.Status.State
-			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
+        By("Verifying PDF render service transitions to Running after cluster enables reports")
+        Eventually(func() string {
+            if err := k8sClient.Get(ctx, key, fetchedPDFService); err != nil {
+                return ""
+            }
+            return fetchedPDFService.Status.State
+        }, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
 
 			By("Verifying Deployment exists with correct properties")
 			var deployment appsv1.Deployment
@@ -195,7 +191,8 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 				return k8sClient.Get(ctx, deploymentKey, &deployment)
 			}, testTimeout, testInterval).Should(Succeed())
 
-			Expect(*deployment.Spec.Replicas).To(Equal(int32(1)))
+        // With auto scale-down, replicas are 0 before a cluster enables scheduled reports
+        Expect(*deployment.Spec.Replicas).To(Equal(int32(0)))
 			Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal(versions.DefaultPDFRenderServiceImage()))
 
 			By("Verifying Service exists with correct port")
@@ -623,10 +620,16 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 				Namespace: testProcessNamespace,
 			}
 
-			By("Creating HumioPdfRenderService first")
-			pdfService := suite.CreatePdfRenderServiceAndWait(ctx, k8sClient, key, "humio/pdf-render-service:0.1.2--build-104--sha-9a7598de95bb9775b6f59d874c37a206713bae01", false, testTimeout)
+        By("Creating HumioPdfRenderService first (will be ScaledDown until a cluster enables reports)")
+        pdfService := suite.CreatePdfRenderServiceCR(ctx, k8sClient, key, false)
+        defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
 
-			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfService)
+        // With the auto scale-down policy, the service should be ScaledDown while no cluster has ENABLE_SCHEDULED_REPORT=true
+        Eventually(func() string {
+            var current humiov1alpha1.HumioPdfRenderService
+            if err := k8sClient.Get(ctx, key, &current); err != nil { return "" }
+            return current.Status.State
+        }, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateScaledDown))
 
 			By("Creating HumioCluster with scheduled reports and PDF service URL")
 			clusterKey := types.NamespacedName{
@@ -642,14 +645,14 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 			Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
 			defer suite.CleanupCluster(ctx, k8sClient, cluster)
 
-			By("Verifying PDF service is running")
-			fetchedPDFService := &humiov1alpha1.HumioPdfRenderService{}
-			Eventually(func() string {
-				if err := k8sClient.Get(ctx, key, fetchedPDFService); err != nil {
-					return ""
-				}
-				return fetchedPDFService.Status.State
-			}, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
+        By("Verifying PDF service transitions to Running after cluster creation")
+        fetchedPDFService := &humiov1alpha1.HumioPdfRenderService{}
+        Eventually(func() string {
+            if err := k8sClient.Get(ctx, key, fetchedPDFService); err != nil {
+                return ""
+            }
+            return fetchedPDFService.Status.State
+        }, testTimeout, testInterval).Should(Equal(humiov1alpha1.HumioPdfRenderServiceStateRunning))
 
 			By("Updating PDF service image")
 			// First update
