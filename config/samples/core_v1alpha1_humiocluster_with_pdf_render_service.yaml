@@ -19,6 +19,11 @@ spec:
       value: "true"
     - name: "DEFAULT_PDF_RENDER_SERVICE_URL"
       value: "http://example-pdf-render-service.default.svc.cluster.local:5132"
+    # Optional: overrides PUBLIC_URL for PDF render service callbacks.
+    # Set this when the callback URL must differ from PUBLIC_URL (e.g., external
+    # address, specific path or ingress in front of LogScale).
+    - name: "PDF_RENDER_SERVICE_CALLBACK_BASE_URL"
+      value: "https://example-humiocluster.example.com"
     - name: "HUMIO_OPTS"
       value: "-Dakka.log-config-on-start=on -Dlog4j2.formatMsgNoLookups=true -Dzookeeper.client.secure=false"
     - name: "ZOOKEEPER_URL"
