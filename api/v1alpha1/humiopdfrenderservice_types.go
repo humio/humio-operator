@@ -265,8 +265,11 @@ type HumioPdfRenderServiceAutoscalingSpec struct {
 	// Enabled toggles autoscaling on or off
 	Enabled *bool `json:"enabled,omitempty"`
 	// MinReplicas is the minimum number of replicas
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:default=1
 	MinReplicas *int32 `json:"minReplicas,omitempty"`
 	// MaxReplicas is the maximum number of replicas
+	// +kubebuilder:validation:Minimum=1
 	MaxReplicas int32 `json:"maxReplicas,omitempty"`
 	// TargetCPUUtilizationPercentage is the target average CPU utilization
 	TargetCPUUtilizationPercentage *int32 `json:"targetCPUUtilizationPercentage,omitempty"`
@@ -277,3 +280,7 @@ type HumioPdfRenderServiceAutoscalingSpec struct {
 	// Behavior configures the scaling behavior of the target
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
+
+// Enforce that when autoscaling is enabled, maxReplicas >= minReplicas (defaulting minReplicas to 1 when omitted).
+// Also ensure that when enabled, minReplicas is at least 1 (covered by Minimum and default above).
+// +kubebuilder:validation:XValidation:rule="!has(self.enabled) || self.enabled == false || self.maxReplicas >= (has(self.minReplicas) ? self.minReplicas : 1)",message="maxReplicas must be greater than or equal to minReplicas (default 1) when autoscaling is enabled"
