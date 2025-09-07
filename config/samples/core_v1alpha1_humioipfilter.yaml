@@ -1,0 +1,19 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioIPFilter
+metadata:
+  labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humioipfilter-sample
+spec:
+  managedClusterName: example-humiocluster
+  name: example-ipfilter-1
+  ipFilter:
+    - action: allow
+      address: 127.0.0.1
+    - action: allow
+      address: 10.0.0.0/8
+    - action: deny
+      address: 192.168.1.24
+    - action: allow
+      address: all

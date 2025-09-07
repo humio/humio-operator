@@ -21,6 +21,7 @@ operations:
   - graphql/viewer.graphql
   - graphql/views.graphql
   - graphql/users.graphql
+  - graphql/ipfilter.graphql
 generated: humiographql.go
 
 bindings:

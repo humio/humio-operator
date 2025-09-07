@@ -279,3 +279,18 @@ func EmptySliceIfNil(slice []string) []string {
 	}
 	return slice
 }
+
+// FirewallRulesToString converts a slice of FirewallRule structs to a string format
+// expected by Humio, joining each rule with the specified separator
+func FirewallRulesToString(rules []humiov1alpha1.FirewallRule, separator string) string {
+	if len(rules) == 0 {
+		return ""
+	}
+
+	ruleStrings := make([]string, len(rules))
+	for i, rule := range rules {
+		ruleStrings[i] = fmt.Sprintf("%s %s", rule.Action, rule.Address)
+	}
+
+	return strings.Join(ruleStrings, separator)
+}

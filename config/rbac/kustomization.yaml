@@ -37,6 +37,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the humio-operator itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- humioipfilter_admin_role.yaml
+- humioipfilter_editor_role.yaml
+- humioipfilter_viewer_role.yaml
 - humiomulticlustersearchview_admin_role.yaml
 - humiomulticlustersearchview_editor_role.yaml
 - humiomulticlustersearchview_viewer_role.yaml
