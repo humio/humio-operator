@@ -209,7 +209,7 @@ type IPFilterClient interface {
 type ViewTokenClient interface {
 	CreateViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken, string, []string, []humiographql.Permission) (*humiographql.TokenDetailsViewPermissionsToken, string, error)
 	GetViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken) (*humiographql.TokenDetailsViewPermissionsToken, error)
-	UpdateViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken) error
+	UpdateViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken, []humiographql.Permission) error
 	DeleteViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken) error
 }
 
@@ -3001,15 +3001,11 @@ func (h *ClientConfig) DeleteViewToken(ctx context.Context, client *humioapi.Cli
 	)
 	return err
 }
-func (h *ClientConfig) UpdateViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken) error {
-	permissions := make([]humiographql.Permission, len(viewToken.Spec.Permissions))
-	for i, perm := range viewToken.Spec.Permissions {
-		permissions[i] = humiographql.Permission(perm)
-	}
+func (h *ClientConfig) UpdateViewToken(ctx context.Context, client *humioapi.Client, hvt *humiov1alpha1.HumioViewToken, permissions []humiographql.Permission) error {
 	_, err := humiographql.UpdateViewToken(
 		ctx,
 		client,
-		viewToken.Status.ID,
+		hvt.Status.ID,
 		permissions,
 	)
 	return err

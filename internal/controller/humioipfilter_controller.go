@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -80,7 +79,7 @@ func (r *HumioIPFilterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		if setStateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(setStateErr, "unable to set cluster state")
 		}
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, r.logErrorAndReturn(err, "unable to obtain humio client config")
+		return reconcile.Result{}, r.logErrorAndReturn(err, "unable to obtain humio client config")
 	}
 
 	humioHttpClient := r.HumioClient.GetHumioHttpClient(cluster.Config(), req)

@@ -2185,7 +2185,7 @@ func (h *MockClientConfig) GetViewToken(ctx context.Context, client *humioapi.Cl
 	return nil, humioapi.ViewTokenNotFound(viewToken.Spec.Name)
 }
 
-func (h *MockClientConfig) UpdateViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken) error {
+func (h *MockClientConfig) UpdateViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken, permissions []humiographql.Permission) error {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 

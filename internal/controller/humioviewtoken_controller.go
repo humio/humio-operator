@@ -43,6 +43,12 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 )
 
+const (
+	BootstrapSecretSuffix string = "bootstrap-token"
+	SecretFieldName       string = "secret"
+	TokenFieldName        string = "token"
+)
+
 // HumioViewTokenReconciler reconciles a HumioViewToken object
 type HumioViewTokenReconciler struct {
 	client.Client
@@ -202,8 +208,14 @@ func (r *HumioViewTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not compute diferences")
 	}
 	if !asExpected {
+		// we plan to update so we validate dependencies
+		validation, err := r.validateDependencies(ctx, humioHttpClient, hvt, currentViewToken)
+		if err != nil {
+			_ = r.setState(ctx, hvt, humiov1alpha1.HumioViewTokenConfigError, hvt.Status.ID, hvt.Status.Token)
+			return reconcile.Result{}, r.logErrorAndReturn(err, "dependencies validation failed, unrecoverable error, check CR dependencies")
+		}
 		r.Log.Info("information differs, triggering update", "diff", diffKeysAndValues)
-		updateErr := r.HumioClient.UpdateViewToken(ctx, humioHttpClient, hvt)
+		updateErr := r.HumioClient.UpdateViewToken(ctx, humioHttpClient, hvt, validation.Permissions)
 		if updateErr != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(updateErr, "could not update ViewToken")
 		}
@@ -424,7 +436,7 @@ func (r *HumioViewTokenReconciler) ensureViewTokenSecretExists(ctx context.Conte
 		return err
 	}
 
-	secretData := map[string][]byte{"token": []byte(secret)}
+	secretData := map[string][]byte{TokenFieldName: []byte(secret)}
 	desiredSecret := kubernetes.ConstructSecret(cluster.Name(), hvt.Namespace, hvt.Spec.TokenSecretName, secretData, hvt.Spec.TokenSecretLabels, hvt.Spec.TokenSecretAnnotations)
 	if err := controllerutil.SetControllerReference(hvt, desiredSecret, r.Scheme()); err != nil {
 		return fmt.Errorf("could not set controller reference: %w", err)
@@ -442,7 +454,7 @@ func (r *HumioViewTokenReconciler) ensureViewTokenSecretExists(ctx context.Conte
 	} else {
 		// kubernetes secret exists, check if we need to update it
 		r.Log.Info("view token secret already exists", "TokenSecretName", hvt.Spec.TokenSecretName)
-		if string(existingSecret.Data["token"]) != string(desiredSecret.Data["token"]) ||
+		if string(existingSecret.Data[TokenFieldName]) != string(desiredSecret.Data[TokenFieldName]) ||
 			!cmp.Equal(existingSecret.Labels, desiredSecret.Labels) ||
 			!cmp.Equal(existingSecret.Annotations, desiredSecret.Annotations) {
 			r.Log.Info("secret does not match the token in Humio. Updating token", "TokenSecretName", hvt.Spec.TokenSecretName)
@@ -455,13 +467,13 @@ func (r *HumioViewTokenReconciler) ensureViewTokenSecretExists(ctx context.Conte
 }
 
 func (r *HumioViewTokenReconciler) readBootstrapTokenSecret(ctx context.Context, cluster helpers.ClusterInterface, namespace string) (string, error) {
-	secretName := fmt.Sprintf("%s-bootstrap-token", cluster.Name())
+	secretName := fmt.Sprintf("%s-%s", cluster.Name(), BootstrapSecretSuffix)
 	existingSecret, err := kubernetes.GetSecret(ctx, r, secretName, namespace)
 	if err != nil {
 		return "", fmt.Errorf("failed to get bootstrap token secret %s: %w", secretName, err)
 	}
 
-	tokenBytes, exists := existingSecret.Data["secret"]
+	tokenBytes, exists := existingSecret.Data[SecretFieldName]
 	if !exists {
 		return "", fmt.Errorf("token key not found in secret %s", secretName)
 	}
@@ -484,7 +496,7 @@ func (r *HumioViewTokenReconciler) encryptToken(ctx context.Context, cluster hel
 func (r *HumioViewTokenReconciler) decryptToken(ctx context.Context, cluster helpers.ClusterInterface, hvt *humiov1alpha1.HumioViewToken) (string, error) {
 	cypher, err := r.readBootstrapTokenSecret(ctx, cluster, hvt.Namespace)
 	if err != nil {
-		return "", r.logErrorAndReturn(err, "read bootstrap token")
+		return "", r.logErrorAndReturn(err, "failed to read bootstrap token")
 	}
 	decSecret, err := DecryptSecret(hvt.Status.Token, cypher)
 	if err != nil {
@@ -497,11 +509,11 @@ func (r *HumioViewTokenReconciler) viewTokenAlreadyAsExpected(fromK8s *humiov1al
 	// we can only update assigned permissions
 	keyValues := map[string]string{}
 
-	// validate permissions
-	_, err := r.validatePermissions(fromK8s.Spec.Permissions)
-	if err != nil {
-		return false, keyValues, r.logErrorAndReturn(err, "permissions validation failed")
-	}
+	// // validate permissions
+	// _, err := r.validatePermissions(fromK8s.Spec.Permissions)
+	// if err != nil {
+	// 	return false, keyValues, r.logErrorAndReturn(err, "permissions validation failed")
+	// }
 	//permissions
 	permsFromK8s := fixPermissions(fromK8s.Spec.Permissions)
 	permsFromGql := fromGql.Permissions
