@@ -39928,6 +39928,7 @@ Autoscaling configuration for the PDF Render Service
           MaxReplicas is the maximum number of replicas<br/>
           <br/>
             <i>Format</i>: int32<br/>
+            <i>Minimum</i>: 1<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -39944,6 +39945,8 @@ Autoscaling configuration for the PDF Render Service
           MinReplicas is the minimum number of replicas<br/>
           <br/>
             <i>Format</i>: int32<br/>
+            <i>Default</i>: 1<br/>
+            <i>Minimum</i>: 1<br/>
         </td>
         <td>false</td>
       </tr><tr>
