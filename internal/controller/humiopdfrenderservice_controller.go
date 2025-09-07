@@ -1485,10 +1485,10 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 	// TLS configuration is now handled via environment variables
 	// TLS_ENABLED, TLS_CERT_PATH, TLS_KEY_PATH, and TLS_CA_PATH are set in tlsVolumesAndMounts()
 
-	// Determine scheme based on TLS configuration
-	scheme := "http"
+	// Determine scheme based on TLS configuration using enum constants
+	scheme := corev1.URISchemeHTTP
 	if helpers.TLSEnabledForHPRS(hprs) {
-		scheme = "https"
+		scheme = corev1.URISchemeHTTPS
 	}
 
 	defaultLivenessProbe := &corev1.Probe{
@@ -1496,7 +1496,7 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 			HTTPGet: &corev1.HTTPGetAction{
 				Path:   humiov1alpha1.DefaultPdfRenderServiceLiveness,
 				Port:   intstr.FromInt(int(port)),
-				Scheme: corev1.URIScheme(strings.ToUpper(scheme)),
+				Scheme: scheme,
 			},
 		},
 		InitialDelaySeconds: 60, PeriodSeconds: 10, TimeoutSeconds: 5, FailureThreshold: 3, SuccessThreshold: 1,
@@ -1522,7 +1522,7 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 			HTTPGet: &corev1.HTTPGetAction{
 				Path:   humiov1alpha1.DefaultPdfRenderServiceReadiness,
 				Port:   intstr.FromInt(int(port)),
-				Scheme: corev1.URIScheme(strings.ToUpper(scheme)),
+				Scheme: scheme,
 			},
 		},
 		InitialDelaySeconds: 60, PeriodSeconds: 10, TimeoutSeconds: 5, FailureThreshold: 3, SuccessThreshold: 1,
