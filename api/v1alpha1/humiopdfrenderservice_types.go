@@ -106,7 +106,7 @@ type HumioPdfRenderServiceSpec struct {
 	// Add other fields as needed, like:
 	// - Configuration options (e.g., timeouts, memory settings)
 	// - Storage options (e.g., volumes)
-	// - Service type (e.g., ClusterIP, NodePort, LoadBalancer)
+	// - Service type (ClusterIP only)
 
 	// Affinity defines the pod's scheduling constraints.
 	// +optional
@@ -132,14 +132,11 @@ type HumioPdfRenderServiceSpec struct {
 	// +optional
 	ReadinessProbe *corev1.Probe `json:"readinessProbe,omitempty"`
 
-	// ServiceType is the type of service to expose.
+	// ServiceType is the type of service to expose (ClusterIP only).
 	// +optional
 	// +kubebuilder:default=ClusterIP
+	// +kubebuilder:validation:Enum=ClusterIP
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
-
-	// NodePort is the port the service listens on when the service type is NodePort.
-	// +optional
-	NodePort int32 `json:"nodePort,omitempty"`
 
 	// ServiceAccountName is the name of the Kubernetes Service Account to use.
 	// +optional
