@@ -281,11 +281,6 @@ func EmptySliceIfNil(slice []string) []string {
 	return slice
 }
 
-// SliceToString joins a slice elements by separator to return a string
-func SliceToString(slice []string, separator string) string {
-	return strings.Join(slice, separator)
-}
-
 // FirewallRulesToString converts a slice of FirewallRule structs to a string format
 // expected by Humio, joining each rule with the specified separator
 func FirewallRulesToString(rules []humiov1alpha1.FirewallRule, separator string) string {
@@ -295,14 +290,14 @@ func FirewallRulesToString(rules []humiov1alpha1.FirewallRule, separator string)
 
 	ruleStrings := make([]string, len(rules))
 	for i, rule := range rules {
-		ruleStrings[i] = fmt.Sprintf("%s %s", rule.Action, rule.IP)
+		ruleStrings[i] = fmt.Sprintf("%s %s", rule.Action, rule.Address)
 	}
 
 	return strings.Join(ruleStrings, separator)
 }
 
 // GetCurrentTime generates current time with day precision
-func GetCurrentTime() time.Time {
+func GetCurrentDay() time.Time {
 	baseTime := time.Now()
 	// Set specific hour, minute, second while keeping date
 	specificTime := time.Date(

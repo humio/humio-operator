@@ -22,10 +22,12 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -49,6 +51,7 @@ type HumioViewTokenReconciler struct {
 	Log         logr.Logger
 	HumioClient humio.Client
 	Namespace   string
+	Recorder    record.EventRecorder
 }
 
 // This is a manually maintained map of permissions
@@ -167,7 +170,7 @@ func (r *HumioViewTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			r.Log.Info("ViewToken doesn't exist. Now creating ViewToken")
 			// run validation across spec fields
-			validation, err := r.validateDependencies(ctx, humioHttpClient, hvt)
+			validation, err := r.validateDependencies(ctx, humioHttpClient, hvt, currentViewToken)
 			if err != nil {
 				_ = r.setState(ctx, hvt, humiov1alpha1.HumioViewTokenConfigError, hvt.Status.ID, hvt.Status.Token)
 				return reconcile.Result{}, r.logErrorAndReturn(err, "dependencies validation failed, unrecoverable error, check CR dependencies")
@@ -180,12 +183,12 @@ func (r *HumioViewTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			// we only see secret once so any failed actions that depend on it are not recoverable
 			encSecret, encErr := r.encryptToken(ctx, cluster, hvt, secret)
 			if encErr != nil {
-				return reconcile.Result{}, r.logErrorAndReturn(encErr, "could not encrypt ViewToken token, this is unrecoverable, recreate the ViewToken CR")
+				return reconcile.Result{}, r.logErrorAndReturn(encErr, "could not encrypt ViewToken secret, this is unrecoverable, recreate the ViewToken CR")
 			}
 			// set Status with the returned token id and the encrypted secret
 			err = r.setState(ctx, hvt, humiov1alpha1.HumioViewTokenExists, tokenResponse.GetId(), encSecret)
 			if err != nil {
-				return reconcile.Result{}, r.logErrorAndReturn(err, "could not update ViewToken Status, this is unrecoverable, recreate the ViewToken CR")
+				return reconcile.Result{}, r.logErrorAndReturn(err, "could not update ViewToken Status with secret, this is unrecoverable, recreate the ViewToken CR")
 			}
 			return reconcile.Result{Requeue: true}, nil
 		}
@@ -208,17 +211,26 @@ func (r *HumioViewTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// ensure associated K8s secret exists if token is set
 	if hvt.Status.Token != "" {
-		err = r.ensureViewTokenSecretExists(ctx, humioHttpClient, hvt, cluster)
+		err = r.ensureViewTokenSecretExists(ctx, hvt, cluster)
 		if err != nil {
 			return reconcile.Result{}, r.logErrorAndReturn(err, "could not ensure ViewToken secret exists")
 		}
 	}
 
 	// At the end of successful reconcile:
-	humioViewToken, err := r.HumioClient.GetViewToken(ctx, humioHttpClient, hvt)
-	if errors.As(err, &humioapi.EntityNotFound{}) {
+	humioViewToken, lastErr := r.HumioClient.GetViewToken(ctx, humioHttpClient, hvt)
+
+	// validate dependencies that can change outside of k8s
+	_, depErr := r.validateDependencies(ctx, humioHttpClient, hvt, humioViewToken)
+	if depErr != nil {
+		// unrecoverable error condition
+		r.handleCriticalError(ctx, hvt, depErr)
+		return reconcile.Result{RequeueAfter: time.Minute * 5}, nil
+	}
+
+	if errors.As(lastErr, &humioapi.EntityNotFound{}) {
 		_ = r.setState(ctx, hvt, humiov1alpha1.HumioViewTokenNotFound, hvt.Status.ID, hvt.Status.Token)
-	} else if err != nil {
+	} else if lastErr != nil {
 		_ = r.setState(ctx, hvt, humiov1alpha1.HumioViewTokenUnknown, hvt.Status.ID, hvt.Status.Token)
 	} else {
 		_ = r.setState(ctx, hvt, humiov1alpha1.HumioViewTokenExists, humioViewToken.GetId(), hvt.Status.Token)
@@ -229,6 +241,7 @@ func (r *HumioViewTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HumioViewTokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.Recorder = mgr.GetEventRecorderFor("humioviewtoken-controller")
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&humiov1alpha1.HumioViewToken{}).
 		Named("humioviewtoken").
@@ -277,6 +290,13 @@ func (r *HumioViewTokenReconciler) setState(ctx context.Context, hvt *humiov1alp
 func (r *HumioViewTokenReconciler) logErrorAndReturn(err error, msg string) error {
 	r.Log.Error(err, msg)
 	return fmt.Errorf("%s: %w", msg, err)
+}
+
+// update state, log error and record k8s event
+func (r *HumioViewTokenReconciler) handleCriticalError(ctx context.Context, hvt *humiov1alpha1.HumioViewToken, err error) {
+	_ = r.setState(ctx, hvt, humiov1alpha1.HumioViewTokenConfigError, hvt.Status.ID, hvt.Status.Token)
+	_ = r.logErrorAndReturn(err, "failed to validate external dependencies")
+	r.Recorder.Event(hvt, corev1.EventTypeWarning, "ValidationFailed", err.Error())
 }
 
 func (r *HumioViewTokenReconciler) validateIPFilter(ctx context.Context, client *humioapi.Client, hvt *humiov1alpha1.HumioViewToken) (*humiographql.IPFilterDetails, error) {
@@ -357,19 +377,31 @@ type ValidationResult struct {
 	Permissions []humiographql.Permission
 }
 
-func (r *HumioViewTokenReconciler) validateDependencies(ctx context.Context, client *humioapi.Client, hvt *humiov1alpha1.HumioViewToken) (*ValidationResult, error) {
-	// validate dependencies
-	// HumioIPFilter
+func (r *HumioViewTokenReconciler) validateDependencies(ctx context.Context, client *humioapi.Client, hvt *humiov1alpha1.HumioViewToken, vt *humiographql.TokenDetailsViewPermissionsToken) (*ValidationResult, error) {
+	// validate ExpireAt
+	if vt == nil { // we are validating before token creation
+		if hvt.Spec.ExpiresAt != nil && hvt.Spec.ExpiresAt.Time.Before(time.Now()) {
+			return nil, fmt.Errorf("ExpiresAt time must be in the future")
+		}
+	}
+
+	//validate HumioIPFilter
 	ipFilter, err := r.validateIPFilter(ctx, client, hvt)
 	if err != nil {
 		return nil, fmt.Errorf("ipFilterName validation failed: %w", err)
 	}
-	//HumioViews
+	if vt != nil {
+		// we have an existing token
+		if ipFilter.Id != vt.IpFilterV2.Id {
+			return nil, fmt.Errorf("external dependency ipFilter changed: current=%v vs desired=%v", ipFilter.Id, vt.IpFilterV2.Id)
+		}
+	}
+	//validate HumioViews
 	viewIds, err := r.validateViews(ctx, client, hvt)
 	if err != nil {
 		return nil, fmt.Errorf("viewsNames validation failed: %w", err)
 	}
-	//Permissions
+	//validate Permissions
 	permissions, err := r.validatePermissions(hvt.Spec.Permissions)
 	if err != nil {
 		return nil, fmt.Errorf("Permissions validation failed: %w", err)
@@ -381,7 +413,7 @@ func (r *HumioViewTokenReconciler) validateDependencies(ctx context.Context, cli
 	}, nil
 }
 
-func (r *HumioViewTokenReconciler) ensureViewTokenSecretExists(ctx context.Context, client *humioapi.Client, hvt *humiov1alpha1.HumioViewToken, cluster helpers.ClusterInterface) error {
+func (r *HumioViewTokenReconciler) ensureViewTokenSecretExists(ctx context.Context, hvt *humiov1alpha1.HumioViewToken, cluster helpers.ClusterInterface) error {
 	if hvt.Spec.TokenSecretName == "" {
 		// unexpected situation as TokenSecretName is mandatory
 		return fmt.Errorf("ViewToken.Spec.TokenSecretName is mandatory but missing")
@@ -483,6 +515,7 @@ func (r *HumioViewTokenReconciler) viewTokenAlreadyAsExpected(fromK8s *humiov1al
 }
 
 // OrganizationOwnedQueries gets added when the token is created on self hosted
+// EquivalentSpecificPermissions map specific permissions to others
 func fixPermissions(permissions []string) []string {
 	permSet := make(map[string]bool)
 	for _, perm := range permissions {

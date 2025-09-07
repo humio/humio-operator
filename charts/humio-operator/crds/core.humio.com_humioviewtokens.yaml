@@ -54,7 +54,7 @@ spec:
           spec:
             description: HumioViewTokenSpec defines the desired state of HumioViewToken
             properties:
-              expireDate:
+              expireAt:
                 description: ExpiresAt is the time when the View token is set to expire.
                 format: date-time
                 type: string
@@ -68,7 +68,7 @@ spec:
                 minLength: 1
                 type: string
               ipFilterName:
-                description: IPFIlterName is the Humio IP Filter to be attached to
+                description: IPFilterName is the Humio IP Filter to be attached to
                   the View Token
                 maxLength: 253
                 minLength: 1

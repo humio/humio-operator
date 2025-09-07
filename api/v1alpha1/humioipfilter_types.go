@@ -32,10 +32,14 @@ const (
 )
 
 type FirewallRule struct {
+	// Action determines whether to allow or deny traffic from/to the specified address
 	// +kubebuilder:validation:Enum=allow;deny
+	// +kubebuilder:validation:Required
 	Action string `json:"action"`
-	// +kubebuilder:validation:Pattern=`^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(/(3[0-2]|[12]?[0-9]))?$`
-	IP string `json:"ip"`
+	// Address specifies the IP address, CIDR subnet, or "all" to which the Action applies
+	// +kubebuilder:validation:Pattern=`^(all|((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(/(3[0-2]|[12]?[0-9]))?|([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}(/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8]))?|::1(/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8]))?|::(/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8]))?)$`
+	// +kubebuilder:validation:Required
+	Address string `json:"address"`
 }
 
 // HumioIPFilterSpec defines the desired state of HumioIPFilter
@@ -51,14 +55,14 @@ type HumioIPFilterSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Optional
 	ExternalClusterName string `json:"externalClusterName,omitempty"`
-	// Name is the name of the IP filter inside Humio
+	// Name for the IPFilter within Humio (immutable after creation)
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
-	// IPFilter defines the IP filter rule to use
-	// +kubebuilder:validation:Items:Pattern=`^(allow|deny) ((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(/(3[0-2]|[12]?[0-9]))?|([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|::1|::|(([0-9a-fA-F]{1,4}:){1,7}:|:((:[0-9a-fA-F]{1,4}){1,7}|:))(/(12[0-8]|1[01][0-9]|[1-9]?[0-9]))?$`
+	// IPFilter is a list of firewall rules that define access control for IP addresses and subnets
+	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:Required
 	IPFilter []FirewallRule `json:"ipFilter"`
 }

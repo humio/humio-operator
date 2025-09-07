@@ -5143,8 +5143,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 			// some defaults
 			name := "example-ipfilter"
 			ipRules := []humiov1alpha1.FirewallRule{
-				{Action: "allow", IP: "127.0.0.1"},
-				{Action: "allow", IP: "10.0.0.0/8"},
+				{Action: "allow", Address: "127.0.0.1"},
+				{Action: "allow", Address: "10.0.0.0/8"},
+				{Action: "allow", Address: "all"},
 			}
 
 			ctx := context.Background()
@@ -5197,29 +5198,29 @@ var _ = Describe("Humio Resources Controllers", func() {
 			}{
 				{
 					Rule: humiov1alpha1.FirewallRule{
-						Action: "allow",
-						IP:     "",
+						Action:  "allow",
+						Address: "",
 					},
-					Error: "ip: Invalid value",
+					Error: "address: Invalid value",
 				},
 				{
 					Rule: humiov1alpha1.FirewallRule{
-						Action: "allow",
-						IP:     "0.0.0",
+						Action:  "allow",
+						Address: "0.0.0",
 					},
-					Error: "ip: Invalid value",
+					Error: "address: Invalid value",
 				},
 				{
 					Rule: humiov1alpha1.FirewallRule{
-						Action: "reject",
-						IP:     "0.0.0.0/0",
+						Action:  "reject",
+						Address: "0.0.0.0/0",
 					},
 					Error: "action: Unsupported value",
 				},
 				{
 					Rule: humiov1alpha1.FirewallRule{
-						Action: "",
-						IP:     "127.0.0.1",
+						Action:  "",
+						Address: "127.0.0.1",
 					},
 					Error: "action: Unsupported value",
 				},
@@ -5270,7 +5271,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			Expect(*initialIPFilter).To(Equal(*expectedInitialIPFilter))
 
 			suite.UsingClusterBy(clusterKey.Name, "HumioIPFilter: Updating the IPFilter successfully")
-			filter := []humiov1alpha1.FirewallRule{{Action: "allow", IP: "192.168.1.0/24"}}
+			filter := []humiov1alpha1.FirewallRule{{Action: "allow", Address: "192.168.1.0/24"}}
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, key, fetchedIPFilter); err != nil {
 					return err
@@ -5313,7 +5314,7 @@ var _ = Describe("Humio Resources Controllers", func() {
 			viewTokenName := "example-viewtoken"
 			viewTokenSecretName := "example-viewtoken-secret"
 			permissionNames := []string{"ReadAccess", "ChangeFiles"}
-			expireAt := metav1.NewTime(helpers.GetCurrentTime())
+			expireAt := metav1.NewTime(helpers.GetCurrentDay().AddDate(0, 0, 1))
 
 			// create dependencies first
 			// IPFilter
@@ -5321,8 +5322,8 @@ var _ = Describe("Humio Resources Controllers", func() {
 				ManagedClusterName: clusterKey.Name,
 				Name:               filterName,
 				IPFilter: []humiov1alpha1.FirewallRule{
-					{Action: "allow", IP: "127.0.0.1"},
-					{Action: "allow", IP: "10.0.0.0/8"},
+					{Action: "allow", Address: "127.0.0.1"},
+					{Action: "allow", Address: "10.0.0.0/8"},
 				},
 			}
 

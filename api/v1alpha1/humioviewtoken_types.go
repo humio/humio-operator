@@ -29,8 +29,6 @@ const (
 	HumioViewTokenNotFound = "NotFound"
 	// HumioViewTokenConfigError is the state of the ingest token when user-provided specification results in configuration error, such as non-existent humio cluster
 	HumioViewTokenConfigError = "ConfigError"
-	// HumioViewTokenConfigError is the state of the ingest token when it is expired
-	HumioViewTokenExpired = "Expired"
 )
 
 // HumioViewTokenSpec defines the desired state of HumioViewToken
@@ -59,7 +57,7 @@ type HumioViewTokenSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Required
 	ViewNames []string `json:"viewNames"`
-	// IPFIlterName is the Humio IP Filter to be attached to the View Token
+	// IPFilterName is the Humio IP Filter to be attached to the View Token
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
@@ -75,7 +73,7 @@ type HumioViewTokenSpec struct {
 	// +kubebuilder:validation:Format=date-time
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	// +kubebuilder:validation:Optional
-	ExpiresAt *metav1.Time `json:"expireDate,omitempty"`
+	ExpiresAt *metav1.Time `json:"expireAt,omitempty"`
 	// TokenSecretName specifies the name of the Kubernetes secret that will be created and contain the view token.
 	// The key in the secret storing the View token is "token".
 	// +kubebuilder:validation:MinLength=1

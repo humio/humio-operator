@@ -2156,7 +2156,7 @@ func (h *MockClientConfig) CreateViewToken(ctx context.Context, client *humioapi
 
 	value := fmt.Sprintf("%s~%s", kubernetes.RandomString(), kubernetes.RandomString())
 	parts := strings.Split(value, "~")
-	expireAt := metav1.NewTime(helpers.GetCurrentTime()).Unix()
+	expireAt := metav1.NewTime(helpers.GetCurrentDay().AddDate(0, 0, 1)).Unix()
 	response := &humiographql.TokenDetailsViewPermissionsToken{
 		Id:          parts[0],
 		Name:        viewToken.Spec.Name,
@@ -2200,7 +2200,7 @@ func (h *MockClientConfig) UpdateViewToken(ctx context.Context, client *humioapi
 		return humioapi.ViewTokenNotFound(viewToken.Spec.Name)
 	}
 
-	expireAt := metav1.NewTime(helpers.GetCurrentTime()).Unix()
+	expireAt := metav1.NewTime(helpers.GetCurrentDay().AddDate(0, 0, 1)).Unix()
 	value := &humiographql.TokenDetailsViewPermissionsToken{
 		Id:          currentValue.Id,
 		Name:        viewToken.Spec.Name,
