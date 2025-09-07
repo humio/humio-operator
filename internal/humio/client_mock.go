@@ -63,6 +63,7 @@ type ClientMock struct {
 	User                   map[resourceKey]humiographql.UserDetails
 	AdminUserID            map[resourceKey]string
 	Role                   map[resourceKey]humiographql.RoleDetails
+	IPFilter               map[resourceKey]humiographql.IPFilterDetails
 }
 
 type MockClientConfig struct {
@@ -88,6 +89,7 @@ func NewMockClient() *MockClientConfig {
 			User:                   make(map[resourceKey]humiographql.UserDetails),
 			AdminUserID:            make(map[resourceKey]string),
 			Role:                   make(map[resourceKey]humiographql.RoleDetails),
+			IPFilter:               make(map[resourceKey]humiographql.IPFilterDetails),
 		},
 	}
 
@@ -117,6 +119,7 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 	h.apiClient.ScheduledSearch = make(map[resourceKey]humiographql.ScheduledSearchDetails)
 	h.apiClient.User = make(map[resourceKey]humiographql.UserDetails)
 	h.apiClient.AdminUserID = make(map[resourceKey]string)
+	h.apiClient.IPFilter = make(map[resourceKey]humiographql.IPFilterDetails)
 }
 
 func (h *MockClientConfig) Status(_ context.Context, _ *humioapi.Client) (*humioapi.StatusResponse, error) {
@@ -2047,5 +2050,87 @@ func (h *MockClientConfig) DeleteViewPermissionRole(ctx context.Context, client 
 	}
 
 	delete(h.apiClient.Role, key)
+	return nil
+}
+
+func (h *MockClientConfig) AddIPFilter(ctx context.Context, client *humioapi.Client, ipFilter *humiov1alpha1.HumioIPFilter) (*humiographql.IPFilterDetails, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", ipFilter.Spec.ManagedClusterName, ipFilter.Spec.ExternalClusterName)
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: ipFilter.Spec.Name,
+	}
+	if value, found := h.apiClient.IPFilter[key]; found {
+		return &value, fmt.Errorf("IPFilter already exists with name %s", ipFilter.Spec.Name)
+	}
+
+	value := &humiographql.IPFilterDetails{
+		Id:       kubernetes.RandomString(),
+		Name:     ipFilter.Spec.Name,
+		IpFilter: helpers.FirewallRulesToString(ipFilter.Spec.IPFilter, "\n"),
+	}
+
+	h.apiClient.IPFilter[key] = *value
+
+	return value, nil
+}
+
+func (h *MockClientConfig) GetIPFilter(ctx context.Context, _ *humioapi.Client, ipFilter *humiov1alpha1.HumioIPFilter) (*humiographql.IPFilterDetails, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", ipFilter.Spec.ManagedClusterName, ipFilter.Spec.ExternalClusterName)
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: ipFilter.Spec.Name,
+	}
+
+	if value, found := h.apiClient.IPFilter[key]; found {
+		return &value, nil
+	}
+
+	return nil, humioapi.IPFilterNotFound(ipFilter.Spec.Name)
+}
+
+func (h *MockClientConfig) UpdateIPFilter(ctx context.Context, _ *humioapi.Client, ipFilter *humiov1alpha1.HumioIPFilter) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", ipFilter.Spec.ManagedClusterName, ipFilter.Spec.ExternalClusterName)
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: ipFilter.Spec.Name,
+	}
+
+	currentValue, found := h.apiClient.IPFilter[key]
+	if !found {
+		return humioapi.IPFilterNotFound(ipFilter.Spec.Name)
+	}
+
+	value := &humiographql.IPFilterDetails{
+		Id:       currentValue.GetId(),
+		Name:     ipFilter.Spec.Name,
+		IpFilter: helpers.FirewallRulesToString(ipFilter.Spec.IPFilter, "\n"),
+	}
+	h.apiClient.IPFilter[key] = *value
+	return nil
+}
+
+func (h *MockClientConfig) DeleteIPFilter(ctx context.Context, _ *humioapi.Client, ipFilter *humiov1alpha1.HumioIPFilter) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", ipFilter.Spec.ManagedClusterName, ipFilter.Spec.ExternalClusterName)
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: ipFilter.Spec.Name,
+	}
+	delete(h.apiClient.IPFilter, key)
 	return nil
 }

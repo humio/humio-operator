@@ -2315,6 +2315,85 @@ func (v *CreateHumioRepoActionResponse) GetCreateHumioRepoAction() CreateHumioRe
 	return v.CreateHumioRepoAction
 }
 
+// CreateIPFilterCreateIPFilter includes the requested fields of the GraphQL type IPFilter.
+// The GraphQL type's documentation follows.
+//
+// An IP Filter
+type CreateIPFilterCreateIPFilter struct {
+	IPFilterDetails `json:"-"`
+}
+
+// GetId returns CreateIPFilterCreateIPFilter.Id, and is useful for accessing the field via an interface.
+func (v *CreateIPFilterCreateIPFilter) GetId() string { return v.IPFilterDetails.Id }
+
+// GetName returns CreateIPFilterCreateIPFilter.Name, and is useful for accessing the field via an interface.
+func (v *CreateIPFilterCreateIPFilter) GetName() string { return v.IPFilterDetails.Name }
+
+// GetIpFilter returns CreateIPFilterCreateIPFilter.IpFilter, and is useful for accessing the field via an interface.
+func (v *CreateIPFilterCreateIPFilter) GetIpFilter() string { return v.IPFilterDetails.IpFilter }
+
+func (v *CreateIPFilterCreateIPFilter) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateIPFilterCreateIPFilter
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateIPFilterCreateIPFilter = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.IPFilterDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateIPFilterCreateIPFilter struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	IpFilter string `json:"ipFilter"`
+}
+
+func (v *CreateIPFilterCreateIPFilter) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateIPFilterCreateIPFilter) __premarshalJSON() (*__premarshalCreateIPFilterCreateIPFilter, error) {
+	var retval __premarshalCreateIPFilterCreateIPFilter
+
+	retval.Id = v.IPFilterDetails.Id
+	retval.Name = v.IPFilterDetails.Name
+	retval.IpFilter = v.IPFilterDetails.IpFilter
+	return &retval, nil
+}
+
+// CreateIPFilterResponse is returned by CreateIPFilter on success.
+type CreateIPFilterResponse struct {
+	// Create a new IP filter.
+	// Stability: Long-term
+	CreateIPFilter CreateIPFilterCreateIPFilter `json:"createIPFilter"`
+}
+
+// GetCreateIPFilter returns CreateIPFilterResponse.CreateIPFilter, and is useful for accessing the field via an interface.
+func (v *CreateIPFilterResponse) GetCreateIPFilter() CreateIPFilterCreateIPFilter {
+	return v.CreateIPFilter
+}
+
 // CreateLocalMultiClusterSearchViewConnectionCreateLocalClusterConnection includes the requested fields of the GraphQL type LocalClusterConnection.
 // The GraphQL type's documentation follows.
 //
@@ -3371,6 +3450,16 @@ type DeleteGroupResponse struct {
 func (v *DeleteGroupResponse) GetRemoveGroup() DeleteGroupRemoveGroupRemoveGroupMutation {
 	return v.RemoveGroup
 }
+
+// DeleteIPFilterResponse is returned by DeleteIPFilter on success.
+type DeleteIPFilterResponse struct {
+	// Delete IP filter.
+	// Stability: Long-term
+	DeleteIPFilter bool `json:"deleteIPFilter"`
+}
+
+// GetDeleteIPFilter returns DeleteIPFilterResponse.DeleteIPFilter, and is useful for accessing the field via an interface.
+func (v *DeleteIPFilterResponse) GetDeleteIPFilter() bool { return v.DeleteIPFilter }
 
 // DeleteMultiClusterSearchViewConnectionResponse is returned by DeleteMultiClusterSearchViewConnection on success.
 type DeleteMultiClusterSearchViewConnectionResponse struct {
@@ -6340,6 +6429,83 @@ func (v *GetGroupByDisplayNameResponse) GetGroupByDisplayName() GetGroupByDispla
 	return v.GroupByDisplayName
 }
 
+// GetIPFiltersIpFiltersIPFilter includes the requested fields of the GraphQL type IPFilter.
+// The GraphQL type's documentation follows.
+//
+// An IP Filter
+type GetIPFiltersIpFiltersIPFilter struct {
+	IPFilterDetails `json:"-"`
+}
+
+// GetId returns GetIPFiltersIpFiltersIPFilter.Id, and is useful for accessing the field via an interface.
+func (v *GetIPFiltersIpFiltersIPFilter) GetId() string { return v.IPFilterDetails.Id }
+
+// GetName returns GetIPFiltersIpFiltersIPFilter.Name, and is useful for accessing the field via an interface.
+func (v *GetIPFiltersIpFiltersIPFilter) GetName() string { return v.IPFilterDetails.Name }
+
+// GetIpFilter returns GetIPFiltersIpFiltersIPFilter.IpFilter, and is useful for accessing the field via an interface.
+func (v *GetIPFiltersIpFiltersIPFilter) GetIpFilter() string { return v.IPFilterDetails.IpFilter }
+
+func (v *GetIPFiltersIpFiltersIPFilter) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetIPFiltersIpFiltersIPFilter
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetIPFiltersIpFiltersIPFilter = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.IPFilterDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetIPFiltersIpFiltersIPFilter struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	IpFilter string `json:"ipFilter"`
+}
+
+func (v *GetIPFiltersIpFiltersIPFilter) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetIPFiltersIpFiltersIPFilter) __premarshalJSON() (*__premarshalGetIPFiltersIpFiltersIPFilter, error) {
+	var retval __premarshalGetIPFiltersIpFiltersIPFilter
+
+	retval.Id = v.IPFilterDetails.Id
+	retval.Name = v.IPFilterDetails.Name
+	retval.IpFilter = v.IPFilterDetails.IpFilter
+	return &retval, nil
+}
+
+// GetIPFiltersResponse is returned by GetIPFilters on success.
+type GetIPFiltersResponse struct {
+	// Returns a list of IP filters.
+	// Stability: Long-term
+	IpFilters []GetIPFiltersIpFiltersIPFilter `json:"ipFilters"`
+}
+
+// GetIpFilters returns GetIPFiltersResponse.IpFilters, and is useful for accessing the field via an interface.
+func (v *GetIPFiltersResponse) GetIpFilters() []GetIPFiltersIpFiltersIPFilter { return v.IpFilters }
+
 // GetLicenseInstalledLicense includes the requested fields of the GraphQL interface License.
 //
 // GetLicenseInstalledLicense is implemented by the following types:
@@ -8110,6 +8276,31 @@ func (v *HttpHeaderEntryInput) GetHeader() string { return v.Header }
 
 // GetValue returns HttpHeaderEntryInput.Value, and is useful for accessing the field via an interface.
 func (v *HttpHeaderEntryInput) GetValue() string { return v.Value }
+
+// IPFilterDetails includes the GraphQL fields of IPFilter requested by the fragment IPFilterDetails.
+// The GraphQL type's documentation follows.
+//
+// An IP Filter
+type IPFilterDetails struct {
+	// The unique id for the ip filter
+	// Stability: Long-term
+	Id string `json:"id"`
+	// The name for the ip filter
+	// Stability: Long-term
+	Name string `json:"name"`
+	// The ip filter
+	// Stability: Long-term
+	IpFilter string `json:"ipFilter"`
+}
+
+// GetId returns IPFilterDetails.Id, and is useful for accessing the field via an interface.
+func (v *IPFilterDetails) GetId() string { return v.Id }
+
+// GetName returns IPFilterDetails.Name, and is useful for accessing the field via an interface.
+func (v *IPFilterDetails) GetName() string { return v.Name }
+
+// GetIpFilter returns IPFilterDetails.IpFilter, and is useful for accessing the field via an interface.
+func (v *IPFilterDetails) GetIpFilter() string { return v.IpFilter }
 
 // IngestTokenDetails includes the GraphQL fields of IngestToken requested by the fragment IngestTokenDetails.
 // The GraphQL type's documentation follows.
@@ -14673,6 +14864,85 @@ type UpdateHumioRepoActionUpdateHumioRepoAction struct {
 // GetTypename returns UpdateHumioRepoActionUpdateHumioRepoAction.Typename, and is useful for accessing the field via an interface.
 func (v *UpdateHumioRepoActionUpdateHumioRepoAction) GetTypename() *string { return v.Typename }
 
+// UpdateIPFilterResponse is returned by UpdateIPFilter on success.
+type UpdateIPFilterResponse struct {
+	// Update IP filter.
+	// Stability: Long-term
+	UpdateIPFilter UpdateIPFilterUpdateIPFilter `json:"updateIPFilter"`
+}
+
+// GetUpdateIPFilter returns UpdateIPFilterResponse.UpdateIPFilter, and is useful for accessing the field via an interface.
+func (v *UpdateIPFilterResponse) GetUpdateIPFilter() UpdateIPFilterUpdateIPFilter {
+	return v.UpdateIPFilter
+}
+
+// UpdateIPFilterUpdateIPFilter includes the requested fields of the GraphQL type IPFilter.
+// The GraphQL type's documentation follows.
+//
+// An IP Filter
+type UpdateIPFilterUpdateIPFilter struct {
+	IPFilterDetails `json:"-"`
+}
+
+// GetId returns UpdateIPFilterUpdateIPFilter.Id, and is useful for accessing the field via an interface.
+func (v *UpdateIPFilterUpdateIPFilter) GetId() string { return v.IPFilterDetails.Id }
+
+// GetName returns UpdateIPFilterUpdateIPFilter.Name, and is useful for accessing the field via an interface.
+func (v *UpdateIPFilterUpdateIPFilter) GetName() string { return v.IPFilterDetails.Name }
+
+// GetIpFilter returns UpdateIPFilterUpdateIPFilter.IpFilter, and is useful for accessing the field via an interface.
+func (v *UpdateIPFilterUpdateIPFilter) GetIpFilter() string { return v.IPFilterDetails.IpFilter }
+
+func (v *UpdateIPFilterUpdateIPFilter) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateIPFilterUpdateIPFilter
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateIPFilterUpdateIPFilter = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.IPFilterDetails)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateIPFilterUpdateIPFilter struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	IpFilter string `json:"ipFilter"`
+}
+
+func (v *UpdateIPFilterUpdateIPFilter) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateIPFilterUpdateIPFilter) __premarshalJSON() (*__premarshalUpdateIPFilterUpdateIPFilter, error) {
+	var retval __premarshalUpdateIPFilterUpdateIPFilter
+
+	retval.Id = v.IPFilterDetails.Id
+	retval.Name = v.IPFilterDetails.Name
+	retval.IpFilter = v.IPFilterDetails.IpFilter
+	return &retval, nil
+}
+
 // UpdateIngestBasedRetentionResponse is returned by UpdateIngestBasedRetention on success.
 type UpdateIngestBasedRetentionResponse struct {
 	// Update the retention policy of a repository.
@@ -15884,6 +16154,18 @@ func (v *__CreateHumioRepoActionInput) GetActionName() string { return v.ActionN
 // GetIngestToken returns __CreateHumioRepoActionInput.IngestToken, and is useful for accessing the field via an interface.
 func (v *__CreateHumioRepoActionInput) GetIngestToken() string { return v.IngestToken }
 
+// __CreateIPFilterInput is used internally by genqlient
+type __CreateIPFilterInput struct {
+	Name   string `json:"Name"`
+	Filter string `json:"Filter"`
+}
+
+// GetName returns __CreateIPFilterInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateIPFilterInput) GetName() string { return v.Name }
+
+// GetFilter returns __CreateIPFilterInput.Filter, and is useful for accessing the field via an interface.
+func (v *__CreateIPFilterInput) GetFilter() string { return v.Filter }
+
 // __CreateLocalMultiClusterSearchViewConnectionInput is used internally by genqlient
 type __CreateLocalMultiClusterSearchViewConnectionInput struct {
 	MultiClusterViewName string                      `json:"MultiClusterViewName"`
@@ -16337,6 +16619,14 @@ type __DeleteGroupInput struct {
 
 // GetGroupId returns __DeleteGroupInput.GroupId, and is useful for accessing the field via an interface.
 func (v *__DeleteGroupInput) GetGroupId() string { return v.GroupId }
+
+// __DeleteIPFilterInput is used internally by genqlient
+type __DeleteIPFilterInput struct {
+	Id string `json:"Id"`
+}
+
+// GetId returns __DeleteIPFilterInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteIPFilterInput) GetId() string { return v.Id }
 
 // __DeleteMultiClusterSearchViewConnectionInput is used internally by genqlient
 type __DeleteMultiClusterSearchViewConnectionInput struct {
@@ -16967,6 +17257,22 @@ func (v *__UpdateHumioRepoActionInput) GetActionName() string { return v.ActionN
 
 // GetIngestToken returns __UpdateHumioRepoActionInput.IngestToken, and is useful for accessing the field via an interface.
 func (v *__UpdateHumioRepoActionInput) GetIngestToken() string { return v.IngestToken }
+
+// __UpdateIPFilterInput is used internally by genqlient
+type __UpdateIPFilterInput struct {
+	Id     string  `json:"Id"`
+	Name   *string `json:"Name"`
+	Filter *string `json:"Filter"`
+}
+
+// GetId returns __UpdateIPFilterInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateIPFilterInput) GetId() string { return v.Id }
+
+// GetName returns __UpdateIPFilterInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateIPFilterInput) GetName() *string { return v.Name }
+
+// GetFilter returns __UpdateIPFilterInput.Filter, and is useful for accessing the field via an interface.
+func (v *__UpdateIPFilterInput) GetFilter() *string { return v.Filter }
 
 // __UpdateIngestBasedRetentionInput is used internally by genqlient
 type __UpdateIngestBasedRetentionInput struct {
@@ -18002,6 +18308,47 @@ func CreateHumioRepoAction(
 	return data_, err_
 }
 
+// The mutation executed by CreateIPFilter.
+const CreateIPFilter_Operation = `
+mutation CreateIPFilter ($Name: String!, $Filter: String!) {
+	createIPFilter(input: {name:$Name,ipFilter:$Filter}) {
+		... IPFilterDetails
+	}
+}
+fragment IPFilterDetails on IPFilter {
+	id
+	name
+	ipFilter
+}
+`
+
+func CreateIPFilter(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	Name string,
+	Filter string,
+) (data_ *CreateIPFilterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateIPFilter",
+		Query:  CreateIPFilter_Operation,
+		Variables: &__CreateIPFilterInput{
+			Name:   Name,
+			Filter: Filter,
+		},
+	}
+
+	data_ = &CreateIPFilterResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateLocalMultiClusterSearchViewConnection.
 const CreateLocalMultiClusterSearchViewConnection_Operation = `
 mutation CreateLocalMultiClusterSearchViewConnection ($MultiClusterViewName: String!, $TargetViewName: String!, $Tags: [ClusterConnectionInputTag!], $QueryPrefix: String) {
@@ -18914,6 +19261,38 @@ func DeleteGroup(
 	return data_, err_
 }
 
+// The mutation executed by DeleteIPFilter.
+const DeleteIPFilter_Operation = `
+mutation DeleteIPFilter ($Id: String!) {
+	deleteIPFilter(input: {id:$Id})
+}
+`
+
+func DeleteIPFilter(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	Id string,
+) (data_ *DeleteIPFilterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteIPFilter",
+		Query:  DeleteIPFilter_Operation,
+		Variables: &__DeleteIPFilterInput{
+			Id: Id,
+		},
+	}
+
+	data_ = &DeleteIPFilterResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteMultiClusterSearchViewConnection.
 const DeleteMultiClusterSearchViewConnection_Operation = `
 mutation DeleteMultiClusterSearchViewConnection ($MultiClusterViewName: String!, $ConnectionId: String!) {
@@ -19577,6 +19956,41 @@ func GetGroupByDisplayName(
 	}
 
 	data_ = &GetGroupByDisplayNameResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetIPFilters.
+const GetIPFilters_Operation = `
+query GetIPFilters {
+	ipFilters {
+		... IPFilterDetails
+	}
+}
+fragment IPFilterDetails on IPFilter {
+	id
+	name
+	ipFilter
+}
+`
+
+func GetIPFilters(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *GetIPFiltersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetIPFilters",
+		Query:  GetIPFilters_Operation,
+	}
+
+	data_ = &GetIPFiltersResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -21344,6 +21758,49 @@ func UpdateHumioRepoAction(
 	}
 
 	data_ = &UpdateHumioRepoActionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateIPFilter.
+const UpdateIPFilter_Operation = `
+mutation UpdateIPFilter ($Id: String!, $Name: String, $Filter: String) {
+	updateIPFilter(input: {id:$Id,name:$Name,ipFilter:$Filter}) {
+		... IPFilterDetails
+	}
+}
+fragment IPFilterDetails on IPFilter {
+	id
+	name
+	ipFilter
+}
+`
+
+func UpdateIPFilter(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	Id string,
+	Name *string,
+	Filter *string,
+) (data_ *UpdateIPFilterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateIPFilter",
+		Query:  UpdateIPFilter_Operation,
+		Variables: &__UpdateIPFilterInput{
+			Id:     Id,
+			Name:   Name,
+			Filter: Filter,
+		},
+	}
+
+	data_ = &UpdateIPFilterResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
