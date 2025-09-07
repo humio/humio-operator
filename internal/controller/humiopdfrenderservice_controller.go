@@ -108,7 +108,8 @@ func (r *HumioPdfRenderServiceReconciler) findHumioClustersWithPDFEnabled(ctx co
 }
 
 // isHumioClusterPDFEnabled checks if a HumioCluster has PDF rendering enabled
-// by looking for ENABLE_SCHEDULED_REPORT=true in environment variables
+// by looking for either ENABLE_SCHEDULED_REPORT=true or a defined DEFAULT_PDF_RENDER_SERVICE_URL
+// in any of the cluster's environment variable sources (common, node pools, or top‑level).
 func (r *HumioPdfRenderServiceReconciler) isHumioClusterPDFEnabled(hc *humiov1alpha1.HumioCluster) bool {
 	// Check both common environment variables and node-specific environment variables
 	allEnvVars := append([]corev1.EnvVar{}, hc.Spec.CommonEnvironmentVariables...)
@@ -119,10 +120,26 @@ func (r *HumioPdfRenderServiceReconciler) isHumioClusterPDFEnabled(hc *humiov1al
 		allEnvVars = append(allEnvVars, nodePool.EnvironmentVariables...)
 	}
 
+	// Consider the cluster PDF-enabled if either of these conditions are met:
+	// 1) ENABLE_SCHEDULED_REPORT is explicitly set to "true"
+	// 2) DEFAULT_PDF_RENDER_SERVICE_URL is set (non-empty) indicating integration is configured
+	hasEnable := false
+	hasURL := false
 	for _, envVar := range allEnvVars {
-		if envVar.Name == "ENABLE_SCHEDULED_REPORT" && envVar.Value == "true" {
-			return true
+		switch envVar.Name {
+		case "ENABLE_SCHEDULED_REPORT":
+			if strings.EqualFold(envVar.Value, "true") {
+				hasEnable = true
+			}
+		case "DEFAULT_PDF_RENDER_SERVICE_URL":
+			if strings.TrimSpace(envVar.Value) != "" {
+				hasURL = true
+			}
 		}
+	}
+
+	if hasEnable || hasURL {
+		return true
 	}
 
 	return false
@@ -524,7 +541,9 @@ func (r *HumioPdfRenderServiceReconciler) SetupWithManager(mgr ctrl.Manager) err
 	}
 
 	return builder.
-		// Watch HumioCluster resources for TLS configuration changes
+		// Watch HumioCluster resources to trigger reconciliation:
+		// - For TLS auto-sync cases (handled inside Reconcile)
+		// - For auto scale-down/up policy when clusters enable/disable scheduled reports
 		Watches(&humiov1alpha1.HumioCluster{}, handler.EnqueueRequestsFromMapFunc(
 			func(ctx context.Context, obj client.Object) []reconcile.Request {
 				cluster := obj.(*humiov1alpha1.HumioCluster)
@@ -532,12 +551,10 @@ func (r *HumioPdfRenderServiceReconciler) SetupWithManager(mgr ctrl.Manager) err
 				_ = mgr.GetClient().List(ctx, hprsList, client.InNamespace(cluster.Namespace))
 				var reqs []reconcile.Request
 				for _, hprs := range hprsList.Items {
-					// Only requeue PDF render services that don't have explicit TLS configuration
-					// This allows them to sync from the HumioCluster
-					if hprs.Spec.TLS == nil || hprs.Spec.TLS.Enabled == nil {
-						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
-							Name: hprs.Name, Namespace: hprs.Namespace}})
-					}
+					// Enqueue all HPRS in the namespace so they can reconsider TLS sync
+					// and auto scale-down/up based on ENABLE_SCHEDULED_REPORT.
+					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+						Name: hprs.Name, Namespace: hprs.Namespace}})
 				}
 				return reqs
 			},
