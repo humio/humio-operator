@@ -278,7 +278,26 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
 	}
 
-	// If we're already in Running state and the observedGeneration matches the current generation,
+    // Determine whether autoscaling (HPA) is desired and whether any clusters have scheduled reports enabled.
+    // If no clusters have ENABLE_SCHEDULED_REPORT=true and HPA is disabled, we auto scale down the deployment
+    // to 0 replicas to conserve resources.
+    pdfEnabledCount := 0
+    if clusters, ferr := r.findHumioClustersWithPDFEnabled(ctx, hprs.Namespace); ferr == nil {
+        pdfEnabledCount = len(clusters)
+    } else {
+        // Log and proceed without autoscale-down if discovery fails
+        log.Info("Failed to list HumioClusters for PDF enablement; skipping auto scale-down decision", "error", ferr)
+    }
+    hpaDesired := helpers.HpaEnabledForHPRS(hprs)
+    effectiveReplicas := hprs.Spec.Replicas
+    autoScaleDown := !hpaDesired && pdfEnabledCount == 0
+    if autoScaleDown {
+        effectiveReplicas = 0
+        log.Info("No PDF-enabled HumioClusters and HPA disabled; auto scaling down PDF Render Service to 0 replicas",
+            "hprs", hprs.Name, "namespace", hprs.Namespace)
+    }
+
+    // If we're already in Running state and the observedGeneration matches the current generation,
 	// we can skip most of the reconciliation to reduce load during cluster updates
 	// However, we need to ensure the deployment actually reflects the current spec
 	if hprs.Status.State == humiov1alpha1.HumioPdfRenderServiceStateRunning &&
@@ -291,11 +310,11 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 			Namespace: hprs.Namespace,
 		}, deployment)
 
-		if err == nil && deployment.Status.ReadyReplicas >= hprs.Spec.Replicas {
-			// Check if the deployment pod spec matches what we expect
-			// This ensures we don't skip reconciliation when the spec has changed
-			// but the status hasn't been updated yet
-			desired := r.constructDesiredDeployment(hprs)
+        if err == nil && deployment.Status.ReadyReplicas >= effectiveReplicas {
+            // Check if the deployment pod spec matches what we expect
+            // This ensures we don't skip reconciliation when the spec has changed
+            // but the status hasn't been updated yet
+            desired := r.constructDesiredDeployment(hprs, effectiveReplicas)
 
 			// Quick check: compare the pod spec hash annotation
 			currentHash := deployment.Spec.Template.Annotations[HPRSPodSpecHashAnnotation]
@@ -306,13 +325,13 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 			hpa := &autoscalingv2.HorizontalPodAutoscaler{}
 			hpaErr := r.Get(ctx, types.NamespacedName{Name: hpaName, Namespace: hprs.Namespace}, hpa)
 			hpaExists := hpaErr == nil
-			hpaDesired := helpers.HpaEnabledForHPRS(hprs)
+            // hpaDesired already computed above
 
 			// Check if replica count matches when HPA is disabled
 			replicasMatch := true
-			if !hpaDesired && deployment.Spec.Replicas != nil {
-				replicasMatch = *deployment.Spec.Replicas == hprs.Spec.Replicas
-			}
+            if !hpaDesired && deployment.Spec.Replicas != nil {
+                replicasMatch = *deployment.Spec.Replicas == effectiveReplicas
+            }
 
 			// Skip reconciliation only if all states match desired state
 			if currentHash == desiredHash && currentHash != "" && hpaExists == hpaDesired && replicasMatch {
@@ -322,15 +341,15 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 				finalState = humiov1alpha1.HumioPdfRenderServiceStateRunning
 				return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
-			log.Info("State mismatch detected, proceeding with reconciliation",
-				"currentHash", currentHash, "desiredHash", desiredHash, "hpaExists", hpaExists, "hpaDesired", hpaDesired)
-		}
-	}
+            log.Info("State mismatch detected, proceeding with reconciliation",
+                "currentHash", currentHash, "desiredHash", desiredHash, "hpaExists", hpaExists, "hpaDesired", hpaDesired)
+        }
+    }
 
 	log.Info("PDF Render Service feature is enabled - proceeding with reconciliation")
 
 	// When TLS is enabled, handle certificate management
-	if helpers.TLSEnabledForHPRS(hprs) {
+    if helpers.TLSEnabledForHPRS(hprs) {
 		if helpers.UseCertManager() {
 			// When cert-manager is available, ensure we have proper certificates in place FIRST.
 			if err := r.EnsureValidCAIssuerForHPRS(ctx, hprs); err != nil {
@@ -391,7 +410,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// Reconcile children Deployment
-	op, dep, err := r.reconcileDeployment(ctx, hprs)
+    op, dep, err := r.reconcileDeployment(ctx, hprs, effectiveReplicas)
 	if err != nil {
 		reconcileErr = err
 		finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
@@ -443,8 +462,8 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 					return -1
 				}
 			}())
-		if dep == nil || dep.Status.ReadyReplicas < hprs.Spec.Replicas || dep.Status.ObservedGeneration < dep.Generation {
-			targetState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
+        if dep == nil || dep.Status.ReadyReplicas < effectiveReplicas || dep.Status.ObservedGeneration < dep.Generation {
+            targetState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
 			r.Log.Info("PDF service will remain in Configuring state",
 				"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace, "reason",
 				func() string {
@@ -463,9 +482,9 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 			r.Log.Info("PDF service will transition to Running state",
 				"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
 		}
-		if hprs.Spec.Replicas == 0 {
-			targetState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
-		}
+        if effectiveReplicas == 0 {
+            targetState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
+        }
 
 		// Set final state for defer function to handle
 		finalState = targetState
@@ -570,9 +589,9 @@ func shouldWatchSecret(hprs *humiov1alpha1.HumioPdfRenderService, secretName str
 
 // nolint:gocyclo
 // reconcileDeployment creates or updates the Deployment for the HumioPdfRenderService.
-func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService) (controllerutil.OperationResult, *appsv1.Deployment, error) {
-	log := r.Log.WithValues("function", "reconcileDeployment")
-	desired := r.constructDesiredDeployment(hprs)
+func (r *HumioPdfRenderServiceReconciler) reconcileDeployment(ctx context.Context, hprs *humiov1alpha1.HumioPdfRenderService, effectiveReplicas int32) (controllerutil.OperationResult, *appsv1.Deployment, error) {
+    log := r.Log.WithValues("function", "reconcileDeployment")
+    desired := r.constructDesiredDeployment(hprs, effectiveReplicas)
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1248,10 +1267,11 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredHPA(
 
 // constructDesiredDeployment creates a new Deployment object for the HumioPdfRenderService.
 func (r *HumioPdfRenderServiceReconciler) constructDesiredDeployment(
-	hprs *humiov1alpha1.HumioPdfRenderService,
+    hprs *humiov1alpha1.HumioPdfRenderService,
+    effectiveReplicas int32,
 ) *appsv1.Deployment {
 	labels := labelsForHumioPdfRenderService(hprs.Name)
-	replicas := hprs.Spec.Replicas
+    replicas := effectiveReplicas
 	port := getPdfRenderServicePort(hprs)
 
 	image := hprs.Spec.Image
@@ -1570,17 +1590,19 @@ func (r *HumioPdfRenderServiceReconciler) constructDesiredService(hprs *humiov1a
 // tlsVolumesAndMounts constructs the TLS volumes and mounts for the PDF Render Service.
 // It also sets the appropriate environment variables for TLS configuration.
 func (r *HumioPdfRenderServiceReconciler) tlsVolumesAndMounts(hprs *humiov1alpha1.HumioPdfRenderService, env *[]corev1.EnvVar) ([]corev1.Volume, []corev1.VolumeMount) {
-	var vols []corev1.Volume
-	var mounts []corev1.VolumeMount
+    var vols []corev1.Volume
+    var mounts []corev1.VolumeMount
 
-	if !helpers.TLSEnabledForHPRS(hprs) {
-		return vols, mounts
-	}
+    // Always set TLS_ENABLED env to make the container contract explicit
+    if !helpers.TLSEnabledForHPRS(hprs) {
+        *env = append(*env, corev1.EnvVar{Name: pdfRenderTLSEnabledEnvVar, Value: "false"})
+        return vols, mounts
+    }
 
-	// Server certificate configuration
-	serverCertSecretName := fmt.Sprintf("%s-tls", childName(hprs))
+    // Server certificate configuration
+    serverCertSecretName := fmt.Sprintf("%s-tls", childName(hprs))
 
-	// Add new TLS environment variables for the PDF render service
+    // Add new TLS environment variables for the PDF render service
 	*env = append(*env, corev1.EnvVar{Name: pdfRenderTLSEnabledEnvVar, Value: "true"})
 	*env = append(*env, corev1.EnvVar{Name: pdfRenderTLSCertPathEnvVar, Value: pdfTLSCertMountPath + "/tls.crt"})
 	*env = append(*env, corev1.EnvVar{Name: pdfRenderTLSKeyPathEnvVar, Value: pdfTLSCertMountPath + "/tls.key"})
