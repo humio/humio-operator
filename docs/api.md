@@ -38168,15 +38168,6 @@ Spec defines the desired state of HumioPdfRenderService
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b>nodePort</b></td>
-        <td>integer</td>
-        <td>
-          NodePort is the port the service listens on when the service type is NodePort.<br/>
-          <br/>
-            <i>Format</i>: int32<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
         <td><b><a href="#humiopdfrenderservicespecpodsecuritycontext">podSecurityContext</a></b></td>
         <td>object</td>
         <td>
@@ -38230,10 +38221,11 @@ Spec defines the desired state of HumioPdfRenderService
         <td>false</td>
       </tr><tr>
         <td><b>serviceType</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
-          ServiceType is the type of service to expose.<br/>
+          ServiceType is the type of service to expose (ClusterIP only).<br/>
           <br/>
+            <i>Enum</i>: ClusterIP<br/>
             <i>Default</i>: ClusterIP<br/>
         </td>
         <td>false</td>

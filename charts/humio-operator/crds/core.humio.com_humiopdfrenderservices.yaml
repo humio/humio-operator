@@ -2083,11 +2083,6 @@ spec:
                     format: int32
                     type: integer
                 type: object
-              nodePort:
-                description: NodePort is the port the service listens on when the
-                  service type is NodePort.
-                format: int32
-                type: integer
               podSecurityContext:
                 description: PodSecurityContext defines pod-level security attributes
                 properties:
@@ -2784,7 +2779,10 @@ spec:
                 type: object
               serviceType:
                 default: ClusterIP
-                description: ServiceType is the type of service to expose.
+                description: ServiceType is the type of service to expose (ClusterIP
+                  only).
+                enum:
+                - ClusterIP
                 type: string
               tls:
                 description: TLS configuration for the PDF Render Service
