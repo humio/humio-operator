@@ -41,5 +41,7 @@ bindings:
     type: string
   YAML:
     type: string
+  TokenSecurityPoliciesInput:
+    type: "github.com/humio/humio-operator/internal/api/humiographql.TokenSecurityPolicies"
 
 optional: pointer
