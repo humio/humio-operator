@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -64,6 +65,7 @@ type ClientMock struct {
 	AdminUserID            map[resourceKey]string
 	Role                   map[resourceKey]humiographql.RoleDetails
 	IPFilter               map[resourceKey]humiographql.IPFilterDetails
+	ViewToken              map[resourceKey]humiographql.ViewTokenDetailsViewPermissionsToken
 }
 
 type MockClientConfig struct {
@@ -90,6 +92,7 @@ func NewMockClient() *MockClientConfig {
 			AdminUserID:            make(map[resourceKey]string),
 			Role:                   make(map[resourceKey]humiographql.RoleDetails),
 			IPFilter:               make(map[resourceKey]humiographql.IPFilterDetails),
+			ViewToken:              make(map[resourceKey]humiographql.ViewTokenDetailsViewPermissionsToken),
 		},
 	}
 
@@ -120,6 +123,7 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 	h.apiClient.User = make(map[resourceKey]humiographql.UserDetails)
 	h.apiClient.AdminUserID = make(map[resourceKey]string)
 	h.apiClient.IPFilter = make(map[resourceKey]humiographql.IPFilterDetails)
+	h.apiClient.ViewToken = make(map[resourceKey]humiographql.ViewTokenDetailsViewPermissionsToken)
 }
 
 func (h *MockClientConfig) Status(_ context.Context, _ *humioapi.Client) (*humioapi.StatusResponse, error) {
@@ -436,7 +440,7 @@ func (h *MockClientConfig) DeleteRepository(_ context.Context, _ *humioapi.Clien
 	return nil
 }
 
-func (h *MockClientConfig) GetView(_ context.Context, _ *humioapi.Client, hv *humiov1alpha1.HumioView) (*humiographql.GetSearchDomainSearchDomainView, error) {
+func (h *MockClientConfig) GetView(_ context.Context, _ *humioapi.Client, hv *humiov1alpha1.HumioView, includeFederated bool) (*humiographql.GetSearchDomainSearchDomainView, error) {
 	humioClientMu.Lock()
 	defer humioClientMu.Unlock()
 
@@ -478,7 +482,7 @@ func (h *MockClientConfig) AddView(_ context.Context, _ *humioapi.Client, hv *hu
 	value := &humiographql.GetSearchDomainSearchDomainView{
 		IsFederated:     false,
 		Typename:        helpers.StringPtr("View"),
-		Id:              kubernetes.RandomString(),
+		Id:              hv.Spec.Name,
 		Name:            hv.Spec.Name,
 		Description:     &hv.Spec.Description,
 		AutomaticSearch: helpers.BoolTrue(hv.Spec.AutomaticSearch),
@@ -2068,7 +2072,7 @@ func (h *MockClientConfig) AddIPFilter(ctx context.Context, client *humioapi.Cli
 	}
 
 	value := &humiographql.IPFilterDetails{
-		Id:       kubernetes.RandomString(),
+		Id:       ipFilter.Spec.Name,
 		Name:     ipFilter.Spec.Name,
 		IpFilter: helpers.FirewallRulesToString(ipFilter.Spec.IPFilter, "\n"),
 	}
@@ -2113,7 +2117,7 @@ func (h *MockClientConfig) UpdateIPFilter(ctx context.Context, _ *humioapi.Clien
 	}
 
 	value := &humiographql.IPFilterDetails{
-		Id:       currentValue.GetId(),
+		Id:       currentValue.Id,
 		Name:     ipFilter.Spec.Name,
 		IpFilter: helpers.FirewallRulesToString(ipFilter.Spec.IPFilter, "\n"),
 	}
@@ -2132,5 +2136,127 @@ func (h *MockClientConfig) DeleteIPFilter(ctx context.Context, _ *humioapi.Clien
 		resourceName: ipFilter.Spec.Name,
 	}
 	delete(h.apiClient.IPFilter, key)
+	return nil
+}
+
+func (h *MockClientConfig) CreateViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken, ipFilter string, views []string, permissions []humiographql.Permission) (string, string, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", viewToken.Spec.ManagedClusterName, viewToken.Spec.ExternalClusterName)
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: viewToken.Spec.Name,
+	}
+	if _, found := h.apiClient.ViewToken[key]; found {
+		return "", "", fmt.Errorf("IPFilter already exists with name %s", viewToken.Spec.Name)
+	}
+
+	value := fmt.Sprintf("%s~%s", kubernetes.RandomString(), kubernetes.RandomString())
+	parts := strings.Split(value, "~")
+	// expireAt
+	var expireAt *int64
+	if viewToken.Spec.ExpiresAt != nil {
+		temp := viewToken.Spec.ExpiresAt.UnixMilli()
+		expireAt = &temp
+	} else {
+		expireAt = nil
+	}
+	// views
+	localViews := make([]humiographql.ViewTokenDetailsViewsSearchDomain, 0, len(views))
+	for _, viewName := range views {
+		view := &humiographql.ViewTokenDetailsViewsView{
+			Typename: helpers.StringPtr("View"),
+			Id:       viewName,
+			Name:     viewName,
+		}
+		localViews = append(localViews, view)
+	}
+	//fix permissions
+	perms := FixPermissions(viewToken.Spec.Permissions)
+	response := &humiographql.ViewTokenDetailsViewPermissionsToken{
+		TokenDetailsViewPermissionsToken: humiographql.TokenDetailsViewPermissionsToken{
+			Id:       parts[0],
+			Name:     viewToken.Spec.Name,
+			ExpireAt: expireAt,
+			IpFilterV2: &humiographql.TokenDetailsIpFilterV2IPFilter{
+				Id: ipFilter,
+			},
+		},
+		Permissions: perms,
+		Views:       localViews,
+	}
+	h.apiClient.ViewToken[key] = *response
+	return parts[0], value, nil
+}
+
+func (h *MockClientConfig) GetViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken) (*humiographql.ViewTokenDetailsViewPermissionsToken, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", viewToken.Spec.ManagedClusterName, viewToken.Spec.ExternalClusterName)
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: viewToken.Spec.Name,
+	}
+	if value, found := h.apiClient.ViewToken[key]; found {
+		return &value, nil
+	}
+	return nil, humioapi.ViewTokenNotFound(viewToken.Spec.Name)
+}
+
+func (h *MockClientConfig) UpdateViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken, permissions []humiographql.Permission) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", viewToken.Spec.ManagedClusterName, viewToken.Spec.ExternalClusterName)
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: viewToken.Spec.Name,
+	}
+	currentValue, found := h.apiClient.ViewToken[key]
+	if !found {
+		return humioapi.ViewTokenNotFound(viewToken.Spec.Name)
+	}
+	// expireAt
+	var expireAt *int64
+	if viewToken.Spec.ExpiresAt != nil {
+		temp := viewToken.Spec.ExpiresAt.UnixMilli()
+		expireAt = &temp
+	} else {
+		expireAt = nil
+	}
+	value := &humiographql.ViewTokenDetailsViewPermissionsToken{
+		TokenDetailsViewPermissionsToken: humiographql.TokenDetailsViewPermissionsToken{
+			Id:       currentValue.Id,
+			Name:     viewToken.Spec.Name,
+			ExpireAt: expireAt,
+			IpFilterV2: &humiographql.TokenDetailsIpFilterV2IPFilter{
+				Id: "test",
+			},
+		},
+		Permissions: viewToken.Spec.Permissions,
+	}
+	h.apiClient.ViewToken[key] = *value
+
+	return nil
+}
+
+func (h *MockClientConfig) DeleteViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", viewToken.Spec.ManagedClusterName, viewToken.Spec.ExternalClusterName)
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: viewToken.Spec.Name,
+	}
+	delete(h.apiClient.ViewToken, key)
+	return nil
+}
+
+func (h *MockClientConfig) EnableTokenUpdatePermissionsForTests(ctx context.Context, client *humioapi.Client) error {
 	return nil
 }

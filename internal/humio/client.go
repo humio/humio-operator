@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -58,6 +59,8 @@ type Client interface {
 	SystemPermissionRolesClient
 	ViewPermissionRolesClient
 	IPFilterClient
+	ViewTokenClient
+	SecurityPoliciesClient
 }
 
 type ClusterClient interface {
@@ -95,7 +98,7 @@ type RepositoriesClient interface {
 
 type ViewsClient interface {
 	AddView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) error
-	GetView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) (*humiographql.GetSearchDomainSearchDomainView, error)
+	GetView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView, bool) (*humiographql.GetSearchDomainSearchDomainView, error)
 	UpdateView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) error
 	DeleteView(context.Context, *humioapi.Client, *humiov1alpha1.HumioView) error
 }
@@ -202,6 +205,16 @@ type IPFilterClient interface {
 	GetIPFilter(context.Context, *humioapi.Client, *humiov1alpha1.HumioIPFilter) (*humiographql.IPFilterDetails, error)
 	UpdateIPFilter(context.Context, *humioapi.Client, *humiov1alpha1.HumioIPFilter) error
 	DeleteIPFilter(context.Context, *humioapi.Client, *humiov1alpha1.HumioIPFilter) error
+}
+type ViewTokenClient interface {
+	CreateViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken, string, []string, []humiographql.Permission) (string, string, error)
+	GetViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken) (*humiographql.ViewTokenDetailsViewPermissionsToken, error)
+	UpdateViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken, []humiographql.Permission) error
+	DeleteViewToken(context.Context, *humioapi.Client, *humiov1alpha1.HumioViewToken) error
+}
+
+type SecurityPoliciesClient interface {
+	EnableTokenUpdatePermissionsForTests(context.Context, *humioapi.Client) error
 }
 
 type ConnectionDetailsIncludingAPIToken struct {
@@ -728,7 +741,7 @@ func (h *ClientConfig) DeleteRepository(ctx context.Context, client *humioapi.Cl
 	return err
 }
 
-func (h *ClientConfig) GetView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioView) (*humiographql.GetSearchDomainSearchDomainView, error) {
+func (h *ClientConfig) GetView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioView, includeFederated bool) (*humiographql.GetSearchDomainSearchDomainView, error) {
 	resp, err := humiographql.GetSearchDomain(
 		ctx,
 		client,
@@ -741,8 +754,10 @@ func (h *ClientConfig) GetView(ctx context.Context, client *humioapi.Client, hv 
 	searchDomain := resp.GetSearchDomain()
 	switch v := searchDomain.(type) {
 	case *humiographql.GetSearchDomainSearchDomainView:
-		if v.GetIsFederated() {
-			return nil, fmt.Errorf("view %q is a multi cluster search view", v.GetName())
+		if !includeFederated {
+			if v.GetIsFederated() {
+				return nil, fmt.Errorf("view %q is a multi cluster search view", v.GetName())
+			}
 		}
 		return v, nil
 	default:
@@ -770,7 +785,7 @@ func (h *ClientConfig) AddView(ctx context.Context, client *humioapi.Client, hv 
 }
 
 func (h *ClientConfig) UpdateView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioView) error {
-	curView, err := h.GetView(ctx, client, hv)
+	curView, err := h.GetView(ctx, client, hv, false)
 	if err != nil {
 		return err
 	}
@@ -823,7 +838,7 @@ func (h *ClientConfig) UpdateView(ctx context.Context, client *humioapi.Client, 
 }
 
 func (h *ClientConfig) DeleteView(ctx context.Context, client *humioapi.Client, hv *humiov1alpha1.HumioView) error {
-	_, err := h.GetView(ctx, client, hv)
+	_, err := h.GetView(ctx, client, hv, false)
 	if err != nil {
 		if errors.As(err, &humioapi.EntityNotFound{}) {
 			return nil
@@ -2955,6 +2970,80 @@ func (h *ClientConfig) DeleteIPFilter(ctx context.Context, client *humioapi.Clie
 	return err
 }
 
+func (h *ClientConfig) CreateViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken, ipFilterId string, viewIds []string, permissions []humiographql.Permission) (string, string, error) {
+	var expireAtPtr *int64
+	var ipFilterPtr *string
+	// cleanup expireAt
+	if viewToken.Spec.ExpiresAt != nil {
+		timestamp := viewToken.Spec.ExpiresAt.UnixMilli()
+		expireAtPtr = &timestamp
+	}
+	// cleanup ipFilter
+	if ipFilterId != "" {
+		ipFilterPtr = &ipFilterId
+	}
+
+	viewTokenCreateResp, err := humiographql.CreateViewToken(
+		ctx,
+		client,
+		viewToken.Spec.Name,
+		ipFilterPtr,
+		expireAtPtr,
+		viewIds,
+		permissions,
+	)
+	if err != nil {
+		return "", "", err
+	}
+	token := viewTokenCreateResp.CreateViewPermissionsToken
+	tokenParts := strings.Split(token, "~")
+	return tokenParts[0], token, nil
+}
+
+func (h *ClientConfig) GetViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken) (*humiographql.ViewTokenDetailsViewPermissionsToken, error) {
+	// we return early if the id is not set on the viewToken, it means it wasn't created / doesn't exists / we plan to delete it
+	if viewToken.Status.ID == "" {
+		h.logger.Info("Unexpected scenario, missing ID for ViewToken.Status.ID: %s", viewToken.Status.ID)
+		return nil, humioapi.ViewTokenNotFound(viewToken.Spec.Name)
+	}
+	viewTokenResp, err := humiographql.GetViewToken(ctx, client, viewToken.Status.ID)
+	if err != nil {
+		return nil, err
+	}
+	if len(viewTokenResp.Tokens.Results) == 0 {
+		h.logger.Info("Unexpected scenario, query return 0 results for ViewToken ID: %s", viewToken.Status.ID)
+		return nil, humioapi.ViewTokenNotFound(viewToken.Spec.Name)
+	}
+	data := viewTokenResp.Tokens.Results[0].(*humiographql.GetViewTokenTokensTokenQueryResultSetResultsViewPermissionsToken)
+	token := data.ViewTokenDetailsViewPermissionsToken
+
+	return &token, nil
+}
+
+func (h *ClientConfig) DeleteViewToken(ctx context.Context, client *humioapi.Client, viewToken *humiov1alpha1.HumioViewToken) error {
+	_, err := humiographql.DeleteToken(
+		ctx,
+		client,
+		viewToken.Status.ID,
+	)
+	return err
+}
+func (h *ClientConfig) UpdateViewToken(ctx context.Context, client *humioapi.Client, hvt *humiov1alpha1.HumioViewToken, permissions []humiographql.Permission) error {
+	_, err := humiographql.UpdateViewToken(
+		ctx,
+		client,
+		hvt.Status.ID,
+		permissions,
+	)
+	return err
+}
+
+// EnableTokenUpdatePermissions turns ON the ability to update token permissions (disabled by default)
+func (h *ClientConfig) EnableTokenUpdatePermissionsForTests(ctx context.Context, client *humioapi.Client) error {
+	_, err := humiographql.UpdateTokenSecurityPolicies(ctx, client, true, true, true, true, true, true, true)
+	return err
+}
+
 func equalSlices[T comparable](a, b []T) bool {
 	if len(a) != len(b) {
 		return false
@@ -2985,4 +3074,66 @@ func equalSlices[T comparable](a, b []T) bool {
 	}
 
 	return true
+}
+
+// This is a manually maintained map of permissions
+// Used in controllers and tests, might need to look for a better location
+var EquivalentSpecificPermissions = map[string][]string{
+	"ChangeFiles": {
+		"CreateFiles",
+		"UpdateFiles",
+		"DeleteFiles",
+	},
+	"ChangeDashboards": {
+		"CreateDashboards",
+		"UpdateDashboards",
+		"DeleteDashboards",
+	},
+	"ChangeSavedQueries": {
+		"CreateSavedQueries",
+		"UpdateSavedQueries",
+		"DeleteSavedQueries",
+	},
+	"ChangeScheduledReports": {
+		"CreateScheduledReports",
+		"UpdateScheduledReports",
+		"DeleteScheduledReports",
+	},
+	"ChangeTriggers": {
+		"CreateTriggers",
+		"UpdateTriggers",
+		"DeleteTriggers",
+	},
+	"ChangeActions": {
+		"CreateActions",
+		"UpdateActions",
+		"DeleteActions",
+	},
+}
+
+// We need to fix permissions as these are not directly mapped, at least not all
+// OrganizationOwnedQueries permission gets added when the token is created
+// EquivalentSpecificPermissions translate specific permissions to others
+func FixPermissions(permissions []string) []string {
+	permSet := make(map[string]bool)
+	for _, perm := range permissions {
+		permSet[perm] = true
+	}
+	// this one just gets added when Token is created
+	permSet[string(humiographql.PermissionOrganizationownedqueries)] = true
+
+	for perm := range permSet {
+		if extPerms, found := EquivalentSpecificPermissions[perm]; found {
+			for _, extPerm := range extPerms {
+				permSet[extPerm] = true
+			}
+			delete(permSet, perm)
+		}
+	}
+
+	result := make([]string, 0, len(permSet))
+	for perm := range permSet {
+		result = append(result, perm)
+	}
+	return result
 }

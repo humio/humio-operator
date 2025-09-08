@@ -22,6 +22,8 @@ operations:
   - graphql/views.graphql
   - graphql/users.graphql
   - graphql/ipfilter.graphql
+  - graphql/view-tokens.graphql
+  - graphql/security-policies.graphql
 generated: humiographql.go
 
 bindings:
