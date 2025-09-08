@@ -22,6 +22,8 @@ operations:
   - graphql/views.graphql
   - graphql/users.graphql
   - graphql/ipfilter.graphql
+  - graphql/view-tokens.graphql
+  - graphql/security-policies.graphql
 generated: humiographql.go
 
 bindings:
@@ -39,5 +41,7 @@ bindings:
     type: string
   YAML:
     type: string
+  TokenSecurityPoliciesInput:
+    type: "github.com/humio/humio-operator/internal/api/humiographql.TokenSecurityPolicies"
 
 optional: pointer

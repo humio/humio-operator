@@ -48,6 +48,7 @@ rules:
   - humiousers
   - humioviewpermissionroles
   - humioviews
+  - humioviewtokens
   verbs:
   - create
   - delete
@@ -79,6 +80,7 @@ rules:
   - humiousers/finalizers
   - humioviewpermissionroles/finalizers
   - humioviews/finalizers
+  - humioviewtokens/finalizers
   verbs:
   - update
 - apiGroups:
@@ -104,6 +106,7 @@ rules:
   - humiousers/status
   - humioviewpermissionroles/status
   - humioviews/status
+  - humioviewtokens/status
   verbs:
   - get
   - patch
