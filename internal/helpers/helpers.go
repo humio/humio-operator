@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
@@ -282,6 +283,7 @@ func EmptySliceIfNil(slice []string) []string {
 
 // FirewallRulesToString converts a slice of FirewallRule structs to a string format
 // expected by Humio, joining each rule with the specified separator
+// TODO not the best location, looking to move elsewere
 func FirewallRulesToString(rules []humiov1alpha1.FirewallRule, separator string) string {
 	if len(rules) == 0 {
 		return ""
@@ -293,4 +295,21 @@ func FirewallRulesToString(rules []humiov1alpha1.FirewallRule, separator string)
 	}
 
 	return strings.Join(ruleStrings, separator)
+}
+
+// GetCurrentTime generates current time with day precision
+func GetCurrentDay() time.Time {
+	baseTime := time.Now()
+	// Set specific hour, minute, second while keeping date
+	specificTime := time.Date(
+		baseTime.Year(),
+		baseTime.Month(),
+		baseTime.Day(),
+		0, // hour
+		0, // minute
+		0, // second
+		0, // nanosecond
+		baseTime.Location(),
+	)
+	return specificTime
 }
