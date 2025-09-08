@@ -1,0 +1,6 @@
+mutation UpdateTokenSecurityPolicies(
+    $input: TokenSecurityPoliciesInput!
+) {
+    updateTokenSecurityPolicies(input: $input) 
+    {  __typename  }
+}
