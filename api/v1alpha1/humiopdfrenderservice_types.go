@@ -231,14 +231,22 @@ type HumioPdfRenderServiceList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&HumioPdfRenderService{}, &HumioPdfRenderServiceList{})
+    SchemeBuilder.Register(&HumioPdfRenderService{}, &HumioPdfRenderServiceList{})
+}
+
+// GetObservedGeneration exposes ObservedGeneration for test helpers
+func (h *HumioPdfRenderService) GetObservedGeneration() int64 {
+    if h == nil {
+        return 0
+    }
+    return h.Status.ObservedGeneration
 }
 
 // SetDefaults sets default values for the HumioPdfRenderService
 func (hprs *HumioPdfRenderService) SetDefaults() {
-	if hprs.Spec.Port == 0 {
-		hprs.Spec.Port = 5123
-	}
+    if hprs.Spec.Port == 0 {
+        hprs.Spec.Port = 5123
+    }
 	if hprs.Spec.ServiceType == "" {
 		hprs.Spec.ServiceType = corev1.ServiceTypeClusterIP
 	}
@@ -258,9 +266,11 @@ type HumioPdfRenderServiceTLSSpec struct {
 }
 
 // HumioPdfRenderServiceAutoscalingSpec defines autoscaling configuration for the PDF Render Service
+// Enforce that when autoscaling is configured (spec.autoscaling present),
+// maxReplicas >= minReplicas (defaulting minReplicas to 1 when omitted).
+// Also ensure that minReplicas is at least 1 (covered by Minimum and default above).
+// +kubebuilder:validation:XValidation:rule="self.maxReplicas >= (has(self.minReplicas) ? self.minReplicas : 1)",message="maxReplicas must be greater than or equal to minReplicas (default 1)"
 type HumioPdfRenderServiceAutoscalingSpec struct {
-	// Enabled toggles autoscaling on or off
-	Enabled *bool `json:"enabled,omitempty"`
 	// MinReplicas is the minimum number of replicas
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:default=1
@@ -277,7 +287,3 @@ type HumioPdfRenderServiceAutoscalingSpec struct {
 	// Behavior configures the scaling behavior of the target
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
-
-// Enforce that when autoscaling is enabled, maxReplicas >= minReplicas (defaulting minReplicas to 1 when omitted).
-// Also ensure that when enabled, minReplicas is at least 1 (covered by Minimum and default above).
-// +kubebuilder:validation:XValidation:rule="!has(self.enabled) || self.enabled == false || self.maxReplicas >= (has(self.minReplicas) ? self.minReplicas : 1)",message="maxReplicas must be greater than or equal to minReplicas (default 1) when autoscaling is enabled"
