@@ -189,7 +189,7 @@ func CleanupCluster(ctx context.Context, k8sClient client.Client, hc *humiov1alp
 	Eventually(func() bool {
 		err := k8sClient.Get(ctx, types.NamespacedName{Name: hc.Name, Namespace: hc.Namespace}, &humiov1alpha1.HumioCluster{})
 		return k8serrors.IsNotFound(err)
-	}, time.Second*30, TestInterval).Should(BeTrue(), "HumioCluster resource should be deleted") // Increased timeout slightly
+    }, DefaultTestTimeout, TestInterval).Should(BeTrue(), "HumioCluster resource should be deleted")
 
 	if cluster.Spec.License.SecretKeyRef != nil {
 		UsingClusterBy(cluster.Name, fmt.Sprintf("Deleting the license secret %s", cluster.Spec.License.SecretKeyRef.Name))
