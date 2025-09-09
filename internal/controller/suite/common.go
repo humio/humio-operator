@@ -112,7 +112,13 @@ func MarkPodAsRunningIfUsingEnvtest(ctx context.Context, k8sClient client.Client
 		},
 	}
 
-    // Only set init container status for Humio pods
+	// Only add init-container status for Humio core pods.
+	// In envtest we simulate readiness. Humio core pods include an init container,
+	// while PDF Render Service (and other pods) do not. Check explicitly for the
+	// Humio core container (controller.HumioContainerName) instead of using "not PDF",
+	// so adding new pod types stays correct and future-proof. If another pod type
+	// later uses an init container, extend this check accordingly.
+	// Only set init container status for Humio pods
     if isHumioPod {
         pod.Status.InitContainerStatuses = []corev1.ContainerStatus{
             {
