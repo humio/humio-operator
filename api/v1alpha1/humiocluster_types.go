@@ -17,9 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
+    corev1 "k8s.io/api/core/v1"
+    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    "k8s.io/apimachinery/pkg/util/intstr"
+    "strconv"
 )
 
 const (
@@ -507,8 +508,8 @@ type HumioClusterStatus struct {
 
 // HumioCluster is the Schema for the humioclusters API.
 type HumioCluster struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+    metav1.TypeMeta   `json:",inline"`
+    metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +kubebuilder:validation:Required
 	Spec   HumioClusterSpec   `json:"spec"`
@@ -519,9 +520,21 @@ type HumioCluster struct {
 
 // HumioClusterList contains a list of HumioCluster.
 type HumioClusterList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []HumioCluster `json:"items"`
+    metav1.TypeMeta `json:",inline"`
+    metav1.ListMeta `json:"metadata,omitempty"`
+    Items           []HumioCluster `json:"items"`
+}
+
+// GetObservedGeneration exposes ObservedGeneration as int64 for test helpers
+func (hc *HumioCluster) GetObservedGeneration() int64 {
+    if hc == nil {
+        return 0
+    }
+    val, err := strconv.ParseInt(hc.Status.ObservedGeneration, 10, 64)
+    if err != nil {
+        return 0
+    }
+    return val
 }
 
 func init() {
