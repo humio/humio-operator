@@ -357,31 +357,14 @@ func PdfRenderServiceHpaName(pdfServiceName string) string {
 }
 
 // HpaEnabledForHPRS returns true if HPA should be managed for the
-// HumioPdfRenderService.
-// Three-state logic:
+// HumioPdfRenderService. New behavior:
 // - Autoscaling = nil: HPA disabled (no autoscaling configured)
-// - Autoscaling.Enabled = nil: HPA enabled if MaxReplicas > 0 (autoscaling configured, use default behavior)
-// - Autoscaling.Enabled = true: HPA enabled if MaxReplicas > 0 (explicitly enabled)
-// - Autoscaling.Enabled = false: HPA disabled (explicitly disabled)
+// - Autoscaling present: HPA enabled when MaxReplicas > 0
 func HpaEnabledForHPRS(hprs *humiov1alpha1.HumioPdfRenderService) bool {
 	if hprs == nil || hprs.Spec.Autoscaling == nil {
 		return false
 	}
-
-	as := hprs.Spec.Autoscaling
-
-	// If explicitly disabled, return false
-	if as.Enabled != nil && !*as.Enabled {
-		return false
-	}
-
-	// If MaxReplicas is not configured, autoscaling cannot work
-	if as.MaxReplicas <= 0 {
-		return false
-	}
-
-	// If enabled is nil (not specified) or true, and MaxReplicas > 0, enable HPA
-	return as.Enabled == nil || *as.Enabled
+	return hprs.Spec.Autoscaling.MaxReplicas > 0
 }
 
 // FirewallRulesToString converts a slice of FirewallRule structs to a string format

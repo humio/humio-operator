@@ -1,15 +1,15 @@
 package suite
 
 import (
-    "context"
-    "encoding/base64"
-    "encoding/json"
-    "fmt"
-    "os"
-    "reflect"
-    "strconv"
-    "strings"
-    "time"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"os"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
@@ -73,23 +73,23 @@ func MarkPodsAsRunningIfUsingEnvtest(ctx context.Context, client client.Client, 
 }
 
 func MarkPodAsRunningIfUsingEnvtest(ctx context.Context, k8sClient client.Client, pod corev1.Pod, clusterName string) error {
-    // Determine if this is a PDF render service pod
-    isPdfRenderService := false
-    for _, container := range pod.Spec.Containers {
-        if container.Name == HumioPdfRenderServiceContainerName {
-            isPdfRenderService = true
-            break
-        }
-    }
+	// Determine if this is a PDF render service pod
+	isPdfRenderService := false
+	for _, container := range pod.Spec.Containers {
+		if container.Name == HumioPdfRenderServiceContainerName {
+			isPdfRenderService = true
+			break
+		}
+	}
 
-    // Determine if this is a Humio pod (core LogScale pod)
-    isHumioPod := false
-    for _, container := range pod.Spec.Containers {
-        if container.Name == controller.HumioContainerName {
-            isHumioPod = true
-            break
-        }
-    }
+	// Determine if this is a Humio pod (core LogScale pod)
+	isHumioPod := false
+	for _, container := range pod.Spec.Containers {
+		if container.Name == controller.HumioContainerName {
+			isHumioPod = true
+			break
+		}
+	}
 
 	// Only mark pods as ready in envtest environments
 	// Kind clusters should use natural Kubernetes readiness behavior for all pods
@@ -119,14 +119,14 @@ func MarkPodAsRunningIfUsingEnvtest(ctx context.Context, k8sClient client.Client
 	// so adding new pod types stays correct and future-proof. If another pod type
 	// later uses an init container, extend this check accordingly.
 	// Only set init container status for Humio pods
-    if isHumioPod {
-        pod.Status.InitContainerStatuses = []corev1.ContainerStatus{
-            {
-                Name:  controller.InitContainerName,
-                Ready: true,
-            },
-        }
-    }
+	if isHumioPod {
+		pod.Status.InitContainerStatuses = []corev1.ContainerStatus{
+			{
+				Name:  controller.InitContainerName,
+				Ready: true,
+			},
+		}
+	}
 
 	// Set container statuses
 	pod.Status.ContainerStatuses = []corev1.ContainerStatus{
@@ -204,7 +204,7 @@ func CleanupCluster(ctx context.Context, k8sClient client.Client, hc *humiov1alp
 	Eventually(func() bool {
 		err := k8sClient.Get(ctx, types.NamespacedName{Name: hc.Name, Namespace: hc.Namespace}, &humiov1alpha1.HumioCluster{})
 		return k8serrors.IsNotFound(err)
-    }, DefaultTestTimeout, TestInterval).Should(BeTrue(), "HumioCluster resource should be deleted")
+	}, DefaultTestTimeout, TestInterval).Should(BeTrue(), "HumioCluster resource should be deleted")
 
 	if cluster.Spec.License.SecretKeyRef != nil {
 		UsingClusterBy(cluster.Name, fmt.Sprintf("Deleting the license secret %s", cluster.Spec.License.SecretKeyRef.Name))
@@ -933,17 +933,17 @@ func GetHumioBootstrapToken(ctx context.Context, key types.NamespacedName, k8sCl
 // tolerant of extra reconciles that may bump the generation while we are
 // waiting.
 func WaitForObservedGeneration(
-    ctx context.Context,
-    k8sClient client.Client,
-    obj client.Object,
-    timeout, interval time.Duration,
+	ctx context.Context,
+	k8sClient client.Client,
+	obj client.Object,
+	timeout, interval time.Duration,
 ) {
-    type ObservedGenerationReader interface{ GetObservedGeneration() int64 }
+	type ObservedGenerationReader interface{ GetObservedGeneration() int64 }
 
-    objKind := obj.GetObjectKind().GroupVersionKind().Kind
-    if objKind == "" {
-        objKind = reflect.TypeOf(obj).String()
-    }
+	objKind := obj.GetObjectKind().GroupVersionKind().Kind
+	if objKind == "" {
+		objKind = reflect.TypeOf(obj).String()
+	}
 
 	UsingClusterBy("", fmt.Sprintf(
 		"Waiting for observedGeneration to catch up for %s %s/%s",
@@ -957,19 +957,19 @@ func WaitForObservedGeneration(
 		err := k8sClient.Get(ctx, key, latest)
 		g.Expect(err).NotTo(HaveOccurred(), "Failed to get resource")
 
-        currentGeneration := latest.GetGeneration()
+		currentGeneration := latest.GetGeneration()
 
-        if r, ok := latest.(ObservedGenerationReader); ok {
-            return r.GetObservedGeneration() >= currentGeneration
-        }
-        if d, ok := latest.(*appsv1.Deployment); ok {
-            return d.Status.ObservedGeneration >= currentGeneration
-        }
-        // Resource does not expose observedGeneration – consider it ready.
-        return true
-    }, timeout, interval).Should(BeTrue(),
-        "%s %s/%s observedGeneration did not catch up with generation",
-        objKind, obj.GetNamespace(), obj.GetName())
+		if r, ok := latest.(ObservedGenerationReader); ok {
+			return r.GetObservedGeneration() >= currentGeneration
+		}
+		if d, ok := latest.(*appsv1.Deployment); ok {
+			return d.Status.ObservedGeneration >= currentGeneration
+		}
+		// Resource does not expose observedGeneration – consider it ready.
+		return true
+	}, timeout, interval).Should(BeTrue(),
+		"%s %s/%s observedGeneration did not catch up with generation",
+		objKind, obj.GetNamespace(), obj.GetName())
 }
 
 // CreatePdfRenderServiceCR creates a basic HumioPdfRenderService CR with better error handling
