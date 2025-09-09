@@ -494,11 +494,6 @@ func (hnp *HumioNodePool) GetEnvironmentVariables() []corev1.EnvVar {
 		}
 	}
 
-	// PDF_RENDER_SERVICE_CALLBACK_BASE_URL is a LogScale environment variable that specifies
-	// the base URL LogScale uses to reach the PDF render service. This is only set if explicitly
-	// provided by the user, as the PDF render service may not exist when the cluster starts.
-	// Users should set this manually when they have a PDF render service deployed.
-
 	if hnp.GetPath() != "/" {
 		envVars = hnp.AppendEnvVarToEnvVarsIfNotAlreadyPresent(envVars, corev1.EnvVar{
 			Name:  "PROXY_PREFIX_URL",
