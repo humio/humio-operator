@@ -38123,6 +38123,8 @@ Spec defines the desired state of HumioPdfRenderService
         <td>object</td>
         <td>
           Autoscaling configuration for the PDF Render Service<br/>
+          <br/>
+            <i>Validations</i>:<li>self.maxReplicas >= (has(self.minReplicas) ? self.minReplicas : 1): maxReplicas must be greater than or equal to minReplicas (default 1)</li>
         </td>
         <td>false</td>
       </tr><tr>
@@ -39904,13 +39906,6 @@ Autoscaling configuration for the PDF Render Service
         <td>object</td>
         <td>
           Behavior configures the scaling behavior of the target<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>enabled</b></td>
-        <td>boolean</td>
-        <td>
-          Enabled toggles autoscaling on or off<br/>
         </td>
         <td>false</td>
       </tr><tr>

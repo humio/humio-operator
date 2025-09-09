@@ -231,22 +231,22 @@ type HumioPdfRenderServiceList struct {
 }
 
 func init() {
-    SchemeBuilder.Register(&HumioPdfRenderService{}, &HumioPdfRenderServiceList{})
+	SchemeBuilder.Register(&HumioPdfRenderService{}, &HumioPdfRenderServiceList{})
 }
 
 // GetObservedGeneration exposes ObservedGeneration for test helpers
 func (h *HumioPdfRenderService) GetObservedGeneration() int64 {
-    if h == nil {
-        return 0
-    }
-    return h.Status.ObservedGeneration
+	if h == nil {
+		return 0
+	}
+	return h.Status.ObservedGeneration
 }
 
 // SetDefaults sets default values for the HumioPdfRenderService
 func (hprs *HumioPdfRenderService) SetDefaults() {
-    if hprs.Spec.Port == 0 {
-        hprs.Spec.Port = 5123
-    }
+	if hprs.Spec.Port == 0 {
+		hprs.Spec.Port = 5123
+	}
 	if hprs.Spec.ServiceType == "" {
 		hprs.Spec.ServiceType = corev1.ServiceTypeClusterIP
 	}

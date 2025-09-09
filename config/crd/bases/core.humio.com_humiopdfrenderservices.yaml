@@ -1101,9 +1101,6 @@ spec:
                             type: integer
                         type: object
                     type: object
-                  enabled:
-                    description: Enabled toggles autoscaling on or off
-                    type: boolean
                   maxReplicas:
                     description: MaxReplicas is the maximum number of replicas
                     format: int32
@@ -1589,6 +1586,11 @@ spec:
                     format: int32
                     type: integer
                 type: object
+                x-kubernetes-validations:
+                - message: maxReplicas must be greater than or equal to minReplicas
+                    (default 1)
+                  rule: 'self.maxReplicas >= (has(self.minReplicas) ? self.minReplicas
+                    : 1)'
               containerSecurityContext:
                 description: ContainerSecurityContext defines container-level security
                   attributes

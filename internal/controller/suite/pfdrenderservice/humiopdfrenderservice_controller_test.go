@@ -286,9 +286,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 				updatedPdfService.Spec.Replicas = newReplicas
 
 				// Disable autoscaling to test manual replica scaling
-				updatedPdfService.Spec.Autoscaling = &humiov1alpha1.HumioPdfRenderServiceAutoscalingSpec{
-					Enabled: helpers.BoolPtr(false),
-				}
+				updatedPdfService.Spec.Autoscaling = nil
 				return k8sClient.Update(ctx, &updatedPdfService)
 			}, 3*longTimeout, testInterval).Should(Succeed())
 
@@ -681,15 +679,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 				}
 				return deployment.Spec.Template.Spec.Containers[0].Image
 			}, testTimeout, testInterval).Should(Equal("humio/pdf-render-service:0.1.2--build-104--sha-9a7598de95bb9775b6f59d874c37a206713bae01"))
-
-			By("Disabling ENABLE_SCHEDULED_REPORT and verifying cleanup (future implementation)")
-			// Note: Current implementation doesn't auto-cleanup when ENABLE_SCHEDULED_REPORT is disabled
-			// This would be a future enhancement
 		})
-
-		// Tests that require HumioCluster controller to be running are maintained in the
-		// clusters/e2e suites. Intentionally removing pending placeholders here to keep
-		// this suite focused and free of pending specs.
 	})
 
 	Context("PDF Render Service HPA (Horizontal Pod Autoscaling)", Label("envtest", "dummy", "real"), func() {
@@ -737,7 +727,6 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 						Enabled: helpers.BoolPtr(false),
 					},
 					Autoscaling: &humiov1alpha1.HumioPdfRenderServiceAutoscalingSpec{
-						Enabled:     helpers.BoolPtr(true),
 						MinReplicas: helpers.Int32Ptr(1),
 						MaxReplicas: 5,
 						Metrics: []autoscalingv2.MetricSpec{
@@ -819,9 +808,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 					TLS: &humiov1alpha1.HumioPdfRenderServiceTLSSpec{
 						Enabled: helpers.BoolPtr(false),
 					},
-					Autoscaling: &humiov1alpha1.HumioPdfRenderServiceAutoscalingSpec{
-						Enabled: helpers.BoolPtr(false),
-					},
+					// Autoscaling disabled by omitting the Autoscaling spec
 				},
 			}
 
@@ -898,7 +885,6 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 						Enabled: helpers.BoolPtr(false),
 					},
 					Autoscaling: &humiov1alpha1.HumioPdfRenderServiceAutoscalingSpec{
-						Enabled:     helpers.BoolPtr(true),
 						MinReplicas: helpers.Int32Ptr(2),
 						MaxReplicas: 10,
 						Metrics: []autoscalingv2.MetricSpec{
@@ -994,7 +980,6 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 						Enabled: helpers.BoolPtr(false),
 					},
 					Autoscaling: &humiov1alpha1.HumioPdfRenderServiceAutoscalingSpec{
-						Enabled:     helpers.BoolPtr(true),
 						MinReplicas: helpers.Int32Ptr(1),
 						MaxReplicas: 5,
 					},
@@ -1020,7 +1005,7 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 				if err := k8sClient.Get(ctx, key, pdfService); err != nil {
 					return err
 				}
-				pdfService.Spec.Autoscaling.Enabled = helpers.BoolPtr(false)
+				pdfService.Spec.Autoscaling = nil
 				pdfService.Spec.Replicas = 4
 				return k8sClient.Update(ctx, pdfService)
 			}, testTimeout, testInterval).Should(Succeed())
@@ -1091,7 +1076,6 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 						Enabled: helpers.BoolPtr(false),
 					},
 					Autoscaling: &humiov1alpha1.HumioPdfRenderServiceAutoscalingSpec{
-						Enabled:     helpers.BoolPtr(true),
 						MinReplicas: helpers.Int32Ptr(1),
 						MaxReplicas: 3,
 						// No metrics specified - should use default
