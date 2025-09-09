@@ -73,14 +73,23 @@ func MarkPodsAsRunningIfUsingEnvtest(ctx context.Context, client client.Client, 
 }
 
 func MarkPodAsRunningIfUsingEnvtest(ctx context.Context, k8sClient client.Client, pod corev1.Pod, clusterName string) error {
-	// Determine if this is a PDF render service pod
-	isPdfRenderService := false
-	for _, container := range pod.Spec.Containers {
-		if container.Name == HumioPdfRenderServiceContainerName {
-			isPdfRenderService = true
-			break
-		}
-	}
+    // Determine if this is a PDF render service pod
+    isPdfRenderService := false
+    for _, container := range pod.Spec.Containers {
+        if container.Name == HumioPdfRenderServiceContainerName {
+            isPdfRenderService = true
+            break
+        }
+    }
+
+    // Determine if this is a Humio pod (core LogScale pod)
+    isHumioPod := false
+    for _, container := range pod.Spec.Containers {
+        if container.Name == controller.HumioContainerName {
+            isHumioPod = true
+            break
+        }
+    }
 
 	// Only mark pods as ready in envtest environments
 	// Kind clusters should use natural Kubernetes readiness behavior for all pods
@@ -103,15 +112,15 @@ func MarkPodAsRunningIfUsingEnvtest(ctx context.Context, k8sClient client.Client
 		},
 	}
 
-	// Only set init container status for Humio pods (not PDF render service)
-	if !isPdfRenderService {
-		pod.Status.InitContainerStatuses = []corev1.ContainerStatus{
-			{
-				Name:  controller.InitContainerName,
-				Ready: true,
-			},
-		}
-	}
+    // Only set init container status for Humio pods
+    if isHumioPod {
+        pod.Status.InitContainerStatuses = []corev1.ContainerStatus{
+            {
+                Name:  controller.InitContainerName,
+                Ready: true,
+            },
+        }
+    }
 
 	// Set container statuses
 	pod.Status.ContainerStatuses = []corev1.ContainerStatus{
