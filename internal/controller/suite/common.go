@@ -1,15 +1,15 @@
 package suite
 
 import (
-	"context"
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
-	"os"
-	"reflect"
-	"strconv"
-	"strings"
-	"time"
+    "context"
+    "encoding/base64"
+    "encoding/json"
+    "fmt"
+    "os"
+    "reflect"
+    "strconv"
+    "strings"
+    "time"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
@@ -918,15 +918,17 @@ func GetHumioBootstrapToken(ctx context.Context, key types.NamespacedName, k8sCl
 // tolerant of extra reconciles that may bump the generation while we are
 // waiting.
 func WaitForObservedGeneration(
-	ctx context.Context,
-	k8sClient client.Client,
-	obj client.Object,
-	timeout, interval time.Duration,
+    ctx context.Context,
+    k8sClient client.Client,
+    obj client.Object,
+    timeout, interval time.Duration,
 ) {
-	objKind := obj.GetObjectKind().GroupVersionKind().Kind
-	if objKind == "" {
-		objKind = reflect.TypeOf(obj).String()
-	}
+    type ObservedGenerationReader interface{ GetObservedGeneration() int64 }
+
+    objKind := obj.GetObjectKind().GroupVersionKind().Kind
+    if objKind == "" {
+        objKind = reflect.TypeOf(obj).String()
+    }
 
 	UsingClusterBy("", fmt.Sprintf(
 		"Waiting for observedGeneration to catch up for %s %s/%s",
@@ -940,33 +942,19 @@ func WaitForObservedGeneration(
 		err := k8sClient.Get(ctx, key, latest)
 		g.Expect(err).NotTo(HaveOccurred(), "Failed to get resource")
 
-		currentGeneration := latest.GetGeneration()
-		var observedGen int64
+        currentGeneration := latest.GetGeneration()
 
-		switch typed := latest.(type) {
-		case *humiov1alpha1.HumioPdfRenderService:
-			observedGen = typed.Status.ObservedGeneration
-
-		case *humiov1alpha1.HumioCluster:
-			val, err := strconv.ParseInt(typed.Status.ObservedGeneration, 10, 64)
-			if err != nil {
-				observedGen = 0
-			} else {
-				observedGen = val
-			}
-
-		case *appsv1.Deployment:
-			observedGen = typed.Status.ObservedGeneration
-
-		default:
-			// Resource does not expose observedGeneration – consider it ready.
-			return true
-		}
-
-		return observedGen >= currentGeneration
-	}, timeout, interval).Should(BeTrue(),
-		"%s %s/%s observedGeneration did not catch up with generation",
-		objKind, obj.GetNamespace(), obj.GetName())
+        if r, ok := latest.(ObservedGenerationReader); ok {
+            return r.GetObservedGeneration() >= currentGeneration
+        }
+        if d, ok := latest.(*appsv1.Deployment); ok {
+            return d.Status.ObservedGeneration >= currentGeneration
+        }
+        // Resource does not expose observedGeneration – consider it ready.
+        return true
+    }, timeout, interval).Should(BeTrue(),
+        "%s %s/%s observedGeneration did not catch up with generation",
+        objKind, obj.GetNamespace(), obj.GetName())
 }
 
 // CreatePdfRenderServiceCR creates a basic HumioPdfRenderService CR with better error handling
