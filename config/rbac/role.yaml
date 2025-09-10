@@ -28,20 +28,6 @@ rules:
 - apiGroups:
   - apps
   resources:
-  - humioactions
-  - humioaggregatealerts
-  - humioalerts
-  - humiobootstraptokens
-  - humioclusters
-  - humioexternalclusters
-  - humiofeatureflags
-  - humiofilteralerts
-  - humiogroups
-  - humioingesttokens
-  - humioipfilters
-  - humiomulticlustersearchviews
-  - humioorganizationpermissionroles
-  - humioparsers
   - deployments
   verbs:
   - create
@@ -89,6 +75,7 @@ rules:
   - humiofilteralerts
   - humiogroups
   - humioingesttokens
+  - humioipfilters
   - humiomulticlustersearchviews
   - humioorganizationpermissionroles
   - humioparsers
