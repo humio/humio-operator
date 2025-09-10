@@ -1524,7 +1524,7 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 		defaultLivenessProbe.InitialDelaySeconds = 0 // No delay for dummy images
 	}
 
-	// In KIND clusters or envtest, use more resilient probe settings
+	// In KIND clusters or envtest, use more resilient probe settings (stick to HTTP like HumioCluster)
 	if helpers.UseKindCluster() || helpers.UseEnvtest() {
 		defaultLivenessProbe.FailureThreshold = 10 // Match HumioCluster's higher threshold
 		defaultLivenessProbe.PeriodSeconds = 5     // Match HumioCluster's faster probing
@@ -1550,7 +1550,7 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 		defaultReadinessProbe.InitialDelaySeconds = 0 // No delay for dummy images
 	}
 
-	// In KIND clusters or envtest, use more resilient probe settings
+	// In KIND clusters or envtest, use more resilient probe settings (stick to HTTP like HumioCluster)
 	if helpers.UseKindCluster() || helpers.UseEnvtest() {
 		defaultReadinessProbe.FailureThreshold = 10 // Match HumioCluster's higher threshold
 		defaultReadinessProbe.PeriodSeconds = 5     // Match HumioCluster's faster probing
@@ -1559,6 +1559,32 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 	if container.ReadinessProbe == nil {
 		container.ReadinessProbe = defaultReadinessProbe
 	}
+
+	// Add a startup probe similar to HumioCluster defaults to gate liveness/readiness until
+	// the service is actually up. Use the readiness endpoint and same scheme.
+	defaultStartupProbe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   humiov1alpha1.DefaultPdfRenderServiceReadiness,
+				Port:   intstr.FromInt(int(port)),
+				Scheme: scheme,
+			},
+		},
+		PeriodSeconds:    5,
+		TimeoutSeconds:   5,
+		SuccessThreshold: 1,
+		FailureThreshold: 120,
+	}
+	if helpers.UseDummyImage() {
+		// No need to delay for the dummy image used in tests
+		defaultStartupProbe.InitialDelaySeconds = 0
+	}
+	if helpers.UseKindCluster() || helpers.UseEnvtest() {
+		// Be resilient in CI
+		defaultStartupProbe.FailureThreshold = 120
+		defaultStartupProbe.PeriodSeconds = 5
+	}
+	container.StartupProbe = defaultStartupProbe
 
 	if hprs.Spec.ContainerSecurityContext != nil {
 		container.SecurityContext = hprs.Spec.ContainerSecurityContext
