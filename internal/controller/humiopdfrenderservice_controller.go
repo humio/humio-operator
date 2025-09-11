@@ -1520,7 +1520,11 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 
 	// In test environments, use more resilient probe settings following HumioCluster pattern
 	if helpers.UseDummyImage() {
-		defaultLivenessProbe.InitialDelaySeconds = 0 // No delay for dummy images
+		// The dummy HTTP server serves only '/'. Point probes there and remove delay.
+		if defaultLivenessProbe.HTTPGet != nil {
+			defaultLivenessProbe.HTTPGet.Path = "/"
+		}
+		defaultLivenessProbe.InitialDelaySeconds = 0
 	}
 
 	// In KIND clusters or envtest, use more resilient probe settings (stick to HTTP like HumioCluster)
@@ -1546,7 +1550,11 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 
 	// In test environments, use more resilient probe settings following HumioCluster pattern
 	if helpers.UseDummyImage() {
-		defaultReadinessProbe.InitialDelaySeconds = 0 // No delay for dummy images
+		// The dummy HTTP server serves only '/'. Point probes there and remove delay.
+		if defaultReadinessProbe.HTTPGet != nil {
+			defaultReadinessProbe.HTTPGet.Path = "/"
+		}
+		defaultReadinessProbe.InitialDelaySeconds = 0
 	}
 
 	// In KIND clusters or envtest, use more resilient probe settings (stick to HTTP like HumioCluster)
@@ -1575,7 +1583,10 @@ func (r *HumioPdfRenderServiceReconciler) buildPDFContainer(
 		FailureThreshold: 120,
 	}
 	if helpers.UseDummyImage() {
-		// No need to delay for the dummy image used in tests
+		// Align startup probe with dummy path and remove delay
+		if defaultStartupProbe.HTTPGet != nil {
+			defaultStartupProbe.HTTPGet.Path = "/"
+		}
 		defaultStartupProbe.InitialDelaySeconds = 0
 	}
 	if helpers.UseKindCluster() || helpers.UseEnvtest() {
