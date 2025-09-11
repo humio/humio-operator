@@ -104,8 +104,13 @@ func SidecarWaitForGlobalImageVersion() string {
 }
 
 func DefaultPDFRenderServiceImage() string {
-	// Always return the specific default PDF render service image.
-	// If a dummy version is needed for testing this specific service,
-	// it should be a distinct dummy PDF render service image.
+	// In dummy-image mode, prefer a locally built dummy HTTP server image that
+	// our CI preloads into kind. This ensures probes succeed without pulling
+	// external images.
+	if helpers.UseDummyImage() {
+		// This image is built from images/logscale-dummy and preloaded by the
+		// e2e harness. It serves HTTP on HUMIO_PORT which we set in the controller.
+		return "humio/humio-core:dummy"
+	}
 	return defaultPDFRenderServiceImage
 }
