@@ -295,24 +295,13 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
 	}
 
-	// Determine whether autoscaling (HPA) is desired and whether any clusters have scheduled reports enabled.
-	// If no clusters have ENABLE_SCHEDULED_REPORT=true and HPA is disabled, we auto scale down the deployment
-	// to 0 replicas to conserve resources.
-	pdfEnabledCount := 0
-	if clusters, ferr := r.findHumioClustersWithPDFEnabled(ctx, hprs.Namespace); ferr == nil {
-		pdfEnabledCount = len(clusters)
-	} else {
-		// Log and proceed without autoscale-down if discovery fails
-		log.Info("Failed to list HumioClusters for PDF enablement; skipping auto scale-down decision", "error", ferr)
-	}
+	// Determine whether autoscaling (HPA) is desired.
+	// NOTE: We no longer auto-scale down when no HumioClusters have PDF enabled.
+	// The operator respects the user-specified replica count unless explicitly set to 0
+	// or managed by HPA. This aligns with existing tests that expect the service
+	// to run independently of HumioCluster presence.
 	hpaDesired := helpers.HpaEnabledForHPRS(hprs)
 	effectiveReplicas := hprs.Spec.Replicas
-	autoScaleDown := !hpaDesired && pdfEnabledCount == 0
-	if autoScaleDown {
-		effectiveReplicas = 0
-		log.Info("No PDF-enabled HumioClusters and HPA disabled; auto scaling down PDF Render Service to 0 replicas",
-			"hprs", hprs.Name, "namespace", hprs.Namespace)
-	}
 
 	// If we're already in Running state and the observedGeneration matches the current generation,
 	// we can skip most of the reconciliation to reduce load during cluster updates
