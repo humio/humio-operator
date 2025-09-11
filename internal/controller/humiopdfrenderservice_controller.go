@@ -295,23 +295,23 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
 	}
 
-    // Determine whether autoscaling (HPA) is desired and compute effective replicas.
-    // If there are no HumioClusters in the namespace with PDF features enabled
-    // (via ENABLE_SCHEDULED_REPORT=true or DEFAULT_PDF_RENDER_SERVICE_URL set),
-    // we conservatively scale the PDF Render Service down to 0 replicas until a
-    // cluster enables reports. This matches the suite tests' expectations.
-    hpaDesired := helpers.HpaEnabledForHPRS(hprs)
+	// Determine whether autoscaling (HPA) is desired and compute effective replicas.
+	// If there are no HumioClusters in the namespace with PDF features enabled
+	// (via ENABLE_SCHEDULED_REPORT=true or DEFAULT_PDF_RENDER_SERVICE_URL set),
+	// we conservatively scale the PDF Render Service down to 0 replicas until a
+	// cluster enables reports. This matches the suite tests' expectations.
+	hpaDesired := helpers.HpaEnabledForHPRS(hprs)
 
-    effectiveReplicas := hprs.Spec.Replicas
-    // Check for any PDF-enabled HumioClusters
-    if pdfEnabledClusters, err := r.findHumioClustersWithPDFEnabled(ctx, hprs.Namespace); err == nil {
-        if len(pdfEnabledClusters) == 0 {
-            effectiveReplicas = 0
-        }
-    } else {
-        // If we fail to list clusters, log and proceed with user-specified replicas
-        r.Log.Error(err, "Failed to list HumioClusters while determining effective replicas")
-    }
+	effectiveReplicas := hprs.Spec.Replicas
+	// Check for any PDF-enabled HumioClusters
+	if pdfEnabledClusters, err := r.findHumioClustersWithPDFEnabled(ctx, hprs.Namespace); err == nil {
+		if len(pdfEnabledClusters) == 0 {
+			effectiveReplicas = 0
+		}
+	} else {
+		// If we fail to list clusters, log and proceed with user-specified replicas
+		r.Log.Error(err, "Failed to list HumioClusters while determining effective replicas")
+	}
 
 	// If we're already in Running state and the observedGeneration matches the current generation,
 	// we can skip most of the reconciliation to reduce load during cluster updates
