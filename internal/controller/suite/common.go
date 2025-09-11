@@ -605,7 +605,7 @@ func verifyNumPodsPodPhaseRunning(ctx context.Context, k8sClient client.Client, 
 }
 
 func verifyPodAvailabilityZoneWhenUsingRealHumioContainers(ctx context.Context, k8sClient client.Client, humioClient humio.Client, key types.NamespacedName, cluster *humiov1alpha1.HumioCluster, testTimeout time.Duration) {
-	if !helpers.UseEnvtest() && !helpers.UseDummyImage() && !helpers.UseKindCluster() {
+	if !helpers.UseEnvtest() && !helpers.UseDummyImage() {
 		UsingClusterBy(key.Name, "Validating cluster nodes have ZONE configured correctly")
 		if cluster.Spec.DisableInitContainer {
 			Eventually(func() []string {
