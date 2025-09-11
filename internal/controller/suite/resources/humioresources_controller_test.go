@@ -4174,8 +4174,9 @@ var _ = Describe("Humio Resources Controllers", func() {
 				}
 			}
 
-			// Verify we validate this for all our CRD's
-			Expect(resources).To(HaveLen(20))
+            // Verify we validate this for all our CRD's
+            // Note: Update the expected count when adding new Humio CRDs
+            Expect(resources).To(HaveLen(21))
 
 			for i := range resources {
 				// Get the GVK information
