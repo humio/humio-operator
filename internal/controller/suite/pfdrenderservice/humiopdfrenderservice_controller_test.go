@@ -365,6 +365,18 @@ var _ = Describe("HumioPDFRenderService Controller", func() {
 			Expect(k8sClient.Create(ctx, pdfCR)).To(Succeed())
 			defer suite.CleanupPdfRenderServiceCR(ctx, k8sClient, pdfCR)
 
+			By("Creating HumioCluster with PDF rendering enabled")
+			clusterKey := types.NamespacedName{
+				Name:      "hc-for-pdf-upgrade-test",
+				Namespace: pdfKey.Namespace,
+			}
+			cluster := suite.ConstructBasicSingleNodeHumioCluster(clusterKey, false)
+			cluster.Spec.EnvironmentVariables = []corev1.EnvVar{
+				{Name: "ENABLE_SCHEDULED_REPORT", Value: "true"},
+			}
+			Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
+			defer suite.CleanupCluster(ctx, k8sClient, cluster)
+
 			By("Waiting for PDF service to reach Running state")
 			Eventually(func() string {
 				if err := k8sClient.Get(ctx, pdfKey, pdfCR); err != nil {
