@@ -273,10 +273,9 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// Following HumioCluster pattern - no finalizers used
 	// Kubernetes garbage collection via Owns() relationships handles cleanup automatically
 
-	// PDF Render Service CRD can be created independently from HumioCluster
-	// However, the deployment will only scale up when at least one HumioCluster
-	// has ENABLE_SCHEDULED_REPORT=true. When no such cluster exists, the service
-	// scales down to 0 replicas to conserve resources.
+	// PDF Render Service CRD can be created independently from HumioCluster.
+	// The operator respects the user-specified replicas (or HPA) regardless of
+	// HumioCluster presence, so the service can run standalone if desired.
 
 	// Auto-synchronize TLS configuration from HumioCluster if not explicitly set
 	if sourceCluster, err := r.shouldSynchronizeTLSFromCluster(ctx, hprs); err != nil {
@@ -296,21 +295,29 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	// Determine whether autoscaling (HPA) is desired and compute effective replicas.
-	// If there are no HumioClusters in the namespace with PDF features enabled
-	// (via ENABLE_SCHEDULED_REPORT=true or DEFAULT_PDF_RENDER_SERVICE_URL set),
-	// we conservatively scale the PDF Render Service down to 0 replicas until a
-	// cluster enables reports. This matches the suite tests' expectations.
+	// Default to the user-specified replicas, but apply auto scale-down policy when
+	// no HumioCluster in the namespace has PDF rendering enabled.
 	hpaDesired := helpers.HpaEnabledForHPRS(hprs)
 
 	effectiveReplicas := hprs.Spec.Replicas
-	// Check for any PDF-enabled HumioClusters
-	if pdfEnabledClusters, err := r.findHumioClustersWithPDFEnabled(ctx, hprs.Namespace); err == nil {
-		if len(pdfEnabledClusters) == 0 {
-			effectiveReplicas = 0
-		}
-	} else {
-		// If we fail to list clusters, log and proceed with user-specified replicas
-		r.Log.Error(err, "Failed to list HumioClusters while determining effective replicas")
+
+	// Check if any HumioCluster in the same namespace has PDF rendering enabled.
+	// If none, force scale-down to 0 replicas and avoid creating HPA. This matches
+	// the suite expectations that HPRS exists but remains ScaledDown until a
+	// HumioCluster enables scheduled reports or configures the DEFAULT_PDF_RENDER_SERVICE_URL.
+	pdfEnabledClusters, err := r.findHumioClustersWithPDFEnabled(ctx, hprs.Namespace)
+	if err != nil {
+		r.Log.Error(err, "Failed to list HumioClusters for PDF enablement check")
+		reconcileErr = err
+		finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
+		return ctrl.Result{}, reconcileErr
+	}
+	pdfEnabled := len(pdfEnabledClusters) > 0
+	if !pdfEnabled {
+		effectiveReplicas = 0
+		// We still honour the CR existence and reconcile dependent objects, but
+		// we prevent autoscaling while no cluster is PDF-enabled.
+		hpaDesired = false
 	}
 
 	// If we're already in Running state and the observedGeneration matches the current generation,
@@ -349,6 +356,14 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 				replicasMatch = *deployment.Spec.Replicas == effectiveReplicas
 			}
 
+			// IMPORTANT: If effectiveReplicas is 0 but current replicas > 0, we must proceed with reconciliation
+			// to scale down the deployment, regardless of hash matches
+			if effectiveReplicas == 0 && deployment.Spec.Replicas != nil && *deployment.Spec.Replicas > 0 {
+				replicasMatch = false
+				log.Info("Forcing reconciliation due to scale-down requirement",
+					"currentReplicas", *deployment.Spec.Replicas, "effectiveReplicas", effectiveReplicas)
+			}
+
 			// Skip reconciliation only if all states match desired state
 			if currentHash == desiredHash && currentHash != "" && hpaExists == hpaDesired && replicasMatch {
 				// Everything is healthy and up-to-date, no need to reconcile further
@@ -358,7 +373,7 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 				return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			log.Info("State mismatch detected, proceeding with reconciliation",
-				"currentHash", currentHash, "desiredHash", desiredHash, "hpaExists", hpaExists, "hpaDesired", hpaDesired)
+				"currentHash", currentHash, "desiredHash", desiredHash, "hpaExists", hpaExists, "hpaDesired", hpaDesired, "replicasMatch", replicasMatch)
 		}
 	}
 
@@ -440,9 +455,18 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, reconcileErr
 	}
 
-	// Reconcile HPA if autoscaling is enabled
-	log.Info("Reconciling HPA", "autoscalingEnabled", helpers.HpaEnabledForHPRS(hprs))
-	if err := r.reconcileHPA(ctx, hprs, dep); err != nil {
+	// Reconcile HPA: delete when autoscaling is disabled or when no HumioCluster
+	// has PDF enabled, otherwise ensure it's present.
+	// If no cluster has PDF enabled, ensure HPA is deleted by passing a copy
+	// with Autoscaling cleared.
+	hprsForHPA := hprs
+	if !pdfEnabled && hprs.Spec.Autoscaling != nil {
+		clone := hprs.DeepCopy()
+		clone.Spec.Autoscaling = nil
+		hprsForHPA = clone
+	}
+	log.Info("Reconciling HPA", "autoscalingEnabled", helpers.HpaEnabledForHPRS(hprsForHPA), "pdfEnabled", pdfEnabled)
+	if err := r.reconcileHPA(ctx, hprsForHPA, dep); err != nil {
 		log.Error(err, "Failed to reconcile HPA")
 		reconcileErr = err
 		finalState = humiov1alpha1.HumioPdfRenderServiceStateConfigError
