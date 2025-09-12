@@ -477,57 +477,81 @@ func (r *HumioPdfRenderServiceReconciler) Reconcile(ctx context.Context, req ctr
 	// Only update state if we haven't already encountered a ConfigError
 	if finalState != humiov1alpha1.HumioPdfRenderServiceStateConfigError {
 		targetState := humiov1alpha1.HumioPdfRenderServiceStateRunning
-		r.Log.Info("Checking deployment readiness for state determination",
-			"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace,
-			"depIsNil", dep == nil,
-			"readyReplicas", func() int32 {
-				if dep != nil {
-					return dep.Status.ReadyReplicas
-				} else {
-					return -1
-				}
-			}(),
-			"specReplicas", hprs.Spec.Replicas,
-			"depGeneration", func() int64 {
-				if dep != nil {
-					return dep.Generation
-				} else {
-					return -1
-				}
-			}(),
-			"depObservedGeneration", func() int64 {
-				if dep != nil {
-					return dep.Status.ObservedGeneration
-				} else {
-					return -1
-				}
-			}())
-		if dep == nil || dep.Status.ReadyReplicas < effectiveReplicas || dep.Status.ObservedGeneration < dep.Generation {
-			targetState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
-			r.Log.Info("PDF service will remain in Configuring state",
-				"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace, "reason",
-				func() string {
-					if dep == nil {
-						return "deployment is nil"
-					}
-					if dep.Status.ReadyReplicas < hprs.Spec.Replicas {
-						return fmt.Sprintf("readyReplicas (%d) < specReplicas (%d)", dep.Status.ReadyReplicas, hprs.Spec.Replicas)
-					}
-					if dep.Status.ObservedGeneration < dep.Generation {
-						return fmt.Sprintf("observedGeneration (%d) < generation (%d)", dep.Status.ObservedGeneration, dep.Generation)
-					}
-					return unknownStatus
-				}())
-		} else {
-			r.Log.Info("PDF service will transition to Running state",
-				"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
-		}
-		if effectiveReplicas == 0 {
-			targetState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
-		}
 
-		// Set final state for defer function to handle
-		finalState = targetState
+		// In dummy-image mode, kind never reports pods as Ready. Mirror test harness
+		// behavior by treating the deployment as effectively running once created.
+		if helpers.UseDummyImage() {
+			if effectiveReplicas == 0 {
+				targetState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
+			} else if dep == nil {
+				targetState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
+				r.Log.Info("Dummy image mode: deployment not created yet, remaining Configuring",
+					"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
+			} else {
+				// Deployment exists; consider it Running in dummy mode
+				r.Log.Info("Dummy image mode: considering deployment Running despite pod readiness",
+					"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace,
+					"specReplicas", func() int32 {
+						if dep.Spec.Replicas != nil {
+							return *dep.Spec.Replicas
+						}
+						return -1
+					}(),
+					"readyReplicas", dep.Status.ReadyReplicas)
+			}
+			finalState = targetState
+		} else {
+			r.Log.Info("Checking deployment readiness for state determination",
+				"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace,
+				"depIsNil", dep == nil,
+				"readyReplicas", func() int32 {
+					if dep != nil {
+						return dep.Status.ReadyReplicas
+					} else {
+						return -1
+					}
+				}(),
+				"specReplicas", hprs.Spec.Replicas,
+				"depGeneration", func() int64 {
+					if dep != nil {
+						return dep.Generation
+					} else {
+						return -1
+					}
+				}(),
+				"depObservedGeneration", func() int64 {
+					if dep != nil {
+						return dep.Status.ObservedGeneration
+					} else {
+						return -1
+					}
+				}())
+			if dep == nil || dep.Status.ReadyReplicas < effectiveReplicas || dep.Status.ObservedGeneration < dep.Generation {
+				targetState = humiov1alpha1.HumioPdfRenderServiceStateConfiguring
+				r.Log.Info("PDF service will remain in Configuring state",
+					"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace, "reason",
+					func() string {
+						if dep == nil {
+							return "deployment is nil"
+						}
+						if dep.Status.ReadyReplicas < hprs.Spec.Replicas {
+							return fmt.Sprintf("readyReplicas (%d) < specReplicas (%d)", dep.Status.ReadyReplicas, hprs.Spec.Replicas)
+						}
+						if dep.Status.ObservedGeneration < dep.Generation {
+							return fmt.Sprintf("observedGeneration (%d) < generation (%d)", dep.Status.ObservedGeneration, dep.Generation)
+						}
+						return unknownStatus
+					}())
+			} else {
+				r.Log.Info("PDF service will transition to Running state",
+					"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
+			}
+			if effectiveReplicas == 0 {
+				targetState = humiov1alpha1.HumioPdfRenderServiceStateScaledDown
+			}
+			// Set final state for defer function to handle
+			finalState = targetState
+		}
 	} else {
 		r.Log.Info("Preserving ConfigError state, skipping deployment readiness check",
 			"hprsName", hprs.Name, "hprsNamespace", hprs.Namespace)
