@@ -31,4 +31,5 @@ resources:
 - core_v1alpha1_humioviewpermissionrole.yaml
 - core_v1alpha1_humiomulticlustersearchview.yaml
 - core_v1alpha1_humioipfilter.yaml
+- core_v1alpha1_humioviewtoken.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

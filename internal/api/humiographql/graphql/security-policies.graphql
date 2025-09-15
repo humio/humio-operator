@@ -1,0 +1,22 @@
+mutation UpdateTokenSecurityPolicies(
+    $PersonalUserTokensEnabled: Boolean!
+    $ViewPermissionTokensEnabled: Boolean!
+    $OrganizationPermissionTokensEnabled: Boolean!
+    $SystemPermissionTokensEnabled: Boolean!
+    $ViewPermissionTokensAllowPermissionUpdates: Boolean!
+    $OrganizationPermissionTokensAllowPermissionUpdates: Boolean!
+    $SystemPermissionTokensAllowPermissionUpdates: Boolean!
+) {
+    updateTokenSecurityPolicies(
+        input: {
+            personalUserTokensEnabled: $PersonalUserTokensEnabled
+            viewPermissionTokensEnabled: $ViewPermissionTokensEnabled
+            organizationPermissionTokensEnabled: $OrganizationPermissionTokensEnabled
+            systemPermissionTokensEnabled: $SystemPermissionTokensEnabled
+            viewPermissionTokensAllowPermissionUpdates: $ViewPermissionTokensAllowPermissionUpdates
+            organizationPermissionTokensAllowPermissionUpdates: $OrganizationPermissionTokensAllowPermissionUpdates
+            systemPermissionTokensAllowPermissionUpdates: $SystemPermissionTokensAllowPermissionUpdates
+        } 
+    ) 
+    {  __typename  }
+}
