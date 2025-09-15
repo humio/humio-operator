@@ -13,28 +13,6 @@ func TestVersions(t *testing.T) {
 	RunSpecs(t, "Version suite")
 }
 
-// Helper functions for consistent error message formatting
-
-// formatVersionParsingMessage formats error messages for version parsing tests
-func formatVersionParsingMessage(input, field string, got, expected interface{}) string {
-	return fmt.Sprintf("HumioVersionFromString(%s) = got %s %v, expected %s %v", input, field, got, field, expected)
-}
-
-// formatVersionComparisonMessage formats error messages for version comparison setup
-func formatVersionComparisonMessage(input, got, expected string) string {
-	return fmt.Sprintf("HumioVersion.AtLeast(%s) = got %s, expected %s", input, got, expected)
-}
-
-// formatAtLeastErrorMessage formats error messages for AtLeast error checks
-func formatAtLeastErrorMessage(inputVersion, compareVersion string, gotErr error, expectedErr bool) string {
-	return fmt.Sprintf("HumioVersion(%s).AtLeast(%s) = got err %v, expected err %v", inputVersion, compareVersion, gotErr, expectedErr)
-}
-
-// formatAtLeastBoolMessage formats error messages for AtLeast boolean result checks
-func formatAtLeastBoolMessage(inputVersion, compareVersion string, got, expected bool) string {
-	return fmt.Sprintf("HumioVersion(%s).AtLeast(%s) = got %t, expected %t", inputVersion, compareVersion, got, expected)
-}
-
 // versionParsingTestCase defines test cases for HumioVersionFromString function
 type versionParsingTestCase struct {
 	userDefinedImageVersion string // Input Docker image string to parse
@@ -47,11 +25,11 @@ var _ = DescribeTable("HumioVersionFromString", Label("unit"),
 		gotVersion := HumioVersionFromString(testCase.userDefinedImageVersion)
 
 		Expect(testCase.expectedAssumeLatest).To(Equal(gotVersion.IsLatest()),
-			formatVersionParsingMessage(testCase.userDefinedImageVersion, "IsLatest", gotVersion.IsLatest(), testCase.expectedAssumeLatest))
+			fmt.Sprintf("HumioVersionFromString(%s) = got %s %v, expected %s %v", testCase.userDefinedImageVersion, "IsLatest", gotVersion.IsLatest(), "IsLatest", testCase.expectedAssumeLatest))
 
 		if !testCase.expectedAssumeLatest {
 			Expect(testCase.expectedImageVersion).To(Equal(gotVersion.String()),
-				formatVersionParsingMessage(testCase.userDefinedImageVersion, "image", gotVersion.String(), testCase.expectedImageVersion))
+				fmt.Sprintf("HumioVersionFromString(%s) = got %s %v, expected %s %v", testCase.userDefinedImageVersion, "image", gotVersion.String(), "image", testCase.expectedImageVersion))
 		}
 	},
 	Entry("image with container image SHA",
@@ -118,31 +96,31 @@ var _ = DescribeTable("HumioVersionAtLeast",
 		humioVersion := HumioVersionFromString(testCase.userDefinedImageVersion)
 
 		Expect(testCase.imageVersionExact).To(Equal(humioVersion.String()),
-			formatVersionComparisonMessage(testCase.userDefinedImageVersion, humioVersion.String(), testCase.userDefinedImageVersion))
+			fmt.Sprintf("HumioVersion.AtLeast(%s) = got %s, expected %s", testCase.userDefinedImageVersion, humioVersion.String(), testCase.userDefinedImageVersion))
 
 		// Verify current version is newer than older image
 		atLeast, err := humioVersion.AtLeast(testCase.imageVersionOlder)
 		Expect(testCase.expectedErr).To(Equal(err != nil),
-			formatAtLeastErrorMessage(testCase.userDefinedImageVersion, testCase.imageVersionOlder, err, testCase.expectedErr))
+			fmt.Sprintf("HumioVersion(%s).AtLeast(%s) = got err %v, expected err %v", testCase.userDefinedImageVersion, testCase.imageVersionOlder, err, testCase.expectedErr))
 
 		Expect(atLeast).To(BeTrue(),
-			formatAtLeastBoolMessage(testCase.userDefinedImageVersion, testCase.imageVersionOlder, atLeast, true))
+			fmt.Sprintf("HumioVersion(%s).AtLeast(%s) = got %t, expected %t", testCase.userDefinedImageVersion, testCase.imageVersionOlder, atLeast, true))
 
 		// Verify version exactly the same as the specified image is reported as at least the exact
 		atLeast, err = humioVersion.AtLeast(testCase.imageVersionExact)
 		Expect(testCase.expectedErr).To(Equal(err != nil),
-			formatAtLeastErrorMessage(testCase.userDefinedImageVersion, testCase.imageVersionExact, err, testCase.expectedErr))
+			fmt.Sprintf("HumioVersion(%s).AtLeast(%s) = got err %v, expected err %v", testCase.userDefinedImageVersion, testCase.imageVersionExact, err, testCase.expectedErr))
 
 		Expect(atLeast).To(BeTrue(),
-			formatAtLeastBoolMessage(testCase.userDefinedImageVersion, testCase.imageVersionExact, atLeast, true))
+			fmt.Sprintf("HumioVersion(%s).AtLeast(%s) = got %t, expected %t", testCase.userDefinedImageVersion, testCase.imageVersionExact, atLeast, true))
 
 		// Verify current version reports false to be AtLeast for images newer
 		atLeast, err = humioVersion.AtLeast(testCase.imageVersionNewer)
 		Expect(testCase.expectedErr).To(Equal(err != nil),
-			formatAtLeastErrorMessage(testCase.userDefinedImageVersion, testCase.imageVersionNewer, err, testCase.expectedErr))
+			fmt.Sprintf("HumioVersion(%s).AtLeast(%s) = got err %v, expected err %v", testCase.userDefinedImageVersion, testCase.imageVersionNewer, err, testCase.expectedErr))
 
 		Expect(atLeast).To(BeFalse(),
-			formatAtLeastBoolMessage(testCase.userDefinedImageVersion, testCase.imageVersionNewer, atLeast, false))
+			fmt.Sprintf("HumioVersion(%s).AtLeast(%s) = got %t, expected %t", testCase.userDefinedImageVersion, testCase.imageVersionNewer, atLeast, false))
 	},
 	Entry("image with container image SHA",
 		versionComparisonTestCase{
