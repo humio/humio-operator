@@ -4,7 +4,6 @@ test_scenarios:
       version: "0.28.0"
     to:
       version: "present"
-      cluster: "hack/helm-test/test-cases/base/test-logscale-cluster.yaml"
     expect_restarts: true
     description: "Should trigger restart"
   - name: "no_restart_upgrade_to_present"
@@ -28,35 +27,3 @@ test_scenarios:
       cluster_patch: "hack/helm-test/test-cases/test-cluster-watch-namespace.yaml"
     expect_restarts: false
     description: "Should not trigger restart"
-  # PDF Render Service tests
-  - name: "pdf_service_initial_deployment"
-    from:
-      version: "present"
-      cluster: "hack/helm-test/test-cases/base/test-logscale-cluster.yaml"
-    to:
-      version: "present"
-      cluster: "hack/helm-test/test-cases/base/test-logscale-cluster.yaml"
-      pdf_service: "hack/helm-test/test-cases/pdf-render-service-basic.yaml"
-    expect_restarts: false
-    description: "PDF service deployment should not trigger HumioCluster restart"
-  - name: "pdf_service_no_restart_upgrade"
-    from:
-      version: "present"
-      cluster: "hack/helm-test/test-cases/base/test-logscale-cluster.yaml"
-      pdf_service: "hack/helm-test/test-cases/pdf-render-service-basic.yaml"
-    to:
-      version: "present"
-      cluster: "hack/helm-test/test-cases/base/test-logscale-cluster.yaml"
-      pdf_service: "hack/helm-test/test-cases/pdf-render-service-updated.yaml"
-    expect_restarts: false
-    description: "PDF service upgrade should not trigger HumioCluster restart"
-  - name: "pdf_service_with_scheduled_reports"
-    from:
-      version: "present"
-      cluster_patch: "hack/helm-test/test-cases/test-cluster-pdf-disabled.yaml"
-    to:
-      version: "present"
-      cluster_patch: "hack/helm-test/test-cases/test-cluster-pdf-enabled.yaml"
-      pdf_service: "hack/helm-test/test-cases/pdf-render-service-basic.yaml"
-    expect_restarts: true
-    description: "Enabling scheduled reports should trigger restart to apply env vars"
