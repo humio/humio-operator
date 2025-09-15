@@ -23,6 +23,7 @@ operations:
   - graphql/users.graphql
   - graphql/ipfilter.graphql
   - graphql/view-tokens.graphql
+  - graphql/system-tokens.graphql
   - graphql/security-policies.graphql
 generated: humiographql.go
 

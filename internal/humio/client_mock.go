@@ -66,6 +66,7 @@ type ClientMock struct {
 	Role                   map[resourceKey]humiographql.RoleDetails
 	IPFilter               map[resourceKey]humiographql.IPFilterDetails
 	ViewToken              map[resourceKey]humiographql.ViewTokenDetailsViewPermissionsToken
+	SystemToken            map[resourceKey]humiographql.SystemTokenDetailsSystemPermissionsToken
 }
 
 type MockClientConfig struct {
@@ -93,6 +94,7 @@ func NewMockClient() *MockClientConfig {
 			Role:                   make(map[resourceKey]humiographql.RoleDetails),
 			IPFilter:               make(map[resourceKey]humiographql.IPFilterDetails),
 			ViewToken:              make(map[resourceKey]humiographql.ViewTokenDetailsViewPermissionsToken),
+			SystemToken:            make(map[resourceKey]humiographql.SystemTokenDetailsSystemPermissionsToken),
 		},
 	}
 
@@ -124,6 +126,7 @@ func (h *MockClientConfig) ClearHumioClientConnections(repoNameToKeep string) {
 	h.apiClient.AdminUserID = make(map[resourceKey]string)
 	h.apiClient.IPFilter = make(map[resourceKey]humiographql.IPFilterDetails)
 	h.apiClient.ViewToken = make(map[resourceKey]humiographql.ViewTokenDetailsViewPermissionsToken)
+	h.apiClient.SystemToken = make(map[resourceKey]humiographql.SystemTokenDetailsSystemPermissionsToken)
 }
 
 func (h *MockClientConfig) Status(_ context.Context, _ *humioapi.Client) (*humioapi.StatusResponse, error) {
@@ -2155,7 +2158,7 @@ func (h *MockClientConfig) CreateViewToken(ctx context.Context, client *humioapi
 
 	value := fmt.Sprintf("%s~%s", kubernetes.RandomString(), kubernetes.RandomString())
 	parts := strings.Split(value, "~")
-	// expireAt
+
 	var expireAt *int64
 	if viewToken.Spec.ExpiresAt != nil {
 		temp := viewToken.Spec.ExpiresAt.UnixMilli()
@@ -2163,7 +2166,7 @@ func (h *MockClientConfig) CreateViewToken(ctx context.Context, client *humioapi
 	} else {
 		expireAt = nil
 	}
-	// views
+
 	localViews := make([]humiographql.ViewTokenDetailsViewsSearchDomain, 0, len(views))
 	for _, viewName := range views {
 		view := &humiographql.ViewTokenDetailsViewsView{
@@ -2173,7 +2176,7 @@ func (h *MockClientConfig) CreateViewToken(ctx context.Context, client *humioapi
 		}
 		localViews = append(localViews, view)
 	}
-	//fix permissions
+
 	perms := FixPermissions(viewToken.Spec.Permissions)
 	response := &humiographql.ViewTokenDetailsViewPermissionsToken{
 		TokenDetailsViewPermissionsToken: humiographql.TokenDetailsViewPermissionsToken{
@@ -2219,7 +2222,7 @@ func (h *MockClientConfig) UpdateViewToken(ctx context.Context, client *humioapi
 	if !found {
 		return humioapi.ViewTokenNotFound(viewToken.Spec.Name)
 	}
-	// expireAt
+
 	var expireAt *int64
 	if viewToken.Spec.ExpiresAt != nil {
 		temp := viewToken.Spec.ExpiresAt.UnixMilli()
@@ -2258,5 +2261,106 @@ func (h *MockClientConfig) DeleteViewToken(ctx context.Context, client *humioapi
 }
 
 func (h *MockClientConfig) EnableTokenUpdatePermissionsForTests(ctx context.Context, client *humioapi.Client) error {
+	return nil
+}
+
+func (h *MockClientConfig) CreateSystemToken(ctx context.Context, client *humioapi.Client, systemToken *humiov1alpha1.HumioSystemToken, ipFilter string, permissions []humiographql.SystemPermission) (string, string, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", systemToken.Spec.ManagedClusterName, systemToken.Spec.ExternalClusterName)
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: systemToken.Spec.Name,
+	}
+	if _, found := h.apiClient.SystemToken[key]; found {
+		return "", "", fmt.Errorf("IPFilter already exists with name %s", systemToken.Spec.Name)
+	}
+
+	value := fmt.Sprintf("%s~%s", kubernetes.RandomString(), kubernetes.RandomString())
+	parts := strings.Split(value, "~")
+
+	var expireAt *int64
+	if systemToken.Spec.ExpiresAt != nil {
+		temp := systemToken.Spec.ExpiresAt.UnixMilli()
+		expireAt = &temp
+	} else {
+		expireAt = nil
+	}
+
+	perms := systemToken.Spec.Permissions
+	response := &humiographql.SystemTokenDetailsSystemPermissionsToken{
+		TokenDetailsSystemPermissionsToken: humiographql.TokenDetailsSystemPermissionsToken{
+			Id:       parts[0],
+			Name:     systemToken.Spec.Name,
+			ExpireAt: expireAt,
+			IpFilterV2: &humiographql.TokenDetailsIpFilterV2IPFilter{
+				Id: ipFilter,
+			},
+		},
+		Permissions: perms,
+	}
+	h.apiClient.SystemToken[key] = *response
+	return parts[0], value, nil
+}
+
+func (h *MockClientConfig) GetSystemToken(ctx context.Context, client *humioapi.Client, systemToken *humiov1alpha1.HumioSystemToken) (*humiographql.SystemTokenDetailsSystemPermissionsToken, error) {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", systemToken.Spec.ManagedClusterName, systemToken.Spec.ExternalClusterName)
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: systemToken.Spec.Name,
+	}
+	if value, found := h.apiClient.SystemToken[key]; found {
+		return &value, nil
+	}
+	return nil, humioapi.SystemTokenNotFound(systemToken.Spec.Name)
+}
+
+func (h *MockClientConfig) UpdateSystemToken(ctx context.Context, client *humioapi.Client, systemToken *humiov1alpha1.HumioSystemToken, permissions []humiographql.SystemPermission) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", systemToken.Spec.ManagedClusterName, systemToken.Spec.ExternalClusterName)
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: systemToken.Spec.Name,
+	}
+	currentValue, found := h.apiClient.SystemToken[key]
+	if !found {
+		return humioapi.SystemTokenNotFound(systemToken.Spec.Name)
+	}
+
+	expireAt := systemToken.Spec.ExpiresAt.UnixMilli()
+	value := &humiographql.SystemTokenDetailsSystemPermissionsToken{
+		TokenDetailsSystemPermissionsToken: humiographql.TokenDetailsSystemPermissionsToken{
+			Id:       currentValue.Id,
+			Name:     systemToken.Spec.Name,
+			ExpireAt: &expireAt,
+			IpFilterV2: &humiographql.TokenDetailsIpFilterV2IPFilter{
+				Id: "test",
+			},
+		},
+		Permissions: systemToken.Spec.Permissions,
+	}
+	h.apiClient.SystemToken[key] = *value
+
+	return nil
+}
+
+func (h *MockClientConfig) DeleteSystemToken(ctx context.Context, client *humioapi.Client, systemToken *humiov1alpha1.HumioSystemToken) error {
+	humioClientMu.Lock()
+	defer humioClientMu.Unlock()
+
+	clusterName := fmt.Sprintf("%s%s", systemToken.Spec.ManagedClusterName, systemToken.Spec.ExternalClusterName)
+
+	key := resourceKey{
+		clusterName:  clusterName,
+		resourceName: systemToken.Spec.Name,
+	}
+	delete(h.apiClient.SystemToken, key)
 	return nil
 }
