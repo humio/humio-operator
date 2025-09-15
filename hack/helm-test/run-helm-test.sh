@@ -41,14 +41,12 @@ run_test_suite() {
         local expect_restarts=$(echo $scenario | jq -r '.expect_restarts')
         local description=$(echo $scenario | jq -r '.description')
         local namespace=$(echo $scenario | jq -r '.namespace')
-        local from_pdf_service=$(echo $scenario | jq -r '.from.pdf_service')
-        local to_pdf_service=$(echo $scenario | jq -r '.to.pdf_service')
 
         echo "Running test: $name"
         echo "Description: $description"
 
         # Run test
-        if test_upgrade "$from_version" "$to_version" "$expect_restarts" "$from_cluster" "$to_cluster" "$from_values" "$to_values" "$from_cluster_patch" "$to_cluster_patch" "$from_values_patch" "$to_values_patch" "$namespace" "$from_pdf_service" "$to_pdf_service"; then
+        if test_upgrade "$from_version" "$to_version" "$expect_restarts" "$from_cluster" "$to_cluster" "$from_values" "$to_values" "$from_cluster_patch" "$to_cluster_patch" "$from_values_patch" "$to_values_patch" "$namespace"; then
             echo "✅ Test passed: $name"
         else
             echo "❌ Test failed: $name"
@@ -75,8 +73,6 @@ test_upgrade() {
     local from_values_patch=${10}
     local to_values_patch=${11}
     local namespace=${12}
-    local from_pdf_service=${13}
-    local to_pdf_service=${14}
 
     mkdir -p $tmp_helm_test_case_dir
 
@@ -142,13 +138,6 @@ test_upgrade() {
     # Wait for initial stability
     wait_for_cluster_ready $namespace
 
-    # Deploy initial PDF service if specified
-    if [ "$from_pdf_service" != "null" ]; then
-        echo "Deploying initial PDF render service..."
-        kubectl apply -n $namespace -f $from_pdf_service
-        wait_for_pdf_service_ready $namespace
-    fi
-
     # Capture initial pod states
     local initial_pods=$(capture_pod_states)
 
@@ -165,24 +154,12 @@ test_upgrade() {
     # Wait for operator upgrade
     kubectl --namespace $namespace wait --for=condition=available deployment/humio-operator --timeout=2m
 
-    # Deploy or update PDF service if specified
-    if [ "$to_pdf_service" != "null" ]; then
-        echo "Deploying/updating PDF render service..."
-        kubectl apply -n $namespace -f $to_pdf_service
-        wait_for_pdf_service_ready $namespace
-    fi
-
     # Monitor pod changes
     verify_pod_restart_behavior "$initial_pods" "$expect_restarts"
 }
 
 cleanup_upgrade() {
-  # Check if helm release exists before trying to delete
-  if helm list | grep -q "^humio-operator"; then
-    helm delete humio-operator || true
-  fi
-  # Delete PDF service if it exists
-  kubectl delete humiopdfrenderservice test-pdf-service --ignore-not-found=true || true
+  helm delete humio-operator || true
 }
 
 cleanup_tmp_helm_test_case_dir() {
@@ -263,29 +240,6 @@ wait_for_cluster_ready() {
       kubectl --namespace $namespace get pods -l app.kubernetes.io/instance=test-cluster
       kubectl --namespace $namespace describe pods -l app.kubernetes.io/instance=test-cluster
       kubectl --namespace $namespace logs -l app.kubernetes.io/instance=test-cluster | tail -100
-    done
-}
-
-wait_for_pdf_service_ready() {
-    local timeout=300  # 5 minutes
-    local interval=10  # 10 seconds
-    local elapsed=0
-    local namespace=$1
-
-    echo "Waiting for PDF render service to be ready..."
-
-    while [ $elapsed -lt $timeout ]; do
-      sleep $interval
-      elapsed=$((elapsed + interval))
-
-      if kubectl --namespace $namespace wait --for=condition=ready -l app=humio-pdf-render-service pod --timeout=30s 2>/dev/null; then
-        echo "✅ PDF render service is ready"
-        sleep 10
-        break
-      fi
-
-      echo "Waiting for PDF render service pods..."
-      kubectl --namespace $namespace get pods -l app=humio-pdf-render-service
     done
 }
 

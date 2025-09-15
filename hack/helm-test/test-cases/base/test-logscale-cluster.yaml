@@ -44,5 +44,3 @@ spec:
       value: "humio-cp-kafka-0.humio-cp-kafka-headless.default:9092"
     - name: "AUTHENTICATION_METHOD"
       value: "static"
-    - name: "ENABLE_SCHEDULED_REPORT"
-      value: "true"
