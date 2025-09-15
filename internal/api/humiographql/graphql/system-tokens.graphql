@@ -1,0 +1,49 @@
+fragment SystemTokenDetails on Token {
+    ...TokenDetails
+    ... on SystemPermissionsToken {
+        permissions
+    }
+}
+
+query GetSystemToken(
+    $Id: String!
+) {
+    tokens(
+        searchFilter: $Id
+        sortBy: Name
+        typeFilter: SystemPermissionToken
+    ) {
+        results {
+            ...SystemTokenDetails
+        }
+    }
+}
+
+mutation CreateSystemToken(
+    $Name: String!
+    $IPFilterId: String
+    $ExpiresAt: Long
+    $Permissions: [SystemPermission!]!
+) {
+    createSystemPermissionsToken(
+        input: {
+            name: $Name
+            expireAt: $ExpiresAt
+            ipFilterId: $IPFilterId
+            permissions: $Permissions
+        }
+    )
+}
+
+mutation UpdateSystemToken(
+    $Id: String!
+    $Permissions: [SystemPermission!]!
+) {
+    updateSystemPermissionsTokenPermissions
+    (
+        input: {
+            id: $Id
+            permissions: $Permissions
+        }
+    )
+}

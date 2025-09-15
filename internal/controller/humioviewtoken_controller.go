@@ -39,12 +39,6 @@ import (
 	"github.com/humio/humio-operator/internal/kubernetes"
 )
 
-const (
-	SecretFieldName      string        = "secret"
-	TokenFieldName       string        = "token"
-	CriticalErrorRequeue time.Duration = time.Minute * 1
-)
-
 // HumioViewTokenReconciler reconciles a HumioViewToken object
 type HumioViewTokenReconciler struct {
 	client.Client
@@ -150,7 +144,7 @@ func (r *HumioViewTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 			r.Log.Info("Successfully created ViewToken")
 			// we only see secret once so any failed actions that depend on it are not recoverable
-			encSecret, encErr := r.encryptToken(ctx, cluster, hvt, secret)
+			encSecret, encErr := encryptToken(ctx, r, cluster, secret, hvt.Namespace)
 			if encErr != nil {
 				return r.handleCriticalError(ctx, hvt, encErr)
 			}
@@ -183,6 +177,7 @@ func (r *HumioViewTokenReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// ensure associated K8s secret exists if token is set
 	err = r.ensureViewTokenSecretExists(ctx, hvt, cluster)
 	if err != nil {
+		_ = r.setState(ctx, hvt, humiov1alpha1.HumioSystemTokenConfigError, hvt.Status.ID, hvt.Status.Token)
 		return reconcile.Result{}, r.logErrorAndReturn(err, "could not ensure ViewToken secret exists")
 	}
 
@@ -445,12 +440,15 @@ func (r *HumioViewTokenReconciler) ensureViewTokenSecretExists(ctx context.Conte
 	if hvt.Status.Token == "" {
 		return fmt.Errorf("ViewToken.Status.Token is mandatory but missing")
 	}
-	secret, err := r.decryptToken(ctx, cluster, hvt)
+	secret, err := decryptToken(ctx, r, cluster, hvt.Status.Token, hvt.Namespace)
 	if err != nil {
 		return err
 	}
 
-	secretData := map[string][]byte{TokenFieldName: []byte(secret)}
+	secretData := map[string][]byte{
+		TokenFieldName:    []byte(secret),
+		ResourceFieldName: []byte(hvt.Spec.Name),
+	}
 	desiredSecret := kubernetes.ConstructSecret(cluster.Name(), hvt.Namespace, hvt.Spec.TokenSecretName, secretData, hvt.Spec.TokenSecretLabels, hvt.Spec.TokenSecretAnnotations)
 	if err := controllerutil.SetControllerReference(hvt, desiredSecret, r.Scheme()); err != nil {
 		return r.logErrorAndReturn(err, "could not set controller reference")
@@ -466,8 +464,12 @@ func (r *HumioViewTokenReconciler) ensureViewTokenSecretExists(ctx context.Conte
 			r.Log.Info("successfully created view token secret", "TokenSecretName", hvt.Spec.TokenSecretName)
 		}
 	} else {
-		// kubernetes secret exists, check if we need to update it
+		// kubernetes secret exists, check if we can/need to update it
 		r.Log.Info("view token secret already exists", "TokenSecretName", hvt.Spec.TokenSecretName)
+		// prevent updating a secret with same name but different humio resource
+		if string(existingSecret.Data[ResourceFieldName]) != "" && string(existingSecret.Data[ResourceFieldName]) != hvt.Spec.Name {
+			return r.logErrorAndReturn(fmt.Errorf("secret exists but has a different resource name: %s", string(existingSecret.Data[ResourceFieldName])), "unable to update system token secret")
+		}
 		if string(existingSecret.Data[TokenFieldName]) != string(desiredSecret.Data[TokenFieldName]) ||
 			!cmp.Equal(existingSecret.Labels, desiredSecret.Labels) ||
 			!cmp.Equal(existingSecret.Annotations, desiredSecret.Annotations) {
@@ -480,55 +482,13 @@ func (r *HumioViewTokenReconciler) ensureViewTokenSecretExists(ctx context.Conte
 	return nil
 }
 
-// TODO candidate for a more generic function to get reused if we need to do this elsewhere
-func (r *HumioViewTokenReconciler) readBootstrapTokenSecret(ctx context.Context, cluster helpers.ClusterInterface, namespace string) (string, error) {
-	secretName := fmt.Sprintf("%s-%s", cluster.Name(), bootstrapTokenSecretSuffix)
-	existingSecret, err := kubernetes.GetSecret(ctx, r, secretName, namespace)
-	if err != nil {
-		return "", fmt.Errorf("failed to get bootstrap token secret %s: %w", secretName, err)
-	}
-
-	tokenBytes, exists := existingSecret.Data[SecretFieldName]
-	if !exists {
-		return "", fmt.Errorf("token key not found in secret %s", secretName)
-	}
-
-	return string(tokenBytes), nil
-}
-
-// TODO candidate for a more generic function to get reused if we need to do this elsewhere
-func (r *HumioViewTokenReconciler) encryptToken(ctx context.Context, cluster helpers.ClusterInterface, hvt *humiov1alpha1.HumioViewToken, token string) (string, error) {
-	cypher, err := r.readBootstrapTokenSecret(ctx, cluster, hvt.Namespace)
-	if err != nil {
-		return "", r.logErrorAndReturn(err, "failed to read bootstrap token")
-	}
-	encSecret, err := EncryptSecret(token, cypher)
-	if err != nil {
-		return "", r.logErrorAndReturn(err, "failed to encrypt token")
-	}
-	return encSecret, nil
-}
-
-// TODO candidate for a more generic function to get reused if we need to do this elsewhere
-func (r *HumioViewTokenReconciler) decryptToken(ctx context.Context, cluster helpers.ClusterInterface, hvt *humiov1alpha1.HumioViewToken) (string, error) {
-	cypher, err := r.readBootstrapTokenSecret(ctx, cluster, hvt.Namespace)
-	if err != nil {
-		return "", r.logErrorAndReturn(err, "failed to read bootstrap token")
-	}
-	decSecret, err := DecryptSecret(hvt.Status.Token, cypher)
-	if err != nil {
-		return "", r.logErrorAndReturn(err, "failed to decrypt token")
-	}
-	return decSecret, nil
-}
-
 // TODO add comparison for the rest of the fields to be able to cache validation results
 func (r *HumioViewTokenReconciler) viewTokenAlreadyAsExpected(fromK8s *humiov1alpha1.HumioViewToken, fromGql *humiographql.ViewTokenDetailsViewPermissionsToken) (bool, map[string]string) {
 	// we can only update assigned permissions (in theory, in practice depends on the ViewToken security policy)
 	keyValues := map[string]string{}
 
 	permsFromK8s := humio.FixPermissions(fromK8s.Spec.Permissions)
-	permsFromGql := fromGql.Permissions
+	permsFromGql := humio.FixPermissions(fromGql.Permissions)
 	slices.Sort(permsFromK8s)
 	slices.Sort(permsFromGql)
 	if diff := cmp.Diff(permsFromK8s, permsFromGql); diff != "" {
@@ -536,14 +496,4 @@ func (r *HumioViewTokenReconciler) viewTokenAlreadyAsExpected(fromK8s *humiov1al
 	}
 
 	return len(keyValues) == 0, keyValues
-}
-
-func redactToken(token string) string {
-	if len(token) == 0 {
-		return "***empty***"
-	}
-	if len(token) <= 6 {
-		return "***redacted***"
-	}
-	return token[:6] + "***"
 }
