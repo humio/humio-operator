@@ -37,6 +37,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the humio-operator itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- humiosystemtoken_admin_role.yaml
+- humiosystemtoken_editor_role.yaml
+- humiosystemtoken_viewer_role.yaml
 - humioviewtoken_admin_role.yaml
 - humioviewtoken_editor_role.yaml
 - humioviewtoken_viewer_role.yaml
