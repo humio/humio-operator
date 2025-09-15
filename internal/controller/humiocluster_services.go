@@ -81,14 +81,12 @@ func constructHeadlessService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			PublishNotReadyAddresses: true,
 			Ports: []corev1.ServicePort{
 				{
-					Name:       HumioPortName,
-					Port:       HumioPort,
-					TargetPort: intstr.IntOrString{IntVal: HumioPort},
+					Name: HumioPortName,
+					Port: HumioPort,
 				},
 				{
-					Name:       ElasticPortName,
-					Port:       ElasticPort,
-					TargetPort: intstr.IntOrString{IntVal: ElasticPort},
+					Name: ElasticPortName,
+					Port: ElasticPort,
 				},
 			},
 		},
@@ -109,14 +107,12 @@ func constructInternalService(hc *humiov1alpha1.HumioCluster) *corev1.Service {
 			}),
 			Ports: []corev1.ServicePort{
 				{
-					Name:       HumioPortName,
-					Port:       HumioPort,
-					TargetPort: intstr.IntOrString{IntVal: HumioPort},
+					Name: HumioPortName,
+					Port: HumioPort,
 				},
 				{
-					Name:       ElasticPortName,
-					Port:       ElasticPort,
-					TargetPort: intstr.IntOrString{IntVal: ElasticPort},
+					Name: ElasticPortName,
+					Port: ElasticPort,
 				},
 			},
 		},
@@ -155,24 +151,6 @@ func servicesMatch(existingService *corev1.Service, service *corev1.Service) (bo
 	if existingSelector != selector {
 		return false, fmt.Errorf("service selector does not match: got %s, expected: %s", existingSelector, selector)
 	}
-
-	if len(existingService.Spec.Ports) != len(service.Spec.Ports) {
-		return false, fmt.Errorf("service ports count mismatch: got %d, expected: %d", len(existingService.Spec.Ports), len(service.Spec.Ports))
-	}
-
-	for i, existingPort := range existingService.Spec.Ports {
-		expectedPort := service.Spec.Ports[i]
-		if existingPort.Name != expectedPort.Name {
-			return false, fmt.Errorf("service port name mismatch at index %d: got %s, expected: %s", i, existingPort.Name, expectedPort.Name)
-		}
-		if existingPort.Port != expectedPort.Port {
-			return false, fmt.Errorf("service port mismatch for %s: got %d, expected: %d", existingPort.Name, existingPort.Port, expectedPort.Port)
-		}
-		if existingPort.TargetPort != expectedPort.TargetPort {
-			return false, fmt.Errorf("service target port mismatch for %s: got %v, expected: %v", existingPort.Name, existingPort.TargetPort, expectedPort.TargetPort)
-		}
-	}
-
 	return true, nil
 }
 
@@ -181,5 +159,4 @@ func updateService(existingService *corev1.Service, service *corev1.Service) {
 	existingService.Labels = service.Labels
 	existingService.Spec.Selector = service.Spec.Selector
 	existingService.Spec.PublishNotReadyAddresses = service.Spec.PublishNotReadyAddresses
-	existingService.Spec.Ports = service.Spec.Ports
 }
