@@ -4,40 +4,26 @@ metadata:
   name: pdf-render-service
   namespace: logging
 spec:
-  # Required fields
+  # TLS configuration shared with the HumioCluster CA secret.
+  # Ensure the humio-shared-ca secret (type kubernetes.io/tls) exists in this namespace.
+  tls:
+    enabled: true
+    caSecretName: humio-shared-ca
   image: humio/pdf-render-service:0.1.2--build-104--sha-9a7598de95bb9775b6f59d874c37a206713bae01
   replicas: 2
-  # Port configuration
   port: 5123
   serviceType: ClusterIP
-  # Environment variables
   environmentVariables:
     - name: XDG_CONFIG_HOME
       value: /tmp/.chromium-config
     - name: XDG_CACHE_HOME
       value: /tmp/.chromium-cache
-    - name: DEBUG
-      value: "true"
     - name: LOG_LEVEL
       value: "debug"
     - name: CLEANUP_INTERVAL
       value: "600"
-    - name: PORT
-      value: "5123"
-    - name: SERVICE_VERSION
-      value: 0.0.60--build-101--sha-fe87a59c82fd957ec460190a3f726948d586c1ea
-    # TLS Configuration
-    - name: TLS_ENABLED
-      value: "false"
-    # Uncomment and configure the following if TLS_ENABLED=true
-    # - name: TLS_CERT_PATH
-    #   value: "/path/to/tls.crt"
-    # - name: TLS_KEY_PATH
-    #   value: "/path/to/tls.key"
-    # - name: TLS_CA_PATH
-    #   value: "/path/to/ca.crt"
+    # TLS-related env vars are injected automatically when spec.tls.enabled=true.
 
-  # Resource requirements
   resources:
     limits:
       cpu: "1"

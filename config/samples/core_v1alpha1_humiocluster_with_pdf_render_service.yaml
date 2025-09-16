@@ -10,7 +10,9 @@ metadata:
 spec:
   extraKafkaConfigs: "security.protocol=PLAINTEXT"
   tls:
-    enabled: false
+    # Share the same CA secret as the PDF render service example.
+    enabled: true
+    caSecretName: humio-shared-ca
   #image: "humio/humio-core:1.171.1"
   nodeCount: 1
   targetReplicationFactor: 1
@@ -18,10 +20,7 @@ spec:
     - name: "ENABLE_SCHEDULED_REPORT"
       value: "true"
     - name: "DEFAULT_PDF_RENDER_SERVICE_URL"
-      value: "http://example-pdf-render-service.default.svc.cluster.local:5132"
-    # Optional: overrides PUBLIC_URL for PDF render service callbacks.
-    # Set this when the callback URL must differ from PUBLIC_URL (e.g., external
-    # address, specific path or ingress in front of LogScale).
+      value: "http://pdf-render-service.logging.svc.cluster.local:5123"
     - name: "PDF_RENDER_SERVICE_CALLBACK_BASE_URL"
       value: "https://example-humiocluster.example.com"
     - name: "HUMIO_OPTS"
