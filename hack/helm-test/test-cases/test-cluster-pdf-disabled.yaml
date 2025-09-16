@@ -1,4 +1,0 @@
-spec:
-  environmentVariables:
-    - name: "ENABLE_SCHEDULED_REPORT"
-      value: "false"
