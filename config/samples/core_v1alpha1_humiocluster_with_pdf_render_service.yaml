@@ -2,6 +2,7 @@ apiVersion: core.humio.com/v1alpha1
 kind: HumioCluster
 metadata:
   name: example-humiocluster
+  namespace: logging
   labels:
     app: 'humiocluster'
     app.kubernetes.io/name: 'humiocluster'
@@ -10,9 +11,7 @@ metadata:
 spec:
   extraKafkaConfigs: "security.protocol=PLAINTEXT"
   tls:
-    # Share the same CA secret as the PDF render service example.
     enabled: true
-    caSecretName: humio-shared-ca
   #image: "humio/humio-core:1.171.1"
   nodeCount: 1
   targetReplicationFactor: 1
