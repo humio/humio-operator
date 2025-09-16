@@ -4,11 +4,11 @@ metadata:
   name: pdf-render-service
   namespace: logging
 spec:
-  # TLS configuration shared with the HumioCluster CA secret.
-  # Ensure the humio-shared-ca secret (type kubernetes.io/tls) exists in this namespace.
+  # TLS configuration shared with the HumioCluster CA secret managed by cert-manager.
+  # The example HumioCluster named "example-humiocluster" produces the example-humiocluster-ca-keypair secret.
   tls:
     enabled: true
-    caSecretName: humio-shared-ca
+    caSecretName: example-humiocluster-ca-keypair
   image: humio/pdf-render-service:0.1.2--build-104--sha-9a7598de95bb9775b6f59d874c37a206713bae01
   replicas: 2
   port: 5123
