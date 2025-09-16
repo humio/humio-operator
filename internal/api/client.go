@@ -26,21 +26,21 @@ type Client struct {
 }
 
 type Response struct {
-	Data       interface{}            `json:"data"`
-	Extensions map[string]interface{} `json:"extensions,omitempty"`
-	Errors     ErrorList              `json:"errors,omitempty"`
+	Data       any            `json:"data"`
+	Extensions map[string]any `json:"extensions,omitempty"`
+	Errors     ErrorList      `json:"errors,omitempty"`
 }
 
 type ErrorList []*GraphqlError
 
 type GraphqlError struct {
-	Err        error                  `json:"-"`
-	Message    string                 `json:"message"`
-	Path       ast.Path               `json:"path,omitempty"`
-	Locations  []gqlerror.Location    `json:"locations,omitempty"`
-	Extensions map[string]interface{} `json:"extensions,omitempty"`
-	Rule       string                 `json:"-"`
-	State      map[string]string      `json:"state,omitempty"`
+	Err        error               `json:"-"`
+	Message    string              `json:"message"`
+	Path       ast.Path            `json:"path,omitempty"`
+	Locations  []gqlerror.Location `json:"locations,omitempty"`
+	Extensions map[string]any      `json:"extensions,omitempty"`
+	Rule       string              `json:"-"`
+	State      map[string]string   `json:"state,omitempty"`
 }
 
 func (err *GraphqlError) Error() string {

@@ -62,13 +62,3 @@ mutation UpdateViewToken(
         }
     )
 }
-
-mutation DeleteToken(
-    $Id: String!
-) {
-    deleteToken(
-        input: {
-            id: $Id
-        }
-    )
-}

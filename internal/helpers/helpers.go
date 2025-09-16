@@ -297,7 +297,7 @@ func FirewallRulesToString(rules []humiov1alpha1.FirewallRule, separator string)
 	return strings.Join(ruleStrings, separator)
 }
 
-// GetCurrentTime generates current time with day precision
+// GetCurrentDay generates current time with day precision
 func GetCurrentDay() time.Time {
 	baseTime := time.Now()
 	// Set specific hour, minute, second while keeping date
