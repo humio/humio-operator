@@ -85,11 +85,11 @@ func (r *HumioIPFilterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	isHumioIPFilterMarkedToBeDeleted := hi.GetDeletionTimestamp() != nil
 	if isHumioIPFilterMarkedToBeDeleted {
 		r.Log.Info("IPFilter marked to be deleted")
-		if helpers.ContainsElement(hi.GetFinalizers(), humioFinalizer) {
+		if helpers.ContainsElement(hi.GetFinalizers(), HumioFinalizer) {
 			_, err := r.HumioClient.GetIPFilter(ctx, humioHttpClient, hi)
 			// first iteration on delete we don't enter here since IPFilter exists
 			if errors.As(err, &humioapi.EntityNotFound{}) {
-				hi.SetFinalizers(helpers.RemoveElement(hi.GetFinalizers(), humioFinalizer))
+				hi.SetFinalizers(helpers.RemoveElement(hi.GetFinalizers(), HumioFinalizer))
 				err := r.Update(ctx, hi)
 				if err != nil {
 					return reconcile.Result{}, err
@@ -109,7 +109,7 @@ func (r *HumioIPFilterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Add finalizer for IPFilter so we can run cleanup on delete
-	if !helpers.ContainsElement(hi.GetFinalizers(), humioFinalizer) {
+	if !helpers.ContainsElement(hi.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to IPFilter")
 		if err := r.addFinalizer(ctx, hi); err != nil {
 			return reconcile.Result{}, err
@@ -181,7 +181,7 @@ func (r *HumioIPFilterReconciler) finalize(ctx context.Context, client *humioapi
 
 func (r *HumioIPFilterReconciler) addFinalizer(ctx context.Context, hi *humiov1alpha1.HumioIPFilter) error {
 	r.Log.Info("Adding Finalizer for the HumioIPFilter")
-	hi.SetFinalizers(append(hi.GetFinalizers(), humioFinalizer))
+	hi.SetFinalizers(append(hi.GetFinalizers(), HumioFinalizer))
 
 	err := r.Update(ctx, hi)
 	if err != nil {

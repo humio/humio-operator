@@ -373,7 +373,8 @@ var _ = BeforeSuite(func() {
 	err = (&controller.HumioViewTokenReconciler{
 		Client: k8sManager.GetClient(),
 		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
+			RequeuePeriod:              requeuePeriod,
+			CriticalErrorRequeuePeriod: time.Second * 5, // Short requeue for tests
 		},
 		HumioClient: humioClient,
 		BaseLogger:  log,
@@ -384,7 +385,20 @@ var _ = BeforeSuite(func() {
 	err = (&controller.HumioSystemTokenReconciler{
 		Client: k8sManager.GetClient(),
 		CommonConfig: controller.CommonConfig{
-			RequeuePeriod: requeuePeriod,
+			RequeuePeriod:              requeuePeriod,
+			CriticalErrorRequeuePeriod: time.Second * 5, // Short requeue for tests
+		},
+		HumioClient: humioClient,
+		BaseLogger:  log,
+		Namespace:   clusterKey.Namespace,
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&controller.HumioOrganizationTokenReconciler{
+		Client: k8sManager.GetClient(),
+		CommonConfig: controller.CommonConfig{
+			RequeuePeriod:              requeuePeriod,
+			CriticalErrorRequeuePeriod: time.Second * 5, // Short requeue for tests
 		},
 		HumioClient: humioClient,
 		BaseLogger:  log,

@@ -94,10 +94,10 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	isMarkedForDeletion := hv.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
 		r.Log.Info("View marked to be deleted")
-		if helpers.ContainsElement(hv.GetFinalizers(), humioFinalizer) {
+		if helpers.ContainsElement(hv.GetFinalizers(), HumioFinalizer) {
 			_, err := r.HumioClient.GetView(ctx, humioHttpClient, hv, false)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
-				hv.SetFinalizers(helpers.RemoveElement(hv.GetFinalizers(), humioFinalizer))
+				hv.SetFinalizers(helpers.RemoveElement(hv.GetFinalizers(), HumioFinalizer))
 				err := r.Update(ctx, hv)
 				if err != nil {
 					return reconcile.Result{}, err
@@ -106,7 +106,7 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return reconcile.Result{Requeue: true}, nil
 			}
 
-			// Run finalization logic for humioFinalizer. If the
+			// Run finalization logic for HumioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting View")
@@ -120,9 +120,9 @@ func (r *HumioViewReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Add finalizer for this CR
-	if !helpers.ContainsElement(hv.GetFinalizers(), humioFinalizer) {
+	if !helpers.ContainsElement(hv.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to view")
-		hv.SetFinalizers(append(hv.GetFinalizers(), humioFinalizer))
+		hv.SetFinalizers(append(hv.GetFinalizers(), HumioFinalizer))
 		err := r.Update(ctx, hv)
 		if err != nil {
 			return reconcile.Result{}, err

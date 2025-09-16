@@ -1,0 +1,9 @@
+apiVersion: core.humio.com/v1alpha1
+kind: HumioOrganizationToken
+metadata:
+  labels:
+    app.kubernetes.io/name: humio-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: humioorganizationtoken-sample
+spec:
+  # TODO(user): Add fields here

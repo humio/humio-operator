@@ -1,0 +1,19 @@
+mutation DeleteToken(
+    $Id: String!
+) {
+    deleteToken(
+        input: {
+            id: $Id
+        }
+    )
+}
+
+mutation RotateToken(
+    $Id: String!
+) {
+    rotateToken(
+        input: {
+            id: $Id
+        }
+    )
+}

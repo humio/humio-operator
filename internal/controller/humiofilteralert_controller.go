@@ -109,10 +109,10 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 	isMarkedForDeletion := hfa.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
 		r.Log.Info("FilterAlert marked to be deleted")
-		if helpers.ContainsElement(hfa.GetFinalizers(), humioFinalizer) {
+		if helpers.ContainsElement(hfa.GetFinalizers(), HumioFinalizer) {
 			_, err := r.HumioClient.GetFilterAlert(ctx, client, hfa)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
-				hfa.SetFinalizers(helpers.RemoveElement(hfa.GetFinalizers(), humioFinalizer))
+				hfa.SetFinalizers(helpers.RemoveElement(hfa.GetFinalizers(), HumioFinalizer))
 				err := r.Update(ctx, hfa)
 				if err != nil {
 					return reconcile.Result{}, err
@@ -136,9 +136,9 @@ func (r *HumioFilterAlertReconciler) reconcileHumioFilterAlert(ctx context.Conte
 
 	r.Log.Info("Checking if filter alert requires finalizer")
 	// Add finalizer for this CR
-	if !helpers.ContainsElement(hfa.GetFinalizers(), humioFinalizer) {
+	if !helpers.ContainsElement(hfa.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to filter alert")
-		hfa.SetFinalizers(append(hfa.GetFinalizers(), humioFinalizer))
+		hfa.SetFinalizers(append(hfa.GetFinalizers(), HumioFinalizer))
 		err := r.Update(ctx, hfa)
 		if err != nil {
 			return reconcile.Result{}, err

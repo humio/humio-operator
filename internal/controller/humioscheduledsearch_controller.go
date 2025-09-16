@@ -109,10 +109,10 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 	isMarkedForDeletion := hss.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
 		r.Log.Info("ScheduledSearch marked to be deleted")
-		if helpers.ContainsElement(hss.GetFinalizers(), humioFinalizer) {
+		if helpers.ContainsElement(hss.GetFinalizers(), HumioFinalizer) {
 			_, err := r.HumioClient.GetScheduledSearch(ctx, client, hss)
 			if errors.As(err, &humioapi.EntityNotFound{}) {
-				hss.SetFinalizers(helpers.RemoveElement(hss.GetFinalizers(), humioFinalizer))
+				hss.SetFinalizers(helpers.RemoveElement(hss.GetFinalizers(), HumioFinalizer))
 				err := r.Update(ctx, hss)
 				if err != nil {
 					return reconcile.Result{}, err
@@ -121,7 +121,7 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 				return reconcile.Result{Requeue: true}, nil
 			}
 
-			// Run finalization logic for humioFinalizer. If the
+			// Run finalization logic for HumioFinalizer. If the
 			// finalization logic fails, don't remove the finalizer so
 			// that we can retry during the next reconciliation.
 			r.Log.Info("Deleting scheduled search")
@@ -136,9 +136,9 @@ func (r *HumioScheduledSearchReconciler) reconcileHumioScheduledSearch(ctx conte
 
 	r.Log.Info("Checking if scheduled search requires finalizer")
 	// Add finalizer for this CR
-	if !helpers.ContainsElement(hss.GetFinalizers(), humioFinalizer) {
+	if !helpers.ContainsElement(hss.GetFinalizers(), HumioFinalizer) {
 		r.Log.Info("Finalizer not present, adding finalizer to scheduled search")
-		hss.SetFinalizers(append(hss.GetFinalizers(), humioFinalizer))
+		hss.SetFinalizers(append(hss.GetFinalizers(), HumioFinalizer))
 		err := r.Update(ctx, hss)
 		if err != nil {
 			return reconcile.Result{}, err
