@@ -49,7 +49,6 @@ certmanager: true
 defaultHumioCoreImage: ""
 defaultHumioHelperImage: ""
 defaultHumioHelperImageManaged: ""
-defaultPdfRenderServiceImage: ""
 
 # PDF Render Service configuration
 pdfRenderService:
